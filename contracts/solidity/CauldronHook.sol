@@ -24,16 +24,21 @@ import {IDeathChecker} from "./cauldron/IDeathChecker.sol";
 import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/IPolicies.sol";
 
 /// @notice The hook-native perp engine — auto-liquidated from afterSwap.
+/// @notice The registry's treasury-curated quote allowlist. The hook reads it to
+///         work out which side of a pool is the quote.
+interface IRegistryQuotes {
+    function allowedQuote(address quote) external view returns (bool);
+}
+
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
     function sweepLiquidations(address liquidator) external;
 }
 
-/// @notice A collection whose Liquidatoor badge wiring the hook can auto-set.
+/// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
 interface ICollectionLiquidator {
     function setLiquidatorMinter(address minter) external;
-    function setLiquidatorRenderer(address renderer) external;
 }
 
 /// @notice The registry entry that records a legacy buyback against the live
@@ -533,10 +538,23 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         int24
     ) internal override returns (bytes4) {
         if (sender != registry) return BaseHook.afterInitialize.selector;
-        if (Currency.unwrap(key.currency0) != address(0)) {
-            return BaseHook.afterInitialize.selector;
-        }
+
+        //  Which side is the quote? One allowlist read on currency0 settles it:
+        //  the registry validates the quote BEFORE creating the pool, so exactly
+        //  one side is a permitted quote — if it is not currency0 it is
+        //  currency1. Checking both sides here would be a second external call
+        //  to re-derive what the caller already guaranteed, and this hook has no
+        //  bytecode budget to spare (EIP-170).
+        //
+        //  Trusting the registry is sound because `sender != registry` above is
+        //  the actual security property (audit C-01). The old
+        //  `currency0 != address(0)` line was never doing that work — it
+        //  asserted the fee logic's ETH assumption, which is what is being
+        //  generalised here.
+        bool q0 = IRegistryQuotes(registry).allowedQuote(Currency.unwrap(key.currency0));
+
         PoolId id = key.toId();
+        quoteIsCurrency0[id] = q0;
         trackedPools[id] = true;
         _lastUpdateTs[id] = block.timestamp;
         poolInitBlock[id] = block.number; // anchor the anti-sniper window
@@ -552,9 +570,16 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      5-field PoolKey, and the swap path used to hash it three separate times
     ///      (here, for volume, and again in `_takeEthFee`). Hash once, pass it down.
     ///      (Gas audit G-09.)
-    function _served(PoolId id, PoolKey calldata key) private view returns (bool) {
-        return trackedPools[id] && Currency.unwrap(key.currency0) == address(0);
-    }
+    /// @notice Which side of a tracked pool is the QUOTE (the asset the iteration
+    ///         token is priced in). True = currency0.
+    ///
+    ///  Native ETH is `address(0)`, which always sorts first, so for an ETH pair
+    ///  this is always true and every "quote is currency0" assumption held. An
+    ///  ERC20 quote sorts by address against a token deployed with plain CREATE,
+    ///  so it lands on EITHER side. Recorded once at adoption and read from
+    ///  there: deriving it per call site is how a buy gets counted as a sell.
+    mapping(PoolId => bool) internal quoteIsCurrency0;
+
 
     /**
      * @dev afterSwap: record volume + take tiered fee via return delta.
@@ -575,7 +600,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         PoolId id = key.toId(); // hashed ONCE for this whole callback (G-09)
         // ADOPTION GATE (audit C-01): a pool the protocol never created gets no fee,
         // no accounting and no spending. Cheap early-out on the hot path.
-        if (!_served(id, key)) return (BaseHook.afterSwap.selector, 0);
+        if (!trackedPools[id]) return (BaseHook.afterSwap.selector, 0);
+        // Which side is the quote, read ONCE for this callback. Every direction,
+        // volume and fee-side decision below derives from it.
+        bool q0 = quoteIsCurrency0[id];
 
         // Buys buffer their fee in beforeSwap (and afterSwap early-returns for them),
         // so try the buyback up-front too — either leg can trigger it.
@@ -590,10 +618,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
         // --- Volume tracking ---
         if (trackedPools[id]) {
-            int128 amount0 = delta.amount0();
-            uint256 absVolume = amount0 >= 0
-                ? uint256(uint128(amount0))
-                : uint256(uint128(-amount0));
+            // Volume is measured in QUOTE terms. With an ERC20 quote that may be
+            // currency1, so read the side adoption recorded rather than amount0.
+            int128 quoteAmt = q0 ? delta.amount0() : delta.amount1();
+            uint256 absVolume = quoteAmt >= 0
+                ? uint256(uint128(quoteAmt))
+                : uint256(uint128(-quoteAmt));
             _recordVolume(id, absVolume);
             cumulativeVolume += absVolume;
 
@@ -639,8 +669,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
                 // totalLifetimeVolume + mint out the newborn NFT collection.
                 if (player == registry) player = address(0);
                 if (player != address(0)) {
-                    // Buy = player acquires the token (ETH is the input, zeroForOne).
-                    bool isBuy = params.zeroForOne;
+                    // Buy = player acquires the iteration token, i.e. pays the quote
+                    // in. That is `zeroForOne` only while the quote is currency0;
+                    // with the quote at currency1 it is exactly inverted, and
+                    // reading it raw would weight every buy as a sell.
+                    bool isBuy = params.zeroForOne == q0;
                     uint256 weighted = (absVolume * (isBuy ? buyWeightBps : sellWeightBps)) / BPS;
                     // Saturate on add so a monster swap can never revert the swap
                     // path via overflow (audit I1). Realistically unreachable.
@@ -728,11 +761,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // The fee is ALWAYS taken in ETH so every swap funds the machine.
         //   - Buys  (ETH is the INPUT): charged in _beforeSwap.
         //   - Sells (ETH is the OUTPUT / unspecified leg): charged HERE.
-        // We only act when the unspecified currency is ETH (currency0); the
-        // buy case is already handled before the swap, so this never double-charges.
+        // We only act when the unspecified currency is the QUOTE; the buy case is
+        // already handled before the swap, so this never double-charges.
+        //
+        // The original expression answered "is the unspecified currency
+        // currency0?" — correct while the quote was always ETH at currency0.
+        // Derived once and compared against the recorded quote side, it stays
+        // correct when an ERC20 quote sorts to currency1 instead; used raw it
+        // would charge the fee on the TOKEN leg, taking fees in a token that is
+        // about to die.
         bool exactInput = params.amountSpecified < 0;
-        bool unspecifiedIsEth = exactInput ? (!params.zeroForOne) : (params.zeroForOne);
-        if (!unspecifiedIsEth) {
+        bool unspecifiedIsCurrency0 = exactInput ? (!params.zeroForOne) : (params.zeroForOne);
+        if (unspecifiedIsCurrency0 != q0) {
             return (BaseHook.afterSwap.selector, 0);
         }
         // Fee-exempt buyer (deployer snipe) → no sell-leg fee either.
@@ -740,11 +780,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             return (BaseHook.afterSwap.selector, 0);
         }
 
-        // ETH sits on the currency0 leg (the unspecified currency here).
-        int128 ethDelta = delta.amount0();
-        uint256 ethAmount = ethDelta >= 0
-            ? uint256(uint128(ethDelta))
-            : uint256(uint128(-ethDelta));
+        // The quote sits on the unspecified leg here, whichever side that is.
+        int128 quoteOut = q0 ? delta.amount0() : delta.amount1();
+        uint256 ethAmount = quoteOut >= 0
+            ? uint256(uint128(quoteOut))
+            : uint256(uint128(-quoteOut));
 
         uint256 fee = _takeEthFee(id, key, sender, hookData, ethAmount, false); // afterSwap = SELL leg
         _maybeLegacyBuyback(id, key);
@@ -763,6 +803,17 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      own ETH at a book they priced and control.
     function _maybeLegacyBuyback(PoolId id, PoolKey calldata key) private {
         if (legacyRegistry == address(0) || legacyBuffer < legacyThreshold) return;
+        //  ETH-LAYOUT ONLY, for now. `legacyBuyStep` hardcodes `zeroForOne: true`
+        //  and settles with `settle{value:}`. On a pool whose iteration token
+        //  sorts to currency0, `zeroForOne: true` swaps TOKEN OUT — it would
+        //  SELL the token this buyback exists to BUY, and the native settle
+        //  would revert against an ERC20 quote anyway.
+        //
+        //  Skipping is safe and costs nothing: the floor share simply stays in
+        //  the buffer and rolls to the relaunch reserve, exactly as it does when
+        //  `legacyRegistry` is unset. Generalising the swap direction and the
+        //  settle path is tracked in docs/QUOTE_ASSET_PLAN.md §5.
+        if (!quoteIsCurrency0[id]) return;
         PoolKey memory live = _liveKey;
         // Only ever fire on (and into) the protocol's own live pool.
         if (Currency.unwrap(live.currency1) == address(0)) return; // not wired yet
@@ -881,8 +932,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         if (_inSelfBuy || _inRelaunchClose) return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         // ADOPTION GATE (audit C-01): never charge a fee in a pool we don't serve.
         PoolId id = key.toId(); // hashed ONCE for this whole callback (G-09)
-        if (!_served(id, key)) return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
-        // Act only on exact-input buys (ETH in). currency0 is always ETH.
+        if (!trackedPools[id]) return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        // Act only on exact-input buys (the QUOTE is the input).
+        bool q0 = quoteIsCurrency0[id];
         bool exactInput = params.amountSpecified < 0;
         // FEE-BYPASS GUARD (audit Z-01 — High). Of the four swap quadrants, the
         // EXACT-OUTPUT SELL (amountSpecified > 0, !zeroForOne) is the only one nobody
@@ -894,9 +946,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // credit and lifetime volume. Since the hook is ETH-fee-only by design, the
         // quadrant is refused rather than served for free; the exact-INPUT sell is the
         // economically equivalent route and is unaffected.
-        if (!exactInput && !params.zeroForOne) revert ExactOutSellUnsupported();
-        bool inputIsEth = params.zeroForOne && Currency.unwrap(key.currency0) == address(0);
-        if (!exactInput || !inputIsEth) {
+        //  Read against the QUOTE side: a "sell" is the trader giving up the
+        //  iteration token, which is `!zeroForOne` only while the quote is
+        //  currency0. Left raw, an ERC20 quote at currency1 would invert the
+        //  quadrant and refuse exact-output BUYS while serving the very
+        //  fee-bypass this guard exists to close.
+        //  A BUY is the trader paying the quote in, which is `zeroForOne` only
+        //  while the quote is currency0 — with an ERC20 quote at currency1 the
+        //  quadrant inverts. One derivation serves both tests below; deriving it
+        //  twice is how the two drift apart.
+        bool inputIsQuote = params.zeroForOne == q0;
+        if (!exactInput && !inputIsQuote) revert ExactOutSellUnsupported();
+        if (!exactInput || !inputIsQuote) {
             return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
         // Fee-exempt buyer (the deployer snipe) → charge nothing.
@@ -1110,7 +1171,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         uint256 baseFee = (ethAmount * baseBps) / BPS;
         uint256 surtax = total - baseFee;
 
-        poolManager.take(key.currency0, address(this), total);
+        // Take the fee on the QUOTE side, whichever currency that is. `take`
+        // is currency-agnostic; only the choice of side needed generalising.
+        poolManager.take(quoteIsCurrency0[id] ? key.currency0 : key.currency1, address(this), total);
         // PERP-swap fees (sender == the engine) reward the OGs + the people funding
         // the perps (30% dividend / 70% ETH PLV) instead of the collection floor —
         // perp volume feeds the perp stakers. All other swaps route normally.
@@ -1427,37 +1490,17 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         emit CollectionSet(_collection, creditEpoch);
     }
 
-    /// @dev Point `_collection`'s badge wiring at the live engine and renderer
-    ///      (best-effort — a collection that doesn't grant the hook this right
-    ///      just no-ops, so it can never brick a summon/relaunch).
+    /// @dev Point `_collection`'s badge minter at the perp engine (best-effort —
+    ///      a collection that doesn't grant the hook this right just no-ops, so
+    ///      it can never brick a summon/relaunch).
     ///
-    ///      The renderer is set here rather than at deploy because each iteration
-    ///      deploys a FRESH collection: without this, only the genesis collection
-    ///      would render badges on-chain and every later brew would fall back to
-    ///      a URI base pointing at a metadata server.
+    ///      The badge RENDERER is deliberately not set here. It is wired by
+    ///      {CauldronFactory} at collection creation instead: this hook is
+    ///      against the EIP-170 ceiling, and the factory has room to spare.
     function _wireLiquidator(address _collection) private {
-        if (_collection == address(0)) return;
-        if (perpEngine != address(0)) {
-            try ICollectionLiquidator(_collection).setLiquidatorMinter(perpEngine) {} catch {}
-        }
-        if (liquidatorRenderer != address(0)) {
-            try ICollectionLiquidator(_collection).setLiquidatorRenderer(liquidatorRenderer) {} catch {}
-        }
+        if (_collection == address(0) || perpEngine == address(0)) return;
+        try ICollectionLiquidator(_collection).setLiquidatorMinter(perpEngine) {} catch {}
     }
-
-    /// @notice The on-chain Liquidatoor badge renderer handed to every collection
-    ///         the hook wires. One instance serves them all.
-    address public liquidatorRenderer;
-
-    /// @notice Set the badge renderer and apply it to the live collection.
-    function setLiquidatorRenderer(address _renderer) external {
-        if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry();
-        liquidatorRenderer = _renderer;
-        _wireLiquidator(collection);
-        emit LiquidatorRendererSet(_renderer);
-    }
-
-    event LiquidatorRendererSet(address renderer);
 
     /// @notice Point the hook at the active brew's floor vault (registry-only).
     function setVault(address _vault) external {

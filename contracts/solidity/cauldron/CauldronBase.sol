@@ -21,7 +21,7 @@ interface ICauldronFactory {
         string name; string symbol; address hook; address registry;
         uint256 maxSupply; MetadataMode mode; string baseURI; address renderer;
         address royaltyReceiver; uint96 royaltyBps;
-    }
+        }
     function deployBrew(Config calldata c) external returns (address collection, address vault);
     function deployVault(address collection, address registry, uint256 floorOffset) external returns (address vault);
 }

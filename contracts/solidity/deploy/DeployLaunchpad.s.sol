@@ -263,11 +263,14 @@ contract DeployLaunchpad is Script {
         // moves to the timelock at the end of this script.
         if (address(badgeRenderer) != address(0)) {
             presale.setLiquidatorRenderer(address(badgeRenderer));
-            // The hook hands this to every collection it wires, so each future
-            // iteration's fresh collection renders badges on-chain too — without
-            // it, only the genesis tranche would, and every later brew would fall
-            // back to a URI base pointing at a metadata server.
-            hook.setLiquidatorRenderer(address(badgeRenderer));
+            // The FACTORY applies this to every collection it deploys, so each
+            // future iteration's fresh collection renders badges on-chain too.
+            // Without it only the genesis tranche would, and every later brew
+            // would fall back to a URI base pointing at a metadata server.
+            //
+            // It lives on the factory rather than the hook because the hook is
+            // against the EIP-170 ceiling and the factory has room to spare.
+            factory.setLiquidatorRenderer(address(badgeRenderer));
         }
         registry.setGenesisBonus(address(presale), bonusBps, supply);
         // OG-holder airdrop: DEFAULT is the "snipe" model (no reserve → no

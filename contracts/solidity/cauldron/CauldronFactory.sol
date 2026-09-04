@@ -14,6 +14,36 @@ import {MetadataMode} from "./ICauldron.sol";
  *         EIP-170 limit.
  */
 contract CauldronFactory {
+    error NotOwner();
+
+    /// @notice Who may point new collections at a badge renderer. Set to the
+    ///         deployer at construction and handed to the governance timelock.
+    address public owner = msg.sender;
+
+    /// @notice On-chain Liquidatoor badge renderer applied to every collection
+    ///         this factory deploys (address(0) = keep the hosted URI base).
+    ///
+    ///  Held HERE rather than on the hook or the registry for two reasons: every
+    ///  iteration deploys a fresh collection, so a renderer set only at launch
+    ///  would leave all later brews on the hosted path; and both of those
+    ///  contracts sit against the EIP-170 ceiling while this one has room. The
+    ///  factory is also the collection's deployer, which is the only address
+    ///  permitted to set it.
+    address public liquidatorRenderer;
+
+    event LiquidatorRendererSet(address renderer);
+
+    function setLiquidatorRenderer(address r) external {
+        if (msg.sender != owner) revert NotOwner();
+        liquidatorRenderer = r;
+        emit LiquidatorRendererSet(r);
+    }
+
+    function transferOwnership(address to) external {
+        if (msg.sender != owner) revert NotOwner();
+        owner = to;
+    }
+
     struct Config {
         string name;
         string symbol;
@@ -50,6 +80,12 @@ contract CauldronFactory {
         // the vault). Genesis (MiFrensGenesis) royalties still go to the dividend.
         RoyaltyRouter router = new RoyaltyRouter(c.hook);
         col.setRoyalty(address(router), c.royaltyBps);
+        // Badge metadata from the chain rather than a metadata server. This
+        // factory is the collection's deployer, so it is the only address
+        // allowed to set it, and this is the only moment it holds that right.
+        if (liquidatorRenderer != address(0)) {
+            col.setLiquidatorRenderer(liquidatorRenderer);
+        }
         return (address(col), address(v));
     }
 
