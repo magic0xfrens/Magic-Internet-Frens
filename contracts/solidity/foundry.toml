@@ -61,6 +61,13 @@ skip = [
 # Low optimizer_runs keeps CauldronRegistry under the 24KB EIP-170 limit.
 via_ir = true
 optimizer_runs = 1
+# DeployLaunchpad uploads the Liquidatoor badge artwork from disk, so the deploy
+# profile needs to read it. Without this the script compiles fine and then fails
+# mid-broadcast, after contracts are already on-chain.
+fs_permissions = [
+    { access = "read", path = "./render/badge-art" },
+    { access = "read", path = "../../compressed-traits" },
+]
 skip = [
     "lib/**/test/**",
     "lib/**/src/test/**",

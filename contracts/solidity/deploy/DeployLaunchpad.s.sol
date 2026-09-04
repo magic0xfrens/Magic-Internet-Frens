@@ -16,6 +16,8 @@ import {MiFrensGenesis} from "../cauldron/MiFrensGenesis.sol";
 import {MiFrensDividend} from "../cauldron/MiFrensDividend.sol";
 import {CauldronGachaRouter} from "../cauldron/CauldronGachaRouter.sol";
 import {CollectionLedger} from "../cauldron/CollectionLedger.sol";
+import {LiquidatoorRenderer} from "../render/LiquidatoorRenderer.sol";
+import {BadgeArtLib} from "./BadgeArtLib.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
@@ -51,6 +53,10 @@ interface IOwnable {
  *    POOL_MANAGER       V4 PoolManager (required)
  *    POSITION_MANAGER   V4 PositionManager (required)
  *    GNOME_RENDERER     iteration #1 on-chain renderer (default: Sepolia Gnome)
+ *    BADGE_ART          upload Liquidatoor badge art + wire the on-chain badge
+ *                       renderer (default true). ~167KB across 8 SSTORE2 writes,
+ *                       so roughly 33M gas — set false to skip on a chain where
+ *                       that is expensive, and run DeployBadgeRenderer later.
  *    PRESALE_SUPPLY     MiFrens count (default 1111)
  *    PRESALE_PRICE      wei per MiFren (default 0.01 ether)
  *    PRESALE_MAXWALLET  per-wallet cap (default 100)
@@ -185,6 +191,22 @@ contract DeployLaunchpad is Script {
         CollectionLedger ledger = new CollectionLedger(address(registry));
         console2.log("CollectionLedger:", address(ledger));
 
+        // 4b. Liquidatoor badge renderer — draws the trophy for a perp
+        //     liquidation entirely on-chain from the stats recorded at mint, so
+        //     badges need no metadata server. ONE instance serves every
+        //     collection (it reads stats back off its caller), so this is also
+        //     what every future iteration's collection points at.
+        LiquidatoorRenderer badgeRenderer;
+        if (vm.envOr("BADGE_ART", true)) {
+            badgeRenderer = new LiquidatoorRenderer();
+            BadgeArtLib.upload(
+                badgeRenderer,
+                "render/badge-art/liq-long.svgbody",
+                "render/badge-art/liq-short.svgbody"
+            );
+            console2.log("LiquidatoorRndr :", address(badgeRenderer));
+        }
+
         // 5. Wire everything (owner calls first).
         hook.setRegistry(address(registry));
         hook.setGuild(address(dividend)); // stream 1% of fees to genesis holders
@@ -236,6 +258,17 @@ contract DeployLaunchpad is Script {
             vm.envOr("LEGACY_THRESHOLD", uint256(0.02 ether))
         );
         registry.setGenesisMetadata(MetadataMode.Renderer, "", gnomeRenderer);
+        // Badge metadata: on-chain renderer instead of the URI base. Must happen
+        // here — `deployer` is the only address allowed to set it, and ownership
+        // moves to the timelock at the end of this script.
+        if (address(badgeRenderer) != address(0)) {
+            presale.setLiquidatorRenderer(address(badgeRenderer));
+            // The hook hands this to every collection it wires, so each future
+            // iteration's fresh collection renders badges on-chain too — without
+            // it, only the genesis tranche would, and every later brew would fall
+            // back to a URI base pointing at a metadata server.
+            hook.setLiquidatorRenderer(address(badgeRenderer));
+        }
         registry.setGenesisBonus(address(presale), bonusBps, supply);
         // OG-holder airdrop: DEFAULT is the "snipe" model (no reserve → no
         // presaler dilution). The deployer is flagged fee-EXEMPT so it can buy

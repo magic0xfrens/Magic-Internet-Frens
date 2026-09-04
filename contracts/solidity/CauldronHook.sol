@@ -30,9 +30,10 @@ interface IPerpEngineLiq {
     function sweepLiquidations(address liquidator) external;
 }
 
-/// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
+/// @notice A collection whose Liquidatoor badge wiring the hook can auto-set.
 interface ICollectionLiquidator {
     function setLiquidatorMinter(address minter) external;
+    function setLiquidatorRenderer(address renderer) external;
 }
 
 /// @notice The registry entry that records a legacy buyback against the live
@@ -1426,13 +1427,37 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         emit CollectionSet(_collection, creditEpoch);
     }
 
-    /// @dev Point `_collection`'s badge minter at the perp engine (best-effort —
-    ///      a collection that doesn't grant the hook this right just no-ops, so
-    ///      it can never brick a summon/relaunch).
+    /// @dev Point `_collection`'s badge wiring at the live engine and renderer
+    ///      (best-effort — a collection that doesn't grant the hook this right
+    ///      just no-ops, so it can never brick a summon/relaunch).
+    ///
+    ///      The renderer is set here rather than at deploy because each iteration
+    ///      deploys a FRESH collection: without this, only the genesis collection
+    ///      would render badges on-chain and every later brew would fall back to
+    ///      a URI base pointing at a metadata server.
     function _wireLiquidator(address _collection) private {
-        if (_collection == address(0) || perpEngine == address(0)) return;
-        try ICollectionLiquidator(_collection).setLiquidatorMinter(perpEngine) {} catch {}
+        if (_collection == address(0)) return;
+        if (perpEngine != address(0)) {
+            try ICollectionLiquidator(_collection).setLiquidatorMinter(perpEngine) {} catch {}
+        }
+        if (liquidatorRenderer != address(0)) {
+            try ICollectionLiquidator(_collection).setLiquidatorRenderer(liquidatorRenderer) {} catch {}
+        }
     }
+
+    /// @notice The on-chain Liquidatoor badge renderer handed to every collection
+    ///         the hook wires. One instance serves them all.
+    address public liquidatorRenderer;
+
+    /// @notice Set the badge renderer and apply it to the live collection.
+    function setLiquidatorRenderer(address _renderer) external {
+        if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry();
+        liquidatorRenderer = _renderer;
+        _wireLiquidator(collection);
+        emit LiquidatorRendererSet(_renderer);
+    }
+
+    event LiquidatorRendererSet(address renderer);
 
     /// @notice Point the hook at the active brew's floor vault (registry-only).
     function setVault(address _vault) external {
