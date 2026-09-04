@@ -110,8 +110,8 @@ contract GovernorTest is Test {
     }
 
     function test_ProposeUriAndRenderer() public {
-        uint256 a = gov.propose("Gnomeland", "GNOME", MetadataMode.Renderer, "", address(renderer), "", "", 3333, 0);
-        uint256 b = gov.propose("Kingdom", "CROWN", MetadataMode.BaseURI, "ipfs://k/", address(0), "", "", 3333, 0);
+        uint256 a = gov.propose("Gnomeland", "GNOME", MetadataMode.Renderer, "", address(renderer), "", "", 3333, 0, address(0));
+        uint256 b = gov.propose("Kingdom", "CROWN", MetadataMode.BaseURI, "ipfs://k/", address(0), "", "", 3333, 0, address(0));
         assertEq(a, 1);
         assertEq(b, 2);
         assertEq(gov.proposalCount(), 2);
@@ -119,16 +119,16 @@ contract GovernorTest is Test {
 
     function test_Propose_RejectsBadConfig() public {
         vm.expectRevert(CauldronGovernor.EmptyField.selector);
-        gov.propose("", "X", MetadataMode.BaseURI, "ipfs://", address(0), "", "", 3333, 0);
+        gov.propose("", "X", MetadataMode.BaseURI, "ipfs://", address(0), "", "", 3333, 0, address(0));
         vm.expectRevert(CauldronGovernor.BadRenderer.selector);
-        gov.propose("X", "X", MetadataMode.Renderer, "", address(0xdead), "", "", 3333, 0); // no code
+        gov.propose("X", "X", MetadataMode.Renderer, "", address(0xdead), "", "", 3333, 0, address(0)); // no code
         vm.expectRevert(CauldronGovernor.EmptyField.selector);
-        gov.propose("X", "X", MetadataMode.BaseURI, "", address(0), "", "", 3333, 0); // empty uri
+        gov.propose("X", "X", MetadataMode.BaseURI, "", address(0), "", "", 3333, 0, address(0)); // empty uri
     }
 
     function test_WeightedVoteAndWinner() public {
-        uint256 p1 = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
-        uint256 p2 = gov.propose("B", "B", MetadataMode.BaseURI, "ipfs://b/", address(0), "", "", 3333, 0);
+        uint256 p1 = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
+        uint256 p2 = gov.propose("B", "B", MetadataMode.BaseURI, "ipfs://b/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1); // snapshot must be in the past
 
         vm.prank(bob); gov.vote(p1);   // p1 = 2
@@ -145,7 +145,7 @@ contract GovernorTest is Test {
     }
 
     function test_OneVotePerAddress() public {
-        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
+        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1);
         vm.prank(alice); gov.vote(p);
         vm.prank(alice);
@@ -154,7 +154,7 @@ contract GovernorTest is Test {
     }
 
     function test_NoPowerCannotVote() public {
-        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
+        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1);
         vm.prank(address(0xDEAD));
         vm.expectRevert(CauldronGovernor.NoVotingPower.selector);
@@ -164,7 +164,7 @@ contract GovernorTest is Test {
     /// @notice The key governance-security property: transferring MiFrens to a
     ///         fresh wallet after the snapshot cannot manufacture new votes.
     function test_NoVoteMultiplicationViaTransfer() public {
-        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
+        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1);
 
         vm.prank(alice); gov.vote(p); // alice votes with her 5 (snapshotted)
@@ -184,8 +184,8 @@ contract GovernorTest is Test {
     }
 
     function test_ConsumeRemovesFromContention() public {
-        uint256 p1 = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
-        uint256 p2 = gov.propose("B", "B", MetadataMode.BaseURI, "ipfs://b/", address(0), "", "", 3333, 0);
+        uint256 p1 = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
+        uint256 p2 = gov.propose("B", "B", MetadataMode.BaseURI, "ipfs://b/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1);
         vm.prank(alice); gov.vote(p1); // p1 = 5 leader
         vm.prank(bob); gov.vote(p2);   // p2 = 2
@@ -201,7 +201,7 @@ contract GovernorTest is Test {
     }
 
     function test_OnlyRegistryConsumes() public {
-        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0);
+        uint256 p = gov.propose("A", "A", MetadataMode.BaseURI, "ipfs://a/", address(0), "", "", 3333, 0, address(0));
         vm.roll(block.number + 1);
         vm.prank(alice); gov.vote(p);
         vm.expectRevert(CauldronGovernor.NotRegistry.selector);

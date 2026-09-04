@@ -119,9 +119,9 @@ contract PoC_GovernorLiveWinner is Test {
 
     function test_Fixed_WinnerCannotBeFrontRun() public {
         vm.prank(honest);
-        uint256 idHonest = gov.propose("Good", "GOOD", MetadataMode.BaseURI, "ipfs://g/", address(0), "", "", 0, 0);
+        uint256 idHonest = gov.propose("Good", "GOOD", MetadataMode.BaseURI, "ipfs://g/", address(0), "", "", 0, 0, address(0));
         vm.prank(whale);
-        uint256 idWhale = gov.propose("Rug", "RUG", MetadataMode.BaseURI, "ipfs://r/", address(0), "", "", 0, 0);
+        uint256 idWhale = gov.propose("Rug", "RUG", MetadataMode.BaseURI, "ipfs://r/", address(0), "", "", 0, 0, address(0));
 
         vm.roll(block.number + 1);
         vm.prank(honest);

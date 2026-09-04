@@ -609,6 +609,9 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         token = _deployToken(name, symbol, 1);
         currentToken = token;
         generationToken[1] = token;
+        // generationQuote[1] stays address(0) = native ETH. Generation 1 launches
+        // from the presale before any proposal exists to name a quote, and the
+        // mapping already defaults to zero, so writing it would only cost gas.
 
         // 2. The token's constructor already minted the full fixed supply to this
         //    registry (the ERC-20 has no mint() — supply is fixed forever).
@@ -768,6 +771,15 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         uint256 nftSupply = nftMaxSupply;
 
         (uint256 winId, BrewSpec memory spec) = governor.winner();
+        //  RE-CHECK THE QUOTE AT CONSUMPTION. The allowlist can change while a
+        //  proposal is out for vote, and the check that matters is the one at
+        //  the moment liquidity actually moves. A de-listed quote falls back to
+        //  native ETH rather than reverting: reverting here would roll back
+        //  markConsumed and freeze the machine on a proposal it can never
+        //  consume (audit C-02, same class). Native needs no lookup — it is
+        //  allowed by construction and cannot be removed.
+        address specQuote = spec.quote;
+        if (specQuote != address(0) && !allowedQuote[specQuote]) specQuote = address(0);
         string memory name = spec.name;
         string memory symbol = spec.symbol;
         mode = spec.mode;
@@ -790,6 +802,10 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         token = _deployToken(name, symbol, newGen);
         currentToken = token;
         generationToken[newGen] = token;
+        // The quote is fixed for this generation's whole life: the engine, the
+        // seeder and the floor all read it long after a later generation has
+        // launched against something else.
+        generationQuote[newGen] = specQuote;
 
         // PROPOSER FLYWHEEL: record the winning author + point the hook's proposer
         // slice at them, so THIS iteration's volume trickles a tiny fee to whoever

@@ -442,7 +442,7 @@ contract PerpGov is ICauldronGovernor {
         spec = BrewSpec({
             name: "Shadow Wraith", symbol: "WRAITH", mode: MetadataMode.BaseURI,
             baseURI: "ipfs://wraith/", renderer: address(0), website: "w.xyz",
-            socials: "x.com/w", nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
+            socials: "x.com/w", quote: address(0), nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
         });
         id = 1;
     }

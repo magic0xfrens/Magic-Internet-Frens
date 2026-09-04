@@ -213,7 +213,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     /// @notice EIP-2981 royalty receiver for EVERY brew's collection.
     address public royaltyDividend;
     /// @notice Secondary-sale royalty (bps). Default 5%.
-    uint96 public royaltyBps = 500;
+    uint96 internal royaltyBps = 500;
 
     /// @notice Genesis brew NFT metadata (iteration #1), owner-set before ignition.
     MetadataMode public genesisMode;
@@ -223,7 +223,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     /// @notice The MiFrens ERC721 whose holders may claim the genesis bonus.
     address public mifrens;
     /// @notice Bonus share of gen-1 supply reserved for MiFrens holders (bps).
-    uint256 public genesisBonusBps;
+    uint256 internal genesisBonusBps;
     /// @notice Number of equal shares the bonus pool is split into (MiFrens supply).
     uint256 public genesisShares;
     /// @notice The INITIAL per-fren reserve share, fixed at summon.
@@ -250,7 +250,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     /// @notice OWNER-PROVIDED prime-buy ETH (personal, kept separate from the seed).
     uint256 public primeBuyEth;
     /// @notice Who may top up / reclaim the prime buy.
-    address public primeFunder;
+    address internal primeFunder;
 
     /// @notice When an armed emergency action becomes executable (0 = not armed).
     uint256 public emergencyReadyAt;

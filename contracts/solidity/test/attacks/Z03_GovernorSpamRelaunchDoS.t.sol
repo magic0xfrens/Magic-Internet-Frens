@@ -87,7 +87,7 @@ contract Z03_GovernorSpamRelaunchDoS is Test {
     function _spam(uint256 n) internal {
         vm.startPrank(ATTACKER);
         for (uint256 i = 0; i < n; ++i) {
-            gov.propose("x", "x", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0);
+            gov.propose("x", "x", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0, address(0));
         }
         vm.stopPrank();
     }
@@ -115,7 +115,7 @@ contract Z03_GovernorSpamRelaunchDoS is Test {
     /// still-open proposal in the leader slot, but the fallback rescan is now bounded.
     function test_FIXED_ForcedRescanStaysBounded() public {
         vm.prank(ATTACKER);
-        uint256 winId = gov.propose("Real", "REAL", MetadataMode.BaseURI, "ipfs://x", address(0), "", "", 1000, 0);
+        uint256 winId = gov.propose("Real", "REAL", MetadataMode.BaseURI, "ipfs://x", address(0), "", "", 1000, 0, address(0));
         _advanceBlock();
         vm.prank(ATTACKER);
         gov.vote(winId);
@@ -129,7 +129,7 @@ contract Z03_GovernorSpamRelaunchDoS is Test {
 
         // A whale outvotes the cache with a brand-new, still-OPEN proposal.
         vm.prank(WHALE);
-        uint256 fresh = gov.propose("Grief", "GRF", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0);
+        uint256 fresh = gov.propose("Grief", "GRF", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0, address(0));
         _advanceBlock();
         vm.prank(WHALE);
         gov.vote(fresh); // `_leaderId` now points at an OPEN proposal
@@ -160,7 +160,7 @@ contract Z03_GovernorSpamRelaunchDoS is Test {
     function _measureConsumeScan() internal returns (uint256 used) {
         uint256 snap = vm.snapshotState();
         vm.prank(WHALE);
-        uint256 id = gov.propose("W", "W", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0);
+        uint256 id = gov.propose("W", "W", MetadataMode.BaseURI, "u", address(0), "", "", 0, 0, address(0));
         _advanceBlock();
         vm.prank(WHALE);
         gov.vote(id); // whale power makes this the leader

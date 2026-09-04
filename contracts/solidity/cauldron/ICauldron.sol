@@ -24,6 +24,7 @@ struct BrewSpec {
     address renderer;     // used when mode == Renderer
     string website;       // proposer's site           ("gnomeland.xyz")
     string socials;       // community/X link           ("x.com/…")
+    address quote;        // asset the token is PRICED IN (0 = native ETH)
     uint256 nftSupply;    // proposer-chosen NFT collection max supply
     uint256 volumePerNFT; // credit (≈ETH) volume to forge each NFT (0 = hook default)
     address proposer;     // who authored it (paid the relaunch bounty)

@@ -20,10 +20,19 @@ import {MetadataMode, BrewSpec, ICauldronGovernor, LaunchLib} from "./ICauldron.
  *  `markConsumed`, restricted to the registry, and it only ever removes the
  *  already-summoned proposal from contention.
  */
+/// @notice The registry's treasury-curated quote allowlist.
+interface IRegistryQuotes {
+    function allowedQuote(address quote) external view returns (bool);
+}
+
 contract CauldronGovernor is ICauldronGovernor, Ownable {
     // -----------------------------------------------------------------------
     // Errors
     // -----------------------------------------------------------------------
+    /// @dev The proposed quote is not on the registry's treasury-curated
+    ///      allowlist. Checked at propose AND at consumption, since the set can
+    ///      change while a proposal is out for vote.
+    error QuoteNotAllowed();
     error EmptyField();
     error BadRenderer();
     error UnknownProposal();
@@ -61,6 +70,14 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         address renderer;
         string website;     // proposer's site
         string socials;     // community / X link
+        /// The asset this iteration's token is PRICED IN. `address(0)` is native
+        /// ETH, which is the default and every generation to date.
+        ///
+        /// Validated against the registry's treasury-curated allowlist at BOTH
+        /// propose and consumption: the set can change between a proposal being
+        /// written and it winning a vote, and the check that matters is the one
+        /// at the moment liquidity actually moves.
+        address quote;
         uint256 nftSupply;  // proposer-chosen NFT collection max supply
         uint256 volumePerNFT; // credit volume to forge each NFT (0 = hook default)
         address proposer;
@@ -145,7 +162,8 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         string calldata website,
         string calldata socials,
         uint256 nftSupply,
-        uint256 volumePerNFT
+        uint256 volumePerNFT,
+        address quote
     ) external returns (uint256 id) {
         // Only the guild may propose the next brew — you must hold a MiFren
         // (auto-delegated on mint, so voting power is live without a delegate tx).
@@ -162,6 +180,18 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         // here at the boundary — a revert deeper in `relaunch()` would roll back
         // `markConsumed` and freeze the machine forever. (Audit C-02.)
         if (nftSupply > MAX_NFT_SUPPLY) revert SupplyOutOfRange();
+        // The quote must be one the treasury has vetted. Checked HERE so a pool
+        // nobody would want can never reach a vote; re-checked at consumption
+        // because the allowlist can change in between.
+        //  Native ETH needs no lookup: it is allowed by construction and can
+        //  never be removed, so the common case costs nothing and a registry
+        //  that predates the allowlist keeps working unchanged.
+        if (quote != address(0)) {
+            (bool ok, bytes memory ret) = registry.staticcall(
+                abi.encodeWithSelector(IRegistryQuotes.allowedQuote.selector, quote)
+            );
+            if (!ok || ret.length < 32 || !abi.decode(ret, (bool))) revert QuoteNotAllowed();
+        }
 
         id = ++proposalCount;
         _proposals[id] = Proposal({
@@ -172,6 +202,7 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             renderer: renderer,
             website: website,
             socials: socials,
+            quote: quote,
             nftSupply: nftSupply,
             volumePerNFT: volumePerNFT,
             proposer: msg.sender,
@@ -247,6 +278,7 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             renderer: p.renderer,
             website: p.website,
             socials: p.socials,
+            quote: p.quote,
             nftSupply: p.nftSupply,
             volumePerNFT: p.volumePerNFT,
             proposer: p.proposer

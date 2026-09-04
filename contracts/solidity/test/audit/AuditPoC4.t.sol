@@ -28,6 +28,7 @@ contract PoisonGov is ICauldronGovernor {
         spec = BrewSpec({
             name: "Poison", symbol: "PSN", mode: MetadataMode.BaseURI,
             baseURI: "ipfs://p/", renderer: address(0), website: "", socials: "",
+            quote: address(0),
             nftSupply: supply, volumePerNFT: 0, proposer: address(0xBEEF)
         });
         id = 1;
@@ -121,9 +122,9 @@ contract PoC_PoisonProposalBricksRelaunch is Test {
         MiniVotes votes = new MiniVotes();
         CauldronGovernor real = new CauldronGovernor(address(votes));
         vm.expectRevert(CauldronGovernor.SupplyOutOfRange.selector);
-        real.propose("X", "X", MetadataMode.BaseURI, "ipfs://x/", address(0), "", "", 1_000_000, 0);
+        real.propose("X", "X", MetadataMode.BaseURI, "ipfs://x/", address(0), "", "", 1_000_000, 0, address(0));
         // ...and accepts anything within the bound.
-        real.propose("X", "X", MetadataMode.BaseURI, "ipfs://x/", address(0), "", "", 3333, 0);
+        real.propose("X", "X", MetadataMode.BaseURI, "ipfs://x/", address(0), "", "", 3333, 0, address(0));
     }
 
     receive() external payable {}
@@ -143,6 +144,7 @@ contract SaneGov is ICauldronGovernor {
         spec = BrewSpec({
             name: "Sane", symbol: "SANE", mode: MetadataMode.BaseURI,
             baseURI: "ipfs://s/", renderer: address(0), website: "", socials: "",
+            quote: address(0),
             nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
         });
         id = 1;

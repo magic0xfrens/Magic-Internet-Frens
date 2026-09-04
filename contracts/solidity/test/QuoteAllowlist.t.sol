@@ -72,4 +72,28 @@ contract QuoteAllowlistTest is Test {
         assertTrue(registry.allowedQuote(USDG));
         assertFalse(registry.allowedQuote(XNVDA), "allowing one must not allow another");
     }
+
+    // -----------------------------------------------------------------------
+    // Phase 2 — a proposal names the quote, and the registry records it
+    // -----------------------------------------------------------------------
+
+    /// Generation 1 launches from the presale, before any proposal exists to
+    /// name a quote, so it must read as native ETH.
+    function test_GenerationOneIsNativeEth() public view {
+        assertEq(registry.generationQuote(1), address(0), "gen 1 must be ETH");
+    }
+
+    /// An un-set generation reads as ETH rather than reverting, so an existing
+    /// deployment that predates this feature behaves exactly as before.
+    function test_UnknownGenerationReadsAsEth() public view {
+        assertEq(registry.generationQuote(999), address(0), "default must be ETH");
+    }
+
+    /// The allowlist is what a proposal is checked against — so a quote the
+    /// treasury has not vetted must not be proposable in the first place.
+    function test_AllowlistGatesWhatCanBeProposed() public {
+        assertFalse(registry.allowedQuote(USDG), "not vetted yet");
+        registry.setAllowedQuote(USDG, true);
+        assertTrue(registry.allowedQuote(USDG), "now proposable");
+    }
 }

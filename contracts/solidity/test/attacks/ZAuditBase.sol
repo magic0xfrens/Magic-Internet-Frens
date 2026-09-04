@@ -222,6 +222,7 @@ contract ZMockGovernor is ICauldronGovernor {
             renderer: address(0),
             website: "spirit.xyz",
             socials: "x.com/spirit",
+            quote: address(0),
             nftSupply: 1000,
             volumePerNFT: 0,
             proposer: prop

@@ -38,6 +38,7 @@ contract MockGov is ICauldronGovernor {
         spec = BrewSpec({
             name: "Ethereal Spirit", symbol: "SPIRIT", mode: MetadataMode.BaseURI,
             baseURI: "ipfs://s/", renderer: address(0), website: "", socials: "",
+            quote: address(0),
             nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
         });
         id = 1;

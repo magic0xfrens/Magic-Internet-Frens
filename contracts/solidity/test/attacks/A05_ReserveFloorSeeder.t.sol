@@ -289,7 +289,7 @@ contract RFGov is ICauldronGovernor {
         spec = BrewSpec({
             name: "Ethereal Spirit", symbol: "SPIRIT", mode: MetadataMode.BaseURI,
             baseURI: "ipfs://spirit/", renderer: address(0), website: "s.xyz",
-            socials: "x.com/s", nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
+            socials: "x.com/s", quote: address(0), nftSupply: 1000, volumePerNFT: 0, proposer: address(0xBEEF)
         });
         id = 1;
     }
