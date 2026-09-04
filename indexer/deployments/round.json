@@ -3,7 +3,7 @@
   "round": 32,
   "schema": "cauldron_r32a",
   "chainId": 11155111,
-  "indexerUrl": "https://mifrens-indexer-app-production.up.railway.app",
+  "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
     "deploy": 11625783,
     "perp": 11625842,
