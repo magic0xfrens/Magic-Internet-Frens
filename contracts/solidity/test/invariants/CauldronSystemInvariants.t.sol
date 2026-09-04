@@ -326,7 +326,12 @@ contract CauldronSystemInvariants is StdInvariant, Test, IUnlockCallback {
 
     function setUp() public {
         string memory rpc = vm.envOr("FORK_RPC", string(""));
-        if (bytes(rpc).length == 0) return;
+        // These invariants only mean anything against a live fork. Without
+        // FORK_RPC there are no target contracts, and Foundry reports "No
+        // contracts to fuzz" as a FAILURE rather than a skip — so a plain
+        // `forge test` on a fresh clone shows red for tests that simply do not
+        // apply. Skip explicitly instead.
+        if (bytes(rpc).length == 0) { vm.skip(true); return; }
         active = true;
         vm.createSelectFork(rpc);
 
