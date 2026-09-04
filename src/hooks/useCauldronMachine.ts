@@ -326,6 +326,8 @@ export function useCauldronMachine() {
   const propose = useCallback(async (p: {
     name: string; symbol: string; nftSupply: number; mintOutEth: number;
     renderer?: string; baseURI?: string; website?: string; socials?: string;
+      /** What the brew is PRICED IN. Omit for native ETH. */
+      quote?: string;
   }): Promise<`0x${string}`> => {
     if (!address) throw new Error("Connect a wallet first");
     if (chainId !== CAULDRON.chainId) await switchChainAsync({ chainId: CAULDRON.chainId });
@@ -343,6 +345,10 @@ export function useCauldronMachine() {
         useRenderer ? "" : (p.baseURI || "https://mifrens.xyz/api/cauldron/"),
         (useRenderer ? p.renderer! : "0x0000000000000000000000000000000000000000") as Address,
         p.website ?? "", p.socials ?? "", supply, perNft,
+        // What the brew is priced in. The registry validates this against its
+        // allowlist here AND again at relaunch, so an unvetted pair can never
+        // reach a vote nor become a pool.
+        (p.quote ?? "0x0000000000000000000000000000000000000000") as Address,
       ],
     });
   }, [address, chainId, switchChainAsync, writeContractAsync]);

@@ -14,6 +14,8 @@ import { useCauldronMachine, type Proposal, type Phase, type MigratableBalance }
 import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
+import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
+import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
@@ -377,6 +379,11 @@ export default function TheCauldron() {
   // m.txHash advances on every confirmed action, so the tape re-pulls right
   // after a swap instead of waiting out its interval.
   const tradeTape = useSwapTape(m.gen, m.summoned, 5000, m.confirmed ? m.txHash : null);
+  // What THIS brew is priced in. Fixed at summon, so it is read once per
+  // generation rather than polled hard.
+  const liveQuoteAddr = useCurrentQuote(m.gen);
+  const liveQuote = quoteMeta(liveQuoteAddr);
+  const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
   // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
@@ -640,7 +647,7 @@ export default function TheCauldron() {
                   <section className="tc-card tc-chart-card">
                     <div className="tc-chart-head">
                       <div>
-                        <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · V4 pool</div>
+                        <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
                         <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
                       </div>
                       <div className="tc-chart-mcap">
@@ -711,6 +718,23 @@ export default function TheCauldron() {
             <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
               Long or short the brew with real price impact — every position moves the chart, and the liquidation walls light up the heatmap below. Overcollateralized, TWAP-marked, no external oracle.
             </p>
+
+            {/* The ENGINE refuses a non-ETH generation (PerpEngine.QuoteNotSupported),
+                so say why here rather than letting an open fail at signing. Its
+                collateral, funding and insurance buffer are still ETH-denominated. */}
+            {!perpsAvailable && (
+              <div className="tc-perp-gate">
+                <div className="tc-mono" style={{ color: "#f6c86a", marginBottom: 6 }}>
+                  ⚠ Leverage is ETH-only for now
+                </div>
+                <p style={{ margin: 0, fontFamily: '"DM Sans", sans-serif', fontSize: 12, lineHeight: 1.55, color: C.mute }}>
+                  This brew is priced in <b>{liveQuote.symbol}</b>. Spot trading, the
+                  gacha and the collection floor all work normally — but the perp
+                  engine denominates collateral and its insurance buffer in ETH, so
+                  it declines this pair rather than mis-pricing your position.
+                </p>
+              </div>
+            )}
 
             {/* live chart WITH the liquidation heatmap — trade against your walls */}
             <div className="tc-perp-chart">
@@ -1078,7 +1102,7 @@ function RelaunchPanel({ proposals, relaunchAt, busy, col, onRelaunch, onPropose
 }
 function ProposeForm({ busy, onSubmit }: {
   busy: boolean; col: string;
-  onSubmit: (p: { name: string; symbol: string; nftSupply: number; mintOutEth: number; renderer?: string; baseURI?: string; website?: string; socials?: string }) => void;
+  onSubmit: (p: { name: string; symbol: string; nftSupply: number; mintOutEth: number; renderer?: string; baseURI?: string; website?: string; socials?: string; quote?: string }) => void;
 }) {
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -1089,6 +1113,11 @@ function ProposeForm({ busy, onSubmit }: {
   const [baseURI, setBaseURI] = useState("");
   const [website, setWebsite] = useState("");
   const [socials, setSocials] = useState("");
+  // What the brew is PRICED IN. Native ETH is the default and is always
+  // available — the registry allows it at construction and refuses to remove it.
+  const [quote, setQuote] = useState<string>(NATIVE_QUOTE);
+  const { quotes, loading: quotesLoading } = useAllowedQuotes();
+  const quoteInfo = quoteMeta(quote as `0x${string}`);
 
   const nSupply = Math.max(0, Math.floor(Number(supply) || 0));
   const nMintOut = Math.max(0, Number(mintOut) || 0);
@@ -1112,9 +1141,42 @@ function ProposeForm({ busy, onSubmit }: {
           <input value={supply} onChange={(e) => setSupply(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="3333" />
         </label>
         <label className="tc-propose__field">
-          <span className="tc-mono tc-dim">Volume to mint out (Ξ)</span>
+          <span className="tc-mono tc-dim">Volume to mint out ({quoteInfo.glyph || quoteInfo.symbol})</span>
           <input value={mintOut} onChange={(e) => setMintOut(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="50" />
         </label>
+      </div>
+
+      {/* PAIR — what the brew is priced in. Only quotes the treasury has
+          approved on-chain appear here, so a proposal can never be rejected for
+          naming an unvetted pair after the whole form is filled in. */}
+      <div className="tc-propose__pair">
+        <div className="tc-propose__pair-head">
+          <span className="tc-mono tc-dim">Trading pair</span>
+          {quotes.length === 1 && !quotesLoading && (
+            <span className="tc-mono tc-dim tc-propose__pair-note">only ETH is approved right now</span>
+          )}
+        </div>
+        <div className="tc-propose__seg tc-propose__seg--pair">
+          {quotes.map((q) => (
+            <button
+              key={q.address}
+              type="button"
+              className={quote.toLowerCase() === q.address.toLowerCase() ? "on" : ""}
+              onClick={() => setQuote(q.address)}
+              title={q.blurb}
+            >
+              ${symbol || "TOKEN"} / {q.symbol}
+            </button>
+          ))}
+        </div>
+        <p className="tc-propose__pair-blurb">{quoteInfo.blurb}</p>
+        {!isNativeQuote(quote as `0x${string}`) && (
+          <p className="tc-propose__pair-warn">
+            Perps stay ETH-only for now — a {quoteInfo.symbol}-paired brew trades spot
+            and forges NFTs, but leverage is disabled until the engine is
+            re-denominated.
+          </p>
+        )}
       </div>
 
       {/* art source */}
@@ -1162,6 +1224,7 @@ function ProposeForm({ busy, onSubmit }: {
           renderer: artMode === "renderer" ? renderer.trim() : undefined,
           baseURI: artMode === "uri" ? baseURI.trim() : undefined,
           website: website.trim(), socials: socials.trim(),
+          quote,
         })}
       >
         <I.bolt /> {busy ? "Proposing…" : `Propose $${symbol || "TICKER"}`}
@@ -1691,6 +1754,16 @@ function Styles() {
     .tc-propose__seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: var(--r-sm); background: rgba(8,6,15,0.4); margin-bottom: 10px; }
     .tc-propose__seg button { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.mute}; background: none; border: none; padding: 6px 12px; border-radius: var(--r-sm); cursor: pointer; transition: all 0.15s ease; }
     .tc-propose__seg button.on { background: rgba(213,253,81,0.16); color: ${C.lime}; }
+    /* PAIR selector — set apart from the art toggle because it is the one
+       choice on this form that cannot be changed after the brew launches. */
+    .tc-propose__pair { margin: 14px 0 4px; padding: 12px 14px; border-radius: var(--r-sm); background: rgba(8,6,15,0.28); border: 1px solid rgba(255,255,255,0.05); }
+    .tc-propose__pair-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .tc-propose__pair-note { font-size: 10px; opacity: 0.7; }
+    .tc-propose__seg--pair { margin-bottom: 8px; flex-wrap: wrap; }
+    .tc-propose__seg--pair button { font-size: 12px; letter-spacing: 0.02em; }
+    .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
+    .tc-perp-gate { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-sm); background: rgba(246,200,106,0.07); border: 1px solid rgba(246,200,106,0.22); }
+    .tc-propose__pair-warn { margin: 8px 0 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: #f6c86a; opacity: 0.92; }
     .tc-propose__err { font-family: "DM Sans", sans-serif; font-size: 10px; color: ${C.red}; margin-top: 3px; }
     .tc-propose__summary { text-align: center; font-size: 11px; color: ${C.lime}; margin: 12px 0 4px; padding: 8px; border-radius: var(--r-sm); background: rgba(213,253,81,0.06); }
     .tc-prop__spec { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: ${C.mute}; margin: 5px 0 2px; }

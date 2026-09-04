@@ -95,6 +95,9 @@ export const REGISTRY_ABI = [
   { type: "function", name: "recycleCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "buyCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "collectionLedger", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  // Quote asset per generation + the treasury-curated allowlist (0 = native ETH).
+  { type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  { type: "function", name: "allowedQuote", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "generationToken", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "summoned", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   { type: "function", name: "lastSummonAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -203,6 +206,9 @@ export const GOVERNOR_ABI = [
       { name: "renderer", type: "address" }, { name: "website", type: "string" },
       { name: "socials", type: "string" }, { name: "nftSupply", type: "uint256" },
       { name: "volumePerNFT", type: "uint256" },
+      // The asset this brew's token is PRICED IN (0 = native ETH). Validated
+      // against the registry's allowlist on-chain, at propose AND at relaunch.
+      { name: "quote", type: "address" },
     ],
     outputs: [{ type: "uint256" }],
   },
