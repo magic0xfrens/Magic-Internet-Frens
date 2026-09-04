@@ -58,3 +58,5 @@ contracts/scripts/.mint-collection-state.json
 *.njsproj
 *.sln
 *.sw?
+.env*
+!.env.example
