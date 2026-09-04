@@ -158,6 +158,10 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         // Testnet: deployer EOA + delay 0. Mainnet: a Safe multisig + e.g. 7 days.
         emergencyAdmin = _emergencyAdmin == address(0) ? msg.sender : _emergencyAdmin;
         emergencyDelay = _emergencyDelay;
+        // Native ETH is allowed from construction, so a fresh deployment behaves
+        // exactly as before and stays that way until governance widens the set.
+        allowedQuote[address(0)] = true;
+        emit QuoteAllowed(address(0), true);
     }
 
     /// @notice One-time wiring of the {RedemptionExt} facet the OG-redemption ops
@@ -187,6 +191,8 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     // atomic green-candle path byte-for-byte unchanged.
     // -----------------------------------------------------------------------
     event SeederSet(address indexed seeder);
+    /// @notice A quote asset was added to or removed from the allowlist.
+    event QuoteAllowed(address indexed quote, bool allowed);
     event SeedWindowSet(uint64 window);
 
     /// @notice Wire the persistent progressive seeder ({CauldronSeeder}). Deployed
@@ -195,6 +201,29 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///         Propagates to the hook so afterSwap streams it in-swap (keeperless);
     ///         to keep the seeder but disable ONLY the in-swap nudge (fall back to
     ///         permissionless poke), call `hook.setSeeder(0)` directly.
+    /// @notice Curate the quote assets an iteration may pair against.
+    ///
+    ///  OWNER-ONLY, and that is the whole guardrail: a proposer picks FROM this
+    ///  set but can never add to it. Letting a proposer add their own quote
+    ///  would let them name a token they control and drain the pool into it.
+    ///
+    ///  Native ETH cannot be removed. It is the fallback every generation can
+    ///  always launch against, and the sink a failed non-ETH payout rolls into;
+    ///  disallowing it would leave a generation with no valid quote at all.
+    ///
+    ///  Admission is a treasury judgement, not a code one. A quote is only safe
+    ///  here if it is a plain ERC20 (no transfer hook, no rebase — either
+    ///  silently breaks every amount the pool accounts for), has independent
+    ///  depth so the relaunch conversion cannot be cheaply manipulated, and has
+    ///  known decimals. Where it can be paused or blacklisted by a third party —
+    ///  true of most tokenized equities — that is a disclosed property of the
+    ///  pair, not a surprise.
+    function setAllowedQuote(address quote, bool allowed) external onlyOwner {
+        if (quote == address(0) && !allowed) revert NativeQuoteRequired();
+        allowedQuote[quote] = allowed;
+        emit QuoteAllowed(quote, allowed);
+    }
+
     function setSeeder(address _seeder) external onlyOwner {
         seeder = _seeder;
         hook.setSeeder(_seeder);

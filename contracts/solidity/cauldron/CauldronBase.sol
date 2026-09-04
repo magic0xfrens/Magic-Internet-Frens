@@ -92,6 +92,10 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     // -----------------------------------------------------------------------
     // Errors (shared)
     // -----------------------------------------------------------------------
+    /// @dev Native ETH cannot be removed from the quote allowlist: it is the
+    ///      fallback every generation can launch against, and the sink a failed
+    ///      non-ETH payout rolls into.
+    error NativeQuoteRequired();
     error AlreadySummoned();
     error NotSummoned();
     error TokenStillAlive();
@@ -291,6 +295,22 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  replaced. Splitting ignition into its own role lets ownership stay with the
     ///  governance timelock while the presale keeps exactly the right it needs.
     address public igniter;                   // slot 47
+
+    /// @notice Quote assets an iteration may pair against. `address(0)` (native
+    ///         ETH) is allowed from construction, so this starts as today's
+    ///         behaviour and stays that way until governance widens it.
+    ///
+    ///  Curated by the OWNER (the governance timelock) and never by a proposer.
+    ///  A proposer curating their own set is the obvious capture vector: they
+    ///  add a token they control and drain the pool into it. The split is
+    ///  deliberate — the treasury decides what is SAFE, governance decides what
+    ///  is STRATEGIC.
+    ///
+    ///  Appended at the end: this contract is the shared storage layout for the
+    ///  registry AND its delegatecall facet, so the two must stay byte-identical
+    ///  (asserted by FacetLayoutInvariant). Inserting anywhere above would shift
+    ///  every following slot and silently corrupt the facet's view of state.
+    mapping(address => bool) public allowedQuote;   // slot 48
 
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)

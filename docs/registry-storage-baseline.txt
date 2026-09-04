@@ -1,4 +1,4 @@
-[2m2026-09-02T06:01:53.670371Z[0m [31mERROR[0m [2mfoundry_compilers_artifacts_solc::sources[0m[2m:[0m [3merror[0m[2m=[0m"/Users/0x0010110/Documents/GitHub/MagicFrens/contracts/solidity/lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/utils/cryptography/draft-EIP712.sol": No such file or directory (os error 2)
+[2m2026-09-04T18:09:44.226710Z[0m [31mERROR[0m [2mfoundry_compilers_artifacts_solc::sources[0m[2m:[0m [3merror[0m[2m=[0m"/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity/lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/utils/cryptography/draft-EIP712.sol": No such file or directory (os error 2)
 
 ╭-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------╮
 | Name                        | Type                                         | Slot | Offset | Bytes | Contract                              |
@@ -94,5 +94,21 @@
 | minLifetime                 | uint256                                      | 39   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
 |-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
 | autoMigrate                 | mapping(address => bool)                     | 40   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| poolManager                 | contract IPoolManager                        | 41   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| positionManager             | contract IPositionManager                    | 42   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| hook                        | contract CauldronHook                        | 43   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| redemptionExt               | address                                      | 44   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| seeder                      | address                                      | 45   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| nextSeedWindow              | uint64                                       | 45   | 20     | 8     | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| igniter                     | address                                      | 46   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+|-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
+| allowedQuote                | mapping(address => bool)                     | 47   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
 ╰-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------╯
 
