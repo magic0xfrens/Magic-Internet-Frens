@@ -8,6 +8,7 @@ import { AppRoutes } from "./routes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { wagmiConfig } from "@/config/chains";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { WagmiClientGate } from "@/components/shared/WagmiClientGate";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ export function App() {
     <ErrorBoundary>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <WagmiClientGate>
         <RainbowKitProvider>
           <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppLayout>
@@ -36,6 +38,7 @@ export function App() {
             />
           </HashRouter>
         </RainbowKitProvider>
+        </WagmiClientGate>
       </QueryClientProvider>
     </WagmiProvider>
     </ErrorBoundary>

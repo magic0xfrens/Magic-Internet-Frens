@@ -11,7 +11,13 @@ import { injectedWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wall
  * https://docs.robinhood.com/chain/connecting (sources have shown 4663 for
  * mainnet vs 46646 for testnet — do NOT trust a hardcoded value blindly).
  */
-const CHAIN_ID = Number(import.meta.env.VITE_ROBINHOOD_CHAIN_ID ?? 4663);
+// NOTE: `??` does NOT catch an env var set to an empty string (Vercel does this
+// when a var is declared but left blank), and `Number("")` is 0 — a chain id of
+// 0 or NaN builds a chain wagmi can never resolve, so `usePublicClient()` returns
+// undefined and RainbowKit's TransactionStoreProvider dereferences it. Coerce
+// explicitly and fall back on anything that isn't a positive integer.
+const RAW_CHAIN_ID = Number(import.meta.env.VITE_ROBINHOOD_CHAIN_ID);
+const CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 4663;
 
 const RPC_URL =
   import.meta.env.VITE_ROBINHOOD_RPC_URL ?? "https://rpc.chain.robinhood.com";
@@ -76,12 +82,26 @@ const sepoliaFixed = {
   },
 } as const;
 
+// ── SINGLE NETWORK SWITCH ───────────────────────────────────────────────────
+// The whole app targets ONE chain, chosen by VITE_NETWORK. Default "testnet" so
+// the live Sepolia site keeps working; set VITE_NETWORK=mainnet (once Robinhood
+// contracts + indexer exist) to cut over in ONE env change. Everything —
+// config chainIds, wallet switch, explorer/marketplace links, copy — reads from
+// ACTIVE_* / IS_MAINNET / NETWORK_LABEL below so there's no per-file drift.
+// Declared ABOVE wagmiConfig because the chain order depends on it.
+const NETWORK = ((import.meta.env.VITE_NETWORK as string) ?? "testnet").trim().toLowerCase();
+export const IS_MAINNET = NETWORK === "mainnet" || NETWORK === "robinhood";
+export const IS_TESTNET = !IS_MAINNET;
+
 export const wagmiConfig = getDefaultConfig({
   appName: "Magic Internet Frens",
   projectId: WALLETCONNECT_PROJECT_ID,
   // Sepolia is included so the genesis presale can mint against the live
   // MiFrensPresale during testnet; Robinhood is the mainnet target.
-  chains: [robinhoodChain, sepoliaFixed],
+  // ORDER MATTERS: wagmi seeds `state.chainId` from `chains[0]`, so the ACTIVE
+  // network must lead — otherwise a testnet build boots pointed at Robinhood and
+  // every read hook defaults to a chain the deployment doesn't actually use.
+  chains: IS_MAINNET ? [robinhoodChain, sepoliaFixed] : [sepoliaFixed, robinhoodChain],
   transports: {
     // Batch JSON-RPC calls within a ~24ms window into ONE HTTP request (fewer
     // requests → far less rate-limiting on public nodes), and roll over to the
@@ -110,15 +130,7 @@ export const ROBINHOOD_CHAIN_ID = CHAIN_ID;
 export const ROBINHOOD_RPC_URL = RPC_URL;
 export const ROBINHOOD_EXPLORER_URL = EXPLORER_URL;
 
-// ── SINGLE NETWORK SWITCH ───────────────────────────────────────────────────
-// The whole app targets ONE chain, chosen by VITE_NETWORK. Default "testnet" so
-// the live Sepolia site keeps working; set VITE_NETWORK=mainnet (once Robinhood
-// contracts + indexer exist) to cut over in ONE env change. Everything —
-// config chainIds, wallet switch, explorer/marketplace links, copy — reads from
-// ACTIVE_* / IS_MAINNET / NETWORK_LABEL below so there's no per-file drift.
-const NETWORK = ((import.meta.env.VITE_NETWORK as string) ?? "testnet").trim().toLowerCase();
-export const IS_MAINNET = NETWORK === "mainnet" || NETWORK === "robinhood";
-export const IS_TESTNET = !IS_MAINNET;
+// ── ACTIVE NETWORK (switch itself lives above wagmiConfig) ──────────────────
 export const ACTIVE_CHAIN = IS_MAINNET ? robinhoodChain : sepoliaFixed;
 export const ACTIVE_CHAIN_ID = ACTIVE_CHAIN.id;
 export const NETWORK_LABEL = IS_MAINNET ? "Robinhood Chain" : "Sepolia testnet";

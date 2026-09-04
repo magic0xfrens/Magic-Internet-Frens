@@ -28,6 +28,7 @@ via_ir = true
 # Read the trait blobs; write rendered SVGs so the on-chain art can be inspected.
 fs_permissions = [
     { access = "read", path = "../../compressed-traits" },
+    { access = "read", path = "./render/badge-art" },
     { access = "read-write", path = "./render-out" },
 ]
 # Isolated profile for verifying the on-chain art renderer. Excludes the
