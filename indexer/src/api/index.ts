@@ -165,7 +165,7 @@ async function presaleState() {
   } catch { return presaleCache.v; }
 }
 const POOL_MGR = round.contracts.poolManager as `0x${string}`;
-const POSITION_MGR = (process.env.POSITION_MANAGER ?? "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4") as `0x${string}`;
+const POSITION_MGR = round.contracts.positionManager as `0x${string}`;
 const REG_READ = [
   { type: "function", name: "generationVault", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "generationPositionId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },

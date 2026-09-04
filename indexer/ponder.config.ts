@@ -15,7 +15,10 @@ import { RegistryFloorAbi, HookFloorAbi } from "./abis/FloorAbi";
 // served as r31). To ship a round: edit round.json, run scripts/deploy-round.mjs.
 import round from "./deployments/round.json";
 
-const chainId = Number(process.env.CHAIN_ID ?? round.chainId);
+// Deployment identity comes from the manifest ONLY. A CHAIN_ID env var here
+// could point this indexer at a different network than the manifest it is
+// serving addresses for, which reads as missing data rather than an error.
+const chainId = Number(round.chainId);
 const startBlock = round.blocks.indexer; // gen-1 pool summon (before the genesis mints)
 
 const REGISTRY = round.contracts.registry as `0x${string}`;

@@ -12,15 +12,16 @@ import round from "../../indexer/deployments/round.json";
  */
 export const PERP = {
   chainId: ACTIVE_CHAIN_ID,
-  // perps deployed post-summon, owned by the Timelock.
-  engine: ((import.meta.env?.VITE_PERP_ENGINE as string) ||
-    round.contracts.perpEngine) as Address,
+  // Straight from the manifest, with no env override. These are deployment
+  // identity, and an env var that disagrees points the UI at a different engine
+  // than the one the indexer reports on — which surfaces as empty panels rather
+  // than an error. Change the manifest to change the deployment.
+  engine: round.contracts.perpEngine as Address,
   // Engine deploy block — bounds getLogs so position discovery stays a couple of
   // RPC calls (not a 200k-block scan that trips public-RPC rate limits).
-  startBlock: BigInt((import.meta.env?.VITE_PERP_START_BLOCK as string) || String(round.blocks.perp)),
+  startBlock: BigInt(round.blocks.perp),
   // The Community PLV vault (LP-for-perps): stake ETH/token, earn perp fees.
-  vault: ((import.meta.env?.VITE_PERP_VAULT as string) ||
-    round.contracts.perpVault) as Address,
+  vault: round.contracts.perpVault as Address,
 };
 
 export const PERP_LIVE = PERP.engine.toLowerCase() !== "0x0000000000000000000000000000000000000000";

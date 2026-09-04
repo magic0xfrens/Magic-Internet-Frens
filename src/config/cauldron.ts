@@ -26,39 +26,17 @@ export const CAULDRON = {
 };
 
 /**
- * Cauldron price indexer (Ponder). Serves OHLC candles + volume per generation
- * at /candles/:gen. The public Railway URL is the DEFAULT (it's a public API, not
- * a secret) so the chart/swaps work even if the Vercel VITE_CAULDRON_INDEXER env
- * is unset/empty — that empty-env footgun blanked the live chart ("awaiting first
- * swaps") despite the indexer being healthy. Override via env for local/staging.
+ * Cauldron indexer (Ponder). Serves OHLC candles, volume, NFTs, floors and perp
+ * state — the app's entire read layer.
  */
-const DEFAULT_INDEXER = round.indexerUrl;
-// HARDEN the override: only accept an ABSOLUTE http(s) URL. A blank OR
-// relative/garbage value (e.g. "/", "mifrens…", a trailing-slash-only string)
-// would otherwise make every `${INDEXER}/candles/…` fetch resolve to a RELATIVE
-// path → the SPA rewrite serves index.html (200) → JSON.parse fails → the hooks
-// retry every few seconds. Across ~10 pollers that silently melts the chart AND
-// hammers Vercel with edge requests. Anything not clearly absolute → the default.
-function resolveIndexer(): string {
-  const raw = ((import.meta.env?.VITE_CAULDRON_INDEXER as string) || "").trim();
-  // Must be an ABSOLUTE http(s) URL (rejects "", "/", "mifrens…", trailing-slash).
-  if (!/^https?:\/\/[^/]+/i.test(raw)) return DEFAULT_INDEXER;
-  const url = raw.replace(/\/+$/, "");
-  // CRITICAL: never let the indexer point at our OWN origin. If it did, every
-  // `${INDEXER}/candles/…` etc. would hit the SPA rewrite, get index.html (HTTP
-  // 200), fail JSON.parse, and the ~10 pollers would retry every few seconds
-  // FOREVER — silently melting the chart AND draining Vercel edge requests. If
-  // VITE_CAULDRON_INDEXER is misconfigured to the site's own domain, fall back
-  // to the real (Railway) indexer instead of self-DoSing.
-  try {
-    if (typeof window !== "undefined") {
-      const bare = (h: string) => h.toLowerCase().replace(/^www\./, "");
-      if (bare(new URL(url).host) === bare(window.location.host)) return DEFAULT_INDEXER;
-    }
-  } catch { return DEFAULT_INDEXER; }
-  return url;
-}
-export const CAULDRON_INDEXER: string = resolveIndexer();
+// Straight from the manifest. There is deliberately NO env override: the URL is
+// a public read API rather than a secret, so nothing is gained by moving it to
+// hosting config — and plenty is lost. An empty or malformed value made every
+// `${INDEXER}/…` fetch resolve to a RELATIVE path, which the SPA rewrite answers
+// with index.html (HTTP 200), so JSON.parse failed and ~10 pollers retried
+// forever: a melted UI and a large edge-request bill, with no error anywhere
+// saying the URL was wrong. Change the manifest to change the indexer.
+export const CAULDRON_INDEXER: string = round.indexerUrl.replace(/\/+$/, "");
 
 /** Liquidatoor badges (OnChain Collectibles) mint into this id range on every
  *  collection, kept separate from the art tranche. A tokenId at/above this is a
@@ -129,7 +107,7 @@ export const POOLMANAGER_ABI = [
 ] as const;
 
 /** V4 PositionManager — the LP position's liquidity. */
-export const POSITION_MANAGER = "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4" as Address;
+export const POSITION_MANAGER = round.contracts.positionManager as Address;
 export const POSITION_MANAGER_ABI = [
   { type: "function", name: "getPositionLiquidity", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }] },
 ] as const;

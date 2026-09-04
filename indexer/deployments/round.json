@@ -1,5 +1,5 @@
 {
-  "_comment": "CANONICAL ROUND MANIFEST \u2014 the SINGLE source of truth for the live deployment. Consumed by BOTH the indexer (ponder.config.ts + start.mjs via ./deployments/round.json) AND the frontend (src/config/cauldron.ts + perp.ts via ../../indexer/deployments/round.json). It lives inside indexer/ because `railway up` only uploads that dir. To ship a new round: bump `round` + `schema` (new schema forces a clean reindex), update the addresses/poolIds/blocks, then run `node scripts/deploy-round.mjs --push`. NEVER set these as Railway env vars \u2014 env overrides silently drift (that caused the r29-served-as-r31 incident).",
+  "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
   "round": 32,
   "schema": "cauldron_r32a",
   "chainId": 11155111,
@@ -13,6 +13,7 @@
     "registry": "0x56022128bF27a58f3c03cFE72Cb2b5F460E46940",
     "hook": "0xEC66519e9fC09D1D53E25BEC9009872B2A6110cC",
     "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+    "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
     "governor": "0x5EE58687Cf438f3d30a9C668CD63042415F833d3",
     "dividend": "0xD67b9f63fFeccb3080A56307875F8AFc1839E8A8",
     "presale": "0x01d87a1459830BA5562E3d53f0a2d3a1cC099422",
