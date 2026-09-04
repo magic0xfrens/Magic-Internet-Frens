@@ -18,6 +18,7 @@ import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
+import {PerpSwapLib} from "./PerpSwapLib.sol";
 
 interface IPerpRegistry {
     function currentToken() external view returns (address);
@@ -266,6 +267,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256 public syncedGeneration; // the gen this engine's token-side is armed for
     address public syncedToken;      // that gen's token (what plvToken is denominated in)
 
+    /// @dev This engine denominates collateral, principal, funding, payouts and
+    ///      the insurance buffer in NATIVE ETH — `openLong`/`openShort` are
+    ///      payable and every payout is a `call{value:}`. A generation quoted in
+    ///      an ERC20 cannot be served correctly until that is converted, and
+    ///      serving it anyway would mis-denominate real user funds: collateral
+    ///      posted in ETH against a book priced in USDG.
+    ///
+    ///      Refused explicitly rather than left to misbehave, so the frontend can
+    ///      say "perps are ETH-only for this brew" instead of failing opaquely.
+    error QuoteNotSupported();
     error NotWarm();
     error BadLeverage();
     error PlvInsufficient();
@@ -843,6 +854,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         lastTick = _currentTick();
         observations[0] = Observation(uint32(block.timestamp), 0);
 
+        //  ETH-QUOTED GENERATIONS ONLY, for now. Checked HERE — at the single
+        //  point the engine adopts a generation — rather than on every open, so
+        //  an unsupported brew can never become live to trade against at all.
+        //  The swap direction above is already quote-agnostic; the value legs
+        //  (payable opens, call{value:} payouts, plvEth, insuranceEth) are not.
+        if (Currency.unwrap(_key().currency0) != address(0)) revert QuoteNotSupported();
+
         syncedGeneration = gen;
         syncedToken = newTok;
         emit GenerationSynced(fromGen, gen, migratedIn, newInv);
@@ -999,28 +1017,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      settles both currency legs; returns the ABI-encoded result.
     function _swapBody(SwapReq memory r) internal returns (bytes memory) {
         PoolKey memory key = _key();
-        Currency eth = key.currency0; Currency tok = key.currency1;
+        //  WHICH SIDE IS WHICH. v4 orders currencies by address: native ETH is
+        //  address(0) and always sorts first, so "quote = currency0" held for
+        //  free. An ERC20 quote sorts against a CREATE-deployed token and can
+        //  land on either side, which would invert every leg below.
+        //
+        //  Derived from `syncedToken` rather than stored: the engine already
+        //  pins the generation's token when it arms, so this cannot drift.
+        bool q0 = Currency.unwrap(key.currency1) == syncedToken;
+
         // Attribute the gacha volume to the NFT beneficiary (treasury) so the
         // creatures minted by perp volume land there, not stranded in the engine.
-        bytes memory hd = abi.encode(nftBeneficiary);
-
-        if (r.buy) {
-            // exactOut → amountSpecified positive (exact token out); else negative (exact ETH in)
-            int256 spec = r.exactOut ? int256(r.amount) : -int256(r.amount);
-            BalanceDelta d = poolManager.swap(key,
-                SwapParams({zeroForOne: true, amountSpecified: spec, sqrtPriceLimitX96: MIN_LIMIT}), hd);
-            uint256 spent = uint256(uint128(-d.amount0())); // ETH paid
-            uint256 got = uint256(uint128(d.amount1()));    // token received
-            _settleCur(eth, spent, true); _take(tok, address(this), got);
-            return abi.encode(r.exactOut ? spent : got);
-        } else {
-            BalanceDelta d = poolManager.swap(key,
-                SwapParams({zeroForOne: false, amountSpecified: -int256(r.amount), sqrtPriceLimitX96: SQRT_MAX - 1}), hd);
-            uint256 spent = uint256(uint128(-d.amount1())); // token sold
-            uint256 got = uint256(uint128(d.amount0()));    // ETH received
-            _settleCur(tok, spent, false); _take(eth, address(this), got);
-            return abi.encode(got);
-        }
+        (uint256 spent, uint256 got) = PerpSwapLib.swapLeg(
+            poolManager,
+            key,
+            PerpSwapLib.Req({buy: r.buy, exactOut: r.exactOut, amount: r.amount}),
+            q0,
+            abi.encode(nftBeneficiary)
+        );
+        if (r.buy) return abi.encode(r.exactOut ? spent : got);
+        return abi.encode(got);
     }
 
     // ---------------------------------------------------------------------
