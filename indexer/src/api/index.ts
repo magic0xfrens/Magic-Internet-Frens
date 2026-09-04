@@ -181,6 +181,15 @@ const COL_READ = [
 ] as const;
 const EXTSLOAD = [{ type: "function", name: "extsload", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "bytes32" }] }] as const;
 const POSLIQ = [{ type: "function", name: "getPositionLiquidity", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }] }] as const;
+// Progressive-seed reads. A streamed generation holds ledger-A liquidity in the
+// seeder's own core positions, so it has no PositionManager position id.
+const SEEDER_READ = [
+  { type: "function", name: "ethTotal", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "placedWad", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
+const REG_SEEDER = [
+  { type: "function", name: "seeder", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+] as const;
 // ETH held in the active LP position (currency0=ETH) — the amount recovered + re
 // -seeded on relaunch, i.e. the real "available for next launch".
 async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
@@ -192,11 +201,31 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
       perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "generationPositionId", args: [gen] }) as Promise<bigint>,
     ]);
     const sqrtP = BigInt(raw) & ((1n << 160n) - 1n);
-    if (sqrtP === 0n || posId === 0n) return 0;
-    const L = await perpClient.readContract({ address: POSITION_MGR, abi: POSLIQ, functionName: "getPositionLiquidity", args: [posId] }) as bigint;
-    if (L === 0n) return 0;
-    const amount0 = (L * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
-    return Number(formatEther(amount0));
+    if (sqrtP === 0n) return 0;
+
+    // ATOMIC launch: one PositionManager position holds ledger A.
+    if (posId !== 0n) {
+      const L = await perpClient.readContract({ address: POSITION_MGR, abi: POSLIQ, functionName: "getPositionLiquidity", args: [posId] }) as bigint;
+      if (L === 0n) return 0;
+      const amount0 = (L * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
+      return Number(formatEther(amount0));
+    }
+
+    // PROGRESSIVE launch: the seeder streams ledger A as its own core positions,
+    // so there is no position id to read and the branch above would report 0 —
+    // which is what made "available for next launch" show nothing while several
+    // ETH of recoverable liquidity sat in the pool. Fall back to the seeder's
+    // deployed ETH budget, which is what relaunch() recovers via withdrawAll.
+    const seeder = await perpClient.readContract({ address: REGISTRY, abi: REG_SEEDER, functionName: "seeder" }) as `0x${string}`;
+    if (!seeder || seeder === "0x0000000000000000000000000000000000000000") return 0;
+    const [ethTotalWei, placedWad] = await Promise.all([
+      perpClient.readContract({ address: seeder, abi: SEEDER_READ, functionName: "ethTotal" }) as Promise<bigint>,
+      perpClient.readContract({ address: seeder, abi: SEEDER_READ, functionName: "placedWad" }) as Promise<bigint>,
+    ]);
+    // Only the streamed fraction is actually in the pool; the rest is still
+    // queued in the seeder and is recovered too, so count the full budget.
+    void placedWad;
+    return Number(formatEther(ethTotalWei));
   } catch (e) { console.error("lpEthOf failed:", String(e).slice(0,200)); return 0; }
 }
 type BrewChain = { deathThresholdEth: number; relaunchEth: number; nftMax: number; vaultEth: number; relaunchAt: number };
