@@ -21,6 +21,15 @@ skip = [
 ]
 
 [profile.render]
+# FrenRenderer composes a 120x120 canvas in one function and exceeds the stack
+# limit without the IR pipeline, so this profile could not compile at all — which
+# is why the renderer was never deployed. via_ir is required, not optional.
+via_ir = true
+# Read the trait blobs; write rendered SVGs so the on-chain art can be inspected.
+fs_permissions = [
+    { access = "read", path = "../../compressed-traits" },
+    { access = "read-write", path = "./render-out" },
+]
 # Isolated profile for verifying the on-chain art renderer. Excludes the
 # ERC404-style Peg (pre-existing OZ inheritance clash) and the V4 Cauldron
 # (requires uniswap v4 deps) so the renderer can be tested standalone.

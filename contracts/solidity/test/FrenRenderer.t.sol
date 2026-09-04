@@ -48,7 +48,11 @@ contract FrenRendererTest is Test {
 
     function test_PaletteRoundTrips() public view {
         bytes memory pal = store.getPalette();
-        assertEq(pal.length, 741, "palette should be 247 colors * 3 bytes");
+        // Assert against the shipped palette rather than a copied-out number, so
+        // regenerating the traits cannot leave this silently wrong.
+        bytes memory expected = vm.readFileBinary(string.concat(DIR, "palette-rgb.bin"));
+        assertEq(pal.length, expected.length, "palette length must match palette-rgb.bin");
+        assertEq(pal.length % 3, 0, "palette must be whole RGB triples");
     }
 
     function test_BlobHeaderMatches() public view {

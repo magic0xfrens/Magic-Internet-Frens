@@ -6,7 +6,7 @@ import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MetadataMode, ICollectionRenderer, ICauldronCollection} from "./ICauldron.sol";
 import {ICreatorToken, ITransferValidator} from "./ICreatorToken.sol";
-import {ILiquidatorMintable} from "./ILiquidatorMintable.sol";
+import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
 
 /**
  * @title CauldronCollection
@@ -80,6 +80,14 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
 
     /// @notice tokenId => whether it is a Liquidatoor badge (vs art).
     mapping(uint256 => bool) public isLiquidatoor;
+
+    /// @notice What each badge commemorates, recorded at mint. Read by the badge
+    ///         renderer so a trophy can be drawn from the chain with no server.
+    mapping(uint256 => LiqStats) internal _liqStats;
+
+    /// @notice Optional on-chain badge renderer. When set, badge tokenURI comes
+    ///         from it instead of `liquidatorURI`, so badges need no API at all.
+    address public liquidatorRenderer;
 
     /// @notice Metadata base for badges: tokenURI(badge) = liquidatorURI + id.
     string public liquidatorURI = "https://magicfrens.xyz/api/cauldron/liquidatoor?id=";
@@ -297,11 +305,39 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     ///         Uncapped, always revealed, in the LIQUIDATOR_ID_BASE id range so
     ///         it never consumes the art supply.
     function mintLiquidator(address to) external returns (uint256 tokenId) {
+        return _mintLiquidator(to, LiqStats(address(0), false, 0, 0, 0, 0, 0, 0));
+    }
+
+    /// @notice Mint a badge AND record the liquidation it commemorates, so the
+    ///         renderer can draw the real numbers rather than a placeholder.
+    function mintLiquidatorWithStats(address to, LiqStats calldata st)
+        external
+        returns (uint256 tokenId)
+    {
+        return _mintLiquidator(to, st);
+    }
+
+    function _mintLiquidator(address to, LiqStats memory st) internal returns (uint256 tokenId) {
         if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter();
         tokenId = LIQUIDATOR_ID_BASE + (++liquidatorMinted);
         isLiquidatoor[tokenId] = true;
+        // Only pay for the write when there is something to record: a stats-free
+        // mint from an older engine must stay as cheap as it was.
+        if (st.victim != address(0)) _liqStats[tokenId] = st;
         _mint(to, tokenId);
         emit LiquidatoorMinted(to, tokenId);
+    }
+
+    /// @inheritdoc ILiquidatorMintable
+    function liqStats(uint256 tokenId) external view returns (LiqStats memory) {
+        return _liqStats[tokenId];
+    }
+
+    /// @notice Point badge metadata at an on-chain renderer (address(0) = use
+    ///         `liquidatorURI`). Same admin as the other metadata setters.
+    function setLiquidatorRenderer(address r) external {
+        if (msg.sender != deployer) revert OnlyMinter();
+        liquidatorRenderer = r;
     }
 
     /// @notice Marketplace/API helper: the Liquidatoor trait for a token.
@@ -330,6 +366,10 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         _requireOwned(tokenId);
         // Liquidatoor badges resolve to their own metadata (always revealed).
         if (isLiquidatoor[tokenId]) {
+            // Fully on-chain when a renderer is wired; otherwise the URI base.
+            if (liquidatorRenderer != address(0)) {
+                return ICollectionRenderer(liquidatorRenderer).tokenURI(tokenId);
+            }
             return string.concat(liquidatorURI, tokenId.toString());
         }
         // Unrevealed art tokens show the placeholder.

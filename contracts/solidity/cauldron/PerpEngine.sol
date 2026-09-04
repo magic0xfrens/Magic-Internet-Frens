@@ -17,7 +17,7 @@ import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {ILiquidatorMintable} from "./ILiquidatorMintable.sol";
+import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
 
 interface IPerpRegistry {
     function currentToken() external view returns (address);
@@ -951,7 +951,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             // Strike the Liquidatoor badge — the collectible trophy for the fren
             // responsible for this liquidation (keeper call → caller; in-swap →
             // the swapper). Best-effort so it can never brick a liquidation.
-            _awardBadge(id, keeper);
+            //
+            // The stats are recorded ON-CHAIN with the badge so the trophy can be
+            // rendered from chain state alone. Entry is derived from the position
+            // (principal/size for a long, proceeds/size for a short); liq price is
+            // the mark that triggered this close.
+            _awardBadge(id, keeper, _killStats(p, toKeeper));
         } else if (mode == MODE_DEATH && keeper != address(0)) {
             // small keeper reward incentivizes prompt death-clearing (no penalty).
             uint256 reward = (residual * keeperBps) / BPS;
@@ -1163,18 +1168,64 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  was neither struck nor credited to `badgesOwed`, and the event told indexers
     ///  it had been. Now every failure path (OOG / unwired / rejecting collection)
     ///  falls back to the claimable credit, as the hybrid design intends.
-    function _awardBadge(uint256 id, address to) internal {
+    /// @dev Snapshot what a liquidation actually was, for the badge that
+    ///      commemorates it. Prices are ETH per token in wei:
+    ///        entry — what the position paid per token when it opened, i.e.
+    ///                borrowed ETH over token size for a long, and proceeds over
+    ///                size owed for a short (both are `principal / size`).
+    ///        liq   — the TWAP mark that triggered this close, quoted for the
+    ///                same size so it is directly comparable to entry.
+    ///      Both are clamped into uint128; a price that large cannot occur with a
+    ///      777M-supply token, but truncation would misreport rather than revert.
+    function _killStats(Position memory p, uint256 bounty)
+        internal
+        view
+        returns (LiqStats memory st)
+    {
+        uint256 entry = p.size == 0 ? 0 : (p.principal * 1e18) / p.size;
+        uint256 mark = p.size == 0 ? 0 : (_quoteMark(p.size) * 1e18) / p.size;
+        st = LiqStats({
+            victim: p.trader,
+            wasLong: p.isLong,
+            leverage: p.leverage,
+            collateralWei: p.collateral > type(uint96).max
+                ? type(uint96).max
+                : uint96(p.collateral),
+            bountyWei: bounty > type(uint96).max ? type(uint96).max : uint96(bounty),
+            blockNo: uint64(block.number),
+            entryPrice: entry > type(uint128).max ? type(uint128).max : uint128(entry),
+            liqPrice: mark > type(uint128).max ? type(uint128).max : uint128(mark)
+        });
+    }
+
+    function _awardBadge(uint256 id, address to, LiqStats memory st) internal {
         if (to == address(0)) return;
         uint256 minted;
-        if (gasleft() > 220_000) {
+        //  The stats-bearing mint writes three extra storage slots (~66k), so the
+        //  floor is raised to match. Leaving it at 220k would not have reverted —
+        //  the mint would simply have run out of gas and fallen through to
+        //  `badgesOwed`, silently turning every badge into a claimable IOU.
+        if (gasleft() > 300_000) {
             address col = IPerpHook(hookAddr).collection();
             if (col.code.length != 0) {
                 uint256 fwd;
-                unchecked { fwd = gasleft() - 120_000; } // safe: guarded > 220k
+                unchecked { fwd = gasleft() - 120_000; } // safe: guarded > 300k
                 (bool ok, ) = col.call{gas: fwd}(
-                    abi.encodeWithSelector(ILiquidatorMintable.mintLiquidator.selector, to)
+                    abi.encodeWithSelector(
+                        ILiquidatorMintable.mintLiquidatorWithStats.selector, to, st
+                    )
                 );
                 if (ok) minted = 1;
+                //  A collection deployed before stats existed has no such
+                //  function, so the call reverts on an unknown selector. Fall
+                //  back to the original mint rather than dropping the badge.
+                if (!ok && gasleft() > 200_000) {
+                    unchecked { fwd = gasleft() - 120_000; }
+                    (ok, ) = col.call{gas: fwd}(
+                        abi.encodeWithSelector(ILiquidatorMintable.mintLiquidator.selector, to)
+                    );
+                    if (ok) minted = 1;
+                }
             }
         }
         if (minted == 0) { unchecked { badgesOwed[to] += 1; } }
