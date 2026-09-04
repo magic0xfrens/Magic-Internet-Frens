@@ -247,6 +247,9 @@ export function useCauldronMachine() {
         nftMinted: d.nftMinted ?? 0, nftMax: d.nftMax ?? 0,
         presaleMinted: CAULDRON.genesisSupply, presaleGoal: CAULDRON.genesisSupply,
         priceSeries: prev.priceSeries, spotPrice: prev.spotPrice,
+        // Carried over, not reset: the reserve is fetched separately just below,
+        // and dropping it here blanks circulating market cap on every poll.
+        reserveTokens: prev.reserveTokens,
         relaunchEth: d.relaunchEth ?? 0, vaultEth: d.vaultEth ?? 0, availableEth,
         relaunchAt: d.relaunchAt ?? 0,
         proposals: prev.proposals, migratable: prev.migratable,
@@ -528,13 +531,18 @@ async function loadSwapSeries(pc: PC, poolId: `0x${string}`): Promise<{ series: 
     // getLogs calls (fast + reliable) instead of ~40 mostly-empty ones.
     const lookbackFloor = latest > MAX_LOOKBACK ? latest - MAX_LOOKBACK : 0n;
     const floor = CAULDRON.deployBlock > lookbackFloor ? CAULDRON.deployBlock : lookbackFloor;
-    const logs: Awaited<ReturnType<typeof pc.getLogs>> = [];
+    // Typed via the call itself, not `ReturnType<typeof pc.getLogs>`: the bare
+    // overload returns generic logs with no decoded `args`, so annotating with it
+    // erases the Swap event's argument types.
+    const fetchSwaps = (fromBlock: bigint, toBlock: bigint) =>
+      pc.getLogs({
+        address: CAULDRON.poolManager, event: SWAP, args: { id: poolId },
+        fromBlock, toBlock,
+      });
+    const logs: Awaited<ReturnType<typeof fetchSwaps>> = [];
     for (let to = latest; to >= floor; to -= CHUNK) {
       const from = to > floor + CHUNK - 1n ? to - CHUNK + 1n : floor;
-      const chunk = await pc.getLogs({
-        address: CAULDRON.poolManager, event: SWAP, args: { id: poolId },
-        fromBlock: from, toBlock: to,
-      });
+      const chunk = await fetchSwaps(from, to);
       logs.unshift(...chunk);
       if (logs.length >= 120) break; // plenty for a chart line
       if (from === floor) break;

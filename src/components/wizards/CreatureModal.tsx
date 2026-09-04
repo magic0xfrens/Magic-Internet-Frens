@@ -81,7 +81,8 @@ export default function CreatureModal({ creature, onClose, onChanged }: Props) {
       const uri = await pc.readContract({ address: creature.collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [tid] }) as string;
       const art = await resolveArt(uri);
       setImage(art.image); setName(art.name);
-      try { setRarity(Number(await pc.readContract({ address: creature.collection, abi: COLLECTION_ABI, functionName: "rarityOf", args: [tid] }) as bigint)); } catch { /* none */ }
+      // rarityOf returns uint8, which viem decodes to a number - not a bigint.
+      try { setRarity(Number(await pc.readContract({ address: creature.collection, abi: COLLECTION_ABI, functionName: "rarityOf", args: [tid] }) as number)); } catch { /* none */ }
     } catch { /* ignore */ }
   }, [pc, creature.collection, tid]);
 
