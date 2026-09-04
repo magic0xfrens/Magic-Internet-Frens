@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePoll } from "@/hooks/usePoll";
-import { formatEther, parseEther, parseAbiItem, keccak256, encodeAbiParameters, type Address } from "viem";
+import { formatEther, parseEther, keccak256, encodeAbiParameters, type Address } from "viem";
 import {
   useAccount,
   usePublicClient,
@@ -10,12 +10,11 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import {
-  CAULDRON, CAULDRON_INDEXER, REGISTRY_ABI, HOOK_ABI, GOVERNOR_ABI, COLLECTION_ABI, TOKEN_ABI, SWAP_EVENT,
+  CAULDRON, CAULDRON_INDEXER, REGISTRY_ABI, HOOK_ABI, GOVERNOR_ABI, COLLECTION_ABI, TOKEN_ABI,
   POOLMANAGER_ABI, POSITION_MANAGER, POSITION_MANAGER_ABI, MIFRENS_ERC721_ABI,
 } from "@/config/cauldron";
 import { useEthUsd } from "./useEthUsd";
 
-const SWAP = parseAbiItem(SWAP_EVENT);
 
 export type Phase = "presale" | "live" | "dying" | "dead";
 
@@ -247,7 +246,14 @@ export function useCauldronMachine() {
         vol24hEth, vitality, deathThresholdEth: deathEth, isDead: !!d.dead,
         nftMinted: d.nftMinted ?? 0, nftMax: d.nftMax ?? 0,
         presaleMinted: CAULDRON.genesisSupply, presaleGoal: CAULDRON.genesisSupply,
-        priceSeries: prev.priceSeries, spotPrice: prev.spotPrice,
+        priceSeries: prev.priceSeries,
+        // Take the price straight off THIS response. /cauldron already carries
+        // the pool's latest indexed price, and it is the same number the chart
+        // draws — so the header, market cap and FDV move the moment a swap is
+        // indexed. Previously this carried `prev.spotPrice` and waited on the
+        // slower background series load, which is why a confirmed buy left the
+        // page unchanged while the trading chart had already updated.
+        spotPrice: d.spotPrice && d.spotPrice > 0 ? d.spotPrice : prev.spotPrice,
         // Carried over, not reset: the reserve is fetched separately just below,
         // and dropping it here blanks circulating market cap on every poll.
         reserveTokens: prev.reserveTokens,
@@ -263,18 +269,11 @@ export function useCauldronMachine() {
         .then((fj: { reserveTokens?: number }) => setS((prev) => ({ ...prev, reserveTokens: fj.reserveTokens ?? prev.reserveTokens })))
         .catch(() => { /* keep prior */ });
 
-      // Price series (indexer candles) + proposals load in the background —
-      // never blocking the brew paint. Both Ponder, zero browser RPC.
-      const pc = pcRef.current;
-      if (pc) {
-        loadSeries(pc, d.poolId as `0x${string}`, d.gen, d.token as Address)
-          .then(({ series, spot }) => setS((prev) => ({
-            ...prev,
-            priceSeries: series.length ? series : prev.priceSeries,
-            spotPrice: spot || prev.spotPrice,
-          })))
-          .catch(() => { /* keep prior series */ });
-      }
+      // The price SERIES is no longer loaded here. It used to have its own
+      // fetch-with-fallback path, which made this hook a second, slower source
+      // of truth for price — the header could sit on a stale number while the
+      // trading chart had already moved. Both now derive from useSwapTape, and
+      // spotPrice comes straight off the /cauldron response above.
       loadProposalsIndexed().then((proposals) => setS((prev) => ({ ...prev, proposals }))).catch(() => {});
       } catch {
         setS((prev) => ({ ...prev, loading: false }));
@@ -460,109 +459,6 @@ async function loadProposals(pc: PC): Promise<Proposal[]> {
   }
 }
 
-/** Price series for the chart. Prefers PER-TRADE points (livelier "heartbeat"
- *  line — every buy ticks up, every sell ticks down) from the indexer's raw
- *  swaps; falls back to candle closes, then on-chain getLogs.
- *
- *  IMPORTANT: the indexer keys pools by generation number, but a *redeployed*
- *  launchpad reuses gen #1 with a DIFFERENT token. So we first validate that the
- *  indexer's pool token matches the live on-chain token — otherwise it's stale
- *  data from a previous deploy (a rising line on a pool that has 0 real volume),
- *  and we fall through to reading the current pool on-chain instead. */
-async function loadSeries(
-  pc: PC, poolId: `0x${string}`, gen: number, currentToken?: Address,
-): Promise<{ series: number[]; spot: number }> {
-  const base = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "/api";
-  // 1) candles carry pool.token → use them to validate the iteration matches.
-  const url = CAULDRON_INDEXER ? `${base}/candles/${gen}?limit=120` : `${base}/candles?gen=${gen}&limit=120`;
-  let indexerFresh = false;
-  let candleSeries: number[] = [];
-  let candleSpot = 0;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json() as { pool?: { token?: string }; candles?: { o: number; c: number }[]; last?: number };
-      const tok = data.pool?.token?.toLowerCase();
-      indexerFresh = !!tok && !!currentToken && tok === currentToken.toLowerCase();
-      if (indexerFresh) {
-        const ks = (data.candles ?? []).filter((k) => k.c > 0 && Number.isFinite(k.c));
-        // Seed with the FIRST candle's OPEN (the launch price) so even a SINGLE
-        // trade renders as a 2-point line (launch → now) instead of the chart
-        // sitting on "awaiting first swaps…" after a real swap has happened.
-        const closes = ks.map((k) => k.c);
-        candleSeries = ks.length > 0 && ks[0].o > 0 && Number.isFinite(ks[0].o)
-          ? [ks[0].o, ...closes] : closes;
-        candleSpot = data.last && data.last > 0 ? data.last : candleSeries[candleSeries.length - 1] ?? 0;
-      }
-    }
-  } catch { /* endpoint down → on-chain below */ }
-
-  // 2) if the indexer is on the current iteration, prefer its per-trade tape.
-  if (indexerFresh) {
-    try {
-      const rurl = CAULDRON_INDEXER ? `${base}/recent/${gen}?limit=150` : `${base}/recent?gen=${gen}&limit=150`;
-      const rr = await fetch(rurl, { signal: AbortSignal.timeout(6000) });
-      if (rr.ok) {
-        const d = await rr.json() as { swaps?: { price: number }[] };
-        const pts = (d.swaps ?? []).map((s) => s.price).filter((p) => p > 0 && Number.isFinite(p)).reverse();
-        // ≥2 swaps → use the real per-trade tape. Exactly 1 swap → prefer the
-        // candle series (which is open-seeded to 2 points) so the chart still draws.
-        if (pts.length >= 2) return { series: pts, spot: pts[pts.length - 1] };
-      }
-    } catch { /* fall through to candles */ }
-    if (candleSeries.length > 0) return { series: candleSeries, spot: candleSpot };
-  }
-
-  // 3) stale indexer (or none) → read the CURRENT pool on-chain.
-  return loadSwapSeries(pc, poolId);
-}
-
-async function loadSwapSeries(pc: PC, poolId: `0x${string}`): Promise<{ series: number[]; spot: number }> {
-  try {
-    // Last-resort fallback (indexer down). Public RPCs cap getLogs at ~1000
-    // blocks/response, so walk backward in 1000-block windows until we have
-    // enough points or run out of a bounded lookback.
-    const CHUNK = 1000n;
-    const MAX_LOOKBACK = 40_000n; // ~ a few days on Sepolia
-    const latest = await pc.getBlockNumber();
-    // Never scan before the launchpad existed — the current pool can't have
-    // swaps older than the deploy. This keeps the fallback to a couple of
-    // getLogs calls (fast + reliable) instead of ~40 mostly-empty ones.
-    const lookbackFloor = latest > MAX_LOOKBACK ? latest - MAX_LOOKBACK : 0n;
-    const floor = CAULDRON.deployBlock > lookbackFloor ? CAULDRON.deployBlock : lookbackFloor;
-    // Typed via the call itself, not `ReturnType<typeof pc.getLogs>`: the bare
-    // overload returns generic logs with no decoded `args`, so annotating with it
-    // erases the Swap event's argument types.
-    const fetchSwaps = (fromBlock: bigint, toBlock: bigint) =>
-      pc.getLogs({
-        address: CAULDRON.poolManager, event: SWAP, args: { id: poolId },
-        fromBlock, toBlock,
-      });
-    const logs: Awaited<ReturnType<typeof fetchSwaps>> = [];
-    for (let to = latest; to >= floor; to -= CHUNK) {
-      const from = to > floor + CHUNK - 1n ? to - CHUNK + 1n : floor;
-      const chunk = await fetchSwaps(from, to);
-      logs.unshift(...chunk);
-      if (logs.length >= 120) break; // plenty for a chart line
-      if (from === floor) break;
-    }
-    const prices = logs
-      .map((l) => {
-        const sp = l.args.sqrtPriceX96 as bigint | undefined;
-        if (!sp) return 0;
-        // token is currency1; (sqrtP/2^96)^2 = token per ETH → invert = ETH per token.
-        const num = Number(sp) / 2 ** 96;
-        const tokenPerEth = num * num;
-        return tokenPerEth > 0 ? 1 / tokenPerEth : 0;
-      })
-      .filter((p) => p > 0 && Number.isFinite(p));
-    const spot = prices.length ? prices[prices.length - 1] : 0;
-    const series = prices.length <= 60 ? prices : sample(prices, 60);
-    return { series, spot };
-  } catch {
-    return { series: [], spot: 0 };
-  }
-}
 
 function sample(arr: number[], n: number): number[] {
   const out: number[] = [];

@@ -374,11 +374,21 @@ export default function TheCauldron() {
   const presale = useMiFrensPresale();
   // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
   const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
-  const tradeTape = useSwapTape(m.gen, m.summoned);
+  // m.txHash advances on every confirmed action, so the tape re-pulls right
+  // after a swap instead of waiting out its interval.
+  const tradeTape = useSwapTape(m.gen, m.summoned, 5000, m.confirmed ? m.txHash : null);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
   // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
   const livePerpPrice = tradeTape.length ? tradeTape[tradeTape.length - 1].price : m.spotPrice;
+
+  // The brew EKG plots the SAME tape the trading chart does. Deriving both from
+  // one source is what keeps them consistent; the tape is already fetched above
+  // for the chart, so this costs no extra request.
+  const ekgSeries = useMemo(
+    () => (tradeTape.length >= 2 ? tradeTape.map((t) => t.price) : m.priceSeries),
+    [tradeTape, m.priceSeries],
+  );
   // The view lives in the URL (`?v=…`) rather than local state: the left rail
   // owns the tab strip now, and Leverage / Governance become shareable links.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -641,7 +651,14 @@ export default function TheCauldron() {
                     </div>
                     {/* The Brew keeps a clean, simple price line — OI + the
                         liquidation heatmap live on the Leverage tab's chart. */}
-                    <EKG series={m.priceSeries} color={col} dead={m.phase === "dead"} />
+                    {/* ONE price source for the whole page. The brew line and the
+                        trading chart both read the indexer's per-trade tape, so
+                        they can never disagree about what the price did — which
+                        they previously could, because this line had its own
+                        fetch-and-fallback path that updated on a slower cycle.
+                        Falls back to the machine's series only when the tape has
+                        not loaded yet. */}
+                    <EKG series={ekgSeries} color={col} dead={m.phase === "dead"} />
                     <div className="tc-tele">
                       <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
                       <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
