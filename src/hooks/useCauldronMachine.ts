@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePoll } from "@/hooks/usePoll";
 import { formatEther, parseEther, parseAbiItem, keccak256, encodeAbiParameters, type Address } from "viem";
 import {
   useAccount,
@@ -283,11 +284,9 @@ export function useCauldronMachine() {
     }
   }, []); // stable — reads publicClient via pcRef; no churn, no fetch loop
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const id = setInterval(load, 15_000);
-    return () => clearInterval(id);
-  }, [load]);
+  // usePoll fires once on mount and again whenever the tab returns to the
+  // foreground, so no separate initial-load effect is needed.
+  usePoll(load, 15_000);
   useEffect(() => { if (confirmed) load(); }, [confirmed, load]);
 
   const relaunch = useCallback(async (): Promise<`0x${string}`> => {

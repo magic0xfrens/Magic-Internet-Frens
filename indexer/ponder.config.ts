@@ -66,7 +66,17 @@ export default createConfig({
         const list = env.length > 0 ? env : DEFAULTS;
         return list.length > 1 ? list : list[0];
       })(),
-      pollingInterval: Number(process.env.POLLING_INTERVAL_MS ?? 1500), // index new blocks fast
+      // Block polling, matched to the chain's actual block time.
+      //
+      // Sepolia produces a block roughly every 12s, so polling at 1.5s spends
+      // about eight requests to learn nothing seven times. 4s still surfaces a
+      // new block within a few seconds of it landing, at a third of the request
+      // volume. The Orbit L2 target has sub-second blocks, where fast polling is
+      // genuinely useful — so pick from the manifest's chainId rather than
+      // running the L2 cadence against an L1 testnet.
+      pollingInterval: Number(
+        process.env.POLLING_INTERVAL_MS ?? (chainId === 4663 ? 1000 : 4000),
+      ),
       // Per-endpoint request cap. With N rotated keys the effective throughput is
       // N × this. Default scales with the number of endpoints provided.
       maxRequestsPerSecond: Number(

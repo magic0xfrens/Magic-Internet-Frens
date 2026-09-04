@@ -9,6 +9,26 @@ import round from "../../deployments/round.json";
 
 const app = new Hono();
 app.use("*", cors({ origin: process.env.CORS_ORIGIN ?? "*" }));
+
+// Short-lived shared caching on every read.
+//
+// The frontend polls several of these endpoints from every open tab, and the
+// data behind them only changes as fast as the chain does. Without a
+// Cache-Control header each poll is a full round-trip to Postgres plus, on some
+// routes, live chain reads — so N viewers cost N times as much for identical
+// bytes. A few seconds of shared caching collapses that to roughly one
+// computation per interval regardless of audience size, while staying well
+// inside the polling period so nothing looks stale.
+//
+// stale-while-revalidate lets a proxy serve the previous body during a refresh,
+// so a slow query never becomes a slow page.
+const READ_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
+app.use("*", async (c, next) => {
+  await next();
+  if (c.req.method === "GET" && !c.res.headers.has("Cache-Control")) {
+    c.res.headers.set("Cache-Control", READ_CACHE);
+  }
+});
 app.use("/graphql", graphql({ db, schema }));
 app.use("/", graphql({ db, schema }));
 

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
+import { usePoll } from "@/hooks/usePoll";
 
 export interface Trade { price: number; amountEth: number; isBuy: boolean; t: number; o: number }
 
@@ -13,15 +14,13 @@ const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 export function useSwapTape(generation = 1, enabled = true, intervalMs = 5000): Trade[] {
   const [trades, setTrades] = useState<Trade[]>([]);
 
-  useEffect(() => {
-    if (!enabled || !INDEXER) { setTrades([]); return; }
-    let alive = true;
-    const load = async () => {
+  const load = useCallback(async () => {
+    if (!INDEXER) return;
+    {
       try {
         const res = await fetch(`${INDEXER}/recent/${generation}?limit=5000`, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return;
         const d = await res.json() as { swaps?: Array<{ price: number; amountEth: number; isBuy: boolean; t: number; o?: number }> };
-        if (!alive) return;
         const rows = (d.swaps ?? [])
           .filter((s) => s.price > 0 && Number.isFinite(s.price) && s.t > 0)
           .map((s, i) => ({ price: s.price, amountEth: s.amountEth, isBuy: s.isBuy, t: s.t, o: s.o ?? i }))
@@ -31,11 +30,10 @@ export function useSwapTape(generation = 1, enabled = true, intervalMs = 5000): 
           .sort((a, b) => a.o - b.o);
         setTrades(rows);
       } catch { /* keep last */ }
-    };
-    load();
-    const t = setInterval(load, intervalMs);
-    return () => { alive = false; clearInterval(t); };
-  }, [generation, enabled, intervalMs]);
+    }
+  }, [generation]);
+
+  usePoll(load, intervalMs, enabled && !!INDEXER);
 
   return trades;
 }

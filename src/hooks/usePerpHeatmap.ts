@@ -71,8 +71,19 @@ export function usePerpHeatmap(enabled: boolean, generation = 1, intervalMs = 50
       }
     };
     load();
-    const t = setInterval(load, intervalMs);
-    return () => { alive = false; clearInterval(t); };
+    // Pause while the tab is backgrounded, refresh on return: an idle tab
+    // should cost nothing. Mirrors usePoll.
+    let t: ReturnType<typeof setInterval> | null = setInterval(load, intervalMs);
+    const onVis = () => {
+      if (document.hidden) { if (t) { clearInterval(t); t = null; } }
+      else if (!t) { load(); t = setInterval(load, intervalMs); }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      if (t) clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [intervalMs]);
 
   return data;

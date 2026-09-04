@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePoll } from "@/hooks/usePoll";
 import {
   useAccount,
   useReadContract,
@@ -43,21 +44,15 @@ export function useMiFrensPresale() {
   // public Sepolia RPC — that dependency was showing "0 / 1111" + hiding the
   // summon button whenever the public nodes rate-limited. Polls fast.
   const [ponder, setPonder] = useState<{ minted?: number; soldOut?: boolean; finalized?: boolean; airdropPerFren?: number; airdropTicker?: string }>({});
-  useEffect(() => {
-    if (!INDEXER) return;
-    let alive = true;
-    const load = async () => {
-      try {
-        const r = await fetch(`${INDEXER}/presale`, { signal: AbortSignal.timeout(8000) });
-        if (!r.ok) return;
-        const d = await r.json() as { minted?: number; soldOut?: boolean; finalized?: boolean; airdropPerFren?: number; airdropTicker?: string };
-        if (alive) setPonder(d);
-      } catch { /* keep last */ }
-    };
-    load();
-    const t = setInterval(load, 5000);
-    return () => { alive = false; clearInterval(t); };
+  const loadPresale = useCallback(async () => {
+    try {
+      const r = await fetch(`${INDEXER}/presale`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return;
+      setPonder(await r.json() as { minted?: number; soldOut?: boolean; finalized?: boolean; airdropPerFren?: number; airdropTicker?: string });
+    } catch { /* keep last */ }
   }, []);
+  // 5s -> 10s: mint counts move on human timescales, not block timescales.
+  usePoll(loadPresale, 10_000, !!INDEXER);
 
   // FALLBACK: the direct contract reads (used only if the indexer is unset/down).
   const { data: mintedRpc, refetch: refetchMinted } = useReadContract({

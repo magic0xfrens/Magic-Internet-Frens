@@ -118,8 +118,19 @@ export function usePerpEngine(generation = 1) {
       } catch { /* keep last */ }
     };
     load();
-    const t = setInterval(load, 4000);
-    return () => { alive = false; clearInterval(t); };
+    // Pause while the tab is backgrounded, refresh on return: an idle tab
+    // should cost nothing. Mirrors usePoll.
+    let t: ReturnType<typeof setInterval> | null = setInterval(load, 4000);
+    const onVis = () => {
+      if (document.hidden) { if (t) { clearInterval(t); t = null; } }
+      else if (!t) { load(); t = setInterval(load, 4000); }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      if (t) clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [generation, confirmed]);
 
   // ── the wallet's open positions FROM PONDER (/perp-positions/:trader) ──
