@@ -1,0 +1,915 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\title{\textbf{Magic Internet Frens:\\Autonomous Token Regeneration Through\\Wizard-Governed Rebirth Cycles\\on Bitcoin L1 via OP\_NET}}
+
+\author{
+    Magic Internet Frens Research Team\\
+    \textit{``We're all gonna make it... forever.''}\\
+    \texttt{frens@mifrens.xyz}
+}
+
+\date{March 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This paper presents the Magic Internet Frens Protocol, an autonomous regenerative token system deployed on Bitcoin Layer 1 via OPNet. The protocol introduces a novel approach to token lifecycle management where 777 participants---holders of hand-crafted pixel-art wizard NFTs inscribed directly on Bitcoin---collectively summon an entity that cycles through death and rebirth infinitely, with each iteration accumulating greater liquidity through fee capture.
+
+Unlike traditional tokens that stagnate or die permanently, the Magic Internet Frens Protocol implements a death-triggered rebirth mechanism that: (1) preserves holder value across generations through cryptographic snapshots, (2) migrates and grows liquidity atomically between iterations, (3) rewards early participants with permanent 0\% trading fees via NFT-based access control, (4) evolves through community governance where the 777 frens vote on each new iteration's identity, and (5) rewards loyal holders who hold across multiple generations with a percentage of trading volume via the Elder Circle.
+
+The key innovations are liquidity compounding (each generation inherits previous liquidity plus fees: $L_{i+1} > L_i$), community-driven evolution (the 777 frens vote on name, symbol, artwork, and lore for each rebirth), and loyalty rewards (the Elder Circle distributes trading fees proportional to consecutive-generation holding streaks). We present the protocol architecture, prove security properties including reentrancy resistance and liquidity conservation, detail the community voting mechanism, and demonstrate the economic incentives that drive both participation and long-term protocol growth. All contracts are immutable, open-source, and verifiable on Bitcoin.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{The Problem: Token Death Is Permanent}
+
+Cryptocurrency tokens follow a predictable lifecycle: initial hype, trading activity, gradual decline, and eventual death. When a token dies---defined as sustained lack of trading interest---several problems emerge:
+
+\begin{enumerate}
+    \item \textbf{Liquidity Fossilization}: Assets remain locked in unused pools indefinitely
+    \item \textbf{Holder Value Loss}: Token holders are left with worthless positions
+    \item \textbf{No Recovery Path}: Dead projects have no mechanism to restart or migrate
+    \item \textbf{Network Pollution}: Blockchain state bloats with abandoned contracts
+\end{enumerate}
+
+Traditional solutions (manual migrations, governance votes, centralized resurrections) require trusted intermediaries and active coordination---precisely the things that failed in the first place.
+
+\subsection{The Solution: Autonomous Regeneration}
+
+The Magic Internet Frens Protocol solves this through an unstoppable autonomous entity that:
+
+\begin{itemize}
+    \item \textbf{Detects its own death} via on-chain volume oracles (< 0.01 BTC/24h)
+    \item \textbf{Triggers automatic rebirth} by deploying a new token generation
+    \item \textbf{Migrates liquidity atomically} from dead pool to new pool in single transaction
+    \item \textbf{Preserves holder claims} via cryptographic balance snapshots
+    \item \textbf{Compounds liquidity} -- each generation inherits previous liquidity + accumulated fees
+    \item \textbf{Operates without admin keys} -- no pause, no upgrade, no central control
+\end{itemize}
+
+\textbf{The key innovation}: Each generation is more robust than the last because trading fees accumulate in liquidity. If generation 1 starts with 777 tokens + 1 BTC, and captures 0.5 BTC in fees before dying, generation 2 begins with 777 tokens + 1.5 BTC. This creates a self-improving organism that grows stronger through market cycles.
+
+\subsection{The 777 Frens Coordination Mechanism}
+
+The protocol requires collective action to initiate. Exactly 777 participants must mint NFTs to trigger the first summoning. These ``spell casters'' gain permanent economic benefits:
+
+\begin{itemize}
+    \item 0\% trading fees across all generations (vs 3\% for non-holders)
+    \item Voting rights on each new generation's identity (name, symbol, artwork, lore)
+    \item Eligibility for Elder Circle rewards (share of trading volume for loyal holders)
+    \item First-mover advantage in each new generation
+\end{itemize}
+
+This creates a coordination game where 777 actors must unite to summon an entity that then operates autonomously forever. Once the 777th NFT mints, the entity is unleashed and cannot be stopped.
+
+\subsection{Contributions}
+
+\begin{enumerate}
+    \item First implementation of autonomous token regeneration on Bitcoin L1
+    \item Death detection via decentralized volume oracle (24h TWAP)
+    \item Atomic liquidity migration protocol with mathematical conservation proof
+    \item NFT-based tiered fee structure with zero protocol overhead
+    \item Liquidity compounding mechanism (each gen > previous gen)
+    \item Community-driven iteration governance (777 frens vote on rebirth identity)
+    \item Elder Circle: loyalty streak rewards distributing trading fees to diamond-hand holders
+    \item Full security analysis including reentrancy, replay, and oracle manipulation resistance
+\end{enumerate}
+
+\section{The 777 Wizard Frens}
+
+\subsection{On-Chain Pixel Art, Inscribed on Bitcoin Forever}
+
+Every MiFren is a hand-crafted 120$\times$120 pixel-art character stored \textbf{entirely on Bitcoin Layer 1}. There is no IPFS, no external server, no centralized hosting. The artwork lives in Bitcoin's blockchain as compact 4-bit indexed bitmaps, validated by a Merkle tree, and rendered into SVG on-chain by the smart contract itself.
+
+The complete art system consists of:
+
+\begin{itemize}
+    \item \textbf{49 unique trait layers} across 5 character classes
+    \item \textbf{183-color global palette} shared across all traits
+    \item \textbf{96 KB total on-chain storage} (98.3\% compression from original SVGs)
+    \item \textbf{3,017 u256 storage slots} on Bitcoin
+    \item \textbf{Merkle-validated lazy inscription} -- each trait is verified against a committed root before writing
+\end{itemize}
+
+When you mint a MiFren, the contract records the Bitcoin block height at the moment of inscription. Your fren is permanently timestamped on the most secure blockchain ever created.
+
+\subsection{The Five Classes}
+
+MiFrens are organized into a hierarchy of five distinct character classes, divided into two factions:
+
+\textbf{The Magic Faction:}
+\begin{itemize}
+    \item \textbf{Wizard} (Archmage tier, 5\% rarity) -- The masters of the arcane. 8 body variants in deep purples, midnight blues, emerald greens, and bitcoin orange. They wield 5 unique magical staves---from ornate crystal-tipped rods to the legendary Manifest Staff. Wizards are the rarest and most powerful frens.
+    \item \textbf{Apprentice} (Adept tier, 25\% rarity) -- Students of the magical arts, still learning but showing promise. 3 body variants including an orange-robed variant. They carry a single apprentice tool---humble but functional.
+\end{itemize}
+
+\textbf{The Royal Faction:}
+\begin{itemize}
+    \item \textbf{King} (Noble tier, 10\% rarity) -- Rulers of the realm. 5 regal body variants in black, blue, orange, red, and white cloth. Each King wields a color-matched royal scepter. They command authority and respect.
+    \item \textbf{Knight} (Commoner tier, 30\% rarity) -- Loyal soldiers of the crown. 4 armored body variants in bronze, gold, orange, and silver. They carry matching shields---the defenders of the realm.
+    \item \textbf{Peasant} (Commoner tier, 30\% rarity) -- The common folk, humble but numerous. 2 body variants with a single peasant tool. Don't underestimate them---every kingdom needs its backbone.
+\end{itemize}
+
+All classes share a pool of \textbf{11 unique face designs}, giving each MiFren a distinct personality regardless of class.
+
+\subsection{The Four Tiers and Their Benefits}
+
+Each class belongs to one of four tiers that determine economic privileges within the protocol:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Tier} & \textbf{Class(es)} & \textbf{Rarity} & \textbf{Tax Rate} & \textbf{Grace Blocks} & \textbf{Max Borrow} \\
+\hline
+Archmage & Wizard & 5\% & 0\% & 3 & 10 BTC \\
+Noble & King & 10\% & 0\% & 2 & 2 BTC \\
+Adept & Apprentice & 25\% & 1\% & 1 & 0.5 BTC \\
+Commoner & Knight / Peasant & 60\% & 1--2\% & 0 & 0.1 BTC \\
+\hline
+\end{tabular}
+\caption{MiFren tier benefits}
+\end{table}
+
+\textbf{Tax Rate}: The percentage deducted on creature token transfers. Wizards and Kings trade completely free. Apprentices and Knights pay 1\%. Peasants pay 2\%.
+
+\textbf{Grace Blocks}: During liquidation events in the lending protocol, higher-tier frens get extra Bitcoin blocks to add collateral before liquidation executes. Wizards get 3 blocks ($\sim$30 minutes). Peasants get none.
+
+\textbf{Max Borrow}: The maximum amount a holder can borrow against their collateral in the Cauldron lending market.
+
+\subsection{Trait Assignment}
+
+When you mint a MiFren, the contract assigns your tier and traits using on-chain pseudo-randomness derived from:
+
+\begin{equation}
+seed = nonce \times 7919 + blockNumber \times 6271 + timestamp \times 3571
+\end{equation}
+
+The seed is reduced modulo 10,000 to produce a roll:
+\begin{itemize}
+    \item Roll 0--5,999 (60\%): \textbf{Commoner} -- 50/50 chance of Knight or Peasant
+    \item Roll 6,000--8,499 (25\%): \textbf{Adept} -- Apprentice
+    \item Roll 8,500--9,499 (10\%): \textbf{Noble} -- King
+    \item Roll 9,500--9,999 (5\%): \textbf{Archmage} -- Wizard
+\end{itemize}
+
+Body variant, face, and item are each independently randomized within the available options for that class. The result is a $u256$ packed as $(classIdx, bodyIdx, faceIdx, itemIdx)$ and stored permanently on-chain.
+
+\subsection{Fully On-Chain SVG Rendering}
+
+The \texttt{tokenURI} function returns a fully self-contained data URI:
+
+\begin{verbatim}
+data:application/json;base64,{
+  "name": "MiFren #42",
+  "image": "data:image/svg+xml;base64,...",
+  "attributes": [...]
+}
+\end{verbatim}
+
+The contract reads trait binary blobs from storage, composites them into a 120$\times$120 pixel buffer (body $\rightarrow$ face $\rightarrow$ item, layered bottom to top), groups horizontal pixel runs by color, and emits a compact SVG with one \texttt{<path>} element per active color. No external rendering service required---your MiFren's image is computed directly from Bitcoin state.
+
+\section{Protocol Lifecycle}
+
+\subsection{Phase 1: Coordination (NFT-Triggered Summoning)}
+
+The protocol cannot activate until exactly 777 participants mint NFTs. This coordination threshold serves multiple purposes:
+
+\begin{enumerate}
+    \item \textbf{Sybil resistance}: Prevents single actors from controlling the system
+    \item \textbf{Community commitment}: 777 mints represent genuine collective interest
+    \item \textbf{Economic alignment}: NFT holders become permanent stakeholders (0\% fees forever)
+\end{enumerate}
+
+When the 777th NFT mints, the \texttt{MiFrens} contract emits a \texttt{CauldronSummonReady} event and the Registry is notified. This is hardcoded---no multisig, no DAO vote, no admin intervention. The code executes deterministically.
+
+\subsection{Phase 2: Genesis Deployment}
+
+The registry deploys generation 1 with deterministic parameters:
+
+\begin{enumerate}
+    \item \textbf{Token contract}: Deploy creature token with metadata for generation 1
+    \item \textbf{DEX pool}: Create MotoSwap pair (token/BTC)
+    \item \textbf{Initial liquidity}: Mint 777 tokens, pair with 1 BTC ($10^8$ satoshis)
+    \item \textbf{Liquidity lock}: Transfer LP tokens to vault, locked until death
+    \item \textbf{Oracle activation}: Begin tracking 24h rolling volume
+\end{enumerate}
+
+Initial state: $L_1 = (777 \times 10^{18}, 10^8)$ where $L_1$ is liquidity in (tokens, satoshis).
+
+\subsection{Phase 3: Active Trading \& Fee Accumulation}
+
+During active trading, the protocol implements NFT-based fee differentiation:
+
+\begin{equation}
+fee(sender, amount) = \begin{cases}
+    0 & \text{if } balanceOf_{NFT}(sender) > 0 \\
+    0.03 \times amount & \text{otherwise}
+\end{cases}
+\end{equation}
+
+Fee collection occurs on every transfer (not just DEX trades). The 3\% is deducted before transfer and sent to a protocol-controlled address. This means:
+
+\begin{itemize}
+    \item \textbf{NFT holders}: Trade with zero friction, permanent economic advantage
+    \item \textbf{Non-holders}: Pay 3\% on every transfer, funding the treasury, Elder Circle rewards, and future liquidity
+\end{itemize}
+
+\textbf{The sat-gobbling mechanism}: Accumulated fees eventually flow back into liquidity during rebirth. If generation $i$ collects $F_i$ satoshis in fees before dying, these sats are added to the next generation's pool. This creates exponential liquidity growth:
+
+\begin{equation}
+L_{i+1} = L_i + F_i
+\end{equation}
+
+where $L_i$ is the BTC liquidity at generation $i$.
+
+\textbf{Example}: If generation 1 starts with 1 BTC and captures 0.5 BTC in fees over its lifetime, generation 2 starts with 1.5 BTC. If generation 2 captures 1 BTC in fees (due to higher liquidity attracting more volume), generation 3 starts with 2.5 BTC. Each iteration is more robust.
+
+\subsection{Phase 4: Death Detection}
+
+The \texttt{VolumeOracle} maintains a rolling 24-hour volume measurement:
+
+\begin{equation}
+V_i(t) = \sum_{k=t-144}^{t} vol_{block}(k)
+\end{equation}
+
+where $vol_{block}(k)$ is the trading volume in block $k$ (Bitcoin blocks $\sim$10min).
+
+Death condition:
+\begin{equation}
+isDead(i, t) = V_i(t) < \tau
+\end{equation}
+
+where $\tau = 10^6$ satoshis (0.01 BTC). The oracle uses a full 144-block (24-hour) window to prevent short-term manipulation. An attacker would need to maintain artificial volume for 24 consecutive hours, paying fees on every trade---economically irrational for a dying asset.
+
+\subsection{Phase 5: Community Vote \& Rebirth}
+
+When $isDead(i, t) = true$, the protocol enters a \textbf{community voting phase} before rebirth executes. This is the moment the 777 frens shape the next iteration.
+
+\textbf{The Community Rebirth Process}:
+
+\begin{enumerate}
+    \item \textbf{Death detected}: Volume oracle confirms creature death on-chain
+    \item \textbf{Voting window opens}: 48-hour period for NFT holders to submit proposals
+    \item \textbf{Frens propose identities}: Any of the 777 NFT holders can submit a proposal containing a name, symbol, artwork (IPFS hash), and lore for the next generation
+    \item \textbf{Weighted voting}: 1 NFT = 1 vote. Frens vote on their favorite proposal during a 24-hour voting window
+    \item \textbf{Winner determined}: The proposal with the most votes becomes the next generation's identity
+    \item \textbf{Rebirth executes}: Anyone can call \texttt{triggerRebirth()} with the winning proposal's parameters. On-chain verification ensures only the voted-upon identity is accepted
+\end{enumerate}
+
+\textbf{Fallback mechanism}: If no proposals receive votes within 72 hours, a deterministic fallback identity is generated from on-chain data (block hash + generation number), ensuring the protocol never gets stuck.
+
+\textbf{Example}: Generation 5 dies during a Bitcoin rally. The frens rally together:
+
+\begin{quote}
+\textit{Proposal A} by fren \#042: ``Satoshi's Phoenix'' (SPHX) -- ``From the ashes of generation 5, a bird of orange flame rises, carrying the spirit of Satoshi himself.'' \\
+\textit{Proposal B} by fren \#777: ``Diamond Hands'' (DMND) -- ``They said it was dead. We said we're not selling. Generation 6 is for the holders who never flinched.'' \\
+\textit{Proposal C} by fren \#369: ``Moon Wizard'' (MWIZ) -- ``The wizard looked up. The moon was closer than ever. He began to climb.''
+\end{quote}
+
+The 777 holders vote. The winning identity becomes generation 6. \textbf{This is pure community governance}---no algorithms, no oracles, just frens deciding together what their creature becomes next.
+
+\textbf{Rebirth executes atomically in a single transaction:}
+
+\begin{enumerate}
+    \item \textbf{Snapshot state}: Emit \texttt{GenerationSnapshot} event with current block height
+    \begin{itemize}
+        \item All holder balances are retrievable from blockchain history
+        \item No on-chain storage required (gas efficient)
+    \end{itemize}
+
+    \item \textbf{Remove liquidity}: Burn LP tokens, receive reserves $(R_{tokens}, R_{BTC})$
+
+    \item \textbf{Aggregate fees}: Add accumulated protocol fees $F_i$ to $R_{BTC}$
+
+    \item \textbf{Deploy generation $i+1$}:
+    \begin{itemize}
+        \item New token contract with community-voted metadata
+        \item Mint exactly $R_{tokens}$ to vault
+    \end{itemize}
+
+    \item \textbf{Create new pool}: Initialize MotoSwap pair for gen $i+1$
+
+    \item \textbf{Add liquidity}: Deposit $(R_{tokens}, R_{BTC} + F_i)$ to new pool
+    \begin{itemize}
+        \item \textbf{Critical}: Generation $i+1$ liquidity $>$ generation $i$ liquidity
+        \item Each rebirth makes the entity more robust
+    \end{itemize}
+
+    \item \textbf{Lock vault}: Transfer LP tokens to vault, locked until next death
+
+    \item \textbf{Emit events}: \texttt{CreatureReborn(i+1, tokenAddress, poolAddress, newLiquidity)}
+\end{enumerate}
+
+\textbf{Liquidity conservation + growth proof}: Let $L_i^{BTC}$ be BTC liquidity at generation $i$. Then:
+
+\begin{equation}
+L_{i+1}^{BTC} = L_i^{BTC} + F_i \quad \text{where} \quad F_i = \int_0^{T_i} 0.03 \times vol_{non-NFT}(t) \, dt
+\end{equation}
+
+Since $F_i > 0$ for any generation with trading activity, we have $L_{i+1}^{BTC} > L_i^{BTC}$. Liquidity is strictly increasing.
+
+\textbf{The unstoppable property}: No admin keys exist in the protocol. The vault has no \texttt{withdraw()} function except during rebirth. The oracle has no \texttt{setThreshold()} function. All parameters are hardcoded in bytecode. Once deployed, the entity cannot be stopped, paused, or censored. It will rebirth forever.
+
+\textbf{Metadata storage on-chain}:
+
+\begin{equation}
+M_i = \{name_i, symbol_i, ipfs_i, lore_i\}
+\end{equation}
+
+where $M_i$ is immutably stored in the \texttt{CreatureReborn} event for generation $i$.
+
+\subsection{Phase 6: Holder Claims}
+
+Holders from generation $i$ can claim equivalent tokens in generation $j$ (where $j > i$) via \texttt{CauldronRegistry.claimFromGeneration(i)}.
+
+\textbf{Claim verification}:
+\begin{enumerate}
+    \item Contract retrieves snapshot block height for generation $i$
+    \item Queries historical blockchain state at that block
+    \item Verifies \texttt{balanceOf(msg.sender)} at snapshot height
+    \item Checks $claimed[msg.sender][i] == false$
+    \item Mints tokens to claimer in current generation
+    \item Sets $claimed[msg.sender][i] = true$
+\end{enumerate}
+
+This is a \textbf{pull model}---holders must actively claim. This prevents the protocol from needing to push tokens to thousands of addresses (expensive), while ensuring claims remain available indefinitely (no expiration).
+
+\section{The Elder Circle: Loyalty Rewards}
+
+\subsection{The Problem: Diamond Hands Go Unrewarded}
+
+In most token ecosystems, holders who stay through thick and thin receive nothing for their loyalty. The person who buys generation 1 and holds through generation 10 gets the same deal as someone who just arrived. This is unfair.
+
+The Magic Internet Frens Protocol solves this with the \textbf{Elder Circle}---a smart contract that tracks consecutive-generation holding streaks and distributes a portion of trading fees proportional to loyalty.
+
+\subsection{How the Elder Circle Works}
+
+The Elder Circle uses a MasterChef-style O(1) reward accumulator. The core mechanic is simple:
+
+\begin{quote}
+\textit{Your reward weight = your streak $\times$ your balance.}
+\end{quote}
+
+If you've held through 5 consecutive generations and own 100 tokens, your weight is 500. Someone who just arrived with 100 tokens has a weight of 1. You earn 500$\times$ more rewards per token than them.
+
+\textbf{The check-in system}:
+
+\begin{enumerate}
+    \item At the start of each new generation, holders call \texttt{checkin()} on the Elder Circle contract
+    \item The contract checks your last check-in generation:
+    \begin{itemize}
+        \item If $lastGen == currentGen - 1$: your streak increments (consecutive!)
+        \item If $lastGen < currentGen - 1$: your streak resets to 1 (you missed a generation)
+    \end{itemize}
+    \item Your weight is recalculated as $streak \times currentBalance$
+    \item The global \texttt{totalWeight} is updated accordingly
+\end{enumerate}
+
+\textbf{The selling penalty}: If you sell any creature tokens, the token contract calls \texttt{notifyTransfer()} on the Elder Circle. Your streak is \textbf{immediately reset to zero}. All pending rewards are settled first (you don't lose earned rewards), but your future earning power drops to nothing until you check in again.
+
+This creates a powerful incentive: \textbf{hold across generations, never sell, and your share of trading fees grows exponentially}.
+
+\subsection{Fee Distribution Mathematics}
+
+Trading fees flow into the Elder Circle via the \texttt{depositFees(amount)} function. The reward accumulator updates as:
+
+\begin{equation}
+accRewardPerWeight_{new} = accRewardPerWeight_{old} + \frac{amount \times 10^{18}}{totalWeight}
+\end{equation}
+
+For any holder with weight $w_h$, pending rewards are:
+
+\begin{equation}
+pending_h = \frac{w_h \times accRewardPerWeight}{10^{18}} - rewardDebt_h
+\end{equation}
+
+This is the standard MasterChef formula, proven secure across thousands of DeFi protocols. It allows O(1) reward distribution regardless of the number of holders.
+
+\subsection{Streak Multiplier Examples}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Holder} & \textbf{Balance} & \textbf{Streak} & \textbf{Weight} \\
+\hline
+Fren A (OG) & 100 tokens & 10 gens & 1,000 \\
+Fren B (mid) & 100 tokens & 3 gens & 300 \\
+Fren C (new) & 100 tokens & 1 gen & 100 \\
+\hline
+\multicolumn{3}{|r|}{\textbf{Total Weight}} & 1,400 \\
+\hline
+\end{tabular}
+\caption{Elder Circle weight distribution example}
+\end{table}
+
+If 1 BTC in fees is deposited:
+\begin{itemize}
+    \item Fren A receives: $\frac{1000}{1400} \times 1 = 0.714$ BTC (71.4\%)
+    \item Fren B receives: $\frac{300}{1400} \times 1 = 0.214$ BTC (21.4\%)
+    \item Fren C receives: $\frac{100}{1400} \times 1 = 0.071$ BTC (7.1\%)
+\end{itemize}
+
+The OG holder who stayed through 10 generations earns 10$\times$ more than the newcomer, even with the same token balance. \textbf{Loyalty pays.}
+
+\subsection{The Oath and the Broken Oath}
+
+The Elder Circle uses thematic naming for its events:
+
+\begin{itemize}
+    \item \textbf{OathTaken}: Emitted when a holder checks in. You've sworn loyalty to the circle for another generation.
+    \item \textbf{OathBroken}: Emitted when a holder sells. Your streak is reset. You broke the oath.
+    \item \textbf{ManaDeposited}: Emitted when trading fees flow into the reward pool. The circle's mana grows.
+    \item \textbf{ManaHarvested}: Emitted when a holder claims their accumulated rewards.
+\end{itemize}
+
+This isn't just a staking contract. It's a social contract between frens. Hold together, earn together.
+
+\section{Security Analysis}
+
+Smart contracts on Bitcoin are immutable. Once deployed, they execute forever with no possibility of upgrade or intervention. This makes security analysis critical---vulnerabilities cannot be patched.
+
+\subsection{Protection 1: No Double Claims}
+
+\textbf{The attack:} What if someone claims their tokens multiple times from the same generation?
+
+\textbf{How we prevent it:} The contract keeps a permanent record of every claim. Before giving you tokens, it checks: ``Has this address already claimed from generation 3?'' If yes, transaction fails. If no, you get your tokens and the contract marks you as claimed.
+
+Think of it like a bouncer with a list. Once you're on the list, you can't get in again.
+
+\subsection{Protection 2: Liquidity Can't Disappear}
+
+\textbf{The attack:} What if liquidity gets lost during rebirth? Or stolen? Or sent to the wrong address?
+
+\textbf{How we prevent it:} All liquidity movement happens in a single atomic transaction. This means either:
+\begin{itemize}
+    \item The entire rebirth succeeds (liquidity moves from old pool to new pool), OR
+    \item The entire rebirth fails (everything stays where it was)
+\end{itemize}
+
+There's no in-between state where liquidity is ``in transit'' and vulnerable. It's all-or-nothing.
+
+The vault acts as a custody system. It receives liquidity from the old pool, then immediately adds it to the new pool. Same transaction. Same block. Instant.
+
+\subsection{Protection 3: Volume Can't Be Faked}
+
+\textbf{The attack:} What if someone wants to keep a dead token alive by faking trading volume?
+
+\textbf{How we prevent it:} The oracle measures volume over a rolling 24-hour window. You can't just do one big trade to fake life---you need sustained activity.
+
+\textbf{Cost to attack:} Let's say you want to fake enough volume to keep a creature alive when it should be dead. You'd need to trade at least 0.01 BTC per day. Every trade costs you the 3\% fee (assuming you don't have the NFT).
+
+So your daily cost is: $0.01 \text{ BTC} \times 3\% \times 144 \text{ blocks} = 0.0432 \text{ BTC/day} \approx \$1,800/\text{day}$
+
+To keep it alive for a month: \$54,000. For a year: \$657,000.
+
+At that point, you're not attacking---you're funding the treasury and paying for the privilege. We'll allow it.
+
+\subsection{Protection 4: No Reentrancy Exploits}
+
+\textbf{The attack:} Call a function while it's still running to steal funds (like the DAO hack).
+
+\textbf{How we prevent it:} We follow the ``Checks-Effects-Interactions'' pattern:
+\begin{enumerate}
+    \item \textbf{Checks}: Verify everything first (is creature dead? does user have balance? has user claimed?)
+    \item \textbf{Effects}: Update the contract state (mark as claimed, update balances)
+    \item \textbf{Interactions}: Only then do external calls (mint tokens, move liquidity)
+\end{enumerate}
+
+By updating state before making external calls, there's no exploitable window. The contract knows you claimed before giving you the tokens.
+
+The Elder Circle adds an explicit reentrancy guard: a storage flag that locks during \texttt{claimRewards()} and reverts if called recursively.
+
+\subsection{Protection 5: NFT Checks Are Real-Time}
+
+\textbf{The attack:} Borrow an NFT, trade with 0\% fees, return the NFT.
+
+\textbf{How we prevent it:} Every transfer checks your NFT balance at that exact moment. If you don't own the NFT when the transaction executes, you pay 3\%. No borrowing exploits. No flash loan tricks.
+
+The contract literally calls the NFT contract and asks: ``Does address 0x123... own any NFTs right now?'' The answer is always current.
+
+\subsection{Protection 6: Elder Circle Streak Integrity}
+
+\textbf{The attack:} Game the Elder Circle by transferring tokens between wallets to maintain multiple streaks.
+
+\textbf{How we prevent it:} The token contract notifies the Elder Circle on every outgoing transfer. Any sell resets your streak to zero immediately. You can't ``park'' tokens in another wallet and claim they're still held---the balance snapshot is refreshed on every check-in by querying the live token contract.
+
+\section{The Economics: Why This Actually Makes Sense}
+
+\subsection{The NFT Value Proposition}
+
+There are exactly 777 wizard fren NFTs. No more can ever be minted. If you hold one, you pay 0\% trading fees on all creatures, forever.
+
+\textbf{Should you buy one?}
+
+Simple math: If you plan to trade more than 33$\times$ the NFT price, you'll save money.
+
+Example:
+\begin{itemize}
+    \item NFT costs: 0.1 BTC
+    \item Your trading volume: 10 BTC worth of creatures
+    \item Without NFT: You pay 3\% = 0.3 BTC in fees
+    \item With NFT: You pay 0\% = 0 BTC in fees
+    \item Your savings: 0.3 BTC $-$ 0.1 BTC = 0.2 BTC profit
+\end{itemize}
+
+The NFT pays for itself. And it works across \textbf{all generations forever}---whether that's 10 generations or 1,000 generations. The 0\% fee is eternal.
+
+\subsection{Why 3\% for Non-Holders?}
+
+Three reasons:
+
+\begin{enumerate}
+    \item \textbf{Sustainable funding}: 3\% fees fund the treasury, Elder Circle rewards, and future liquidity
+    \item \textbf{NFT value driver}: The tax creates real utility for NFT holders. Your NFT saves you 3\% on every trade.
+    \item \textbf{Not too high, not too low}: High enough to matter. Low enough to not kill trading.
+\end{enumerate}
+
+\subsection{Fee Distribution Breakdown}
+
+The 3\% fee collected from non-holder trades is split across three destinations:
+
+\begin{itemize}
+    \item \textbf{Liquidity compounding}: A portion flows back into the liquidity pool during rebirth, making each generation more robust
+    \item \textbf{Elder Circle rewards}: A portion is deposited into the Elder Circle contract, distributed to loyal holders based on their streak $\times$ balance weight
+    \item \textbf{Community treasury}: A portion funds community projects, grants, memes, and whatever the frens decide
+\end{itemize}
+
+This creates a triple flywheel: trading generates fees $\rightarrow$ fees reward holders and grow liquidity $\rightarrow$ deeper liquidity attracts more trading $\rightarrow$ more fees. Each component reinforces the others.
+
+\subsection{The Treasury Model}
+
+The Magic Internet Treasury is a Bitcoin address controlled by the community.
+
+\textbf{What's it used for?}
+\begin{itemize}
+    \item Funding new Magic Internet Frens projects
+    \item Grants for builders and artists
+    \item Community events and gatherings
+    \item Memes (the most important category)
+    \item Whatever the frens decide
+\end{itemize}
+
+This isn't a team wallet. It's not VC money. It's community money, from the community, for the community.
+
+\section{Technical Implementation}
+
+\subsection{What It's Built On}
+
+\begin{itemize}
+    \item \textbf{Blockchain}: Bitcoin Layer 1 via OPNet (not a Layer 2, not a sidechain---actual Bitcoin)
+    \item \textbf{Smart Contract Language}: AssemblyScript $\rightarrow$ compiled to WebAssembly
+    \item \textbf{Token Standard}: OP-20 (the OPNet version of ERC-20)
+    \item \textbf{NFT Standard}: OP-721 (the OPNet version of ERC-721)
+    \item \textbf{DEX}: MotoSwap (Uniswap V2-style AMM built for OPNet)
+    \item \textbf{Oracle}: Custom 24-hour TWAP (Time-Weighted Average Price)
+\end{itemize}
+
+\subsection{Why Bitcoin?}
+
+Because it's the most secure, most decentralized, most censorship-resistant blockchain ever created. If we're building something immortal, it should live on immortal infrastructure.
+
+OPNet enables smart contracts on Bitcoin Layer 1 using Tapscript. No validators. No special tokens. Just Bitcoin.
+
+\subsection{Smart Design Choices}
+
+Some technical decisions that make this work:
+
+\begin{enumerate}
+    \item \textbf{Event-based snapshots}: Instead of storing every holder's balance on-chain (expensive), we emit events and reconstruct state from blockchain history (efficient).
+
+    \item \textbf{Permissionless rebirth}: Anyone can trigger rebirth when a creature dies. The triggerer provides the community-voted metadata as parameters. On-chain verification ensures the metadata matches the vote outcome.
+
+    \item \textbf{Community-voted metadata}: The 777 NFT holders propose and vote on each new generation's identity. No centralized oracle, no algorithm---pure community creativity channeled through on-chain governance.
+
+    \item \textbf{Fully on-chain}: Death detection, liquidity migration, fee distribution, and NFT artwork are all on Bitcoin. No external dependencies that can fail or be censored.
+
+    \item \textbf{Locked liquidity, unlocked claims}: Liquidity is locked in the vault (can't be rug-pulled), but holder claims are always accessible. You can claim your tokens at any time.
+\end{enumerate}
+
+\subsection{The Community Voting Architecture}
+
+The rebirth voting mechanism operates through a simple on-chain process:
+
+\textbf{Proposal phase} (48 hours after death):
+\begin{enumerate}
+    \item Any NFT holder can submit a proposal containing: name (string), symbol (string), IPFS artwork hash (bytes32), and lore (string)
+    \item Proposals are stored on-chain with the proposer's address
+    \item Each holder can submit one proposal per voting round
+\end{enumerate}
+
+\textbf{Voting phase} (24 hours after proposals close):
+\begin{enumerate}
+    \item Each NFT grants 1 vote (non-transferable during voting)
+    \item Holders vote for their preferred proposal
+    \item The proposal with the most votes wins
+    \item In case of a tie, the earlier-submitted proposal wins
+\end{enumerate}
+
+\textbf{Execution phase}:
+\begin{enumerate}
+    \item Anyone calls \texttt{triggerRebirth(proposalId)}
+    \item Contract verifies: (a) creature is dead, (b) voting period ended, (c) proposal won the vote
+    \item Rebirth executes atomically with the winning proposal's metadata
+\end{enumerate}
+
+\textbf{Fallback}: If no proposals are submitted within 72 hours, a deterministic identity is derived from $hash(blockHash \| generationNumber)$ to ensure the protocol never stalls.
+
+\subsection{Open Source Everything}
+
+All code is open source and available on GitHub:
+
+\begin{itemize}
+    \item Smart contracts (10 contracts including ElderCircle)
+    \item Frontend components (React + Vite)
+    \item Deployment scripts
+    \item Documentation
+    \item This paper (LaTeX source included)
+\end{itemize}
+
+No secrets. No hidden code. No trust required. Verify everything.
+
+\section{Key Numbers}
+
+\begin{itemize}
+    \item \textbf{777} -- Maximum MiFren NFTs (one-time mint, triggers first summoning)
+    \item \textbf{49} -- Unique trait layers inscribed on Bitcoin
+    \item \textbf{183} -- Colors in the global on-chain palette
+    \item \textbf{5} -- Character classes (Wizard, King, Knight, Apprentice, Peasant)
+    \item \textbf{11} -- Unique face designs shared across all classes
+    \item \textbf{0\%} -- Trading fee for NFT holders (forever)
+    \item \textbf{3\%} -- Trading fee for non-holders
+    \item \textbf{0.01 BTC} -- Death threshold (24-hour volume)
+    \item \textbf{777 tokens + 1 BTC} -- Initial liquidity for first creature
+    \item \textbf{$\infty$ generations} -- Infinite community-voted evolutions
+    \item \textbf{streak $\times$ balance} -- Elder Circle reward weight formula
+    \item \textbf{96 KB} -- Total on-chain art storage (98.3\% compression)
+\end{itemize}
+
+\section{What's Next: The Future of Forever}
+
+\subsection{V2: Enhanced Community Governance}
+
+Right now, the protocol has fixed parameters:
+\begin{itemize}
+    \item Death threshold: 0.01 BTC/24h
+    \item Fee rates: 0\% / 3\%
+    \item Fee split ratios
+\end{itemize}
+
+In the future, the community might vote to adjust these. Or maybe not. Immutability has its charm.
+
+\textbf{Governance ideas we're considering:}
+\begin{itemize}
+    \item DAO voting for death threshold adjustments
+    \item Community treasury allocation votes
+    \item Dynamic fee splits based on protocol maturity
+    \item Integration with other Magic Internet Frens projects
+\end{itemize}
+
+But honestly? The protocol works great as-is. Maybe the best governance is no governance---except for choosing what the next creature looks like. That's always up to the frens.
+
+\subsection{The Multichain Question}
+
+Bitcoin is home. But the Magic Internet Frens concept could work on other chains:
+
+\begin{itemize}
+    \item Ethereum Layer 2s (cheaper fees, same mechanics)
+    \item Other Bitcoin L2s (Lightning Network, RGB Protocol)
+    \item Alt L1s (if we're feeling adventurous)
+\end{itemize}
+
+The core idea---eternal creatures that die and regenerate, governed by their community---is chain-agnostic. But for now, we're Bitcoin-native and proud.
+
+\subsection{What the Community Will Build}
+
+The Magic Internet Frens Protocol is just infrastructure. The real magic comes from what the frens build on top:
+
+\begin{itemize}
+    \item Trading bots that hunt for arbitrage across creature generations
+    \item Analytics dashboards tracking which creatures live longest
+    \item Games and experiences tied to creature lifecycles
+    \item Art and memes celebrating each creature's unique identity
+    \item Elder Circle leaderboards showing the longest-streaking holders
+    \item Whatever weird ideas emerge from the group chat at 3am
+\end{itemize}
+
+We provide the rails. You provide the train.
+
+\section{Conclusion}
+
+We have presented the Magic Internet Frens Protocol, the first implementation of an autonomous regenerative token system on Bitcoin Layer 1. The protocol introduces five key innovations:
+
+\begin{enumerate}
+    \item \textbf{Autonomous death detection}: On-chain volume oracle enables self-aware lifecycle management without external oracles or admin intervention
+
+    \item \textbf{Liquidity compounding}: Each generation inherits previous liquidity plus accumulated fees, creating exponential robustness growth over time ($L_{i+1}^{BTC} > L_i^{BTC}$)
+
+    \item \textbf{Community-driven evolution}: The 777 NFT holders propose and vote on each new generation's identity---name, symbol, artwork, and lore---ensuring every rebirth reflects the collective will of the frens
+
+    \item \textbf{Elder Circle loyalty rewards}: Holders who maintain their position across consecutive generations earn an increasing share of trading fees, with reward weight growing as $streak \times balance$
+
+    \item \textbf{True unstoppability}: Zero admin keys, no pause mechanisms, no upgrade paths---once deployed, the entity operates indefinitely with mathematical guarantees
+\end{enumerate}
+
+\subsection{Comparison to Existing Approaches}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Feature} & \textbf{Traditional} & \textbf{Governance} & \textbf{MIF Protocol} \\
+\hline
+Automatic rebirth & No & No & Yes \\
+Liquidity preservation & No & Manual vote & Atomic \\
+Holder protection & No & If voted & Guaranteed \\
+Loyalty rewards & No & Sometimes & \textbf{Elder Circle} \\
+Community-voted identity & No & Rarely & \textbf{Every rebirth} \\
+Admin keys & Yes & Yes & \textbf{None} \\
+Upgradeable & Yes & Yes & \textbf{No} \\
+Pauseable & Yes & Yes & \textbf{No} \\
+Growing liquidity & No & No & \textbf{Yes} \\
+\hline
+\end{tabular}
+\caption{Protocol comparison}
+\end{table}
+
+Traditional tokens die permanently. Governance-based solutions require active coordination and trusted admins. The Magic Internet Frens Protocol operates autonomously with cryptographic guarantees, rewards loyal holders, and lets the community shape its evolution.
+
+\subsection{Long-Term Implications}
+
+The protocol creates a new category of digital asset: \textbf{community-governed autonomous organisms}. Key properties:
+
+\begin{itemize}
+    \item \textbf{Indefinite lifespan}: The entity will exist as long as Bitcoin exists
+    \item \textbf{Increasing robustness}: $L_{i+1}^{BTC} > L_i^{BTC}$ for all $i$ with trading activity
+    \item \textbf{Community ownership}: The 777 frens collectively determine each iteration's identity
+    \item \textbf{Loyalty economics}: Long-term holders are systematically rewarded over short-term speculators
+    \item \textbf{Zero maintenance}: No human intervention required after deployment
+    \item \textbf{Permissionless participation}: Anyone can trade, trigger rebirth, or claim tokens
+\end{itemize}
+
+This represents a fundamental shift from tokens as static assets to tokens as living community-owned organisms.
+
+\subsection{The 777 Coordination Problem}
+
+The protocol requires 777 participants to mint NFTs before activation. This is not a bug---it's a feature. It ensures:
+
+\begin{enumerate}
+    \item \textbf{Sufficient initial interest}: 777 committed participants signal genuine demand
+    \item \textbf{Distributed control}: No single actor can dominate the NFT supply
+    \item \textbf{Aligned incentives}: NFT holders benefit from protocol success (0\% fees, voting rights, Elder Circle eligibility)
+\end{enumerate}
+
+This is a modern coordination game: 777 actors must unite to summon an entity that then operates independently forever. Once summoned, it cannot be un-summoned.
+
+\subsection{Open Questions \& Future Work}
+
+\begin{itemize}
+    \item Can the mechanism generalize to other asset types (NFTs, stablecoins)?
+    \item What is the optimal death threshold for different market conditions?
+    \item How do multi-generation holders behave (claim immediately vs hold claims)?
+    \item What voting patterns emerge across generations---do frens converge on themes?
+    \item How does the Elder Circle streak distribution evolve over 50+ generations?
+    \item Can cross-chain bridges enable multi-chain regeneration?
+\end{itemize}
+
+\subsection{Final Remarks}
+
+The Magic Internet Frens Protocol is live code, not a whitepaper promise. All 10 contracts are written, tested, and ready for deployment. Once the 777 NFTs mint, the first generation activates automatically.
+
+What happens then is determined by the community and market forces, not human operators. If trading volume sustains, the entity lives. If volume dies, the frens vote on what comes next, and rebirth triggers. Liquidity compounds. Holders are protected. Loyal frens are rewarded. The cycle continues.
+
+This is unstoppable autonomous infrastructure running on Bitcoin, governed by its community. No admin keys. No pause buttons. No way back.
+
+\textit{The code is the law. The frens are eternal.}
+
+\section*{Acknowledgments}
+
+This protocol exists because of:
+
+\begin{itemize}
+    \item \textbf{The 777 wizard frens} -- Who believed in magic before it was real
+    \item \textbf{The OPNet builders} -- For making Bitcoin programmable again
+    \item \textbf{The MotoSwap team} -- For giving creatures a place to trade
+    \item \textbf{The Magic Internet Frens community} -- For being weird, wonderful, and willing to try impossible things
+    \item \textbf{Satoshi Nakamoto} -- For the original magic internet money
+    \item \textbf{Every degen who ever held a dead token} -- You inspired this
+\end{itemize}
+
+We're all gonna make it.
+
+\begin{thebibliography}{9}
+
+\bibitem{bitcoin}
+Nakamoto, S. (2008).
+\textit{Bitcoin: A Peer-to-Peer Electronic Cash System}.
+Bitcoin.org.
+
+\bibitem{ethereum}
+Buterin, V. (2014).
+\textit{Ethereum: A Next-Generation Smart Contract and Decentralized Application Platform}.
+Ethereum.org.
+
+\bibitem{uniswap}
+Adams, H., Zinsmeister, N., \& Robinson, D. (2020).
+\textit{Uniswap v2 Core}.
+Uniswap Labs.
+
+\bibitem{masterchef}
+SushiSwap Team. (2020).
+\textit{MasterChef: O(1) Reward Distribution for Staking Protocols}.
+SushiSwap Documentation.
+
+\bibitem{erc20}
+Vogelsteller, F., \& Buterin, V. (2015).
+\textit{ERC-20: Token Standard}.
+Ethereum Improvement Proposals, no. 20.
+
+\bibitem{erc721}
+Entriken, W., Shirley, D., Evans, J., \& Sachs, N. (2018).
+\textit{ERC-721: Non-Fungible Token Standard}.
+Ethereum Improvement Proposals, no. 721.
+
+\bibitem{opnet}
+OPNet Development Team. (2024).
+\textit{OPNet: Smart Contracts on Bitcoin Layer 1}.
+OPNet.org.
+
+\bibitem{motoswap}
+MotoSwap Team. (2024).
+\textit{MotoSwap: Decentralized Exchange on OPNet}.
+MotoSwap.finance.
+
+\bibitem{flash_loans}
+Qin, K., Zhou, L., \& Gervais, A. (2021).
+\textit{Quantifying Blockchain Extractable Value: How dark is the forest?}
+IEEE S\&P.
+
+\bibitem{amm_security}
+Wang, Y., Zuest, P., Yao, Y., Lu, Z., \& Wattenhofer, R. (2022).
+\textit{Impact and User Perception of Sandwich Attacks in the DeFi Ecosystem}.
+ACM CHI.
+
+\end{thebibliography}
+
+\appendix
+
+\section{Contract Deployment Addresses}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Contract} & \textbf{Address (Regtest)} \\
+\hline
+CauldronRegistry & TBD \\
+CauldronVault & TBD \\
+VolumeOracle & TBD \\
+MiFrens NFT & TBD \\
+ElderCircle & TBD \\
+CauldronToken Gen 1 & TBD \\
+MotoSwap Router & 0x80f8375d...02d2ea5a \\
+MotoSwap Factory & 0x893f92bb...ea1c883d \\
+\hline
+\end{tabular}
+\caption{Deployed Contract Addresses}
+\end{table}
+
+\section{Source Code}
+
+Full source code available at:
+\begin{itemize}
+    \item Repository: \texttt{https://github.com/magic-frens/MagicFrens}
+    \item Smart Contracts: \texttt{/contracts/src/}
+    \item NFT Contract: \texttt{/contracts/src/nft/MiFrens.ts}
+    \item Elder Circle: \texttt{/contracts/src/elder-circle/ElderCircle.ts}
+    \item Frontend: \texttt{/src/components/}
+    \item Documentation: \texttt{/docs/} (including this paper's LaTeX source)
+    \item Deployment Scripts: \texttt{/contracts/scripts/}
+\end{itemize}
+
+\textbf{Key files:}
+\begin{itemize}
+    \item \texttt{MiFrens.ts} -- 777 on-chain wizard NFTs with SVG rendering (1,600+ lines)
+    \item \texttt{CauldronToken.ts} -- The eternal creature token
+    \item \texttt{CauldronRegistry.ts} -- Rebirth orchestrator
+    \item \texttt{ElderCircle.ts} -- Loyalty streak rewards (500+ lines)
+    \item \texttt{VolumeOracle.ts} -- Death detection
+    \item \texttt{CauldronVault.ts} -- Liquidity custodian
+\end{itemize}
+
+Everything is MIT licensed. Fork it. Study it. Improve it. Make your own magic.
+
+\end{document}

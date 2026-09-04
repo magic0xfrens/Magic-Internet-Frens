@@ -1,0 +1,23 @@
+# Magic Internet Frens — mifrens.xyz
+User-agent: *
+Allow: /
+
+# AI / LLM crawlers explicitly welcomed (brand discoverability)
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-Web
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Bytespider
+Allow: /
+
+Sitemap: https://mifrens.xyz/sitemap.xml

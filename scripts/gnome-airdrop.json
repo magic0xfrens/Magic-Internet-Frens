@@ -1,0 +1,212 @@
+{
+  "price_usd_per_gnome": 9.338e-05,
+  "total_usd": 7636.0,
+  "total_gnome": 81773400,
+  "recipients": [
+    {
+      "address": "0x9ff61f48d4779d1fbaeedcfd2070536e2a90ad7e",
+      "usd": 3800.0,
+      "gnome": 40693939
+    },
+    {
+      "address": "0x3d13f0eb12ca3fb8ba8d78ce7769450d47eb0148",
+      "usd": 900.0,
+      "gnome": 9638038
+    },
+    {
+      "address": "0x8a3adb7067465171c5c2becb38379f0877ffb5d6",
+      "usd": 700.0,
+      "gnome": 7496252
+    },
+    {
+      "address": "0x9788082725c795dac838084e2a2530eff7742265",
+      "usd": 345.0,
+      "gnome": 3694581
+    },
+    {
+      "address": "0x89bb2a375a6d2ab27e44b756d071e258fcad3151",
+      "usd": 336.0,
+      "gnome": 3598201
+    },
+    {
+      "address": "0xe9805ecab212eabf696cf458d2c4840a619ee6de",
+      "usd": 195.0,
+      "gnome": 2088242
+    },
+    {
+      "address": "0x869e6fa1597b9619122a244620c02477c2137ec5",
+      "usd": 185.0,
+      "gnome": 1981152
+    },
+    {
+      "address": "0x41b908c7a6b174b045bab48759daf280cb1f2c05",
+      "usd": 150.0,
+      "gnome": 1606340
+    },
+    {
+      "address": "0xad5bd2e7b220585143c78d4cf478dbf1ddc4187f",
+      "usd": 140.0,
+      "gnome": 1499250
+    },
+    {
+      "address": "0x3d1a66f727c9f9c42c218d51a1a5efc8235373c3",
+      "usd": 86.0,
+      "gnome": 920968
+    },
+    {
+      "address": "0x8c5c6adf33e8ba9ca44517648e183a94c868c889",
+      "usd": 85.0,
+      "gnome": 910259
+    },
+    {
+      "address": "0x6121acabf5fa053fa273fdc49dcc8856d1380c70",
+      "usd": 69.0,
+      "gnome": 738916
+    },
+    {
+      "address": "0x7b10680ee6ff24bdc7300781fb01adb60677ecb4",
+      "usd": 69.0,
+      "gnome": 738916
+    },
+    {
+      "address": "0x69191ccd9e8302d2b56ec7b801b4d4a81590e197",
+      "usd": 65.0,
+      "gnome": 696081
+    },
+    {
+      "address": "0x36e3c1518a9b7076e0a9e52efe1da85d7e5a5523",
+      "usd": 48.0,
+      "gnome": 514029
+    },
+    {
+      "address": "0xdb5209ff5bb6037af30b27d26be710cdf8821325",
+      "usd": 43.0,
+      "gnome": 460484
+    },
+    {
+      "address": "0x109a50931159c5c3eda34718e7ca7825669ff268",
+      "usd": 40.0,
+      "gnome": 428357
+    },
+    {
+      "address": "0x247a48fff44e9df3b56768f763d6addce4c0665f",
+      "usd": 34.0,
+      "gnome": 364104
+    },
+    {
+      "address": "0x39bc15cfad775d69a0ecd019e5e10700f4736381",
+      "usd": 28.0,
+      "gnome": 299850
+    },
+    {
+      "address": "0x01a407afee37841e6af8256c87ce595481b8bca1",
+      "usd": 25.0,
+      "gnome": 267723
+    },
+    {
+      "address": "0xee0e21f1d04c159f4209298f8377fcb00ed1a2d6",
+      "usd": 25.0,
+      "gnome": 267723
+    },
+    {
+      "address": "0x5c397c2c74e297318e317703164da464226e5c46",
+      "usd": 23.0,
+      "gnome": 246305
+    },
+    {
+      "address": "0xe4145f061e3650b8773c74c57636df39e8b979ae",
+      "usd": 22.0,
+      "gnome": 235596
+    },
+    {
+      "address": "0xef8bd63ab5c4bdaaf2cc77b4a1da98831315bbee",
+      "usd": 21.0,
+      "gnome": 224888
+    },
+    {
+      "address": "0xf3d756a3431182ee75e9e41652e21da76f2d97e0",
+      "usd": 21.0,
+      "gnome": 224888
+    },
+    {
+      "address": "0x98eae74be9700f5092ab800f70f334989c87854d",
+      "usd": 20.0,
+      "gnome": 214179
+    },
+    {
+      "address": "0x69a3c7cf3d0d2d527a8a9312e6970bb5cf93f579",
+      "usd": 19.0,
+      "gnome": 203470
+    },
+    {
+      "address": "0xa95b9b5a9733a6f99217d9044c39adeea6dfbb71",
+      "usd": 18.0,
+      "gnome": 192761
+    },
+    {
+      "address": "0x36e7ccedd450473e5840c4efc26fb28124d2a9db",
+      "usd": 16.0,
+      "gnome": 171343
+    },
+    {
+      "address": "0x02f6f44a82e2cd584eac254cda904550d2afae5a",
+      "usd": 15.0,
+      "gnome": 160634
+    },
+    {
+      "address": "0x398da01052500bc92d9b74795fcf7d9a42d44b5e",
+      "usd": 14.0,
+      "gnome": 149925
+    },
+    {
+      "address": "0xca26a925669d916f1ad956efaf0cb4aedcbf3764",
+      "usd": 13.0,
+      "gnome": 139216
+    },
+    {
+      "address": "0xba330432f4320893af9be2320875761f812376af",
+      "usd": 10.0,
+      "gnome": 107089
+    },
+    {
+      "address": "0xe016f0e3a266c463eb2dfeb4f38f4d6cad531a08",
+      "usd": 10.0,
+      "gnome": 107089
+    },
+    {
+      "address": "0xca9e74b242b4d1b12639ebf3c65b81a9d23f14ed",
+      "usd": 9.0,
+      "gnome": 96380
+    },
+    {
+      "address": "0xf125368ab0cc89d5f6a0df37e0afa26a46640e38",
+      "usd": 9.0,
+      "gnome": 96380
+    },
+    {
+      "address": "0x718a52241823f86169f9d5740af0533e0b559371",
+      "usd": 7.0,
+      "gnome": 74963
+    },
+    {
+      "address": "0xe50ac0047dffc416ed209257919430f93b6ffd70",
+      "usd": 7.0,
+      "gnome": 74963
+    },
+    {
+      "address": "0x284a74076e7a960517e2b2f5438671b05f59f0c9",
+      "usd": 6.0,
+      "gnome": 64254
+    },
+    {
+      "address": "0x9d48dffeb6347acab7c6ed24b85f25677b97d243",
+      "usd": 6.0,
+      "gnome": 64254
+    },
+    {
+      "address": "0xb8ffe5437128fd2a4618565fd1bfdb85519c017f",
+      "usd": 2.0,
+      "gnome": 21418
+    }
+  ]
+}

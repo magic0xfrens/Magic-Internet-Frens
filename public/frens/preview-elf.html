@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #111; color: #fff; font-family: monospace; display: flex; flex-wrap: wrap; gap: 40px; padding: 40px; }
+  .card { text-align: center; }
+  .card h3 { margin: 8px 0; }
+  .composite { position: relative; width: 480px; height: 480px; }
+  .composite img { position: absolute; top: 0; left: 0; width: 480px; height: 480px; image-rendering: pixelated; }
+  .single img { width: 480px; height: 480px; image-rendering: pixelated; }
+  h2 { width: 100%; border-bottom: 1px solid #333; padding-bottom: 8px; }
+</style>
+</head>
+<body>
+  <h2>Gnome (original) vs Elf (generated)</h2>
+
+  <div class="card">
+    <h3>Gnome Body</h3>
+    <div class="single"><img src="gnome-01.svg"></div>
+  </div>
+
+  <div class="card">
+    <h3>Elf Body</h3>
+    <div class="single"><img src="elf-01.svg"></div>
+  </div>
+
+  <div class="card">
+    <h3>Gnome Composite (body + face)</h3>
+    <div class="composite">
+      <img src="gnome-01.svg">
+      <img src="gnome-face-01.svg">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Elf Composite (body + face)</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-01.svg">
+    </div>
+  </div>
+
+  <h2>All Elf Face Expressions</h2>
+
+  <div class="card">
+    <h3>Face 1</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-01.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 2</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-02.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 3</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-03.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 4</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-04.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 5</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-05.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 6</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-06.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 7</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-07.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 8</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-08.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 9</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-09.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 10</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-10.svg">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Face 11</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-11.svg">
+    </div>
+  </div>
+
+  <h2>With Gnome Item (reusable test)</h2>
+  <div class="card">
+    <h3>Elf + Face + Gnome Flower</h3>
+    <div class="composite">
+      <img src="elf-01.svg">
+      <img src="elf-face-01.svg">
+      <img src="gnome-item-01.svg">
+    </div>
+  </div>
+</body>
+</html>

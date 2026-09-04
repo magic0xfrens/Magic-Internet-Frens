@@ -1,0 +1,37 @@
+{
+  "name": "@magic-internet-frens/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OP_NET smart contracts for Magic Internet Frens",
+  "scripts": {
+    "build:oracle": "asc src/oracle/index.ts --config asconfig.json --use abort=src/oracle/index/abort --outFile build/oracle.wasm",
+    "build:mif": "asc src/mif/index.ts --config asconfig.json --use abort=src/mif/index/abort --outFile build/mif.wasm",
+    "build:fren": "asc src/fren/index.ts --config asconfig.json --use abort=src/fren/index/abort --outFile build/fren.wasm",
+    "build:nft": "asc src/nft/index.ts --config asconfig.json --use abort=src/nft/index/abort --outFile build/nft.wasm",
+    "build:cauldron-old": "asc src/cauldron/index.ts --config asconfig.json --use abort=src/cauldron/index/abort --outFile build/cauldron.wasm",
+    "build:cauldron-token": "asc src/cauldron/token-entry.ts --config asconfig.json --use abort=src/cauldron/token-entry/abort --outFile build/cauldron-token.wasm",
+    "build:cauldron-vault": "asc src/cauldron/vault-entry.ts --config asconfig.json --use abort=src/cauldron/vault-entry/abort --outFile build/cauldron-vault.wasm",
+    "build:cauldron-registry": "asc src/cauldron/registry-entry.ts --config asconfig.json --use abort=src/cauldron/registry-entry/abort --outFile build/cauldron-registry.wasm",
+    "build:volume-oracle": "asc src/cauldron/oracle-entry.ts --config asconfig.json --use abort=src/cauldron/oracle-entry/abort --outFile build/volume-oracle.wasm",
+    "build:elder-circle": "asc src/elder-circle/index.ts --config asconfig.json --use abort=src/elder-circle/index/abort --outFile build/elder-circle.wasm",
+    "build:forge": "asc src/renderer/index.ts --config asconfig.json --use abort=src/renderer/index/abort --outFile build/frenforge.wasm",
+    "build:market": "asc src/marketplace/index.ts --config asconfig.json --use abort=src/marketplace/index/abort --outFile build/frenmarket.wasm",
+    "build:svgtest": "asc src/svgtest/index.ts --config asconfig.json --use abort=src/svgtest/index/abort --outFile build/svgtest.wasm",
+    "build:cauldron": "npm run build:nft && npm run build:cauldron-token",
+    "build:all": "npm run build:nft && npm run build:forge && npm run build:market",
+    "deploy:all": "tsx scripts/deploy-all.ts",
+    "inscribe:palette": "tsx scripts/inscribe-palette.ts",
+    "build": "npm run build:cauldron",
+    "test": "npx tsx ../node_modules/.bin/vitest run",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@btc-vision/btc-runtime": "^1.11.0"
+  },
+  "devDependencies": {
+    "@btc-vision/assemblyscript": "^0.29.3",
+    "@btc-vision/opnet-transform": "^1.2.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

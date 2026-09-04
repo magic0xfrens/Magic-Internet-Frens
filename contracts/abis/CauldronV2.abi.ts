@@ -1,0 +1,273 @@
+import { ABIDataTypes, BitcoinAbiTypes, OP_NET_ABI } from 'opnet';
+
+export const CauldronV2Events = [];
+
+export const CauldronV2Abi = [
+    {
+        name: '_deposit',
+        inputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_borrow',
+        inputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_repay',
+        inputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_withdraw',
+        inputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_liquidate',
+        inputs: [{ name: 'user', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'collateralOut', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_accruePublic',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_distributeFees',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_mintMIF',
+        inputs: [{ name: 'mifAmount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_redeemMIF',
+        inputs: [{ name: 'mifAmount', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getPosition',
+        inputs: [{ name: 'user', type: ABIDataTypes.ADDRESS }],
+        outputs: [
+            { name: 'collateral', type: ABIDataTypes.UINT256 },
+            { name: 'debt', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getPositionLTV',
+        inputs: [{ name: 'user', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'ltv', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_isLiquidatable',
+        inputs: [{ name: 'user', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'liquidatable', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getInterestRate',
+        inputs: [],
+        outputs: [{ name: 'rate', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_totalCollateralView',
+        inputs: [],
+        outputs: [{ name: 'total', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_totalDebtView',
+        inputs: [],
+        outputs: [{ name: 'total', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_accruedFeesView',
+        inputs: [],
+        outputs: [{ name: 'fees', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_accruedBTCPenaltiesView',
+        inputs: [],
+        outputs: [{ name: 'penalties', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getTCRView',
+        inputs: [],
+        outputs: [{ name: 'tcr', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getECRView',
+        inputs: [],
+        outputs: [{ name: 'ecr', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_totalBTCReserveView',
+        inputs: [],
+        outputs: [{ name: 'reserve', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_totalMIFMintedView',
+        inputs: [],
+        outputs: [{ name: 'supply', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_isCircuitBreakerActiveView',
+        inputs: [],
+        outputs: [{ name: 'active', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getDailyFRENMintedView',
+        inputs: [],
+        outputs: [{ name: 'minted', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getDailyFRENMintCapView',
+        inputs: [],
+        outputs: [{ name: 'cap', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getFRENPriceView',
+        inputs: [],
+        outputs: [{ name: 'price', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getMintInfo',
+        inputs: [{ name: 'mifAmount', type: ABIDataTypes.UINT256 }],
+        outputs: [
+            { name: 'btcNeeded', type: ABIDataTypes.UINT256 },
+            { name: 'frenNeeded', type: ABIDataTypes.UINT256 },
+            { name: 'fee', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_getRedeemInfo',
+        inputs: [{ name: 'mifAmount', type: ABIDataTypes.UINT256 }],
+        outputs: [
+            { name: 'btcOut', type: ABIDataTypes.UINT256 },
+            { name: 'frenOut', type: ABIDataTypes.UINT256 },
+            { name: 'fee', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_mintRedeemFeesView',
+        inputs: [],
+        outputs: [{ name: 'fees', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setBorrowCap',
+        inputs: [{ name: 'cap', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_pause',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_unpause',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setOracle',
+        inputs: [{ name: 'oracle', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_transferAdmin',
+        inputs: [{ name: 'newAdmin', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_acceptAdmin',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_distributeBTCPenalties',
+        inputs: [],
+        outputs: [{ name: 'amount', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setMIF',
+        inputs: [{ name: 'mif', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setNFT',
+        inputs: [{ name: 'nft', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setFREN',
+        inputs: [{ name: 'fren', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setTCR',
+        inputs: [{ name: 'newTcr', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_setFRENOracle',
+        inputs: [{ name: 'oracle', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_tripCircuitBreaker',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: '_resumeCircuitBreaker',
+        inputs: [],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    ...CauldronV2Events,
+    ...OP_NET_ABI,
+];
+
+export default CauldronV2Abi;

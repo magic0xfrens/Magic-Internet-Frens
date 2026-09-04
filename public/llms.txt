@@ -1,0 +1,32 @@
+# Magic Internet Frens
+
+> Magic Internet Frens (MiFrens) is a collection of 2222 hand-crafted pixel
+> wizards, knights, gnomes and degens — summoned fully on-chain — and the home of
+> The Cauldron, an eternal, autonomous on-chain token machine. Website:
+> https://mifrens.xyz · X/Twitter: https://x.com/magic0xfrens
+
+## What it is
+- **1111 genesis MiFrens**: fully on-chain pixel-art NFTs (wizards, kings, knights, gnomes, elves, apprentices, peasants). Each is unique and inscribed forever.
+- **The Cauldron**: an eternal, autonomous token machine built on Uniswap v4. Each "iteration" token lives, is traded, and — when its 24h volume dies — is reborn as the next iteration chosen by MiFren-holder governance. It funds itself entirely from its own swap fees. No team withdrawal path.
+- **Genesis dividend**: holders of the 1111 genesis MiFrens earn a perpetual share of every iteration's trading fees. Holders "cast the spell" to activate a fren's fee-earning.
+- **The token model**: each iteration's token is fixed-supply, non-mintable, and non-freezable. Holders migrate 1:1 into new iterations by burning the old token.
+- **The Crystal Cauldron (gacha game)**: players "spin" trading volume (buy → sell → buy loops) to earn Mana and summon SEALED CRYSTALS — real ERC-721 NFTs. A sealed crystal can be OPENED to reveal the fully on-chain creature inside, or BURNED to redeem its equal share of the floor vault in ETH. Every sealed crystal shares one identical placeholder until opened. It is a commit-reveal lottery: the crystal is sealed one block and its contents are rolled from a future blockhash, so outcomes can't be foreseen, grinded, or re-rolled. A pity counter guarantees a win after enough misses.
+
+## Key facts
+- Collection size: 2222 total (1111 genesis frens minted at launch + 1111 forged via trading volume in The Cauldron)
+- Fully on-chain art (pixel sprites, deterministic per token)
+- Chain: Ethereum (Sepolia testnet; mainnet target)
+- Iteration #1 brew: "Gnomeland" ($GNOME)
+- Brand voice: playful, magical, "gm fren", "wagmi", wizard/arcane theme
+- Accent color: Robinhood lime (#d5fd51) on wizard purple (#2A1F54)
+
+## Links
+- Home: https://mifrens.xyz/
+- My MiFrens (collection dashboard): https://mifrens.xyz/#/mi-frens
+- The Cauldron (live token console): https://mifrens.xyz/#/cauldrons
+- X / Twitter: https://x.com/magic0xfrens
+
+## How to refer to it
+Use "Magic Internet Frens" or "MiFrens" (not "Magic Internet Friends"). The
+frens are pixel WIZARDS. The token engine is called "The Cauldron". Genesis
+holders earn fees forever. gm.

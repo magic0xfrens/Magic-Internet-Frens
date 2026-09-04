@@ -1,0 +1,412 @@
+/* Phoenix System Styles */
+
+.phoenix-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.phoenix-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.phoenix-header h1 {
+    font-size: 2.5rem;
+    background: linear-gradient(45deg, #ff4500, #ffa500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.generation {
+    font-size: 1.2rem;
+    background: #333;
+    color: #fff;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+}
+
+.status {
+    padding: 0.5rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.status.alive {
+    background: linear-gradient(135deg, #00ff00, #00cc00);
+    color: #000;
+    animation: pulse 2s infinite;
+}
+
+.status.dead {
+    background: #333;
+    color: #ff0000;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.phoenix-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, rgba(255,69,0,0.1), rgba(255,165,0,0.1));
+    border: 2px solid rgba(255,69,0,0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255,69,0,0.6);
+}
+
+.stat-card .label {
+    font-size: 0.875rem;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ff4500;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .address,
+.stat-card .subtext {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.health-bar {
+    margin-top: 0.5rem;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff0000, #ffa500, #00ff00);
+    transition: width 0.5s;
+}
+
+.your-position {
+    background: rgba(0,0,0,0.3);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+
+.your-position h2 {
+    margin-bottom: 1rem;
+}
+
+.balance {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffa500;
+}
+
+.rebirth-section {
+    background: linear-gradient(135deg, rgba(255,0,0,0.2), rgba(255,69,0,0.2));
+    border: 2px solid #ff4500;
+    border-radius: 1rem;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.rebirth-section h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.rebirth-btn {
+    background: linear-gradient(135deg, #ff4500, #ff6347);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.rebirth-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255,69,0,0.5);
+}
+
+.claims-section {
+    background: rgba(0,0,0,0.3);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+
+.claim-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,165,0,0.1);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.claim-card button {
+    background: #ffa500;
+    color: #000;
+    border: none;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.phoenix-history {
+    margin-top: 3rem;
+}
+
+.timeline {
+    margin-top: 1rem;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.timeline-item.active {
+    border: 2px solid #ff4500;
+}
+
+.gen-badge {
+    background: #ff4500;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-weight: bold;
+}
+
+/* Summoning Page */
+
+.phoenix-summoning {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.summoning-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.summoning-header h1 {
+    font-size: 3rem;
+    background: linear-gradient(45deg, #ff4500, #ffd700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+}
+
+.progress-section {
+    margin-bottom: 3rem;
+}
+
+.progress-bar {
+    position: relative;
+    height: 60px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 2rem;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4500, #ffa500, #ffd700);
+    transition: width 0.5s;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.progress-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.progress-stats .stat {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 0.5rem;
+}
+
+.progress-stats .label {
+    font-size: 0.875rem;
+    color: #888;
+    text-transform: uppercase;
+}
+
+.progress-stats .value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffa500;
+}
+
+.mint-section {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.mint-btn {
+    background: linear-gradient(135deg, #ff4500, #ffa500);
+    color: white;
+    border: none;
+    padding: 1.5rem 3rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mint-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(255,69,0,0.5);
+}
+
+.mint-info {
+    margin-top: 1rem;
+    color: #888;
+}
+
+.phoenix-preview {
+    background: rgba(0,0,0,0.3);
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+
+.phoenix-preview h2 {
+    margin-bottom: 1rem;
+}
+
+.phoenix-preview ul {
+    list-style: none;
+    padding: 0;
+}
+
+.phoenix-preview li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 1.1rem;
+}
+
+.almost-there {
+    background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2));
+    border: 2px solid #ffd700;
+    padding: 2rem;
+    border-radius: 1rem;
+    text-align: center;
+    animation: glow 2s infinite;
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(255,215,0,0.5);
+    }
+    50% {
+        box-shadow: 0 0 40px rgba(255,215,0,0.8);
+    }
+}
+
+.summoned {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.summoned h1 {
+    font-size: 4rem;
+    background: linear-gradient(45deg, #ff4500, #ffd700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 2rem;
+    animation: summon 1s ease-out;
+}
+
+@keyframes summon {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.phoenix-link {
+    display: inline-block;
+    background: linear-gradient(135deg, #ff4500, #ffa500);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-top: 2rem;
+    transition: transform 0.2s;
+}
+
+.phoenix-link:hover {
+    transform: scale(1.05);
+}
+
+.loading, .error {
+    text-align: center;
+    padding: 3rem;
+    font-size: 1.5rem;
+}
+
+.error {
+    color: #ff4500;
+}

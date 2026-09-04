@@ -1,0 +1,59 @@
+{
+    "functions": [
+        {
+            "name": "testReturn",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "size",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "result",
+                    "type": "STRING"
+                }
+            ]
+        },
+        {
+            "name": "testDataURI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "svgSize",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "result",
+                    "type": "STRING"
+                }
+            ]
+        },
+        {
+            "name": "testBase64URI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "rawSize",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "result",
+                    "type": "STRING"
+                }
+            ]
+        }
+    ],
+    "events": []
+}

@@ -1,0 +1,303 @@
+{
+    "functions": [
+        {
+            "name": "setNFTContract",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "nftContract",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setFeeRecipient",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "recipient",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setFeeRecipientHash",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "hash",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setFeeBps",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "bps",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "listNFT",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "priceSats",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "sellerAddrHash",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "sellerAddrHi",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "sellerAddrLo",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "cancelListing",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "reserveBuy",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "claimReserved",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "cancelReservation",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getListing",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "seller",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "priceSats",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "active",
+                    "type": "BOOL"
+                },
+                {
+                    "name": "reservedBy",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "reserveExpiry",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getActiveListingCount",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getListingByIndex",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "index",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "seller",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "priceSats",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "sellerAddrHi",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "sellerAddrLo",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "reservedBy",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "reserveExpiry",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getFeeBps",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "bps",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getBuyerFeeBps",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "buyer",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "feeBps",
+                    "type": "UINT256"
+                }
+            ]
+        }
+    ],
+    "events": []
+}

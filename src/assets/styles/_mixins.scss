@@ -1,0 +1,61 @@
+@mixin panel {
+  background: $bg-panel;
+  border: 1px solid $border;
+}
+
+@mixin panel-hover {
+  @include panel;
+  transition: border-color 0.2s ease;
+  &:hover {
+    border-color: $border-hover;
+  }
+}
+
+@mixin accent-btn {
+  background: $accent;
+  color: $bg;
+  border: none;
+  font-family: $font-mono;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  &:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+@mixin ghost-btn {
+  background: transparent;
+  color: $text-dim;
+  border: 1px solid $border;
+  font-family: $font-mono;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    color: $text;
+    border-color: $border-hover;
+  }
+}
+
+@mixin scrollbar {
+  &::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $border;
+  }
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <circle cx="32" cy="32" r="32" fill="#002616"/>
+  <circle cx="32" cy="32" r="30" fill="#003D22"/>
+  <circle cx="32" cy="32" r="28" stroke="#2ECC71" stroke-width="1.5" stroke-opacity="0.6"/>
+  <text x="32" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="22" fill="#2ECC71">$</text>
+  <text x="32" y="52" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="7" fill="#2ECC71" opacity="0.7">USDs</text>
+</svg>

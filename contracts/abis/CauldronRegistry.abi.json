@@ -1,0 +1,109 @@
+{
+    "functions": [
+        {
+            "name": "summonGenesis",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenAddress",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "poolAddress",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "name",
+                    "type": "STRING"
+                },
+                {
+                    "name": "symbol",
+                    "type": "STRING"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "token",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "triggerRebirth",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "newTokenAddress",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "newPoolAddress",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "name",
+                    "type": "STRING"
+                },
+                {
+                    "name": "symbol",
+                    "type": "STRING"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "token",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "claimTokens",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "generation",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "balance",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getCurrentToken",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "token",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "getCurrentGeneration",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "generation",
+                    "type": "UINT256"
+                }
+            ]
+        }
+    ],
+    "events": []
+}

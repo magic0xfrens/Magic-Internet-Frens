@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" fill="none">
+  <!-- Magic Internet Frens — simple wizard mark, wizard purple #2A1F54, no background -->
+  <g fill="#2A1F54">
+    <!-- hat -->
+    <path d="M100 8c-6 0-11 5-14 14L60 96c-3 9 3 16 13 16h54c10 0 16-7 13-16L114 22c-3-9-8-14-14-14z"/>
+    <!-- hat brim -->
+    <path d="M58 108c-4 0-7 3-7 7s3 7 7 7h84c4 0 7-3 7-7s-3-7-7-7z" />
+    <!-- face -->
+    <circle cx="100" cy="150" r="30"/>
+    <!-- beard -->
+    <path d="M74 156c0 26 12 46 26 60 14-14 26-34 26-60-8 8-17 12-26 12s-18-4-26-12z"/>
+    <!-- robe / shoulders -->
+    <path d="M64 232c4-24 18-40 36-40s32 16 36 40z"/>
+  </g>
+  <!-- star on the hat -->
+  <path d="M100 44l4.5 9.3 10.2 1.5-7.4 7.2 1.7 10.2L100 77.5 90.9 82.4l1.7-10.2-7.4-7.2 10.2-1.5z" fill="#d5fd51"/>
+  <!-- eyes (knockout via lime? keep simple: cutout with white-ish) -->
+  <circle cx="90" cy="148" r="3.4" fill="#F5F0E8"/>
+  <circle cx="110" cy="148" r="3.4" fill="#F5F0E8"/>
+</svg>

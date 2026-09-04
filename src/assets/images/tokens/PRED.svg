@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <circle cx="32" cy="32" r="32" fill="#0A1628"/>
+  <circle cx="32" cy="32" r="30" fill="#0F2040"/>
+  <circle cx="32" cy="32" r="28" stroke="#00BFFF" stroke-width="1.5" stroke-opacity="0.6"/>
+  <circle cx="32" cy="30" r="10" stroke="#00BFFF" stroke-width="1.5" fill="none"/>
+  <circle cx="32" cy="30" r="6" stroke="#00BFFF" stroke-width="1" fill="#00BFFF" opacity="0.15"/>
+  <circle cx="32" cy="30" r="2.5" fill="#00BFFF" opacity="0.6"/>
+  <line x1="32" y1="40" x2="28" y2="48" stroke="#00BFFF" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="40" x2="36" y2="48" stroke="#00BFFF" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="32" y="56" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="7" fill="#00BFFF">PRED</text>
+</svg>

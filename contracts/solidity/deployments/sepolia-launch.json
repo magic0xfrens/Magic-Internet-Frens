@@ -1,0 +1,35 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "note": "CANONICAL v7 (AUDITED + overflow fix + ERC-721C ROYALTIES \u2192 genesis dividend). All collections are creator tokens (ERC2981 5% \u2192 dividend, settable transferValidator for enforcement). gen-1 GNOME live.",
+  "deployedAt": "2026-08-20",
+  "MiFrensPresale": "0x66ab0548468c3c32742a015a2796155b1ea7133d",
+  "CauldronHook": "0x4f44adc0cec3a48ccff17242b7ad336a707cd0cc",
+  "CauldronRegistry": "0x09579fbb9657322012c0c155f5af95eecca4010b",
+  "CauldronGovernor": "0x999690fcb850a844715e760974e3d259cbaadf22",
+  "CauldronFactory": "0x96ffb3b7876199017537ff6e80d4abf01e253008",
+  "MiFrensDividend": "0x5acf85b283355f642de185f493e85f2f852d0ae1",
+  "CauldronGachaRouter": "0x1645d48ada704a92e89f4d990d1f6658b0ce3c44",
+  "gen1_live": {
+    "token": "0x0588CA1689157Ea4A551Bd30fb7D403524Cad772",
+    "symbol": "GNOME",
+    "collection": "0xAd95b03F0d9Ca489cF2123c90e99b8Eb8587D3Ce",
+    "vault": "0xb2F7ef8C005D4293d76Da59ae240a9f995d1bfeB"
+  },
+  "royalty": {
+    "bps": 500,
+    "receiver": "MiFrensDividend",
+    "standard": "EIP-2981 + ERC-721C",
+    "enforcement": "transferValidator settable (0 = declared only)"
+  },
+  "config": {
+    "genesisSupply": 1111,
+    "mifrensArtCap": 2400,
+    "presalePriceWei": "500000000000000",
+    "poolFeeBps": 0,
+    "hookTaxBps": 300,
+    "guildBps": 100,
+    "floorBps": 10000,
+    "deathThresholdWei": "50000000000000000"
+  }
+}

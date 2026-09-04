@@ -1,0 +1,211 @@
+// Override styles from @notifi-network/notifi-react/dist/index.css (main.ts)
+:root {
+  --notifi-color-primary: #7F91F6;
+  --notifi-color-error: #D5828B;
+  --notifi-color-verified: #A4DE95;
+  --notifi-color-input: #0C1021;
+  --notifi-color-card: #14192E;
+  --notifi-color-stroke: #0D2867;
+  --notifi-color-light-text: #A3A4AF;
+  --notifi-color-button: linear-gradient(
+    90.09deg,
+    #364A93 -0.96%,
+    #6E5DC9 99.92%
+  );
+}
+
+.notifi-target-state-banner-verify-cta {
+  color: var(--notifi-color-light-text) !important;
+}
+
+.notifi-card-modal {
+  font-family: Prompt, Helvetica, Arial, sans-serif !important;
+  width: 370px;
+  height: unset !important;
+  border-radius: 22px !important; 
+  background-color: var(--notifi-color-card) !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(247, 147, 26, 0.15) !important;
+} 
+
+.notifi-connect,
+.notifi-error-global {
+  height: 373px !important; 
+}
+
+.notifi-connect-button, 
+.notifi-ftu-target-list-button,
+.notifi-ftu-alert-edit-button {
+  background: var(--notifi-color-button) !important; 
+  color: white !important; 
+  border-radius: 16px !important; 
+}
+.notifi-target-list-item { 
+  border: #20283D 1px solid;
+}
+
+.notifi-target-list-item-target {
+  border: 2px solid transparent;
+}
+
+.notifi-target-list-item-content {
+  background-color: var(--notifi-color-input) !important;
+}
+
+.notifi-target-list-item-warning {
+  background-color: #20283D !important;
+}
+
+.notifi-target-cta-button {
+  border: 2px solid var(--notifi-color-primary) !important;
+  background-color: rgba(0, 0, 0, 0) !important;
+  padding: 0 0 !important;
+  border-radius: 12px;
+}
+
+.notifi-target-cta-button.disabled {
+  height: 28.8px !important;
+}
+
+.notifi-target-state-banner {
+  background-color: var(--notifi-color-input) !important;
+}
+
+.notifi-target-state-banner-verify.history {
+  background-color: var(--notifi-color-input) !important;
+  border: none !important;
+}
+
+.notifi-target-state-banner-verify {
+  border: 1px #20283D solid;
+  border-radius: 8px;
+}
+
+.notifi-target-state-banner-verify-cta.history {
+  border: 2px solid var(--notifi-color-primary) !important;
+  background: rgba(0, 0, 0, 0) !important;
+  padding: 0.8px 0.8px !important;
+  border-radius: 12px;
+}
+
+.notifi-target-list-item-input-form {
+  background-color: var(--notifi-color-input) !important;
+  margin-top: -3px;
+  padding-top: 3px;
+  border-radius: 0 0 8px 8px;
+}
+
+.notifi-target-input-field-input-container {
+  background-color: var(--notifi-color-card);
+}
+
+.notifi-target-list-item-remove {
+  top: 8px !important;
+}
+
+.notifi-connect-button .notifi-spinner-container {
+  width: 24px !important;  
+  height: 24px !important; 
+}
+
+.notifi-topic-row {
+  background-color: var(--notifi-color-input) !important;
+  border: 1px solid #20283D !important;
+}
+
+.notifi-topic-row-content {
+  align-items: baseline;
+}
+
+.notifi-topic-options-item.button,
+.notifi-topic-option-custom-input-container {
+  background-color: var(--notifi-color-card) !important;
+}
+
+.notifi-tooltip-content {
+  background-color: var(--notifi-color-card) !important;
+  border: 1px solid var(--notifi-color-stroke) !important;
+}
+
+.notifi-spinner-container {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.notifi-spinner {
+  top: 16px !important;
+}
+
+
+.powered-by-notifi {
+  align-items: center;
+}
+
+.notifi-inbox,
+.notifi-ftu {
+  height: 620px !important;
+}
+
+.notifi-inbox-history-detail-header, .notifi-inbox-history-list-header, .notifi-inbox-config-topic-header, .notifi-inbox-config-target-header {
+  background-color: var(--notifi-color-input) !important;
+  border: none !important;
+}
+
+.notifi-inbox-nav-tabs {
+  background-color: var(--notifi-color-input) !important;
+  border-top: rgba(247, 147, 26, 0.15) 1px solid !important; 
+}
+
+.notifi-history-list-empty-description {
+  color: var(--notifi-color-light-text) !important;
+}
+.notifi-history-row {
+  background-color: var(--notifi-color-input);
+}
+.notifi-history-row-unread-indicator {
+  background-color: var(--notifi-color-primary) !important;
+}
+
+.notifi-history-row-title-text {
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.notifi-history-row-timestamp {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--notifi-color-light-text);
+}
+.notifi-history-row-subject {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--notifi-color-light-text);
+}
+
+.notifi-history-detail {
+  background-color: transparent !important;
+}
+
+.notifi-history-detail-timestamp {
+  color: var(--notifi-color-light-text) !important;
+}
+
+.notifi-toggle-slider {
+  background-color: #323E60 !important;
+}
+
+.notifi-toggle-input:checked + .notifi-toggle-slider {
+  background-color: var(--notifi-color-primary) !important;
+}
+
+@media screen and (max-width: 1024px) {
+  .notifi-card-modal {
+    top: 40px;
+    max-height: 580px;
+    max-width: 360px;
+  }
+  .notifi-inbox,
+  .notifi-ftu {
+    height: 580px !important;
+  }
+}

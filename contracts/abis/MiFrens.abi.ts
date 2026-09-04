@@ -1,0 +1,272 @@
+import { ABIDataTypes, BitcoinAbiTypes, OP_NET_ABI } from 'opnet';
+
+export const MiFrensEvents = [];
+
+export const MiFrensAbi = [
+    {
+        name: 'mintNFT',
+        inputs: [],
+        outputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getTaxRate',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'taxRate', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getHolderTaxRate',
+        inputs: [{ name: 'holder', type: ABIDataTypes.ADDRESS }],
+        outputs: [
+            { name: 'taxRate', type: ABIDataTypes.UINT256 },
+            { name: 'bestClassIdx', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getMaxBorrow',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'maxBorrow', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getLiquidationGrace',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'grace', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'lockNFT',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'unlockNFT',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'isLocked',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'locked', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'addCauldron',
+        inputs: [{ name: 'cauldron', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'removeCauldron',
+        inputs: [{ name: 'cauldron', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'isCauldron',
+        inputs: [{ name: 'account', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'isCauldron', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'mintFor',
+        inputs: [{ name: 'to', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'reserveBatch',
+        inputs: [
+            { name: 'to', type: ABIDataTypes.ADDRESS },
+            { name: 'count', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'lastTokenId', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'totalMinted',
+        inputs: [],
+        outputs: [{ name: 'count', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getReserveInfo',
+        inputs: [],
+        outputs: [
+            { name: 'nextReserveIndex', type: ABIDataTypes.UINT256 },
+            { name: 'totalReserved', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setTreasury',
+        inputs: [{ name: 'treasury', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setMintPrice',
+        inputs: [{ name: 'price', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getMintPrice',
+        inputs: [],
+        outputs: [{ name: 'price', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getTreasury',
+        inputs: [],
+        outputs: [{ name: 'treasury', type: ABIDataTypes.ADDRESS }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setCauldronRegistry',
+        inputs: [{ name: 'registry', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setFrenForge',
+        inputs: [{ name: 'forge', type: ABIDataTypes.ADDRESS }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getFrenForge',
+        inputs: [],
+        outputs: [{ name: 'forge', type: ABIDataTypes.ADDRESS }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'markOGInscriber',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'isOGInscriber',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'isOG', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'tokenURI',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [{ name: 'uri', type: ABIDataTypes.STRING }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'registerClass',
+        inputs: [
+            { name: 'classIdx', type: ABIDataTypes.UINT256 },
+            { name: 'numBodies', type: ABIDataTypes.UINT256 },
+            { name: 'numFaces', type: ABIDataTypes.UINT256 },
+            { name: 'numItems', type: ABIDataTypes.UINT256 },
+            { name: 'taxBPS', type: ABIDataTypes.UINT256 },
+            { name: 'mintTier', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'updateClass',
+        inputs: [
+            { name: 'classIdx', type: ABIDataTypes.UINT256 },
+            { name: 'numBodies', type: ABIDataTypes.UINT256 },
+            { name: 'numFaces', type: ABIDataTypes.UINT256 },
+            { name: 'numItems', type: ABIDataTypes.UINT256 },
+            { name: 'taxBPS', type: ABIDataTypes.UINT256 },
+            { name: 'mintTier', type: ABIDataTypes.UINT256 },
+            { name: 'enabled', type: ABIDataTypes.UINT256 },
+            { name: 'mintable', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getClassDef',
+        inputs: [{ name: 'classIdx', type: ABIDataTypes.UINT256 }],
+        outputs: [
+            { name: 'numBodies', type: ABIDataTypes.UINT256 },
+            { name: 'numFaces', type: ABIDataTypes.UINT256 },
+            { name: 'numItems', type: ABIDataTypes.UINT256 },
+            { name: 'taxBPS', type: ABIDataTypes.UINT256 },
+            { name: 'mintTier', type: ABIDataTypes.UINT256 },
+            { name: 'enabled', type: ABIDataTypes.UINT256 },
+            { name: 'mintable', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getNumClasses',
+        inputs: [],
+        outputs: [{ name: 'count', type: ABIDataTypes.UINT256 }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'transformToken',
+        inputs: [
+            { name: 'tokenId', type: ABIDataTypes.UINT256 },
+            { name: 'newClassIdx', type: ABIDataTypes.UINT256 },
+            { name: 'newBodyIdx', type: ABIDataTypes.UINT256 },
+            { name: 'newFaceIdx', type: ABIDataTypes.UINT256 },
+            { name: 'newItemIdx', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setTokenTraits',
+        inputs: [
+            { name: 'tokenId', type: ABIDataTypes.UINT256 },
+            { name: 'classIdx', type: ABIDataTypes.UINT256 },
+            { name: 'bodyIdx', type: ABIDataTypes.UINT256 },
+            { name: 'faceIdx', type: ABIDataTypes.UINT256 },
+            { name: 'itemIdx', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'setBatchTraits',
+        inputs: [
+            { name: 'startId', type: ABIDataTypes.UINT256 },
+            { name: 'count', type: ABIDataTypes.UINT256 },
+        ],
+        outputs: [{ name: 'success', type: ABIDataTypes.BOOL }],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getTokenTraits',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [
+            { name: 'classIdx', type: ABIDataTypes.UINT256 },
+            { name: 'bodyIdx', type: ABIDataTypes.UINT256 },
+            { name: 'faceIdx', type: ABIDataTypes.UINT256 },
+            { name: 'itemIdx', type: ABIDataTypes.UINT256 },
+            { name: 'subitemIdx', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    {
+        name: 'getTokenTraitKeys',
+        inputs: [{ name: 'tokenId', type: ABIDataTypes.UINT256 }],
+        outputs: [
+            { name: 'bodyKey', type: ABIDataTypes.UINT256 },
+            { name: 'faceKey', type: ABIDataTypes.UINT256 },
+            { name: 'itemKey', type: ABIDataTypes.UINT256 },
+        ],
+        type: BitcoinAbiTypes.Function,
+    },
+    ...MiFrensEvents,
+    ...OP_NET_ABI,
+];
+
+export default MiFrensAbi;

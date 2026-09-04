@@ -1,0 +1,29 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "note": "Canonical autonomous Cauldron launchpad. Includes the TAKE_PAIR relaunch fix (verified live: full presale->summon->relaunch cycle).",
+  "v4": {
+    "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+    "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  },
+  "genesisRenderer": "0x15EbCb6c3cf473b4DF5F7DF05cD5609513dEe4A7",
+  "canonical": {
+    "supply": 1111,
+    "priceWei": "10000000000000000",
+    "genesisBonusBps": 1000,
+    "MiFrensPresale": "0x046E6DCDb0dfCB9e6bF065f5BDe99aBbb2C16002",
+    "CauldronHook": "0xf682c71C9a14cDce1c8286aC2505b9FEa4Cdd044",
+    "CauldronRegistry": "0x0dcc4D2d1C41EdE0F394C6a7De16c118FAFaFf23",
+    "CauldronGovernor": "0x4b0d6f5C7756dA303a91d5dA29B7D970229DacA1"
+  },
+  "verifiedCycleTwin": {
+    "supply": 5,
+    "note": "Small twin used to prove the full cycle end-to-end. Gen-1 MIT summoned, then relaunched to Gen-2 'Gnomeland by Magic Internet Frens' GNOME (the voted winner).",
+    "MiFrensPresale": "0x25287d6B0B4ef5D406fe331CDa12E82210143BE9",
+    "CauldronRegistry": "0x0181A8d68A91CE2E9253568e6B83f44beBCa628F",
+    "CauldronGovernor": "0x4Dd0CDD77f3375c82BFB1E7295Ed090a9b9Bf32d",
+    "gen1_token": "0x5B125426D4Ea7914C7e2d5139b97504dD2DdaF52",
+    "gen2_token_gnomeland": "0x5B26ba6b0cb361F96a10a1Bbfb2130E65638242d"
+  }
+}

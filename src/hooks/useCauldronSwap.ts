@@ -1,0 +1,138 @@
+import { useCallback } from "react";
+import { parseEther, maxUint256, type Address } from "viem";
+import {
+  useAccount,
+  useSwitchChain,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
+
+/**
+ * useCauldronSwap — buy the current iteration's token with ETH.
+ *
+ * Routes through the CauldronGachaRouter's `play(gnomeIn=0, minOut, 0, openMax)`
+ * with `value = ethIn`. That single call:
+ *   1. swaps ETH → token and delivers the token to the buyer,
+ *   2. credits the swap volume (keeps the brew alive), and
+ *   3. rolls the crystal gacha — a chance to forge a creature NFT.
+ *
+ * `minOut` is the caller's slippage floor (0 accepts any). `openMax=0` opens as
+ * many crystals as the buy's volume earns.
+ */
+export function useCauldronSwap() {
+  const { address, chainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
+  const { isLoading: confirming, isSuccess: confirmed, data: receipt } =
+    useWaitForTransactionReceipt({ hash: txHash });
+
+  /** Buy with `ethIn` ETH; `minOut` = minimum token out (wei); `openMax` crystals. */
+  const buy = useCallback(
+    async (ethIn: number, minOut: bigint = 0n, openMax = 0): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (ethIn <= 0) throw new Error("Enter an amount");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: CAULDRON.gachaRouter as Address,
+        abi: GACHA_ROUTER_ABI,
+        functionName: "play",
+        args: [0n, minOut, 0n, BigInt(openMax)],
+        value: parseEther(ethIn.toFixed(18)),
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  /** SPIN volume: churn `ethIn` ETH through `loops` Buy→Sell→Buy legs. Each leg
+   *  is credited as Mana, so a small stake generates a multiple of itself in
+   *  volume → more chances to summon a crystal. `openMax=0` opens all earned. */
+  const spin = useCallback(
+    async (ethIn: number, loops = 3, openMax = 0): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (ethIn <= 0) throw new Error("Enter an amount");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: CAULDRON.gachaRouter as Address,
+        abi: GACHA_ROUTER_ABI,
+        functionName: "playChurn",
+        args: [BigInt(loops), BigInt(openMax)],
+        value: parseEther(ethIn.toFixed(18)),
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  /** Open a sealed crystal you own → reveals the creature inside. */
+  const reveal = useCallback(
+    async (collection: Address, tokenId: bigint): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: collection, abi: COLLECTION_ABI, functionName: "reveal", args: [tokenId],
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  /** Crack open crystals from ALREADY-earned credit — no fresh buy. Commits the
+   *  banked crystals (odds derived on-chain) + resolves matured tickets. */
+  const openReady = useCallback(
+    async (maxCount = 0): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: CAULDRON.gachaRouter as Address,
+        abi: GACHA_ROUTER_ABI,
+        functionName: "openReady",
+        args: [BigInt(maxCount)],
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  /** Approve the router to spend the iteration token (needed before selling). */
+  const approveToken = useCallback(
+    async (token: Address): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: token, abi: ERC20_SWAP_ABI, functionName: "approve",
+        args: [CAULDRON.gachaRouter as Address, maxUint256],
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  /** Sell `tokenIn` (human units) of the iteration token back to ETH via the
+   *  router's sell leg. Requires a prior approval. `minEthOut` = slippage floor. */
+  const sell = useCallback(
+    async (tokenIn: number, minEthOut: bigint = 0n, openMax = 0): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (tokenIn <= 0) throw new Error("Enter an amount");
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      return writeContractAsync({
+        address: CAULDRON.gachaRouter as Address,
+        abi: GACHA_ROUTER_ABI,
+        functionName: "play",
+        args: [parseEther(tokenIn.toFixed(18)), 0n, minEthOut, BigInt(openMax)],
+        value: 0n,
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
+  return { buy, sell, spin, reveal, openReady, approveToken, txHash, receipt, isPending, confirming, confirmed, reset };
+}

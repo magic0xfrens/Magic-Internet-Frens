@@ -1,0 +1,60 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local env files
+.env
+.env.local
+.env.*.local
+.env.sepolia
+
+node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
+
+/cypress/videos/
+/cypress/screenshots/
+
+# TypeScript incremental build state
+*.tsbuildinfo
+
+# Foundry build artifacts
+contracts/solidity/out/
+contracts/solidity/cache/
+contracts/solidity/broadcast/
+contracts/build/
+contracts/deployments/
+
+# Ponder generated state
+indexer/.ponder/
+indexer/generated/
+
+# Generated output
+svg-out/
+metadata-out/
+tmp-gnome-frames/
+
+# Credentials & session files
+scripts/.env
+scripts/*.session
+scripts/*.csv
+contracts/scripts/.mint-collection-state.json
+
+# Tooling / editor
+.idea
+.vscode
+.vercel
+.mcp.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

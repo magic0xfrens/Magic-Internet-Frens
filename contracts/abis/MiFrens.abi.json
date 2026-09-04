@@ -1,0 +1,726 @@
+{
+    "functions": [
+        {
+            "name": "mintNFT",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getTaxRate",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "taxRate",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getHolderTaxRate",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "holder",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "taxRate",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "bestClassIdx",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getMaxBorrow",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "maxBorrow",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getLiquidationGrace",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "grace",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "lockNFT",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "unlockNFT",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "isLocked",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "locked",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "addCauldron",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "cauldron",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "removeCauldron",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "cauldron",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "isCauldron",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "account",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "isCauldron",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "mintFor",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "to",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "reserveBatch",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "to",
+                    "type": "ADDRESS"
+                },
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "lastTokenId",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "totalMinted",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getReserveInfo",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "nextReserveIndex",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "totalReserved",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "setTreasury",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "treasury",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setMintPrice",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "price",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getMintPrice",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "price",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getTreasury",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "treasury",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "setCauldronRegistry",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "registry",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setFrenForge",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "forge",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getFrenForge",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "forge",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "markOGInscriber",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "isOGInscriber",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "isOG",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "tokenURI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "uri",
+                    "type": "STRING"
+                }
+            ]
+        },
+        {
+            "name": "registerClass",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numBodies",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numFaces",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numItems",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "taxBPS",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "mintTier",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "updateClass",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numBodies",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numFaces",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numItems",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "taxBPS",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "mintTier",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "enabled",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "mintable",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getClassDef",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "numBodies",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numFaces",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "numItems",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "taxBPS",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "mintTier",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "enabled",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "mintable",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getNumClasses",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "transformToken",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "newClassIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "newBodyIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "newFaceIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "newItemIdx",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setTokenTraits",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "bodyIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "faceIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "itemIdx",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setBatchTraits",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "startId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getTokenTraits",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "bodyIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "faceIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "itemIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "subitemIdx",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getTokenTraitKeys",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "bodyKey",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "faceKey",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "itemKey",
+                    "type": "UINT256"
+                }
+            ]
+        }
+    ],
+    "events": []
+}

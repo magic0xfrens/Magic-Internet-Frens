@@ -1,0 +1,20 @@
+{
+  "MiFrensPresale": "0xb1d4cba4Cb1631fF86ba756119Ade6977ff8f424",
+  "CauldronHook": "0xebCD538770d297b56b60BA8c4FE8D8ea29321044",
+  "CauldronRegistry": "0x4Cdb936e0224651a7Ab47acdC34babF8ae433eD4",
+  "CauldronGovernor": "0xAF3D7aa0f2fE3B06611d0135CfD8443C926eAfe3",
+  "CauldronFactory": "0x95777570F79cdEc00Af42e7757D61C252868E219",
+  "gen1": {
+    "token": "0x8A6077CF4ddDB321403B87E7e2598E0508eDfD63",
+    "collection": "0x90A7EC76DB03fd6d377677C2aac57AC6F1e27ff3",
+    "vault": "0x4FC77Fe33D46bBB792D200aA259b15B4cA0B0958"
+  },
+  "gen2": {
+    "token": "0x49c9104DE6D64d8038322a550CF1b42dA84F44B2",
+    "name": "Magic Internet Frens by Magic Internet Frens",
+    "symbol": "MIF",
+    "collection": "0x7eDD29fE99C9FE590Ee7651b68959ee20DDF8D4a",
+    "maxSupply": 2222
+  },
+  "verified": "Full cycle live: genesis mint\u2192summon GnomeLand\u2192gacha/reveal NFTs\u2192rising curve\u2192genesis bonus\u2192propose+vote MIF\u2192relaunch gen-2 (per-proposal supply 2222, LP burned)\u2192claimByBurn (anti-exploit ok)"
+}

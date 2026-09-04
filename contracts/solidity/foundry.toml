@@ -1,0 +1,93 @@
+[profile.default]
+src = "."
+out = "out"
+libs = ["lib"]
+# No forced solc: our code is ^0.8.26 but V4 deps (permit2 =0.8.17, solmate
+# =0.8.15) pin older versions, so foundry multi-compiles per pragma.
+auto_detect_solc = true
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+ignored_error_codes = ["license", "code-size"]
+fs_permissions = [{ access = "read", path = "../../compressed-traits" }]
+# OZ ships formal-verification harnesses/mocks that reference a non-existent
+# `patched/` tree and require solc >0.8.26 — never part of our build.
+skip = [
+    "lib/openzeppelin-contracts/fv/**",
+    "lib/openzeppelin-contracts/certora/**",
+    "lib/openzeppelin-contracts/test/**",
+    "lib/openzeppelin-contracts/contracts/mocks/**",
+]
+
+[profile.render]
+# Isolated profile for verifying the on-chain art renderer. Excludes the
+# ERC404-style Peg (pre-existing OZ inheritance clash) and the V4 Cauldron
+# (requires uniswap v4 deps) so the renderer can be tested standalone.
+skip = [
+    "lib/openzeppelin-contracts/fv/**",
+    "lib/openzeppelin-contracts/certora/**",
+    "lib/openzeppelin-contracts/test/**",
+    "lib/openzeppelin-contracts/contracts/mocks/**",
+    "lib/v4-periphery/**",
+    "lib/v4-core/**",
+    "vendor/**",
+    "MagicFrensPeg.sol",
+    "MagicFrensPresale.sol",
+    "CauldronRegistry.sol",
+    "CauldronHook.sol",
+    "CauldronToken.sol",
+    "deploy/DeployMagicFrensPeg.s.sol",
+    "deploy/DeployPresale.s.sol",
+    "deploy/DeployCauldron.s.sol",
+    "test/MagicFrensPresale.t.sol",
+    "test/CauldronSummon.t.sol",
+]
+
+[profile.cauldron]
+# Cauldron V4 integration profile. HookMiner is vendored locally so we can skip
+# every nested lib test/mocks suite (permit2 pins =0.8.17, solmate =0.8.15 — they
+# can't share a compile unit with our ^0.8.26 code). Also skips the broken Peg
+# and the render suite. via_ir is required to compile V4's PositionManager.
+# Low optimizer_runs keeps CauldronRegistry under the 24KB EIP-170 limit.
+via_ir = true
+optimizer_runs = 1
+skip = [
+    "lib/**/test/**",
+    "lib/**/src/test/**",
+    "lib/**/mocks/**",
+    "lib/**/fv/**",
+    "lib/**/certora/**",
+    "MagicFrensPeg.sol",
+    "MagicFrensPresale.sol",
+    "deploy/DeployMagicFrensPeg.s.sol",
+    "deploy/DeployPresale.s.sol",
+    "deploy/DeployRenderer.s.sol",
+    "test/MagicFrensPresale.t.sol",
+    "test/FrenRenderer.t.sol",
+    "render/**",
+]
+
+# Multichain deployment configs
+[rpc_endpoints]
+ethereum = "${ETH_RPC}"
+base = "${BASE_RPC}"
+bnb = "${BNB_RPC}"
+sepolia = "https://rpc.sepolia.org"
+base_sepolia = "https://sepolia.base.org"
+bnb_testnet = "https://data-seed-prebsc-1-s1.binance.org:8545"
+
+[etherscan]
+ethereum = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 11155111 }
+base = { key = "${BASESCAN_API_KEY}" }
+bnb = { key = "${BSCSCAN_API_KEY}" }
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "params_first"
+quote_style = "double"
+number_underscore = "thousands"

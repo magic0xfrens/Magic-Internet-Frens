@@ -1,0 +1,374 @@
+{
+    "functions": [
+        {
+            "name": "setNFTContract",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "nftContract",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setMerkleRoot",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "root",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setArtAuthority",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "authority",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setTreasury",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "treasury",
+                    "type": "ADDRESS"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "setTreasuryScriptHash",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "scriptHash",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "batchInscribeAll",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "count",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "updateTraitImage",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "deleteTraitImage",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "inscribeTrait",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "success",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "mint",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "getArtAuthority",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "authority",
+                    "type": "ADDRESS"
+                }
+            ]
+        },
+        {
+            "name": "isTraitInscribed",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "inscribed",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "getTraitImage",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "traitKey",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ]
+        },
+        {
+            "name": "getGlobalPalette",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "data",
+                    "type": "BYTES"
+                }
+            ]
+        },
+        {
+            "name": "getInscriptionStats",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "totalInscribed",
+                    "type": "UINT256"
+                }
+            ]
+        },
+        {
+            "name": "tokenURI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "uri",
+                    "type": "STRING"
+                }
+            ]
+        },
+        {
+            "name": "renderTokenURI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "bodyIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "faceIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "itemIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "subitemIdx",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "uri",
+                    "type": "STRING"
+                }
+            ]
+        },
+        {
+            "name": "tokenSvgURI",
+            "type": "Function",
+            "payable": false,
+            "onlyOwner": false,
+            "inputs": [
+                {
+                    "name": "tokenId",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "part",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "classIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "bodyIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "faceIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "itemIdx",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "subitemIdx",
+                    "type": "UINT256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "totalParts",
+                    "type": "UINT256"
+                },
+                {
+                    "name": "svgChunk",
+                    "type": "STRING"
+                }
+            ]
+        }
+    ],
+    "events": []
+}

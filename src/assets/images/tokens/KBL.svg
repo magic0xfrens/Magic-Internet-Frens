@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <circle cx="32" cy="32" r="32" fill="#0D1B0D"/>
+  <circle cx="32" cy="32" r="30" fill="#1A2E1A"/>
+  <circle cx="32" cy="32" r="28" stroke="#4CAF50" stroke-width="1.5" stroke-opacity="0.6"/>
+  <text x="32" y="36" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="14" fill="#4CAF50">K</text>
+  <circle cx="24" cy="22" r="3" fill="#4CAF50" opacity="0.4"/>
+  <circle cx="40" cy="22" r="3" fill="#4CAF50" opacity="0.4"/>
+  <circle cx="32" cy="46" r="2" fill="#4CAF50" opacity="0.4"/>
+  <text x="32" y="56" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="6" fill="#4CAF50" opacity="0.7">KIBBLE</text>
+</svg>
