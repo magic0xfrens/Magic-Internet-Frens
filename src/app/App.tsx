@@ -17,7 +17,7 @@ export function App() {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <HashRouter>
+          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppLayout>
               <AppRoutes />
             </AppLayout>
@@ -28,7 +28,7 @@ export function App() {
                   background: "#FBF7F0",
                   color: "#2A1F54",
                   border: "1px solid rgba(42,31,84,0.12)",
-                  borderRadius: "12px",
+                  borderRadius: "var(--r-md)",
                   fontFamily: '"DM Sans", sans-serif',
                   fontSize: "13px",
                 },

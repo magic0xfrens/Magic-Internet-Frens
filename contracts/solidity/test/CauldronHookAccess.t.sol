@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {HookMiner} from "../vendor/HookMiner.sol";
@@ -120,11 +121,22 @@ contract CauldronHookAccessTest is Test {
         assertTrue(hook.isOpener(address(0xF00)), "router opener trusted");
     }
 
+    using stdStorage for StdStorage;
+
+    /// @dev The owner-only `trackPool` was removed in the 2026 audit (it let the owner
+    ///      hand-adopt a pool the registry never created, bypassing the `_afterInitialize`
+    ///      adoption gate). Pools are now adopted only by the registry. These unit tests
+    ///      just need an ARBITRARY tracked id, so we set the flag directly.
+    function _forceTracked(PoolId id) internal {
+        stdstore.target(address(hook)).sig("trackedPools(bytes32)").with_key(PoolId.unwrap(id))
+            .checked_write(true);
+    }
+
     // Pluggable death module: overrides the built-in rule, falls back safely, and
     // is owner/registry-gated.
     function test_DeathChecker_Module() public {
         PoolId id = PoolId.wrap(bytes32(uint256(0xABCD)));
-        hook.trackPool(id); // owner-tracked; 0 volume < 1e18 threshold -> dead by default
+        _forceTracked(id); // 0 volume < 1e18 threshold -> dead by default
         assertTrue(hook.isDead(id), "built-in: 0 volume is dead");
 
         // Override: NeverDead flips it alive even at 0 volume.
@@ -153,7 +165,7 @@ contract CauldronHookAccessTest is Test {
     // Policy modules: delegate, clamp to hard caps, safe fallback, access-gated.
     function test_PolicyModules() public {
         PoolId id = PoolId.wrap(bytes32(uint256(0x1)));
-        hook.trackPool(id);
+        _forceTracked(id);
 
         // ── Surtax: module overrides, and is CLAMPED to MAX_SNIPE_BPS ──
         hook.setPolicies(address(new FixedSurtax(1234)), address(0), address(0));

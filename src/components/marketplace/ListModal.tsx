@@ -224,7 +224,7 @@ const listModalStyles = `
     position: relative;
     background: #FBF7F0;
     border: 1px solid rgba(42,31,84,0.12);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     max-width: 400px;
     width: 92%;
     overflow: hidden;
@@ -365,7 +365,7 @@ const listModalStyles = `
     letter-spacing: 0.12em;
     color: #3ddc84;
     border: 1px solid rgba(52, 211, 153, 0.3);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     padding: 6px 14px;
     margin-bottom: 20px;
     background: rgba(52, 211, 153, 0.06);
@@ -393,7 +393,7 @@ const listModalStyles = `
     padding: 12px 14px;
     background: #F5F0E8;
     border: 1px solid rgba(42,31,84,0.12);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     color: #2A1F54;
     font-family: "DM Sans", sans-serif;
     font-size: 14px;
@@ -440,7 +440,7 @@ const listModalStyles = `
     padding: 14px 20px;
     background: rgba(247, 147, 26, 0.06);
     border: 1px solid rgba(247, 147, 26, 0.2);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     text-align: center;
     width: 100%;
     box-sizing: border-box;
@@ -459,7 +459,7 @@ const listModalStyles = `
     padding: 14px 20px;
     background: rgba(247, 147, 26, 0.06);
     border: 1px solid rgba(247, 147, 26, 0.2);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     text-align: center;
     width: 100%;
     box-sizing: border-box;
@@ -472,7 +472,7 @@ const listModalStyles = `
     background: #d5fd51;
     color: #FBF7F0;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     font-family: "DM Sans", sans-serif;
     font-size: 12px;
     font-weight: 700;

@@ -1,0 +1,851 @@
+\subsubsection*{CauldronRegistry \;\normalfont\small(108 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize AUTO\_MIGRATE\_FEE()} & view \\
+\texttt{\scriptsize GEN1\_ACTIVE\_TOKENS()} & view \\
+\texttt{\scriptsize MAX\_NFT\_SUPPLY()} & view \\
+\texttt{\scriptsize POOL\_FEE()} & view \\
+\texttt{\scriptsize TICK\_SPACING()} & view \\
+\texttt{\scriptsize TOTAL\_SUPPLY()} & view \\
+\texttt{\scriptsize airdropReserve()} & view \\
+\texttt{\scriptsize airdropWallet()} & view \\
+\texttt{\scriptsize armEmergency()} & nonpayable \\
+\texttt{\scriptsize autoMigrate(address)} & view \\
+\texttt{\scriptsize autoMigrateBatch(uint256,address[])} & nonpayable \\
+\texttt{\scriptsize buyCollectionNFT(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize buyTreasuryOgFren(uint256)} & nonpayable \\
+\texttt{\scriptsize claimByBurn(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize claimByBurnUpTo(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize claimGate()} & view \\
+\texttt{\scriptsize claimed(uint256,address)} & view \\
+\texttt{\scriptsize collectionLedger()} & view \\
+\texttt{\scriptsize constructor(address,address,address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize currentGeneration()} & view \\
+\texttt{\scriptsize currentToken()} & view \\
+\texttt{\scriptsize disableAutoMigrate()} & nonpayable \\
+\texttt{\scriptsize donateToReserve(uint256)} & nonpayable \\
+\texttt{\scriptsize emergencyAdmin()} & view \\
+\texttt{\scriptsize emergencyDelay()} & view \\
+\texttt{\scriptsize emergencyReadyAt()} & view \\
+\texttt{\scriptsize emergencySweep(address)} & nonpayable \\
+\texttt{\scriptsize emergencyWithdrawLP(uint256)} & nonpayable \\
+\texttt{\scriptsize enableAutoMigrate()} & payable \\
+\texttt{\scriptsize enchantFee()} & view \\
+\texttt{\scriptsize enchantFeeMultBps()} & view \\
+\texttt{\scriptsize factory()} & view \\
+\texttt{\scriptsize floorClaimableNow()} & view \\
+\texttt{\scriptsize floorPerFren()} & view \\
+\texttt{\scriptsize fundPrimeBuy()} & payable \\
+\texttt{\scriptsize generationCollection(uint256)} & view \\
+\texttt{\scriptsize generationParent(uint256)} & view \\
+\texttt{\scriptsize generationPoolId(uint256)} & view \\
+\texttt{\scriptsize generationPoolKey(uint256)} & view \\
+\texttt{\scriptsize generationPositionId(uint256)} & view \\
+\texttt{\scriptsize generationProposer(uint256)} & view \\
+\texttt{\scriptsize generationReservePositionId(uint256)} & view \\
+\texttt{\scriptsize generationToken(uint256)} & view \\
+\texttt{\scriptsize generationVault(uint256)} & view \\
+\texttt{\scriptsize genesisBaseURI()} & view \\
+\texttt{\scriptsize genesisBonusBps()} & view \\
+\texttt{\scriptsize genesisMode()} & view \\
+\texttt{\scriptsize genesisRenderer()} & view \\
+\texttt{\scriptsize genesisReserveOutstanding()} & view \\
+\texttt{\scriptsize genesisSharePerFren()} & view \\
+\texttt{\scriptsize genesisShares()} & view \\
+\texttt{\scriptsize governor()} & view \\
+\texttt{\scriptsize guardian()} & view \\
+\texttt{\scriptsize hasClaimed(uint256,address)} & view \\
+\texttt{\scriptsize hook()} & view \\
+\texttt{\scriptsize igniter()} & view \\
+\texttt{\scriptsize lastSummonAt()} & view \\
+\texttt{\scriptsize materializeLegacyReserve()} & nonpayable \\
+\texttt{\scriptsize mifrens()} & view \\
+\texttt{\scriptsize migrateToSuccessor()} & nonpayable \\
+\texttt{\scriptsize minLifetime()} & view \\
+\texttt{\scriptsize nextSeedWindow()} & view \\
+\texttt{\scriptsize nftMaxSupply()} & view \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize positionManager()} & view \\
+\texttt{\scriptsize primeBuyEth()} & view \\
+\texttt{\scriptsize primeFunder()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize recycleCollectionNFT(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize redeemOgFren(uint256)} & nonpayable \\
+\texttt{\scriptsize redemptionExt()} & view \\
+\texttt{\scriptsize redemptionPaused()} & view \\
+\texttt{\scriptsize relaunch()} & nonpayable \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize rescueSeeder()} & nonpayable \\
+\texttt{\scriptsize reserveTickLower(uint256)} & view \\
+\texttt{\scriptsize reserveTickUpper(uint256)} & view \\
+\texttt{\scriptsize royaltyBps()} & view \\
+\texttt{\scriptsize royaltyDividend()} & view \\
+\texttt{\scriptsize seeder()} & view \\
+\texttt{\scriptsize setAirdropReserve(address,uint256)} & nonpayable \\
+\texttt{\scriptsize setClaimGate(address)} & nonpayable \\
+\texttt{\scriptsize setCollectionLedger(address)} & nonpayable \\
+\texttt{\scriptsize setEnchantFeeMult(uint256)} & nonpayable \\
+\texttt{\scriptsize setFactory(address)} & nonpayable \\
+\texttt{\scriptsize setGenesisBonus(address,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setGenesisMetadata(uint8,string,address)} & nonpayable \\
+\texttt{\scriptsize setGovernor(address)} & nonpayable \\
+\texttt{\scriptsize setGuardian(address)} & nonpayable \\
+\texttt{\scriptsize setIgniter(address)} & nonpayable \\
+\texttt{\scriptsize setMinLifetime(uint256)} & nonpayable \\
+\texttt{\scriptsize setNftMaxSupply(uint256)} & nonpayable \\
+\texttt{\scriptsize setPrimeFunder(address)} & nonpayable \\
+\texttt{\scriptsize setRedemptionExt(address)} & nonpayable \\
+\texttt{\scriptsize setRedemptionPaused(bool)} & nonpayable \\
+\texttt{\scriptsize setReserveCeiling(int24)} & nonpayable \\
+\texttt{\scriptsize setRoyalty(address,uint96)} & nonpayable \\
+\texttt{\scriptsize setSeedWindow(uint64)} & nonpayable \\
+\texttt{\scriptsize setSeeder(address)} & nonpayable \\
+\texttt{\scriptsize setSuccessor(address)} & nonpayable \\
+\texttt{\scriptsize successor()} & view \\
+\texttt{\scriptsize summon()} & payable \\
+\texttt{\scriptsize summoned()} & view \\
+\texttt{\scriptsize sweepPrimeBuy()} & nonpayable \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize unlockCallback(bytes)} & nonpayable \\
+\texttt{\scriptsize vetoEmergency()} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronHook \;\normalfont\small(137 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize BPS()} & view \\
+\texttt{\scriptsize HOURS\_PER\_DAY()} & view \\
+\texttt{\scriptsize MAX\_MINTS\_PER\_CALL()} & view \\
+\texttt{\scriptsize MAX\_PROPOSER\_BPS()} & view \\
+\texttt{\scriptsize MAX\_SNIPE\_BPS()} & view \\
+\texttt{\scriptsize MAX\_TAX\_BPS()} & view \\
+\texttt{\scriptsize MAX\_TOTAL\_FEE\_BPS()} & view \\
+\texttt{\scriptsize MAX\_WEIGHT\_BPS()} & view \\
+\texttt{\scriptsize ODDS\_HARD\_CAP\_BPS()} & view \\
+\texttt{\scriptsize REGISTRY\_SWAP\_DELAY()} & view \\
+\texttt{\scriptsize activeProposer()} & view \\
+\texttt{\scriptsize afterAddLiquidity(address,tuple,tuple,int256,int256,bytes)} & nonpayable \\
+\texttt{\scriptsize afterDonate(address,tuple,uint256,uint256,bytes)} & nonpayable \\
+\texttt{\scriptsize afterInitialize(address,tuple,uint160,int24)} & nonpayable \\
+\texttt{\scriptsize afterRemoveLiquidity(address,tuple,tuple,int256,int256,bytes)} & nonpayable \\
+\texttt{\scriptsize afterSwap(address,tuple,tuple,int256,bytes)} & nonpayable \\
+\texttt{\scriptsize batchCursor()} & view \\
+\texttt{\scriptsize batches(uint256)} & view \\
+\texttt{\scriptsize beforeAddLiquidity(address,tuple,tuple,bytes)} & nonpayable \\
+\texttt{\scriptsize beforeDonate(address,tuple,uint256,uint256,bytes)} & nonpayable \\
+\texttt{\scriptsize beforeInitialize(address,tuple,uint160)} & nonpayable \\
+\texttt{\scriptsize beforeRemoveLiquidity(address,tuple,tuple,bytes)} & nonpayable \\
+\texttt{\scriptsize beforeSwap(address,tuple,tuple,bytes)} & nonpayable \\
+\texttt{\scriptsize buyWeightBps()} & view \\
+\texttt{\scriptsize cancelRegistryOverride()} & nonpayable \\
+\texttt{\scriptsize claimProposerFees()} & nonpayable \\
+\texttt{\scriptsize collection()} & view \\
+\texttt{\scriptsize commitCrystals(address,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize committedOf(address)} & view \\
+\texttt{\scriptsize constructor(address,uint256,address,address,address)} & nonpayable \\
+\texttt{\scriptsize costOfNextCrystals(uint256)} & view \\
+\texttt{\scriptsize creditEpoch()} & view \\
+\texttt{\scriptsize creditOf(address)} & view \\
+\texttt{\scriptsize creditUntaggedSwaps()} & view \\
+\texttt{\scriptsize crystalsReady(address)} & view \\
+\texttt{\scriptsize cumulativeVolume()} & view \\
+\texttt{\scriptsize curvePolicy()} & view \\
+\texttt{\scriptsize deathChecker()} & view \\
+\texttt{\scriptsize deathThreshold()} & view \\
+\texttt{\scriptsize defaultTaxBps()} & view \\
+\texttt{\scriptsize executeRegistryOverride()} & nonpayable \\
+\texttt{\scriptsize feeRouter()} & view \\
+\texttt{\scriptsize floorBps()} & view \\
+\texttt{\scriptsize forceClosePerps()} & nonpayable \\
+\texttt{\scriptsize fundLegacyBuffer()} & payable \\
+\texttt{\scriptsize getHookPermissions()} & pure \\
+\texttt{\scriptsize getVolume24h(bytes32)} & view \\
+\texttt{\scriptsize guild()} & view \\
+\texttt{\scriptsize guildBps()} & view \\
+\texttt{\scriptsize isDead(bytes32)} & view \\
+\texttt{\scriptsize isOpener(address)} & view \\
+\texttt{\scriptsize legacyBps()} & view \\
+\texttt{\scriptsize legacyBuffer()} & view \\
+\texttt{\scriptsize legacyBuyStep(tuple)} & nonpayable \\
+\texttt{\scriptsize legacyOwedToReserve()} & view \\
+\texttt{\scriptsize legacyRegistry()} & view \\
+\texttt{\scriptsize legacyThreshold()} & view \\
+\texttt{\scriptsize lifetimeVolumeOf(address)} & view \\
+\texttt{\scriptsize liveKey()} & view \\
+\texttt{\scriptsize maxOddsBps()} & view \\
+\texttt{\scriptsize mintBaseline()} & view \\
+\texttt{\scriptsize mintedOut()} & view \\
+\texttt{\scriptsize missStreak(address)} & view \\
+\texttt{\scriptsize nativeGachaStep(address,uint256)} & nonpayable \\
+\texttt{\scriptsize nftContract()} & view \\
+\texttt{\scriptsize nftCredit(uint256,address)} & view \\
+\texttt{\scriptsize nftPriceAt(uint256)} & view \\
+\texttt{\scriptsize nftPriceStep()} & view \\
+\texttt{\scriptsize oddsForPlay(uint256)} & view \\
+\texttt{\scriptsize oddsFullVolumeWei()} & view \\
+\texttt{\scriptsize oddsPolicy()} & view \\
+\texttt{\scriptsize opened(address)} & view \\
+\texttt{\scriptsize outstandingCrystals()} & view \\
+\texttt{\scriptsize outstandingOf(address)} & view \\
+\texttt{\scriptsize outstandingTickets()} & view \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize pendingOf(address)} & view \\
+\texttt{\scriptsize pendingRegistry()} & view \\
+\texttt{\scriptsize perpEngine()} & view \\
+\texttt{\scriptsize pityThreshold()} & view \\
+\texttt{\scriptsize poolInitBlock(bytes32)} & view \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize progress(address)} & view \\
+\texttt{\scriptsize proposeRegistryOverride(address)} & nonpayable \\
+\texttt{\scriptsize proposerBps()} & view \\
+\texttt{\scriptsize proposerOwed(address)} & view \\
+\texttt{\scriptsize quest()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize registrySwapReadyAt()} & view \\
+\texttt{\scriptsize relaunchETH()} & view \\
+\texttt{\scriptsize releaseRelaunchETH()} & nonpayable \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize resolveTickets(uint256)} & nonpayable \\
+\texttt{\scriptsize seeder()} & view \\
+\texttt{\scriptsize sellWeightBps()} & view \\
+\texttt{\scriptsize setActiveProposer(address)} & nonpayable \\
+\texttt{\scriptsize setCollection(address)} & nonpayable \\
+\texttt{\scriptsize setCreditUntaggedSwaps(bool)} & nonpayable \\
+\texttt{\scriptsize setDeathChecker(address)} & nonpayable \\
+\texttt{\scriptsize setDeathThreshold(uint256)} & nonpayable \\
+\texttt{\scriptsize setDefaultTaxBps(uint256)} & nonpayable \\
+\texttt{\scriptsize setFeeRouter(address)} & nonpayable \\
+\texttt{\scriptsize setFloorBps(uint256)} & nonpayable \\
+\texttt{\scriptsize setGuild(address)} & nonpayable \\
+\texttt{\scriptsize setGuildBps(uint256)} & nonpayable \\
+\texttt{\scriptsize setLegacyBuyback(address,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setLiveKey(tuple)} & nonpayable \\
+\texttt{\scriptsize setMaxOdds(uint256)} & nonpayable \\
+\texttt{\scriptsize setNftContract(address)} & nonpayable \\
+\texttt{\scriptsize setNftCurve(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setNftCurveFrom(uint256)} & nonpayable \\
+\texttt{\scriptsize setOddsParams(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setOpener(address,bool)} & nonpayable \\
+\texttt{\scriptsize setPerpEngine(address)} & nonpayable \\
+\texttt{\scriptsize setPolicies(address,address,address)} & nonpayable \\
+\texttt{\scriptsize setProposerBps(uint256)} & nonpayable \\
+\texttt{\scriptsize setQuest(address)} & nonpayable \\
+\texttt{\scriptsize setRegistry(address)} & nonpayable \\
+\texttt{\scriptsize setSeeder(address)} & nonpayable \\
+\texttt{\scriptsize setSnipeParams(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setTaxExempt(address,bool)} & nonpayable \\
+\texttt{\scriptsize setTreasury(address)} & nonpayable \\
+\texttt{\scriptsize setVault(address)} & nonpayable \\
+\texttt{\scriptsize setWeights(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize snipeMaxBps()} & view \\
+\texttt{\scriptsize snipeSurtaxBps(bytes32)} & view \\
+\texttt{\scriptsize snipeWindowBlocks()} & view \\
+\texttt{\scriptsize surtaxPolicy()} & view \\
+\texttt{\scriptsize sweepLegacyReserve(address,address)} & nonpayable \\
+\texttt{\scriptsize taxExempt(address)} & view \\
+\texttt{\scriptsize totalLifetimeVolume()} & view \\
+\texttt{\scriptsize trackedPools(bytes32)} & view \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize treasury()} & view \\
+\texttt{\scriptsize vault()} & view \\
+\texttt{\scriptsize volumePerNFT()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronToken \;\normalfont\small(15 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize TOTAL\_SUPPLY()} & view \\
+\texttt{\scriptsize allowance(address,address)} & view \\
+\texttt{\scriptsize approve(address,uint256)} & nonpayable \\
+\texttt{\scriptsize balanceOf(address)} & view \\
+\texttt{\scriptsize birthBlock()} & view \\
+\texttt{\scriptsize burn(address,uint256)} & nonpayable \\
+\texttt{\scriptsize constructor(string,string,uint256,address,uint256)} & nonpayable \\
+\texttt{\scriptsize decimals()} & view \\
+\texttt{\scriptsize generation()} & view \\
+\texttt{\scriptsize name()} & view \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize symbol()} & view \\
+\texttt{\scriptsize totalSupply()} & view \\
+\texttt{\scriptsize transfer(address,uint256)} & nonpayable \\
+\texttt{\scriptsize transferFrom(address,address,uint256)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{RedemptionExt \;\normalfont\small(63 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize AUTO\_MIGRATE\_FEE()} & view \\
+\texttt{\scriptsize GEN1\_ACTIVE\_TOKENS()} & view \\
+\texttt{\scriptsize MAX\_NFT\_SUPPLY()} & view \\
+\texttt{\scriptsize POOL\_FEE()} & view \\
+\texttt{\scriptsize TICK\_SPACING()} & view \\
+\texttt{\scriptsize TOTAL\_SUPPLY()} & view \\
+\texttt{\scriptsize airdropReserve()} & view \\
+\texttt{\scriptsize airdropWallet()} & view \\
+\texttt{\scriptsize autoMigrate(address)} & view \\
+\texttt{\scriptsize buyTreasuryOgFren(uint256)} & nonpayable \\
+\texttt{\scriptsize claimGate()} & view \\
+\texttt{\scriptsize claimed(uint256,address)} & view \\
+\texttt{\scriptsize collectionLedger()} & view \\
+\texttt{\scriptsize currentGeneration()} & view \\
+\texttt{\scriptsize currentToken()} & view \\
+\texttt{\scriptsize donateToReserve(uint256)} & nonpayable \\
+\texttt{\scriptsize emergencyReadyAt()} & view \\
+\texttt{\scriptsize enchantFeeMultBps()} & view \\
+\texttt{\scriptsize factory()} & view \\
+\texttt{\scriptsize floorPerFren()} & view \\
+\texttt{\scriptsize generationCollection(uint256)} & view \\
+\texttt{\scriptsize generationParent(uint256)} & view \\
+\texttt{\scriptsize generationPoolId(uint256)} & view \\
+\texttt{\scriptsize generationPoolKey(uint256)} & view \\
+\texttt{\scriptsize generationPositionId(uint256)} & view \\
+\texttt{\scriptsize generationProposer(uint256)} & view \\
+\texttt{\scriptsize generationReservePositionId(uint256)} & view \\
+\texttt{\scriptsize generationToken(uint256)} & view \\
+\texttt{\scriptsize generationVault(uint256)} & view \\
+\texttt{\scriptsize genesisBaseURI()} & view \\
+\texttt{\scriptsize genesisBonusBps()} & view \\
+\texttt{\scriptsize genesisMode()} & view \\
+\texttt{\scriptsize genesisRenderer()} & view \\
+\texttt{\scriptsize genesisReserveOutstanding()} & view \\
+\texttt{\scriptsize genesisSharePerFren()} & view \\
+\texttt{\scriptsize genesisShares()} & view \\
+\texttt{\scriptsize governor()} & view \\
+\texttt{\scriptsize guardian()} & view \\
+\texttt{\scriptsize hook()} & view \\
+\texttt{\scriptsize igniter()} & view \\
+\texttt{\scriptsize lastSummonAt()} & view \\
+\texttt{\scriptsize materializeLegacyReserve()} & nonpayable \\
+\texttt{\scriptsize mifrens()} & view \\
+\texttt{\scriptsize minLifetime()} & view \\
+\texttt{\scriptsize nextSeedWindow()} & view \\
+\texttt{\scriptsize nftMaxSupply()} & view \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize positionManager()} & view \\
+\texttt{\scriptsize primeBuyEth()} & view \\
+\texttt{\scriptsize primeFunder()} & view \\
+\texttt{\scriptsize redeemOgFren(uint256)} & nonpayable \\
+\texttt{\scriptsize redemptionExt()} & view \\
+\texttt{\scriptsize redemptionPaused()} & view \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize reserveTickLower(uint256)} & view \\
+\texttt{\scriptsize reserveTickUpper(uint256)} & view \\
+\texttt{\scriptsize royaltyBps()} & view \\
+\texttt{\scriptsize royaltyDividend()} & view \\
+\texttt{\scriptsize seeder()} & view \\
+\texttt{\scriptsize successor()} & view \\
+\texttt{\scriptsize summoned()} & view \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{PerpEngine \;\normalfont\small(106 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize MAX\_OPEN\_POSITIONS()} & view \\
+\texttt{\scriptsize POOL\_FEE()} & view \\
+\texttt{\scriptsize TICK\_SPACING()} & view \\
+\texttt{\scriptsize activeEthDepth()} & view \\
+\texttt{\scriptsize badgesOwed(address)} & view \\
+\texttt{\scriptsize claimLiquidatorBadges(uint256)} & nonpayable \\
+\texttt{\scriptsize claimPayout()} & nonpayable \\
+\texttt{\scriptsize close(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize constructor(address,address,address,address,address,address,address)} & nonpayable \\
+\texttt{\scriptsize creditPerpFee()} & payable \\
+\texttt{\scriptsize creditPerpFeeToken()} & payable \\
+\texttt{\scriptsize divShareBps()} & view \\
+\texttt{\scriptsize dividend()} & view \\
+\texttt{\scriptsize forceCloseAllDead()} & nonpayable \\
+\texttt{\scriptsize forceCloseDead(uint256)} & nonpayable \\
+\texttt{\scriptsize freeEth()} & view \\
+\texttt{\scriptsize freeToken()} & view \\
+\texttt{\scriptsize fundFromVault()} & payable \\
+\texttt{\scriptsize fundInsurance()} & payable \\
+\texttt{\scriptsize fundPlv()} & payable \\
+\texttt{\scriptsize fundPlvToken(uint256)} & nonpayable \\
+\texttt{\scriptsize fundTokenFromVault(uint256)} & nonpayable \\
+\texttt{\scriptsize fundingDelta(uint256)} & view \\
+\texttt{\scriptsize fundingIndex()} & view \\
+\texttt{\scriptsize fundingRateBpsPerDay()} & view \\
+\texttt{\scriptsize hookAddr()} & view \\
+\texttt{\scriptsize insuranceBps()} & view \\
+\texttt{\scriptsize insuranceEth()} & view \\
+\texttt{\scriptsize insuranceFloor()} & view \\
+\texttt{\scriptsize isLiquidatable(uint256)} & view \\
+\texttt{\scriptsize keeperBps()} & view \\
+\texttt{\scriptsize lastFundingAt()} & view \\
+\texttt{\scriptsize lastObsTs()} & view \\
+\texttt{\scriptsize lastRingTs()} & view \\
+\texttt{\scriptsize lastTick()} & view \\
+\texttt{\scriptsize liqPenaltyBps()} & view \\
+\texttt{\scriptsize liquidate(uint256)} & nonpayable \\
+\texttt{\scriptsize longOiEth()} & view \\
+\texttt{\scriptsize maintenanceBps()} & view \\
+\texttt{\scriptsize markSqrtPriceX96()} & view \\
+\texttt{\scriptsize maxFundingBps()} & view \\
+\texttt{\scriptsize maxLeverage()} & view \\
+\texttt{\scriptsize maxLeverageCeiling()} & view \\
+\texttt{\scriptsize maxLiqBps()} & view \\
+\texttt{\scriptsize maxNotionalBps()} & view \\
+\texttt{\scriptsize maxOiBps()} & view \\
+\texttt{\scriptsize maxUtilBps()} & view \\
+\texttt{\scriptsize mifrens()} & view \\
+\texttt{\scriptsize minCollateral()} & view \\
+\texttt{\scriptsize nextId()} & view \\
+\texttt{\scriptsize nftBeneficiary()} & view \\
+\texttt{\scriptsize obsIndex()} & view \\
+\texttt{\scriptsize observations(uint256)} & view \\
+\texttt{\scriptsize ogDiscountBps()} & view \\
+\texttt{\scriptsize openCount()} & view \\
+\texttt{\scriptsize openFeeBps()} & view \\
+\texttt{\scriptsize openLong(uint8,uint256,uint256)} & payable \\
+\texttt{\scriptsize openShort(uint8,uint256,uint256)} & payable \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize payoutOwed(address)} & view \\
+\texttt{\scriptsize plv()} & view \\
+\texttt{\scriptsize plvToken()} & view \\
+\texttt{\scriptsize poke()} & nonpayable \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize positionHealth(uint256)} & view \\
+\texttt{\scriptsize positions(uint256)} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize selfSweep(address)} & nonpayable \\
+\texttt{\scriptsize setFees(uint256,uint256,uint256,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setGuards(uint32,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setMinCollateral(uint256)} & nonpayable \\
+\texttt{\scriptsize setNftBeneficiary(address)} & nonpayable \\
+\texttt{\scriptsize setRisk(uint256,uint256,uint256,uint256,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setRouting(address,address)} & nonpayable \\
+\texttt{\scriptsize setTiers(uint256[],uint8[])} & nonpayable \\
+\texttt{\scriptsize setTwapWindow(uint32)} & nonpayable \\
+\texttt{\scriptsize setVault(address)} & nonpayable \\
+\texttt{\scriptsize setVaultLimits(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize setVaultSplit(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize shortOiToken()} & view \\
+\texttt{\scriptsize skimInsurance(uint256,address)} & nonpayable \\
+\texttt{\scriptsize sweepCursor()} & view \\
+\texttt{\scriptsize sweepLiquidations(address)} & nonpayable \\
+\texttt{\scriptsize syncGeneration()} & nonpayable \\
+\texttt{\scriptsize syncedGeneration()} & view \\
+\texttt{\scriptsize syncedToken()} & view \\
+\texttt{\scriptsize tickCumulative()} & view \\
+\texttt{\scriptsize tierDepthWei(uint256)} & view \\
+\texttt{\scriptsize tierLeverage(uint256)} & view \\
+\texttt{\scriptsize tokYieldCumulative()} & view \\
+\texttt{\scriptsize tokYieldEth()} & view \\
+\texttt{\scriptsize totalEth()} & view \\
+\texttt{\scriptsize totalTokenAssets()} & view \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize treasury()} & view \\
+\texttt{\scriptsize twapTick()} & view \\
+\texttt{\scriptsize twapWindow()} & view \\
+\texttt{\scriptsize unlockCallback(bytes)} & nonpayable \\
+\texttt{\scriptsize vault()} & view \\
+\texttt{\scriptsize vaultYieldBps()} & view \\
+\texttt{\scriptsize warmup()} & view \\
+\texttt{\scriptsize withdrawPlvTo(uint256,address)} & nonpayable \\
+\texttt{\scriptsize withdrawPlvTokenTo(uint256,address)} & nonpayable \\
+\texttt{\scriptsize withdrawTokYieldTo(uint256,address)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{PerpVault \;\normalfont\small(27 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize accEthPerTokShare()} & view \\
+\texttt{\scriptsize assetsEth()} & view \\
+\texttt{\scriptsize assetsTok()} & view \\
+\texttt{\scriptsize claimPendingEth()} & nonpayable \\
+\texttt{\scriptsize claimPendingToken()} & nonpayable \\
+\texttt{\scriptsize claimTokYield()} & nonpayable \\
+\texttt{\scriptsize constructor(address,address)} & nonpayable \\
+\texttt{\scriptsize depositEth()} & payable \\
+\texttt{\scriptsize depositToken(uint256)} & nonpayable \\
+\texttt{\scriptsize engine()} & view \\
+\texttt{\scriptsize ethPosition(address)} & view \\
+\texttt{\scriptsize ethShareOf(address)} & view \\
+\texttt{\scriptsize ethShares()} & view \\
+\texttt{\scriptsize lastTokYieldCum()} & view \\
+\texttt{\scriptsize pendingEth()} & view \\
+\texttt{\scriptsize pendingEthOf(address)} & view \\
+\texttt{\scriptsize pendingTok()} & view \\
+\texttt{\scriptsize pendingTokOf(address)} & view \\
+\texttt{\scriptsize pendingTokYield(address)} & view \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize tokRewardDebt(address)} & view \\
+\texttt{\scriptsize tokRewardOwed(address)} & view \\
+\texttt{\scriptsize tokShareOf(address)} & view \\
+\texttt{\scriptsize tokShares()} & view \\
+\texttt{\scriptsize tokenPosition(address)} & view \\
+\texttt{\scriptsize withdrawEth(uint256)} & nonpayable \\
+\texttt{\scriptsize withdrawToken(uint256)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronSeeder \;\normalfont\small(27 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize baseWad()} & view \\
+\texttt{\scriptsize complete()} & view \\
+\texttt{\scriptsize constructor(address,address,address)} & nonpayable \\
+\texttt{\scriptsize deployedWad()} & view \\
+\texttt{\scriptsize ethTotal()} & view \\
+\texttt{\scriptsize gen()} & view \\
+\texttt{\scriptsize isComplete()} & view \\
+\texttt{\scriptsize minStepWad()} & view \\
+\texttt{\scriptsize placedWad()} & view \\
+\texttt{\scriptsize poke()} & nonpayable \\
+\texttt{\scriptsize pokeInSwap()} & nonpayable \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize positionManager()} & view \\
+\texttt{\scriptsize rangeCount()} & view \\
+\texttt{\scriptsize ranges(uint256)} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize rescue(address)} & nonpayable \\
+\texttt{\scriptsize seedFloorWad()} & view \\
+\texttt{\scriptsize seeding()} & view \\
+\texttt{\scriptsize startSeed(tuple)} & payable \\
+\texttt{\scriptsize startTs()} & view \\
+\texttt{\scriptsize token()} & view \\
+\texttt{\scriptsize tokenTotal()} & view \\
+\texttt{\scriptsize unlockCallback(bytes)} & nonpayable \\
+\texttt{\scriptsize window()} & view \\
+\texttt{\scriptsize withdrawAll(address)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronGovernor \;\normalfont\small(18 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize MAX\_NFT\_SUPPLY()} & view \\
+\texttt{\scriptsize VOTING\_PERIOD()} & view \\
+\texttt{\scriptsize constructor(address)} & nonpayable \\
+\texttt{\scriptsize displayName(uint256)} & view \\
+\texttt{\scriptsize getProposal(uint256)} & view \\
+\texttt{\scriptsize hasProposals()} & view \\
+\texttt{\scriptsize hasVoted(uint256,address)} & view \\
+\texttt{\scriptsize markConsumed(uint256)} & nonpayable \\
+\texttt{\scriptsize mifrens()} & view \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize proposalCount()} & view \\
+\texttt{\scriptsize propose(string,string,uint8,string,address,string,string,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize setRegistry(address)} & nonpayable \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize vote(uint256)} & nonpayable \\
+\texttt{\scriptsize winner()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronCollection \;\normalfont\small(49 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize LIQUIDATOR\_ID\_BASE()} & view \\
+\texttt{\scriptsize approve(address,uint256)} & nonpayable \\
+\texttt{\scriptsize balanceOf(address)} & view \\
+\texttt{\scriptsize burnFromVault(uint256)} & nonpayable \\
+\texttt{\scriptsize configurator()} & view \\
+\texttt{\scriptsize constructor(string,string,address,address,uint256,uint8,string,address,address,uint96)} & nonpayable \\
+\texttt{\scriptsize custodyTransfer(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize deployer()} & view \\
+\texttt{\scriptsize getApproved(uint256)} & view \\
+\texttt{\scriptsize getTransferValidationFunction()} & pure \\
+\texttt{\scriptsize getTransferValidator()} & view \\
+\texttt{\scriptsize isApprovedForAll(address,address)} & view \\
+\texttt{\scriptsize isLiquidatoor(uint256)} & view \\
+\texttt{\scriptsize liquidatoorTrait(uint256)} & view \\
+\texttt{\scriptsize liquidatorMinted()} & view \\
+\texttt{\scriptsize liquidatorMinter()} & view \\
+\texttt{\scriptsize liquidatorURI()} & view \\
+\texttt{\scriptsize maxSupply()} & view \\
+\texttt{\scriptsize mint(address)} & nonpayable \\
+\texttt{\scriptsize mintBlockOf(uint256)} & view \\
+\texttt{\scriptsize mintLiquidator(address)} & nonpayable \\
+\texttt{\scriptsize minter()} & view \\
+\texttt{\scriptsize mode()} & view \\
+\texttt{\scriptsize name()} & view \\
+\texttt{\scriptsize ownerOf(uint256)} & view \\
+\texttt{\scriptsize rarityCumBps(uint256)} & view \\
+\texttt{\scriptsize rarityOf(uint256)} & view \\
+\texttt{\scriptsize renderer()} & view \\
+\texttt{\scriptsize reveal(uint256)} & nonpayable \\
+\texttt{\scriptsize revealed(uint256)} & view \\
+\texttt{\scriptsize royaltyInfo(uint256,uint256)} & view \\
+\texttt{\scriptsize safeTransferFrom(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize safeTransferFrom(address,address,uint256,bytes)} & nonpayable \\
+\texttt{\scriptsize setApprovalForAll(address,bool)} & nonpayable \\
+\texttt{\scriptsize setLiquidatorMinter(address)} & nonpayable \\
+\texttt{\scriptsize setLiquidatorURI(string)} & nonpayable \\
+\texttt{\scriptsize setMetadata(uint8,address,string)} & nonpayable \\
+\texttt{\scriptsize setRarityOdds(uint16[4])} & nonpayable \\
+\texttt{\scriptsize setRoyalty(address,uint96)} & nonpayable \\
+\texttt{\scriptsize setTransferValidator(address)} & nonpayable \\
+\texttt{\scriptsize setVault(address)} & nonpayable \\
+\texttt{\scriptsize supportsInterface(bytes4)} & view \\
+\texttt{\scriptsize symbol()} & view \\
+\texttt{\scriptsize tokenURI(uint256)} & view \\
+\texttt{\scriptsize totalMinted()} & view \\
+\texttt{\scriptsize transferFrom(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize transferValidator()} & view \\
+\texttt{\scriptsize unrevealedURI()} & view \\
+\texttt{\scriptsize vault()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{MiFrensGenesis \;\normalfont\small(82 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize CLOCK\_MODE()} & view \\
+\texttt{\scriptsize GENESIS\_SUPPLY()} & view \\
+\texttt{\scriptsize LIQUIDATOR\_ID\_BASE()} & view \\
+\texttt{\scriptsize MAX\_PER\_WALLET()} & view \\
+\texttt{\scriptsize MAX\_SUPPLY()} & view \\
+\texttt{\scriptsize PRICE()} & view \\
+\texttt{\scriptsize approve(address,uint256)} & nonpayable \\
+\texttt{\scriptsize balanceOf(address)} & view \\
+\texttt{\scriptsize burnFromVault(uint256)} & nonpayable \\
+\texttt{\scriptsize cancelPresale()} & nonpayable \\
+\texttt{\scriptsize cancelled()} & view \\
+\texttt{\scriptsize clock()} & view \\
+\texttt{\scriptsize constructor(string,string,uint256,uint256,uint256,uint256,string)} & nonpayable \\
+\texttt{\scriptsize custodyTransfer(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize delegate(address)} & nonpayable \\
+\texttt{\scriptsize delegateBySig(address,uint256,uint256,uint8,bytes32,bytes32)} & nonpayable \\
+\texttt{\scriptsize delegates(address)} & view \\
+\texttt{\scriptsize deployer()} & view \\
+\texttt{\scriptsize dividend()} & view \\
+\texttt{\scriptsize eip712Domain()} & view \\
+\texttt{\scriptsize everMoved(uint256)} & view \\
+\texttt{\scriptsize finalize()} & nonpayable \\
+\texttt{\scriptsize finalized()} & view \\
+\texttt{\scriptsize finalizer()} & view \\
+\texttt{\scriptsize getApproved(uint256)} & view \\
+\texttt{\scriptsize getPastTotalSupply(uint256)} & view \\
+\texttt{\scriptsize getPastVotes(address,uint256)} & view \\
+\texttt{\scriptsize getTransferValidationFunction()} & pure \\
+\texttt{\scriptsize getTransferValidator()} & view \\
+\texttt{\scriptsize getVotes(address)} & view \\
+\texttt{\scriptsize isApprovedForAll(address,address)} & view \\
+\texttt{\scriptsize isGenesis(uint256)} & view \\
+\texttt{\scriptsize isLiquidatoor(uint256)} & view \\
+\texttt{\scriptsize liquidatoorTrait(uint256)} & view \\
+\texttt{\scriptsize liquidatorMinted()} & view \\
+\texttt{\scriptsize liquidatorMinter()} & view \\
+\texttt{\scriptsize liquidatorURI()} & view \\
+\texttt{\scriptsize maxSupply()} & view \\
+\texttt{\scriptsize mint(address)} & nonpayable \\
+\texttt{\scriptsize mint(uint256)} & payable \\
+\texttt{\scriptsize mintBlockOf(uint256)} & view \\
+\texttt{\scriptsize mintLiquidator(address)} & nonpayable \\
+\texttt{\scriptsize minted()} & view \\
+\texttt{\scriptsize minter()} & view \\
+\texttt{\scriptsize mode()} & view \\
+\texttt{\scriptsize name()} & view \\
+\texttt{\scriptsize nonces(address)} & view \\
+\texttt{\scriptsize ogTrait(uint256)} & view \\
+\texttt{\scriptsize ownerOf(uint256)} & view \\
+\texttt{\scriptsize paid(address)} & view \\
+\texttt{\scriptsize rarityCumBps(uint256)} & view \\
+\texttt{\scriptsize rarityOf(uint256)} & view \\
+\texttt{\scriptsize refund()} & nonpayable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize remaining()} & view \\
+\texttt{\scriptsize renderer()} & view \\
+\texttt{\scriptsize reveal(uint256)} & nonpayable \\
+\texttt{\scriptsize revealed(uint256)} & view \\
+\texttt{\scriptsize royaltyInfo(uint256,uint256)} & view \\
+\texttt{\scriptsize safeTransferFrom(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize safeTransferFrom(address,address,uint256,bytes)} & nonpayable \\
+\texttt{\scriptsize setApprovalForAll(address,bool)} & nonpayable \\
+\texttt{\scriptsize setDividend(address)} & nonpayable \\
+\texttt{\scriptsize setFinalizer(address)} & nonpayable \\
+\texttt{\scriptsize setLiquidatorMinter(address)} & nonpayable \\
+\texttt{\scriptsize setLiquidatorURI(string)} & nonpayable \\
+\texttt{\scriptsize setMetadata(uint8,address,string)} & nonpayable \\
+\texttt{\scriptsize setMinter(address)} & nonpayable \\
+\texttt{\scriptsize setRarityOdds(uint16[4])} & nonpayable \\
+\texttt{\scriptsize setRegistry(address)} & nonpayable \\
+\texttt{\scriptsize setRoyalty(address,uint96)} & nonpayable \\
+\texttt{\scriptsize setTransferValidator(address)} & nonpayable \\
+\texttt{\scriptsize setVault(address)} & nonpayable \\
+\texttt{\scriptsize soldOut()} & view \\
+\texttt{\scriptsize supportsInterface(bytes4)} & view \\
+\texttt{\scriptsize symbol()} & view \\
+\texttt{\scriptsize tokenURI(uint256)} & view \\
+\texttt{\scriptsize totalMinted()} & view \\
+\texttt{\scriptsize transferFrom(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize transferValidator()} & view \\
+\texttt{\scriptsize unrevealedURI()} & view \\
+\texttt{\scriptsize vault()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{MiFrensDividend \;\normalfont\small(24 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize MAX\_TOKEN()} & view \\
+\texttt{\scriptsize SHARES()} & view \\
+\texttt{\scriptsize accPerShare()} & view \\
+\texttt{\scriptsize activeShares()} & view \\
+\texttt{\scriptsize castMany(uint256[])} & nonpayable \\
+\texttt{\scriptsize castSpell(uint256)} & nonpayable \\
+\texttt{\scriptsize claim(uint256)} & nonpayable \\
+\texttt{\scriptsize claimMany(uint256[])} & nonpayable \\
+\texttt{\scriptsize constructor(address,address)} & nonpayable \\
+\texttt{\scriptsize debtOf(uint256)} & view \\
+\texttt{\scriptsize enchantedBy(uint256)} & view \\
+\texttt{\scriptsize isEnchanted(uint256)} & view \\
+\texttt{\scriptsize mifrens()} & view \\
+\texttt{\scriptsize onMiFrenTransfer(uint256,address)} & nonpayable \\
+\texttt{\scriptsize owed(address)} & view \\
+\texttt{\scriptsize pending(uint256)} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize residual()} & view \\
+\texttt{\scriptsize setRegistry(address)} & nonpayable \\
+\texttt{\scriptsize totalClaimed()} & view \\
+\texttt{\scriptsize totalDeposited()} & view \\
+\texttt{\scriptsize treasury()} & view \\
+\texttt{\scriptsize withdrawOwed()} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CollectionLedger \;\normalfont\small(13 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize buyback(uint256,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize constructor(address)} & nonpayable \\
+\texttt{\scriptsize credit(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize crystallize(uint256,uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize crystallized(uint256)} & view \\
+\texttt{\scriptsize entitledTokens(uint256)} & view \\
+\texttt{\scriptsize floorPerNFT(uint256,uint256)} & view \\
+\texttt{\scriptsize frozenSupply(uint256)} & view \\
+\texttt{\scriptsize outstanding(uint256,uint256)} & view \\
+\texttt{\scriptsize redeem(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize retired(uint256)} & view \\
+\texttt{\scriptsize totalEntitled()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{MigrationVesting \;\normalfont\small(19 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize MAX\_WINDOW()} & view \\
+\texttt{\scriptsize MIN\_WINDOW()} & view \\
+\texttt{\scriptsize claim()} & nonpayable \\
+\texttt{\scriptsize claimFor(address)} & nonpayable \\
+\texttt{\scriptsize claimable(address)} & view \\
+\texttt{\scriptsize constructor(address,address,uint64,address)} & nonpayable \\
+\texttt{\scriptsize grantAt(address,uint256)} & view \\
+\texttt{\scriptsize grantCount(address)} & view \\
+\texttt{\scriptsize locked(address)} & view \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize setStakerOracle(address)} & nonpayable \\
+\texttt{\scriptsize setVestWindow(uint64)} & nonpayable \\
+\texttt{\scriptsize stakerOracle()} & view \\
+\texttt{\scriptsize startVest(uint256,uint256)} & nonpayable \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize vestBatch(uint256,address[])} & nonpayable \\
+\texttt{\scriptsize vestWindow()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronVault \;\normalfont\small(11 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize close()} & nonpayable \\
+\texttt{\scriptsize closed()} & view \\
+\texttt{\scriptsize collection()} & view \\
+\texttt{\scriptsize constructor(address,address,uint256)} & nonpayable \\
+\texttt{\scriptsize floorOffset()} & view \\
+\texttt{\scriptsize floorPerNFT()} & view \\
+\texttt{\scriptsize outstanding()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize redeem(uint256)} & nonpayable \\
+\texttt{\scriptsize redeemed()} & view \\
+\texttt{\scriptsize registry()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronFactory \;\normalfont\small(2 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize deployBrew(tuple)} & nonpayable \\
+\texttt{\scriptsize deployVault(address,address,uint256)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{CauldronGachaRouter \;\normalfont\small(19 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize MAX\_LOOPS()} & view \\
+\texttt{\scriptsize MAX\_MINTS\_PER\_CALL()} & view \\
+\texttt{\scriptsize POOL\_FEE()} & view \\
+\texttt{\scriptsize TICK\_SPACING()} & view \\
+\texttt{\scriptsize constructor(address,address,address,address)} & nonpayable \\
+\texttt{\scriptsize hook()} & view \\
+\texttt{\scriptsize hookAddr()} & view \\
+\texttt{\scriptsize openReady(uint256)} & nonpayable \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize play(uint256,uint256,uint256,uint256)} & payable \\
+\texttt{\scriptsize playChurn(uint256,uint256)} & payable \\
+\texttt{\scriptsize playLiq(uint256,uint256,uint256,uint256,uint256[])} & payable \\
+\texttt{\scriptsize poolManager()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize registry()} & view \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize rescueETH(address,uint256)} & nonpayable \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\texttt{\scriptsize unlockCallback(bytes)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{LaunchSniper \;\normalfont\small(7 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize constructor(address)} & nonpayable \\
+\texttt{\scriptsize launch(address,address,address,address,uint256,uint256)} & payable \\
+\texttt{\scriptsize owner()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\texttt{\scriptsize renounceOwnership()} & nonpayable \\
+\texttt{\scriptsize sweep(address)} & nonpayable \\
+\texttt{\scriptsize transferOwnership(address)} & nonpayable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{PerpStakerOracle \;\normalfont\small(3 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize constructor(address)} & nonpayable \\
+\texttt{\scriptsize isInstant(address)} & view \\
+\texttt{\scriptsize perpVault()} & view \\
+\bottomrule\end{longtable}
+
+\subsubsection*{RoyaltyRouter \;\normalfont\small(3 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize constructor(address)} & nonpayable \\
+\texttt{\scriptsize hook()} & view \\
+\texttt{\scriptsize receive()} & payable \\
+\bottomrule\end{longtable}
+
+\subsubsection*{DefaultFeeRouter \;\normalfont\small(1 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize route(uint256,address,address,uint256,uint256)} & pure \\
+\bottomrule\end{longtable}
+
+\subsubsection*{PoolOps \;\normalfont\small(1 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\texttt{\scriptsize creatureFor(uint256)} & pure \\
+\bottomrule\end{longtable}
+
+\subsubsection*{ReserveLib \;\normalfont\small(0 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\bottomrule\end{longtable}
+
+\subsubsection*{SeedLib \;\normalfont\small(0 external/public entries)}
+\begin{longtable}{@{}p{0.62\linewidth}p{0.30\linewidth}@{}}
+\toprule \textbf{Signature} & \textbf{Mutability} \\ \midrule \endhead
+\bottomrule\end{longtable}
+
+%% GRAND TOTAL external/public ABI entries:  735

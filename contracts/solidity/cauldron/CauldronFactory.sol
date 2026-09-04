@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {CauldronCollection} from "./CauldronCollection.sol";
 import {CauldronVault} from "./CauldronVault.sol";
+import {RoyaltyRouter} from "./RoyaltyRouter.sol";
 import {MetadataMode} from "./ICauldron.sol";
 
 /**
@@ -33,12 +34,22 @@ contract CauldronFactory {
         external
         returns (address collection, address vault)
     {
+        // `c.registry` is passed EXPLICITLY as the collection's controller (audit
+        // H-01). Previously the collection inferred it from `msg.sender`, which is
+        // THIS factory — leaving `custodyTransfer` (the legacy-floor recycle) and
+        // every governed setter permanently unreachable.
         CauldronCollection col = new CauldronCollection(
-            c.name, c.symbol, c.hook, c.maxSupply, c.mode, c.baseURI, c.renderer,
+            c.name, c.symbol, c.hook, c.registry, c.maxSupply, c.mode, c.baseURI, c.renderer,
             c.royaltyReceiver, c.royaltyBps
         );
-        CauldronVault v = new CauldronVault(address(col), c.registry);
+        CauldronVault v = new CauldronVault(address(col), c.registry, 0); // fresh brew: no offset
         col.setVault(address(v)); // this factory is the collection's deployer
+        // UNIFIED FLOOR: route this VOLUME collection's secondary royalties to a
+        // RoyaltyRouter → the hook's buyback buffer, so they MARKET-BUY the live
+        // token and back this collection's own per-gen TOKEN floor (not inert ETH in
+        // the vault). Genesis (MiFrensGenesis) royalties still go to the dividend.
+        RoyaltyRouter router = new RoyaltyRouter(c.hook);
+        col.setRoyalty(address(router), c.royaltyBps);
         return (address(col), address(v));
     }
 
@@ -49,10 +60,10 @@ contract CauldronFactory {
     ///         own `setVault`.
     /// @param collection The existing collection the vault backs.
     /// @param registry   The registry that may close the vault on relaunch.
-    function deployVault(address collection, address registry)
+    function deployVault(address collection, address registry, uint256 floorOffset)
         external
         returns (address vault)
     {
-        return address(new CauldronVault(collection, registry));
+        return address(new CauldronVault(collection, registry, floorOffset));
     }
 }

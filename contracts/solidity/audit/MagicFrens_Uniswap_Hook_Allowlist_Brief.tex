@@ -1,0 +1,497 @@
+% !TeX program = pdflatex
+%==============================================================================
+%  CauldronHook — Uniswap v4 Hook Routing Allowlist: Reviewer Brief
+%
+%  Companion to (and deliberately SEPARATE from) the independent security audit
+%  in MagicFrens_Independent_Audit_2026-09.tex. That document is a neutral
+%  assessment; this one is a submission brief. Keeping them apart is the point —
+%  an audit that doubles as advocacy is worth less to a reviewer than an audit
+%  that does not.
+%
+%  Build:  tectonic MagicFrens_Uniswap_Hook_Allowlist_Brief.tex
+%     or:  pdflatex MagicFrens_Uniswap_Hook_Allowlist_Brief.tex  (x2)
+%==============================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage[hidelinks,bookmarks=true]{hyperref}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\definecolor{ink}{HTML}{16181D}
+\definecolor{slate}{HTML}{5B6472}
+\definecolor{rule}{HTML}{D5D9E0}
+\definecolor{good}{HTML}{15803D}
+\definecolor{warn}{HTML}{A16207}
+\definecolor{bad}{HTML}{9B1C1C}
+\definecolor{uni}{HTML}{FF007A}
+\definecolor{panel}{HTML}{F6F7F9}
+
+\titleformat{\section}{\Large\bfseries\color{ink}\raggedright}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{ink}\raggedright}{\thesubsection}{0.6em}{}
+\setlist{leftmargin=1.35em,itemsep=2pt,topsep=3pt}
+
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\color{slate}CauldronHook --- v4 Routing Allowlist Brief}
+\fancyhead[R]{\small\color{slate}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\lstdefinestyle{sol}{
+  basicstyle=\ttfamily\scriptsize, breaklines=true, columns=fullflexible,
+  keywordstyle=\color{uni}, commentstyle=\color{slate}\itshape,
+  numbers=none, frame=leftline, framerule=1.5pt, rulecolor=\color{rule},
+  xleftmargin=0.9em, showstringspaces=false, language=Java,
+}
+\lstset{style=sol}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\Yes}{\textcolor{good}{\textbf{Yes}}}
+\newcommand{\No}{\textcolor{bad}{\textbf{No}}}
+
+\newtcolorbox{keybox}[1]{
+  breakable, enhanced, colback=panel, colframe=uni, boxrule=1pt,
+  left=7pt,right=7pt,top=6pt,bottom=6pt, arc=1pt,
+  title={#1}, fonttitle=\bfseries\small, coltitle=white
+}
+\newtcolorbox{plainbox}[1]{
+  breakable, enhanced, colback=panel, colframe=rule, boxrule=0.7pt,
+  left=7pt,right=7pt,top=6pt,bottom=6pt, arc=1pt,
+  title={#1}, fonttitle=\bfseries\small\color{ink}, coltitle=ink
+}
+
+\sloppy
+\begin{document}
+
+%==============================================================================
+\begin{center}
+{\LARGE\bfseries\color{ink} CauldronHook\par}
+\vspace{2pt}
+{\large\color{slate} Uniswap v4 Hook Routing Allowlist --- Reviewer Brief\par}
+\vspace{6pt}
+{\small\color{slate} Magic Internet Frens \quad$\cdot$\quad \href{https://mifrens.xyz}{mifrens.xyz}\par}
+\end{center}
+\vspace{6pt}
+
+\begin{keybox}{Why this submission exists}
+\code{CauldronHook} declares \code{beforeSwapReturnDelta} and
+\code{afterSwapReturnDelta}. Both are structurally required by the hook's single
+economic mechanism --- an \textbf{ETH-denominated} swap fee --- for reasons that
+follow from v4's specified/unspecified currency semantics rather than from a
+design preference. Section~\ref{sec:why} shows the derivation.
+
+We do \textbf{not} deploy at \code{0x91...}, and we do \textbf{not} target major
+pairs: every pool this hook serves is \code{ETH / <our own iteration token>},
+created by our own registry.
+\end{keybox}
+
+\vspace{4pt}
+
+\begin{center}\small
+\begin{tabular}{@{}lp{0.62\linewidth}@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Answers to the stated criteria}} \\
+\midrule
+Upgradeable? & \No{} --- no proxy, no delegatecall in the hook, immutable bytecode (\S\ref{sec:upgrade}) \\
+Requires custom data inputs? & \No{} --- \code{hookData} is optional on every path; empty is a first-class case (\S\ref{sec:hookdata}) \\
+Audited? & \Yes{} --- independent from-scratch review, 340 tests incl.\ live-v4 fork tests (\S\ref{sec:audit}) \\
+Differentiated? & \Yes{} --- \S\ref{sec:diff} \\
+Deployment address & \code{0x31ee...50cc} --- not \code{0x91} \\
+Pairs & ETH / own token only --- never a major pair \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%==============================================================================
+\section{What the hook is}
+\label{sec:diff}
+
+The Cauldron is an autonomous, self-funding token machine. One \emph{iteration}
+token trades at a time; when its rolling 24-hour volume falls below a threshold,
+governance selects the next one, protocol-owned liquidity is recovered, and
+holders migrate 1:1. The cycle is designed to run indefinitely, and the protocol
+is funded entirely by its own swap fees.
+
+A break-glass custody path does exist and we would rather state it than have it
+found: \code{emergencyWithdrawLP} can remove a generation's protocol-owned
+liquidity to an emergency admin. That admin is \textbf{immutable} (fixed at
+construction, no setter), the action must be announced on-chain and is delayed, an
+independent guardian can veto it in the window, and arming it \emph{forces the
+redemption exit open} so holders can leave at the floor before anything moves. It
+reaches protocol-owned liquidity only --- nothing in the system can mint, freeze,
+or move a token or NFT held in a user's wallet, and none of it is reachable from
+the hook. Full detail in \S\ref{sec:upgrade}.
+
+Four things are genuinely v4-native rather than ported from a v2/v3 design:
+
+\begin{itemize}
+\item \textbf{The fee engine is the hook.} There is no LP fee
+(\code{POOL\_FEE = 0}); 100\% of trading revenue is the hook's ETH-denominated
+return-delta fee, routed per-swap to an NFT-holder dividend, a per-collection
+token floor, the iteration's proposer, and the reserve that funds the next
+launch.
+\item \textbf{Hook-native perpetuals.} Leveraged longs and shorts whose opens,
+closes and liquidations are \emph{real pool swaps}, with no external oracle.
+Liquidation marks come from the engine's own on-chain TWAP ring. Underwater
+positions are swept opportunistically from \code{afterSwap}, so any swap on any
+interface can trigger a liquidation and earn the keeper reward.
+\item \textbf{Progressive in-swap seeding.} Launch liquidity streams into the
+pool over a window using \emph{core} \code{modifyLiquidity} from inside
+\code{afterSwap} --- keeperless, and un-frontrunnable because the deployed
+fraction is a pure function of elapsed time. Anti-snipe by book \emph{shape}
+rather than by tax alone.
+\item \textbf{Commit--reveal NFT forging in \code{afterSwap}.} A direct Uniswap
+or aggregator swap --- with no router and no \code{hookData} --- forges NFTs
+in-swap. This is a deliberate first-class path, not a fallback (\S\ref{sec:hookdata}).
+\end{itemize}
+
+%==============================================================================
+\section{Permissions, and why the delta flags are required}
+\label{sec:why}
+
+\subsection{Declared permissions}
+
+\begin{lstlisting}
+afterInitialize:       true    // adopt only pools our registry created
+beforeSwap:            true    // charge the ETH fee on buys
+afterSwap:             true    // charge the ETH fee on sells
+beforeSwapReturnDelta: true
+afterSwapReturnDelta:  true
+// everything else false: no initialize/donate/liquidity callbacks
+\end{lstlisting}
+
+\noindent Encoded flag bits: \code{0x10cc} = \code{01000011001100}. The deployed
+address \code{0x31ee3436d96533e91874cda5dfc70cb521f750cc} carries exactly those
+low bits and no others --- verifiable with
+\code{uint160(hook) \& Hooks.ALL\_HOOK\_MASK}. We hold no liquidity-callback or
+donate permissions, so the hook cannot interpose on \code{modifyLiquidity} or
+\code{donate} at all.
+
+\subsection{The derivation}
+
+The hook's economics require the fee to be denominated in \textbf{ETH on every
+trade}, because the token side of each pool is by construction a
+soon-to-be-retired asset --- accruing protocol revenue in it would strand that
+revenue at the next rebirth.
+
+In v4, \code{afterSwap}'s return delta can only act on the \textbf{unspecified}
+currency. For our pools (\code{currency0} is native ETH):
+
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quadrant} & \textbf{Specified} & \textbf{Unspecified} & \textbf{\code{afterSwap} could charge in} \\
+\midrule
+\rowcolor{panel} exact-in BUY \, (\code{zeroForOne}, \code{amt<0}) & ETH (in) & token (out) & \textcolor{bad}{token} \\
+exact-out BUY (\code{zeroForOne}, \code{amt>0}) & token (out) & ETH (in) & \textcolor{good}{ETH} \\
+exact-in SELL (\code{!zeroForOne}, \code{amt<0}) & token (in) & ETH (out) & \textcolor{good}{ETH} \\
+\rowcolor{panel} exact-out SELL (\code{!zeroForOne}, \code{amt>0}) & ETH (out) & token (in) & \textcolor{bad}{token} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The \textbf{exact-input buy} --- the dominant trade, and what the Uniswap
+interface and every aggregator emit --- has the \emph{token} as its unspecified
+leg. Charging it in ETH therefore requires skimming the specified input in
+\code{beforeSwap}, i.e.\ \code{beforeSwapReturnDelta}. There is no alternative
+mechanism.
+
+\code{afterSwapReturnDelta} charges the sell side. Without it the hook cannot
+take value from a swap at all: a \code{poolManager.take()} with no offsetting
+return delta leaves an unsettled negative delta and the unlock reverts
+\code{CurrencyNotSettled}.
+
+\begin{plainbox}{We evaluated the delta-free alternative and rejected it on merit}
+A dynamic LP fee (\code{DYNAMIC\_FEE\_FLAG} plus a \code{beforeSwap} override)
+would need no delta flag, and our LP is protocol-owned, so the fee would land in
+our own positions. We did not choose it, for reasons we think are the right ones
+rather than convenient ones:
+
+\begin{enumerate}[leftmargin=1.6em]
+\item \textbf{LP fees accrue in the input currency}
+(\code{Pool.sol}: \code{zeroForOne ? feeGrowthGlobal0 : feeGrowthGlobal1}), so
+every \emph{sell} would accrue the retiring token --- exactly the outcome the
+ETH-only fee exists to prevent.
+\item \textbf{It would introduce a keeper.} Our positions sit in the periphery
+\code{PositionManager}, which opens its own \code{unlock} and therefore cannot be
+harvested inside a swap. Per-swap routing would become a batch harvest.
+\item \textbf{It would be JIT-extractable.} We hold no liquidity-callback
+permissions, so LPing into our pools is permissionless. Under an LP fee a
+searcher could JIT a concentrated position around a large swap and capture the
+fee --- including the launch surtax, inverting the mechanic it exists for. Under
+the delta model this is structurally impossible, because the hook takes the fee
+directly regardless of who provides liquidity.
+\end{enumerate}
+The delta flags are therefore load-bearing, and the alternative would make the
+hook \emph{less} safe, not more.
+\end{plainbox}
+
+%==============================================================================
+\section{Integration behaviour a router should know}
+\label{sec:integration}
+
+We would rather you learn these from us than find them in review.
+
+\subsection{Disclosed: exact-output sells currently revert}
+
+\code{\_beforeSwap} reverts \code{ExactOutSellUnsupported} for the
+(\code{amountSpecified > 0}, \code{!zeroForOne}) quadrant. The reason is the table
+in \S\ref{sec:why}: the unspecified leg there is the token, so v4's return-delta
+mechanism physically cannot take an ETH fee. Rather than silently serve that
+quadrant \emph{for free} --- which was the prior behaviour, and a measured fee
+bypass --- we refuse it.
+
+\begin{plainbox}{Remediation, in progress}
+We accept that reverting a whole quadrant is a poor router citizen, and it is the
+one item in this brief we consider a genuine integration defect rather than a
+trade-off. Because the specified currency in that quadrant \emph{is} ETH, the fee
+can be taken via \code{beforeSwapReturnDelta} on the specified side --- which we
+already hold, so the fix requires \textbf{no additional permission} and no
+address re-mine. We are implementing it and will confirm before any mainnet
+routing goes live. Every other quadrant is served today.
+\end{plainbox}
+
+\subsection{Fee bounds}
+
+\begin{center}\small
+\begin{tabular}{@{}llp{0.46\linewidth}@{}}
+\toprule
+\textbf{Component} & \textbf{Value} & \textbf{Notes} \\
+\midrule
+Base hook fee & 300 bps (3\%) default & Governance-tunable, hard-capped at \code{MAX\_TAX\_BPS = 1000} (10\%) \\
+Launch surtax & up to 9{,}600 bps & \textbf{Time-decaying anti-snipe}; linear decay to \textbf{0} across \code{snipeWindowBlocks} (default 30 blocks). Routed 100\% to NFT holders \\
+Absolute clamp & 9{,}900 bps & \code{MAX\_TOTAL\_FEE\_BPS} --- a swap always retains $\geq$1\% so it can never return zero \\
+LP fee tier & \textbf{0} & Traders pay the hook fee only; there is no stacked LP fee \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent We flag the surtax explicitly because a hook that can take 99\% of a
+swap deserves a second look. It exists only in the opening minutes of a freshly
+summoned pool, decays deterministically to zero, is bounded by an immutable
+\code{constant} ceiling, and is paid to token holders rather than to us. Steady
+state is 3\%.
+
+\subsection{\code{afterSwap} does optional work --- none of it can break a swap}
+
+\code{afterSwap} may trigger a nested buyback swap, a seeder liquidity
+placement, a perp-liquidation sweep, and an NFT mint. Every one of those is
+invoked with a \textbf{reserved gas budget and an ignored result}:
+
+\begin{lstlisting}
+uint256 g = gasleft();
+if (g > LIQ_GAS_RESERVE + LIQ_GAS_MIN) {
+    perpEngine.call{gas: g - LIQ_GAS_RESERVE}(...);   // result ignored
+}
+\end{lstlisting}
+
+\noindent so an optional step that runs out of gas or reverts is a silent no-op,
+and the parent swap always completes its fee take and returns. Reserves are held
+for the liquidation sweep, the gacha step, the buyback, and the seeder poke
+independently. Nested swaps are guarded by transient flags
+(\code{\_inSelfBuy}, \code{\_inRelaunchClose}) so they never re-enter the fee
+logic or recurse.
+
+\subsection{Delta settlement}
+
+Four contracts may settle inside one unlock (hook, registry library, perp engine,
+seeder). Each settles its own deltas in its own frame. Two details the audit
+specifically verified:
+
+\begin{itemize}
+\item The buyback settles the \textbf{realised} debit read from the returned
+delta, not the intended amount --- so a binding price limit cannot leave a
+positive un-taken delta and revert the user's swap.
+\item The perp engine switches to an \textbf{in-place} swap when already inside
+the lock, rather than re-entering \code{unlock}.
+\end{itemize}
+
+\subsection{Pool adoption is closed}
+
+v4 lets anyone initialise a pool naming any hook, so \code{\_afterInitialize} is
+an untrusted entrypoint. We adopt a pool only if \code{sender == registry}
+\textbf{and} \code{currency0} is native ETH. A foreign pool naming this hook is
+\emph{declined rather than reverted} --- so we cannot be used to grief pool
+creation --- and every value-moving path is gated on the adoption flag, meaning
+such a pool receives no fee logic, no accounting and no spending.
+
+%==============================================================================
+\section{Not upgradeable}
+\label{sec:upgrade}
+
+The hook is a plain contract. No proxy, no \code{delegatecall} in the hook, no
+admin that can replace its code. Three things could superficially read as
+upgradeability, so we describe them precisely:
+
+\begin{enumerate}
+\item \textbf{Policy modules} (\code{IDeathChecker}, \code{ISurtaxPolicy},
+\code{IOddsPolicy}, \code{ICurvePolicy}, \code{IFeeRouter}). Each is a
+\emph{view} that returns a number. It never custodies or moves funds, its output
+is clamped to the same immutable ceilings as the built-in rule, and a reverting
+module falls back to the built-in rule. \code{IFeeRouter} returns \emph{amounts}
+only --- the hook performs the sends, and a split that does not sum exactly to
+the fee is discarded in favour of the built-in split. This is how economic
+parameters are tuned without an upgradeable money contract.
+\item \textbf{Controller pointer.} \code{setRegistry} is one-shot. Replacing it
+requires \code{proposeRegistryOverride} $\rightarrow$ a \code{REGISTRY\_SWAP\_DELAY}
+of \textbf{7 days}, declared \code{constant} so the owner cannot shorten their own
+notice period $\rightarrow$ \code{executeRegistryOverride}, which \emph{flushes}
+the accrued fee reserve to the \emph{outgoing} controller first, so a swap cannot
+capture ETH the previous controller accrued.
+\item \textbf{Ownership.} The hook is owned by an OpenZeppelin
+\code{TimelockController} --- an audited standard, chosen specifically to avoid
+an upgradeable proxy on the money path. Every parameter change is
+schedule\,$\rightarrow$\,wait\,$\rightarrow$\,execute.
+\end{enumerate}
+
+\subsection{The break-glass path, stated in full}
+
+Governance \textbf{can} tune fees and risk parameters, swap a policy module, pause
+a redemption flow, and --- through an announced, delayed, guardian-vetoable
+action --- \textbf{remove protocol-owned liquidity} via
+\code{emergencyWithdrawLP} / \code{emergencySweep} on the registry. We list this
+explicitly because it is a genuine custody power and any reviewer reading the
+source will find it.
+
+Four things bound it:
+\begin{itemize}
+\item The emergency admin is \textbf{immutable} --- set in the constructor with
+no setter, so it cannot be re-pointed at a fresh wallet after the fact. It is the
+governance timelock.
+\item Actions \textbf{must be announced on-chain} (\code{armEmergency}) before they
+can execute, and are then delayed. Our audit found that this was previously
+conditional on a non-zero delay --- a zero-delay deployment skipped the arm, which
+silently disabled the forced-open exit below. It is now unconditional, so the
+guarantee holds at any configuration (audit finding F-19, fixed).
+\item An independent \textbf{guardian can veto} during that window. The guardian
+can only ever cancel --- never propose, never move funds.
+\item \textbf{Arming forces the exit open.} The redemption circuit-breaker is
+overridden the instant an action is armed, so it cannot be used to trap holders
+ahead of a custody move.
+\end{itemize}
+
+\noindent Governance \textbf{cannot} mint tokens, freeze balances, pause
+transfers, touch any token or NFT held in a user's wallet, or shorten its own
+announced delays. \textbf{None of this is reachable from the hook} --- these are
+registry functions over protocol-owned liquidity, and they cannot affect swap
+execution, settlement, or any routed trade.
+
+%==============================================================================
+\section{No required custom data inputs}
+\label{sec:hookdata}
+
+\code{hookData} is \textbf{optional on every code path}, and an empty
+\code{hookData} is a designed-for case rather than a degraded one:
+
+\begin{itemize}
+\item \textbf{Fee tier} --- \code{\_taxedPlayer} falls back to \code{sender} when
+\code{hookData} is absent.
+\item \textbf{NFT credit} --- falls back to \code{tx.origin}, precisely so that a
+buyer arriving through the Uniswap interface or an aggregator still earns credit
+rather than having it credited to the router.
+\item \textbf{Fee exemption} --- requires \code{isOpener[sender]}, an explicit
+allowlist. A direct swapper controls \code{hookData} freely, so an arbitrary
+caller cannot tag an exempt address and dodge the fee.
+\end{itemize}
+
+\noindent The in-swap NFT forging path exists \emph{specifically} for
+router-less swaps. A swap with empty \code{hookData} is fully served: it is
+charged correctly, it accrues credit, it can forge an NFT, and it can trigger a
+perp liquidation.
+
+%==============================================================================
+\section{Audit and testing}
+\label{sec:audit}
+
+\begin{itemize}
+\item \textbf{Independent audit} --- a from-scratch review of all $\sim$9{,}200
+lines, conducted against the intended L2 deployment target, deriving its findings
+solely from source. Companion document:
+\code{MagicFrens\_Independent\_Audit\_2026-09.pdf}. No critical findings; every
+Medium and Low finding either fixed with a regression test that fails against the
+pre-fix bytecode, or disclosed with remediation.
+\item \textbf{340 tests, 66 suites}, all passing: unit, pure fuzz,
+handler-driven invariants (128{,}000 calls per invariant), and \textbf{fork tests
+that drive live Uniswap v4} rather than a mock.
+\item \textbf{Verified structural properties}, argued from cited code in the
+audit's invariant register: fixed non-mintable supply; migration exactly 1:1 or
+it reverts; every v4 delta settled on all four settlement paths; pool adoption
+closed; and byte-identical storage layouts across the registry's delegatecall
+pair (53 entries, verified mechanically).
+\end{itemize}
+
+\subsection{Disclosed limitations}
+
+We would rather state these than have them found:
+
+\begin{center}\small
+\begin{tabular}{@{}p{0.30\linewidth}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Item} & \textbf{Status} \\
+\midrule
+Exact-output sells revert & Integration defect. Fix identified, needs no new permission (\S\ref{sec:integration}). \\
+Reserve ceiling & Our redemption reserve is a single-sided band; if the token appreciates past it, redemption and migration pause until the next iteration. Protocol-internal --- it does not affect swap routing or settlement. \\
+\code{blockhash}-derived NFT rarity & Sound on Ethereum; weaker on our L2 target, where \code{blockhash} is documented as insecure. Being verified against the target chain before that feature is enabled there. Does not affect swaps. \\
+EIP-170 headroom & The hook sits 88 bytes below the limit. A process constraint, not a user-facing risk. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%==============================================================================
+\section{One operational question}
+
+Our design summons a \textbf{new pool at every rebirth} --- same hook, same
+\code{ETH / <iteration token>} shape, new \code{currency1} and therefore a new
+\code{PoolId}. The hook itself is permanent and immutable.
+
+We have assumed allowlisting attaches to the \textbf{hook address}, which would
+make this submission a one-time review. If it instead attaches per-pool, we would
+appreciate knowing, since it materially affects how we operate --- and we would
+rather align with your process now than discover the mismatch after launch.
+
+%==============================================================================
+\section{Artifacts}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}l@{\hspace{1.4em}}l@{}}
+\toprule
+Hook (current deployment) & \code{0x31ee3436d96533e91874cda5dfc70cb521f750cc} \\
+Permission bits & \code{0x10cc} --- afterInitialize, before/afterSwap, both swap deltas \\
+Pair shape & \code{ETH / <iteration token>}, registry-created only \\
+Independent audit & \code{audit/MagicFrens\_Independent\_Audit\_2026-09.pdf} \\
+Hook source & \code{CauldronHook.sol} \quad (repo: \code{contracts/solidity/}) \\
+Test suite & \code{FOUNDRY\_PROFILE=cauldron forge test} \\
+Public docs & \href{https://mifrens.xyz/\#/docs}{mifrens.xyz/\#/docs} \, ($\cdot$ machine-readable at \code{/llms.txt}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{10pt}
+\begin{plainbox}{In one paragraph}
+\code{CauldronHook} uses both swap delta flags because its only revenue
+mechanism is an ETH-denominated fee, and v4's unspecified-currency semantics make
+\code{beforeSwapReturnDelta} the sole way to charge an exact-input buy in ETH. It
+is not upgradeable, requires no custom data inputs, serves only pools its own
+registry created against native ETH, never touches a major pair, holds no
+liquidity or donate permissions, and every optional action it performs in
+\code{afterSwap} is gas-bounded and result-ignored so it cannot revert or starve a
+routed swap. It has been independently audited and is covered by 339 tests
+including live-v4 fork tests. The one known integration defect --- a reverting
+exact-output-sell quadrant --- is disclosed above with a fix that requires no
+additional permission, as is the registry's announced, delayed and
+guardian-vetoable break-glass over protocol-owned liquidity, which is not
+reachable from the hook and cannot affect a routed swap.
+\end{plainbox}
+
+\end{document}

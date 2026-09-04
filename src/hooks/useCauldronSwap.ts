@@ -8,10 +8,15 @@ import {
 } from "wagmi";
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
 
+/** Generous gas limit for a hinted swap that may auto-liquidate a position
+ *  (nested pool swaps + badge mint). The wallet's estimate can be far too low
+ *  when the target is still healthy at submit time, so we force headroom. */
+const LIQ_SWAP_GAS = 3_000_000n;
+
 /**
  * useCauldronSwap — buy the current iteration's token with ETH.
  *
- * Routes through the CauldronGachaRouter's `play(gnomeIn=0, minOut, 0, openMax)`
+ * Routes through the CauldronGachaRouter's `play(tokenIn=0, minOut, 0, openMax)`
  * with `value = ethIn`. That single call:
  *   1. swaps ETH → token and delivers the token to the buyer,
  *   2. credits the swap volume (keeps the brew alive), and
@@ -25,22 +30,29 @@ export function useCauldronSwap() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed, data: receipt } =
-    useWaitForTransactionReceipt({ hash: txHash });
+    useWaitForTransactionReceipt({ hash: txHash, chainId: CAULDRON.chainId });
 
-  /** Buy with `ethIn` ETH; `minOut` = minimum token out (wei); `openMax` crystals. */
+  /** Buy with `ethIn` ETH; `minOut` = minimum token out (wei); `openMax` crystals.
+   *  `liqHint` (optional) is the id of a perp position to auto-liquidate if this
+   *  buy tips it past the mark — a win mints YOU a Liquidatoor badge. 0 = none;
+   *  a stale/healthy hint is a silent no-op, so it never risks the trade. */
   const buy = useCallback(
-    async (ethIn: number, minOut: bigint = 0n, openMax = 0): Promise<`0x${string}`> => {
+    async (ethIn: number, minOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
+      const value = parseEther(ethIn.toFixed(18));
+      liqHint; // LEGACY/IGNORED: the hook auto-liquidates on EVERY swap hint-free,
+      //          so we never call the router's playLiq (its liqHint path reverts).
+      // Force a generous gas limit: any buy can trigger an in-swap liquidation
+      // (nested pool swaps) that the wallet's estimate — taken when the target was
+      // still healthy — can't foresee, which would OOG. Unused gas is refunded.
       return writeContractAsync({
-        address: CAULDRON.gachaRouter as Address,
-        abi: GACHA_ROUTER_ABI,
-        functionName: "play",
-        args: [0n, minOut, 0n, BigInt(openMax)],
-        value: parseEther(ethIn.toFixed(18)),
+        address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
+        functionName: "play", args: [0n, minOut, 0n, BigInt(openMax)], value,
+        gas: LIQ_SWAP_GAS,
       });
     },
     [address, chainId, switchChainAsync, writeContractAsync],
@@ -115,20 +127,25 @@ export function useCauldronSwap() {
   );
 
   /** Sell `tokenIn` (human units) of the iteration token back to ETH via the
-   *  router's sell leg. Requires a prior approval. `minEthOut` = slippage floor. */
+   *  router's sell leg. Requires a prior approval. `minEthOut` = slippage floor.
+   *  `maxWei` (the wallet's exact on-chain balance) CAPS the amount — the human
+   *  `tokenIn` is a lossy float for large balances, so "MAX" can compute slightly
+   *  MORE than you hold and revert `transferFrom`; clamping to the raw balance
+   *  fixes it and lets a true sell-all work exactly. */
   const sell = useCallback(
-    async (tokenIn: number, minEthOut: bigint = 0n, openMax = 0): Promise<`0x${string}`> => {
+    async (tokenIn: number, minEthOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n, maxWei?: bigint): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (tokenIn <= 0) throw new Error("Enter an amount");
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
+      let tokenInWei = parseEther(tokenIn.toFixed(18));
+      if (maxWei != null && maxWei > 0n && tokenInWei > maxWei) tokenInWei = maxWei;
+      liqHint; // LEGACY/IGNORED — hook auto-liquidates hint-free; never call playLiq.
       return writeContractAsync({
-        address: CAULDRON.gachaRouter as Address,
-        abi: GACHA_ROUTER_ABI,
-        functionName: "play",
-        args: [parseEther(tokenIn.toFixed(18)), 0n, minEthOut, BigInt(openMax)],
-        value: 0n,
+        address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
+        functionName: "play", args: [tokenInWei, 0n, minEthOut, BigInt(openMax)], value: 0n,
+        gas: LIQ_SWAP_GAS,
       });
     },
     [address, chainId, switchChainAsync, writeContractAsync],

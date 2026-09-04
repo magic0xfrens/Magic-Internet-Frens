@@ -2,49 +2,20 @@ import { useState, useCallback, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@/hooks/useWallet";
 import PresaleModal from "@/components/presale/PresaleModal";
-
-const NAV_ITEMS = [
-  { label: "HOME", path: "/" },
-  { label: "MI FRENS", path: "/mi-frens" },
-  { label: "THE CAULDRON", path: "/cauldrons" },
-];
+import { NAV_ITEMS, prefetchRoute, truncateAddress } from "./navItems";
 
 /**
- * Route chunk prefetchers — fired on nav hover/focus so the lazy chunk is
- * already in cache by the time the user clicks (navigation feels instant).
- * Vite dedupes the dynamic import, so calling it early just warms the cache.
+ * The landing-page navigation. App routes render `AppSidebar` instead, so this
+ * bar no longer needs the old dark-glass variant — the rail owns that surface.
  */
-const PREFETCH: Record<string, () => Promise<unknown>> = {
-  "/": () => import("@/components/preview/HomePreview"),
-  "/mi-frens": () => import("@/components/wizards/MyWizards"),
-  "/cauldrons": () => import("@/components/cauldron/TheCauldron"),
-  "/token": () => import("@/components/token/Token"),
-};
-const prefetched = new Set<string>();
-function prefetchRoute(path: string) {
-  if (prefetched.has(path)) return;
-  prefetched.add(path);
-  PREFETCH[path]?.().catch(() => prefetched.delete(path));
-}
-
-function truncateAddress(addr: string): string {
-  if (!addr || addr.length < 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-}
-
 export function AppHeader() {
   const location = useLocation();
-  const { isConnected, walletAddress, disconnect } =
-    useWallet();
+  const { isConnected, walletAddress, disconnect } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showPresale, setShowPresale] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const isHome = location.pathname === "/" || location.pathname === "";
-  // Dark-themed routes (Cauldron console + MiFrens vault) get the transparent
-  // dark-glass bar so it blends into their near-black background instead of the
-  // default cream bar.
-  const isDark = location.pathname.startsWith("/cauldrons")
-    || location.pathname.startsWith("/mi-frens");
 
   const toggleMobile = useCallback(() => {
     setMobileOpen((prev) => !prev);
@@ -63,13 +34,14 @@ export function AppHeader() {
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
-  // Dark routes paint the page background near-black. The header is a transparent
-  // glass bar, so the body must be dark BEHIND it too — otherwise the sticky bar
-  // sits over the light app-root and reads as a flat gray strip.
+  // The bar floats transparent over the hero, then fades in a glass fill once
+  // it is over real content — otherwise nav text competes with the page.
   useEffect(() => {
-    document.body.style.background = isDark ? "#0E0A1A" : "";
-    return () => { document.body.style.background = ""; };
-  }, [isDark]);
+    const onScroll = () => setScrolled(window.scrollY > 80);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === "/" && location.pathname === "/") return true;
@@ -78,23 +50,26 @@ export function AppHeader() {
   };
 
   return (
-    <header className={`hdr${isHome ? " hdr--home" : ""}${isDark ? " hdr--dark" : ""}`}>
+    <header
+      className={`hdr${isHome ? " hdr--home" : ""}${scrolled ? " hdr--scrolled" : ""}`}
+    >
       <div className="hdr__inner">
         <Link to="/" className="hdr__logo" onClick={closeMobile}>
           <img
             src="/mifrens-logo.svg"
-            alt="MiFrens"
+            alt=""
             className="hdr__logo-img"
           />
           MiFrens
         </Link>
 
-        <nav className="hdr__nav">
+        <nav className="hdr__nav" aria-label="Main">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={`hdr__link${isActive(item.path) ? " hdr__link--active" : ""}`}
+              aria-current={isActive(item.path) ? "page" : undefined}
               onMouseEnter={() => prefetchRoute(item.path)}
               onFocus={() => prefetchRoute(item.path)}
             >
@@ -109,7 +84,7 @@ export function AppHeader() {
               <span className="hdr__addr">
                 {truncateAddress(walletAddress ?? "")}
               </span>
-              <button className="hdr__disconnect" onClick={disconnect}>
+              <button className="hdr__disconnect" onClick={() => disconnect()}>
                 DISCONNECT
               </button>
             </div>
@@ -124,6 +99,7 @@ export function AppHeader() {
             className={`hdr__burger${mobileOpen ? " hdr__burger--open" : ""}`}
             onClick={toggleMobile}
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
           >
             <span />
             <span />
@@ -182,7 +158,7 @@ export function AppHeader() {
         .hdr {
           position: sticky;
           top: 0;
-          z-index: 100;
+          z-index: var(--z-sticky);
           width: 100%;
           /* Transparent glass — the page background shows through on every tab.
              A light blur + hairline keeps nav text legible over any content. */
@@ -192,34 +168,38 @@ export function AppHeader() {
           border-bottom: 1px solid rgba(42, 31, 84, 0.06);
         }
 
+        /* Home: an inset floating bar rather than an edge-to-edge strip, so the
+           hero reads as art the nav sits on top of. */
         .hdr--home {
-          position: absolute;
+          position: fixed;
+          top: 16px;
+          left: 16px;
+          right: 16px;
+          width: auto;
+          border-radius: var(--r-md);
           background: transparent;
           backdrop-filter: none;
           -webkit-backdrop-filter: none;
           border-bottom: none;
+          transition: background 0.25s ease, backdrop-filter 0.25s ease,
+                      box-shadow 0.25s ease;
         }
 
-        /* Dark routes (Cauldron, MiFrens) — transparent dark glass so the
-           near-black page background shows through the bar. */
-        .hdr--dark {
-          background: rgba(14, 10, 26, 0.4);
-          border-bottom: 1px solid rgba(213, 253, 81, 0.12);
+        /* Past the hero the bar earns a fill so links stay readable. The 0.86
+           alpha is not arbitrary: over the cream page below, anything lighter
+           drops the 70%-white nav links under 4.5:1. */
+        .hdr--home.hdr--scrolled {
+          background: rgba(23, 17, 47, 0.86);
+          backdrop-filter: blur(18px) saturate(1.15);
+          -webkit-backdrop-filter: blur(18px) saturate(1.15);
+          box-shadow: 0 10px 34px rgba(14, 10, 26, 0.28);
         }
-        .hdr--dark .hdr__logo { color: #F5F0E8; }
-        .hdr--dark .hdr__link { color: rgba(231, 225, 245, 0.62); }
-        .hdr--dark .hdr__link:hover { color: #d5fd51; }
-        .hdr--dark .hdr__link--active {
-          color: #F5F0E8;
-          text-decoration-color: #d5fd51;
-        }
-        .hdr--dark .hdr__addr { color: #E7E1F5; }
 
         .hdr__inner {
           max-width: 1100px;
           margin: 0 auto;
           padding: 0 24px;
-          height: 56px;
+          height: var(--hdr-h);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -232,7 +212,7 @@ export function AppHeader() {
           font-family: "Cinzel Decorative", serif;
           font-size: 18px;
           font-weight: 700;
-          color: #2A1F54;
+          color: var(--ink);
           text-decoration: none;
           letter-spacing: 0.02em;
           white-space: nowrap;
@@ -242,6 +222,8 @@ export function AppHeader() {
           color: #FFFFFF;
           text-shadow: 0 1px 8px rgba(0,0,0,0.3);
         }
+
+        .hdr__logo:focus-visible { outline: 2px solid var(--lime); outline-offset: 4px; }
 
         .hdr__logo-img {
           width: 36px;
@@ -272,23 +254,24 @@ export function AppHeader() {
         }
 
         .hdr__link:hover {
-          color: #2A1F54;
+          color: var(--ink);
         }
 
         .hdr--home .hdr__link:hover {
-          color: #d5fd51;
+          color: var(--lime);
         }
 
         .hdr__link:focus-visible {
-          outline: 2px solid #7C5CFC;
+          outline: 2px solid var(--lime);
           outline-offset: 3px;
+          border-radius: var(--r-xs);
         }
 
         .hdr__link--active {
-          color: #2A1F54;
+          color: var(--ink);
           text-decoration: underline;
           text-underline-offset: 4px;
-          text-decoration-color: #d5fd51;
+          text-decoration-color: var(--lime);
         }
 
         .hdr--home .hdr__link--active {
@@ -303,10 +286,10 @@ export function AppHeader() {
 
         .hdr__connect {
           padding: 8px 22px;
-          background: #d5fd51;
-          color: #2A1F54;
+          background: var(--lime);
+          color: var(--ink);
           border: none;
-          border-radius: 24px;
+          border-radius: var(--r-sm);
           font-family: "Fredoka", sans-serif;
           font-size: 13px;
           font-weight: 700;
@@ -321,7 +304,7 @@ export function AppHeader() {
         }
 
         .hdr__connect:focus-visible {
-          outline: 2px solid #7C5CFC;
+          outline: 2px solid var(--lime);
           outline-offset: 3px;
         }
 
@@ -335,7 +318,7 @@ export function AppHeader() {
           padding: 6px 14px;
           background: rgba(42, 31, 84, 0.06);
           border: 1px solid rgba(42, 31, 84, 0.12);
-          border-radius: 20px;
+          border-radius: var(--r-sm);
           font-size: 12px;
           font-weight: 500;
           color: #8a7baa;
@@ -352,7 +335,7 @@ export function AppHeader() {
           padding: 6px 14px;
           background: transparent;
           border: 1px solid rgba(42, 31, 84, 0.12);
-          border-radius: 20px;
+          border-radius: var(--r-sm);
           color: #8A7BAA;
           font-family: "DM Sans", sans-serif;
           font-size: 11px;
@@ -368,12 +351,12 @@ export function AppHeader() {
         }
 
         .hdr__disconnect:hover {
-          color: #ff4d6d;
-          border-color: #ff4d6d;
+          color: var(--red);
+          border-color: var(--red);
         }
 
         .hdr__disconnect:focus-visible {
-          outline: 2px solid #7C5CFC;
+          outline: 2px solid var(--lime);
           outline-offset: 3px;
         }
 
@@ -394,7 +377,7 @@ export function AppHeader() {
           display: block;
           width: 100%;
           height: 2px;
-          background: #2A1F54;
+          background: var(--ink);
           border-radius: 1px;
           transition: transform 0.2s ease, opacity 0.2s ease;
         }
@@ -402,6 +385,8 @@ export function AppHeader() {
         .hdr--home .hdr__burger span {
           background: #FFFFFF;
         }
+
+        .hdr__burger:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
 
         .hdr__burger--open span:first-child {
           transform: translateY(4px) rotate(45deg);
@@ -418,6 +403,7 @@ export function AppHeader() {
           padding: 20px 24px;
           border-top: 1px solid rgba(42, 31, 84, 0.08);
           background: #FBF7F0;
+          border-radius: 0 0 var(--r-md) var(--r-md);
         }
 
         .hdr__drawer-nav {
@@ -441,7 +427,7 @@ export function AppHeader() {
 
         .hdr__drawer-link:hover,
         .hdr__drawer-link--active {
-          color: #d5fd51;
+          color: var(--ink);
         }
 
         .hdr__drawer-wallet {
@@ -471,6 +457,17 @@ export function AppHeader() {
           .hdr__logo {
             font-size: 15px;
           }
+
+          /* The drawer needs an opaque bar behind it on mobile. */
+          .hdr--home {
+            background: rgba(23, 17, 47, 0.88);
+            backdrop-filter: blur(18px) saturate(1.15);
+            -webkit-backdrop-filter: blur(18px) saturate(1.15);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hdr--home { transition: none; }
         }
       `}</style>
 

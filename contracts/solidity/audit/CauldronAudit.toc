@@ -1,0 +1,64 @@
+\contentsline {section}{\numberline {1}Executive summary}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Findings at a glance}{3}{subsection.1.1}%
+\contentsline {section}{\numberline {2}Scope, method, and how to reproduce}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}What was reviewed}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Method}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Reproducing everything in this report}{5}{subsection.2.3}%
+\contentsline {section}{\numberline {3}System model}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The one-paragraph version}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Actors and trust}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The contract-interaction graph}{7}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}The token lifecycle}{7}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Two ledgers, one reserve}{7}{subsection.3.5}%
+\contentsline {section}{\numberline {4}The delegatecall facet}{8}{section.4}%
+\contentsline {section}{\numberline {5}Invariants}{8}{section.5}%
+\contentsline {section}{\numberline {6}Findings}{10}{section.6}%
+\contentsline {subsection}{C-01a --- Unbounded hook adoption mints phantom \texttt {relaunchETH}, permanently bricking \texttt {relaunch()}}{10}{section*.1}%
+\contentsline {subsection}{C-01b --- The legacy buyback spends the hook's ETH inside an attacker-chosen pool}{11}{lstnumber.-5.19}%
+\contentsline {subsection}{C-02 --- A winning proposal with an out-of-range \texttt {nftSupply} freezes the protocol permanently}{12}{lstnumber.-8.14}%
+\contentsline {subsection}{H-01 --- The collection's \texttt {deployer} is the factory, so the entire legacy-floor recycle path is unreachable}{13}{lstnumber.-11.9}%
+\contentsline {subsection}{H-02 --- \texttt {CauldronSeeder} never resets \texttt {complete}, so generation 2 onward never streams}{13}{lstnumber.-14.11}%
+\contentsline {subsection}{H-03 --- \texttt {claimByBurn} burns the full amount but silently accepts a short delivery}{14}{lstnumber.-18.10}%
+\contentsline {subsection}{H-04 --- A trader contract that rejects ETH can freeze the perp engine on a dead generation}{15}{lstnumber.-21.8}%
+\contentsline {subsection}{H-05 --- The first token-side staker captures the entire previously-accrued yield pot}{16}{lstnumber.-26.15}%
+\contentsline {subsection}{M-01 --- \texttt {setRegistryOverride} defeats the one-shot registry lock the code documents}{17}{lstnumber.-28.13}%
+\contentsline {subsection}{M-02 --- \texttt {winner()} returns the live vote leader, so relaunch is front-runnable}{18}{lstnumber.-30.19}%
+\contentsline {subsection}{M-03 --- The rarity reveal offers two independent draws and the holder picks the better}{18}{lstnumber.-31.13}%
+\contentsline {subsection}{M-04 --- Crystal-ticket resolution shares the same predictable 256-block fallback}{19}{lstnumber.-33.12}%
+\contentsline {subsection}{M-05 --- \texttt {skimInsurance} protects only \texttt {insuranceFloor}, which defaults to zero}{19}{lstnumber.-35.7}%
+\contentsline {subsection}{M-06 --- Forged frens never break their dividend enchantment on transfer}{20}{lstnumber.-37.11}%
+\contentsline {subsection}{L-01 --- \texttt {MAX\_RANGES} can halt the progressive stream mid-launch}{20}{lstnumber.-40.4}%
+\contentsline {subsection}{L-02 --- The anti-sniper surtax jitter is predictable one block ahead}{21}{lstnumber.-41.7}%
+\contentsline {subsection}{L-03 --- \texttt {tx.origin} credit attribution mis-attributes smart-account swaps}{21}{lstnumber.-42.930}%
+\contentsline {subsection}{L-04 --- The tiered NFT tax reads the swap sender, not the trader}{21}{lstnumber.-43.536}%
+\contentsline {subsection}{L-05 --- The funding index is sized at spot, not at the manipulation-resistant mark}{21}{lstnumber.-43.536}%
+\contentsline {subsection}{L-06 --- A Liquidatoor badge is silently lost when no collection is wired}{22}{lstnumber.-44.427}%
+\contentsline {subsection}{L-07 --- \texttt {CauldronVault.redeem} is unreachable under the unified-floor model}{22}{lstnumber.-46.9}%
+\contentsline {subsection}{L-08 --- \texttt {migrateToSuccessor} leaves the seeder's liquidity behind}{22}{lstnumber.-46.9}%
+\contentsline {section}{\numberline {7}Positive observations}{23}{section.7}%
+\contentsline {section}{\numberline {8}The delivered test suite}{24}{section.8}%
+\contentsline {subsection}{\numberline {8.1}\texttt {test/audit/} --- exploit proofs}{24}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}\texttt {test/invariants/} --- invariants and fuzz}{24}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Results}{25}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Remediation plan}{25}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Before any value-bearing deployment}{25}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Before mainnet}{25}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Hardening}{25}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Second-pass findings: lifecycle denial of service}{25}{section.10}%
+\contentsline {subsection}{A-01 --- \texttt {CREATE2} token-address squatting permanently bricks the eternal machine}{26}{section*.2}%
+\contentsline {subsection}{A-01b --- A dust reserve rounds to zero liquidity and reverts the seed}{26}{lstnumber.-50.3}%
+\contentsline {subsection}{A-02 --- A stale \texttt {lastTick} lets an atomic round-trip poison the liquidation mark}{27}{lstnumber.-52.2}%
+\contentsline {subsection}{A-03 --- The perp book can outgrow what one force-close clears, stranding the engine}{27}{lstnumber.-55.14}%
+\contentsline {subsection}{A-05 --- Recovered LP tokens can exceed \texttt {TOTAL\_SUPPLY}, underflowing the relaunch}{28}{lstnumber.-56.7}%
+\contentsline {subsection}{A-04 --- Funding is not a closed transfer, so it leaks LP principal}{28}{lstnumber.-58.2}%
+\contentsline {section}{\numberline {11}Gas optimisation}{29}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Applied optimisations}{29}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Measured effect}{30}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Deliberately not done}{30}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Remaining EIP-170 headroom}{30}{subsection.11.4}%
+\contentsline {section}{\numberline {12}Remediation}{30}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Regression coverage}{30}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Deliberate non-fixes}{31}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Deployment-script hardening}{31}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Verification}{31}{subsection.12.4}%
+\contentsline {section}{\numberline {13}Complete function inventory}{31}{section.13}%

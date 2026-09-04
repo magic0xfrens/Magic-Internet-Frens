@@ -34,6 +34,21 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     error RegistryAlreadySet();
     error NoProposals();
     error SnapshotNotReady();
+    error SupplyOutOfRange();
+    error VotingClosed();
+
+    /// @notice Hard bound on a proposal's collection size. MUST stay well below the
+    ///         collections' `LIQUIDATOR_ID_BASE` (1e6), because the collection
+    ///         constructor REVERTS at or above it — and a reverting constructor
+    ///         inside `relaunch()` rolls back `markConsumed`, so the poisoned
+    ///         proposal would win again forever and freeze the machine. (Audit C-02.)
+    uint256 public constant MAX_NFT_SUPPLY = 100_000;
+
+    /// @notice How long a proposal accepts votes before it may be launched. Without
+    ///         a deadline, `winner()` is the live leader and a whale can flip the
+    ///         result in the same block as the permissionless `relaunch()`.
+    ///         (Audit M-02.)
+    uint256 public constant VOTING_PERIOD = 3 days;
 
     // -----------------------------------------------------------------------
     // Types
@@ -51,6 +66,7 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         address proposer;
         uint256 votes;
         uint256 snapshot;   // block at which voting power is measured
+        uint256 votingEndsAt; // timestamp after which votes close and it may win
         bool consumed;
         bool exists;
     }
@@ -141,6 +157,11 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             // Must point at a contract (code size > 0) so tokenURI can render.
             if (renderer == address(0) || renderer.code.length == 0) revert BadRenderer();
         }
+        // A proposal is an UNTRUSTED input that flows straight into a constructor
+        // at relaunch. Reject anything the collection could never be deployed with,
+        // here at the boundary — a revert deeper in `relaunch()` would roll back
+        // `markConsumed` and freeze the machine forever. (Audit C-02.)
+        if (nftSupply > MAX_NFT_SUPPLY) revert SupplyOutOfRange();
 
         id = ++proposalCount;
         _proposals[id] = Proposal({
@@ -156,6 +177,7 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             proposer: msg.sender,
             votes: 0,
             snapshot: block.number, // voting power frozen as of this block
+            votingEndsAt: block.timestamp + VOTING_PERIOD,
             consumed: false,
             exists: true
         });
@@ -182,6 +204,11 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         Proposal storage p = _proposals[proposalId];
         if (!p.exists) revert UnknownProposal();
         if (p.consumed) revert AlreadyConsumed();
+        // Votes close BEFORE a proposal becomes eligible to win, so nobody can flip
+        // the outcome by front-running the permissionless relaunch. (Audit M-02.)
+        // Checked ahead of `hasVoted` so a closed window always reports as such,
+        // whoever asks.
+        if (block.timestamp > p.votingEndsAt) revert VotingClosed();
         if (hasVoted[proposalId][msg.sender]) revert AlreadyVoted();
 
         // Weight is the caller's CHECKPOINTED power at the proposal's snapshot
@@ -255,20 +282,49 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         return p;
     }
 
-    /// @dev Returns the cached leader if still valid, else the best unconsumed.
+    /// @dev Returns the cached leader if it is still valid AND its voting window has
+    ///      CLOSED; otherwise recomputes over settled proposals only. A proposal
+    ///      still taking votes can never be launched, which is what removes the
+    ///      last-instant front-run (audit M-02).
     function _bestUnconsumed() private view returns (uint256) {
         Proposal storage cached = _proposals[_leaderId];
-        if (cached.exists && !cached.consumed && _leaderVotes > 0) return _leaderId;
+        if (cached.exists && !cached.consumed && _leaderVotes > 0
+            && block.timestamp > cached.votingEndsAt) {
+            return _leaderId;
+        }
         (uint256 id, ) = _recomputeLeader();
         return id;
     }
 
-    /// @dev O(n) scan — only walked when the cached leader was consumed.
+    /// @notice Hard bound on the leader rescan (audit Z-03 — High). `relaunch()`
+    ///         reaches this scan up to three times per rebirth (`hasProposals`,
+    ///         `winner`, and the `markConsumed` recompute), and `propose()` is
+    ///         permissionless for the holder of a SINGLE MiFren with no cooldown,
+    ///         deposit or per-address cap. An unbounded scan therefore let anyone
+    ///         raise the gas cost of every future rebirth without limit — measured at
+    ///         ~613 gas per spam proposal per scan, i.e. ~17k proposals (a few
+    ///         hundredths of an ETH on an L2) to push `relaunch()` past a 32M block
+    ///         and permanently halt the eternal machine. Compounded by the fact that
+    ///         `CauldronRegistry.setGovernor` is `onlyOwner` and registry ownership is
+    ///         burned into the presale at deploy, so a spammed governor could never be
+    ///         swapped out.
+    ///
+    ///         Bounding the scan makes relaunch gas O(1) in the proposal count. The
+    ///         cached-leader fast path in {_bestUnconsumed} is unaffected, so an
+    ///         already-established winner keeps winning however much spam follows it;
+    ///         a fresh mandate simply has to be among the most recent proposals, which
+    ///         it always is.
+    uint256 internal constant MAX_LEADER_SCAN = 64;
+
+    /// @dev BOUNDED scan over the most recent SETTLED (voting-closed), unconsumed
+    ///      proposals. See {MAX_LEADER_SCAN}.
     function _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes) {
         uint256 n = proposalCount;
-        for (uint256 i = 1; i <= n; i++) {
+        uint256 first = n > MAX_LEADER_SCAN ? n - MAX_LEADER_SCAN + 1 : 1;
+        for (uint256 i = first; i <= n; i++) {
             Proposal storage p = _proposals[i];
             if (!p.exists || p.consumed) continue;
+            if (block.timestamp <= p.votingEndsAt) continue; // still open for votes
             if (p.votes > bestVotes) {
                 bestVotes = p.votes;
                 bestId = i;

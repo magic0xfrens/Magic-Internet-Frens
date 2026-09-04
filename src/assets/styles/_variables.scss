@@ -30,4 +30,6 @@ $font-body: "DM Sans", sans-serif;
 
 $header-height: 56px;
 $max-width: 1200px;
-$radius: 12px;
+// Radius points at the token layer in main.scss so SCSS and inline `<style>`
+// blocks can never drift apart. See :root there for the full scale.
+$radius: var(--r-md);

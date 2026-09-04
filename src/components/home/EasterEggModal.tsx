@@ -269,7 +269,7 @@ const easterEggStyles = `
     position: relative;
     background: #FBF7F0;
     border: 1px solid rgba(42,31,84,0.12);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     max-width: 420px;
     width: 92%;
     overflow: hidden;
@@ -366,7 +366,7 @@ const easterEggStyles = `
     margin: 8px 0 24px;
     padding: 6px 14px;
     border: 1px solid rgba(42,31,84,0.08);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
   }
 
   .ee__hint-label {
@@ -392,7 +392,7 @@ const easterEggStyles = `
     gap: 0;
     margin-bottom: 12px;
     border: 2px solid rgba(42,31,84,0.12);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     padding: 0 16px;
     background: rgba(42,31,84,0.03);
     transition: border-color 0.2s ease;
@@ -471,7 +471,7 @@ const easterEggStyles = `
     background: #d5fd51;
     color: #F5F0E8;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     font-family: "DM Sans", sans-serif;
     font-size: 12px;
     font-weight: 700;

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 
 /**
  * @title ReserveLib
@@ -81,5 +82,26 @@ library ReserveLib {
             TickMath.getSqrtPriceAtTick(tickUpper),
             amount1
         );
+    }
+
+    /**
+     * @notice The INVERSE of {liquidityForTokenOut}: how much token a fully-below-
+     *         price position holding `liquidity` can actually deliver. Rounds DOWN,
+     *         so it is a safe lower bound on the reserve's capacity.
+     *
+     *  Needed so a caller can size a claim to what the reserve can really pay
+     *  BEFORE burning anything (audit H-03). Without it the only options were
+     *  "burn and hope" (silent loss) or "burn and revert" (no migration at all).
+     */
+    function tokenOutForLiquidity(int24 tickLower, int24 tickUpper, uint128 liquidity)
+        internal
+        pure
+        returns (uint256 amount1)
+    {
+        if (liquidity == 0) return 0;
+        uint160 lo = TickMath.getSqrtPriceAtTick(tickLower);
+        uint160 hi = TickMath.getSqrtPriceAtTick(tickUpper);
+        // amount1 = L * (sqrtHi - sqrtLo) / Q96   (mirror of getLiquidityForAmount1)
+        amount1 = FullMath.mulDiv(uint256(liquidity), uint256(hi) - uint256(lo), 1 << 96);
     }
 }

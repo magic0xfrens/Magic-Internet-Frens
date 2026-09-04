@@ -51,3 +51,24 @@ interface ICurvePolicy {
         view
         returns (uint256 cost);
 }
+
+/// @notice ETH fee-split STRUCTURE. Returns how a collected ETH fee divides across
+///         the sinks; the HOOK does the actual sends (custody stays immutable in
+///         the hook → this can be swapped WITHOUT ever exposing a fund-flow rug
+///         surface). The three amounts MUST sum to exactly `feeAmount`; the hook
+///         verifies this and falls back to its built-in split on any mismatch or
+///         revert, so a bad router can never brick a swap or misroute funds.
+interface IFeeRouter {
+    /// @param feeAmount  total ETH fee to divide.
+    /// @param guild      genesis-dividend sink (0 = none).
+    /// @param vault      active brew's floor vault (0 = none).
+    /// @param guildBps   hook's configured guild share.
+    /// @param floorBps   hook's configured floor share (of the post-guild remainder).
+    /// @return toGuild     ETH to the genesis dividend.
+    /// @return toFloor     ETH to the floor vault.
+    /// @return toRelaunch  ETH kept as the relaunch reserve.
+    function route(uint256 feeAmount, address guild, address vault, uint256 guildBps, uint256 floorBps)
+        external
+        view
+        returns (uint256 toGuild, uint256 toFloor, uint256 toRelaunch);
+}

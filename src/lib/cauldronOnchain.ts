@@ -31,6 +31,94 @@ export interface OnchainNft {
   gen: number;
 }
 
+/** An NFT row served by the Ponder indexer (adds the liquidatoor flag). */
+export interface IndexerNft extends OnchainNft {
+  isLiquidatoor: boolean;
+}
+
+/**
+ * NFTs owned by a wallet — served STRAIGHT from the Ponder indexer, with NO
+ * on-chain reads (no getLogs, no fallback). Ownership, rarity, revealed and the
+ * liquidatoor flag all come from `/nfts/:owner`; `/collections` supplies the
+ * generation + genesis mapping. The caller resolves each token's art from its
+ * tokenURI separately.
+ *
+ * Throws on a missing/unreachable indexer (the callers surface a retry) — this
+ * is deliberate: these views are indexer-only by design, so a silent on-chain
+ * fallback would defeat the point.
+ */
+export async function fetchNftsFromIndexer(
+  owner: Address,
+  opts: { includeGenesis?: boolean } = {},
+): Promise<IndexerNft[]> {
+  const { includeGenesis = true } = opts;
+  // `includeGenesis` is a pure client-side filter, so every caller can share one
+  // network round-trip: coalesce the UNFILTERED rows per owner, then filter.
+  // The vault mounts the creature grid, the badge grid and the rail's counter
+  // together — three identical /collections + /nfts pairs before this.
+  const rows = await fetchAllNftsFromIndexer(owner);
+  return includeGenesis ? rows : rows.filter((n) => !n.isGenesis);
+}
+
+/** In-flight dedupe for the raw (unfiltered) indexer rows, keyed by owner. */
+const allNftsInFlight = new Map<string, Promise<IndexerNft[]>>();
+
+function fetchAllNftsFromIndexer(owner: Address): Promise<IndexerNft[]> {
+  const key = owner.toLowerCase();
+  const pending = allNftsInFlight.get(key);
+  if (pending) return pending;
+  const req = loadAllNftsFromIndexer(owner).finally(() => allNftsInFlight.delete(key));
+  allNftsInFlight.set(key, req);
+  return req;
+}
+
+async function loadAllNftsFromIndexer(owner: Address): Promise<IndexerNft[]> {
+  const base = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : null;
+  if (!base) throw new Error("no-indexer");
+
+  // collection → { gen, isGenesis } — one call. The genesis MiFrens (presale)
+  // has generation=null; every brew's creature collection carries its gen.
+  const colRes = await fetch(`${base}/collections`, { signal: AbortSignal.timeout(8000) });
+  if (!colRes.ok) throw new Error("indexer-unreachable");
+  const colData = (await colRes.json()) as {
+    collections?: { address: string; generation: number | null; isPresale: boolean }[];
+  };
+  const colMap = new Map<string, { gen: number; isGenesis: boolean }>();
+  for (const c of colData.collections ?? []) {
+    colMap.set(c.address.toLowerCase(), {
+      gen: c.generation ?? 0,
+      isGenesis: c.isPresale || c.generation == null,
+    });
+  }
+  // Belt-and-suspenders: the known genesis collection is always genesis even if
+  // /collections hasn't caught up yet.
+  colMap.set(CAULDRON.mifrens.toLowerCase(), { gen: 0, isGenesis: true });
+
+  const res = await fetch(`${base}/nfts/${owner.toLowerCase()}?limit=2000`, {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error("indexer-unreachable");
+  const data = (await res.json()) as {
+    nfts?: { collection: string; tokenId: number; rarity: number; revealed: boolean; isLiquidatoor?: boolean }[];
+  };
+
+  const rows: IndexerNft[] = (data.nfts ?? [])
+    .map((n) => {
+      const meta = colMap.get(n.collection.toLowerCase()) ?? { gen: 0, isGenesis: false };
+      return {
+        collection: n.collection as Address,
+        tokenId: n.tokenId,
+        rarity: n.rarity,
+        revealed: n.revealed,
+        isLiquidatoor: Boolean(n.isLiquidatoor),
+        isGenesis: meta.isGenesis,
+        gen: meta.gen,
+      };
+    });
+
+  return rows.sort((a, b) => b.gen - a.gen || b.rarity - a.rarity || b.tokenId - a.tokenId);
+}
+
 /** Every collection the current launchpad has minted: genesis + each iteration. */
 export async function launchpadCollections(pc: PublicClient): Promise<{ address: Address; gen: number; isGenesis: boolean }[]> {
   const reg = { address: CAULDRON.registry, abi: REGISTRY_ABI } as const;

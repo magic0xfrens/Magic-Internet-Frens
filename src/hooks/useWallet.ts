@@ -8,7 +8,7 @@ import {
 } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { formatEther } from "viem";
-import { ROBINHOOD_CHAIN_ID, robinhoodChain } from "@/config/chains";
+import { ACTIVE_CHAIN, ACTIVE_CHAIN_ID } from "@/config/chains";
 
 /**
  * EVM wallet hook (wagmi + RainbowKit). Kept free of ethers so the eager app
@@ -36,15 +36,17 @@ export function useWallet() {
     walletAddress: address ?? null,
     address: address ?? null,
     publicKey: address ?? null,
-    network: robinhoodChain,
+    network: ACTIVE_CHAIN,
     chainId,
-    isCorrectNetwork: chainId === ROBINHOOD_CHAIN_ID,
+    isCorrectNetwork: chainId === ACTIVE_CHAIN_ID,
     walletBalance,
     connecting: isConnecting,
 
     openConnectModal: openConnectModal ?? (() => {}),
     connectToWallet: openConnectModal ?? (() => {}),
     disconnect,
-    switchToRobinhood: () => switchChain({ chainId: ROBINHOOD_CHAIN_ID }),
+    // switches the wallet to the active network (Robinhood on mainnet, Sepolia on testnet)
+    switchToRobinhood: () => switchChain({ chainId: ACTIVE_CHAIN_ID }),
+    switchToActive: () => switchChain({ chainId: ACTIVE_CHAIN_ID }),
   };
 }

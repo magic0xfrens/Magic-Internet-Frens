@@ -8,6 +8,7 @@ import {HookMiner} from "../vendor/HookMiner.sol";
 
 import {CauldronHook} from "../CauldronHook.sol";
 import {CauldronRegistry} from "../CauldronRegistry.sol";
+import {RedemptionExt} from "../cauldron/RedemptionExt.sol";
 
 /**
  * @title DeployCauldron
@@ -95,8 +96,19 @@ contract DeployCauldron is Script {
         );
         console2.log("CauldronRegistry:", address(registry));
 
+        // OG-redemption delegatecall facet (one-time wiring; frozen after set).
+        RedemptionExt redemptionExt = new RedemptionExt();
+        registry.setRedemptionExt(address(redemptionExt));
+        console2.log("RedemptionExt   :", address(redemptionExt));
+
         // Only the registry may pull relaunch ETH from the hook.
         hook.setRegistry(address(registry));
+        // Each relaunch funds the migration reserve via a REAL first-block market
+        // buy (green candle) — that buy must be fee-exempt or it reverts mid-settle.
+        // Exemption needs BOTH isOpener[sender] (audit F-13) AND taxExempt, and the
+        // registry is both the swap sender and the tagged player.
+        hook.setOpener(address(registry), true);
+        hook.setTaxExempt(address(registry), true);
 
         // Genesis: deploy Gen 1 token, create the V4 pool, seed liquidity.
         (address token, ) = registry.summon{value: genesisETH}();

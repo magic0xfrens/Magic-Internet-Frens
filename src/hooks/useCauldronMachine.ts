@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatEther, parseEther, parseAbiItem, keccak256, encodeAbiParameters, type Address } from "viem";
 import {
   useAccount,
@@ -12,6 +12,7 @@ import {
   CAULDRON, CAULDRON_INDEXER, REGISTRY_ABI, HOOK_ABI, GOVERNOR_ABI, COLLECTION_ABI, TOKEN_ABI, SWAP_EVENT,
   POOLMANAGER_ABI, POSITION_MANAGER, POSITION_MANAGER_ABI, MIFRENS_ERC721_ABI,
 } from "@/config/cauldron";
+import { useEthUsd } from "./useEthUsd";
 
 const SWAP = parseAbiItem(SWAP_EVENT);
 
@@ -54,6 +55,7 @@ export interface MachineState {
   presaleGoal: number;
   priceSeries: number[];
   spotPrice: number;
+  reserveTokens: number; // out-of-range reserve (backs the floor) — excluded from circulating MC
   relaunchEth: number;
   vaultEth: number;
   availableEth: number; // LP ETH + hook reserve + floor vault = seeds the next launch
@@ -76,7 +78,7 @@ const EMPTY: MachineState = {
   name: "", ticker: "", vol24hEth: 0, vitality: 0,
   deathThresholdEth: CAULDRON.deathThresholdEth, isDead: false,
   nftMinted: 0, nftMax: 0, presaleMinted: 0, presaleGoal: CAULDRON.genesisSupply,
-  priceSeries: [], spotPrice: 0, relaunchEth: 0, vaultEth: 0, availableEth: 0, relaunchAt: 0, proposals: [],
+  priceSeries: [], spotPrice: 0, reserveTokens: 0, relaunchEth: 0, vaultEth: 0, availableEth: 0, relaunchAt: 0, proposals: [],
   migratable: [],
 };
 
@@ -85,6 +87,97 @@ const PRESALE_MINI_ABI = [
 ] as const;
 
 type PC = NonNullable<ReturnType<typeof usePublicClient>>;
+
+/** Indexer base (Ponder). The browser reads the whole cauldron from here. */
+const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
+
+/** Shape of the /cauldron endpoint — the full brew state in one fetch. */
+interface CauldronDto {
+  summoned: boolean;
+  gen: number;
+  token?: string;
+  collection?: string | null;
+  poolId?: string;
+  name?: string;
+  ticker?: string;
+  dead?: boolean;
+  phase?: string;
+  spotPrice?: number;
+  volumeEth?: number;
+  vol24hEth?: number;
+  nftMinted?: number;
+  nftMax?: number;
+  deathThresholdEth?: number;
+  vaultEth?: number;
+  relaunchEth?: number;
+  relaunchAt?: number;
+  presaleMinted?: number;
+}
+
+/** One-shot brew state from the indexer's /cauldron endpoint. Returns null if
+ *  the endpoint isn't available (older indexer / mid-deploy) so the caller can
+ *  fall back. After a 404 we back off for 2 min (so the 15s poll doesn't log a
+ *  404 every cycle) but then RETRY — so when the endpoint finishes deploying we
+ *  pick up the richer values (floor/vault/24h-vol) without a manual refresh. */
+let cauldron404Until = 0;
+async function fetchCauldron(): Promise<CauldronDto | null> {
+  if (!INDEXER || Date.now() < cauldron404Until) return null;
+  try {
+    const res = await fetch(`${INDEXER}/cauldron`, { signal: AbortSignal.timeout(10000) });
+    if (res.status === 404) { cauldron404Until = Date.now() + 120_000; return null; }
+    if (!res.ok) return null;
+    return await res.json() as CauldronDto;
+  } catch { return null; }
+}
+
+/** Fallback: reconstruct the brew from the ALWAYS-LIVE /collections + /candles
+ *  endpoints when /cauldron isn't deployed. Zero browser RPC. Chain-only values
+ *  (death floor, art cap, vault/reserve ETH) default to 0 until /cauldron ships. */
+async function fetchCauldronFallback(): Promise<CauldronDto | null> {
+  if (!INDEXER) return null;
+  try {
+    const colRes = await fetch(`${INDEXER}/collections`, { signal: AbortSignal.timeout(8000) });
+    if (!colRes.ok) return null;
+    const cj = await colRes.json() as { collections?: Array<{ address: string; generation: number | null; totalMinted: number; isPresale: boolean }> };
+    const brews = (cj.collections ?? []).filter((c) => c.generation != null && !c.isPresale);
+    if (brews.length === 0) return { summoned: false, gen: 0 };
+    const top = brews.reduce((a, b) => ((b.generation ?? 0) > (a.generation ?? 0) ? b : a));
+    const gen = top.generation ?? 1;
+
+    const candRes = await fetch(`${INDEXER}/candles/${gen}?limit=1`, { signal: AbortSignal.timeout(8000) });
+    const candJson = candRes.ok ? await candRes.json() as { pool?: { id: string; token: string; name: string; symbol: string; dead: boolean }; last?: number; volumeEth?: number } : {};
+    const pool = candJson.pool;
+    if (!pool) return { summoned: false, gen: 0 };
+
+    return {
+      summoned: true, gen,
+      token: pool.token, collection: top.address, poolId: pool.id,
+      name: pool.name, ticker: pool.symbol, dead: pool.dead,
+      phase: pool.dead ? "dead" : "live",
+      spotPrice: candJson.last ?? 0, volumeEth: candJson.volumeEth ?? 0, vol24hEth: 0,
+      nftMinted: top.totalMinted, nftMax: 0,
+      deathThresholdEth: 0, vaultEth: 0, relaunchEth: 0, relaunchAt: 0,
+    };
+  } catch { return null; }
+}
+
+/** Governance proposals from the indexer (Ponder) — no browser RPC. Fills the
+ *  fields the /proposals endpoint serves; richer metadata defaults gracefully. */
+async function loadProposalsIndexed(): Promise<Proposal[]> {
+  if (!INDEXER) return [];
+  try {
+    const res = await fetch(`${INDEXER}/proposals`, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const d = await res.json() as { proposals?: Array<{ id: number; name: string; symbol: string; proposer: string; votes: string; consumed: boolean; website?: string | null; socials?: string | null; metaMode?: "renderer" | "uri"; metaValue?: string; nftSupply?: number; mintOutEth?: number }> };
+    return (d.proposals ?? []).filter((p) => !p.consumed).map((p) => ({
+      id: p.id, name: p.name, ticker: p.symbol, theme: p.name,
+      proposer: p.proposer as Address, votes: Number(p.votes), consumed: p.consumed,
+      website: p.website ?? undefined, socials: p.socials ?? undefined,
+      metaMode: (p.metaMode ?? "uri"), metaValue: p.metaValue ?? "",
+      nftSupply: p.nftSupply ?? 0, mintOutEth: p.mintOutEth ?? 0,
+    }));
+  } catch { return []; }
+}
 
 /**
  * useCauldronMachine — the live on-chain state of the eternal Cauldron. Reads the
@@ -96,116 +189,96 @@ export function useCauldronMachine() {
   const publicClient = usePublicClient({ chainId: CAULDRON.chainId });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
-  const { isLoading: confirming, isSuccess: confirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const { isLoading: confirming, isSuccess: confirmed } = useWaitForTransactionReceipt({ hash: txHash, chainId: CAULDRON.chainId });
+
+  // Keep publicClient in a ref so `load` can have a STABLE identity (empty deps).
+  // Otherwise, if usePublicClient returns a fresh object per render, `load` churns
+  // → useEffect([load]) re-fires → setS re-renders → tight fetch loop that floods
+  // the browser (net::ERR_INSUFFICIENT_RESOURCES).
+  const pcRef = useRef(publicClient);
+  pcRef.current = publicClient;
 
   const [s, setS] = useState<MachineState>(EMPTY);
-  const [ethUsd, setEthUsd] = useState<number>(0);
+  // Live ETH/USD for price + market-cap display. Shared hook so the floor panel
+  // and this both ride one Coinbase poll instead of two.
+  const ethUsd = useEthUsd();
 
-  // Live ETH/USD for price + market-cap display (Coinbase spot, CORS-friendly).
-  useEffect(() => {
-    let alive = true;
-    const fetchUsd = async () => {
-      try {
-        const r = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot", { signal: AbortSignal.timeout(5000) });
-        const j = await r.json();
-        const p = Number(j?.data?.amount);
-        if (alive && p > 0) setEthUsd(p);
-      } catch { /* keep last */ }
-    };
-    fetchUsd();
-    const id = setInterval(fetchUsd, 60_000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
-
+  const loadingRef = useRef(false);
   const load = useCallback(async () => {
-    if (!publicClient) return;
+    // ── PONDER-ONLY brew state ──
+    // The whole cauldron comes from the indexer's /cauldron endpoint in ONE
+    // fetch (indexed identity/price + a cached server-side snapshot of the few
+    // chain-only values). The browser makes ZERO read RPC calls, so the page
+    // paints in ~one round-trip instead of a ~25-call on-chain waterfall.
+    // In-flight guard: never allow overlapping loads — a hard cap against any
+    // accidental render-loop flooding the indexer (net::ERR_INSUFFICIENT_RESOURCES).
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
-      const reg = { address: CAULDRON.registry, abi: REGISTRY_ABI } as const;
-      const [summoned, genBn] = await Promise.all([
-        publicClient.readContract({ ...reg, functionName: "summoned" }) as Promise<boolean>,
-        publicClient.readContract({ ...reg, functionName: "currentGeneration" }) as Promise<bigint>,
-      ]);
-      const gen = Number(genBn);
-      const proposals = await loadProposals(publicClient);
+    if (!INDEXER) { setS((prev) => ({ ...prev, loading: false })); return; }
+    try {
+      // Prefer the one-shot /cauldron endpoint; if it isn't available (older
+      // indexer), reconstruct the same shape from /collections + /candles, which
+      // are always live. Either way the browser makes ZERO read RPC calls.
+      let d = await fetchCauldron();
+      if (!d) d = await fetchCauldronFallback();
+      if (!d) { setS((prev) => ({ ...prev, loading: false })); return; }
 
-      if (!summoned || gen === 0) {
-        const minted = await publicClient
-          .readContract({ address: CAULDRON.mifrens, abi: PRESALE_MINI_ABI, functionName: "minted" })
-          .catch(() => 0n) as bigint;
-        setS({ ...EMPTY, loading: false, summoned: false, phase: "presale",
-          presaleMinted: Number(minted), proposals });
+      if (!d.summoned) {
+        setS((prev) => ({ ...EMPTY, loading: false, summoned: false, phase: "presale",
+          presaleMinted: d.presaleMinted ?? prev.presaleMinted, proposals: prev.proposals }));
+        // proposals in the background (governance tab; never blocks first paint)
+        loadProposalsIndexed().then((proposals) => setS((prev) => ({ ...prev, proposals }))).catch(() => {});
         return;
       }
 
-      // Previous-generation tokens this wallet still holds — claimable 1:1 into
-      // the current brew. Only exists once there's been ≥1 relaunch (gen ≥ 2).
-      const migratable = await loadMigratable(publicClient, gen, address);
+      const vol24hEth = d.vol24hEth ?? 0;
+      const deathEth = d.deathThresholdEth ?? 0;
+      const vitality = deathEth > 0 ? Math.max(0, Math.min(100, (vol24hEth / (deathEth * 4)) * 100)) : 100;
+      const phase = (d.phase ?? "live") as Phase;
+      const availableEth = (d.relaunchEth ?? 0) + (d.vaultEth ?? 0);
 
-      const [token, collection, vault, poolId, lastSummonAt, minLifetime] = await Promise.all([
-        publicClient.readContract({ ...reg, functionName: "currentToken" }) as Promise<Address>,
-        publicClient.readContract({ ...reg, functionName: "generationCollection", args: [genBn] }) as Promise<Address>,
-        publicClient.readContract({ ...reg, functionName: "generationVault", args: [genBn] }) as Promise<Address>,
-        publicClient.readContract({ ...reg, functionName: "generationPoolId", args: [genBn] }) as Promise<`0x${string}`>,
-        publicClient.readContract({ ...reg, functionName: "lastSummonAt" }).catch(() => 0n) as Promise<bigint>,
-        publicClient.readContract({ ...reg, functionName: "minLifetime" }).catch(() => 0n) as Promise<bigint>,
-      ]);
-
-      const hook = { address: CAULDRON.hook, abi: HOOK_ABI } as const;
-      const col = { address: collection, abi: COLLECTION_ABI } as const;
-      const [name, ticker, vol24h, isDead, deathThr, relaunchEth, nftMinted, nftMax, vaultBal] = await Promise.all([
-        publicClient.readContract({ address: token, abi: TOKEN_ABI, functionName: "name" }) as Promise<string>,
-        publicClient.readContract({ address: token, abi: TOKEN_ABI, functionName: "symbol" }) as Promise<string>,
-        publicClient.readContract({ ...hook, functionName: "getVolume24h", args: [poolId] }) as Promise<bigint>,
-        publicClient.readContract({ ...hook, functionName: "isDead", args: [poolId] }) as Promise<boolean>,
-        publicClient.readContract({ ...hook, functionName: "deathThreshold" }) as Promise<bigint>,
-        publicClient.readContract({ ...hook, functionName: "relaunchETH" }) as Promise<bigint>,
-        publicClient.readContract({ ...col, functionName: "totalMinted" }) as Promise<bigint>,
-        publicClient.readContract({ ...col, functionName: "maxSupply" }) as Promise<bigint>,
-        publicClient.getBalance({ address: vault }).catch(() => 0n),
-      ]);
-
-      const vol24hEth = Number(formatEther(vol24h));
-      const deathEth = Number(formatEther(deathThr));
-      const vitality = Math.max(0, Math.min(100, (vol24hEth / (deathEth * 4)) * 100));
-      const phase: Phase = isDead ? "dead" : vol24hEth < deathEth ? "dying" : "live";
-
-      // ETH available to seed the NEXT iteration = LP ETH (recovered on death) +
-      // hook fee reserve + floor vault (swept on death). The LP ETH is the big
-      // piece — compute it from the live position + pool price.
-      const relaunchEthN = Number(formatEther(relaunchEth));
-      const vaultEthN = Number(formatEther(vaultBal));
-      const lpEth = await lpEthOf(publicClient, poolId, genBn).catch(() => 0);
-      const availableEth = lpEth + relaunchEthN + vaultEthN;
-
-      // Render the brew IMMEDIATELY from core on-chain data — don't block on the
-      // price chart (the indexer fetch can take a few seconds). This is what made
-      // the page sit on "syncing" right after a summon. Keep any prior series so
-      // it doesn't flash empty; the chart fills in async just below.
       setS((prev) => ({
-        loading: false, summoned: true, phase, gen,
-        token, collection, vault, poolId,
-        name: cleanName(name), ticker,
-        vol24hEth, vitality, deathThresholdEth: deathEth, isDead,
-        nftMinted: Number(nftMinted), nftMax: Number(nftMax),
+        loading: false, summoned: true, phase, gen: d.gen,
+        token: d.token as Address, collection: (d.collection ?? "") as Address,
+        vault: prev.vault, poolId: d.poolId as `0x${string}`,
+        name: cleanName(d.name ?? ""), ticker: d.ticker ?? "",
+        vol24hEth, vitality, deathThresholdEth: deathEth, isDead: !!d.dead,
+        nftMinted: d.nftMinted ?? 0, nftMax: d.nftMax ?? 0,
         presaleMinted: CAULDRON.genesisSupply, presaleGoal: CAULDRON.genesisSupply,
         priceSeries: prev.priceSeries, spotPrice: prev.spotPrice,
-        relaunchEth: relaunchEthN, vaultEth: vaultEthN, availableEth,
-        relaunchAt: Number(lastSummonAt + minLifetime),
-        proposals, migratable,
+        relaunchEth: d.relaunchEth ?? 0, vaultEth: d.vaultEth ?? 0, availableEth,
+        relaunchAt: d.relaunchAt ?? 0,
+        proposals: prev.proposals, migratable: prev.migratable,
       }));
 
-      // Price series (indexer → candles → on-chain) loads in the background.
-      loadSeries(publicClient, poolId, gen, token)
-        .then(({ series, spot }) => setS((prev) => ({
-          ...prev,
-          priceSeries: series.length ? series : prev.priceSeries,
-          spotPrice: spot || prev.spotPrice,
-        })))
-        .catch(() => { /* keep prior series */ });
-    } catch {
-      setS((prev) => ({ ...prev, loading: false }));
+      // Reserve tokens (out-of-range, backs the floor) → excluded from circulating
+      // MC. From /floor (Ponder), background, zero browser RPC.
+      fetch(`${INDEXER}/floor`, { signal: AbortSignal.timeout(8000) })
+        .then((r) => r.json())
+        .then((fj: { reserveTokens?: number }) => setS((prev) => ({ ...prev, reserveTokens: fj.reserveTokens ?? prev.reserveTokens })))
+        .catch(() => { /* keep prior */ });
+
+      // Price series (indexer candles) + proposals load in the background —
+      // never blocking the brew paint. Both Ponder, zero browser RPC.
+      const pc = pcRef.current;
+      if (pc) {
+        loadSeries(pc, d.poolId as `0x${string}`, d.gen, d.token as Address)
+          .then(({ series, spot }) => setS((prev) => ({
+            ...prev,
+            priceSeries: series.length ? series : prev.priceSeries,
+            spotPrice: spot || prev.spotPrice,
+          })))
+          .catch(() => { /* keep prior series */ });
+      }
+      loadProposalsIndexed().then((proposals) => setS((prev) => ({ ...prev, proposals }))).catch(() => {});
+      } catch {
+        setS((prev) => ({ ...prev, loading: false }));
+      }
+    } finally {
+      loadingRef.current = false;
     }
-  }, [publicClient, address]);
+  }, []); // stable — reads publicClient via pcRef; no churn, no fetch loop
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -266,7 +339,7 @@ export function useCauldronMachine() {
       args: [
         p.name, p.symbol.toUpperCase(),
         useRenderer ? 1 : 0, // 1 = Renderer, 0 = BaseURI
-        useRenderer ? "" : (p.baseURI || "https://magicfrens.xyz/api/cauldron/"),
+        useRenderer ? "" : (p.baseURI || "https://mifrens.xyz/api/cauldron/"),
         (useRenderer ? p.renderer! : "0x0000000000000000000000000000000000000000") as Address,
         p.website ?? "", p.socials ?? "", supply, perNft,
       ],
@@ -282,11 +355,16 @@ export function useCauldronMachine() {
   });
   const holdsMiFren = (mifrenBalance ?? 0n) > 0n;
 
-  const mcap = useMemo(() => s.spotPrice * 777_000_000, [s.spotPrice]); // FDV in ETH
+  const fdv = useMemo(() => s.spotPrice * 777_000_000, [s.spotPrice]); // fully-diluted, in ETH
+  // Circulating MC = spot × supply that can actually reach the market at ~spot,
+  // i.e. total minus the out-of-range reserve (locked at ~69× to back the floor).
+  const circSupply = useMemo(() => Math.max(0, 777_000_000 - (s.reserveTokens || 0)), [s.reserveTokens]);
+  const mcap = useMemo(() => s.spotPrice * circSupply, [s.spotPrice, circSupply]); // circulating MC in ETH
   const priceUsd = useMemo(() => s.spotPrice * ethUsd, [s.spotPrice, ethUsd]);
-  const fdvUsd = useMemo(() => mcap * ethUsd, [mcap, ethUsd]);
+  const mcapUsd = useMemo(() => mcap * ethUsd, [mcap, ethUsd]);   // circulating MC in USD
+  const fdvUsd = useMemo(() => fdv * ethUsd, [fdv, ethUsd]);      // fully-diluted in USD
 
-  return { ...s, mcap, ethUsd, priceUsd, fdvUsd, relaunch, voteFor, propose, claimPrev, holdsMiFren, waitForReceipt, refresh: load, txHash, isPending, confirming, confirmed, reset };
+  return { ...s, mcap, fdv, ethUsd, priceUsd, mcapUsd, fdvUsd, relaunch, voteFor, propose, claimPrev, holdsMiFren, waitForReceipt, refresh: load, txHash, isPending, confirming, confirmed, reset };
 }
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -401,11 +479,17 @@ async function loadSeries(
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
-      const data = await res.json() as { pool?: { token?: string }; candles?: { c: number }[]; last?: number };
+      const data = await res.json() as { pool?: { token?: string }; candles?: { o: number; c: number }[]; last?: number };
       const tok = data.pool?.token?.toLowerCase();
       indexerFresh = !!tok && !!currentToken && tok === currentToken.toLowerCase();
       if (indexerFresh) {
-        candleSeries = (data.candles ?? []).map((k) => k.c).filter((p) => p > 0 && Number.isFinite(p));
+        const ks = (data.candles ?? []).filter((k) => k.c > 0 && Number.isFinite(k.c));
+        // Seed with the FIRST candle's OPEN (the launch price) so even a SINGLE
+        // trade renders as a 2-point line (launch → now) instead of the chart
+        // sitting on "awaiting first swaps…" after a real swap has happened.
+        const closes = ks.map((k) => k.c);
+        candleSeries = ks.length > 0 && ks[0].o > 0 && Number.isFinite(ks[0].o)
+          ? [ks[0].o, ...closes] : closes;
         candleSpot = data.last && data.last > 0 ? data.last : candleSeries[candleSeries.length - 1] ?? 0;
       }
     }
@@ -419,6 +503,8 @@ async function loadSeries(
       if (rr.ok) {
         const d = await rr.json() as { swaps?: { price: number }[] };
         const pts = (d.swaps ?? []).map((s) => s.price).filter((p) => p > 0 && Number.isFinite(p)).reverse();
+        // ≥2 swaps → use the real per-trade tape. Exactly 1 swap → prefer the
+        // candle series (which is open-seeded to 2 points) so the chart still draws.
         if (pts.length >= 2) return { series: pts, spot: pts[pts.length - 1] };
       }
     } catch { /* fall through to candles */ }

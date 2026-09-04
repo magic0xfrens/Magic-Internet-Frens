@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPC_URL, ROBINHOOD_EXPLORER_URL } from '@/config/chains';
 import metamaskLogo from '@/assets/images/connect/io.metamask.png';
 import rabbyLogo from '@/assets/images/connect/io.rabby.png';
 import coinbaseLogo from '@/assets/images/connect/coinbaseWalletSDK.png';
@@ -153,6 +154,23 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
                 rpcUrls: ['https://mainnet.base.org'],
                 blockExplorerUrls: ['https://basescan.org'],
               },
+              // Robinhood Chain — the mainnet target. Lets a wallet auto-add it
+              // (error 4902) when the user isn't on it yet.
+              [ROBINHOOD_CHAIN_ID]: {
+                chainId: `0x${ROBINHOOD_CHAIN_ID.toString(16)}`,
+                chainName: 'Robinhood Chain',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: [ROBINHOOD_RPC_URL],
+                blockExplorerUrls: [ROBINHOOD_EXPLORER_URL],
+              },
+              // Sepolia — testnet build.
+              11155111: {
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia',
+                nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://ethereum-sepolia-rpc.publicnode.com'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              },
             };
 
             const networkConfig = networkConfigs[chainId];
@@ -224,7 +242,7 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
           padding: 10px 14px;
           background: rgba(239, 68, 68, 0.08);
           border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 10px;
+          border-radius: var(--r-sm);
           color: #DC2626;
           font-family: 'DM Sans', sans-serif;
           font-size: 12px;
@@ -246,7 +264,7 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
           padding: 12px 8px;
           background: white;
           border: 2px solid rgba(42, 31, 84, 0.12);
-          border-radius: 12px;
+          border-radius: var(--r-sm);
           cursor: pointer;
           transition: all 0.2s ease;
           font-family: inherit;
@@ -271,7 +289,7 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
         .ws-logo {
           width: 30px;
           height: 30px;
-          border-radius: 6px;
+          border-radius: var(--r-chip);
           object-fit: contain;
         }
 
@@ -304,7 +322,7 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
           gap: 4px;
           padding: 3px 8px;
           background: rgba(86, 71, 133, 0.08);
-          border-radius: 6px;
+          border-radius: var(--r-chip);
           color: #564785;
           font-family: 'Fredoka', sans-serif;
           font-size: 10px;

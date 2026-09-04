@@ -4,6 +4,7 @@ import { useXAuth } from "@/hooks/useXAuth";
 import { BODIES, FACES, GNOME_FACES, ELF_FACES, ITEMS, CLASS_ORDER, type TraitLayer } from "@/data/frens";
 import EasterEggModal from "@/components/home/EasterEggModal";
 import ManifrenstoModal from "@/components/preview/ManifrenstoModal";
+import ArchiveMachine from "@/components/preview/ArchiveMachine";
 import PresaleModal from "@/components/presale/PresaleModal";
 import { PRESALE } from "@/config/presale";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
@@ -531,9 +532,9 @@ function HomePreview() {
         <p className="pp__cauldron-sub" data-reveal="fade-up" data-reveal-delay="100">
           Once all 1111 genesis frens are minted, they summon an ERC-20 token through the Cauldron &mdash;
           liquidity is seeded from the mint treasury and trading begins. If trading volume drops
-          for a week, the token dies. Holders claim their proportional share of
-          the liquidity pool, then vote on the next token to summon. A new token launches,
-          and the cycle repeats &mdash; eternally.
+          for a week, the token can die. The frens vote on the next token to summon, and a relaunch
+          recovers the dead pool&rsquo;s liquidity to seed the new one. Holders then migrate &mdash; burn
+          their old token 1:1 for the freshly-launched one &mdash; and the cycle repeats, eternally.
         </p>
 
         {/* Sticker cycle orbiting the cauldron */}
@@ -615,6 +616,86 @@ function HomePreview() {
             </div>
             <div className="pp__feature-art">
               <img src="/images/wizard-wine.png" alt="Wizard Fren" className="pp__feature-mascot pp__feature-mascot--sm" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════ 5.5 THE ARCHIVE — real on-chain collectibles from the v4 hook ══════ */}
+      <section className="pp__archive" data-reveal="fade-up">
+        <div className="pp__archive-inner">
+          <div className="pp__archive-head">
+            <span className="pp__archive-eyebrow" data-reveal="fade-up">
+              THE ARCHIVE <span className="pp__archive-eyebrow-dot" />  POWERED BY UNISWAP&nbsp;V4
+            </span>
+            <h2 className="pp__archive-title" data-reveal="fade-up" data-reveal-delay="80">
+              Real on-chain collectibles.<br />
+              <span className="pp__archive-title-accent">Forever.</span>
+            </h2>
+            <p className="pp__archive-lead" data-reveal="fade-up" data-reveal-delay="160">
+              Every fren is minted by the market itself. Our Uniswap&nbsp;v4 hook watches real
+              on-chain events &mdash; trading volume and perp liquidations &mdash; and inscribes
+              each one as a permanent collectible. The art is hand-drawn pixel magic &mdash; it&rsquo;s
+              the minting that no one chose. Each artifact is summoned by the chain itself, not a
+              person clicking a button. A living archive of every moment that mattered, sealed on-chain, forever.
+            </p>
+          </div>
+
+          <div className="pp__archive-grid">
+            {/* Left — what the hook inscribes */}
+            <div className="pp__archive-events" data-reveal="fade-up" data-reveal-delay="120">
+              {[
+                {
+                  tag: "TRADING VOLUME",
+                  title: "Forged by volume",
+                  desc: "Every threshold of real ETH volume through the pool forges a brand-new fren — minted straight from the swap, credited to the trader who tipped it over.",
+                },
+                {
+                  tag: "PERP LIQUIDATIONS",
+                  title: "Liquidatoor trophies",
+                  desc: "Trigger a perp liquidation on the hook and it mints you a one-of-one Liquidatoor badge — a permanent trophy for the wallet you wrecked.",
+                },
+                {
+                  tag: "ON-CHAIN FOREVER",
+                  title: "Sealed at the source",
+                  desc: "Inscribed inside the hook at swap time. No oracle, no backend, no mint button. If it happened on-chain, it's collected on-chain.",
+                },
+              ].map((e, i) => (
+                <div className="pp__archive-event" key={e.tag} data-reveal="fade-up" data-reveal-delay={200 + i * 90}>
+                  <span className="pp__archive-event-idx">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="pp__archive-event-body">
+                    <span className="pp__archive-event-tag">{e.tag}</span>
+                    <h3 className="pp__archive-event-title">{e.title}</h3>
+                    <p className="pp__archive-event-desc">{e.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right — the real v4 hook machine (ported from GnomeGacha) */}
+            <div className="pp__machine-slot" data-reveal="fade-up" data-reveal-delay="180">
+              <ArchiveMachine />
+            </div>
+          </div>
+
+          {/* Live inscription feed — illustrative sample of hook events */}
+          <div className="pp__archive-feed" data-reveal="fade-up">
+            <div className="pp__archive-feed-track">
+              {[...Array(2)].flatMap((_, dup) => [
+                { k: "VOL", t: "42.0 ETH volume", r: "Fren #1847 forged" },
+                { k: "LIQ", t: "0x9f…2a wrecked · 3.1 ETH", r: "Liquidatoor #212" },
+                { k: "VOL", t: "88.5 ETH volume", r: "Fren #1848 forged" },
+                { k: "LIQ", t: "0x4c…e0 wrecked · 0.7 ETH", r: "Liquidatoor #213" },
+                { k: "VOL", t: "12.4 ETH volume", r: "Fren #1849 forged" },
+                { k: "LIQ", t: "0xa1…88 wrecked · 5.9 ETH", r: "Liquidatoor #214" },
+              ].map((f, i) => (
+                <span className="pp__archive-feed-item" key={`${dup}-${i}`}>
+                  <span className={`pp__archive-feed-k pp__archive-feed-k--${f.k.toLowerCase()}`}>{f.k}</span>
+                  <span className="pp__archive-feed-t">{f.t}</span>
+                  <span className="pp__archive-feed-arrow">&rarr;</span>
+                  <span className="pp__archive-feed-r">{f.r}</span>
+                </span>
+              )))}
             </div>
           </div>
         </div>
@@ -755,7 +836,7 @@ function HomePreview() {
           />
           <FAQItem
             q="What is the Eternal Cycle?"
-            a="After all 1111 genesis frens are minted, holders summon an ERC-20 token via the Cauldron. When trading volume drops for a week, the token dies. Holders claim their share, vote on a new token, and the cycle repeats eternally."
+            a="After all 1111 genesis frens are minted, holders summon an ERC-20 token via the Cauldron. When trading volume drops for a week, the token can die. The frens vote on the next token, a relaunch recovers the dead pool's liquidity to seed the new one, and holders migrate — burning their old token 1:1 for the new one. The cycle repeats eternally."
           />
           <FAQItem
             q="What benefits do holders get?"
@@ -895,7 +976,7 @@ const styles = `
     background: #d5fd51;
     color: #FFFFFF;
     padding: 2px 10px;
-    border-radius: 6px;
+    border-radius: var(--r-chip);
     font-weight: 700;
   }
   .pp__error {
@@ -943,7 +1024,7 @@ const styles = `
     font-weight: 600;
     font-size: 15px;
     padding: 14px 32px;
-    border-radius: 14px;
+    border-radius: var(--r-sm);
     cursor: pointer;
     transition: all 0.2s ease;
     border: 2px solid transparent;
@@ -990,7 +1071,7 @@ const styles = `
     border: 2px solid #2A1F54;
     padding: 8px 20px;
     font-size: 13px;
-    border-radius: 10px;
+    border-radius: var(--r-sm);
     box-shadow: 0 3px 0 #2A1F54;
   }
   .pp__btn--nav:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #2A1F54; }
@@ -1007,7 +1088,7 @@ const styles = `
     border: 1px solid rgba(255,255,255,0.3);
     font-size: 12px;
     padding: 8px 18px;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
   }
   .pp__btn--footer:hover { border-color: #FFFFFF; }
 
@@ -1256,7 +1337,7 @@ const styles = `
     background: rgba(0,0,0,0.88);
     color: #fff;
     padding: 14px 16px;
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1278,7 +1359,7 @@ const styles = `
     background: #d5fd51;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--r-chip);
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 600;
@@ -1289,11 +1370,13 @@ const styles = `
 
   /* ═══════ 3. ABOUT (coral) ═══════ */
   .pp__about {
+    /* Uniform Enchanted Cream to match the rest of the page — no warm-sand
+       band, so there's no seam into the mint section below. A single whisper
+       of warmth sits behind the wizard art (top-right) purely so its edges
+       don't read as a hard cutout, and it fades fully back to #F5F0E8. */
     background:
-      radial-gradient(ellipse 85% 70% at 100% 0%, #f9d488 0%, transparent 62%),
-      radial-gradient(ellipse 70% 70% at 4% 96%, #eab94f 0%, transparent 60%),
-      radial-gradient(ellipse 90% 90% at 48% 40%, #f8ce77 0%, transparent 70%),
-      #f6c86a;
+      radial-gradient(ellipse 60% 55% at 96% 30%, #f2ebdd 0%, transparent 60%),
+      #F5F0E8;
     padding: 48px 0 0 0;
     position: relative;
     overflow: hidden;
@@ -1399,7 +1482,7 @@ const styles = `
     color: rgba(42,31,84,0.85);
     background: rgba(42,31,84,0.08);
     border: 1px solid rgba(42,31,84,0.18);
-    border-radius: 6px;
+    border-radius: var(--r-chip);
     padding: 4px 10px;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1439,6 +1522,20 @@ const styles = `
     max-width: 100%;
     border-radius: 0;
     margin-bottom: -4px;
+    /* Feather every edge that meets flat page, so the image's rectangle
+       dissolves into it instead of butting against it. The bottom needs this
+       as much as the left and top: the section below is the SAME cream with
+       its own top padding, so there is no floor line for the art to stand on
+       — left crisp, it reads as a photo guillotined mid-scene. The right edge
+       bleeds off-screen, so it needs no feather. */
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0, #000 9%),
+      linear-gradient(to bottom, transparent 0, #000 6%, #000 84%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, transparent 0, #000 9%),
+      linear-gradient(to bottom, transparent 0, #000 6%, #000 84%, transparent 100%);
+    mask-composite: intersect;
   }
   @keyframes pp-bob {
     0%, 100% { transform: translateY(0); }
@@ -1458,7 +1555,7 @@ const styles = `
     gap: 24px;
   }
   .pp__feature-card {
-    border-radius: 24px;
+    border-radius: var(--r-md);
     border: 3px solid #2A1F54;
     overflow: hidden;
     display: flex;
@@ -1556,6 +1653,186 @@ const styles = `
     object-fit: contain;
     image-rendering: pixelated;
   }
+
+  /* ═══════ 5.5 THE ARCHIVE (dark vault — real on-chain collectibles) ═══════ */
+  .pp__archive {
+    position: relative;
+    overflow: hidden;
+    padding: 40px 24px 40px;
+    background:
+      radial-gradient(ellipse 70% 60% at 82% 18%, rgba(124,92,252,0.30) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 55% at 12% 92%, rgba(213,253,81,0.16) 0%, transparent 62%),
+      linear-gradient(160deg, #241a4d 0%, #1a1338 55%, #140f2c 100%);
+    color: #F5F0E8;
+  }
+  /* faint grid texture so the dark panel reads like an on-chain "vault" */
+  .pp__archive::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(224,192,120,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(224,192,120,0.05) 1px, transparent 1px);
+    background-size: 72px 72px;
+    -webkit-mask-image: radial-gradient(ellipse 78% 66% at 50% 38%, #000 0%, transparent 66%);
+            mask-image: radial-gradient(ellipse 78% 66% at 50% 38%, #000 0%, transparent 66%);
+    pointer-events: none;
+  }
+  .pp__archive-inner {
+    position: relative;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .pp__archive-head { max-width: 720px; }
+  .pp__archive-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "DM Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    color: #D5FD51;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .pp__archive-eyebrow-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: currentColor; opacity: 0.6;
+  }
+  .pp__archive-title {
+    font-family: "Fredoka", sans-serif;
+    font-weight: 700;
+    font-size: clamp(30px, 4vw, 46px);
+    line-height: 1.0;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .pp__archive-title-accent {
+    font-family: "Cinzel Decorative", "Cinzel", serif;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    background: linear-gradient(100deg, #f3cf6e 0%, #ffe7a6 46%, #d0a03f 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-style: normal;
+  }
+  .pp__archive-lead {
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgba(245,240,232,0.72);
+    max-width: 620px;
+  }
+  .pp__archive-grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 40px;
+    align-items: start;
+  }
+
+  /* ── event list (left) ── */
+  .pp__archive-events { display: flex; flex-direction: column; gap: 2px; }
+  .pp__archive-event {
+    display: flex;
+    gap: 18px;
+    padding: 11px 4px;
+    border-top: 1px solid rgba(245,240,232,0.12);
+    transition: border-color 0.3s ease;
+  }
+  .pp__archive-event:last-of-type { border-bottom: 1px solid rgba(245,240,232,0.12); }
+  .pp__archive-event:hover { border-top-color: rgba(213,253,81,0.5); }
+  .pp__archive-event-idx {
+    font-family: "DM Mono", monospace;
+    font-size: 13px;
+    color: rgba(213,253,81,0.85);
+    padding-top: 3px;
+    min-width: 22px;
+  }
+  .pp__archive-event-tag {
+    display: block;
+    font-family: "DM Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: rgba(245,240,232,0.5);
+    margin-bottom: 4px;
+  }
+  .pp__archive-event-title {
+    font-family: "Fredoka", sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin-bottom: 5px;
+    color: #F5F0E8;
+  }
+  .pp__archive-event-desc {
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(245,240,232,0.62);
+  }
+
+  /* ── the v4 hook machine slot (see ArchiveMachine.tsx) ── */
+  .pp__machine-slot {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    margin: -64px auto 0;
+    padding: 0 0 6px;
+  }
+  /* soft vault light behind the machine so it reads as lit on the dark panel */
+  .pp__machine-slot::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 46%;
+    width: 118%; height: 92%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(ellipse at center, rgba(124,92,252,0.34) 0%, rgba(213,253,81,0.10) 40%, transparent 70%);
+    filter: blur(24px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .pp__machine-slot > * { position: relative; z-index: 1; }
+
+  /* ── live inscription feed ── */
+  .pp__archive-feed {
+    margin-top: 24px;
+    border-top: 1px solid rgba(245,240,232,0.12);
+    border-bottom: 1px solid rgba(245,240,232,0.12);
+    padding: 12px 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .pp__archive-feed-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 40px;
+    white-space: nowrap;
+    animation: pp-archive-feed 34s linear infinite;
+  }
+  @keyframes pp-archive-feed {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .pp__archive-feed-item {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: "DM Mono", monospace;
+    font-size: 13px;
+    color: rgba(245,240,232,0.75);
+  }
+  .pp__archive-feed-k {
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 3px 7px;
+    border-radius: var(--r-chip);
+  }
+  .pp__archive-feed-k--vol { color: #1a1338; background: #D5FD51; }
+  .pp__archive-feed-k--liq { color: #fff; background: #e8721f; }
+  .pp__archive-feed-arrow { color: rgba(245,240,232,0.4); }
+  .pp__archive-feed-r { color: #F5F0E8; font-weight: 500; }
 
   /* ═══════ 5. CAULDRON SECTION (periwinkle) ═══════ */
   .pp__cauldron-section {
@@ -1733,12 +2010,14 @@ const styles = `
     padding: 60px 24px;
   }
   .pp__claim-card {
-    max-width: 1000px;
+    /* Matches every other section container so the page has one edge as you
+       scroll (features / archive / media / kindness / footer are all 1100). */
+    max-width: 1100px;
     margin: 0 auto;
     display: grid;
     grid-template-columns: 1fr 1fr;
     border: 3px solid #2A1F54;
-    border-radius: 24px;
+    border-radius: var(--r-md);
     overflow: hidden;
     /* Clean warm parchment for the mint side (lime visual sits on the left). */
     background:
@@ -1786,7 +2065,7 @@ const styles = `
     background: rgba(213,253,81,0.22);
     border: 1px solid rgba(169,204,47,0.5);
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--r-chip);
     margin-bottom: 12px;
   }
   .pp__claim-heading {
@@ -1812,7 +2091,7 @@ const styles = `
     gap: 10px;
     background: rgba(213,253,81,0.12);
     border: 1px solid rgba(169,204,47,0.4);
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     padding: 12px 14px;
     margin-bottom: 14px;
   }
@@ -1825,7 +2104,7 @@ const styles = `
     color: #4a7a00;
     background: rgba(213,253,81,0.5);
     padding: 3px 8px;
-    border-radius: 6px;
+    border-radius: var(--r-chip);
     margin-top: 1px;
   }
   .pp__claim-bonus p { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(42,31,84,0.8); }
@@ -1838,14 +2117,14 @@ const styles = `
     background: rgba(42,31,84,0.04);
     border-left: 3px solid rgba(255,92,77,0.55);
     padding: 10px 12px;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
     margin-bottom: 20px;
   }
   .pp__claim-fineprint strong { color: #b3402f; }
   .pp__claim-stats {
     background: rgba(42,31,84,0.05);
     border: 2px solid rgba(42,31,84,0.1);
-    border-radius: 14px;
+    border-radius: var(--r-sm);
     padding: 16px 20px;
     margin-bottom: 20px;
   }
@@ -1943,7 +2222,7 @@ const styles = `
   }
   .pp__media-card {
     border: 3px solid #2A1F54;
-    border-radius: 24px;
+    border-radius: var(--r-md);
     overflow: hidden;
     display: grid;
     grid-template-columns: 1fr auto;
@@ -1976,7 +2255,7 @@ const styles = `
     display: inline-block;
     margin-bottom: 12px;
     padding: 4px 10px;
-    border-radius: 20px;
+    border-radius: var(--r-md);
     background: rgba(42,31,84,0.08);
     border: 1px solid rgba(42,31,84,0.14);
   }
@@ -2039,7 +2318,7 @@ const styles = `
       radial-gradient(680px 620px at 96% 96%, rgba(124,92,252,0.24), transparent 55%),
       linear-gradient(150deg, #f8dc94 0%, #f0c869 55%, #e6b348 100%);
     border: 3px solid #2A1F54;
-    border-radius: 24px;
+    border-radius: var(--r-md);
     display: grid;
     grid-template-columns: 1fr 1fr;
     overflow: hidden;
@@ -2194,7 +2473,7 @@ const styles = `
     margin: 0 auto;
     text-align: left;
     border: 2px solid #2A1F54;
-    border-radius: 18px;
+    border-radius: var(--r-md);
     overflow: hidden;
     background: #FBF7F0;
   }
@@ -2428,6 +2707,9 @@ const styles = `
     .pp__kindness-art { padding: 0 24px 24px; }
     .pp__claim-card { grid-template-columns: 1fr; }
     .pp__claim-left { min-height: 200px; }
+
+    .pp__archive-grid { grid-template-columns: 1fr; gap: 44px; }
+    .pp__machine-slot { max-width: 380px; }
   }
 
   @media (max-width: 900px) {
@@ -2496,6 +2778,10 @@ const styles = `
 
     .pp__features { padding: 40px 16px; }
     .pp__feature-heading { font-size: 22px; }
+
+    .pp__archive { padding: 56px 16px 64px; }
+    .pp__archive-grid { margin-top: 36px; }
+    .pp__archive-feed-item { font-size: 12px; }
 
     .pp__cauldron-section { padding: 60px 16px; }
     .pp__cauldron-visual { height: auto; }

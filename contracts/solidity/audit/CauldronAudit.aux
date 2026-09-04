@@ -1,0 +1,545 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\gdef \LT@i {\LT@entry 
+    {1}{27.50938pt}\LT@entry 
+    {1}{176.91264pt}\LT@entry 
+    {1}{47.84898pt}\LT@entry 
+    {1}{52.63371pt}\LT@entry 
+    {1}{38.28682pt}\LT@entry 
+    {1}{125.5015pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Executive summary}{3}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Findings at a glance}{3}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Scope, method, and how to reproduce}{5}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}What was reviewed}{5}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Method}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Reproducing everything in this report}{5}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}System model}{6}{section.3}\protected@file@percent }
+\newlabel{sec:model}{{3}{6}{System model}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}The one-paragraph version}{6}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Actors and trust}{6}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}The contract-interaction graph}{7}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:graph}{{3.3}{7}{The contract-interaction graph}{subsection.3.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}The token lifecycle}{7}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Two ledgers, one reserve}{7}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}The delegatecall facet}{8}{section.4}\protected@file@percent }
+\newlabel{sec:facet}{{4}{8}{The delegatecall facet}{section.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Invariants}{8}{section.5}\protected@file@percent }
+\newlabel{sec:invariants}{{5}{8}{Invariants}{section.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Findings}{10}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{C-01a --- Unbounded hook adoption mints phantom \texttt  {relaunchETH}, permanently bricking \texttt  {relaunch()}}{10}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{C-01b --- The legacy buyback spends the hook's ETH inside an attacker-chosen pool}{11}{lstnumber.-5.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{C-02 --- A winning proposal with an out-of-range \texttt  {nftSupply} freezes the protocol permanently}{12}{lstnumber.-8.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{H-01 --- The collection's \texttt  {deployer} is the factory, so the entire legacy-floor recycle path is unreachable}{13}{lstnumber.-11.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{H-02 --- \texttt  {CauldronSeeder} never resets \texttt  {complete}, so generation 2 onward never streams}{13}{lstnumber.-14.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{H-03 --- \texttt  {claimByBurn} burns the full amount but silently accepts a short delivery}{14}{lstnumber.-18.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{H-04 --- A trader contract that rejects ETH can freeze the perp engine on a dead generation}{15}{lstnumber.-21.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{H-05 --- The first token-side staker captures the entire previously-accrued yield pot}{16}{lstnumber.-26.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-01 --- \texttt  {setRegistryOverride} defeats the one-shot registry lock the code documents}{17}{lstnumber.-28.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-02 --- \texttt  {winner()} returns the live vote leader, so relaunch is front-runnable}{18}{lstnumber.-30.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-03 --- The rarity reveal offers two independent draws and the holder picks the better}{18}{lstnumber.-31.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-04 --- Crystal-ticket resolution shares the same predictable 256-block fallback}{19}{lstnumber.-33.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-05 --- \texttt  {skimInsurance} protects only \texttt  {insuranceFloor}, which defaults to zero}{19}{lstnumber.-35.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{M-06 --- Forged frens never break their dividend enchantment on transfer}{20}{lstnumber.-37.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-01 --- \texttt  {MAX\_RANGES} can halt the progressive stream mid-launch}{20}{lstnumber.-40.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-02 --- The anti-sniper surtax jitter is predictable one block ahead}{21}{lstnumber.-41.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-03 --- \texttt  {tx.origin} credit attribution mis-attributes smart-account swaps}{21}{lstnumber.-42.930}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-04 --- The tiered NFT tax reads the swap sender, not the trader}{21}{lstnumber.-43.536}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-05 --- The funding index is sized at spot, not at the manipulation-resistant mark}{21}{lstnumber.-43.536}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-06 --- A Liquidatoor badge is silently lost when no collection is wired}{22}{lstnumber.-44.427}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-07 --- \texttt  {CauldronVault.redeem} is unreachable under the unified-floor model}{22}{lstnumber.-46.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{L-08 --- \texttt  {migrateToSuccessor} leaves the seeder's liquidity behind}{22}{lstnumber.-46.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Positive observations}{23}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}The delivered test suite}{24}{section.8}\protected@file@percent }
+\newlabel{sec:tests}{{8}{24}{The delivered test suite}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}\texttt  {test/audit/} --- exploit proofs}{24}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}\texttt  {test/invariants/} --- invariants and fuzz}{24}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Results}{25}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Remediation plan}{25}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Before any value-bearing deployment}{25}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Before mainnet}{25}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Hardening}{25}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Second-pass findings: lifecycle denial of service}{25}{section.10}\protected@file@percent }
+\newlabel{sec:apass}{{10}{25}{Second-pass findings: lifecycle denial of service}{section.10}{}}
+\@writefile{toc}{\contentsline {subsection}{A-01 --- \texttt  {CREATE2} token-address squatting permanently bricks the eternal machine}{26}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{A-01b --- A dust reserve rounds to zero liquidity and reverts the seed}{26}{lstnumber.-50.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{A-02 --- A stale \texttt  {lastTick} lets an atomic round-trip poison the liquidation mark}{27}{lstnumber.-52.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{A-03 --- The perp book can outgrow what one force-close clears, stranding the engine}{27}{lstnumber.-55.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{A-05 --- Recovered LP tokens can exceed \texttt  {TOTAL\_SUPPLY}, underflowing the relaunch}{28}{lstnumber.-56.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{A-04 --- Funding is not a closed transfer, so it leaks LP principal}{28}{lstnumber.-58.2}\protected@file@percent }
+\gdef \LT@ii {\LT@entry 
+    {1}{34.67918pt}\LT@entry 
+    {1}{203.19946pt}\LT@entry 
+    {1}{235.44083pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {11}Gas optimisation}{29}{section.11}\protected@file@percent }
+\newlabel{sec:gas}{{11}{29}{Gas optimisation}{section.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.1}Applied optimisations}{29}{subsection.11.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.2}Measured effect}{30}{subsection.11.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.3}Deliberately not done}{30}{subsection.11.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.4}Remaining EIP-170 headroom}{30}{subsection.11.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {12}Remediation}{30}{section.12}\protected@file@percent }
+\newlabel{sec:remediation}{{12}{30}{Remediation}{section.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.1}Regression coverage}{30}{subsection.12.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.2}Deliberate non-fixes}{31}{subsection.12.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.3}Deployment-script hardening}{31}{subsection.12.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.4}Verification}{31}{subsection.12.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {13}Complete function inventory}{31}{section.13}\protected@file@percent }
+\newlabel{sec:inventory}{{13}{31}{Complete function inventory}{section.13}{}}
+\gdef \LT@iii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@iv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@v {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@vi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@vii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@viii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@ix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@x {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xiii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xiv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xx {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxiii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxiv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxx {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxiii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxiv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xxxix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xl {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xli {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xliii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xliv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@xlix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@l {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@li {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@liii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@liv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lx {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxiii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxiv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxix {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxx {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxiii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxiv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxv {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxvi {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxvii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \LT@lxxviii {\LT@entry 
+    {1}{101.59973pt}\LT@entry 
+    {1}{33.50938pt}\LT@entry 
+    {1}{32.0798pt}\LT@entry 
+    {1}{51.67093pt}\LT@entry 
+    {1}{264.12001pt}}
+\gdef \@abspage@last{68}

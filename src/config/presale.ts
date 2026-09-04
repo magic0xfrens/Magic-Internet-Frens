@@ -1,17 +1,18 @@
-import { sepolia } from "viem/chains";
 import type { Address } from "viem";
+import { ACTIVE_CHAIN_ID } from "@/config/chains";
 
 /**
  * Live MiFrensPresale deployment (the genesis fundraise contract the UI mints
- * against). Update after each deploy. Canonical Sepolia address from
- * contracts/solidity/deployments/sepolia.json.
+ * against). Update after each deploy. Address is per-deployment; chainId follows
+ * the active network (VITE_NETWORK).
  */
 export const PRESALE = {
-  chainId: sepolia.id,
-  address: "0x4D180c050978F0037d030BaC455c3cfA70aAA8e1" as Address, // round-17 MiFrensGenesis (cancel/refund + batch claim, 30% bonus)
-  priceEth: 0.0222, // per MiFren — matches round-17 PRICE (live at real price)
-  maxSupply: 1111,  // genesis (OG) tranche; art cap 2222 incl. volume mints
-  maxPerWallet: 1200,
+  chainId: ACTIVE_CHAIN_ID,
+  address: "0x648604e8fe6ebda37acd58906347b9531799a1a7" as Address, // round-31 MiFrensGenesis (SOLD OUT + summoned)
+  priceEth: 0.0062,   // per MiFren (round-31 thin-LP rehearsal) — display only
+  priceWei: 6200000000000000n, // EXACT on-chain PRICE; value = priceWei * quantity (no float drift → no WrongPrice revert)
+  maxSupply: 1111,     // genesis (OG) tranche; art cap 2222 incl. volume mints
+  maxPerWallet: 1200,  // per-wallet cap this round (deployer minted the bulk)
 };
 
 /** Minimal ABI — only what the mint UI needs. */

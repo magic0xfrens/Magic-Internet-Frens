@@ -1,5 +1,4 @@
-import { useCallback } from "react";
-import { parseEther } from "viem";
+import { useCallback, useEffect, useState } from "react";
 import {
   useAccount,
   useReadContract,
@@ -8,6 +7,9 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { PRESALE, PRESALE_ABI } from "@/config/presale";
+import { CAULDRON_INDEXER } from "@/config/cauldron";
+
+const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
 /**
  * useMiFrensPresale — mint genesis MiFrens against the live MiFrensPresale.
@@ -20,7 +22,7 @@ export function useMiFrensPresale() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed, data: receipt } =
-    useWaitForTransactionReceipt({ hash: txHash });
+    useWaitForTransactionReceipt({ hash: txHash, chainId: PRESALE.chainId });
 
   // Separate write flow for finalize() — the summon that launches iteration #1
   // once the guild mints out. Kept independent so its status doesn't clobber
@@ -32,21 +34,45 @@ export function useMiFrensPresale() {
     reset: resetFinalize,
   } = useWriteContract();
   const { isLoading: finalizing, isSuccess: finalized } =
-    useWaitForTransactionReceipt({ hash: finalizeHash });
+    useWaitForTransactionReceipt({ hash: finalizeHash, chainId: PRESALE.chainId });
 
   const common = { address: PRESALE.address, abi: PRESALE_ABI, chainId: PRESALE.chainId } as const;
 
-  // Poll every 5s so the UI reacts to a sellout even if the confirm/refetch
-  // race misses (public RPCs can lag a block right after a tx).
-  const { data: minted, refetch: refetchMinted } = useReadContract({
-    ...common, functionName: "minted", query: { refetchInterval: 5000 },
+  // PRIMARY: read minted/soldOut/finalized from PONDER (server-side reads with
+  // rotated keys) so the homepage hero NEVER depends on the browser's flaky
+  // public Sepolia RPC — that dependency was showing "0 / 1111" + hiding the
+  // summon button whenever the public nodes rate-limited. Polls fast.
+  const [ponder, setPonder] = useState<{ minted?: number; soldOut?: boolean; finalized?: boolean; airdropPerFren?: number; airdropTicker?: string }>({});
+  useEffect(() => {
+    if (!INDEXER) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch(`${INDEXER}/presale`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return;
+        const d = await r.json() as { minted?: number; soldOut?: boolean; finalized?: boolean; airdropPerFren?: number; airdropTicker?: string };
+        if (alive) setPonder(d);
+      } catch { /* keep last */ }
+    };
+    load();
+    const t = setInterval(load, 5000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
+  // FALLBACK: the direct contract reads (used only if the indexer is unset/down).
+  const { data: mintedRpc, refetch: refetchMinted } = useReadContract({
+    ...common, functionName: "minted", query: { refetchInterval: 5000, enabled: !INDEXER },
   });
-  const { data: soldOut, refetch: refetchSoldOut } = useReadContract({
-    ...common, functionName: "soldOut", query: { refetchInterval: 5000 },
+  const { data: soldOutRpc, refetch: refetchSoldOut } = useReadContract({
+    ...common, functionName: "soldOut", query: { refetchInterval: 5000, enabled: !INDEXER },
   });
-  const { data: finalizedOnchain, refetch: refetchFinalized } = useReadContract({
-    ...common, functionName: "finalized", query: { refetchInterval: 5000 },
+  const { data: finalizedRpc, refetch: refetchFinalized } = useReadContract({
+    ...common, functionName: "finalized", query: { refetchInterval: 5000, enabled: !INDEXER },
   });
+  // Ponder wins; contract read is the fallback.
+  const minted = ponder.minted != null ? BigInt(ponder.minted) : mintedRpc;
+  const soldOut = ponder.soldOut != null ? ponder.soldOut : soldOutRpc;
+  const finalizedOnchain = ponder.finalized != null ? ponder.finalized : finalizedRpc;
   const { data: myBalance, refetch: refetchBalance } = useReadContract({
     ...common,
     functionName: "balanceOf",
@@ -78,7 +104,10 @@ export function useMiFrensPresale() {
       if (chainId !== PRESALE.chainId) {
         await switchChainAsync({ chainId: PRESALE.chainId });
       }
-      const value = parseEther((PRESALE.priceEth * quantity).toFixed(18));
+      // EXACT bigint payment — the contract requires msg.value == PRICE * quantity
+      // to the wei, so float math (parseEther(priceEth*qty)) can drift a few wei
+      // and revert WrongPrice. Multiply the exact wei price by the quantity.
+      const value = PRESALE.priceWei * BigInt(quantity);
       return writeContractAsync({
         ...common,
         functionName: "mint",
@@ -111,5 +140,9 @@ export function useMiFrensPresale() {
     myBalance: myBalance != null ? Number(myBalance) : 0,
     maxSupply: PRESALE.maxSupply,
     priceEth: PRESALE.priceEth,
+    // genesis token airdrop per fren + the iteration-#1 ticker (from Ponder) — the
+    // REAL gift each MiFren claims (e.g. 69,937 $GNOME), not a hardcoded "1000 $MIF".
+    airdropPerFren: ponder.airdropPerFren ?? 0,
+    airdropTicker: ponder.airdropTicker || "",
   };
 }

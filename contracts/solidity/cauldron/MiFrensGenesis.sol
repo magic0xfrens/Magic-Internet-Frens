@@ -10,6 +10,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {MetadataMode, ICollectionRenderer} from "./ICauldron.sol";
 import {ICreatorToken, ITransferValidator} from "./ICreatorToken.sol";
+import {ILiquidatorMintable} from "./ILiquidatorMintable.sol";
 
 interface IRegistrySummon {
     function summon() external payable returns (address token, bytes32 poolId);
@@ -44,7 +45,7 @@ interface IMiFrensDividendHook {
  *  collection; only iteration #2 continues this one. Volume mints roll a gacha
  *  rarity and mint unrevealed; the OG genesis tranche is always revealed.
  */
-contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ReentrancyGuard {
+contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquidatorMintable, ReentrancyGuard {
     using Strings for uint256;
 
     error PresaleOver();
@@ -58,12 +59,23 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
     error ZeroAddress();
     error OnlyMinter();
     error OnlyVault();
+    error OnlyLiquidatorMinter();
     error NotAuthorized();
     error MintedOut();
+    error NotReady();
     error NotCancelled();
     error AlreadyCancelled();
     error NothingToRefund();
     error RefundFailed();
+    /// @notice The caller did not leave enough gas for the dividend enchantment hook
+    ///         to run, so the transfer is refused rather than silently breaking the
+    ///         fee accounting. See {_update} (audit F-09).
+    error InsufficientGas();
+
+    /// @dev Gas the dividend hook is forwarded, and the floor the caller must leave
+    ///      before {_update} will attempt it. See {_update} (audit F-09).
+    uint256 private constant GAS_DIVIDEND_FWD = 60_000;
+    uint256 private constant GAS_DIVIDEND_MIN = 80_000;
 
     // -----------------------------------------------------------------------
     // Config
@@ -124,17 +136,52 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
     address public transferValidator;
     address public renderer;    // used when mode == Renderer
 
+    // ── Liquidatoor badges (OnChain Collectibles) ───────────────────────────
+    // A trophy struck when a fren is responsible for a perp liquidation, minted
+    // by the wired PerpEngine (`liquidatorMinter`) into a SEPARATE, uncapped id
+    // range at LIQUIDATOR_ID_BASE — so it never consumes the art tranche's
+    // supply. NOTE: this collection is ERC721Votes, so a badge carries ONE
+    // governance vote, exactly like a volume-minted MiFren (badges are earned by
+    // real, capital-at-risk liquidations, not cheaply farmable). It is never
+    // "Genesis" (isGenesis is derived from id <= GENESIS_SUPPLY) and never draws
+    // the genesis fee dividend.
+    uint256 public constant LIQUIDATOR_ID_BASE = 1_000_000;
+
+    /// @notice The PerpEngine allowed to mint Liquidatoor badges (deployer/registry).
+    address public liquidatorMinter;
+
+    /// @notice Count of badges struck (id = LIQUIDATOR_ID_BASE + this).
+    uint256 public liquidatorMinted;
+
+    /// @notice tokenId => whether it is a Liquidatoor badge (vs a MiFren).
+    mapping(uint256 => bool) public isLiquidatoor;
+
+    /// @notice Metadata base for badges: tokenURI(badge) = liquidatorURI + id.
+    ///         Shared endpoint — a Liquidatoor badge looks the same on every
+    ///         collection (proof-of-kill), so both this and the per-brew
+    ///         collections point at the one /api/cauldron/liquidatoor route.
+    string public liquidatorURI = "https://magicfrens.xyz/api/cauldron/liquidatoor?id=";
+
+    event LiquidatoorMinted(address indexed to, uint256 indexed tokenId);
+
     // ── Gacha rarity + reveal (volume tranche only; genesis is always revealed)
     // Tiers: 0=Common,1=Rare,2=Epic,3=Ultra. Cumulative bps, last == 10000.
     uint16[4] public rarityCumBps = [uint16(7900), 9400, 9900, 10000];
     mapping(uint256 => uint8) public rarityOf;
     mapping(uint256 => bool) public revealed;
+    /// @notice tokenId => mint block. Rarity is rolled at reveal() from this
+    ///         block's future hash (unknowable at mint) so it can't be grinded —
+    ///         essential on Arbitrum/Orbit where `prevrandao` is a constant.
+    mapping(uint256 => uint48) public mintBlockOf;
     string public unrevealedURI = "https://magicfrens.xyz/api/mifren/unrevealed";
 
     event Bought(address indexed buyer, uint256 quantity, uint256 firstTokenId);
     event Finalized(address indexed caller, address token, uint256 seededETH);
     event VolumeMinted(address indexed to, uint256 indexed tokenId, uint8 rarity);
     event Revealed(uint256 indexed tokenId, uint8 rarity);
+    /// @notice The reveal seed expired (>256 blocks); re-anchored to a fresh block
+    ///         rather than rolling from a predictable fallback (audit M-03).
+    event ReAnchored(uint256 indexed tokenId, uint48 newMintBlock);
 
     constructor(
         string memory name_,
@@ -146,7 +193,9 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
         string memory baseURI_
     ) ERC721(name_, symbol_) EIP712(name_, "1") {
         if (genesisSupply_ == 0 || price_ == 0 || maxPerWallet_ == 0) revert ZeroAddress();
-        if (maxSupply_ < genesisSupply_) revert ExceedsSupply();
+        // maxSupply below the badge id range so art + Liquidatoor badge ids can
+        // never collide. (Audit L-01)
+        if (maxSupply_ < genesisSupply_ || maxSupply_ >= LIQUIDATOR_ID_BASE) revert ExceedsSupply();
         GENESIS_SUPPLY = genesisSupply_;
         MAX_SUPPLY = maxSupply_;
         PRICE = price_;
@@ -179,13 +228,17 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
 
         paid[msg.sender] += msg.value; // track for a possible refund on cancel
 
-        uint256 first = minted + 1;
-        for (uint256 i = 0; i < quantity; i++) {
-            uint256 id = minted + 1;
+        // Gas: cache `minted` in memory, increment locally, write back ONCE — the
+        // loop touched storage every iteration (up to MAX_PER_WALLET times/mint).
+        uint256 m = minted;
+        uint256 first = m + 1;
+        for (uint256 i = 0; i < quantity;) {
+            uint256 id = first + i;
             revealed[id] = true; // OG tranche is revealed on mint
             _mint(msg.sender, id);
-            minted++;
+            unchecked { ++i; }
         }
+        minted = m + quantity;
         emit Bought(msg.sender, quantity, first);
     }
 
@@ -250,6 +303,53 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
         dividend = _dividend;
     }
 
+    /// @notice Wire (or re-point) the PerpEngine allowed to mint Liquidatoor
+    ///         badges. Deployer/registry OR the `minter` (the volume hook, set on
+    ///         iteration #2 continuation) — so the hook can auto-wire badges on
+    ///         relaunch. Re-settable for engine redeploys.
+    function setLiquidatorMinter(address _minter) external {
+        if (msg.sender != deployer && msg.sender != address(registry) && msg.sender != minter) revert NotAuthorized();
+        liquidatorMinter = _minter;
+    }
+
+    /// @notice Update the Liquidatoor metadata base (deployer only).
+    function setLiquidatorURI(string calldata uri) external {
+        if (msg.sender != deployer) revert NotAuthorized();
+        liquidatorURI = uri;
+    }
+
+    /// @notice Mint a Liquidatoor badge to `to`. Only the wired PerpEngine.
+    ///         Uncapped, always revealed, in the LIQUIDATOR_ID_BASE id range so
+    ///         it never consumes the MiFren art supply.
+    function mintLiquidator(address to) external returns (uint256 tokenId) {
+        if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter();
+        tokenId = LIQUIDATOR_ID_BASE + (++liquidatorMinted);
+        isLiquidatoor[tokenId] = true;
+        _mint(to, tokenId);
+        emit LiquidatoorMinted(to, tokenId);
+    }
+
+    /// @notice Marketplace/API helper: the Liquidatoor trait for a token.
+    function liquidatoorTrait(uint256 tokenId) external view returns (string memory) {
+        return isLiquidatoor[tokenId] ? "true" : "false";
+    }
+
+    /// @notice tokenId => whether it has EVER moved (recycled or transferred). Set
+    ///         once on the first non-mint transfer (see _update). Gates the paid
+    ///         re-enchant: original never-moved OGs enchant FREE; a moved fren pays.
+    mapping(uint256 => bool) public everMoved;
+
+    /// @notice Registry-gated transfer with NO approval required — the registry
+    ///         verifies ownership before calling. Used by the recycle-redemption:
+    ///         move a redeemed fren into the treasury (the registry) and later back
+    ///         out to a buyer. Routes through `_update`, which breaks the fee
+    ///         dividend spell (the from!=0 ping), moves the ERC721Votes power, and
+    ///         marks everMoved. The fren is NEVER burned — the collection stays 1111.
+    function custodyTransfer(address from, address to, uint256 tokenId) external {
+        if (msg.sender != address(registry)) revert NotAuthorized();
+        _transfer(from, to, tokenId);
+    }
+
     /// @notice Restrict who may call the one-time `finalize()` (deployer only,
     ///         pre-ignition). Set to the LaunchSniper so ignition + the funding
     ///         buy happen atomically and no bot can front-run the summon. Once
@@ -303,29 +403,47 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
     }
 
     /// @notice Mint the next NFT to `to` from swap VOLUME. Only the wired hook.
-    ///         Rolls gacha rarity on-chain; mints UNREVEALED.
+    ///         Mints UNREVEALED + records the mint block; rarity is rolled at
+    ///         reveal() from that block's future hash (grind-resistant).
     function mint(address to) external returns (uint256 tokenId) {
         if (msg.sender != minter) revert OnlyMinter();
         if (minted >= MAX_SUPPLY) revert MintedOut();
         tokenId = minted + 1;
         minted++;
 
-        uint256 seed = uint256(keccak256(abi.encodePacked(
-            blockhash(block.number - 1), block.prevrandao, to, tokenId, address(this)
-        )));
-        uint8 rarity = _rollRarity(seed);
-        rarityOf[tokenId] = rarity;
-
+        mintBlockOf[tokenId] = uint48(block.number); // commit; rarity rolled at reveal
         _mint(to, tokenId);
-        emit VolumeMinted(to, tokenId, rarity);
+        emit VolumeMinted(to, tokenId, 0); // rarity provisional (0) until revealed
     }
 
-    /// @notice Reveal a volume-tranche token you own.
+    /// @notice Reveal a volume-tranche token you own — rolls its rarity from the
+    ///         mint block's hash (unknowable at mint → grind-resistant).
     function reveal(uint256 tokenId) external {
         if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
         if (!revealed[tokenId]) {
+            uint256 mb = mintBlockOf[tokenId];
+            if (block.number <= mb) revert NotReady(); // seed not known yet
+            bytes32 bh = blockhash(mb);
+            // EXPIRED SEED (audit M-03): `blockhash` only reaches back ~256 blocks.
+            // Substituting a DETERMINISTIC fallback here handed the holder a SECOND,
+            // fully-predictable draw — computable at mint time — so they could
+            // simply wait out the window whenever the first roll was poor and take
+            // the better of two. With the default tiers that lifts P(>= Rare) from
+            // 21% to ~37.6% and roughly DOUBLES the top tier.
+            // Instead we RE-ANCHOR to a fresh future block: the token stays
+            // revealable forever, but there is always exactly ONE unknowable draw.
+            // NOTE: we must NOT revert here — a revert would roll the re-anchor
+            // back, leaving the token stuck. Return quietly instead; the holder
+            // (or a keeper) calls reveal() again once the new block is mined.
+            if (bh == 0) {
+                mintBlockOf[tokenId] = uint48(block.number);
+                emit ReAnchored(tokenId, uint48(block.number));
+                return;
+            }
+            uint8 rarity = _rollRarity(uint256(keccak256(abi.encodePacked(bh, tokenId, address(this)))));
+            rarityOf[tokenId] = rarity;
             revealed[tokenId] = true;
-            emit Revealed(tokenId, rarityOf[tokenId]);
+            emit Revealed(tokenId, rarity);
         }
     }
 
@@ -399,6 +517,10 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
+        // Liquidatoor badges resolve to their own metadata (always revealed).
+        if (isLiquidatoor[tokenId]) {
+            return string.concat(liquidatorURI, tokenId.toString());
+        }
         // Volume-tranche tokens show the placeholder until revealed; the OG
         // genesis tranche is always revealed.
         if (tokenId > GENESIS_SUPPLY && !revealed[tokenId]) return unrevealedURI;
@@ -431,11 +553,47 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, Reentran
         if (to != address(0) && delegates(to) == address(0)) {
             _delegate(to, to);
         }
-        // Any move of a genesis fren breaks its fee-enchantment (the dividend
+        // Any move of an ENCHANTED fren breaks its fee-enchantment (the dividend
         // settles the leaver + frees its active share). try/catch so the dividend
         // can never brick an NFT transfer.
-        if (from != address(0) && tokenId <= GENESIS_SUPPLY && dividend != address(0)) {
-            try IMiFrensDividendHook(dividend).onMiFrenTransfer(tokenId, from) {} catch {}
+        //
+        // NOT gated on GENESIS_SUPPLY (audit M-06). The dividend's eligibility cap
+        // is MAX_TOKEN, so FORGED frens (ids > GENESIS_SUPPLY, minted by volume on
+        // the iteration-#2 continuation) can enchant and earn too. Skipping the ping
+        // for them meant a sold forged fren kept its active share forever: it
+        // diluted every honest holder, the new owner could not claim, and when they
+        // finally re-cast, the accrual earned WHILE THEY OWNED IT was credited to
+        // the SELLER — a repeatable backwards transfer of value.
+        // The hook is a safe no-op for an un-enchanted id, so widening it is free.
+        //
+        // GAS-STARVATION GUARD (audit F-09). `try/catch` swallows an out-of-gas child
+        // as readily as a genuine revert, and EIP-150 forwards only 63/64 of the
+        // remaining gas — so a caller who sizes the transaction's gas precisely can
+        // make THIS call OOG while the transfer itself still completes. The
+        // consequences are exactly the ones M-06 was written to prevent, reachable at
+        // will: `enchantedBy[tokenId]` keeps pointing at the SELLER, so the fren stays
+        // counted in `activeShares` while earning for nobody (diluting every honest
+        // holder), the accrual over the BUYER's ownership is later paid to the SELLER
+        // through the stale branch of `_castSpell`, and — because that branch skips
+        // `_collectEnchantFee` — the buyer re-enchants for free, dodging the
+        // reserve-growing fee that a moved fren is supposed to pay.
+        // The hook's work is a fixed, small set of storage writes (worst case ~39k:
+        // one cold zero-to-nonzero `owed` SSTORE plus three cold nonzero updates), so
+        // require a concrete budget before attempting it and REVERT if the caller did
+        // not supply it. That keeps the "a broken dividend can never brick a transfer"
+        // property — a genuine revert is still caught — while removing the caller's
+        // ability to CHOOSE failure. Mints (`from == 0`) never reach this branch, so
+        // the in-protocol badge/art mint paths are unaffected.
+        if (from != address(0) && dividend != address(0)) {
+            if (gasleft() < GAS_DIVIDEND_MIN) revert InsufficientGas();
+            try IMiFrensDividendHook(dividend).onMiFrenTransfer{gas: GAS_DIVIDEND_FWD}(tokenId, from) {}
+            catch {}
+        }
+        // Mark a genesis fren as MOVED on its first real transfer (mint from==0 is
+        // NOT a move). Once moved, re-enchanting it costs the reserve-growing fee;
+        // original never-moved OGs stay grandfathered free. SSTORE-once.
+        if (from != address(0) && tokenId <= GENESIS_SUPPLY && !everMoved[tokenId]) {
+            everMoved[tokenId] = true;
         }
         return from;
     }

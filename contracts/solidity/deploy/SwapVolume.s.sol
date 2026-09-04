@@ -11,8 +11,11 @@ import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
 interface IHookView {
-    function openNFTs(address player, uint256 count) external returns (uint256);
-    function openableNFTs(address player) external view returns (uint256);
+    // Renamed on-chain: the hook exposes `crystalsReady`, not `openableNFTs`.
+    // The stale selector reverted at the END of this script, which made Foundry
+    // abort the whole run AFTER the swaps had simulated — so the broadcast was
+    // silently dropped and the swaps never landed.
+    function crystalsReady(address player) external view returns (uint256);
     function getVolume24h(bytes32 id) external view returns (uint256);
     function nftCredit(uint256 epoch, address player) external view returns (uint256);
     function creditEpoch() external view returns (uint256);
@@ -64,14 +67,14 @@ contract SwapVolume is Script {
             console2.log("swap", i + 1, "done");
         }
 
-        // Realise credit into NFTs.
+        // Report the credit these swaps banked. We do NOT force-open crystals
+        // here any more: the hook forges them IN-SWAP for router-less buys (the
+        // native gacha path), and the old `openNFTs(player, n)` entrypoint no
+        // longer exists. Calling it reverted at the very END of this script,
+        // which made Foundry abort AFTER the swaps had simulated -- so the whole
+        // broadcast was silently dropped and no volume ever landed on-chain.
         IHookView hv = IHookView(hook);
-        uint256 openable = hv.openableNFTs(player);
-        console2.log("openable NFTs:", openable);
-        if (openable > 0) {
-            uint256 n = openable > 20 ? 20 : openable;
-            hv.openNFTs(player, n);
-        }
+        console2.log("crystals ready :", hv.crystalsReady(player));
         vm.stopBroadcast();
 
         console2.log("collection totalMinted:", ICollView(collection).totalMinted());

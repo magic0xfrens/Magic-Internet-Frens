@@ -449,7 +449,7 @@ export default function Token() {
           padding: 36px;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 20px;
+          border-radius: var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.06);
         }
 
@@ -525,7 +525,7 @@ export default function Token() {
           padding: 5px 12px;
           border: 1px solid rgba(42,31,84,0.10);
           background: #F5F0E8;
-          border-radius: 20px;
+          border-radius: var(--r-md);
         }
 
         .tkn__status-badge {
@@ -593,14 +593,14 @@ export default function Token() {
           height: 5px;
           background: rgba(42,31,84,0.08);
           overflow: hidden;
-          border-radius: 12px;
+          border-radius: var(--r-sm);
         }
 
         .tkn__progress-fill {
           height: 100%;
           background: linear-gradient(90deg, #d5fd51, #E8850F);
           transition: width 0.6s ease;
-          border-radius: 12px;
+          border-radius: var(--r-sm);
         }
 
         /* ── 2. Price Chart ── */
@@ -609,7 +609,7 @@ export default function Token() {
           border: 1px solid rgba(42,31,84,0.08);
           margin-bottom: 0;
           overflow: hidden;
-          border-radius: 20px 20px 0 0;
+          border-radius: var(--r-md) var(--r-md) 0 0;
           box-shadow: 0 2px 12px rgba(42,31,84,0.06);
         }
 
@@ -649,7 +649,7 @@ export default function Token() {
           font-weight: 700;
           letter-spacing: 0.05em;
           padding: 2px 8px;
-          border-radius: 20px;
+          border-radius: var(--r-md);
         }
 
         .tkn__chart-change--up { color: #3ddc84; background: rgba(0, 204, 102, 0.08); }
@@ -717,7 +717,7 @@ export default function Token() {
           padding: 5px 12px;
           cursor: pointer;
           transition: all 0.15s ease;
-          border-radius: 20px;
+          border-radius: var(--r-md);
         }
 
         .tkn__tf:hover {
@@ -741,7 +741,7 @@ export default function Token() {
           letter-spacing: 0.04em;
           text-decoration: none;
           transition: all 0.2s ease;
-          border-radius: 24px;
+          border-radius: var(--r-md);
         }
 
         .tkn__trade-btn:hover {
@@ -756,7 +756,7 @@ export default function Token() {
           border: 1px solid rgba(42,31,84,0.08);
           border-top: none;
           margin-bottom: 40px;
-          border-radius: 0 0 20px 20px;
+          border-radius: 0 0 var(--r-md) var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.06);
         }
 
@@ -787,13 +787,13 @@ export default function Token() {
           background: rgba(42,31,84,0.08);
           overflow: hidden;
           margin-bottom: 10px;
-          border-radius: 12px;
+          border-radius: var(--r-sm);
         }
 
         .tkn__health-fill {
           height: 100%;
           transition: width 0.6s ease;
-          border-radius: 12px;
+          border-radius: var(--r-sm);
         }
 
         .tkn__health-fill--pulse {
@@ -831,7 +831,7 @@ export default function Token() {
           padding: 32px 16px;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 16px;
+          border-radius: var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.04);
           transition: all 0.2s ease;
         }
@@ -876,7 +876,7 @@ export default function Token() {
           height: 36px;
           gap: 3px;
           margin-bottom: 16px;
-          border-radius: 12px;
+          border-radius: var(--r-sm);
           overflow: hidden;
         }
 
@@ -903,7 +903,7 @@ export default function Token() {
           padding: 24px 20px;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 16px;
+          border-radius: var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.04);
         }
 
@@ -936,7 +936,7 @@ export default function Token() {
           flex-direction: column;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 16px;
+          border-radius: var(--r-md);
           padding: 8px 24px;
           box-shadow: 0 2px 12px rgba(42,31,84,0.04);
         }
@@ -987,7 +987,7 @@ export default function Token() {
           padding: 36px 40px;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 20px;
+          border-radius: var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.04);
           position: relative;
           overflow: hidden;
@@ -1041,7 +1041,7 @@ export default function Token() {
           padding: 28px;
           background: #FBF7F0;
           border: 1px solid rgba(42,31,84,0.08);
-          border-radius: 16px;
+          border-radius: var(--r-md);
           box-shadow: 0 2px 12px rgba(42,31,84,0.04);
         }
 

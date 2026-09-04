@@ -1,18 +1,30 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
+import { useAppStore } from "@/store/useAppStore";
 import FrenSprite from "@/components/shared/FrenSprite";
 import PresaleModal from "@/components/presale/PresaleModal";
 import SwapWidget from "@/components/cauldron/SwapWidget";
 import CrystalCauldronGame from "@/components/cauldron/CrystalCauldronGame";
+import PerpPanel from "@/components/cauldron/PerpPanel";
+import StakePanel from "@/components/cauldron/StakePanel";
+import TradingChart from "@/components/cauldron/TradingChart";
 import { formatEther } from "viem";
 import { useCauldronMachine, type Proposal, type Phase, type MigratableBalance } from "@/hooks/useCauldronMachine";
 import { useGenesisBonus } from "@/hooks/useGenesisBonus";
+import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
+import { useSwapTape } from "@/hooks/useSwapTape";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
+import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
 import { PRESALE } from "@/config/presale";
 import { BODIES, FACES, GNOME_FACES, ELF_FACES, ITEMS, CLASS_ORDER, type FrenClass, type TraitLayer } from "@/data/frens";
 
 const FRENS_PATH = "/frens/";
-const MIF_PER_FREN = 1000;
+
+/** The console's views. Mirrors the sub-items in `layout/navItems.ts`. */
+const TAB_KEYS = ["reactor", "leverage", "stake", "governance", "lineage"] as const;
+type TabKey = (typeof TAB_KEYS)[number];
 
 /* ═══════════════════════════════════════════════════════════════
  * THE CAULDRON — a living, autonomous on-chain machine, on life support.
@@ -62,7 +74,7 @@ function friendlyErr(e: unknown): string {
   if (s.includes("tokenisdead")) return "That iteration's token is frozen (it died) — its balance can be migrated, not transferred.";
   if (s.includes("timelock")) return "The emergency timelock is still counting down.";
   if (s.includes("insufficient funds")) return "Not enough ETH for gas.";
-  if (s.includes("chain") && s.includes("switch")) return "Switch your wallet to Sepolia and try again.";
+  if (s.includes("chain") && s.includes("switch")) return `Switch your wallet to ${NETWORK_LABEL} and try again.`;
   return raw.length > 140 ? raw.slice(0, 140) + "…" : raw;
 }
 
@@ -86,7 +98,7 @@ function addrSeed(a?: string) {
 function FrenFace({ seed, size = 40, ring }: { seed: number; size?: number; ring?: string }) {
   const f = useMemo(() => frenFromSeed(seed), [seed]);
   return (
-    <div className="tc-face" style={{ width: size, height: size, borderRadius: size > 60 ? 16 : "50%", boxShadow: `0 0 0 2px ${ring ?? "rgba(255,255,255,0.12)"}` }}>
+    <div className="tc-face" style={{ width: size, height: size, borderRadius: size > 60 ? "var(--r-md)" : "50%", boxShadow: `0 0 0 2px ${ring ?? "rgba(255,255,255,0.12)"}` }}>
       <div className="tc-face__zoom">
         <FrenSprite bodyFile={f.bodyFile} faceFile={f.faceFile} itemFile={f.itemFile} bodyIdx={f.bodyIdx} faceIdx={f.faceIdx} itemIdx={f.itemIdx} alt="" />
       </div>
@@ -137,21 +149,63 @@ function usdCompact(v: number): string {
   return `$${v.toFixed(0)}`;
 }
 
-/* ═══════════════════════ EKG price chart ═══════════════════════ */
-function EKG({ series, color, dead }: { series: number[]; color: string; dead: boolean }) {
+/* ═══════════════════════ EKG price chart + liquidation heatmap ═══════════ */
+const LIQ_LONG = "#ff5470";  // long liquidation walls (below price)
+const LIQ_SHORT = "#d5fd51"; // short liquidation walls (above price)
+const HEAT_ROWS = 26;
+
+type LiqPos = { isLong: boolean; liqPrice: number; notionalEth: number };
+
+function EKG({ series, color, dead, liq }: { series: number[]; color: string; dead: boolean; liq?: LiqPos[] }) {
   const W = 640, H = 180, pad = 8;
+
+  // Y-domain: the series range, expanded to REVEAL the liquidation walls (that's
+  // the whole point). Walls sit ~25–45% from spot, so we include any wall within
+  // a wide band around the current price (bounded so a crazy outlier can't squash
+  // the line). The price line compresses a little — the walls become visible.
+  const domain = useMemo(() => {
+    if (series.length < 2) return null;
+    let lo = Math.min(...series), hi = Math.max(...series);
+    const cur = series[series.length - 1] || hi;
+    const bLo = cur * 0.35, bHi = cur * 1.9; // include walls within this band of spot
+    for (const p of liq ?? []) {
+      if (p.liqPrice >= bLo && p.liqPrice <= bHi) { lo = Math.min(lo, p.liqPrice); hi = Math.max(hi, p.liqPrice); }
+    }
+    const span = hi - lo || hi * 0.1 || 1;
+    return { lo: lo - span * 0.06, hi: hi + span * 0.06, span: span * 1.12 };
+  }, [series, liq]);
+
+  const yOf = (v: number) => domain ? H - pad - ((v - domain.lo) / domain.span) * (H - pad * 2) : H / 2;
+
   const path = useMemo(() => {
-    if (series.length < 2) return "";
-    const lo = Math.min(...series), hi = Math.max(...series);
-    const span = hi - lo || 1;
+    if (!domain || series.length < 2) return "";
     const dx = (W - pad * 2) / (series.length - 1);
-    return series.map((v, i) => {
-      const x = pad + i * dx;
-      const y = H - pad - ((v - lo) / span) * (H - pad * 2);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(" ");
-  }, [series]);
+    return series.map((v, i) => `${i === 0 ? "M" : "L"}${(pad + i * dx).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
+  }, [series, domain]);
+
+  // Bucket open positions into price rows → liquidation density per side.
+  const rows = useMemo(() => {
+    if (!domain || !liq || liq.length === 0) return [];
+    const bins: { long: number; short: number }[] = Array.from({ length: HEAT_ROWS }, () => ({ long: 0, short: 0 }));
+    for (const p of liq) {
+      if (p.liqPrice < domain.lo || p.liqPrice > domain.hi) continue;
+      const frac = (p.liqPrice - domain.lo) / domain.span;
+      const idx = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor(frac * HEAT_ROWS)));
+      if (p.isLong) bins[idx].long += p.notionalEth; else bins[idx].short += p.notionalEth;
+    }
+    const max = Math.max(1e-9, ...bins.map((b) => b.long + b.short));
+    const rh = (H - pad * 2) / HEAT_ROWS;
+    return bins.map((b, i) => {
+      const total = b.long + b.short;
+      if (total <= 0) return null;
+      const y = H - pad - (i + 1) * rh;
+      const isLong = b.long >= b.short;
+      return { y, rh, intensity: total / max, isLong, total };
+    }).filter(Boolean) as { y: number; rh: number; intensity: number; isLong: boolean; total: number }[];
+  }, [liq, domain]);
+
   const last = series.length ? series[series.length - 1] : 0;
+  const hasHeat = rows.length > 0;
 
   return (
     <div className="tc-ekg">
@@ -164,6 +218,20 @@ function EKG({ series, color, dead }: { series: number[]; color: string; dead: b
           <filter id="ekgglow"><feGaussianBlur stdDeviation="2.4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
         {[0.25, 0.5, 0.75].map((g) => <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />)}
+
+        {/* liquidation heatmap: full-width bands (the walls the market hunts) +
+            a right-anchored density histogram sized by stacked notional. */}
+        {rows.map((r, i) => {
+          const c = r.isLong ? LIQ_LONG : LIQ_SHORT;
+          const barW = (W - pad * 2) * (0.12 + 0.33 * r.intensity);
+          return (
+            <g key={i}>
+              <rect x="0" y={r.y} width={W} height={r.rh + 0.6} fill={c} opacity={0.05 + 0.22 * r.intensity} />
+              <rect x={W - pad - barW} y={r.y + r.rh * 0.18} width={barW} height={r.rh * 0.64} rx="1" fill={c} opacity={0.35 + 0.5 * r.intensity} />
+            </g>
+          );
+        })}
+
         {path && (
           <>
             <path d={`${path} L${W - pad},${H} L${pad},${H} Z`} fill="url(#ekgfill)" />
@@ -171,10 +239,15 @@ function EKG({ series, color, dead }: { series: number[]; color: string; dead: b
           </>
         )}
       </svg>
-      {!dead && path && <div className="tc-ekg__scan" style={{ background: `linear-gradient(90deg, transparent, ${color}66, transparent)` }} />}
       <div className="tc-ekg__last" style={{ color }}>
         {last > 0 ? `${(last * 1e9).toFixed(2)} gwei` : "—"}
       </div>
+      {hasHeat && (
+        <div className="tc-ekg__legend">
+          <span><i style={{ background: LIQ_SHORT }} />short liqs</span>
+          <span><i style={{ background: LIQ_LONG }} />long liqs</span>
+        </div>
+      )}
       {series.length < 2 && <div className="tc-ekg__empty">awaiting first swaps…</div>}
     </div>
   );
@@ -185,6 +258,11 @@ type Brand = { banner: string; logo: string; website?: string; x?: string; accen
 const BREW_BRAND: Record<string, Brand> = {
   GNOME: { banner: "/brews/gnome-banner.jpg", logo: "/brews/gnomeland-pfp.png", website: "gnomeland.quest", x: "Gnome0xLand", accent: "#d5fd51" },
   // future iterations add their branding here (or fall back to the generic card)
+};
+// Branding for PROPOSALS (by ticker) — logo + fren banner so a branded next brew
+// stands out + gets a full brew-profile modal. MIF = the MiFrens flagship.
+const PROPOSAL_BRAND: Record<string, { logo: string; banner: string; accent: string; logoBg: string }> = {
+  MIF: { logo: "/mifrens-logo.svg", banner: "/mifrens-frens-banner.png", accent: "#d5fd51", logoBg: "#2A1F54" },
 };
 
 function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { name: string; ticker: string; gen: string; genNum: number; phase: Phase; col: string; collection?: string }) {
@@ -263,8 +341,8 @@ function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { na
               </a>
             )}
             {collection && (
-              <a className="tc-profile__link tc-profile__link--os" href={`https://testnets.opensea.io/assets/sepolia/${collection}`} target="_blank" rel="noopener" title="View the collection on OpenSea">
-                <I.opensea size={14} /> OpenSea
+              <a className="tc-profile__link tc-profile__link--os" href={nftCollectionUrl(collection)} target="_blank" rel="noopener" title={`View the collection on ${NETWORK_SHORT === "Robinhood" ? "the explorer" : "OpenSea"}`}>
+                <I.opensea size={14} /> {NETWORK_SHORT === "Robinhood" ? "Explorer" : "OpenSea"}
               </a>
             )}
           </div>
@@ -294,12 +372,34 @@ function Core({ vitality, phase, ticker }: { vitality: number; phase: Phase; tic
 export default function TheCauldron() {
   const m = useCauldronMachine();
   const presale = useMiFrensPresale();
-  const [tab, setTab] = useState<"reactor" | "governance" | "lineage">("reactor");
+  // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
+  const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
+  const tradeTape = useSwapTape(m.gen, m.summoned);
+  // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
+  // same source as the chart). Falls back to the machine's spot until the tape
+  // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
+  const livePerpPrice = tradeTape.length ? tradeTape[tradeTape.length - 1].price : m.spotPrice;
+  // The view lives in the URL (`?v=…`) rather than local state: the left rail
+  // owns the tab strip now, and Leverage / Governance become shareable links.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("v");
+  const parsedTab: TabKey = (TAB_KEYS as readonly string[]).includes(rawTab ?? "")
+    ? (rawTab as TabKey)
+    : "reactor";
+  // Leverage renders nothing before a generation is live, so a deep link to it
+  // on an unsummoned machine lands on the brew instead of an empty page.
+  const needsBrew = parsedTab === "leverage" || parsedTab === "stake";
+  const tab: TabKey = needsBrew && !m.summoned && !m.loading ? "reactor" : parsedTab;
+  const setTab = useCallback(
+    (next: TabKey) => setSearchParams({ v: next }, { replace: true }),
+    [setSearchParams],
+  );
   const [showPresale, setShowPresale] = useState(false);
   const [autoMint, setAutoMint] = useState(false);
   const [mintQty, setMintQty] = useState(1);
   const [justSummoned, setJustSummoned] = useState(false);
   const [busyVote, setBusyVote] = useState<number | null>(null);
+  const [openProposal, setOpenProposal] = useState<Proposal | null>(null);
   const [busyRelaunch, setBusyRelaunch] = useState(false);
   const [showPropose, setShowPropose] = useState(false);
   const [busyPropose, setBusyPropose] = useState(false);
@@ -309,6 +409,19 @@ export default function TheCauldron() {
     window.clearTimeout((notify as unknown as { _t?: number })._t);
     (notify as unknown as { _t?: number })._t = window.setTimeout(() => setFlash(null), 6500);
   }, []);
+
+  // Publish the live counters the left rail shows next to its sub-items. The
+  // rail sits outside this component, so it reads them from the store rather
+  // than re-querying the chain.
+  const setCauldronNav = useAppStore((s) => s.setCauldronNav);
+  useEffect(() => {
+    setCauldronNav({
+      summoned: m.summoned,
+      perps: heat.openCount || 0,
+      proposals: m.proposals.length,
+      gen: m.summoned ? m.gen : 0,
+    });
+  }, [heat.openCount, m.proposals.length, m.summoned, m.gen, setCauldronNav]);
 
   // Deflation: total supply burned across all iterations (from the indexer).
   // Each generation mints a fixed 777M; burns (unclaimed pools + LP recovery)
@@ -380,6 +493,14 @@ export default function TheCauldron() {
   useEffect(() => {
     if (m.summoned && justSummoned) setJustSummoned(false);
   }, [m.summoned, justSummoned]);
+  // Safety: never let the "Summoning…" screen stick. A real summon confirms in
+  // well under a minute; clear the flag after 60s so a stale/aborted flow can't
+  // pin the page on the summoning state.
+  useEffect(() => {
+    if (!justSummoned) return;
+    const id = setTimeout(() => setJustSummoned(false), 60_000);
+    return () => clearTimeout(id);
+  }, [justSummoned]);
   useEffect(() => {
     if (!justSummoned || m.summoned) return;
     const id = setInterval(() => m.refresh(), 2500);
@@ -405,7 +526,6 @@ export default function TheCauldron() {
 
   return (
     <div className="tc">
-      <div className="tc-grain" />
       <div className="tc-embers" aria-hidden>
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>
@@ -450,22 +570,17 @@ export default function TheCauldron() {
         />
       )}
 
-      {/* ── tabs ── */}
-      <nav className="tc-tabs">
-        <Tab active={tab === "reactor"} onClick={() => setTab("reactor")} label="The Brew" />
-        <Tab active={tab === "governance"} onClick={() => setTab("governance")} label="Governance" badge={m.proposals.length} />
-        <Tab active={tab === "lineage"} onClick={() => setTab("lineage")} label="Lineage" badge={m.summoned ? m.gen : 0} />
-      </nav>
+      {/* The tab strip lives in the left rail — see `layout/AppSidebar`. */}
 
-      <main className="tc-main">
+      <div className="tc-main">
         {/* ══ REACTOR ══ */}
         {tab === "reactor" && (
           <>
             {(m.loading || (justSummoned && !m.summoned)) ? (
-              <SummoningState summoning={justSummoned} />
+              <SummoningState summoning={justSummoned && !m.summoned} />
             ) : !m.summoned ? (
               <PresalePanel
-                minted={m.presaleMinted}
+                minted={presale.minted ?? m.presaleMinted}
                 goal={m.presaleGoal}
                 onOpen={() => { setAutoMint(false); setShowPresale(true); }}
                 onMintNow={(qty) => { setMintQty(qty); setAutoMint(true); setShowPresale(true); }}
@@ -510,31 +625,46 @@ export default function TheCauldron() {
                   )}
                 </section>
 
-                {/* right: EKG chart + telemetry */}
-                <section className="tc-card tc-chart-card">
-                  <div className="tc-chart-head">
-                    <div>
-                      <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · V4 pool</div>
-                      <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
+                {/* middle: chart + telemetry, with the Buy/Sell swap BELOW it */}
+                <div className="tc-chart-col">
+                  <section className="tc-card tc-chart-card">
+                    <div className="tc-chart-head">
+                      <div>
+                        <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · V4 pool</div>
+                        <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
+                      </div>
+                      <div className="tc-chart-mcap">
+                        <span className="tc-mono tc-dim">MARKET CAP</span>
+                        <span className="tc-chart-mcap__v">{m.mcapUsd > 0 ? usdCompact(m.mcapUsd) : (m.mcap > 0 ? `${fmt(m.mcap, 2)} Ξ` : "—")}</span>
+                        <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>{m.fdv > 0 ? `${fmt(m.fdv, 2)} Ξ FDV` : ""}</span>
+                      </div>
                     </div>
-                    <div className="tc-chart-mcap">
-                      <span className="tc-mono tc-dim">MARKET CAP</span>
-                      <span className="tc-chart-mcap__v">{m.fdvUsd > 0 ? usdCompact(m.fdvUsd) : (m.mcap > 0 ? `${fmt(m.mcap, 2)} Ξ` : "—")}</span>
-                      <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>{m.mcap > 0 ? `${fmt(m.mcap, 2)} Ξ FDV` : ""}</span>
+                    {/* The Brew keeps a clean, simple price line — OI + the
+                        liquidation heatmap live on the Leverage tab's chart. */}
+                    <EKG series={m.priceSeries} color={col} dead={m.phase === "dead"} />
+                    <div className="tc-tele">
+                      <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
+                      <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
+                      <Tele label="Floor / vault" value={`${fmt(m.vaultEth, 3)} Ξ`} accent />
+                      <Tele label="Death floor" value={`${fmt(m.deathThresholdEth, 0)} Ξ`} />
                     </div>
-                  </div>
-                  <EKG series={m.priceSeries} color={col} dead={m.phase === "dead"} />
-                  <div className="tc-tele">
-                    <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
-                    <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
-                    <Tele label="Floor / vault" value={`${fmt(m.vaultEth, 3)} Ξ`} accent />
-                    <Tele label="Death floor" value={`${fmt(m.deathThresholdEth, 0)} Ξ`} />
-                  </div>
-                </section>
+                  </section>
+                  {/* Buy/Sell swap — directly below the chart. Shown even when
+                      "dead": a young pool reads dead at 0 volume, and a buy revives it. */}
+                  {m.token && (
+                    <SwapWidget
+                      ticker={m.ticker}
+                      token={m.token}
+                      spotPrice={m.spotPrice}
+                      priceUsd={m.priceUsd}
+                      ethUsd={m.ethUsd}
+                      col={col}
+                      onBought={m.refresh}
+                    />
+                  )}
+                </div>
 
-                {/* buy rail — subtle, to the right of the chart. shown even when
-                    "dead": a young pool reads dead at 0 volume, and a buy revives
-                    it (volume > death floor). */}
+                {/* right rail: the crystal gacha game */}
                 {m.token && (
                   <div className="tc-rail">
                     <CrystalCauldronGame
@@ -548,20 +678,77 @@ export default function TheCauldron() {
                       nftMax={m.nftMax}
                       onBought={m.refresh}
                     />
-                    <SwapWidget
-                      ticker={m.ticker}
-                      token={m.token}
-                      spotPrice={m.spotPrice}
-                      priceUsd={m.priceUsd}
-                      ethUsd={m.ethUsd}
-                      col={col}
-                      onBought={m.refresh}
-                    />
                   </div>
                 )}
               </div>
             )}
           </>
+        )}
+
+        {/* ══ LEVERAGE (perps) ══ */}
+        {tab === "leverage" && m.summoned && (
+          <section className="tc-card" style={{ padding: 18 }}>
+            <div className="tc-card__eyebrow" style={{ color: col, marginBottom: 4 }}>
+              Leverage · hook-native perps on ${m.ticker}
+            </div>
+            <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
+              Long or short the brew with real price impact — every position moves the chart, and the liquidation walls light up the heatmap below. Overcollateralized, TWAP-marked, no external oracle.
+            </p>
+
+            {/* live chart WITH the liquidation heatmap — trade against your walls */}
+            <div className="tc-perp-chart">
+              <div className="tc-chart-head">
+                <div>
+                  <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · liquidation heatmap</div>
+                  <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
+                </div>
+                <div className="tc-chart-mcap">
+                  <span className="tc-mono tc-dim">OPEN INTEREST</span>
+                  <span className="tc-chart-mcap__v">{heat.openCount || 0} pos</span>
+                  <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>
+                    {heat.live ? `${fmt(heat.longOiEth, 2)}Ξ L · ${fmt(heat.shortOiEth, 2)}Ξ S` : `offline: ${heat.reason ?? "…"}`}
+                  </span>
+                </div>
+              </div>
+              <TradingChart trades={tradeTape} liq={[...heat.positions, ...heat.history]} mark={heat.markPrice} />
+              {heat.openCount === 0 && (
+                <p className="tc-perp-hint">
+                  No liquidation walls yet — open a position and its liquidation price appears here as a
+                  <span style={{ color: C.red }}> red (long)</span> or <span style={{ color: col }}>lime (short)</span> band.
+                </p>
+              )}
+            </div>
+
+            <PerpPanel
+              ticker={m.ticker}
+              spotPrice={livePerpPrice}
+              priceUsd={livePerpPrice > 0 ? livePerpPrice * (m.ethUsd ?? 0) : m.priceUsd}
+              ethUsd={m.ethUsd ?? 0}
+              col={col}
+              warm={m.summoned}
+              generation={m.gen}
+              onTraded={m.refresh}
+            />
+
+            <p className="tc-perp-hint" style={{ marginTop: 18 }}>
+              The leverage you trade against is funded by the community vault —
+              <button className="tc-linkbtn" onClick={() => setTab("stake")}>stake into it</button>
+              to earn 30% of every perp fee.
+            </p>
+          </section>
+        )}
+
+        {/* ══ STAKE — the community liquidity vault that funds the perps ══ */}
+        {tab === "stake" && m.summoned && (
+          <section className="tc-card" style={{ padding: 18 }}>
+            <div className="tc-card__eyebrow" style={{ color: col, marginBottom: 4 }}>
+              Community vault · fund the leverage, earn the fees
+            </div>
+            <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
+              Stake ETH or ${m.ticker} into the perp liquidity vault that fronts every trader’s leverage — and earn 30% of all perp fees as your share price grows. This is the community-funded sink that powers the whole engine.
+            </p>
+            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} />
+          </section>
         )}
 
         {/* ══ GOVERNANCE ══ */}
@@ -591,7 +778,7 @@ export default function TheCauldron() {
             ) : (
               <div className="tc-props">
                 {m.proposals.map((p, i) => (
-                  <ProposalRow key={p.id} p={p} share={(p.votes / totalVotes) * 100} leader={i === 0} busy={busyVote === p.id} onVote={() => onVote(p.id)} />
+                  <ProposalRow key={p.id} p={p} share={(p.votes / totalVotes) * 100} leader={i === 0} busy={busyVote === p.id} onVote={() => onVote(p.id)} onOpen={() => setOpenProposal(p)} />
                 ))}
               </div>
             )}
@@ -626,7 +813,7 @@ export default function TheCauldron() {
             )}
           </section>
         )}
-      </main>
+      </div>
 
       <PresaleModal
         isOpen={showPresale}
@@ -635,6 +822,15 @@ export default function TheCauldron() {
         initialAmount={mintQty}
         onSummoned={() => { setJustSummoned(true); m.refresh(); }}
       />
+      {openProposal && (
+        <ProposalModal
+          p={openProposal}
+          leader={m.proposals[0]?.id === openProposal.id}
+          busy={busyVote === openProposal.id}
+          onVote={() => onVote(openProposal.id)}
+          onClose={() => setOpenProposal(null)}
+        />
+      )}
       <Styles />
     </div>
   );
@@ -658,20 +854,13 @@ function SummoningState({ summoning }: { summoning: boolean }) {
         <span className="tc-summoning__ring tc-summoning__ring--3" />
         <span className="tc-summoning__core">⚗</span>
       </div>
-      <h3 className="tc-summoning__t">{summoning ? "Summoning iteration #1" : "Syncing the Cauldron"}<span className="tc-summoning__dots"><i>.</i><i>.</i><i>.</i></span></h3>
+      <h3 className="tc-summoning__t">{summoning ? "Summoning iteration #1" : "Loading the Cauldron"}<span className="tc-summoning__dots"><i>.</i><i>.</i><i>.</i></span></h3>
       <p className="tc-summoning__s">
         {summoning
           ? "Seeding the liquidity pool and inscribing the first brew on-chain — this takes a few seconds."
-          : "Reading the eternal machine's live state."}
+          : "Reading the live brew from the indexer."}
       </p>
     </div>
-  );
-}
-function Tab({ active, onClick, label, badge }: { active: boolean; onClick: () => void; label: string; badge?: number }) {
-  return (
-    <button className={`tc-tab ${active ? "tc-tab--on" : ""}`} onClick={onClick}>
-      {label}{badge !== undefined && badge > 0 && <span className="tc-tab__badge">{badge}</span>}
-    </button>
   );
 }
 function Tele({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
@@ -734,62 +923,77 @@ function MigratePanel({ items, currentTicker, busyGen, onClaim }: {
     </div>
   );
 }
-/** The OG genesis token airdrop: every genesis MiFren can claim its fixed share
- *  of iteration-1 $GNOME once (per tokenId, ownership-gated → follows OpenSea
- *  sales, never double-claims). If a relaunch happened, we migrate the claimed
- *  GNOME 1:1 into the live brew in the same flow. Self-hides when nothing is due. */
+/** The GENESIS REDEMPTION FLOOR (v2, ratcheting): recycle a genesis MiFren for the
+ *  LIVE floor of the current token — the NFT goes to the treasury (not burned) to
+ *  be resold at 2× floor, which grows the reserve so the floor only RISES. Ties the
+ *  NFT floor to the live marketcap; non-dilutive. Self-hides for non-holders. */
 function GenesisBonusPanel({ notify }: { notify: (k: "ok" | "err", m: string) => void }) {
   const gb = useGenesisBonus();
+  const [open, setOpen] = useState(false);
   if (gb.unclaimedIds.length === 0) return null;
 
   const fmtG = (b: bigint) => Number(formatEther(b)).toLocaleString(undefined, { maximumFractionDigits: 0 });
-  const remaining = gb.unclaimedIds.length;
+  const remaining = gb.unclaimedIds.length; // every owned genesis fren is recyclable
   const thisBatch = Math.min(remaining, gb.claimBatch);
   const more = remaining > gb.claimBatch;
+  const ticker = gb.currentTicker || "the live token";
 
   const onClaim = async () => {
+    const ok = window.confirm(
+      `Recycle ${thisBatch} genesis fren${thisBatch > 1 ? "s" : ""} for ${fmtG(gb.sharePerFren * BigInt(thisBatch))} $${gb.currentTicker}?\n\n` +
+      `The NFT${thisBatch > 1 ? "s move" : " moves"} to the treasury (NOT burned) to be resold at 2× floor. ` +
+      `You get the live token now and give up ${thisBatch > 1 ? "their" : "its"} vote + dividend on exit.`,
+    );
+    if (!ok) return;
     try {
-      await gb.claimAndMigrate();
-      notify("ok", gb.needsMigrate
-        ? `Claimed genesis $${gb.genesisTicker} → migrated to $${gb.currentTicker} ✓`
-        : `Genesis $${gb.genesisTicker} claimed ✓`);
+      await gb.claimAndMigrate(); // recycles via redeemFren (NFT → treasury)
+      notify("ok", `Recycled ${thisBatch} fren${thisBatch > 1 ? "s" : ""} → received $${gb.currentTicker} ✓`);
     } catch (e) { notify("err", friendlyErr(e)); }
   };
 
+  // Collapsed by default → a slim notification pill that doesn't eat vertical
+  // space (so the gacha + chart + swap fit without scrolling). Click to expand.
+  if (!open) {
+    return (
+      <button className="tc-gpill" onClick={() => setOpen(true)} aria-label="Open genesis redemption floor">
+        <span className="tc-gpill__spark" aria-hidden><I.bolt /></span>
+        <span className="tc-gpill__txt">
+          <b>Genesis Floor</b> · {fmtG(gb.sharePerFren)} ${ticker}/fren ↑
+          <span className="tc-gpill__sub"> — {remaining.toLocaleString()} fren{remaining === 1 ? "" : "s"} recyclable</span>
+        </span>
+        <span className="tc-gpill__chev">›</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="tc-migrate tc-genesis" role="region" aria-label="OG genesis token airdrop">
+    <div className="tc-migrate tc-genesis" role="region" aria-label="Genesis redemption floor">
+      <button className="tc-gclose" onClick={() => setOpen(false)} aria-label="Minimize">×</button>
       <div className="tc-migrate__head">
         <span className="tc-migrate__spark" aria-hidden><I.bolt /></span>
         <div>
-          <div className="tc-migrate__title">OG Genesis Airdrop</div>
+          <div className="tc-migrate__title">Genesis Redemption Floor ↑</div>
           <div className="tc-migrate__sub">
-            Your genesis MiFrens are owed iteration-1 <span className="tc-mono">${gb.genesisTicker}</span> —
-            {" "}{fmtG(gb.sharePerFren)} each, one claim per NFT.
-            {gb.needsMigrate && <> Claimed tokens auto-migrate 1:1 into the live <span className="tc-mono">${gb.currentTicker}</span>.</>}
+            Recycle a genesis MiFren for <span className="tc-mono">{fmtG(gb.sharePerFren)} ${ticker}</span> from
+            the reserve — the NFT goes to the treasury (not burned), resold at 2× floor. The floor
+            {" "}<b>RATCHETS UP</b>: buybacks + re-enchant fees grow the reserve, so it only rises and tracks
+            {" "}<span className="tc-mono">${ticker}</span>'s marketcap.
           </div>
         </div>
       </div>
       <div className="tc-genesis__stats">
         <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">MiFrens held</span><span className="tc-genesis__v">{gb.mifrenCount.toLocaleString()}</span></div>
-        <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">Unclaimed</span><span className="tc-genesis__v">{remaining.toLocaleString()}</span></div>
-        <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">Claimable</span><span className="tc-genesis__v tc-genesis__v--hl">{fmtG(gb.claimableGnome)} ${gb.genesisTicker}</span></div>
+        <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">Floor / fren</span><span className="tc-genesis__v">{fmtG(gb.sharePerFren)} ${ticker}</span></div>
+        <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">Your total floor</span><span className="tc-genesis__v tc-genesis__v--hl">{fmtG(gb.claimableGnome)} ${ticker}</span></div>
       </div>
-      {gb.genesisTokenDead ? (
-        <div className="tc-genesis__stranded">
-          <b>Stranded on this deploy.</b> Iteration&nbsp;1&nbsp;<span className="tc-mono">${gb.genesisTicker}</span> froze when
-          it died, so this airdrop can no longer be paid out here. A one-line fix (exempting the registry from the
-          death-freeze) lands in the next deploy — genesis bonuses will then survive relaunches.
-        </div>
-      ) : (
-        <div className="tc-genesis__foot">
-          <button className="tc-btn tc-btn--migrate" onClick={onClaim} disabled={gb.busy}>
-            {gb.busy
-              ? (gb.progress ? `Claiming ${gb.progress.done + 1}/${gb.progress.total}…` : "Migrating…")
-              : `Claim ${more ? `${thisBatch} of ${remaining}` : remaining}${gb.needsMigrate ? " + Migrate" : ""}`}
-          </button>
-          {more && <span className="tc-genesis__note tc-mono">claims run {gb.claimBatch} at a time — repeat for the rest</span>}
-        </div>
-      )}
+      <div className="tc-genesis__foot">
+        <button className="tc-btn tc-btn--migrate" onClick={onClaim} disabled={gb.busy}>
+          {gb.busy
+            ? (gb.progress ? `Recycling ${gb.progress.done + 1}/${gb.progress.total}…` : "Recycling…")
+            : `Recycle & Redeem ${more ? `${thisBatch} of ${remaining}` : remaining}`}
+        </button>
+        {more && <span className="tc-genesis__note tc-mono">recycles {gb.claimBatch} at a time — repeat for the rest</span>}
+      </div>
     </div>
   );
 }
@@ -949,10 +1153,13 @@ function ProposeForm({ busy, onSubmit }: {
     </div>
   );
 }
-function ProposalRow({ p, share, leader, busy, onVote }: { p: Proposal; share: number; leader: boolean; busy: boolean; onVote: () => void }) {
+function ProposalRow({ p, share, leader, busy, onVote, onOpen }: { p: Proposal; share: number; leader: boolean; busy: boolean; onVote: () => void; onOpen: () => void }) {
+  const brand = PROPOSAL_BRAND[p.ticker?.toUpperCase?.() ?? ""];
   return (
-    <div className={`tc-prop ${leader ? "tc-prop--lead" : ""}`}>
-      <FrenFace seed={addrSeed(p.proposer)} size={46} ring={leader ? C.lime : "rgba(255,255,255,0.12)"} />
+    <div className={`tc-prop ${leader ? "tc-prop--lead" : ""} ${brand ? "tc-prop--branded" : ""} tc-prop--click`} onClick={onOpen} role="button" tabIndex={0}>
+      {brand
+        ? <img className="tc-prop__logo" src={brand.logo} alt={p.name} style={{ borderColor: leader ? C.lime : `${brand.accent}66`, background: brand.logoBg }} />
+        : <FrenFace seed={addrSeed(p.proposer)} size={46} ring={leader ? C.lime : "rgba(255,255,255,0.12)"} />}
       <div className="tc-prop__body">
         <div className="tc-prop__head">
           <span className="tc-prop__name">{p.name}</span>
@@ -967,17 +1174,79 @@ function ProposalRow({ p, share, leader, busy, onVote }: { p: Proposal; share: n
         </div>
         <div className="tc-prop__foot">
           <span className="tc-mono tc-dim">by {short(p.proposer)}</span>
-          {p.website && <a className="tc-prop__link" href={`https://${p.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noopener"><I.globe /> {p.website}</a>}
-          {p.socials && <a className="tc-prop__link" href={`https://x.com/${p.socials.replace(/^@|https?:\/\/x\.com\//, "")}`} target="_blank" rel="noopener"><I.x /></a>}
+          {p.website && <a className="tc-prop__link" href={`https://${p.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}><I.globe /> {p.website}</a>}
+          {p.socials && <a className="tc-prop__link" href={`https://x.com/${p.socials.replace(/^@|https?:\/\/x\.com\//, "")}`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}><I.x /></a>}
+          <span className="tc-prop__more">view details →</span>
         </div>
         <div className="tc-prop__votetrack"><div className="tc-prop__votefill" style={{ width: `${Math.max(share, 3)}%` }} /></div>
       </div>
-      <div className="tc-prop__vote">
+      <div className="tc-prop__vote" onClick={(e) => e.stopPropagation()}>
         <span className="tc-prop__votes tc-mono">{p.votes.toLocaleString()}</span>
         <span className="tc-mono tc-dim">votes</span>
         <button className="tc-btn tc-btn--vote" onClick={onVote} disabled={busy}><I.vote size={13} /> {busy ? "…" : "Vote"}</button>
       </div>
     </div>
+  );
+}
+
+/* ── Proposal detail modal — a brew-twitter-style card (banner + logo + $ticker
+   + all the launch details) so a proposal reads like the live brew profile. ── */
+function ProposalModal({ p, leader, busy, onVote, onClose }: { p: Proposal; leader: boolean; busy: boolean; onVote: () => void; onClose: () => void }) {
+  const brand = PROPOSAL_BRAND[p.ticker?.toUpperCase?.() ?? ""];
+  const accent = brand?.accent ?? C.lime;
+  const site = p.website?.replace(/^https?:\/\//, "");
+  const x = p.socials?.replace(/^@|https?:\/\/x\.com\//, "");
+  return createPortal(
+    <div className="tc-pm__scrim" onClick={onClose}>
+      <div className="tc-pm" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <button className="tc-pm__x" onClick={onClose} aria-label="Close">✕</button>
+        {/* banner */}
+        <div className="tc-pm__banner" style={brand ? { backgroundImage: `url(${brand.banner})` } : { background: `linear-gradient(120deg, ${accent}22, #1b1436)` }}>
+          <span className="tc-pm__gen" style={{ color: accent, borderColor: `${accent}55` }}>
+            <span className="tc-pm__dot" style={{ background: accent, boxShadow: `0 0 8px ${accent}` }} /> PROPOSAL · {leader ? "LEADING" : "PENDING"}
+          </span>
+        </div>
+        {/* logo */}
+        <div className="tc-pm__logo" style={{ background: brand?.logoBg ?? "#171226", boxShadow: `0 0 0 3px #171226, 0 0 22px ${accent}55` }}>
+          {brand ? <img src={brand.logo} alt={p.name} /> : <FrenFace seed={addrSeed(p.proposer)} size={80} ring="transparent" />}
+        </div>
+        <div className="tc-pm__body">
+          <h2 className="tc-pm__name">{p.name}</h2>
+          <div className="tc-pm__handle">
+            <span className="tc-pm__tick tc-mono" style={{ color: accent }}>${p.ticker}</span>
+            <span className="tc-pm__by">· by Magic Internet Frens</span>
+          </div>
+          <p className="tc-pm__theme">The next eternal token proposed by the guild — a fully on-chain ${p.ticker} launch with a {p.nftSupply.toLocaleString()}-fren collection, forged live from trading volume.</p>
+          <div className="tc-pm__links">
+            {site && <a className="tc-pm__link" href={`https://${site}`} target="_blank" rel="noopener"><I.globe size={13} /> {site}</a>}
+            {x && <a className="tc-pm__link" href={`https://x.com/${x}`} target="_blank" rel="noopener"><I.x size={12} /> @{x}</a>}
+          </div>
+
+          {/* launch spec grid */}
+          <div className="tc-pm__grid">
+            <div className="tc-pm__stat"><div className="k">NFT collection</div><div className="v">{p.nftSupply > 0 ? p.nftSupply.toLocaleString() : "—"} <span>frens</span></div></div>
+            <div className="tc-pm__stat"><div className="k">Volume to mint out</div><div className="v">{p.mintOutEth > 0 ? fmt(p.mintOutEth, 1) : "—"} <span>Ξ</span></div></div>
+            <div className="tc-pm__stat"><div className="k">Art source</div><div className="v" style={{ fontSize: 15 }}>{p.metaMode === "renderer" ? "On-chain renderer" : "Hosted URI"}</div></div>
+            <div className="tc-pm__stat">
+              <div className="k">Proposed by</div>
+              <div className="v tc-pm__proposer">
+                <FrenFace seed={addrSeed(p.proposer)} size={26} ring={`${accent}66`} />
+                <span style={{ fontSize: 15 }}>{short(p.proposer)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="tc-pm__votes">
+            <span className="tc-mono tc-dim">{p.votes.toLocaleString()} votes</span>
+            <button className="tc-btn tc-btn--ritual" style={{ borderColor: accent, color: accent, background: `${accent}18` }} onClick={onVote} disabled={busy}>
+              <I.vote size={14} /> {busy ? "Voting…" : `Vote for $${p.ticker}`}
+            </button>
+          </div>
+          <p className="tc-pm__note">Winning proposals summon as the next iteration when the current brew dies. Genesis MiFrens vote (1 fren = 1 vote).</p>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 const RARE_CLASSES: FrenClass[] = ["Knight", "Gnome", "Wizard", "Elf", "King"];
@@ -1031,6 +1300,11 @@ function PresalePanel({
 
   const priceEth = (amount * PRESALE.priceEth).toFixed(4);
   const minting = presale.isPending || presale.confirming;
+  // REAL genesis airdrop: per-fren token gift + the iteration-#1 ticker (from
+  // Ponder). Falls back to a sensible default if the read hasn't landed yet.
+  const airTicker = presale.airdropTicker || "GNOME";
+  const airPerFren = presale.airdropPerFren || 0;
+  const airStr = airPerFren > 0 ? fmt(airPerFren, 0) : "—";
 
   // Route through the modal so the full crystal-orb → reveal animation plays.
   const doMint = () => {
@@ -1058,7 +1332,7 @@ function PresalePanel({
       <div className="tc-ps-inner">
         <div className="tc-card__eyebrow" style={{ color: C.lime }}>Step 1 · genesis {soldOut ? "· sold out" : "· open"}</div>
         <h2 className="tc-brewname">Mint the founding guild</h2>
-        <p className="tc-ps-sub">A rare-class MiFren + {MIF_PER_FREN} $MIF. Every MiFren is one vote and earns a slice of every brew's fees — forever.</p>
+        <p className="tc-ps-sub">A rare-class MiFren + {airStr} ${airTicker}. Every MiFren is one vote and earns a slice of every brew's fees — forever.</p>
 
         <div className="tc-ps-grid">
           {/* LEFT — visual */}
@@ -1075,12 +1349,12 @@ function PresalePanel({
             <div className="tc-ps-benefits">
               <span className="tc-ps-benefit"><I.bolt size={11} /> Rare Only</span>
               <span className="tc-ps-benefit">ERC-721</span>
-              <span className="tc-ps-benefit">{MIF_PER_FREN} $MIF</span>
+              <span className="tc-ps-benefit">{airStr} ${airTicker}</span>
             </div>
             <div className="tc-ps-art">
               <span className="tc-ps-art__tag">YOU'RE BUYING ART</span>
               <p className="tc-ps-art__text">
-                Your MiFren is a fully on-chain pixel-art NFT. The {MIF_PER_FREN} $MIF airdrop is a <strong>gift, not a promise</strong> — most start <strong>~70%+ down</strong>. You're here for the art (and the guild).
+                Your MiFren is a fully on-chain pixel-art NFT. The {airStr} ${airTicker} airdrop is a <strong>gift, not a promise</strong> — at launch it's worth <strong>~75% less than you paid</strong> (most of the raise seeds a deep pool, not the airdrop). You're here for the <strong>art</strong> (and the guild).
               </p>
             </div>
           </div>
@@ -1100,7 +1374,7 @@ function PresalePanel({
               </div>
               <div className="tc-ps-price">
                 <span className="tc-ps-price__eth">{priceEth} <em>ETH</em></span>
-                <span className="tc-mono tc-dim">{amount * MIF_PER_FREN} $MIF airdrop</span>
+                <span className="tc-mono tc-dim">{airPerFren > 0 ? fmt(amount * airPerFren, 0) : "—"} ${airTicker} airdrop</span>
               </div>
             </div>
 
@@ -1128,7 +1402,9 @@ function PresalePanel({
 function Styles() {
   return (
     <style>{`
-    .tc { position: relative; min-height: 100vh; padding: 40px 22px 100px; overflow: hidden;
+    /* The shell owns the horizontal gutter now (it has to clear the rail), so
+       the page only sets its own vertical rhythm and atmosphere. */
+    .tc { position: relative; min-height: 100vh; padding: 0 0 100px; overflow: visible;
       background:
         radial-gradient(1100px 620px at 50% -8%, rgba(213,253,81,0.06), transparent 60%),
         radial-gradient(900px 700px at 80% 20%, rgba(124,92,252,0.10), transparent 55%),
@@ -1138,21 +1414,20 @@ function Styles() {
     .tc-dim { color: ${C.mute}; }
     .tc * { box-sizing: border-box; }
 
-    /* atmosphere */
-    .tc-grain { position: fixed; inset: 0; pointer-events: none; opacity: 0.05; z-index: 1;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    /* Atmosphere. The film grain now lives on the shell (.shell__grain) so it
+       spans the rail too; only the embers are page-local. */
     .tc-embers { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
-    .tc-ember { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%;
+    .tc-ember { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: var(--r-full);
       background: ${C.lime}; opacity: 0; filter: blur(0.5px);
       animation-name: tc-rise; animation-iteration-count: infinite; animation-timing-function: ease-out; }
     @keyframes tc-rise { 0% { transform: translateY(0) scale(1); opacity: 0; } 12% { opacity: 0.7; } 100% { transform: translateY(-70vh) scale(0.3); opacity: 0; } }
 
-    .tc > *:not(.tc-grain):not(.tc-embers) { position: relative; z-index: 2; max-width: 1120px; margin-left: auto; margin-right: auto; }
+    .tc > *:not(.tc-embers) { position: relative; z-index: 2; max-width: 1240px; margin-left: auto; margin-right: auto; }
 
     /* action toast (vote / relaunch / propose feedback) */
     .tc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
       z-index: 50; display: flex; align-items: center; gap: 10px;
-      padding: 12px 18px; border-radius: 12px; border: 1px solid;
+      padding: 12px 18px; border-radius: var(--r-sm); border: 1px solid;
       background: rgba(14, 10, 26, 0.92); backdrop-filter: blur(10px);
       font: 500 13.5px/1.35 'DM Sans', sans-serif; letter-spacing: 0.01em;
       box-shadow: 0 12px 40px rgba(0,0,0,0.5); max-width: min(92vw, 460px);
@@ -1162,7 +1437,18 @@ function Styles() {
     @keyframes tc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
     /* migrate previous-iteration balances forward */
-    .tc-migrate { margin: 0 0 22px; padding: 16px 18px; border-radius: 16px;
+    /* collapsed genesis-airdrop pill — slim, unobtrusive */
+    .tc-gpill { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 14px; padding: 9px 14px; border-radius: var(--r-sm); cursor: pointer; text-align: left;
+      border: 1px solid ${C.lime}44; background: linear-gradient(100deg, rgba(213,253,81,0.10), rgba(213,253,81,0.02)); transition: all .15s ease; }
+    .tc-gpill:hover { border-color: ${C.lime}88; background: linear-gradient(100deg, rgba(213,253,81,0.16), rgba(213,253,81,0.04)); }
+    .tc-gpill__spark { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-sm); background: ${C.lime}1e; color: ${C.lime}; flex-shrink: 0; }
+    .tc-gpill__txt { font-family: "DM Sans", sans-serif; font-size: 12.5px; color: ${C.cream}; flex: 1; min-width: 0; }
+    .tc-gpill__txt b { color: ${C.lime}; font-weight: 700; }
+    .tc-gpill__sub { color: ${C.mute}; }
+    .tc-gpill__chev { color: ${C.lime}; font-size: 18px; font-weight: 700; opacity: 0.7; }
+    .tc-gclose { position: absolute; top: 10px; right: 12px; background: none; border: none; color: ${C.mute}; font-size: 18px; cursor: pointer; line-height: 1; opacity: 0.7; }
+    .tc-gclose:hover { opacity: 1; color: ${C.cream}; }
+    .tc-migrate { position: relative; margin: 0 0 22px; padding: 16px 18px; border-radius: var(--r-md);
       border: 1px solid ${C.edge};
       background:
         radial-gradient(120% 140% at 0% 0%, rgba(213,253,81,0.10), transparent 55%),
@@ -1170,7 +1456,7 @@ function Styles() {
       backdrop-filter: blur(8px);
       animation: tc-toast-in 0.4s cubic-bezier(0.2,0.9,0.3,1); }
     .tc-migrate__head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
-    .tc-migrate__spark { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+    .tc-migrate__spark { flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--r-sm);
       display: grid; place-items: center; color: ${C.void};
       background: ${C.lime}; box-shadow: 0 0 18px rgba(213,253,81,0.4); }
     .tc-migrate__spark svg { width: 18px; height: 18px; }
@@ -1180,16 +1466,16 @@ function Styles() {
     .tc-migrate__sub .tc-mono { color: ${C.cream}; }
     .tc-migrate__rows { display: flex; flex-direction: column; gap: 8px; }
     .tc-migrate__row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      padding: 10px 12px; border-radius: 11px;
+      padding: 10px 12px; border-radius: var(--r-sm);
       background: rgba(14,10,26,0.5); border: 1px solid rgba(255,255,255,0.05); }
     .tc-migrate__from { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-    .tc-migrate__gen { font-size: 11px; color: ${C.mute}; padding: 2px 6px; border-radius: 6px;
+    .tc-migrate__gen { font-size: 11px; color: ${C.mute}; padding: 2px 6px; border-radius: var(--r-chip);
       background: rgba(124,92,252,0.14); border: 1px solid rgba(124,92,252,0.25); }
     .tc-migrate__bal { font: 700 16px/1 'DM Sans', sans-serif; color: ${C.cream}; }
     .tc-migrate__sym { font-size: 12px; color: ${C.dim}; }
     .tc-migrate__arrow { color: ${C.lime}; font-size: 16px; opacity: 0.8; }
     .tc-migrate__to { font-size: 13px; color: ${C.lime}; font-weight: 700; }
-    .tc-btn--migrate { margin-left: auto; padding: 8px 18px; border-radius: 9px;
+    .tc-btn--migrate { margin-left: auto; padding: 8px 18px; border-radius: var(--r-sm);
       background: ${C.lime}; color: ${C.void}; border: none; font: 700 12.5px/1 'DM Sans', sans-serif;
       cursor: pointer; transition: filter 0.18s, transform 0.18s; }
     .tc-btn--migrate:hover:not(:disabled) { filter: brightness(1.08); }
@@ -1198,7 +1484,7 @@ function Styles() {
 
     /* genesis airdrop panel */
     .tc-genesis__stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-    .tc-genesis__stat { flex: 1 1 120px; padding: 10px 12px; border-radius: 11px;
+    .tc-genesis__stat { flex: 1 1 120px; padding: 10px 12px; border-radius: var(--r-sm);
       background: rgba(14,10,26,0.5); border: 1px solid rgba(255,255,255,0.05);
       display: flex; flex-direction: column; gap: 3px; }
     .tc-genesis__k { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: ${C.mute}; }
@@ -1207,36 +1493,31 @@ function Styles() {
     .tc-genesis__foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .tc-genesis__foot .tc-btn--migrate { margin-left: 0; }
     .tc-genesis__note { font-size: 11px; color: ${C.mute}; }
-    .tc-genesis__stranded { padding: 11px 13px; border-radius: 10px; font: 400 12.5px/1.5 'DM Sans', sans-serif;
+    .tc-genesis__stranded { padding: 11px 13px; border-radius: var(--r-sm); font: 400 12.5px/1.5 'DM Sans', sans-serif;
       color: ${C.dim}; background: rgba(245,197,66,0.08); border: 1px solid rgba(245,197,66,0.28); }
     .tc-genesis__stranded b { color: ${C.amber}; }
     .tc-genesis__stranded .tc-mono { color: ${C.cream}; }
 
-    /* masthead */
-    .tc-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 26px; }
-    .tc-wordmark { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 40px; line-height: 1; margin: 0; letter-spacing: 0.01em;
+    /* Masthead — a page title now, not a second nav. The rail carries identity,
+       so the wordmark shrinks and the stats collapse to one aligned strip. */
+    .tc-top { display: flex; justify-content: space-between; align-items: center; gap: 20px 32px; flex-wrap: wrap;
+      padding: 22px 0 16px; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .tc-wordmark { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 28px; line-height: 1.05; margin: 0; letter-spacing: 0.01em;
       background: linear-gradient(180deg, ${C.cream}, #b9aee0); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-    .tc-sub { font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: ${C.mute}; margin: 8px 0 0; }
-    .tc-stats { display: flex; gap: 26px; flex-wrap: wrap; }
-    .tc-stat { display: flex; flex-direction: column; gap: 4px; }
+    .tc-sub { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: ${C.mute}; margin: 6px 0 0; }
+    .tc-stats { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+    .tc-stat { display: flex; flex-direction: column; gap: 3px; }
     .tc-stat__l { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: ${C.mute}; }
-    .tc-stat__v { font-size: 15px; font-weight: 500; text-transform: capitalize; }
-
-    /* tabs */
-    .tc-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0; }
-    .tc-tab { position: relative; background: none; border: none; color: ${C.mute}; font-family: "DM Mono", monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding: 11px 16px; cursor: pointer; transition: color .2s; }
-    .tc-tab:hover { color: ${C.cream}; }
-    .tc-tab--on { color: ${C.cream}; }
-    .tc-tab--on::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; background: ${C.lime}; box-shadow: 0 0 10px ${C.lime}; border-radius: 2px; }
-    .tc-tab__badge { margin-left: 8px; font-size: 10px; background: rgba(213,253,81,0.14); color: ${C.lime}; border-radius: 20px; padding: 1px 7px; }
+    .tc-stat__v { font-size: 14px; font-weight: 500; text-transform: capitalize; }
 
     /* cards */
-    .tc-card { background: ${C.panel}; border: 1px solid rgba(255,255,255,0.07); border-radius: 22px; padding: 26px; backdrop-filter: blur(14px);
+    .tc-card { background: ${C.panel}; border: 1px solid rgba(255,255,255,0.07); border-radius: var(--r-md); padding: 26px; backdrop-filter: blur(14px);
       box-shadow: 0 24px 60px rgba(8,6,15,0.5); }
     .tc-card__eyebrow { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px; }
 
     .tc-reactor { display: grid; grid-template-columns: 0.8fr 1.2fr 300px; gap: 18px; align-items: start; }
     .tc-rail { display: flex; flex-direction: column; gap: 14px; }
+    .tc-chart-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     @media (max-width: 1180px) { .tc-reactor { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 760px) { .tc-reactor { grid-template-columns: 1fr; } .tc-top { align-items: flex-start; } }
 
@@ -1246,22 +1527,22 @@ function Styles() {
     /* brew profile — Twitter-style banner + avatar */
     .tc-profile { margin: -26px -26px 6px; }
     .tc-profile__banner {
-      position: relative; height: 128px; border-radius: 22px 22px 0 0;
+      position: relative; height: 128px; border-radius: var(--r-md) var(--r-md) 0 0;
       background-size: cover; background-position: center;
     }
-    .tc-profile__banner::after { content: ""; position: absolute; inset: 0; border-radius: 22px 22px 0 0; background: linear-gradient(180deg, rgba(8,6,15,0) 40%, rgba(23,18,38,0.9) 100%); }
+    .tc-profile__banner::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-md) var(--r-md) 0 0; background: linear-gradient(180deg, rgba(8,6,15,0) 40%, rgba(23,18,38,0.9) 100%); }
     .tc-profile__gen {
       position: absolute; top: 12px; right: 12px; z-index: 2;
       display: inline-flex; align-items: center; gap: 6px;
       font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em;
-      padding: 5px 10px; border-radius: 20px; border: 1px solid;
+      padding: 5px 10px; border-radius: var(--r-md); border: 1px solid;
       background: rgba(8,6,15,0.6); backdrop-filter: blur(6px);
     }
     .tc-profile__dot { width: 7px; height: 7px; border-radius: 50%; }
     .tc-profile__edit { position: absolute; top: 12px; left: 12px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(8,6,15,0.6); backdrop-filter: blur(6px); color: ${C.cream}; cursor: pointer; font-size: 13px; opacity: 0; transition: opacity .2s; }
     .tc-profile:hover .tc-profile__edit { opacity: 1; }
     .tc-profile__editbar { display: flex; gap: 8px; padding: 10px 22px 0; flex-wrap: wrap; }
-    .tc-profile__editbar button { font-family: "DM Mono", monospace; font-size: 11px; padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(213,253,81,0.25); background: rgba(213,253,81,0.06); color: ${C.lime}; cursor: pointer; }
+    .tc-profile__editbar button { font-family: "DM Mono", monospace; font-size: 11px; padding: 7px 12px; border-radius: var(--r-sm); border: 1px solid rgba(213,253,81,0.25); background: rgba(213,253,81,0.06); color: ${C.lime}; cursor: pointer; }
     .tc-profile__editbar .tc-profile__save { background: ${C.lime}; color: #0c0918; border: none; font-weight: 700; }
     .tc-profile__logo {
       position: relative; z-index: 3; width: 84px; height: 84px; margin: -42px 0 0 22px;
@@ -1301,13 +1582,13 @@ function Styles() {
 
     .tc-vital { width: 100%; margin-bottom: 18px; }
     .tc-vital__row { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.12em; margin-bottom: 7px; }
-    .tc-vital__track { height: 9px; border-radius: 20px; background: rgba(255,255,255,0.06); overflow: hidden; }
-    .tc-vital__fill { height: 100%; border-radius: 20px; transition: width .6s ease; }
+    .tc-vital__track { height: 9px; border-radius: var(--r-md); background: rgba(255,255,255,0.06); overflow: hidden; }
+    .tc-vital__fill { height: 100%; border-radius: var(--r-md); transition: width .6s ease; }
     .tc-vital__fill--beat { animation: tc-beat 1.4s ease-in-out infinite; }
     @keyframes tc-beat { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
     .tc-vital__note { font-size: 12.5px; line-height: 1.5; color: rgba(231,225,245,0.6); margin: 12px 0 0; }
 
-    .tc-reserve { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px; border-radius: 14px; background: rgba(213,253,81,0.05); border: 1px solid rgba(213,253,81,0.12); }
+    .tc-reserve { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px; border-radius: var(--r-sm); background: rgba(213,253,81,0.05); border: 1px solid rgba(213,253,81,0.12); }
     .tc-reserve__eth { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 22px; color: ${C.lime}; }
     .tc-reserve__eth em { font-style: normal; font-size: 13px; opacity: 0.7; }
 
@@ -1318,23 +1599,39 @@ function Styles() {
     .tc-chart-mcap { text-align: right; display: flex; flex-direction: column; gap: 3px; }
     .tc-chart-mcap__v { font-family: "DM Mono", monospace; font-size: 15px; color: ${C.cream}; }
 
-    .tc-ekg { position: relative; height: 180px; margin: 4px 0 16px; border-radius: 14px; overflow: hidden; background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
+    .tc-ekg { position: relative; height: 180px; margin: 4px 0 16px; border-radius: var(--r-sm); overflow: hidden; background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
     .tc-ekg__svg { width: 100%; height: 100%; display: block; }
     .tc-ekg__line { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: tc-draw 2.2s ease forwards; }
     @keyframes tc-draw { to { stroke-dashoffset: 0; } }
-    .tc-ekg__scan { position: absolute; top: 0; bottom: 0; width: 120px; animation: tc-scan 3.4s linear infinite; pointer-events: none; }
-    @keyframes tc-scan { 0% { left: -120px; } 100% { left: 100%; } }
     .tc-ekg__last { position: absolute; top: 10px; right: 12px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; }
     .tc-ekg__empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: "DM Mono", monospace; font-size: 12px; color: ${C.mute}; }
+    .tc-ekg__legend { position: absolute; bottom: 8px; left: 12px; display: flex; gap: 12px; font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.04em; color: ${C.mute}; text-transform: uppercase; pointer-events: none; }
+    .tc-ekg__legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .tc-ekg__legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 
-    .tc-tele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .tc-oi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+    .tc-oi__pill { font-family: "DM Mono", monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: var(--r-chip); }
+    .tc-oi__pill--long { color: #ff5470; background: rgba(255, 84, 112, 0.12); border: 1px solid rgba(255, 84, 112, 0.28); }
+    .tc-oi__pill--short { color: ${C.lime}; background: rgba(213, 253, 81, 0.1); border: 1px solid rgba(213, 253, 81, 0.28); }
+    .tc-oi__meta { font-size: 10px; }
+
+    .tc-perp-chart { background: rgba(8,6,15,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-sm); padding: 14px; margin-bottom: 16px; }
+    .tc-perp-hint { margin: 8px 2px 0; font-family: "DM Sans", sans-serif; font-size: 10.5px; line-height: 1.5; color: ${C.mute}; opacity: 0.85; text-align: center; }
+    /* Inline text link that switches view — staking moved to its own tab, so
+       Leverage points at it rather than stacking the vault underneath. */
+    .tc-linkbtn { margin: 0 3px; padding: 0; background: none; border: none; cursor: pointer;
+      font: inherit; color: ${C.lime}; text-decoration: underline; text-underline-offset: 2px; }
+    .tc-linkbtn:hover { filter: brightness(1.15); }
+    .tc-linkbtn:focus-visible { outline: 2px solid ${C.lime}; outline-offset: 2px; border-radius: var(--r-xs); }
+
+    .tc-tele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: stretch; }
     @media (max-width: 560px) { .tc-tele { grid-template-columns: repeat(2, 1fr); } }
-    .tc-teleitem { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+    .tc-teleitem { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
     .tc-teleitem .tc-dim { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
-    .tc-teleitem__v { font-family: "DM Mono", monospace; font-size: 15px; font-weight: 500; }
+    .tc-teleitem__v { font-family: "DM Mono", monospace; font-size: 15px; font-weight: 500; white-space: nowrap; }
 
     /* buttons */
-    .tc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; border-radius: 12px; padding: 13px 20px; cursor: pointer; border: none; transition: transform .15s, box-shadow .15s, opacity .2s; }
+    .tc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; border-radius: var(--r-sm); padding: 13px 20px; cursor: pointer; border: none; transition: transform .15s, box-shadow .15s, opacity .2s; }
     .tc-btn:disabled { opacity: 0.55; cursor: not-allowed; }
     .tc-btn--ritual { width: 100%; background: linear-gradient(180deg, ${C.lime}, #a9cc2f); color: #0c0918; box-shadow: 0 6px 0 #7f9a22, 0 0 30px rgba(213,253,81,0.25); text-transform: uppercase; }
     .tc-btn--ritual:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 7px 0 #7f9a22, 0 0 40px rgba(213,253,81,0.35); }
@@ -1343,13 +1640,13 @@ function Styles() {
 
     /* relaunch panel */
     .tc-relaunch { display: flex; flex-direction: column; gap: 11px; }
-    .tc-relaunch__next { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-radius: 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    .tc-relaunch__next { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-radius: var(--r-sm); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
     .tc-relaunch__meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
     .tc-relaunch__meta .tc-dim { font-size: 8.5px; letter-spacing: 0.14em; }
     .tc-relaunch__brew { font-family: "Cinzel Decorative", "Cinzel", serif; font-size: 15px; font-weight: 700; color: ${C.cream}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tc-relaunch__brew em { font-family: "DM Mono", monospace; font-style: normal; font-size: 12px; color: ${C.lime}; margin-left: 4px; }
     .tc-relaunch__votes { font-size: 13px; font-weight: 700; white-space: nowrap; }
-    .tc-relaunch__none { padding: 12px 14px; border-radius: 13px; background: rgba(255,84,112,0.06); border: 1px solid rgba(255,84,112,0.18); font-family: "DM Sans", sans-serif; font-size: 12px; line-height: 1.5; color: ${C.mute}; }
+    .tc-relaunch__none { padding: 12px 14px; border-radius: var(--r-sm); background: rgba(255,84,112,0.06); border: 1px solid rgba(255,84,112,0.18); font-family: "DM Sans", sans-serif; font-size: 12px; line-height: 1.5; color: ${C.mute}; }
     .tc-relaunch__none b { color: ${C.cream}; font-weight: 600; }
     .tc-relaunch__hint { margin: 0; font-family: "DM Sans", sans-serif; font-size: 10.5px; line-height: 1.5; color: ${C.mute}; text-align: center; }
 
@@ -1357,16 +1654,16 @@ function Styles() {
     .tc-gov__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
     .tc-gov__title { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 26px; margin: 0 0 6px; }
     .tc-gov__desc { font-size: 13px; color: rgba(231,225,245,0.6); margin: 0 0 20px; max-width: 620px; line-height: 1.55; }
-    .tc-gov__gate { font-size: 11px; color: ${C.mute}; padding: 8px 12px; border: 1px dashed rgba(255,255,255,0.14); border-radius: 10px; white-space: nowrap; }
+    .tc-gov__gate { font-size: 11px; color: ${C.mute}; padding: 8px 12px; border: 1px dashed rgba(255,255,255,0.14); border-radius: var(--r-sm); white-space: nowrap; }
     .tc-btn--propose { background: rgba(213,253,81,0.12); color: ${C.lime}; padding: 9px 15px; box-shadow: none; white-space: nowrap; }
     .tc-btn--propose:hover:not(:disabled) { background: rgba(213,253,81,0.2); }
-    .tc-propose { margin: 0 0 22px; padding: 16px; border-radius: 16px; background: rgba(213,253,81,0.04); border: 1px solid rgba(213,253,81,0.16); }
+    .tc-propose { margin: 0 0 22px; padding: 16px; border-radius: var(--r-md); background: rgba(213,253,81,0.04); border: 1px solid rgba(213,253,81,0.16); }
     .tc-propose__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
     @media (max-width: 620px) { .tc-propose__grid { grid-template-columns: 1fr; } }
     .tc-propose__field { display: flex; flex-direction: column; gap: 5px; }
     .tc-propose__field span { font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; }
     .tc-propose__field input {
-      background: rgba(8,6,15,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 9px;
+      background: rgba(8,6,15,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--r-sm);
       padding: 9px 11px; color: ${C.cream}; font-family: "DM Sans", sans-serif; font-size: 14px; outline: none;
       transition: border-color 0.15s ease;
     }
@@ -1374,34 +1671,70 @@ function Styles() {
     .tc-propose__field input::placeholder { color: rgba(143,131,184,0.5); }
     .tc-propose__note { margin: 10px 2px 0; font-family: "DM Sans", sans-serif; font-size: 11px; color: ${C.mute}; text-align: center; }
     .tc-propose__art { margin-bottom: 14px; }
-    .tc-propose__seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 10px; background: rgba(8,6,15,0.4); margin-bottom: 10px; }
-    .tc-propose__seg button { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.mute}; background: none; border: none; padding: 6px 12px; border-radius: 7px; cursor: pointer; transition: all 0.15s ease; }
+    .tc-propose__seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: var(--r-sm); background: rgba(8,6,15,0.4); margin-bottom: 10px; }
+    .tc-propose__seg button { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.mute}; background: none; border: none; padding: 6px 12px; border-radius: var(--r-sm); cursor: pointer; transition: all 0.15s ease; }
     .tc-propose__seg button.on { background: rgba(213,253,81,0.16); color: ${C.lime}; }
     .tc-propose__err { font-family: "DM Sans", sans-serif; font-size: 10px; color: ${C.red}; margin-top: 3px; }
-    .tc-propose__summary { text-align: center; font-size: 11px; color: ${C.lime}; margin: 12px 0 4px; padding: 8px; border-radius: 9px; background: rgba(213,253,81,0.06); }
+    .tc-propose__summary { text-align: center; font-size: 11px; color: ${C.lime}; margin: 12px 0 4px; padding: 8px; border-radius: var(--r-sm); background: rgba(213,253,81,0.06); }
     .tc-prop__spec { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: ${C.mute}; margin: 5px 0 2px; }
     .tc-prop__spec span { white-space: nowrap; }
     .tc-props { display: flex; flex-direction: column; gap: 12px; }
-    .tc-prop { display: flex; gap: 16px; align-items: center; padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); transition: border-color .2s, transform .2s; }
+    .tc-prop { position: relative; display: flex; gap: 16px; align-items: center; padding: 16px; border-radius: var(--r-md); background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); transition: border-color .2s, transform .2s; }
     .tc-prop:hover { border-color: rgba(213,253,81,0.2); transform: translateY(-1px); }
     .tc-prop--lead { border-color: rgba(213,253,81,0.3); background: rgba(213,253,81,0.04); }
+    /* clickable proposal row + branded logo chip */
+    .tc-prop--click { cursor: pointer; }
+    .tc-prop__logo { width: 46px; height: 46px; border-radius: var(--r-sm); object-fit: contain; padding: 5px; border: 2px solid; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+    .tc-prop__more { font-family: "DM Mono", monospace; font-size: 10px; color: ${C.lime}; opacity: 0.7; margin-left: auto; }
+    .tc-prop:hover .tc-prop__more { opacity: 1; }
+
+    /* proposal detail modal (brew-twitter style) */
+    .tc-pm__scrim { position: fixed; inset: 0; z-index: 9999; background: rgba(6,5,11,0.86); backdrop-filter: blur(7px); display: grid; place-items: center; padding: 20px; animation: tc-pm-fade .2s ease; }
+    @keyframes tc-pm-fade { from { opacity: 0; } to { opacity: 1; } }
+    .tc-pm { position: relative; width: 460px; max-width: 94vw; max-height: 92vh; overflow-y: auto; border-radius: var(--r-md); background: linear-gradient(180deg, #171226, #0E0A1A); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 40px 90px -30px rgba(0,0,0,0.9); scrollbar-width: none; -ms-overflow-style: none; }
+    .tc-pm::-webkit-scrollbar { display: none; }
+    .tc-pm__proposer { display: flex; align-items: center; gap: 8px; }
+    .tc-pm__x { position: absolute; top: 12px; right: 12px; z-index: 3; width: 30px; height: 30px; border-radius: var(--r-sm); border: none; background: rgba(8,6,15,0.6); color: ${C.cream}; font-size: 14px; cursor: pointer; }
+    .tc-pm__x:hover { background: rgba(8,6,15,0.9); }
+    .tc-pm__banner { position: relative; height: 150px; background-size: cover; background-position: center; border-radius: var(--r-md) var(--r-md) 0 0; }
+    .tc-pm__banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(23,18,38,0.1), #171226); border-radius: var(--r-md) var(--r-md) 0 0; }
+    .tc-pm__gen { position: absolute; top: 12px; left: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.08em; padding: 4px 10px; border-radius: var(--r-chip); background: rgba(8,6,15,0.6); border: 1px solid; }
+    .tc-pm__dot { width: 6px; height: 6px; border-radius: 50%; }
+    .tc-pm__logo { position: relative; z-index: 2; width: 92px; height: 92px; margin: -46px 0 0 22px; border-radius: var(--r-md); display: grid; place-items: center; overflow: hidden; }
+    .tc-pm__logo img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
+    .tc-pm__body { padding: 12px 22px 22px; }
+    .tc-pm__name { font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: 30px; color: ${C.cream}; margin: 6px 0 2px; letter-spacing: 0.01em; }
+    .tc-pm__handle { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .tc-pm__tick { font-size: 16px; font-weight: 700; }
+    .tc-pm__by { font-family: "DM Mono", monospace; font-size: 12px; color: ${C.mute}; }
+    .tc-pm__theme { font-family: "DM Sans", sans-serif; font-size: 13px; color: #b8adcc; line-height: 1.5; margin: 10px 0 0; }
+    .tc-pm__links { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
+    .tc-pm__link { display: inline-flex; align-items: center; gap: 6px; font-family: "DM Mono", monospace; font-size: 12px; color: #a99fd0; text-decoration: none; }
+    .tc-pm__link:hover { color: ${C.cream}; }
+    .tc-pm__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; }
+    .tc-pm__stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-sm); padding: 12px 13px; }
+    .tc-pm__stat .k { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${C.mute}; margin-bottom: 5px; }
+    .tc-pm__stat .v { font-family: "Fredoka", sans-serif; font-weight: 700; font-size: 20px; color: ${C.cream}; }
+    .tc-pm__stat .v span { font-size: 12px; font-weight: 500; color: ${C.mute}; }
+    .tc-pm__votes { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+    .tc-pm__note { font-family: "DM Sans", sans-serif; font-size: 11px; color: ${C.mute}; opacity: 0.8; line-height: 1.5; margin-top: 14px; }
     .tc-prop__body { flex: 1; min-width: 0; }
     .tc-prop__head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
     .tc-prop__name { font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: 16px; }
     .tc-prop__tick { font-size: 12px; color: ${C.lime}; }
-    .tc-prop__lead-badge { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.1em; color: #0c0918; background: ${C.lime}; padding: 2px 8px; border-radius: 20px; }
+    .tc-prop__lead-badge { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.1em; color: #0c0918; background: ${C.lime}; padding: 2px 8px; border-radius: var(--r-md); }
     .tc-prop__theme { font-size: 12.5px; color: rgba(231,225,245,0.55); margin-bottom: 8px; line-height: 1.4; }
     .tc-prop__foot { display: flex; align-items: center; gap: 14px; margin-bottom: 9px; flex-wrap: wrap; }
     .tc-prop__link { display: inline-flex; align-items: center; gap: 4px; font-family: "DM Mono", monospace; font-size: 11px; color: ${C.mute}; text-decoration: none; }
     .tc-prop__link:hover { color: ${C.lime}; }
-    .tc-prop__votetrack { height: 5px; border-radius: 20px; background: rgba(255,255,255,0.06); overflow: hidden; }
-    .tc-prop__votefill { height: 100%; background: ${C.lime}; border-radius: 20px; box-shadow: 0 0 10px ${C.lime}; transition: width .6s ease; }
+    .tc-prop__votetrack { height: 5px; border-radius: var(--r-md); background: rgba(255,255,255,0.06); overflow: hidden; }
+    .tc-prop__votefill { height: 100%; background: ${C.lime}; border-radius: var(--r-md); box-shadow: 0 0 10px ${C.lime}; transition: width .6s ease; }
     .tc-prop__vote { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
     .tc-prop__votes { font-size: 20px; font-weight: 700; color: ${C.cream}; }
 
     /* lineage */
     .tc-lineage { display: flex; flex-direction: column; gap: 10px; }
-    .tc-lin { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-radius: 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+    .tc-lin { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-radius: var(--r-sm); background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
     .tc-lin--live { border-color: rgba(213,253,81,0.25); background: rgba(213,253,81,0.03); }
     .tc-lin__gen { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 20px; min-width: 48px; }
     .tc-lin__name { font-weight: 600; font-size: 15px; }
@@ -1441,7 +1774,7 @@ function Styles() {
     .tc-ps-visual { min-width: 0; }
     .tc-ps-action {
       display: flex; flex-direction: column; gap: 13px;
-      padding: 16px; border-radius: 16px;
+      padding: 16px; border-radius: var(--r-md);
       background: rgba(8,6,15,0.35); border: 1px solid rgba(213,253,81,0.18);
     }
     @media (max-width: 860px) {
@@ -1465,33 +1798,33 @@ function Styles() {
       .tc-ps-hero--c { width: 188px; height: 188px; }
     }
     .tc-ps-benefits { display: flex; justify-content: center; gap: 8px; position: relative; z-index: 4; margin-bottom: 20px; }
-    .tc-ps-benefit { display: inline-flex; align-items: center; gap: 5px; font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: ${C.lime}; background: rgba(213,253,81,0.08); border: 1px solid rgba(213,253,81,0.18); padding: 5px 11px; border-radius: 20px; }
+    .tc-ps-benefit { display: inline-flex; align-items: center; gap: 5px; font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: ${C.lime}; background: rgba(213,253,81,0.08); border: 1px solid rgba(213,253,81,0.18); padding: 5px 11px; border-radius: var(--r-md); }
 
     .tc-ps-prog { margin-bottom: 18px; }
     .tc-ps-progrow { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 7px; }
-    .tc-presale__track { height: 9px; border-radius: 20px; background: rgba(255,255,255,0.06); overflow: hidden; }
-    .tc-presale__fill { height: 100%; background: linear-gradient(90deg, ${C.lime}, #a9cc2f); border-radius: 20px; box-shadow: 0 0 16px rgba(213,253,81,0.4); transition: width .6s ease; }
+    .tc-presale__track { height: 9px; border-radius: var(--r-md); background: rgba(255,255,255,0.06); overflow: hidden; }
+    .tc-presale__fill { height: 100%; background: linear-gradient(90deg, ${C.lime}, #a9cc2f); border-radius: var(--r-md); box-shadow: 0 0 16px rgba(213,253,81,0.4); transition: width .6s ease; }
 
     .tc-ps-qtyrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
     .tc-ps-stepper { display: flex; align-items: center; gap: 6px; }
-    .tc-ps-stepper button { width: 40px; height: 40px; border-radius: 11px; border: 1px solid rgba(213,253,81,0.3); background: rgba(213,253,81,0.06); color: ${C.lime}; font-size: 20px; font-family: "DM Mono", monospace; cursor: pointer; transition: background .2s; }
+    .tc-ps-stepper button { width: 40px; height: 40px; border-radius: var(--r-sm); border: 1px solid rgba(213,253,81,0.3); background: rgba(213,253,81,0.06); color: ${C.lime}; font-size: 20px; font-family: "DM Mono", monospace; cursor: pointer; transition: background .2s; }
     .tc-ps-stepper button:hover { background: rgba(213,253,81,0.16); }
     .tc-ps-stepper span { min-width: 44px; text-align: center; font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 24px; color: ${C.cream}; }
     .tc-ps-price { text-align: right; display: flex; flex-direction: column; gap: 2px; }
     .tc-ps-price__eth { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 22px; color: ${C.cream}; }
     .tc-ps-price__eth em { font-style: normal; font-size: 12px; color: ${C.mute}; }
 
-    .tc-ps-art { padding: 13px 14px; background: rgba(213,253,81,0.06); border: 1px solid rgba(213,253,81,0.18); border-left: 3px solid ${C.lime}; border-radius: 10px; margin-bottom: 14px; }
-    .tc-ps-art__tag { display: inline-block; font-family: "DM Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #0c0918; background: ${C.lime}; padding: 3px 8px; border-radius: 6px; margin-bottom: 8px; }
+    .tc-ps-art { padding: 13px 14px; background: rgba(213,253,81,0.06); border: 1px solid rgba(213,253,81,0.18); border-left: 3px solid ${C.lime}; border-radius: var(--r-sm); margin-bottom: 14px; }
+    .tc-ps-art__tag { display: inline-block; font-family: "DM Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #0c0918; background: ${C.lime}; padding: 3px 8px; border-radius: var(--r-chip); margin-bottom: 8px; }
     .tc-ps-art__text { margin: 0; font-size: 12px; line-height: 1.5; color: rgba(231,225,245,0.72); }
     .tc-ps-art__text strong { color: ${C.amber}; }
-    .tc-ps-terms { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px; cursor: pointer; margin-bottom: 16px; }
+    .tc-ps-terms { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: var(--r-sm); cursor: pointer; margin-bottom: 16px; }
     .tc-ps-terms input { width: 16px; height: 16px; margin-top: 1px; flex-shrink: 0; accent-color: ${C.lime}; cursor: pointer; }
     .tc-ps-terms span { font-size: 11px; line-height: 1.5; color: rgba(231,225,245,0.55); }
     .tc-ps-adv { display: block; width: 100%; margin-top: 12px; background: none; border: none; color: ${C.mute}; font-family: "DM Mono", monospace; font-size: 11px; cursor: pointer; transition: color .2s; }
     .tc-ps-adv:hover { color: ${C.lime}; }
 
-    .tc-empty { text-align: center; padding: 40px; font-family: "DM Mono", monospace; font-size: 13px; color: ${C.mute}; border: 1px dashed rgba(255,255,255,0.1); border-radius: 14px; }
+    .tc-empty { text-align: center; padding: 40px; font-family: "DM Mono", monospace; font-size: 13px; color: ${C.mute}; border: 1px dashed rgba(255,255,255,0.1); border-radius: var(--r-sm); }
 
     /* fren face */
     .tc-face { overflow: hidden; position: relative; background: #171226; flex-shrink: 0; }
@@ -1499,7 +1832,7 @@ function Styles() {
     .tc-face__zoom > div { width: 100% !important; height: 100% !important; transform: scale(2.35); transform-origin: 50% 47%; }
 
     @media (prefers-reduced-motion: reduce) {
-      .tc-core__halo--pulse, .tc-core__orb--live, .tc-core__ring--a, .tc-core__ring--b, .tc-vital__fill--beat, .tc-ekg__scan, .tc-ekg__line, .tc-ember { animation: none !important; }
+      .tc-core__halo--pulse, .tc-core__orb--live, .tc-core__ring--a, .tc-core__ring--b, .tc-vital__fill--beat, .tc-ekg__line, .tc-ember { animation: none !important; }
     }
     `}</style>
   );

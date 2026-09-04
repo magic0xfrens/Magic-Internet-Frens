@@ -1,0 +1,23 @@
+{
+  "_comment": "CANONICAL Cauldron deployment (Sepolia). SINGLE SOURCE OF TRUTH. After a new deploy: edit this file, then run `node scripts/sync-deploy.mjs` to propagate to the frontend, indexer, scripts, and .env.local — and it prints the Railway env command.",
+  "round": 20,
+  "chainId": 11155111,
+  "indexerUrl": "https://mifrens-indexer-app-production.up.railway.app",
+  "databaseSchema": "cauldron_prod21",
+  "startBlock": 11590392,
+  "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+  "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
+  "registry": "0x60f5e17f0A7cb39503B4C5A844b16DBc6604BB51",
+  "hook": "0xB8494825bCa113753DD1549f76B305Fe8c0810cc",
+  "gachaRouter": "0x13D8b35477A106882f43778E838704bdD137f885",
+  "dividend": "0x057777F6c8B84Dc88c81421453EE448BD40E4b5F",
+  "governor": "0xe3B1f662307d2431C4B07D2644Bece5cAe5C69f0",
+  "factory": "0x44E45792B91002D772329B50B189a36bcB534AeD",
+  "mifrens": "0x2fcB2a68cc8B43F1cF288CA1361fae9C8a22A577",
+  "perpEngine": "0x26ae199E143d98be557Eaf89EF7764291bcc51e5",
+  "perpVault": "0x06dB1ea16180d6D3aefED3B4B54fF962431Ce46E",
+  "genesisSupply": 1111,
+  "gen1Token": "0x125F6F988A681D0bA9288cce41D4d6b7478387df",
+  "gen1Collection": "0x6a1DaDCfFe687C816d10B179a68fb7333349D8f3",
+  "gen1PoolId": "0x8e367f8255a85bcf4b53d6fabe4da94b1f344766a94bd28e5e391504ad86f1d6"
+}

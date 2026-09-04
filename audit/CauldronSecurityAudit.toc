@@ -1,0 +1,18 @@
+\contentsline {section}{\numberline {1}Abstract}{2}{section.1}%
+\contentsline {section}{\numberline {2}Methodology}{2}{section.2}%
+\contentsline {section}{\numberline {3}Scope}{2}{section.3}%
+\contentsline {section}{\numberline {4}Access-Control \& Fund-Mover Matrix}{3}{section.4}%
+\contentsline {section}{\numberline {5}Findings Summary}{3}{section.5}%
+\contentsline {section}{\numberline {6}Detailed Findings}{4}{section.6}%
+\contentsline {subsection}{\numberline {6.1}A-01 --- Untrusted external call in the swap fee hot path \textcolor {sevMed}{\textbf {(Medium, Fixed)}}}{4}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}A-02 --- Governance centralization of custody \& upgrade levers \textcolor {sevMed}{\textbf {(Medium, mitigated by design)}}}{5}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}A-03 --- Hook re-point exposes the \texttt {relaunchETH} buffer \textcolor {sevLow}{\textbf {(Low)}}}{5}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}A-04 --- Unchecked ERC-20 return values \textcolor {sevLow}{\textbf {(Low)}}}{5}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}A-05 --- Stale position pointers after migration \textcolor {sevInfo}{\textbf {(Info, by design)}}}{6}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}A-06 --- Prime-buy recipient-zero fail-safe \textcolor {sevInfo}{\textbf {(Info, by design)}}}{6}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}A-07 --- Successor handoff preserves price \& liquidity \textcolor {sevInfo}{\textbf {(Positive)}}}{6}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}A-08 --- Exit guarantee: redemptions forced open while armed \textcolor {sevInfo}{\textbf {(Positive)}}}{6}{subsection.6.8}%
+\contentsline {subsection}{\numberline {6.9}A-09 --- Reserve solvency invariant \textcolor {sevInfo}{\textbf {(Positive)}}}{7}{subsection.6.9}%
+\contentsline {section}{\numberline {7}Invariants \& Test Coverage}{7}{section.7}%
+\contentsline {section}{\numberline {8}Gas Optimization Audit}{7}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{8}{section.9}%

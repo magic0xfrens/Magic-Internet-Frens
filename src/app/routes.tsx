@@ -6,6 +6,8 @@ const MyWizards = lazy(() => import("@/components/wizards/MyWizards"));
 const Token = lazy(() => import("@/components/token/Token"));
 const Cauldrons = lazy(() => import("@/components/cauldron/TheCauldron"));
 const XCallback = lazy(() => import("@/components/x-callback/XCallback"));
+const LiquidatoorBadgeLab = lazy(() => import("@/components/preview/LiquidatoorBadgeLab"));
+const Docs = lazy(() => import("@/components/docs/Docs"));
 
 function PageLoader() {
   return (
@@ -26,7 +28,9 @@ export function AppRoutes() {
         <Route path="/mi-frens" element={<MyWizards />} />
         <Route path="/token" element={<Token />} />
         <Route path="/cauldrons" element={<Cauldrons />} />
+        <Route path="/docs" element={<Docs />} />
         <Route path="/x-callback" element={<XCallback />} />
+        <Route path="/badge-lab" element={<LiquidatoorBadgeLab />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

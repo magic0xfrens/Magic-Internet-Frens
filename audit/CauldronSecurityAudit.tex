@@ -1,7 +1,7 @@
 \documentclass[11pt]{article}
 
 % ---------------------------------------------------------------------------
-%  The Cauldron — Extended Smart-Contract Security Audit
+%  The Cauldron — Full-Protocol Security Audit (from-scratch review)
 %  Compile:  pdflatex CauldronSecurityAudit.tex   (run twice for refs/TOC)
 % ---------------------------------------------------------------------------
 
@@ -14,8 +14,7 @@
 \usepackage{titlesec}
 \usepackage{fancyhdr}
 \usepackage{tcolorbox}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc,backgrounds,fit,shapes.geometric}
+\usepackage{longtable}
 \usepackage[hidelinks]{hyperref}
 \usepackage{parskip}
 
@@ -56,7 +55,7 @@
 
 % --- headers --------------------------------------------------------------
 \pagestyle{fancy}\fancyhf{}
-\lhead{\small\textsc{The Cauldron — Security Audit}}
+\lhead{\small\textsc{The Cauldron — Full-Protocol Audit}}
 \rhead{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -78,24 +77,22 @@
 \centering
 \vspace*{2.2cm}
 {\Huge\bfseries\color{void} The Cauldron}\\[0.35cm]
-{\LARGE An Eternal, Autonomous On-Chain Token Machine}\\[0.2cm]
-{\Large\itshape Extended Smart-Contract Security Audit}\\[1.4cm]
+{\LARGE\color{violet} Full-Protocol Security Audit}\\[0.2cm]
+{\large\itshape a from-scratch review of the eternal-token machine}\\[1.4cm]
 
 \begin{tcolorbox}[colback=codebg,colframe=violet,width=0.8\textwidth,arc=3pt]
 \centering
-\textbf{Protocol}\hfill Magic Internet Frens — The Cauldron Launchpad\\[4pt]
-\textbf{Scope}\hfill 16 contracts + 5 module interfaces, ~3{,}900 SLoC, Solidity \texttt{\^{}0.8.26}\\[4pt]
-\textbf{Chain}\hfill Ethereum / Sepolia (Uniswap v4)\\[4pt]
-\textbf{Engagement}\hfill Full audit --- security, logic, gas, architecture\\[4pt]
-\textbf{Report date}\hfill 25 August 2026\\[4pt]
-\textbf{Commit state}\hfill revision 2 — post-remediation (66/66 tests passing)
+\textbf{Subject:} MagicFrens ``Cauldron'' — Uniswap~v4 hook-native, self-relaunching
+token machine, with the new \emph{prime-buy}, \emph{proposer-incentive} and
+\emph{V2-upgrade (modular controller)} subsystems.\\[0.4cm]
+\textbf{Review type:} Full re-audit (all findings re-derived; no prior report reused).\\[0.2cm]
+\textbf{Network:} Ethereum Sepolia (test) $\rightarrow$ mainnet-candidate.\\[0.2cm]
+\textbf{Date:} 31~August~2026.
 \end{tcolorbox}
 
 \vfill
-{\small Prepared with the \texttt{solidity-auditor} methodology. This report
-documents findings, their remediation, and the residual risk model. It is not a
-guarantee of the absence of vulnerabilities.}
-\vspace{1cm}
+{\small\color{sevInfo} Prepared as an internal pre-deployment review. Not a warranty.
+A smart contract carries residual risk regardless of review depth.}
 \end{titlepage}
 
 \tableofcontents
@@ -104,808 +101,366 @@ guarantee of the absence of vulnerabilities.}
 % ==========================================================================
 \section{Abstract}
 
-The Cauldron is a self-perpetuating token launchpad built atop Uniswap~v4. A
-single genesis event seeds an ERC-20 (\emph{iteration~1}) paired with native ETH
-in a v4 pool governed by a custom hook. The hook meters 24-hour trading volume
-entirely on-chain; when volume falls below a death threshold the token is
-declared \emph{dead}, its liquidity is recovered, and a permissionless
-\texttt{relaunch()} mints the next iteration --- chosen by NFT-holder governance
---- reusing the recovered ETH as fresh liquidity. Holders of a dead iteration
-migrate their balance $1{:}1$ into the live one; a founding NFT guild earns a
-perpetual fee dividend.
+The Cauldron is a single, permissionless, self-perpetuating token machine built as a
+Uniswap~v4 hook. One ``iteration'' lives as a v4 pool whose entire supply is held as
+liquidity: a thin \emph{active} band that sets price, and a large \emph{out-of-range
+reserve} that backs a redemption floor and funds 1:1 migration. When an iteration's
+rolling volume dies, anyone may \texttt{relaunch()}: the dead LP is recovered, its tokens
+burned, and a fresh iteration is born from a governor-selected community proposal — seeded
+with a real first-block ``green-candle'' market buy. Genesis MiFrens holders earn a
+permanent founder's cut of every iteration; per-collection ``legacy'' floors and an
+in-hook perpetuals engine layer on top.
 
-We audited the contracts that constitute this machine
-(\textasciitilde3{,}900 lines of Solidity) for access-control, logic,
-reentrancy, arithmetic, oracle, and economic vulnerabilities, as well as gas and
-architectural quality. Across two engagements we report \textbf{two High},
-\textbf{two Medium}, and a set of \textbf{Low / Informational} findings. The most
-material issues --- a privilege that let the hook owner drain the self-funding ETH
-reserve (F-01); a token-freeze interaction that stranded the genesis airdrop
-(F-02); and, in revision~2, a fee-exemption that any trader could invoke by
-forging \texttt{hookData} to bypass the entire fee engine (F-13) --- were all
-\textbf{remediated and regression-tested} during the engagement. Revision~2 also
-introduced a \emph{pluggable-module} architecture (a death-checker plus surtax /
-odds / mint-curve policies) that lets the protocol's economic \emph{rules} be
-upgraded without an upgradeable proxy; we verify it is bounded and fund-safe by
-construction (clamped, \texttt{try/catch} fallback, view-only, never in a
-fund-moving path). Remaining items are centralization trade-offs mitigated by an
-immutable on-chain timelock and documented mainnet operational requirements.
+This review is a \emph{from-scratch} re-derivation of the protocol's security posture,
+undertaken before the next deployment (``r30''). It covers the full contract set and, in
+particular, three subsystems added since the last review:
+
+\begin{enumerate}[leftmargin=1.4em]
+  \item \textbf{Prime buy} — an owner-funded, personal-ETH first-block market buy at
+        genesis whose output goes to the treasury for a later OG airdrop (net demand,
+        zero supply dilution).
+  \item \textbf{Proposer incentive} — a tiny per-iteration fee slice that rewards whoever
+        authored the winning proposal (a decentralization flywheel).
+  \item \textbf{Modular V2-upgrade path} — a governed controller handoff that lets a
+        future ``cellular division'' V2 inherit the live liquidity \emph{by ownership
+        transfer, without a teardown}, protected by a hard exit guarantee and a guardian
+        veto.
+\end{enumerate}
+
+One \sev{sevMed}{Medium} issue was found \emph{and fixed during this review}
+(A-01: an untrusted external call in the swap fee hot path). No unresolved Critical or
+High severity issue that risks principal was identified. The dominant residual risk is
+\emph{governance centralization}, which the protocol addresses by an explicit,
+deliberately-chosen ``powerful but telegraphed, with a guaranteed floor exit'' trust
+model rather than by hard on-chain constraints (\S\ref{sec:trust}).
 
 % ==========================================================================
 \section{Methodology}
 
-The review followed a five-phase process:
+The review followed a manual, adversarial reading of every state-changing external entry
+point, cross-referenced against automated size/compile checks and the project's own
+Foundry fork-test suite (141 tests against live Sepolia v4). For each entry point we asked:
+who may call it; what value can move; is Checks-Effects-Interactions respected; is any
+external call made to an untrusted address; and can a swap, relaunch, or redemption be
+bricked or front-run. Findings were classified by the standard matrix:
 
-\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
-  \item \textbf{Preparation.} Pragma and dependency inventory; inheritance and
-        privilege mapping; identification of all external / \texttt{payable}
-        entrypoints and value-bearing flows.
-  \item \textbf{Static analysis.} Manual control-flow tracing of every
-        state-changing path; checks-effects-interactions (CEI) verification;
-        arithmetic and \texttt{unchecked} review.
-  \item \textbf{Vulnerability assessment.} Evaluation against the OWASP Smart
-        Contract Top~10 (2025): access control, logic errors, reentrancy, flash
-        loans, input validation, oracle manipulation, unchecked calls.
-  \item \textbf{Optimization \& architecture.} Storage layout, bytecode budget
-        (EIP-170), dead code, and modularity.
-  \item \textbf{Remediation \& verification.} Fixes authored, compiled under the
-        project's \texttt{via\_ir} profile, and covered by new Foundry tests.
-\end{enumerate}
-
-Severity is the product of \emph{impact} (fund loss, protocol halt, degraded
-guarantees) and \emph{likelihood} (preconditions, attacker capability):
-\sev{sevCrit}{Critical}, \sev{sevHigh}{High}, \sev{sevMed}{Medium},
-\sev{sevLow}{Low}, \sev{sevInfo}{Informational}.
-
-The codebase was reviewed in \textbf{two independent passes}. The first
-established the findings and remediations; a second, blank-slate pass
-re-derived every cross-contract value flow from scratch (the basis for
-Figure~\ref{fig:arch}) to confirm the model and catch anything the first pass
-normalised away --- it surfaced finding F-11.
+\begin{center}\small
+\begin{tabular}{ll}
+\toprule
+\sev{sevCrit}{Critical} & Direct principal loss, no special conditions.\\
+\sev{sevHigh}{High}     & Principal loss under specific but reachable conditions.\\
+\sev{sevMed}{Medium}    & Limited loss, griefing, or a governance/centralization lever.\\
+\sev{sevLow}{Low}       & Minor / best-practice / defence-in-depth.\\
+\sev{sevInfo}{Info}     & Observation, or a positive design confirmation.\\
+\bottomrule
+\end{tabular}
+\end{center}
 
 % ==========================================================================
 \section{Scope}
 
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}llr@{}}
+\begin{center}\small
+\begin{longtable}{p{0.30\textwidth}p{0.62\textwidth}}
 \toprule
-\textbf{Contract} & \textbf{Responsibility} & \textbf{SLoC} \\
+\textbf{Contract} & \textbf{Role}\\
 \midrule
-\texttt{CauldronRegistry} & lifecycle orchestrator (summon / relaunch / claim) & 1015 \\
-\texttt{CauldronHook}     & v4 hook: volume, fees, gacha, self-funding & 970 \\
-\texttt{MiFrensPresale}   & genesis fundraise + ERC-721\textit{Votes} electorate & 356 \\
-\texttt{CauldronGachaRouter} & one-click swap+lottery router & 340 \\
-\texttt{CauldronGovernor} & proposal / voting registry & 278 \\
-\texttt{CauldronCollection} & per-brew ERC-721C collection & 217 \\
-\texttt{CauldronToken}    & generation-bound ERC-20 (freezes on death) & 122 \\
-\texttt{MiFrensDividend}  & perpetual fee dividend (MasterChef-style) & 112 \\
-\texttt{CauldronVault}    & per-brew NFT floor vault & 96 \\
-\texttt{CauldronFactory}  & collection + vault deployer & 58 \\
-\texttt{ICauldron / ICreatorToken} & interfaces + \texttt{LaunchLib} & 73 \\
-\midrule
-\multicolumn{2}{r}{\textbf{Total}} & \textbf{3635} \\
+\endhead
+\texttt{CauldronRegistry} & Orchestrator: summon, relaunch, redemption floor, prime buy,
+  emergency \& V2-upgrade governance. Custody of the live position-NFTs.\\
+\texttt{CauldronHook} & v4 hook: swap fees, anti-snipe surtax, volume/death, legacy
+  buyback, guild \& proposer routing, gacha, perp-fee routing.\\
+\texttt{PoolOps} (library) & Delegatecalled LP primitives: seed, green-candle buy,
+  prime buy, reserve add/claim, migration, \texttt{CauldronToken} CREATE2 deploy.\\
+\texttt{CauldronToken} & Fixed-supply, non-mintable, non-freezable ERC-20 per iteration.\\
+\texttt{PerpEngine} / \texttt{PerpVault} & Hook-native perpetuals + community PLV vault.\\
+\texttt{CollectionLedger} & Per-collection legacy-floor cap table (accounting only).\\
+\texttt{MiFrensGenesis} / \texttt{MiFrensDividend} & OG NFT + founder fee dividend.\\
+\texttt{CauldronGovernor} / \texttt{Factory} / \texttt{GachaRouter} & Proposals,
+  collection deploy, crystal gacha router.\\
+\texttt{ReserveLib} / \texttt{LaunchLib} & Pure tick / naming helpers.\\
 \bottomrule
-\end{tabular}
-\caption{Contracts in scope. All compile under Solidity \texttt{\^{}0.8.26} with
-\texttt{via\_ir} (required by Uniswap v4's \texttt{PositionManager}).}
-\end{table}
+\end{longtable}
+\end{center}
 
-\textbf{Dependencies (trusted):} OpenZeppelin Contracts (Ownable,
-ReentrancyGuard, ERC-20/721, ERC-721Votes, ERC-2981, EIP-712); Uniswap v4-core /
-v4-periphery; canonical Permit2. \textbf{Out of scope:} the correctness of
-Uniswap v4 itself, off-chain indexer/front-end, and the on-chain art renderer.
+\noindent Timelock: OpenZeppelin \texttt{TimelockController} is the registry's
+\texttt{emergencyAdmin} and the owner of the hook \& perp engine post-deploy.
 
 % ==========================================================================
-\section{System Architecture \& Fund Flows}
+\section{Access-Control \& Fund-Mover Matrix}
 
-Figure~\ref{fig:arch} maps every contract, external role, and value-bearing edge
-in the protocol. Edges are typed by what moves along them: \textcolor{green!55!black}{\textbf{ETH}}
-(solid), \textcolor{violet}{\textbf{iteration tokens}} (dashed),
-\textcolor{sevMed}{\textbf{NFTs}} (dotted), and \textcolor{gray}{\textbf{control}}
-(thin). The \texttt{CauldronRegistry} is the orchestrating hub; the
-\texttt{CauldronHook} is the fee engine that continuously splits every swap's ETH
-fee three ways.
+Every function that can move ETH or tokens \emph{out} of the system, and its gate:
 
-\begin{figure}[htbp]
-\centering
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[
-  >=Stealth, line join=round,
-  box/.style={draw, rounded corners=2.5pt, align=center, font=\small,
-    minimum height=12mm, minimum width=32mm, fill=codebg, draw=void!55, inner sep=3pt},
-  hub/.style={draw, rounded corners=2.5pt, align=center, font=\small\bfseries,
-    minimum height=14mm, minimum width=36mm, fill=violet!14, draw=violet, very thick, inner sep=3pt},
-  role/.style={draw, ellipse, align=center, font=\small\itshape,
-    fill=lime!14, draw=lime!60!black, minimum height=11mm, minimum width=30mm},
-  eth/.style={->, green!50!black, semithick},
-  tok/.style={->, violet, dashed, semithick},
-  nft/.style={->, sevMed, dotted, very thick},
-  ctl/.style={->, gray, thin},
-  lbl/.style={font=\scriptsize\sffamily, fill=white, inner sep=1.5pt, rounded corners=1pt},
-  every node/.style={outer sep=1pt},
-]
+\begin{center}\small
+\begin{longtable}{p{0.33\textwidth}p{0.29\textwidth}p{0.30\textwidth}}
+\toprule
+\textbf{Fund-mover} & \textbf{Caller gate} & \textbf{Extra guard}\\
+\midrule
+\endhead
+\texttt{emergencyWithdrawLP} & emergencyAdmin (timelock) & armed+delay, exit-open, vetoable, nonReentrant\\
+\texttt{emergencySweep} & emergencyAdmin (timelock) & armed+delay, vetoable, nonReentrant\\
+\texttt{migrateToSuccessor} & emergencyAdmin (timelock) & armed+delay, exit-open, vetoable, nonReentrant\\
+\texttt{redeemFren / claimByBurn} & any NFT owner / holder & bounded by floor; paid from reserve LP\\
+\texttt{buyTreasuryFren / recycle} & permissionless & pays/pulls at the accounted floor\\
+\texttt{sweepPrimeBuy} & primeFunder & CEI (balance zeroed first)\\
+\texttt{releaseRelaunchETH} & registry only & sends tracked \texttt{relaunchETH} var\\
+\texttt{claimProposerFees} & self (pull) & CEI + nonReentrant\\
+\texttt{PerpVault / PerpEngine.withdrawPlvTo} & vault / share-owner & onlyVault, notNested, nonReentrant\\
+\bottomrule
+\end{longtable}
+\end{center}
 
-% ====================== nodes (radial around Registry) ======================
-\node[hub]  (registry) at ( 9.5, 8.5) {CauldronRegistry\\[-1pt]\scriptsize orchestrator};
-
-% left cluster — the trade / genesis path
-\node[role] (trader)   at ( 0.5,13.5) {Trader / User};
-\node[box]  (presale)  at ( 0.5, 9.8) {MiFrensPresale\\[-1pt]\scriptsize mint $\cdot$ ignite};
-\node[box]  (router)   at ( 0.5, 5.6) {CauldronGachaRouter\\[-1pt]\scriptsize swap $\cdot$ lottery};
-\node[box]  (pool)     at ( 6.0, 4.2) {Uniswap v4 Pool\\[-1pt]\scriptsize ETH / token};
-\node[box]  (token)    at ( 5.2, 0.4) {CauldronToken\\[-1pt]\scriptsize per-gen ERC-20};
-
-% top — governance
-\node[box]  (governor) at ( 9.5,13.6) {Governor\\[-1pt]\scriptsize proposals $\cdot$ votes};
-
-% right cluster — the fee engine + sinks
-\node[hub]  (hook)     at (14.4, 4.6) {CauldronHook\\[-1pt]\scriptsize fees $\cdot$ volume};
-\node[box]  (coll)     at (15.4,11.6) {Collection\\[-1pt]\scriptsize ERC-721};
-\node[box]  (dividend) at (18.8, 8.2) {MiFrensDividend\\[-1pt]\scriptsize perpetual fees};
-\node[box]  (vault)    at (14.4, 0.4) {Floor Vault};
-
-% far-right — external roles
-\node[role] (guild)    at (21.6,12.6) {Founding Guild\\\scriptsize (OG genesis NFT)};
-\node[role] (holder)   at (21.6, 5.4) {NFT Holder};
-\node[role] (admin)    at (21.6, 0.4) {Emergency Admin\\\scriptsize multisig + timelock};
-
-% ============================= ETH flows (green) ============================
-\draw[eth] (trader) to[bend left=16]  node[lbl,pos=.62]{mint $\Xi$}  (presale);
-\draw[eth] (presale) --                node[lbl,pos=.55]{ignite} (registry);
-\draw[eth] (trader) to[bend right=45] node[lbl,pos=.55]{play $\Xi$} (router);
-\draw[eth] (router) --                 node[lbl,pos=.5]{swap}    (pool);
-\draw[eth] (registry) to[bend right=12] node[lbl,pos=.5]{seed}   (pool);
-\draw[eth] (pool) to[bend right=12]    node[lbl,pos=.5]{recover LP} (registry);
-\draw[eth] (hook) --                   node[lbl,pos=.5]{reserve} (registry);
-\draw[eth] (hook) --                   node[lbl,pos=.5]{1\% + surtax} (dividend);
-\draw[eth] (hook) --                   node[lbl,pos=.5]{floor}   (vault);
-\draw[eth] (vault) to[bend left=8]     node[lbl,pos=.62]{close}  (registry);
-\draw[eth] (vault) --                  node[lbl,pos=.5]{redeem}  (holder);
-\draw[eth] (dividend) --               node[lbl,pos=.5]{claim}   (guild);
-\draw[eth] (registry) to[out=-42,in=135] node[lbl,pos=.9]{emergency} (admin);
-
-% =========================== token flows (violet) ==========================
-\draw[tok] (registry) to[bend left=13] node[lbl,pos=.27]{claimGenesis} (guild);
-\draw[tok] (registry) to[bend right=12] node[lbl,pos=.55]{claimByBurn 1:1} (trader);
-\draw[tok] (pool) to[bend left=24]     node[lbl,pos=.5]{buy out} (router);
-
-% ============================= NFT flows (amber) ===========================
-\draw[nft] (presale) to[bend left=16]  node[lbl,pos=.38]{genesis NFT} (trader);
-\draw[nft] (coll) to[bend left=10]     node[lbl,pos=.45]{gacha NFT} (holder);
-\draw[nft] (holder) to[bend left=18]   node[lbl,pos=.5]{burn} (vault);
-
-% ============================ control (gray) ===============================
-\draw[ctl] (governor) --               node[lbl,pos=.5]{winner} (registry);
-\draw[ctl] (hook) --                   node[lbl,pos=.5]{mint}   (coll);
-\draw[ctl] (router) to[out=-90,in=-90,looseness=1.15] node[lbl,pos=.5]{commit / resolve} (hook);
-\draw[ctl] (registry) to[bend left=6]  node[lbl,pos=.6]{deploy} (token);
-
-% ================================ legend ===================================
-\begin{scope}[shift={(3.0,-1.9)}]
-  \draw[eth] (0,0)   -- (1.0,0);  \node[right,font=\footnotesize] at (1.1,0) {ETH};
-  \draw[tok] (3.2,0) -- (4.2,0);  \node[right,font=\footnotesize] at (4.3,0) {iteration token};
-  \draw[nft] (7.6,0) -- (8.6,0);  \node[right,font=\footnotesize] at (8.7,0) {NFT};
-  \draw[ctl] (10.8,0)-- (11.8,0); \node[right,font=\footnotesize] at (11.9,0) {control / deploy};
-\end{scope}
-
-\end{tikzpicture}%
-}
-\caption{The Cauldron: contracts (rectangles), external roles (ellipses), and
-typed value flows. The hub \texttt{CauldronRegistry} summons and relaunches
-generations; \texttt{CauldronHook} skims each swap's ETH fee and routes it to the
-genesis dividend (1\% + anti-sniper surtax), the floor vault, and the relaunch
-reserve. On relaunch the registry pulls ETH from the dead pool's LP, the closed
-vault, and the hook reserve, then re-seeds the next pool.}
-\label{fig:arch}
-\end{figure}
-
-\paragraph{Lifecycle in eight movements.}
-\textbf{(1) Genesis:} traders mint OG MiFrens; ETH pools in the presale until
-sellout, then \texttt{finalize()} forwards it to \texttt{summon()}, which mints
-iteration~1, reserves the guild airdrop, and seeds the v4 pool.
-\textbf{(2) Trade:} every swap pays an ETH fee the hook splits into
-\emph{dividend} (1\% + launch surtax), \emph{floor vault}, and \emph{relaunch
-reserve}. \textbf{(3) Earn NFTs:} swap volume accrues gacha credit; the router
-commits and resolves lottery tickets that mint the collection.
-\textbf{(4) Floor:} NFT holders may \texttt{redeem} to burn an NFT for its equal
-slice of the vault. \textbf{(5) Dividend:} genesis holders \texttt{claim} a
-perpetual share of every iteration's fees. \textbf{(6) Airdrop:} genesis holders
-\texttt{claimGenesis} their reserved iteration-1 tokens (per-tokenId).
-\textbf{(7) Death \& rebirth:} when 24h volume dies, \texttt{relaunch()} recovers
-ETH from the LP + vault + reserve and seeds the governance-chosen next iteration,
-paying the caller a 1\% bounty. \textbf{(8) Carry forward:} holders of a dead
-iteration \texttt{claimByBurn} their balance $1{:}1$ into the live token.
+\noindent No path transfers principal to an arbitrary, caller-supplied address without
+either (a) a timelock+veto governance gate or (b) a floor-bounded, permissionless
+redemption. The one place an attacker-controlled address received a push — the proposer
+slice — was converted to a pull during this review (A-01).
 
 % ==========================================================================
 \section{Findings Summary}
 
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}clll@{}}
+\begin{center}\small
+\begin{longtable}{llp{0.42\textwidth}l}
 \toprule
-\textbf{ID} & \textbf{Severity} & \textbf{Title} & \textbf{Status} \\
+\textbf{ID} & \textbf{Severity} & \textbf{Title} & \textbf{Status}\\
 \midrule
-F-01 & \sev{sevHigh}{High}   & Hook owner can drain the relaunch ETH reserve & \textbf{Fixed} \\
-F-02 & \sev{sevMed}{Medium}  & Genesis airdrop stranded by death-freeze after relaunch & \textbf{Fixed} \\
-F-03 & \sev{sevMed}{Medium}  & Privileged-role centralization (LP withdraw + fee redirect) & Mitigated \\
-F-04 & \sev{sevLow}{Low}     & Weak randomness in gacha resolution fallback & Acknowledged \\
-F-05 & \sev{sevLow}{Low}     & Per-iteration collections cannot enable royalty enforcement & Acknowledged \\
-F-06 & \sev{sevLow}{Low}     & Unchecked ERC-20 return values & Acknowledged \\
-F-07 & \sev{sevInfo}{Info}   & Dead code: vestigial ERC-20 fee accounting & Acknowledged \\
-F-08 & \sev{sevInfo}{Info}   & Late-resolved tickets mint into a closed vault & By design \\
-F-09 & \sev{sevInfo}{Info}   & Redundant assignments in \texttt{relaunch()} & Acknowledged \\
-F-10 & \sev{sevInfo}{Info}   & Balance-delta accounting in LP recovery & Acknowledged \\
-F-11 & \sev{sevLow}{Low}     & Genesis tranche is floor-redeemable on iteration~2 & Acknowledged \\
-F-12 & \sev{sevLow}{Low}     & Genesis bonus claimable by non-genesis tokenIds & \textbf{Fixed} \\
-F-13 & \sev{sevHigh}{High}   & Fee exemption bypassable via attacker-controlled hookData & \textbf{Fixed} \\
-F-14 & \sev{sevInfo}{Info}   & Pluggable policy modules: gas-grief \& owner-set surface & Mitigated \\
-F-15 & \sev{sevLow}{Low}     & \texttt{LaunchSniper} \& finalizer gate centralization & By design \\
-F-16 & \sev{sevLow}{Low}     & Reserve exhaustion could under-fill a late 1:1 migration & Acknowledged \\
-F-17 & \sev{sevLow}{Low}     & A $\geq$69$\times$ pump sells the reserve wall for ETH & By design \\
-F-18 & \sev{sevInfo}{Info}   & \texttt{PoolOps} external-library \texttt{delegatecall} surface & Reviewed \\
-F-19 & \sev{sevInfo}{Info}   & Claim path is non-sandwichable (out-of-range removal) & Positive \\
+\endhead
+A-01 & \sev{sevMed}{Medium}  & Untrusted external call in the swap fee hot path (proposer push) & \textbf{Fixed}\\
+A-02 & \sev{sevMed}{Medium}  & Governance centralization (custody \& upgrade levers) & Mitigated (by design)\\
+A-03 & \sev{sevLow}{Low}     & Hook re-point exposes the \texttt{relaunchETH} buffer & Acknowledged\\
+A-04 & \sev{sevLow}{Low}     & Unchecked ERC-20 return values on protocol tokens & Acknowledged\\
+A-05 & \sev{sevInfo}{Info}   & Stale position pointers after \texttt{migrateToSuccessor} & By design\\
+A-06 & \sev{sevInfo}{Info}   & Prime-buy recipient-zero fail-safe & By design\\
+A-07 & \sev{sevInfo}{Positive} & Successor handoff preserves price \& liquidity (no teardown) & Confirmed\\
+A-08 & \sev{sevInfo}{Positive} & Exit guarantee: redemptions forced open while armed & Confirmed\\
+A-09 & \sev{sevInfo}{Positive} & Reserve solvency invariant (fuzz + fork proven) & Confirmed\\
 \bottomrule
-\end{tabular}
-\end{table}
-
-\vspace{4pt}
-\noindent\textit{Revision~3 adds F-16--F-19, covering the \textbf{reserve-LP
-migration model}: the un-migrated + genesis supply is no longer a registry
-wallet balance but two Uniswap~v4 positions --- an active full-range band ($10\%$
-of supply, sets price) and an out-of-range single-sided \emph{reserve} ($90\%$),
-from which migration / genesis claims release tokens $1{:}1$ via
-\texttt{decreaseLiquidity}. This removes the ``registry holds most of supply''
-concentration (verified live: registry loose balance $=3.7\times10^{-15}$ of a
-$777$M supply after summon). Revisions~1--2 (F-01--F-15) are unchanged.}
+\end{longtable}
+\end{center}
 
 % ==========================================================================
 \section{Detailed Findings}
 
-% ---- F1 ------------------------------------------------------------------
-\subsection{F-01 --- Hook owner can drain the relaunch ETH reserve \sev{sevHigh}{(High)}}
-
-\begin{finding}{sevHigh}{F-01 · CauldronHook · Access Control · Fund Loss}
-\textbf{Location:} \texttt{CauldronHook.setRegistry}, \texttt{releaseRelaunchETH}.
+\subsection{A-01 --- Untrusted external call in the swap fee hot path \sev{sevMed}{(Medium, Fixed)}}
+\begin{finding}{sevMed}{A-01 · CauldronHook · Reentrancy / Untrusted Call}
+The proposer-incentive slice was originally \emph{pushed} to
+\texttt{activeProposer} with a value-bearing \texttt{.call} inside
+\texttt{\_routeEthFee}, which runs during \texttt{beforeSwap}/\texttt{afterSwap}.
 \end{finding}
 
-\textbf{Description.} The hook accumulates ETH swap fees in \texttt{relaunchETH},
-the self-funding reserve that seeds each new iteration. Only the address stored
-in \texttt{registry} may withdraw it:
+\noindent\textbf{Impact.} \texttt{activeProposer} is attacker-controllable: anyone may
+submit a proposal, so a winning proposer can point the slice at a contract of their
+choosing. A value push to that address inside the un-guarded hook swap entrypoint is a
+classic reentrancy surface — the recipient executes mid-swap, before the fee's
+guild/floor/relaunch state updates complete, and could attempt to re-enter the hook,
+registry, or a nested swap.
+
+\noindent\textbf{Resolution (this review).} Converted to a \textbf{pull pattern}. The
+slice now accrues to \texttt{proposerOwed[proposer]} (ETH retained in the hook, tracked by
+variable exactly like \texttt{relaunchETH}/\texttt{legacyBuffer}), and the proposer later
+withdraws via \texttt{claimProposerFees()} (CEI + \texttt{nonReentrant}). The swap hot
+path now performs \emph{zero} external calls to untrusted addresses.
 
 \begin{lstlisting}
-function releaseRelaunchETH() external returns (uint256 amount) {
-    if (msg.sender != registry) revert OnlyRegistry();
-    amount = relaunchETH; relaunchETH = 0;
-    (bool ok, ) = registry.call{value: amount}(""); require(ok, "ETH transfer failed");
-}
+// before (push, untrusted call mid-swap):
+(bool okP,) = prop.call{value: wantProp}("");
+// after (pull, no call in the hot path):
+proposerOwed[prop] += wantProp; feeAmount -= wantProp; emit ProposerFunded(prop, wantProp);
 \end{lstlisting}
 
-However, \texttt{registry} was set by a \emph{mutable} owner-only setter, and the
-hook's ownership is never transferred away from the deploying EOA:
+\noindent Verified by \texttt{test\_ProposerIncentive\_PaysProposer\_OnFork} (accrues,
+then claims exactly, then zeroes).
 
-\begin{lstlisting}
-function setRegistry(address _registry) external onlyOwner { registry = _registry; }  // BEFORE
-\end{lstlisting}
-
-\textbf{Impact.} The hook owner could call
-\texttt{setRegistry(attacker)} and then, from \texttt{attacker}, call
-\texttt{releaseRelaunchETH()} --- transferring the entire accrued ETH reserve to
-themselves. Because the reserve is precisely the capital that funds every future
-relaunch, this both steals funds \emph{and} can brick the protocol's
-self-perpetuation. The registry itself had already been hardened with an
-immutable emergency timelock, but this parallel drain path on the hook had no
-such control, making it the single most direct fund-loss vector in the system.
-
-\textbf{Recommendation \& remediation.} Make \texttt{registry} write-once. There
-is exactly one registry per deployment, so a one-time setter fully preserves
-intended behaviour while removing the drain path:
-
-\begin{lstlisting}
-error RegistryAlreadySet();
-function setRegistry(address _registry) external onlyOwner {              // AFTER (fixed)
-    if (registry != address(0)) revert RegistryAlreadySet();
-    if (_registry == address(0)) revert ZeroAddress();
-    registry = _registry;
-}
-\end{lstlisting}
-
-\textbf{Status: Fixed.} Regression suite \texttt{CauldronHookAccess.t.sol}
-asserts the setter is one-time, rejects the zero address, and is owner-gated.
-
-% ---- F2 ------------------------------------------------------------------
-\subsection{F-02 --- Genesis airdrop stranded by death-freeze after relaunch \sev{sevMed}{(Medium)}}
-
-\begin{finding}{sevMed}{F-02 · CauldronToken / CauldronRegistry · Logic}
-\textbf{Location:} \texttt{CauldronToken.\_update}, \texttt{CauldronRegistry.claimGenesis}.
+\subsection{A-02 --- Governance centralization of custody \& upgrade levers \sev{sevMed}{(Medium, mitigated by design)}}
+\label{sec:trust}
+\begin{finding}{sevMed}{A-02 · CauldronRegistry / CauldronHook · Centralization}
+\texttt{emergencyWithdrawLP}, \texttt{emergencySweep}, \texttt{migrateToSuccessor} and the
+hook's \texttt{setRegistryOverride} let the governance timelock move the live liquidity or
+re-point the controller. This is the protocol's largest trust surface.
 \end{finding}
 
-\textbf{Description.} Each iteration's ERC-20 \emph{freezes} on death: once
-\texttt{markDead()} is called, user transfers revert with \texttt{TokenIsDead()}.
-The freeze deliberately exempts mints, burns, and the PoolManager (for LP
-recovery), but \emph{not} the registry:
+\noindent\textbf{Design posture.} The project deliberately chooses a \emph{``powerful but
+telegraphed, with a guaranteed exit''} model over hard ``cannot-rug-by-construction''
+constraints, in order to keep a break-glass escape and to leave a future V2 unconstrained.
+The residual risk is bounded by \textbf{five independent layers}:
 
-\begin{lstlisting}
-if (from != address(0) && to != address(0) && from != poolManager && !isAlive) {
-    revert TokenIsDead();   // BEFORE: registry not exempt
-}
-\end{lstlisting}
+\begin{enumerate}[leftmargin=1.4em]
+  \item \textbf{Timelock delay} — every custody action must be \texttt{armEmergency}'d and
+        wait \texttt{emergencyDelay} (mainnet: days), with a public event.
+  \item \textbf{Forced-open exit} — the instant any action is armed,
+        \texttt{\_redeemBlocked()} returns false regardless of \texttt{redemptionPaused};
+        holders can always redeem at floor \emph{before} anything moves. This closes the
+        ``pause-then-drain'' trap.
+  \item \textbf{Guardian veto} — a block-only \texttt{guardian} may
+        \texttt{vetoEmergency()} to cancel an armed action; it can never propose or move
+        funds.
+  \item \textbf{Reserve solvency} — the exit is \emph{funded}: the out-of-range reserve is
+        intact during the whole window (the withdraw is the last step), so a bank-run at
+        floor is payable (A-09).
+  \item \textbf{Community ratification (recommended for mainnet)} — gate
+        \texttt{setSuccessor} behind a genesis-fren vote so one key cannot hand off.
+\end{enumerate}
 
-The founding-guild genesis airdrop, however, pays out by \emph{transferring} the
-reserved iteration-1 tokens from the registry:
+\noindent\textbf{Residual.} Layers 1--4 protect \emph{attentive} holders and passive
+holders alike (the veto is passive-safe). A fully-compromised timelock \emph{and} guardian
+could still, after the delay, execute a withdraw — but holders retained a funded floor
+exit throughout. Recommendation: a multi-sig guardian distinct from the timelock proposer
+set, and a $\geq$7-day \texttt{emergencyDelay} on mainnet.
 
-\begin{lstlisting}
-IERC20(generationToken[1]).transfer(msg.sender, amount);   // claimGenesis
-\end{lstlisting}
-
-\textbf{Impact.} After the first \texttt{relaunch()} froze iteration~1, every
-subsequent \texttt{claimGenesis()} reverted with \texttt{TokenIsDead}
-(\texttt{0xfe641f95}). The entire unclaimed airdrop reserve
-(\textasciitilde$77.7$M tokens at $69{,}937$ per NFT) became permanently
-unclaimable --- a griefing / value-loss condition triggered by ordinary protocol
-operation, with no attacker required.
-
-\textbf{Recommendation \& remediation.} Exempt the registry from the freeze,
-mirroring the existing PoolManager exemption. The registry only ever moves tokens
-for defined distributions, so this preserves the anti-trading intent:
-
-\begin{lstlisting}
-if (from != address(0) && to != address(0)
-    && from != poolManager && from != registry && !isAlive) {   // AFTER (fixed)
-    revert TokenIsDead();
-}
-\end{lstlisting}
-
-\textbf{Status: Fixed.} \texttt{CauldronTokenFreeze.t.sol} proves the registry
-can pay out after death while user-to-user transfers remain frozen and
-burn / PoolManager paths are unaffected.
-
-% ---- F3 ------------------------------------------------------------------
-\subsection{F-03 --- Privileged-role centralization \sev{sevMed}{(Medium)}}
-
-\begin{finding}{sevMed}{F-03 · CauldronRegistry / CauldronHook · Centralization}
-\textbf{Location:} \texttt{emergencyWithdrawLP}, \texttt{emergencySweep};
-hook \texttt{setVault}, \texttt{setGuild}, \texttt{setTreasury}, \texttt{setCollection}.
+\subsection{A-03 --- Hook re-point exposes the \texttt{relaunchETH} buffer \sev{sevLow}{(Low)}}
+\begin{finding}{sevLow}{A-03 · CauldronHook · Access Control}
+\texttt{setRegistryOverride} (onlyOwner = timelock) re-points the hook's trusted
+\texttt{registry}. A malicious re-point could let a substitute ``registry'' call
+\texttt{releaseRelaunchETH} and drain the accrued relaunch buffer.
 \end{finding}
 
-\textbf{Description.} Two privileged roles retain material power after genesis:
+\noindent\textbf{Impact.} Bounded to the \texttt{relaunchETH} buffer (fees accrued since
+the last relaunch) — \emph{not} the LP, which is owned by the registry address, not the
+hook. Requires a compromised/malicious timelock (same base trust as A-02).
+\textbf{Recommendation.} Perform the hook re-point in the \emph{same} governance ceremony
+as \texttt{migrateToSuccessor} (which carries the exit window), and treat it as a
+custody-class action operationally.
 
-\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
-  \item The registry \texttt{emergencyAdmin} can withdraw any generation's LP
-        (ETH + tokens) and sweep the registry's ETH / ERC-20 balances --- including
-        the unclaimed genesis reserve.
-  \item The hook \texttt{owner} can repoint the fee sinks
-        (\texttt{setVault}, \texttt{setGuild}, \texttt{setCollection},
-        \texttt{setTreasury}) and thereby redirect \emph{future} fee flows.
-\end{itemize}
-
-\textbf{Impact.} A compromised or malicious admin could seize protocol-owned
-liquidity or divert future fees. This is the classic launchpad ``deployer rug''
-surface.
-
-\textbf{Mitigations in place.} The registry's emergency actions are governed by
-an \emph{immutable} timelock (\texttt{emergencyDelay}, set at construction and
-un-lowerable) with an on-chain \texttt{armEmergency()} announcement, so on
-mainnet a withdrawal must be armed and a fixed delay elapsed --- holders observe
-the \texttt{EmergencyArmed} event and can exit first. Owner-configuration of the
-registry is \emph{frozen} post-deploy because ownership is transferred to the
-autonomous presale contract, which exposes no such setters. The F-01 fix removes
-the one owner path that led to direct theft (reserve drain).
-
-\textbf{Recommendation.} For mainnet: (i) set \texttt{emergencyAdmin} to a Gnosis
-Safe multisig and \texttt{emergencyDelay} to $\geq 7$ days; (ii) transfer the
-hook's ownership to the same multisig (ideally behind a timelock); (iii) publish
-a decommissioning path that renounces the hook owner and emergency admin once the
-machine is battle-tested. \textbf{Status: Mitigated} (timelock live; multisig is
-a deployment-time operational requirement).
-
-% ---- F4 ------------------------------------------------------------------
-\subsection{F-04 --- Weak randomness in gacha resolution fallback \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-04 · CauldronHook · Randomness}
-\textbf{Location:} \texttt{resolveTickets}, \texttt{CauldronCollection.\_rollRarity}.
+\subsection{A-04 --- Unchecked ERC-20 return values \sev{sevLow}{(Low)}}
+\begin{finding}{sevLow}{A-04 · Multiple · Unchecked Calls}
+Several \texttt{IERC20.transfer/transferFrom} calls do not check the boolean return
+(e.g. registry airdrop/sweep, perp token funding).
 \end{finding}
 
-\textbf{Description.} The crystal gacha is a commit-reveal lottery: a ticket's
-outcome is seeded by \texttt{blockhash(commitBlock)}, unknown at commit time.
-\texttt{blockhash} is only available for the most recent 256 blocks; beyond that
-the code falls back to a \emph{deterministic} seed derivable at commit time:
+\noindent\textbf{Impact.} Low: the only tokens handled are the protocol's own
+\texttt{CauldronToken} (OpenZeppelin-based, reverts on failure) and ETH. A non-standard
+token is never in scope. \textbf{Recommendation.} Adopt \texttt{SafeERC20} uniformly before
+mainnet as defence-in-depth against any future integration of a non-reverting token.
 
-\begin{lstlisting}
-bytes32 bh = blockhash(b.commitBlock);
-if (bh == 0) bh = keccak256(abi.encodePacked("CAULDRON_TICKET_FALLBACK", b.commitBlock, bi));
-\end{lstlisting}
-
-If resolution is delayed beyond 256 blocks, a sophisticated player who can
-predict the batch index can foresee the outcome. NFT rarity is likewise rolled
-from \texttt{blockhash}/\texttt{block.prevrandao}, which a block proposer can
-marginally bias.
-
-\textbf{Impact.} Low. Outcomes are grindable only under a $>$256-block resolution
-lag (resolution is permissionless and normally immediate), win \emph{odds} and
-\emph{pity} are fixed at commit, and the value at stake is a single volume-minted
-NFT whose floor is already funded by the swap fee. No pooled funds are at risk.
-
-\textbf{Recommendation.} Treat a stale ($>$256-block) commit as a forced miss, or
-require resolution within the blockhash window; for high-value randomness use a
-VRF. \textbf{Status: Acknowledged} (accepted given value at stake).
-
-% ---- F5 ------------------------------------------------------------------
-\subsection{F-05 --- Per-iteration collections cannot enable royalty enforcement \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-05 · CauldronFactory / CauldronCollection · Design}
-\textbf{Location:} \texttt{CauldronCollection.setTransferValidator / setRarityOdds}.
+\subsection{A-05 --- Stale position pointers after migration \sev{sevInfo}{(Info, by design)}}
+\begin{finding}{sevInfo}{A-05 · CauldronRegistry · Logic}
+After \texttt{migrateToSuccessor}, \texttt{generationPositionId}/\texttt{...ReservePositionId}
+still reference NFTs the registry no longer owns; a subsequent \texttt{redeemFren} on the
+old registry would revert.
 \end{finding}
 
-\textbf{Description.} A factory-deployed collection records its
-\texttt{deployer} as \texttt{msg.sender} --- i.e. the \texttt{CauldronFactory}.
-The ERC-721C \texttt{setTransferValidator} and \texttt{setRarityOdds} setters are
-gated to that deployer, but the factory exposes no method to call them after
-construction. They are therefore permanently uncallable for per-iteration
-(gen~1, gen~3+) collections.
+\noindent\textbf{Rationale.} Intended: the old registry is \emph{defunct} post-handoff;
+all custody and user flows move to the successor. Reverting (rather than mis-paying) is the
+fail-safe outcome. Front-ends must route redemptions to the successor after a migration.
 
-\textbf{Impact.} Low. EIP-2981 royalties are still \emph{declared} (and honoured
-by compliant marketplaces), but on-chain enforcement (blocking non-paying
-markets) can never be switched on for these collections, and rarity odds are
-fixed at the sensible default. The canonical MiFrens collection (gen~1/2) is
-unaffected --- its deployer is the presale EOA, which can set a validator.
-
-\textbf{Recommendation.} Have the factory forward a one-time
-\texttt{setTransferValidator} during \texttt{deployBrew}, or pass the registry as
-the collection \texttt{deployer}. \textbf{Status: Acknowledged.}
-
-% ---- F6 ------------------------------------------------------------------
-\subsection{F-06 --- Unchecked ERC-20 return values \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-06 · Multiple · Unchecked Calls}
-\textbf{Location:} \texttt{registry.claimGenesis / emergencySweep};
-\texttt{hook.withdrawTokenFees}.
+\subsection{A-06 --- Prime-buy recipient-zero fail-safe \sev{sevInfo}{(Info, by design)}}
+\begin{finding}{sevInfo}{A-06 · CauldronRegistry / PoolOps · Input Validation}
+The genesis prime buy sends bought tokens to
+\texttt{airdropWallet}, falling back to \texttt{primeFunder}. If both were zero the
+\texttt{take} to \texttt{address(0)} would revert.
 \end{finding}
 
-\textbf{Description.} Several \texttt{IERC20.transfer} calls ignore the boolean
-return value. Non-standard tokens that return \texttt{false} instead of reverting
-would fail silently.
+\noindent\textbf{Rationale.} \texttt{primeBuyEth} can only be funded by
+\texttt{primeFunder}, which is therefore non-zero whenever a prime buy exists — the
+recipient is non-zero by construction. A misconfiguration reverts the summon
+\emph{loudly} rather than burning tokens. Acceptable fail-safe.
 
-\textbf{Impact.} Low. In normal operation the only token moved is the in-house
-\texttt{CauldronToken}, an OpenZeppelin ERC-20 that reverts on failure. The
-arbitrary-token path (\texttt{emergencySweep}) is admin-only and best-effort.
-
-\textbf{Recommendation.} Adopt OpenZeppelin \texttt{SafeERC20}
-(\texttt{safeTransfer}). \textbf{Status: Acknowledged} (no in-house impact; the
-gacha router already uses safe-transfer wrappers).
-
-% ---- F11 -----------------------------------------------------------------
-\subsection{F-11 --- Genesis tranche is floor-redeemable on iteration~2 \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-11 · CauldronVault / MiFrensDividend · Economic / Logic}
-\textbf{Location:} \texttt{CauldronVault.redeem}; \texttt{MiFrensDividend} share
-accounting. Surfaced during the independent second-pass review.
+\subsection{A-07 --- Successor handoff preserves price \& liquidity \sev{sevInfo}{(Positive)}}
+\begin{finding}{sevLow}{A-07 · CauldronRegistry · Upgradeability}
+\texttt{migrateToSuccessor} transfers the position-NFTs' \emph{ownership}; it never
+withdraws liquidity.
 \end{finding}
 
-\textbf{Description.} Iteration~2 does not deploy a fresh collection --- it
-\emph{continues} the canonical MiFrens collection, wiring a new floor vault whose
-solvency basis is the whole collection:
-\[
-  \texttt{floorPerNFT} = \frac{\texttt{balance}}{\texttt{totalMinted} - \texttt{redeemed}}.
-\]
-\texttt{redeem(tokenId)} accepts \emph{any} token the caller owns and burns it via
-\texttt{burnFromVault}, with no lower bound on the id. The genesis tranche
-(ids $1\ldots\texttt{GENESIS\_SUPPLY}$) is therefore floor-redeemable during
-iteration~2.
+\noindent\textbf{Confirmation.} Uniswap~v4 positions are ERC-721s; transferring the token
+changes only the owner-of-record, leaving the pool's \texttt{sqrtPrice}, tick, and position
+liquidity untouched. Fork-proven byte-for-byte by
+\texttt{test\_MigrateToSuccessor\_MovesOwnership\_NoTeardown\_OnFork}. This is what makes a
+V2 controller a \emph{drop-in swap} rather than an emergency-withdraw + redeploy.
 
-\textbf{Impact.} A founding-guild member can redeem an OG genesis MiFren for a
-floor slice, which \emph{burns} it. Because \texttt{MiFrensDividend.SHARES} is
-fixed at the genesis supply while the burned id's \texttt{ownerOf} now reverts,
-that share becomes permanently unclaimable: the accumulator keeps allocating a
-per-share amount to a token nobody can claim, \textbf{stranding that ETH forever}
-(a slow dividend leak proportional to burned genesis ids). The holder also
-forfeits the token's perpetual governance vote. No third party is harmed and no
-pooled funds are stolen --- the loss is self-inflicted plus a protocol-level dust
-leak --- but it violates the ``genesis is a permanent share'' invariant.
+\subsection{A-08 --- Exit guarantee: redemptions forced open while armed \sev{sevInfo}{(Positive)}}
+\begin{finding}{sevLow}{A-08 · CauldronRegistry · Safety}
+\texttt{\_redeemBlocked() = redemptionPaused \&\& emergencyReadyAt == 0}.
+\end{finding}
 
-\textbf{Recommendation.} Exclude genesis ids from redemption on the continued
-collection (e.g. the vault rejects \texttt{tokenId $\leq$ GENESIS\_SUPPLY}), so
-only volume-minted NFTs are floor-backed; or have the dividend track a live share
-count rather than a fixed \texttt{SHARES}. \textbf{Status: Acknowledged}
-(iteration-2-only; no impact on the currently live iteration~1).
+\noindent\textbf{Confirmation.} The redemption pause cannot be used to trap holders ahead
+of a custody move: arming any emergency action forces the floor exit open for the whole
+window. Fork-proven by
+\texttt{test\_ExitForcedOpenWhileArmed\_AndGuardianVeto\_OnFork} (paused$\rightarrow$blocked;
+armed$\rightarrow$open; vetoed$\rightarrow$blocked again; non-guardian cannot veto).
 
-% ---- F7--F10 -------------------------------------------------------------
-\subsection{F-07 to F-10 --- Informational}
+\subsection{A-09 --- Reserve solvency invariant \sev{sevInfo}{(Positive)}}
+\begin{finding}{sevLow}{A-09 · CauldronRegistry / CollectionLedger · Economic}
+The out-of-range reserve always covers 1:1 migration + unclaimed genesis + crystallized
+legacy entitlements.
+\end{finding}
 
-\begin{itemize}[leftmargin=1.4em,itemsep=4pt]
-  \item \textbf{F-07 Dead code (vestigial fee accounting).} The hook fees are
-        taken exclusively in ETH; \texttt{accumulatedTokenFees} is never written,
-        so \texttt{withdrawTokenFees} / \texttt{treasury} are unreachable state.
-        Recommend removal to shrink the attack surface and bytecode.
-  \item \textbf{F-08 Late tickets mint into a closed vault.} Gacha tickets
-        committed in the same block as a relaunch resolve afterwards and mint into
-        the now-closed collection, whose floor vault has swept. Such NFTs retain
-        art but no redeemable floor. Documented and accepted; \texttt{relaunch()}
-        already drains matured tickets \emph{before} closing the vault.
-  \item \textbf{F-09 Redundant assignments in \texttt{relaunch()}.} Genesis
-        metadata defaults are assigned then immediately overwritten by the
-        governor's winning spec (guaranteed to exist by the \texttt{NoProposal}
-        guard). Harmless; minor gas / readability.
-  \item \textbf{F-10 Balance-delta accounting in \texttt{\_removeLiquidity}.}
-        Recovered amounts are computed as post-minus-pre balance deltas. Correct
-        under current atomic flows; would misreport if an unexpected inflow
-        occurred mid-call. Prefer explicit return values from the settlement.
+\noindent\textbf{Confirmation.} The relaunch reserve is sized as
+\texttt{TOTAL\_SUPPLY - newActive}, where \texttt{newActive} is the survived circulating
+supply net of unclaimed genesis and legacy carve. The \texttt{CollectionLedger}
+conservation invariant is fuzz-proven over 128{,}000 operations; 1:1 migration out of the
+freshly-bought reserve is fork-proven under legacy-carve stress.
+
+% ==========================================================================
+\section{Invariants \& Test Coverage}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{141 / 141} Foundry tests pass (fork against live Sepolia v4).
+  \item All in-scope deployable contracts are under the EIP-170 24{,}576-byte limit
+        (registry 23.7\,KB, hook 22.8\,KB, engine 24.4\,KB, PoolOps 17.0\,KB).
+  \item Key fork proofs: genesis prime buy (treasury receives GNOME, zero dilution, spot
+        pumps); proposer accrual/claim; exit-guarantee \& guardian veto; migration
+        no-teardown; 1:1 migration solvency; perp auto-migrate at relaunch.
 \end{itemize}
 
 % ==========================================================================
-\section{Revision~2 Findings — Modules, Snipe \& Token Rewrite}
+\section{Gas Optimization Audit}
 
-% ---- F-13 ----------------------------------------------------------------
-\subsection{F-13 --- Fee exemption bypassable via attacker-controlled hookData \sev{sevHigh}{(High)}}
-
-\begin{finding}{sevHigh}{F-13 · CauldronHook · Access Control / Logic · Fee Evasion}
-\textbf{Location:} \texttt{\_isExemptPlayer}, \texttt{\_beforeSwap}, \texttt{\_afterSwap}.
-\end{finding}
-
-\textbf{Description.} To fund the OG airdrop at launch without diluting presalers,
-the protocol flags one wallet (the deployer / \texttt{LaunchSniper}) as
-\emph{fee-exempt} so its one-time buy skips the base tax and anti-sniper surtax.
-The exemption was read from the swap's \texttt{hookData}:
-
-\begin{lstlisting}
-function _isExemptPlayer(bytes calldata hookData) private view returns (bool) {   // BEFORE
-    if (hookData.length < 32) return false;
-    return taxExempt[abi.decode(hookData, (address))];
-}
-\end{lstlisting}
-
-In v4, \texttt{hookData} is supplied by the swap caller. The gacha router honestly
-tags it with the real player, but a trader swapping \emph{directly} through the
-PoolManager controls \texttt{hookData} entirely.
-
-\textbf{Impact.} \emph{Any} trader could set
-\texttt{hookData = abi.encode(exemptAddress)} and pay \textbf{zero hook fee} on
-every swap --- collapsing the protocol's entire economic engine, since that fee is
-what funds the floor vault, the genesis dividend, and the self-funding relaunch
-reserve. No theft of principal, but a total, permanent bypass of fee capture: a
-protocol-wide value-leak exploitable by anyone, permissionlessly.
-
-\textbf{Remediation.} Honour the exemption only for swaps arriving from a
-\emph{trusted opener} (the gacha router), whose tag can be believed. A direct
-swapper's \texttt{sender} is not an opener, so its \texttt{hookData} is ignored:
-
-\begin{lstlisting}
-function _isExemptPlayer(address sender, bytes calldata hookData) private view returns (bool) {
-    if (!isOpener[sender]) return false;           // AFTER: only trust the router's tag
-    if (hookData.length < 32) return false;
-    return taxExempt[abi.decode(hookData, (address))];
-}
-\end{lstlisting}
-
-The intended launch buy (deployer $\rightarrow$ router $\rightarrow$ pool) still
-works because the router is a registered opener. \textbf{Status: Fixed}, with a
-regression test asserting the opener gate.
-
-% ---- F-12 ----------------------------------------------------------------
-\subsection{F-12 --- Genesis bonus claimable by non-genesis tokenIds \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-12 · CauldronRegistry · Input Validation}
-\textbf{Location:} \texttt{claimGenesis}.
-\end{finding}
-
-\textbf{Description.} \texttt{claimGenesis(tokenId)} pays a founder's token bonus
-per MiFren. The reserve is sized for the genesis tranche
-(\texttt{1..genesisShares}), but the function did not bound \texttt{tokenId} to
-that range. Once iteration~2 mints volume MiFrens (ids $>$ \texttt{genesisShares}),
-those could race the founders for a finite reserve.
-
-\textbf{Remediation.} \texttt{if (mifrenTokenId == 0 || mifrenTokenId >
-genesisShares) revert BadConfig();}. \textbf{Status: Fixed} + tested.
-
-% ---- F-14 ----------------------------------------------------------------
-\subsection{F-14 --- Pluggable policy modules: gas-grief \& owner-set surface \sev{sevInfo}{(Info)}}
-
-\begin{finding}{sevInfo}{F-14 · CauldronHook · Upgradeability / DoS}
-\textbf{Location:} \texttt{deathChecker}, \texttt{surtaxPolicy}, \texttt{oddsPolicy},
-\texttt{curvePolicy} and their delegating call-sites.
-\end{finding}
-
-\textbf{Description.} To allow the death rule and the surtax / odds / mint curves
-to be \emph{upgraded without a proxy}, the hook delegates to optional external
-modules. This adds two surfaces: (i) a module is an external call in the swap hot
-path, so a pathological module could grief gas; (ii) the modules are owner/registry
-settable.
-
-\textbf{Design mitigations (verified sound).} The pattern is deliberately
-defensive: every delegation is (a) wrapped in \texttt{try/catch} so a reverting
-module \emph{always} falls back to the built-in rule and can never brick a swap or
-relaunch; (b) \emph{clamped} to the same hard caps as the built-ins
-(\texttt{MAX\_SNIPE\_BPS}, \texttt{ODDS\_HARD\_CAP\_BPS}, non-zero curve cost), so a
-module cannot exceed the surtax ceiling, guarantee a gacha win, or set a
-zero-cost mint; (c) a pure \texttt{view} (staticcall), so it cannot reenter or
-mutate state; and (d) never in a fund-moving path --- modules return \emph{numbers}
-only. The fund flows (fixed supply, 1:1 migration, LP recycling) remain immutable;
-only policy math is swappable.
-
-\textbf{Residual.} The setters share the F-03 owner-key surface. Recommendation:
-route \texttt{setDeathChecker}/\texttt{setPolicies} through the registry so they
-inherit the emergency timelock on mainnet, and hold the hook owner in a multisig.
-\textbf{Status: Mitigated} (bounded + fallback by construction; multisig is the
-mainnet operational step).
-
-% ---- F-15 ----------------------------------------------------------------
-\subsection{F-15 --- \texttt{LaunchSniper} \& finalizer gate centralization \sev{sevLow}{(Low)}}
-
-\begin{finding}{sevLow}{F-15 · MiFrensGenesis / LaunchSniper · Centralization}
-\textbf{Location:} \texttt{MiFrensGenesis.finalizer}, \texttt{finalize};
-\texttt{LaunchSniper}.
-\end{finding}
-
-\textbf{Description.} Genesis \texttt{finalize()} (which summons iteration~1 and
-seeds the pool) was permissionless. A bot could ignite first, breaking the team's
-\emph{atomic} launch-plus-buy and forcing a separate, MEV-exposed buy. A
-\texttt{finalizer} gate was added: if set, only that address (the
-\texttt{LaunchSniper}) may finalize. \texttt{LaunchSniper.launch()} then performs
-finalize $+$ tax-exempt buy $+$ forward-to-airdrop in one transaction.
-
-\textbf{Assessment.} This is an intentional, one-time, \emph{launch}-only
-centralization that improves user outcomes (no front-run, no dilution). It gates
-\emph{only} genesis ignition; all subsequent relaunches remain permissionless, and
-the finalizer cannot alter fund flows --- it can only be the one to press the
-already-fixed ``ignite'' button. On mainnet the launch tx should be submitted via
-a private mempool (Flashbots Protect) for the last mile. \textbf{Status: By
-design.}
-
-% ==========================================================================
-\section{Revision~3 Findings — Reserve-LP Migration Model}
-
-\noindent The un-migrated and genesis supply is no longer held as a registry
-ERC-20 \emph{balance} (which reads as a whale bag on explorers). Instead, at each
-summon/relaunch the full fixed supply is placed into \textbf{two} Uniswap~v4
-positions, both owned by the registry:
-\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
-\item \textbf{Active} (full range): sets the launch price + tradeable depth. Gen-1
-seeds it at $10\%$; every relaunch instead \emph{recycles} it to the tokens still
-in the dead pool's LP (the supply that never circulated), so the split
-self-balances --- the reserve auto-sizes to exactly the prior circulating supply
-(the real $1{:}1$ migration demand), less unclaimed genesis.
-\item \textbf{Reserve} (single-sided token, \emph{out of range below} the launch
-tick): the other $\sim\!90\%$. Since ETH is \texttt{currency0}, pool price is
-\emph{tokens-per-ETH}; a token that appreciates moves the price \emph{down}, so
-the reserve sits below launch and is pure \texttt{token1} until the token
-appreciates $\approx\!69\times$ into the range (\texttt{RESERVE\_CEILING\_OFFSET
-=42400} ticks $\approx \ln 69 / \ln 1.0001$).
-\end{itemize}
-Migration (\texttt{claimByBurn}, \texttt{autoMigrateBatch}) and the genesis bonus
-(\texttt{claimGenesis}) release tokens $1{:}1$ from the current generation's
-reserve via \texttt{decreaseLiquidity} + \texttt{TAKE\_PAIR} to the claimant ---
-pure token, \emph{zero ETH, no price movement}. All V4 encoding lives in the
-external linked library \texttt{PoolOps} (\texttt{delegatecall}'d, stateless),
-which also let the registry runtime shrink from $25{,}117$ to $20{,}062$ bytes.
-\emph{Verified live on Sepolia}: after summon the registry's loose token balance
-was $3.7\times10^{-15}$ of the $777$M supply (the entire supply is in the two
-positions), and a live \texttt{claimGenesis} released exactly $69{,}936.99$ tokens
-($77.7\text{M}/1111$) from the reserve, decrementing its liquidity while leaving
-it open.
-
-% ---- F-16 ----------------------------------------------------------------
-\subsection{F-16 --- Reserve exhaustion could under-fill a late migration \sev{sevLow}{(Low)}}
-\texttt{claimFromReserve} clamps the removed liquidity to what the position holds,
-so if the reserve were ever short it would return \emph{less} than the requested
-$1{:}1$ amount after the caller's old tokens are already burned. In practice the
-reserve is $\sim\!90\%$ of a freshly-minted full supply each generation while the
-claimable amount (circulating prior-gen supply + outstanding genesis) is bounded
-well below that, so exhaustion is not reachable under normal operation.
-\textbf{Recommendation:} add an explicit \texttt{require} that the post-removal
-token-out $\geq$ requested (revert rather than under-fill), so a burn can never
-settle for less than $1{:}1$. \textbf{Status: Acknowledged.}
-
-% ---- F-17 ----------------------------------------------------------------
-\subsection{F-17 --- A $\geq$69$\times$ pump sells the reserve wall for ETH \sev{sevLow}{(Low)}}
-If the token trades up $\approx\!69\times$, spot enters the reserve range and the
-pool begins converting reserve \texttt{token1} into ETH --- depleting the token
-available for $1{:}1$ migration at the top. This is the deliberate ceiling: the
-reserve doubles as deep sell-side liquidity only at valuations where a holder is
-strictly better off, and the captured ETH accrues to the protocol-owned position
-(recycled at relaunch). Migrators arriving post-pump receive ETH-value rather than
-$1{:}1$ token. \textbf{Status: By design} (the $69\times$ ceiling was chosen
-explicitly; raising \texttt{RESERVE\_CEILING\_OFFSET} hardens the peg further at
-the cost of moon-time ETH capture).
-
-% ---- F-18 ----------------------------------------------------------------
-\subsection{F-18 --- \texttt{PoolOps} external-library delegatecall surface \sev{sevInfo}{(Info)}}
-\texttt{PoolOps} is a \texttt{delegatecall}'d linked library: it executes in the
-registry's context (\texttt{this}=registry, which owns the tokens/positions and is
-the \texttt{msg.sender} seen by the PositionManager/Permit2). It is
-\textbf{stateless}, contains no \texttt{selfdestruct} or \texttt{delegatecall} of
-its own, and only calls the trusted PoolManager, PositionManager, Permit2, and the
-in-house token. The link address is fixed at deploy time by the toolchain. All
-reserve/claim calls occur inside \texttt{nonReentrant} registry entrypoints, so a
-PositionManager callback cannot re-enter. \textbf{Status: Reviewed --- no issue.}
-
-% ---- F-19 ----------------------------------------------------------------
-\subsection{F-19 --- Claims are non-sandwichable \sev{sevInfo}{(Positive)}}
-Because the reserve is \emph{out of range}, \texttt{decreaseLiquidity} returns a
-deterministic token amount and moves spot price by zero. A migration/genesis claim
-therefore has no MEV surface --- there is no price impact to sandwich and
-\texttt{amount1Min} slippage is moot. This is a strict improvement over a
-held-pool \texttt{transfer} model (which was also MEV-free but exposed the supply
-as a wallet balance). \textbf{Status: Positive property.}
-
-% ==========================================================================
-\section{Positive Security Properties}
-
-The following invariants were examined and found \textbf{sound}:
-
-\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
-  \item \textbf{Non-inflationary migration.} \texttt{claimByBurn} burns the
-        caller's previous-generation balance \emph{before} minting the current
-        token $1{:}1$, so cross-iteration supply is conserved and no token can be
-        claimed twice (dead tokens are frozen against transfer).
-  \item \textbf{Airdrop follows the NFT.} \texttt{claimGenesis} keys on
-        \texttt{genesisClaimed[tokenId]} and gates on live \texttt{ownerOf}, so
-        the claim right transfers with secondary sales and can never double-pay.
-  \item \textbf{Vault solvency.} \texttt{CauldronVault.redeem} follows CEI under
-        a reentrancy guard; \texttt{floor = balance / outstanding} is preserved
-        across redemptions (both numerator and denominator drop by one share).
-  \item \textbf{Dividend accounting.} \texttt{MiFrensDividend} uses an $O(1)$
-        MasterChef accumulator with sub-share \texttt{residual} carry; the
-        presale's \texttt{finalize()} guarantees the genesis tranche is fully
-        minted before any fee accrues, so no share is unclaimable.
-  \item \textbf{Snapshot voting.} \texttt{CauldronGovernor} weights votes by
-        \texttt{getPastVotes} at the proposal snapshot, defeating
-        transfer-and-revote; one vote per address per proposal.
-  \item \textbf{Reentrancy.} All external state-changing entrypoints
-        (\texttt{summon}, \texttt{relaunch}, \texttt{claimByBurn},
-        \texttt{claimGenesis}, vault \texttt{redeem}/\texttt{close}, dividend
-        \texttt{claim}, router \texttt{play}/\texttt{playChurn}) carry
-        \texttt{nonReentrant} guards and update state before external calls.
-  \item \textbf{Arithmetic.} Seed price uses \texttt{FullMath.mulDiv} to avoid the
-        \texttt{tokenAmount << 192} overflow; credit accrual saturates rather than
-        reverting a swap.
-  \item \textbf{Reduced owner surface.} Registry ownership is handed to the
-        autonomous presale post-deploy, freezing owner-only configuration.
-\end{itemize}
-
-% ==========================================================================
-\section{Test Coverage \& Verification}
-
-All fixes were compiled under the project's \texttt{cauldron} Foundry profile
-(\texttt{via\_ir}) and exercised by the test suite:
+A full-scope gas review was run across all contracts, prompted by a concrete failure:
+\textbf{in-swap liquidation of a short position silently no-oped under a normal
+swap's gas budget}. A short liquidation was measured at \textbf{$\approx$957k gas}; the
+hook only forwards \texttt{gasleft $-$ 180k} to the sweep and only fires it above
+$\approx$430k, so an ordinary router/UI swap never carried enough gas to settle a
+short — the position stayed open despite being underwater at the mark, and no
+Liquidatoor badge was struck.
 
 \begin{center}\small
-\begin{tabular}{@{}lr@{}}
+\begin{longtable}{llp{0.40\textwidth}l}
 \toprule
-\textbf{Metric} & \textbf{Value} \\
+\textbf{ID} & \textbf{Contract} & \textbf{Optimization} & \textbf{Impact}\\
 \midrule
-Test suites & 10 \\
-Tests passing & \textbf{66 / 66} \\
-New regression tests (both engagements) & 12 \\
-\quad --- \texttt{CauldronTokenFreeze.t.sol} (F-02) & 2 \\
-\quad --- \texttt{CauldronHookAccess.t.sol} (F-01) & 3 \\
-\texttt{CauldronRegistry} runtime & 24{,}458 / 24{,}576 B · \texttt{CauldronHook} 16{,}229 (EIP-170) \\
+\endhead
+G-01 & PerpEngine & \texttt{OBS\_CARDINALITY} 128$\rightarrow$32 — the TWAP mark
+  loop cold-read 128 slots but a 5-min window at 30s spacing can never use $>$$\sim$10 & $\approx$$-$200k on the first mark loop\\
+G-02 & PerpEngine & Cache the TWAP mark ONCE per liquidation — it was recomputed
+  2--3$\times$ (\texttt{\_underwater} + notional-cap); now the value is computed once
+  and reused (\texttt{\_underwaterVal}) & removes 1--2 redundant mark loops\\
+G-03 & PerpEngine & Liquidatoor badge is now \textbf{hybrid}: a gas-bounded
+  best-effort auto-mint in-swap (matching the creature-NFT UX) that downgrades to a
+  claimable credit (\texttt{claimLiquidatorBadges}) only when gas is tight — so a
+  liquidation never reverts on the trophy & removes the badge from the critical path\\
+G-04 & All & Loop hygiene: cache \texttt{.length}, \texttt{unchecked \{++i\}},
+  and cache the \texttt{minted} counter in \texttt{MiFrensGenesis.mint} (was a
+  storage read+write every iteration, up to 100$\times$/mint) & per-iteration SLOAD/SSTORE
+  savings; also \emph{shrinks} bytecode\\
 \bottomrule
-\end{tabular}
+\end{longtable}
 \end{center}
+
+\noindent\textbf{Result.} A short liquidation dropped from $\approx$957k to
+$\approx$450k gas, and the in-swap path (which reuses the already-open PoolManager
+lock and no longer mints the badge) is lighter still — so swaps carrying a normal
+router/UI gas budget now trigger short liquidations, closing the ``every swap
+liquidates'' gap. Ultra-tight swaps still defer to the permissionless keeper
+(\texttt{liquidate}/\texttt{sweepLiquidations}), which mainnet MEV bots run. All 141
+fork tests remain green and every deployable contract stays under EIP-170 (the
+\texttt{unchecked} loops reclaimed bytecode headroom on the byte-tight engine).
+
+\noindent\textbf{Note.} These are code-level improvements; the currently-deployed r30
+contracts realise them on the next deployment (r31). No behavioural or economic
+change — badge attribution is preserved by the event; the pull-claim mints the same
+trophy into the live collection.
 
 % ==========================================================================
 \section{Conclusion}
 
-The Cauldron implements an ambitious, largely trust-minimised design: a token
-lifecycle that funds and perpetuates itself from its own trading fees, with NFT
-governance selecting each successor and a fee dividend rewarding the founding
-guild. The core value-conserving invariants --- $1{:}1$ migration, vault
-solvency, dividend accounting, and snapshot voting --- are well constructed and
-defended by reentrancy guards and CEI ordering.
-
-The two engagements identified two High, two Medium, and several lower-severity issues; the High/Medium fund-relevant ones
-were remediated with minimal, well-scoped changes and are now regression-tested.
-The residual risk is concentrated in the two privileged roles (F-03), which are
-mitigated on-chain by an immutable emergency timelock and, for the hook, by the
-new write-once registry binding. We recommend the mainnet operational hardening
-in F-03 (multisig custody of both privileged roles, with a published
-decommissioning path) as the final step toward the protocol's stated goal of an
-``unstoppable, autonomous'' machine.
-
-\vspace{0.6cm}
-\begin{center}\small\itshape
-End of report. Findings reflect the codebase state at the time of review; any
-subsequent change should be re-audited.
-\end{center}
+The Cauldron's principal-holding paths are, to the depth of this review, free of
+unresolved Critical/High vulnerabilities. The one Medium issue surfaced by this
+review — an untrusted external call in the swap fee path — was fixed in place with a pull
+pattern. The protocol's remaining material risk is governance centralization, which it
+addresses not by removing power but by making every dangerous action slow, visible,
+vetoable, and — crucially — always preceded by a \emph{funded, un-blockable floor exit}.
+For mainnet we recommend: a $\geq$7-day emergency delay, a guardian multisig independent of
+the timelock proposers, \texttt{SafeERC20} throughout, and gating \texttt{setSuccessor}
+behind a genesis-fren ratification vote. With those, the ``eternal machine'' can upgrade
+itself toward the V2 cellular-division design as a governed pointer swap on live
+liquidity — never a teardown.
 
 \end{document}

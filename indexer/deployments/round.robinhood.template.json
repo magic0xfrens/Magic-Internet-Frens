@@ -1,0 +1,31 @@
+{
+  "_comment": "TEMPLATE for the Robinhood MAINNET cutover — NOT live. At mainnet launch: copy this over round.json, fill every <FILL> from the DeployLaunchpad + DeployPerp broadcast logs + the first-summon tx, then `node scripts/deploy-round.mjs --push` (frontend) and redeploy the indexer on Railway. Keep `schema` a NEW value so Ponder does a clean reindex on the new chain. poolManager is the CONFIRMED Uniswap v4 PoolManager on Robinhood (chain 4663).",
+  "round": 1,
+  "schema": "cauldron_rh1",
+  "chainId": 4663,
+  "indexerUrl": "<FILL: Railway mainnet indexer URL>",
+  "blocks": {
+    "deploy": 0,
+    "perp": 0,
+    "indexer": 0,
+    "_note": "deploy = CauldronRegistry deploy block; perp = PerpEngine deploy block; indexer = a few blocks before the first summon (bounds getLogs). Fill from broadcast logs."
+  },
+  "contracts": {
+    "registry": "<FILL from DeployLaunchpad>",
+    "hook": "<FILL from DeployLaunchpad>",
+    "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "governor": "<FILL from DeployLaunchpad>",
+    "dividend": "<FILL from DeployLaunchpad>",
+    "presale": "<FILL from DeployLaunchpad>",
+    "gachaRouter": "<FILL from DeployLaunchpad>",
+    "timelock": "<FILL from DeployLaunchpad>",
+    "collectionLedger": "<FILL from DeployLaunchpad>",
+    "perpEngine": "<FILL from DeployPerp>",
+    "perpVault": "<FILL from DeployPerp>"
+  },
+  "poolIds": [
+    "<FILL: gen-1 poolId from the summon tx>"
+  ],
+  "genesisSupply": 1111,
+  "deathThresholdEth": 0
+}

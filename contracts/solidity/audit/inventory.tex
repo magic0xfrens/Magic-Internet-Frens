@@ -1,0 +1,839 @@
+\subsubsection*{\texttt{CauldronRegistry.sol} \textemdash{} contract \texttt{CauldronRegistry} \hfill \normalfont\small(52 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L122} & inte & -- & -- & Wires poolManager/positionManager/hook into SHARED STORAGE (not immutables, so the facet reads them under delegatecall) and fixes emergencyAdmin/emergencyDelay. \newline \textit{State:} W poolManager,\allowbreak{} positionManager,\allowbreak{} hook,\allowbreak{} emergencyAdmin,\allowbreak{} emergencyDelay \\
+\texttt{set\allowbreak{}Redemption\allowbreak{}Ext}\,{\tiny L143} & exte & -- & only\allowbreak{}Owner & One-shot wiring of the delegatecall facet; rejects EOAs (an empty target would make every forwarded redemption a silent no-op). \newline \textit{State:} W redemptionExt \newline \textit{Calls:} ext.\allowbreak{}code.\allowbreak{}length \\
+\texttt{set\allowbreak{}Reserve\allowbreak{}Ceiling}\,{\tiny L156} & exte & -- & only\allowbreak{}Owner & Per-iteration reserve ceiling (tick offset, default $\approx69\times$), bounded [4000,138000]. \newline \textit{State:} W nextReserveCeilingOffset \\
+\texttt{set\allowbreak{}Seeder}\,{\tiny L174} & exte & -- & only\allowbreak{}Owner & Wires the progressive streamer and propagates it to the hook's in-swap nudge. \newline \textit{State:} W seeder \newline \textit{Calls:} hook.\allowbreak{}setSeeder \\
+\texttt{set\allowbreak{}Seed\allowbreak{}Window}\,{\tiny L185} & exte & -- & only\allowbreak{}Owner & Launch window for the NEXT summon/relaunch; 0 = atomic. Bounded [60s, 7d]. \newline \textit{State:} W nextSeedWindow \\
+\texttt{enchant\allowbreak{}Fee}\,{\tiny L194} & exte & view & -- & View: token fee a MOVED fren pays to re-enchant = floor $\times$ enchantFeeMultBps. \newline \textit{State:} R genesisReserveOutstanding,\allowbreak{} genesisShares,\allowbreak{} enchantFeeMultBps \\
+\texttt{arm\allowbreak{}Emergency}\,{\tiny L217} & exte & -- & only\allowbreak{}Emergency & Announces a custody action on-chain; starts the timelock AND forces the redemption exit open. \newline \textit{State:} W emergencyReadyAt \\
+\texttt{set\allowbreak{}Guardian}\,{\tiny L225} & exte & -- & -- & Sets the veto-only safety role (owner pre-handoff, emergencyAdmin after). \newline \textit{State:} W guardian \\
+\texttt{veto\allowbreak{}Emergency}\,{\tiny L235} & exte & -- & -- & Guardian-only cancel of an armed action. Can only block, never move funds. \newline \textit{State:} W emergencyReadyAt \\
+\texttt{set\allowbreak{}Redemption\allowbreak{}Paused}\,{\tiny L250} & exte & -- & only\allowbreak{}Emergency & Fast circuit-breaker on the OG redemption path (emergencyAdmin, not timelocked). \newline \textit{State:} W redemptionPaused \\
+\texttt{set\allowbreak{}Enchant\allowbreak{}Fee\allowbreak{}Mult}\,{\tiny L259} & exte & -- & only\allowbreak{}Emergency & Tunes the re-enchant multiple, capped at $100\times$. \newline \textit{State:} W enchantFeeMultBps \\
+\texttt{emergency\allowbreak{}Withdraw\allowbreak{}LP}\,{\tiny L266} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} only\allowbreak{}Emergency,\allowbreak{} timelocked & BREAK-GLASS: pulls a generation's active+reserve LP to the admin. Timelocked. \newline \textit{State:} R generationToken; via \_removeLiquidity \newline \textit{Calls:} PoolOps.\allowbreak{}removeAll,\allowbreak{} ISeeder.\allowbreak{}withdrawAll,\allowbreak{} IERC20.\allowbreak{}transfer,\allowbreak{} admin.\allowbreak{}call \\
+\texttt{emergency\allowbreak{}Sweep}\,{\tiny L279} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} only\allowbreak{}Emergency,\allowbreak{} timelocked & BREAK-GLASS: sweeps the registry's ETH or an ERC20 to the admin. Timelocked. \newline \textit{Calls:} IERC20.\allowbreak{}transfer,\allowbreak{} admin.\allowbreak{}call \\
+\texttt{set\allowbreak{}Successor}\,{\tiny L296} & exte & -- & only\allowbreak{}Emergency & Telegraphs the V2 pointer. Does not move custody. \newline \textit{State:} W successor \\
+\texttt{set\allowbreak{}Claim\allowbreak{}Gate}\,{\tiny L305} & exte & -- & only\allowbreak{}Emergency & Routes instant 1:1 migration through the vesting escrow (0 = off). \newline \textit{State:} W claimGate \\
+\texttt{migrate\allowbreak{}To\allowbreak{}Successor}\,{\tiny L320} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} only\allowbreak{}Emergency,\allowbreak{} timelocked & V2 HANDOFF: transfers the active+reserve position NFTs' OWNERSHIP (no LP teardown) plus loose token/ETH. Armed+timelocked+vetoable. \newline \textit{State:} R generationPositionId,\allowbreak{} generationReservePositionId,\allowbreak{} generationToken \newline \textit{Calls:} IERC721.\allowbreak{}transferFrom,\allowbreak{} IERC20.\allowbreak{}transfer,\allowbreak{} successor.\allowbreak{}call \\
+\texttt{receive}\,{\tiny L345} & exte & paya & -- & Accepts ETH (vault sweeps, hook releases, prime-buy funding). \\
+\texttt{set\allowbreak{}Governor}\,{\tiny L352} & exte & -- & only\allowbreak{}Owner & Points relaunch at the proposal governor. \newline \textit{State:} W governor \\
+\texttt{set\allowbreak{}Min\allowbreak{}Lifetime}\,{\tiny L357} & exte & -- & only\allowbreak{}Emergency & Grace period a newborn brew gets before it can be relaunched. \newline \textit{State:} W minLifetime \\
+\texttt{set\allowbreak{}Factory}\,{\tiny L362} & exte & -- & only\allowbreak{}Owner & Collection/vault factory (required before summon). \newline \textit{State:} W factory \\
+\texttt{set\allowbreak{}Nft\allowbreak{}Max\allowbreak{}Supply}\,{\tiny L367} & exte & -- & only\allowbreak{}Owner & Default per-brew NFT cap. \newline \textit{State:} W nftMaxSupply \\
+\texttt{set\allowbreak{}Royalty}\,{\tiny L374} & exte & -- & only\allowbreak{}Owner & EIP-2981 receiver + rate ($\le10\%$) stamped into every brew's collection. \newline \textit{State:} W royaltyDividend,\allowbreak{} royaltyBps \\
+\texttt{set\allowbreak{}Genesis\allowbreak{}Metadata}\,{\tiny L382} & exte & -- & only\allowbreak{}Owner & Iteration-1 art source (renderer or baseURI). \newline \textit{State:} W genesisMode,\allowbreak{} genesisBaseURI,\allowbreak{} genesisRenderer \\
+\texttt{set\allowbreak{}Genesis\allowbreak{}Bonus}\,{\tiny L398} & exte & -- & only\allowbreak{}Owner & Reserves a slice of gen-1 supply for the founding guild; pre-summon only, $\le30\%$. \newline \textit{State:} W mifrens,\allowbreak{} genesisBonusBps,\allowbreak{} genesisShares \\
+\texttt{set\allowbreak{}Airdrop\allowbreak{}Reserve}\,{\tiny L413} & exte & -- & only\allowbreak{}Owner & Carves an OG-airdrop tranche sent off-LP at summon; capped at 20\% of supply. \newline \textit{State:} W airdropWallet,\allowbreak{} airdropReserve \\
+\texttt{set\allowbreak{}Prime\allowbreak{}Funder}\,{\tiny L422} & exte & -- & only\allowbreak{}Owner & Authorises the prime-buy funder (survives the ownership handoff). \newline \textit{State:} W primeFunder \\
+\texttt{fund\allowbreak{}Prime\allowbreak{}Buy}\,{\tiny L432} & exte & paya & -- & Funder pre-loads personal ETH for the genesis first-block market buy. \newline \textit{State:} W primeBuyEth \\
+\texttt{sweep\allowbreak{}Prime\allowbreak{}Buy}\,{\tiny L438} & exte & -- & -- & Funder reclaims un-spent prime-buy ETH. \newline \textit{State:} W primeBuyEth \newline \textit{Calls:} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{summon}\,{\tiny L459} & exte & paya & non\allowbreak{}Reentrant,\allowbreak{} only\allowbreak{}Owner & GENESIS. Deploys gen-1 token (CREATE2), sizes the genesis bonus, sends the airdrop tranche, seeds the pool (progressive or green-candle), executes the prime buy, deploys the collection. \newline \textit{State:} W summoned,\allowbreak{} currentGeneration,\allowbreak{} currentToken,\allowbreak{} generationToken,\allowbreak{} genesisSharePerFren,\allowbreak{} genesisReserveOutstanding,\allowbreak{} lastSummonAt,\allowbreak{} primeBuyEth,\allowbreak{} \_seedBuyUnlocked \newline \textit{Calls:} PoolOps.\allowbreak{}creatureFor/\allowbreak{}deployToken/\allowbreak{}createAndSeed*/\allowbreak{}primeBuy,\allowbreak{} IERC20.\allowbreak{}transfer,\allowbreak{} factory.\allowbreak{}deployBrew,\allowbreak{} hook.\allowbreak{}setCollection/\allowbreak{}setVault \\
+\texttt{relaunch}\,{\tiny L552} & exte & -- & non\allowbreak{}Reentrant & PERMISSIONLESS REBIRTH. Checks death + grace + governance, force-closes perps, tears down the dead LP+seeder, burns recovered supply, drains tickets, closes the vault, pulls hook fees, sizes the new active/reserve split, deploys+seeds the newborn, re-wires the collection and the engine. \newline \textit{State:} W currentGeneration,\allowbreak{} currentToken,\allowbreak{} generationToken/\allowbreak{}Proposer/\allowbreak{}Parent,\allowbreak{} lastSummonAt,\allowbreak{} genesisReserveOutstanding,\allowbreak{} genesisPending \newline \textit{Calls:} hook.\allowbreak{}isDead/\allowbreak{}resolveTickets/\allowbreak{}relaunchETH/\allowbreak{}releaseRelaunchETH/\allowbreak{}forceClosePerps/\allowbreak{}setActiveProposer/\allowbreak{}setNftCurveFrom,\allowbreak{} governor.\allowbreak{}winner/\allowbreak{}markConsumed,\allowbreak{} IVaultClose.\allowbreak{}close,\allowbreak{} PoolOps.\allowbreak{}*,\allowbreak{} ISeeder.\allowbreak{}withdrawAll,\allowbreak{} CauldronToken.\allowbreak{}burn,\allowbreak{} factory.\allowbreak{}* \\
+\texttt{\_perp\allowbreak{}Housekeep}\,{\tiny L727} & priv & -- & -- & Best-effort perp relaunch housekeeping: force-close-all (pre-death) or syncGeneration (post-rebirth). try/catch so it can never brick the rebirth. \newline \textit{Calls:} hook.\allowbreak{}perpEngine,\allowbreak{} hook.\allowbreak{}forceClosePerps,\allowbreak{} IPerpSync.\allowbreak{}syncGeneration \\
+\texttt{\_deploy\allowbreak{}Collection}\,{\tiny L745} & priv & -- & -- & Deploys a brew's collection+vault via the factory and points the hook at them. \newline \textit{State:} W generationCollection,\allowbreak{} generationVault \newline \textit{Calls:} factory.\allowbreak{}deployBrew,\allowbreak{} hook.\allowbreak{}setCollection,\allowbreak{} hook.\allowbreak{}setVault \\
+\texttt{\_continue\allowbreak{}Mi\allowbreak{}Frens}\,{\tiny L794} & priv & -- & -- & Iteration \#2 special case: CONTINUES the canonical MiFrens collection (new vault only, hook becomes minter). \newline \textit{State:} W generationCollection,\allowbreak{} generationVault \newline \textit{Calls:} factory.\allowbreak{}deployVault,\allowbreak{} IMiFrensContinuable.\allowbreak{}setVault/\allowbreak{}setMinter,\allowbreak{} hook.\allowbreak{}setCollection/\allowbreak{}setVault \\
+\texttt{claim\allowbreak{}By\allowbreak{}Burn}\,{\tiny L835} & exte & -- & -- & 1:1 MIGRATION. Burns the caller's previous-gen balance and releases the same amount from the out-of-range reserve. Deliberately NOT nonReentrant so the perp engine can migrate during relaunch. \newline \textit{State:} R claimGate,\allowbreak{} generationToken,\allowbreak{} generation reserve refs \newline \textit{Calls:} hook.\allowbreak{}perpEngine,\allowbreak{} PoolOps.\allowbreak{}migrateOne $\to$ CauldronToken.\allowbreak{}burn + PositionManager.\allowbreak{}modifyLiquidities \\
+\texttt{enable\allowbreak{}Auto\allowbreak{}Migrate}\,{\tiny L875} & exte & paya & -- & Opt into keeper-executed migration; free for fren holders, 0.069\,ETH otherwise. \newline \textit{State:} W autoMigrate \newline \textit{Calls:} IERC721.\allowbreak{}balanceOf \\
+\texttt{auto\allowbreak{}Migrate\allowbreak{}Batch}\,{\tiny L894} & exte & -- & non\allowbreak{}Reentrant & Keeper batch migration for opted-in holders. Disabled while the vesting gate is on. \newline \textit{State:} R autoMigrate,\allowbreak{} claimGate \newline \textit{Calls:} PoolOps.\allowbreak{}autoMigrateBatch \\
+\texttt{redeem\allowbreak{}Og\allowbreak{}Fren}\,{\tiny L937} & exte & -- & -- & Thin DELEGATECALL forwarder to {RedemptionExt}. Must not be nonReentrant (the facet's guard uses the same slot). \newline \textit{Calls:} delegatecall redemptionExt \\
+\texttt{buy\allowbreak{}Treasury\allowbreak{}Og\allowbreak{}Fren}\,{\tiny L943} & exte & -- & -- & Forwarder to {RedemptionExt}. \newline \textit{Calls:} delegatecall redemptionExt \\
+\texttt{donate\allowbreak{}To\allowbreak{}Reserve}\,{\tiny L949} & exte & -- & -- & Forwarder to {RedemptionExt}. \newline \textit{Calls:} delegatecall redemptionExt \\
+\texttt{materialize\allowbreak{}Legacy\allowbreak{}Reserve}\,{\tiny L955} & exte & -- & -- & Forwarder to {RedemptionExt}. \newline \textit{Calls:} delegatecall redemptionExt \\
+\texttt{\_forward\allowbreak{}To\allowbreak{}Ext}\,{\tiny L965} & priv & -- & -- & Raw-assembly DELEGATECALL of the full calldata into the facet, bubbling returndata/reverts; rejects a zero target. \newline \textit{State:} R redemptionExt \newline \textit{Calls:} delegatecall \\
+\texttt{set\allowbreak{}Collection\allowbreak{}Ledger}\,{\tiny L987} & exte & -- & only\allowbreak{}Owner & Wires the legacy-floor cap table (0 = feature off). \newline \textit{State:} W collectionLedger \\
+\texttt{\_flush\allowbreak{}Legacy\allowbreak{}At\allowbreak{}Relaunch}\,{\tiny L1008} & priv & -- & -- & At death, sweeps the hook's un-materialised buyback tokens, BURNS them, and credits the dying collection's ledger as a pure number. \newline \textit{State:} W genesisPending \newline \textit{Calls:} PoolOps.\allowbreak{}materializeLegacy \\
+\texttt{recycle\allowbreak{}Collection\allowbreak{}NFT}\,{\tiny L1022} & exte & -- & non\allowbreak{}Reentrant & Recycles a volume-collection NFT for its ledger floor, paid from the shared live reserve; NFT moves to the treasury. \newline \textit{State:} R collectionLedger,\allowbreak{} generationCollection,\allowbreak{} reserve refs \newline \textit{Calls:} PoolOps.\allowbreak{}recycleCollection $\to$ ledger.\allowbreak{}redeem + collection.\allowbreak{}custodyTransfer + reserve claim \\
+\texttt{buy\allowbreak{}Collection\allowbreak{}NFT}\,{\tiny L1040} & exte & -- & non\allowbreak{}Reentrant & Buys a treasury-held collection NFT at $2\times$ floor; payment is added to the reserve and ratchets the floor. \newline \textit{State:} same as above \newline \textit{Calls:} PoolOps.\allowbreak{}buyCollection \\
+\texttt{\_remove\allowbreak{}Liquidity}\,{\tiny L1063} & priv & -- & -- & Removes BOTH positions of a retired generation and unwinds the seeder's mini-positions; returns (eth, tokens) recovered. \newline \textit{State:} R generationPoolKey/\allowbreak{}PositionId/\allowbreak{}ReservePositionId,\allowbreak{} seeder \newline \textit{Calls:} PoolOps.\allowbreak{}removeAll,\allowbreak{} ISeeder.\allowbreak{}seeding/\allowbreak{}withdrawAll \\
+\texttt{\_deploy\allowbreak{}Token}\,{\tiny L1108} & priv & -- & -- & CREATE2 token deploy delegated to PoolOps (keeps the 3.2\,KB creation blob out of the registry). \newline \textit{Calls:} PoolOps.\allowbreak{}deployToken \\
+\texttt{\_create\allowbreak{}Pool\allowbreak{}And\allowbreak{}Seed\allowbreak{}With\allowbreak{}Buy}\,{\tiny L1146} & priv & -- & -- & ATOMIC seed: green-candle path. Arms \_seedBuyUnlocked around the PoolManager re-entry. \newline \textit{State:} W \_seedBuyUnlocked \newline \textit{Calls:} PoolOps.\allowbreak{}createAndSeedWithBuy \\
+\texttt{\_seed\allowbreak{}Generation}\,{\tiny L1177} & priv & -- & -- & Dispatches between the PROGRESSIVE handoff and the ATOMIC green-candle seed. \newline \textit{State:} R seeder,\allowbreak{} nextSeedWindow \newline \textit{Calls:} PoolOps.\allowbreak{}createAndSeedProgressive /\allowbreak{} \_createPoolAndSeedWithBuy \\
+\texttt{\_record\allowbreak{}Seed}\,{\tiny L1198} & priv & -- & -- & Persists poolId/key/positionIds/reserve ticks for a generation. \newline \textit{State:} W generationPoolId/\allowbreak{}PoolKey/\allowbreak{}PositionId/\allowbreak{}ReservePositionId,\allowbreak{} reserveTickLower/\allowbreak{}Upper \\
+\texttt{unlock\allowbreak{}Callback}\,{\tiny L1215} & exte & -- & -- & PoolManager unlock entry, accepted ONLY from the manager and ONLY while a seed/prime buy is armed. \newline \textit{State:} R poolManager,\allowbreak{} \_seedBuyUnlocked \newline \textit{Calls:} PoolOps.\allowbreak{}executeBuy \\
+\texttt{has\allowbreak{}Claimed}\,{\tiny L1225} & exte & view & -- & Legacy view over the (now unused) per-generation claimed map. \newline \textit{State:} R claimed \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{IPerpEngineLiq} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{liquidate\allowbreak{}In\allowbreak{}Swap}\,{\tiny L27} & exte & -- & -- & Interface declaration --- In-swap liquidation surface the hook calls from afterSwap. \\
+\texttt{liquidate\allowbreak{}Many\allowbreak{}In\allowbreak{}Swap}\,{\tiny L28} & exte & -- & -- & Interface declaration --- In-swap liquidation surface the hook calls from afterSwap. \\
+\texttt{sweep\allowbreak{}Liquidations}\,{\tiny L29} & exte & -- & -- & Interface declaration --- In-swap liquidation surface the hook calls from afterSwap. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{ICollectionLiquidator} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{set\allowbreak{}Liquidator\allowbreak{}Minter}\,{\tiny L34} & exte & -- & -- & Interface declaration --- Badge-minter wiring the hook auto-applies per brew. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{ILegacyNote} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{note\allowbreak{}Legacy\allowbreak{}Buy}\,{\tiny L40} & exte & -- & -- & Interface declaration --- Legacy buyback note (superseded by the sweep+credit pair). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{IPerpForceClose} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{force\allowbreak{}Close\allowbreak{}All\allowbreak{}Dead}\,{\tiny L45} & exte & -- & -- & Interface declaration --- Relaunch force-close surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{IPerpFeeCredit} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{credit\allowbreak{}Perp\allowbreak{}Fee}\,{\tiny L51} & exte & paya & -- & Interface declaration --- Perp-fee credit surface (ETH side / token side). \\
+\texttt{credit\allowbreak{}Perp\allowbreak{}Fee\allowbreak{}Token}\,{\tiny L52} & exte & paya & -- & Interface declaration --- Perp-fee credit surface (ETH side / token side). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} interface \texttt{ISeederInSwap} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{poke\allowbreak{}In\allowbreak{}Swap}\,{\tiny L59} & exte & -- & -- & Interface declaration --- The seeder's in-swap nudge. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronHook.sol} \textemdash{} contract \texttt{CauldronHook} \hfill \normalfont\small(71 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L429} & inte & -- & -- & BaseHook validates the mined address flags; sets deathThreshold, nftContract, treasury, explicit owner. \newline \textit{State:} W deathThreshold,\allowbreak{} nftContract,\allowbreak{} treasury \newline \textit{Calls:} Hooks.\allowbreak{}validateHookPermissions \\
+\texttt{get\allowbreak{}Hook\allowbreak{}Permissions}\,{\tiny L445} & publ & pure & -- & Declares afterInitialize + before/afterSwap + both return-delta flags. \\
+\texttt{\_after\allowbreak{}Initialize}\,{\tiny L473} & inte & -- & -- & Marks ANY pool that names this hook as tracked and anchors its anti-snipe window. No allow-list (finding C-01). \newline \textit{State:} W trackedPools,\allowbreak{} \_lastUpdateBlock,\allowbreak{} poolInitBlock \\
+\texttt{\_after\allowbreak{}Swap}\,{\tiny L493} & inte & -- & -- & The heart: legacy buyback trigger, progressive poke, volume + crystal credit, hint-free perp liquidation sweep, native gacha, and the SELL-leg ETH fee via return delta. \newline \textit{State:} W volume buckets,\allowbreak{} cumulativeVolume,\allowbreak{} nftCredit,\allowbreak{} lifetimeVolumeOf,\allowbreak{} totalLifetimeVolume \newline \textit{Calls:} seeder.\allowbreak{}pokeInSwap,\allowbreak{} perpEngine.\allowbreak{}sweepLiquidations,\allowbreak{} self.\allowbreak{}nativeGachaStep,\allowbreak{} self.\allowbreak{}legacyBuyStep,\allowbreak{} poolManager.\allowbreak{}take,\allowbreak{} quest.\allowbreak{}call \\
+\texttt{\_maybe\allowbreak{}Legacy\allowbreak{}Buyback}\,{\tiny L662} & priv & -- & -- & Gas-bounded, result-ignored self-call that market-buys the token when the buffer is full. Uses the CURRENT swap's PoolKey (finding C-01). \newline \textit{State:} R legacyRegistry,\allowbreak{} legacyBuffer,\allowbreak{} legacyThreshold \newline \textit{Calls:} self.\allowbreak{}legacyBuyStep \\
+\texttt{\_maybe\allowbreak{}Poke}\,{\tiny L678} & priv & -- & -- & Gas-bounded, result-ignored nudge of the progressive seeder from inside the swap (keeperless streaming). \newline \textit{State:} R seeder \newline \textit{Calls:} seeder.\allowbreak{}pokeInSwap \\
+\texttt{legacy\allowbreak{}Buy\allowbreak{}Step}\,{\tiny L694} & exte & -- & -- & SELF-ONLY. Spends the buffered ETH on a nested exact-input buy, holds the tokens, and books legacyOwedToReserve. \newline \textit{State:} W legacyBuffer,\allowbreak{} legacyOwedToReserve,\allowbreak{} \_inSelfBuy \newline \textit{Calls:} poolManager.\allowbreak{}swap/\allowbreak{}settle/\allowbreak{}take \\
+\texttt{fund\allowbreak{}Legacy\allowbreak{}Buffer}\,{\tiny L727} & exte & paya & -- & Permissionless top-up of the buyback buffer (the NFT-royalty entry point). \newline \textit{State:} W legacyBuffer \\
+\texttt{sweep\allowbreak{}Legacy\allowbreak{}Reserve}\,{\tiny L734} & exte & -- & -- & Registry-only handover of the held buyback tokens so they can be deposited into the reserve and credited atomically. \newline \textit{State:} W legacyOwedToReserve \newline \textit{Calls:} IERC20.\allowbreak{}balanceOf/\allowbreak{}transfer \\
+\texttt{\_before\allowbreak{}Swap}\,{\tiny L750} & inte & -- & -- & Charges the ETH fee on exact-input BUYS via a beforeSwapDelta. Correctly requires currency0 == address(0). \newline \textit{Calls:} \_takeEthFee \\
+\texttt{\_route\allowbreak{}Perp\allowbreak{}Fee}\,{\tiny L794} & priv & -- & -- & Perp-swap fee split: 30\% to the OG dividend, 70\% to the side-attributed staker pot; failures roll into relaunchETH. \newline \textit{State:} W relaunchETH \newline \textit{Calls:} guild.\allowbreak{}call,\allowbreak{} perpEngine.\allowbreak{}creditPerpFee/\allowbreak{}creditPerpFeeToken \\
+\texttt{\_route\allowbreak{}Eth\allowbreak{}Fee}\,{\tiny L812} & priv & -- & -- & Organic fee split: proposer slice off the top (PULL), then guild/floor/relaunch with a pluggable IFeeRouter and a built-in fallback; legacyBps carved into the buyback buffer. \newline \textit{State:} W proposerOwed,\allowbreak{} legacyBuffer,\allowbreak{} relaunchETH \newline \textit{Calls:} feeRouter.\allowbreak{}route (try/\allowbreak{}catch),\allowbreak{} guild.\allowbreak{}call,\allowbreak{} vault.\allowbreak{}call \\
+\texttt{snipe\allowbreak{}Surtax\allowbreak{}Bps}\,{\tiny L900} & publ & view & -- & Anti-sniper surtax with a pluggable policy, clamped to MAX\_SNIPE\_BPS. \newline \textit{State:} R surtaxPolicy,\allowbreak{} snipeMaxBps,\allowbreak{} snipeWindowBlocks \newline \textit{Calls:} surtaxPolicy.\allowbreak{}surtaxBps (try/\allowbreak{}catch) \\
+\texttt{\_default\allowbreak{}Surtax\allowbreak{}Bps}\,{\tiny L912} & inte & view & -- & Built-in linear decay plus a blockhash-derived jitter (predictable one block ahead --- finding L-02). \newline \textit{State:} R poolInitBlock,\allowbreak{} snipeMaxBps,\allowbreak{} snipeWindowBlocks \\
+\texttt{\_take\allowbreak{}Eth\allowbreak{}Fee}\,{\tiny L943} & priv & -- & -- & Takes the total ETH fee (base + surtax, clamped to 99\%) out of the PoolManager and routes it. Takes key.currency0 WITHOUT checking it is ETH (finding C-01). \newline \textit{Calls:} poolManager.\allowbreak{}take,\allowbreak{} \_routePerpFee/\allowbreak{}\_routeEthFee,\allowbreak{} guild.\allowbreak{}call \\
+\texttt{set\allowbreak{}Snipe\allowbreak{}Params}\,{\tiny L982} & exte & -- & only\allowbreak{}Owner & Owner-tunable anti-snipe window + peak surtax. \newline \textit{State:} W snipeWindowBlocks,\allowbreak{} snipeMaxBps \\
+\texttt{\_record\allowbreak{}Volume}\,{\tiny L992} & priv & -- & -- & 24-bucket rolling volume ring keyed on block number. \newline \textit{State:} W \_volumeBuckets,\allowbreak{} \_lastBucketIndex,\allowbreak{} \_lastUpdateBlock \\
+\texttt{get\allowbreak{}Volume24h}\,{\tiny L1019} & publ & view & -- & Sums the ring; returns 0 once a full day of blocks has passed with no update. \newline \textit{State:} R \_volumeBuckets,\allowbreak{} \_lastUpdateBlock \\
+\texttt{is\allowbreak{}Dead}\,{\tiny L1026} & exte & view & -- & The relaunch gate. Delegates to a pluggable IDeathChecker with a fallback to the built-in volume rule. \newline \textit{State:} R trackedPools,\allowbreak{} deathThreshold,\allowbreak{} deathChecker \newline \textit{Calls:} deathChecker.\allowbreak{}isDead (try/\allowbreak{}catch) \\
+\texttt{\_get\allowbreak{}Current\allowbreak{}Bucket}\,{\tiny L1042} & priv & view & -- & block.number-derived hourly bucket index. \\
+\texttt{\_get\allowbreak{}Holder\allowbreak{}Tax\allowbreak{}Rate}\,{\tiny L1050} & priv & view & -- & Tiered tax from the NFT contract, keyed on the SWAP SENDER (the router, not the trader --- finding L-04). \newline \textit{State:} R nftContract,\allowbreak{} defaultTaxBps \newline \textit{Calls:} INFTContract.\allowbreak{}getHolderTaxRate (try/\allowbreak{}catch) \\
+\texttt{set\allowbreak{}Default\allowbreak{}Tax\allowbreak{}Bps}\,{\tiny L1062} & exte & -- & only\allowbreak{}Owner & Flat fee, capped at MAX\_TAX\_BPS (10\%). \newline \textit{State:} W defaultTaxBps \\
+\texttt{release\allowbreak{}Relaunch\allowbreak{}ETH}\,{\tiny L1077} & exte & -- & -- & Registry-only pull of the whole relaunch reserve. Reverts if the send fails --- the DoS surface of finding C-01. \newline \textit{State:} W relaunchETH \newline \textit{Calls:} registry.\allowbreak{}call \\
+\texttt{withdraw\allowbreak{}Token\allowbreak{}Fees}\,{\tiny L1095} & exte & -- & -- & Permissionless push of accumulated ERC20 fees to the treasury. DEAD: accumulatedTokenFees is never written (finding I-01). \newline \textit{State:} W accumulatedTokenFees \newline \textit{Calls:} IERC20.\allowbreak{}transfer \\
+\texttt{set\allowbreak{}Death\allowbreak{}Threshold}\,{\tiny L1109} & exte & -- & only\allowbreak{}Owner & Owner-tunable 24h volume floor. \newline \textit{State:} W deathThreshold \\
+\texttt{force\allowbreak{}Close\allowbreak{}Perps}\,{\tiny L1120} & exte & -- & -- & Registry-only. Sets the transient relaunch-close flag so the engine's settlement swaps skip the fee/buyback, then force-closes every dead position. \newline \textit{State:} W \_inRelaunchClose \newline \textit{Calls:} IPerpForceClose.\allowbreak{}forceCloseAllDead (try/\allowbreak{}catch) \\
+\texttt{set\allowbreak{}Legacy\allowbreak{}Buyback}\,{\tiny L1132} & exte & -- & -- & Configures the live buyback (registry or hook owner). \newline \textit{State:} W legacyRegistry,\allowbreak{} legacyBps,\allowbreak{} legacyThreshold \\
+\texttt{set\allowbreak{}Death\allowbreak{}Checker}\,{\tiny L1146} & exte & -- & -- & Swaps the death RULE without an upgradeable proxy. \newline \textit{State:} W deathChecker \\
+\texttt{set\allowbreak{}Policies}\,{\tiny L1156} & exte & -- & -- & Swaps the surtax / odds / mint-curve policy modules. \newline \textit{State:} W surtaxPolicy,\allowbreak{} oddsPolicy,\allowbreak{} curvePolicy \\
+\texttt{set\allowbreak{}Fee\allowbreak{}Router}\,{\tiny L1168} & exte & -- & -- & Swaps the fee-split STRUCTURE (amounts only; the hook still does the sends). \newline \textit{State:} W feeRouter \\
+\texttt{set\allowbreak{}Nft\allowbreak{}Contract}\,{\tiny L1174} & exte & -- & only\allowbreak{}Owner & Points the tiered-tax lookup at an NFT contract. \newline \textit{State:} W nftContract \\
+\texttt{set\allowbreak{}Treasury}\,{\tiny L1178} & exte & -- & only\allowbreak{}Owner & ERC20 fee recipient. \newline \textit{State:} W treasury \\
+\texttt{set\allowbreak{}Registry}\,{\tiny L1188} & exte & -- & only\allowbreak{}Owner & One-shot registry wiring, documented as "locked forever" --- defeated by setRegistryOverride (finding M-01). \newline \textit{State:} W registry \\
+\texttt{set\allowbreak{}Registry\allowbreak{}Override}\,{\tiny L1200} & exte & -- & only\allowbreak{}Owner & Owner may RE-POINT the registry at will (the V2 handoff hook). Also the drain path in finding M-01. \newline \textit{State:} W registry \\
+\texttt{track\allowbreak{}Pool}\,{\tiny L1205} & exte & -- & only\allowbreak{}Owner & Owner may mark an arbitrary pool tracked. \newline \textit{State:} W trackedPools,\allowbreak{} \_lastUpdateBlock \\
+\texttt{set\allowbreak{}Collection}\,{\tiny L1220} & exte & -- & -- & Registry-only. Points the hook at the live collection, anchors the mint curve baseline, bumps the credit epoch, auto-wires badges. \newline \textit{State:} W collection,\allowbreak{} mintBaseline,\allowbreak{} creditEpoch \newline \textit{Calls:} ICauldronCollection.\allowbreak{}totalMinted,\allowbreak{} \_wireLiquidator \\
+\texttt{\_wire\allowbreak{}Liquidator}\,{\tiny L1238} & priv & -- & -- & Best-effort wiring of the collection's Liquidatoor minter to the perp engine. \newline \textit{Calls:} ICollectionLiquidator.\allowbreak{}setLiquidatorMinter (try/\allowbreak{}catch) \\
+\texttt{set\allowbreak{}Vault}\,{\tiny L1244} & exte & -- & -- & Registry-only floor-vault pointer (0 under the unified-floor model). \newline \textit{State:} W vault \\
+\texttt{set\allowbreak{}Quest}\,{\tiny L1250} & exte & -- & -- & Optional post-mintout engagement contract. \newline \textit{State:} W quest \\
+\texttt{set\allowbreak{}Seeder}\,{\tiny L1259} & exte & -- & -- & Registry/owner wiring of the in-swap progressive nudge (0 disables it). \newline \textit{State:} W seeder \\
+\texttt{set\allowbreak{}Perp\allowbreak{}Engine}\,{\tiny L1267} & exte & -- & -- & Registry/owner wiring of the hook-native perp engine; re-wires badge minting. \newline \textit{State:} W perpEngine \newline \textit{Calls:} \_wireLiquidator \\
+\texttt{set\allowbreak{}Floor\allowbreak{}Bps}\,{\tiny L1276} & exte & -- & only\allowbreak{}Owner & Share of the post-guild fee that backs the NFT floor. \newline \textit{State:} W floorBps \\
+\texttt{set\allowbreak{}Guild}\,{\tiny L1283} & exte & -- & -- & Points the permanent OG-dividend sink. \newline \textit{State:} W guild \\
+\texttt{set\allowbreak{}Guild\allowbreak{}Bps}\,{\tiny L1291} & exte & -- & only\allowbreak{}Owner & Owner-tunable guild share, capped at 5\% --- BELOW the deployed default of 15\% (finding I-02). \newline \textit{State:} W guildBps \\
+\texttt{set\allowbreak{}Active\allowbreak{}Proposer}\,{\tiny L1299} & exte & -- & -- & Registry pushes the winning proposal's author each relaunch. \newline \textit{State:} W activeProposer \\
+\texttt{set\allowbreak{}Proposer\allowbreak{}Bps}\,{\tiny L1306} & exte & -- & only\allowbreak{}Owner & Proposer incentive, capped at MAX\_PROPOSER\_BPS (5\% of the fee). \newline \textit{State:} W proposerBps \\
+\texttt{claim\allowbreak{}Proposer\allowbreak{}Fees}\,{\tiny L1314} & exte & -- & non\allowbreak{}Reentrant & PULL withdrawal of accrued proposer earnings (CEI + nonReentrant). \newline \textit{State:} W proposerOwed \newline \textit{Calls:} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{set\allowbreak{}Nft\allowbreak{}Curve}\,{\tiny L1324} & exte & -- & only\allowbreak{}Owner & Owner-tunable rising mint curve (base, step). \newline \textit{State:} W volumePerNFT,\allowbreak{} nftPriceStep \\
+\texttt{set\allowbreak{}Credit\allowbreak{}Untagged\allowbreak{}Swaps}\,{\tiny L1330} & exte & -- & only\allowbreak{}Owner & Toggles crediting raw (non-router) swaps to tx.origin. \newline \textit{State:} W creditUntaggedSwaps \\
+\texttt{set\allowbreak{}Nft\allowbreak{}Curve\allowbreak{}From}\,{\tiny L1337} & exte & -- & -- & Registry-only flat curve taken from the winning BrewSpec's volumePerNFT. \newline \textit{State:} W volumePerNFT,\allowbreak{} nftPriceStep \\
+\texttt{nft\allowbreak{}Price\allowbreak{}At}\,{\tiny L1345} & publ & view & -- & Credit cost of the k-th crystal (pluggable curve policy, zero-guarded). \newline \textit{State:} R curvePolicy,\allowbreak{} volumePerNFT,\allowbreak{} nftPriceStep \newline \textit{Calls:} curvePolicy.\allowbreak{}priceAt (try/\allowbreak{}catch) \\
+\texttt{credit\allowbreak{}Of}\,{\tiny L1357} & exte & view & -- & Player's spendable credit in the current epoch. \newline \textit{State:} R nftCredit,\allowbreak{} creditEpoch \\
+\texttt{\_curve\allowbreak{}Pos}\,{\tiny L1365} & inte & view & -- & Curve position = minted + reserved $-$ baseline (counting reserved stops concurrent commits sharing a slot). \newline \textit{State:} R collection,\allowbreak{} outstandingOf,\allowbreak{} mintBaseline \newline \textit{Calls:} ICauldronCollection.\allowbreak{}totalMinted \\
+\texttt{crystals\allowbreak{}Ready}\,{\tiny L1371} & publ & view & -- & How many crystals a player can open right now. \newline \textit{State:} R nftCredit \newline \textit{Calls:} \_curvePos,\allowbreak{} nftPriceAt \\
+\texttt{cost\allowbreak{}Of\allowbreak{}Next\allowbreak{}Crystals}\,{\tiny L1385} & publ & view & -- & Total credit for the next N crystals at today's prices. \newline \textit{Calls:} nftPriceAt \\
+\texttt{odds\allowbreak{}For\allowbreak{}Play}\,{\tiny L1394} & publ & view & -- & Win probability from ETH play size, clamped to ODDS\_HARD\_CAP\_BPS. \newline \textit{State:} R oddsPolicy,\allowbreak{} maxOddsBps,\allowbreak{} oddsFullVolumeWei \newline \textit{Calls:} oddsPolicy.\allowbreak{}oddsBps (try/\allowbreak{}catch) \\
+\texttt{outstanding\allowbreak{}Tickets}\,{\tiny L1408} & exte & view & -- & Unresolved crystals across all players. \newline \textit{State:} R outstandingCrystals \\
+\texttt{minted\allowbreak{}Out}\,{\tiny L1413} & exte & view & -- & Whether the live collection is sold out. \newline \textit{State:} R collection \newline \textit{Calls:} ICauldronCollection.\allowbreak{}totalMinted/\allowbreak{}maxSupply \\
+\texttt{progress}\,{\tiny L1423} & exte & view & -- & UI view: banked credit, next threshold, crystals ready. \newline \textit{State:} R nftCredit \newline \textit{Calls:} nftPriceAt \\
+\texttt{commit\allowbreak{}Crystals}\,{\tiny L1450} & exte & -- & non\allowbreak{}Reentrant & Opener-gated commit: spends credit and enqueues a FIFO lottery batch whose outcome is rolled later from the commit block's hash. \newline \textit{State:} W nftCredit,\allowbreak{} committedOf,\allowbreak{} pendingOf,\allowbreak{} outstandingCrystals,\allowbreak{} outstandingOf,\allowbreak{} batches \newline \textit{Calls:} ICauldronCollection.\allowbreak{}totalMinted/\allowbreak{}maxSupply \\
+\texttt{\_commit\allowbreak{}Crystals}\,{\tiny L1462} & inte & -- & -- & Shared commit body (router + native in-swap paths); never reverts when sold out. \newline \textit{State:} same as above \\
+\texttt{resolve\allowbreak{}Tickets}\,{\tiny L1518} & publ & -- & non\allowbreak{}Reentrant & Permissionless FIFO resolution; a win mints the batch's collection, a miss builds the pity counter. \newline \textit{State:} W batchCursor,\allowbreak{} batches[].\allowbreak{}resolved,\allowbreak{} pendingOf,\allowbreak{} outstandingCrystals,\allowbreak{} missStreak,\allowbreak{} opened \newline \textit{Calls:} ICauldronCollection.\allowbreak{}mint \\
+\texttt{\_resolve\allowbreak{}Tickets}\,{\tiny L1530} & inte & -- & -- & Resolution body. Uses blockhash(commitBlock) with a DETERMINISTIC fallback after 256 blocks (finding M-04). \newline \textit{State:} same as above \\
+\texttt{native\allowbreak{}Gacha\allowbreak{}Step}\,{\tiny L1582} & exte & -- & non\allowbreak{}Reentrant & Self-only in-swap gacha for raw (non-router) buys: commit + resolve, gas-bounded and result-ignored. \newline \textit{Calls:} \_commitCrystals,\allowbreak{} \_resolveTickets \\
+\texttt{set\allowbreak{}Opener}\,{\tiny L1591} & exte & -- & -- & Authorises a gacha router (and, in production, the registry) to open crystals + carry honest hookData. \newline \textit{State:} W isOpener \\
+\texttt{set\allowbreak{}Tax\allowbreak{}Exempt}\,{\tiny L1601} & exte & -- & -- & Flags a fee-exempt player (the launch snipe wallet and the registry's own reseed buy). \newline \textit{State:} W taxExempt \\
+\texttt{\_is\allowbreak{}Exempt\allowbreak{}Player}\,{\tiny L1615} & priv & view & -- & Exemption is honoured only when the SENDER is a trusted opener, closing the hookData-spoof hole. \newline \textit{State:} R isOpener,\allowbreak{} taxExempt \\
+\texttt{set\allowbreak{}Odds\allowbreak{}Params}\,{\tiny L1623} & exte & -- & only\allowbreak{}Owner & Odds curve size + pity threshold. \newline \textit{State:} W oddsFullVolumeWei,\allowbreak{} pityThreshold \\
+\texttt{set\allowbreak{}Max\allowbreak{}Odds}\,{\tiny L1630} & exte & -- & only\allowbreak{}Owner & Max win chance from bet size, hard-capped. \newline \textit{State:} W maxOddsBps \\
+\texttt{set\allowbreak{}Weights}\,{\tiny L1636} & exte & -- & only\allowbreak{}Owner & Buy/sell credit weighting, capped at $3\times$. \newline \textit{State:} W buyWeightBps,\allowbreak{} sellWeightBps \\
+\texttt{receive}\,{\tiny L1642} & exte & paya & -- & Accepts raw ETH (fee takes land here); NOT counted into any tracked bucket. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{CauldronToken.sol} \textemdash{} contract \texttt{CauldronToken} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L36} & inte & -- & -- & Mints the ENTIRE fixed supply once, to the registry. No mint() exists; supply can only ever shrink. \newline \textit{State:} W generation,\allowbreak{} birthBlock,\allowbreak{} registry,\allowbreak{} balances \newline \textit{Calls:} ERC20.\allowbreak{}\_mint \\
+\texttt{burn}\,{\tiny L58} & exte & -- & only\allowbreak{}Registry & Registry-only burn --- used for dead-LP recovery, 1:1 migration, and the legacy flush. \newline \textit{State:} W totalSupply,\allowbreak{} balances \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{ICauldronFactory} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{deploy\allowbreak{}Brew}\,{\tiny L25} & exte & -- & -- & Interface declaration --- Factory surface the registry drives; declared in CauldronBase so registry and facet see identical types. \\
+\texttt{deploy\allowbreak{}Vault}\,{\tiny L26} & exte & -- & -- & Interface declaration --- Factory surface the registry drives; declared in CauldronBase so registry and facet see identical types. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{IMiFrensContinuable} \hfill \normalfont\small(5 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{set\allowbreak{}Minter}\,{\tiny L32} & exte & -- & -- & Interface declaration --- The canonical MiFrens surface for the iteration-\#2 continuation and the OG recycle. \\
+\texttt{set\allowbreak{}Vault}\,{\tiny L33} & exte & -- & -- & Interface declaration --- The canonical MiFrens surface for the iteration-\#2 continuation and the OG recycle. \\
+\texttt{total\allowbreak{}Minted}\,{\tiny L34} & exte & view & -- & Interface declaration --- The canonical MiFrens surface for the iteration-\#2 continuation and the OG recycle. \\
+\texttt{custody\allowbreak{}Transfer}\,{\tiny L38} & exte & -- & -- & Interface declaration --- The canonical MiFrens surface for the iteration-\#2 continuation and the OG recycle. \\
+\texttt{ever\allowbreak{}Moved}\,{\tiny L41} & exte & view & -- & Interface declaration --- The canonical MiFrens surface for the iteration-\#2 continuation and the OG recycle. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{IVaultClose} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{close}\,{\tiny L45} & exte & -- & -- & Interface declaration --- Vault close/sweep at relaunch. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{IPerpSync} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{sync\allowbreak{}Generation}\,{\tiny L51} & exte & -- & -- & Interface declaration --- Perp relaunch housekeeping. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{ICollectionLedger} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{total\allowbreak{}Entitled}\,{\tiny L55} & exte & view & -- & Interface declaration --- Legacy cap-table read the registry sizes the new reserve against. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} interface \texttt{IPositionManager} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{modify\allowbreak{}Liquidities}\,{\tiny L63} & exte & paya & -- & Interface declaration --- Minimal V4 PositionManager surface (declared locally to avoid permit2's solc pin). \\
+\texttt{next\allowbreak{}Token\allowbreak{}Id}\,{\tiny L64} & exte & view & -- & Interface declaration --- Minimal V4 PositionManager surface (declared locally to avoid permit2's solc pin). \\
+\texttt{get\allowbreak{}Position\allowbreak{}Liquidity}\,{\tiny L65} & exte & view & -- & Interface declaration --- Minimal V4 PositionManager surface (declared locally to avoid permit2's solc pin). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronBase.sol} \textemdash{} abstract contract \texttt{CauldronBase} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{floor\allowbreak{}Per\allowbreak{}Fren}\,{\tiny L282} & publ & view & -- & LIVE per-fren redemption value = genesisReserveOutstanding / genesisShares. Shared by the registry AND the facet. \newline \textit{State:} R genesisReserveOutstanding,\allowbreak{} genesisShares \\
+\texttt{\_redeem\allowbreak{}Blocked}\,{\tiny L292} & inte & view & -- & THE EXIT GUARANTEE: blocked only while the breaker is on AND nothing is armed. \newline \textit{State:} R redemptionPaused,\allowbreak{} emergencyReadyAt \\
+\texttt{constructor}\,{\tiny L296} & inte & -- & -- & Ownable(msg.sender). Declares the whole shared storage layout the delegatecall pair depends on. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronCollection.sol} \textemdash{} contract \texttt{CauldronCollection} \hfill \normalfont\small(20 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L113} & inte & -- & -- & Fixes the minter (the hook), the DEPLOYER (the FACTORY --- finding H-01), maxSupply (must stay below the badge id range), metadata and royalty. \newline \textit{State:} W minter,\allowbreak{} deployer,\allowbreak{} maxSupply,\allowbreak{} mode,\allowbreak{} renderer,\allowbreak{} \_baseTokenURI,\allowbreak{} royalty \newline \textit{Calls:} ERC2981.\allowbreak{}\_setDefaultRoyalty \\
+\texttt{\_update}\,{\tiny L146} & inte & -- & -- & ERC-721C: routes every mint/transfer/burn through the transfer validator when one is set. \newline \textit{Calls:} ITransferValidator.\allowbreak{}validateTransfer \\
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L159} & exte & view & -- & ERC-721C discovery. \\
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validation\allowbreak{}Function}\,{\tiny L164} & exte & pure & -- & ERC-721C discovery. \\
+\texttt{set\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L169} & exte & -- & -- & Deployer-gated --- unreachable in production (finding H-01). \newline \textit{State:} W transferValidator \\
+\texttt{supports\allowbreak{}Interface}\,{\tiny L176} & publ & view & -- & ERC165 over ERC721 + ERC2981 + ICreatorToken. \\
+\texttt{mint}\,{\tiny L184} & exte & -- & -- & Minter-only art mint; records the mint block for the commit-reveal rarity roll. \newline \textit{State:} W totalMinted,\allowbreak{} mintBlockOf \newline \textit{Calls:} ERC721.\allowbreak{}\_mint \\
+\texttt{reveal}\,{\tiny L196} & exte & -- & -- & Owner-only rarity reveal from blockhash(mintBlock), with a deterministic fallback after 256 blocks (finding M-03). \newline \textit{State:} W rarityOf,\allowbreak{} revealed \\
+\texttt{\_roll\allowbreak{}Rarity}\,{\tiny L213} & priv & view & -- & Cumulative-bps tier roll. \newline \textit{State:} R rarityCumBps \\
+\texttt{set\allowbreak{}Vault}\,{\tiny L222} & exte & -- & -- & One-shot vault wiring (the factory does this at deploy). \newline \textit{State:} W vault \\
+\texttt{set\allowbreak{}Royalty}\,{\tiny L232} & exte & -- & -- & Deployer-gated royalty re-point (the factory does this at deploy). \newline \textit{Calls:} \_setDefaultRoyalty \\
+\texttt{set\allowbreak{}Liquidator\allowbreak{}Minter}\,{\tiny L242} & exte & -- & -- & Deployer OR minter (so the hook can auto-wire badges each relaunch). \newline \textit{State:} W liquidatorMinter \\
+\texttt{set\allowbreak{}Metadata}\,{\tiny L252} & exte & -- & -- & Deployer-gated art repoint --- unreachable in production (finding H-01). \newline \textit{State:} W mode,\allowbreak{} renderer,\allowbreak{} \_baseTokenURI \\
+\texttt{set\allowbreak{}Liquidator\allowbreak{}URI}\,{\tiny L264} & exte & -- & -- & Deployer-gated badge metadata base --- unreachable in production. \newline \textit{State:} W liquidatorURI \\
+\texttt{mint\allowbreak{}Liquidator}\,{\tiny L272} & exte & -- & -- & Engine-only trophy mint in a separate uncapped id range. \newline \textit{State:} W liquidatorMinted,\allowbreak{} isLiquidatoor \newline \textit{Calls:} ERC721.\allowbreak{}\_mint \\
+\texttt{liquidatoor\allowbreak{}Trait}\,{\tiny L281} & exte & view & -- & Marketplace helper. \\
+\texttt{burn\allowbreak{}From\allowbreak{}Vault}\,{\tiny L286} & exte & -- & -- & Vault-only burn on ETH-floor redemption. \newline \textit{Calls:} ERC721.\allowbreak{}\_burn \\
+\texttt{custody\allowbreak{}Transfer}\,{\tiny L296} & exte & -- & -- & Approval-free move for the legacy recycle. Gated on `deployer`, which is the FACTORY --- so the registry can never call it (finding H-01). \newline \textit{Calls:} ERC721.\allowbreak{}\_transfer \\
+\texttt{token\allowbreak{}URI}\,{\tiny L302} & publ & view & -- & Badge / unrevealed / renderer / rarity-partitioned baseURI resolution. \newline \textit{Calls:} ICollectionRenderer.\allowbreak{}tokenURI \\
+\texttt{set\allowbreak{}Rarity\allowbreak{}Odds}\,{\tiny L324} & exte & -- & -- & Deployer-gated, pre-first-mint odds config --- unreachable in production. \newline \textit{State:} W rarityCumBps \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronFactory.sol} \textemdash{} contract \texttt{CauldronFactory} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{deploy\allowbreak{}Brew}\,{\tiny L33} & exte & -- & -- & Deploys collection + vault + royalty router and wires them. The FACTORY becomes the collection's `deployer` (finding H-01). \newline \textit{Calls:} new CauldronCollection/\allowbreak{}CauldronVault/\allowbreak{}RoyaltyRouter,\allowbreak{} col.\allowbreak{}setVault/\allowbreak{}setRoyalty \\
+\texttt{deploy\allowbreak{}Vault}\,{\tiny L59} & exte & -- & -- & Deploys a fresh per-iteration vault for an EXISTING collection (the MiFrens continuation). \newline \textit{Calls:} new CauldronVault \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronGachaRouter.sol} \textemdash{} interface \texttt{ICauldronHookGacha} \hfill \normalfont\small(5 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{commit\allowbreak{}Crystals}\,{\tiny L15} & exte & -- & -- & Interface declaration --- Hook gacha surface the router drives. \\
+\texttt{resolve\allowbreak{}Tickets}\,{\tiny L16} & exte & -- & -- & Interface declaration --- Hook gacha surface the router drives. \\
+\texttt{crystals\allowbreak{}Ready}\,{\tiny L17} & exte & view & -- & Interface declaration --- Hook gacha surface the router drives. \\
+\texttt{cost\allowbreak{}Of\allowbreak{}Next\allowbreak{}Crystals}\,{\tiny L18} & exte & view & -- & Interface declaration --- Hook gacha surface the router drives. \\
+\texttt{buy\allowbreak{}Weight\allowbreak{}Bps}\,{\tiny L19} & exte & view & -- & Interface declaration --- Hook gacha surface the router drives. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronGachaRouter.sol} \textemdash{} interface \texttt{IRegistryCurrent} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{current\allowbreak{}Token}\,{\tiny L23} & exte & view & -- & Interface declaration --- Live-token read. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronGachaRouter.sol} \textemdash{} contract \texttt{CauldronGachaRouter} \hfill \normalfont\small(16 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L91} & inte & -- & -- & Binds the PoolManager, the hook, the registry and the owner. \\
+\texttt{\_key}\,{\tiny L101} & inte & view & -- & Rebuilds the live PoolKey from registry.currentToken(). \newline \textit{Calls:} registry.\allowbreak{}currentToken \\
+\texttt{play}\,{\tiny L113} & exte & paya & non\allowbreak{}Reentrant & One-click buy and/or sell, tagged with the PLAYER so the hook credits them, then commit + resolve crystals. \newline \textit{Calls:} poolManager.\allowbreak{}unlock,\allowbreak{} hook.\allowbreak{}commitCrystals/\allowbreak{}resolveTickets \\
+\texttt{play\allowbreak{}Liq}\,{\tiny L128} & exte & paya & non\allowbreak{}Reentrant & Same as play but carries perp liquidation hints in hookData. \newline \textit{Calls:} \_play \\
+\texttt{\_play}\,{\tiny L137} & inte & -- & -- & Body: pulls the sell input, runs the unlock, enforces slippage, commits+resolves (effects), then pays out (interactions). \newline \textit{Calls:} \_safeTransferFrom,\allowbreak{} poolManager.\allowbreak{}unlock,\allowbreak{} hook.\allowbreak{}commitCrystals/\allowbreak{}resolveTickets,\allowbreak{} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{open\allowbreak{}Ready}\,{\tiny L189} & exte & -- & non\allowbreak{}Reentrant & Opens crystals from ALREADY-earned credit; derives an honest play size from the credit spent. \newline \textit{Calls:} hook.\allowbreak{}crystalsReady/\allowbreak{}costOfNextCrystals/\allowbreak{}buyWeightBps/\allowbreak{}commitCrystals/\allowbreak{}resolveTickets \\
+\texttt{play\allowbreak{}Churn}\,{\tiny L207} & exte & paya & non\allowbreak{}Reentrant & Volume amplifier: up to 10 buy$\to$sell legs in one tx, each credited to the player (each leg pays the hook fee). \newline \textit{Calls:} poolManager.\allowbreak{}unlock,\allowbreak{} hook.\allowbreak{}commitCrystals/\allowbreak{}resolveTickets \\
+\texttt{unlock\allowbreak{}Callback}\,{\tiny L236} & exte & -- & -- & PoolManager-only dispatcher for the play and churn bodies. \newline \textit{Calls:} \_churn /\allowbreak{} inline swap legs \\
+\texttt{\_churn}\,{\tiny L286} & priv & -- & -- & The churn loop: alternating exact-input swaps, settling each leg. \newline \textit{Calls:} poolManager.\allowbreak{}swap,\allowbreak{} \_settle,\allowbreak{} \_take \\
+\texttt{\_limit}\,{\tiny L333} & priv & pure & -- & Directional sqrtPrice limits. \\
+\texttt{\_settle}\,{\tiny L337} & priv & -- & -- & Native settle-with-value or sync+transfer+settle for the ERC20 leg. \newline \textit{Calls:} poolManager.\allowbreak{}sync/\allowbreak{}settle \\
+\texttt{\_take}\,{\tiny L347} & priv & -- & -- & poolManager.take wrapper. \newline \textit{Calls:} poolManager.\allowbreak{}take \\
+\texttt{\_safe\allowbreak{}Transfer}\,{\tiny L351} & priv & -- & -- & Return-value-tolerant ERC20 transfer. \newline \textit{Calls:} token.\allowbreak{}call \\
+\texttt{\_safe\allowbreak{}Transfer\allowbreak{}From}\,{\tiny L357} & priv & -- & -- & Return-value-tolerant ERC20 transferFrom. \newline \textit{Calls:} token.\allowbreak{}call \\
+\texttt{rescue\allowbreak{}ETH}\,{\tiny L363} & exte & -- & only\allowbreak{}Owner & Owner sweep of stray ETH (the router holds nothing between transactions). \newline \textit{Calls:} to.\allowbreak{}call \\
+\texttt{receive}\,{\tiny L368} & exte & paya & -- & Accepts ETH (sell proceeds land here transiently). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronGovernor.sol} \textemdash{} contract \texttt{CauldronGovernor} \hfill \normalfont\small(11 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L86} & inte & -- & -- & Binds the MiFrens checkpointed-voting electorate. \newline \textit{State:} W mifrens \\
+\texttt{set\allowbreak{}Registry}\,{\tiny L94} & exte & -- & only\allowbreak{}Owner & One-shot, owner-gated wiring of the registry allowed to consume winners. \newline \textit{State:} W registry \\
+\texttt{propose}\,{\tiny L123} & exte & -- & -- & Guild-gated proposal of the next brew (name, ticker, metadata, NFT supply, mint-out target). NO bound on nftSupply (finding C-02). \newline \textit{State:} W proposalCount,\allowbreak{} \_proposals \newline \textit{Calls:} mifrens.\allowbreak{}getVotes \\
+\texttt{display\allowbreak{}Name}\,{\tiny L167} & exte & view & -- & "$\langle$name$\rangle$ by Magic Internet Frens". \\
+\texttt{vote}\,{\tiny L181} & exte & -- & -- & One vote per address per proposal, weighted by CHECKPOINTED power at the proposal's snapshot block. \newline \textit{State:} W hasVoted,\allowbreak{} \_proposals[].\allowbreak{}votes,\allowbreak{} \_leaderId,\allowbreak{} \_leaderVotes \newline \textit{Calls:} mifrens.\allowbreak{}getPastVotes \\
+\texttt{winner}\,{\tiny L211} & exte & view & -- & Returns the LIVE leader --- there is no voting deadline, so it is front-runnable (finding M-02). \newline \textit{Calls:} \_bestUnconsumed \\
+\texttt{has\allowbreak{}Proposals}\,{\tiny L229} & exte & view & -- & Whether any unconsumed proposal has votes. \newline \textit{Calls:} \_bestUnconsumed \\
+\texttt{mark\allowbreak{}Consumed}\,{\tiny L234} & exte & -- & -- & Registry-only retirement of a summoned proposal; recomputes the leader lazily. \newline \textit{State:} W \_proposals[].\allowbreak{}consumed,\allowbreak{} \_leaderId,\allowbreak{} \_leaderVotes \\
+\texttt{get\allowbreak{}Proposal}\,{\tiny L252} & exte & view & -- & Full proposal record. \\
+\texttt{\_best\allowbreak{}Unconsumed}\,{\tiny L259} & priv & view & -- & Cached leader if still valid, else a full recompute. \\
+\texttt{\_recompute\allowbreak{}Leader}\,{\tiny L267} & priv & view & -- & O(n) scan for the highest-voted unconsumed proposal. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronSeeder.sol} \textemdash{} contract \texttt{CauldronSeeder} \hfill \normalfont\small(18 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L110} & inte & -- & -- & Binds the registry, the (unused) PositionManager and the PoolManager. \newline \textit{State:} W registry,\allowbreak{} positionManager,\allowbreak{} poolManager \\
+\texttt{receive}\,{\tiny L116} & exte & paya & -- & Accepts ETH (ledger-A funding and pool takes). \\
+\texttt{start\allowbreak{}Seed}\,{\tiny L125} & exte & paya & lock,\allowbreak{} only\allowbreak{}Registry & Registry-only campaign start: pulls ledger-A tokens, receives ledger-A ETH, places the base + floor slice. Does NOT reset `complete`/`\_basePlaced` (finding H-02). \newline \textit{State:} W \_key,\allowbreak{} token,\allowbreak{} gen,\allowbreak{} startTs,\allowbreak{} window,\allowbreak{} seedFloorWad,\allowbreak{} ethTotal,\allowbreak{} tokenTotal,\allowbreak{} minStepWad,\allowbreak{} baseWad,\allowbreak{} \_spacing,\allowbreak{} \_bandWidth,\allowbreak{} seeding,\allowbreak{} placedWad \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom,\allowbreak{} poolManager.\allowbreak{}unlock \\
+\texttt{poke}\,{\tiny L163} & exte & -- & lock & Permissionless standalone nudge (self-unlock). Un-accelerable: the target is a pure function of elapsed time. \newline \textit{State:} W placedWad,\allowbreak{} complete \newline \textit{Calls:} poolManager.\allowbreak{}unlock,\allowbreak{} \_advance \\
+\texttt{poke\allowbreak{}In\allowbreak{}Swap}\,{\tiny L173} & exte & -- & lock & Hook-only in-swap nudge: places DIRECTLY because the caller already holds the unlock. \newline \textit{State:} W placedWad,\allowbreak{} complete \newline \textit{Calls:} \_placeStep,\allowbreak{} \_advance \\
+\texttt{\_pending\allowbreak{}Step}\,{\tiny L182} & priv & view & -- & The throttled step to deploy now; returns 0 when not seeding, complete, or below minStepWad. \newline \textit{State:} R seeding,\allowbreak{} complete,\allowbreak{} placedWad,\allowbreak{} startTs,\allowbreak{} window \newline \textit{Calls:} SeedLib.\allowbreak{}deployedTargetWad \\
+\texttt{\_advance}\,{\tiny L193} & priv & -- & -- & Snaps placedWad to the schedule target and flips `complete` at 100\%. \newline \textit{State:} W placedWad,\allowbreak{} complete \newline \textit{Calls:} poolManager.\allowbreak{}getSlot0 \\
+\texttt{unlock\allowbreak{}Callback}\,{\tiny L207} & exte & -- & -- & PoolManager-only dispatcher for the PLACE and WITHDRAW bodies. \newline \textit{Calls:} \_placeStep /\allowbreak{} \_teardown \\
+\texttt{\_place\allowbreak{}Step}\,{\tiny L226} & priv & -- & -- & Places one ASK (token, below spot) + one BID (ETH, above spot) band via CORE modifyLiquidity, laying the two-sided base on the first placement. \newline \textit{State:} W ranges,\allowbreak{} \_basePlaced \newline \textit{Calls:} poolManager.\allowbreak{}getSlot0/\allowbreak{}modifyLiquidity,\allowbreak{} \_settle,\allowbreak{} \_track \\
+\texttt{\_teardown}\,{\tiny L269} & priv & -- & -- & Removes every tracked range and forwards all recovered + un-streamed funds to the registry. \newline \textit{State:} W \_lastEthOut,\allowbreak{} \_lastTokenOut \newline \textit{Calls:} poolManager.\allowbreak{}getPositionInfo/\allowbreak{}modifyLiquidity,\allowbreak{} IERC20.\allowbreak{}transfer,\allowbreak{} to.\allowbreak{}call \\
+\texttt{\_place\allowbreak{}Base}\,{\tiny L303} & priv & -- & -- & Lays baseWad of ledger A as ONE two-sided full-range position so the book is continuous and perps have spot-straddling depth. \newline \textit{State:} W ranges \newline \textit{Calls:} poolManager.\allowbreak{}getSlot0/\allowbreak{}modifyLiquidity \\
+\texttt{\_settle}\,{\tiny L325} & priv & -- & -- & Pays owed currencies and takes owed-to-us ones; settles currency1 first so the synced-currency slot is reset before the native settle. \newline \textit{Calls:} poolManager.\allowbreak{}sync/\allowbreak{}settle/\allowbreak{}take,\allowbreak{} IERC20.\allowbreak{}transfer \\
+\texttt{\_track}\,{\tiny L344} & priv & -- & -- & Records a distinct (lo,hi) range once; reverts BandCap at MAX\_RANGES = 64 so teardown gas stays bounded. \newline \textit{State:} W ranges \\
+\texttt{withdraw\allowbreak{}All}\,{\tiny L360} & exte & -- & lock,\allowbreak{} only\allowbreak{}Registry & Registry-only teardown at death; ends the campaign and clears the range set. \newline \textit{State:} W ranges,\allowbreak{} seeding,\allowbreak{} complete \newline \textit{Calls:} poolManager.\allowbreak{}unlock \\
+\texttt{rescue}\,{\tiny L376} & exte & -- & lock,\allowbreak{} only\allowbreak{}Registry & Registry-only escape hatch for loose ledger-A funds. UNREACHABLE: the registry exposes no caller (finding I-03). \newline \textit{State:} W seeding \newline \textit{Calls:} IERC20.\allowbreak{}transfer,\allowbreak{} to.\allowbreak{}call \\
+\texttt{deployed\allowbreak{}Wad}\,{\tiny L387} & exte & view & -- & Fraction of the stream budget deployed so far. \newline \textit{State:} R placedWad \\
+\texttt{range\allowbreak{}Count}\,{\tiny L388} & exte & view & -- & Number of distinct tracked ranges. \newline \textit{State:} R ranges \\
+\texttt{is\allowbreak{}Complete}\,{\tiny L389} & exte & view & -- & Whether the campaign has finished streaming. \newline \textit{State:} R complete \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronVault.sol} \textemdash{} interface \texttt{IBurnableCollection} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{owner\allowbreak{}Of}\,{\tiny L7} & exte & view & -- & Interface declaration --- Collection surface the ETH floor vault burns through. \\
+\texttt{total\allowbreak{}Minted}\,{\tiny L8} & exte & view & -- & Interface declaration --- Collection surface the ETH floor vault burns through. \\
+\texttt{burn\allowbreak{}From\allowbreak{}Vault}\,{\tiny L9} & exte & -- & -- & Interface declaration --- Collection surface the ETH floor vault burns through. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CauldronVault.sol} \textemdash{} contract \texttt{CauldronVault} \hfill \normalfont\small(6 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{outstanding}\,{\tiny L54} & publ & view & -- & NFTs this vault backs = eligible minted (above floorOffset) $-$ redeemed. \newline \textit{State:} R redeemed,\allowbreak{} floorOffset \newline \textit{Calls:} collection.\allowbreak{}totalMinted \\
+\texttt{constructor}\,{\tiny L64} & inte & -- & -- & Binds the collection, the registry and the genesis floorOffset. \newline \textit{State:} W collection,\allowbreak{} registry,\allowbreak{} floorOffset \\
+\texttt{receive}\,{\tiny L71} & exte & paya & -- & Accepts fee ETH (unused under the unified-floor model, where hook.setVault(0) is wired). \\
+\texttt{floor\allowbreak{}Per\allowbreak{}NFT}\,{\tiny L76} & publ & view & -- & balance / outstanding. \newline \textit{Calls:} outstanding \\
+\texttt{redeem}\,{\tiny L84} & exte & -- & non\allowbreak{}Reentrant & Burns an eligible NFT for its equal share of the pooled ETH. Always reverts under the unified model (no ETH ever arrives). \newline \textit{State:} W redeemed \newline \textit{Calls:} collection.\allowbreak{}ownerOf/\allowbreak{}burnFromVault,\allowbreak{} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{close}\,{\tiny L103} & exte & -- & non\allowbreak{}Reentrant & Registry-only: stops redemption and sweeps the remaining ETH into the next launch. \newline \textit{State:} W closed \newline \textit{Calls:} registry.\allowbreak{}call \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/CollectionLedger.sol} \textemdash{} contract \texttt{CollectionLedger} \hfill \normalfont\small(7 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L72} & inte & -- & -- & Binds the sole mutator (the registry). \newline \textit{State:} W registry \\
+\texttt{outstanding}\,{\tiny L86} & publ & view & -- & Entitled NFT count = supply (live mint count or frozen snapshot) $-$ retired. \newline \textit{State:} R crystallized,\allowbreak{} frozenSupply,\allowbreak{} retired \\
+\texttt{floor\allowbreak{}Per\allowbreak{}NFT}\,{\tiny L94} & publ & view & -- & Tokens one NFT of a generation can redeem right now. \newline \textit{State:} R entitledTokens \\
+\texttt{credit}\,{\tiny L106} & exte & -- & only\allowbreak{}Registry & Registry-only: grows a collection's entitlement (live buyback / royalty inflow). \newline \textit{State:} W entitledTokens,\allowbreak{} totalEntitled \\
+\texttt{redeem}\,{\tiny L117} & exte & -- & only\allowbreak{}Registry & Registry-only: pays one NFT its floor (round DOWN), retires it, debits the pot. \newline \textit{State:} W entitledTokens,\allowbreak{} retired,\allowbreak{} totalEntitled \\
+\texttt{buyback}\,{\tiny L130} & exte & -- & only\allowbreak{}Registry & Registry-only: credits a $2\times$-floor resale and un-retires the NFT (floor ratchet). \newline \textit{State:} W entitledTokens,\allowbreak{} retired,\allowbreak{} totalEntitled \\
+\texttt{crystallize}\,{\tiny L143} & exte & -- & only\allowbreak{}Registry & Registry-only one-time freeze of a dead collection's supply plus a final entitlement fold. \newline \textit{State:} W crystallized,\allowbreak{} frozenSupply,\allowbreak{} entitledTokens,\allowbreak{} totalEntitled \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/DefaultFeeRouter.sol} \textemdash{} contract \texttt{DefaultFeeRouter} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{route}\,{\tiny L21} & exte & pure & -- & Reference IFeeRouter reproducing the hook's built-in split; pure, owner-less, custody-free. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICauldron.sol} \textemdash{} interface \texttt{ICollectionRenderer} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{token\allowbreak{}URI}\,{\tiny L12} & exte & view & -- & Interface declaration --- On-chain art renderer surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICauldron.sol} \textemdash{} library \texttt{LaunchLib} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{display\allowbreak{}Name}\,{\tiny L37} & inte & pure & -- & Hardcoded on-chain branding: "$\langle$name$\rangle$ by Magic Internet Frens". \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICauldron.sol} \textemdash{} interface \texttt{ICauldronGovernor} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{winner}\,{\tiny L44} & exte & view & -- & Interface declaration --- Governor surface the registry consumes on relaunch. \\
+\texttt{mark\allowbreak{}Consumed}\,{\tiny L45} & exte & -- & -- & Interface declaration --- Governor surface the registry consumes on relaunch. \\
+\texttt{has\allowbreak{}Proposals}\,{\tiny L46} & exte & view & -- & Interface declaration --- Governor surface the registry consumes on relaunch. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICauldron.sol} \textemdash{} interface \texttt{ICauldronCollection} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{mint}\,{\tiny L51} & exte & -- & -- & Interface declaration --- Mint surface the volume hook drives. \\
+\texttt{total\allowbreak{}Minted}\,{\tiny L52} & exte & view & -- & Interface declaration --- Mint surface the volume hook drives. \\
+\texttt{max\allowbreak{}Supply}\,{\tiny L53} & exte & view & -- & Interface declaration --- Mint surface the volume hook drives. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICreatorToken.sol} \textemdash{} interface \texttt{ITransferValidator} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{validate\allowbreak{}Transfer}\,{\tiny L8} & exte & view & -- & Interface declaration --- ERC-721C validator the collections defer to. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ICreatorToken.sol} \textemdash{} interface \texttt{ICreatorToken} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L16} & exte & view & -- & Interface declaration --- ERC-721C discovery surface markets recognise. \\
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validation\allowbreak{}Function}\,{\tiny L17} & exte & view & -- & Interface declaration --- ERC-721C discovery surface markets recognise. \\
+\texttt{set\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L18} & exte & -- & -- & Interface declaration --- ERC-721C discovery surface markets recognise. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/IDeathChecker.sol} \textemdash{} interface \texttt{IDeathChecker} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{is\allowbreak{}Dead}\,{\tiny L27} & exte & view & -- & Interface declaration --- Pluggable death rule. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ILiquidatorMintable.sol} \textemdash{} interface \texttt{ILiquidatorMintable} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{mint\allowbreak{}Liquidator}\,{\tiny L11} & exte & -- & -- & Interface declaration --- Liquidatoor badge mint surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/IPolicies.sol} \textemdash{} interface \texttt{ISurtaxPolicy} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{surtax\allowbreak{}Bps}\,{\tiny L25} & exte & view & -- & Interface declaration --- Pluggable anti-snipe surtax curve. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/IPolicies.sol} \textemdash{} interface \texttt{IOddsPolicy} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{odds\allowbreak{}Bps}\,{\tiny L37} & exte & view & -- & Interface declaration --- Pluggable gacha odds curve. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/IPolicies.sol} \textemdash{} interface \texttt{ICurvePolicy} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{price\allowbreak{}At}\,{\tiny L49} & exte & view & -- & Interface declaration --- Pluggable mint-cost curve. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/IPolicies.sol} \textemdash{} interface \texttt{IFeeRouter} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{route}\,{\tiny L70} & exte & view & -- & Interface declaration --- Pluggable ETH fee-split STRUCTURE (amounts only; the hook keeps custody). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ISeeder.sol} \textemdash{} interface \texttt{ISeeder} \hfill \normalfont\small(5 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{start\allowbreak{}Seed}\,{\tiny L30} & exte & paya & -- & Interface declaration --- Progressive seeder surface shared by PoolOps and CauldronSeeder. \\
+\texttt{poke}\,{\tiny L31} & exte & -- & -- & Interface declaration --- Progressive seeder surface shared by PoolOps and CauldronSeeder. \\
+\texttt{withdraw\allowbreak{}All}\,{\tiny L32} & exte & -- & -- & Interface declaration --- Progressive seeder surface shared by PoolOps and CauldronSeeder. \\
+\texttt{is\allowbreak{}Complete}\,{\tiny L33} & exte & view & -- & Interface declaration --- Progressive seeder surface shared by PoolOps and CauldronSeeder. \\
+\texttt{seeding}\,{\tiny L34} & exte & view & -- & Interface declaration --- Progressive seeder surface shared by PoolOps and CauldronSeeder. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/LaunchSniper.sol} \textemdash{} interface \texttt{IMiFrensGenesisFinalize} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{finalize}\,{\tiny L8} & exte & -- & -- & Interface declaration --- Presale ignition surface. \\
+\texttt{sold\allowbreak{}Out}\,{\tiny L9} & exte & view & -- & Interface declaration --- Presale ignition surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/LaunchSniper.sol} \textemdash{} interface \texttt{IRegistryCurrent} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{current\allowbreak{}Token}\,{\tiny L13} & exte & view & -- & Interface declaration --- Live-token read. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/LaunchSniper.sol} \textemdash{} interface \texttt{IGachaPlay} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{play}\,{\tiny L17} & exte & paya & -- & Interface declaration --- Router play surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/LaunchSniper.sol} \textemdash{} contract \texttt{LaunchSniper} \hfill \normalfont\small(4 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L47} & inte & -- & -- & Owner binding. \\
+\texttt{launch}\,{\tiny L58} & exte & paya & only\allowbreak{}Owner & ATOMIC ignition + funding buy: finalize the presale (summons gen-1 and seeds the pool) then immediately buy through the gacha router and forward the tokens to the airdrop wallet. Nothing can execute in between. \newline \textit{Calls:} presale.\allowbreak{}soldOut/\allowbreak{}finalize,\allowbreak{} registry.\allowbreak{}currentToken,\allowbreak{} gachaRouter.\allowbreak{}play,\allowbreak{} IERC20.\allowbreak{}balanceOf/\allowbreak{}transfer \\
+\texttt{sweep}\,{\tiny L86} & exte & -- & only\allowbreak{}Owner & Owner recovery of stray ETH/tokens. \newline \textit{Calls:} owner.\allowbreak{}call,\allowbreak{} IERC20.\allowbreak{}transfer \\
+\texttt{receive}\,{\tiny L95} & exte & paya & -- & Accepts refunds from the router. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensDividend.sol} \textemdash{} interface \texttt{IMiFrensShares} \hfill \normalfont\small(4 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{owner\allowbreak{}Of}\,{\tiny L8} & exte & view & -- & Interface declaration --- MiFrens reads the dividend needs. \\
+\texttt{GENESIS\_SUPPLY}\,{\tiny L9} & exte & view & -- & Interface declaration --- MiFrens reads the dividend needs. \\
+\texttt{MAX\_SUPPLY}\,{\tiny L10} & exte & view & -- & Interface declaration --- MiFrens reads the dividend needs. \\
+\texttt{ever\allowbreak{}Moved}\,{\tiny L12} & exte & view & -- & Interface declaration --- MiFrens reads the dividend needs. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensDividend.sol} \textemdash{} interface \texttt{IReserveRegistry} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{enchant\allowbreak{}Fee}\,{\tiny L18} & exte & view & -- & Interface declaration --- Registry reads the dividend needs to price + route the re-enchant fee. \\
+\texttt{current\allowbreak{}Token}\,{\tiny L19} & exte & view & -- & Interface declaration --- Registry reads the dividend needs to price + route the re-enchant fee. \\
+\texttt{donate\allowbreak{}To\allowbreak{}Reserve}\,{\tiny L20} & exte & -- & -- & Interface declaration --- Registry reads the dividend needs to price + route the re-enchant fee. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensDividend.sol} \textemdash{} contract \texttt{MiFrensDividend} \hfill \normalfont\small(14 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L106} & inte & -- & -- & Reads GENESIS\_SUPPLY / MAX\_SUPPLY off the collection and fixes the treasury sink. \newline \textit{State:} W SHARES,\allowbreak{} MAX\_TOKEN,\allowbreak{} treasury \newline \textit{Calls:} IMiFrensShares.\allowbreak{}GENESIS\_SUPPLY/\allowbreak{}MAX\_SUPPLY \\
+\texttt{set\allowbreak{}Registry}\,{\tiny L120} & exte & -- & -- & One-shot, treasury-gated wiring so a moved fren's re-enchant fee routes into the reserve. \newline \textit{State:} W registry \\
+\texttt{receive}\,{\tiny L130} & exte & paya & -- & Fee inflow. Splits across the ENCHANTED set; with no active shares the pot sweeps to the treasury instead of banking up. \newline \textit{State:} W totalDeposited,\allowbreak{} accPerShare,\allowbreak{} residual \newline \textit{Calls:} treasury.\allowbreak{}call \\
+\texttt{pending}\,{\tiny L150} & publ & view & -- & Claimable ETH for a fren (0 unless enchanted by its current owner). \newline \textit{State:} R accPerShare,\allowbreak{} debtOf,\allowbreak{} enchantedBy \newline \textit{Calls:} mifrens.\allowbreak{}ownerOf \\
+\texttt{is\allowbreak{}Enchanted}\,{\tiny L158} & exte & view & -- & Whether a fren is currently drawing fees. \newline \textit{Calls:} mifrens.\allowbreak{}ownerOf \\
+\texttt{cast\allowbreak{}Spell}\,{\tiny L168} & exte & -- & -- & Enchant a fren you own so it joins the earning set. \newline \textit{Calls:} \_castSpell \\
+\texttt{cast\allowbreak{}Many}\,{\tiny L173} & exte & -- & -- & Batch enchant. \newline \textit{Calls:} \_castSpell \\
+\texttt{\_cast\allowbreak{}Spell}\,{\tiny L178} & priv & -- & -- & Join (collect the fee, bump activeShares) or re-point a stale enchantment (settle the prior caster, count unchanged). \newline \textit{State:} W activeShares,\allowbreak{} debtOf,\allowbreak{} enchantedBy,\allowbreak{} owed \newline \textit{Calls:} mifrens.\allowbreak{}ownerOf,\allowbreak{} \_collectEnchantFee \\
+\texttt{\_collect\allowbreak{}Enchant\allowbreak{}Fee}\,{\tiny L205} & priv & -- & -- & Charges MOVED frens (and every forged fren) the reserve-growing re-enchant fee; original OGs are free. \newline \textit{Calls:} registry.\allowbreak{}enchantFee/\allowbreak{}currentToken/\allowbreak{}donateToReserve,\allowbreak{} IERC20.\allowbreak{}transferFrom/\allowbreak{}approve \\
+\texttt{on\allowbreak{}Mi\allowbreak{}Fren\allowbreak{}Transfer}\,{\tiny L224} & exte & -- & -- & Collection-only hook: settles the leaver and frees its active share. Only ever fired for GENESIS ids (finding M-06). \newline \textit{State:} W owed,\allowbreak{} activeShares,\allowbreak{} enchantedBy,\allowbreak{} debtOf \\
+\texttt{claim}\,{\tiny L238} & publ & -- & non\allowbreak{}Reentrant & Claims one fren's accrued ETH (CEI + nonReentrant). \newline \textit{Calls:} \_claim \\
+\texttt{claim\allowbreak{}Many}\,{\tiny L243} & exte & -- & non\allowbreak{}Reentrant & Batch claim. \newline \textit{Calls:} \_claim \\
+\texttt{withdraw\allowbreak{}Owed}\,{\tiny L254} & exte & -- & non\allowbreak{}Reentrant & Pull-withdraw of ETH settled when a fren left the active set. \newline \textit{State:} W owed,\allowbreak{} totalClaimed \newline \textit{Calls:} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{\_claim}\,{\tiny L265} & priv & -- & -- & Ownership + enchantment checks, debt update before the send. \newline \textit{State:} W debtOf,\allowbreak{} totalClaimed \newline \textit{Calls:} mifrens.\allowbreak{}ownerOf,\allowbreak{} msg.\allowbreak{}sender.\allowbreak{}call \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensGenesis.sol} \textemdash{} interface \texttt{IRegistrySummon} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{summon}\,{\tiny L16} & exte & paya & -- & Interface declaration --- Registry summon surface the presale ignites. \\
+\texttt{summoned}\,{\tiny L17} & exte & view & -- & Interface declaration --- Registry summon surface the presale ignites. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensGenesis.sol} \textemdash{} interface \texttt{IMiFrensDividendHook} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{on\allowbreak{}Mi\allowbreak{}Fren\allowbreak{}Transfer}\,{\tiny L21} & exte & -- & -- & Interface declaration --- Spell-break ping on a genesis transfer. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MiFrensGenesis.sol} \textemdash{} contract \texttt{MiFrensGenesis} \hfill \normalfont\small(35 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L174} & inte & -- & -- & Fixes the OG tranche size, art cap (below the badge id range), price and per-wallet cap. \newline \textit{State:} W GENESIS\_SUPPLY,\allowbreak{} MAX\_SUPPLY,\allowbreak{} PRICE,\allowbreak{} MAX\_PER\_WALLET,\allowbreak{} \_base,\allowbreak{} deployer \\
+\texttt{set\allowbreak{}Registry}\,{\tiny L196} & exte & -- & -- & One-shot deployer wiring of the registry this presale ignites. \newline \textit{State:} W registry \\
+\texttt{mint}\,{\tiny L209} & exte & paya & non\allowbreak{}Reentrant & VOLUME mint (the iteration-\#2 continuation): hook-only, records the mint block for the reveal roll. \newline \textit{State:} W minted,\allowbreak{} mintBlockOf \newline \textit{Calls:} ERC721.\allowbreak{}\_mint \\
+\texttt{cancel\allowbreak{}Presale}\,{\tiny L236} & exte & -- & -- & Deployer safety valve for a stalled presale; opens refunds. \newline \textit{State:} W cancelled \\
+\texttt{refund}\,{\tiny L247} & exte & -- & non\allowbreak{}Reentrant & Post-cancel reclaim of 100\% of what a wallet paid (CEI). \newline \textit{State:} W paid \newline \textit{Calls:} msg.\allowbreak{}sender.\allowbreak{}call \\
+\texttt{total\allowbreak{}Minted}\,{\tiny L262} & exte & view & -- & ICauldronCollection surface. \newline \textit{State:} R minted \\
+\texttt{max\allowbreak{}Supply}\,{\tiny L267} & exte & view & -- & ICauldronCollection surface. \\
+\texttt{set\allowbreak{}Minter}\,{\tiny L280} & exte & -- & only\allowbreak{}Deployer\allowbreak{}Or\allowbreak{}Registry & Registry/deployer wiring of the volume hook for the iteration-\#2 continuation. \newline \textit{State:} W minter \\
+\texttt{set\allowbreak{}Vault}\,{\tiny L285} & exte & -- & only\allowbreak{}Deployer\allowbreak{}Or\allowbreak{}Registry & Registry/deployer wiring of the per-iteration floor vault. \newline \textit{State:} W vault \\
+\texttt{set\allowbreak{}Dividend}\,{\tiny L290} & exte & -- & only\allowbreak{}Deployer\allowbreak{}Or\allowbreak{}Registry & Wires the dividend so genesis transfers break the enchantment. \newline \textit{State:} W dividend \\
+\texttt{set\allowbreak{}Liquidator\allowbreak{}Minter}\,{\tiny L298} & exte & -- & -- & Deployer/registry/minter wiring of the badge minter. \newline \textit{State:} W liquidatorMinter \\
+\texttt{set\allowbreak{}Liquidator\allowbreak{}URI}\,{\tiny L304} & exte & -- & -- & Deployer-gated badge metadata base. \newline \textit{State:} W liquidatorURI \\
+\texttt{mint\allowbreak{}Liquidator}\,{\tiny L312} & exte & -- & -- & Engine-only trophy mint in the badge id range. NOTE: this collection is ERC721Votes, so a badge carries a governance vote. \newline \textit{State:} W liquidatorMinted,\allowbreak{} isLiquidatoor \newline \textit{Calls:} ERC721.\allowbreak{}\_mint \\
+\texttt{liquidatoor\allowbreak{}Trait}\,{\tiny L321} & exte & view & -- & Marketplace helper. \\
+\texttt{custody\allowbreak{}Transfer}\,{\tiny L336} & exte & -- & -- & REGISTRY-gated approval-free move (the OG recycle). Correctly gated, unlike CauldronCollection's. \newline \textit{Calls:} ERC721.\allowbreak{}\_transfer \\
+\texttt{set\allowbreak{}Finalizer}\,{\tiny L345} & exte & -- & -- & Restricts who may ignite genesis, so the team's atomic summon+buy cannot be front-run. \newline \textit{State:} W finalizer \\
+\texttt{set\allowbreak{}Metadata}\,{\tiny L351} & exte & -- & -- & Deployer-gated art source config. \newline \textit{State:} W mode,\allowbreak{} renderer,\allowbreak{} \_base \\
+\texttt{set\allowbreak{}Rarity\allowbreak{}Odds}\,{\tiny L361} & exte & -- & -- & Deployer-gated gacha odds. \newline \textit{State:} W rarityCumBps \\
+\texttt{set\allowbreak{}Royalty}\,{\tiny L368} & exte & -- & -- & Deployer-gated EIP-2981 receiver + rate. \newline \textit{Calls:} \_setDefaultRoyalty \\
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L377} & exte & view & -- & ERC-721C discovery. \\
+\texttt{get\allowbreak{}Transfer\allowbreak{}Validation\allowbreak{}Function}\,{\tiny L382} & exte & pure & -- & ERC-721C discovery. \\
+\texttt{set\allowbreak{}Transfer\allowbreak{}Validator}\,{\tiny L387} & exte & -- & -- & Deployer-gated validator wiring. \newline \textit{State:} W transferValidator \\
+\texttt{mint}\,{\tiny L396} & exte & -- & -- & VOLUME mint (the iteration-\#2 continuation): hook-only, records the mint block for the reveal roll. \newline \textit{State:} W minted,\allowbreak{} mintBlockOf \newline \textit{Calls:} ERC721.\allowbreak{}\_mint \\
+\texttt{reveal}\,{\tiny L409} & exte & -- & -- & Owner-only rarity reveal with the same 256-block fallback as CauldronCollection (finding M-03). \newline \textit{State:} W rarityOf,\allowbreak{} revealed \\
+\texttt{burn\allowbreak{}From\allowbreak{}Vault}\,{\tiny L424} & exte & -- & -- & Vault-only burn on floor redemption. \newline \textit{Calls:} ERC721.\allowbreak{}\_burn \\
+\texttt{\_roll\allowbreak{}Rarity}\,{\tiny L429} & priv & view & -- & Cumulative-bps tier roll. \\
+\texttt{finalize}\,{\tiny L445} & exte & -- & non\allowbreak{}Reentrant & IGNITION: forwards the entire treasury into registry.summon(). One-shot, sellout-gated, optionally finalizer-gated. \newline \textit{State:} W finalized \newline \textit{Calls:} registry.\allowbreak{}summon \\
+\texttt{sold\allowbreak{}Out}\,{\tiny L464} & exte & view & -- & Whether the OG tranche has minted out. \\
+\texttt{remaining}\,{\tiny L469} & exte & view & -- & OG tranche remaining. \\
+\texttt{is\allowbreak{}Genesis}\,{\tiny L480} & publ & view & -- & The permanent OG mark, derived from the id and the immutable tranche size. \\
+\texttt{og\allowbreak{}Trait}\,{\tiny L487} & exte & view & -- & "Genesis" or "Standard" for metadata. \\
+\texttt{token\allowbreak{}URI}\,{\tiny L491} & publ & view & -- & Badge / unrevealed / renderer / baseURI resolution. \newline \textit{Calls:} ICollectionRenderer.\allowbreak{}tokenURI \\
+\texttt{\_update}\,{\tiny L514} & inte & -- & -- & ERC721+ERC721Votes diamond resolution, auto-delegation, dividend spell-break and everMoved --- all gated on `tokenId <= GENESIS\_SUPPLY` (finding M-06). \newline \textit{State:} W everMoved,\allowbreak{} voting checkpoints \newline \textit{Calls:} ITransferValidator.\allowbreak{}validateTransfer,\allowbreak{} IMiFrensDividendHook.\allowbreak{}onMiFrenTransfer (try/\allowbreak{}catch) \\
+\texttt{\_increase\allowbreak{}Balance}\,{\tiny L544} & inte & -- & -- & ERC721Votes plumbing. \\
+\texttt{supports\allowbreak{}Interface}\,{\tiny L552} & publ & view & -- & ERC165 over ERC721 + ERC2981 + ICreatorToken. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MigrationVesting.sol} \textemdash{} interface \texttt{IVestingRegistry} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{current\allowbreak{}Generation}\,{\tiny L14} & exte & view & -- & Interface declaration --- Registry migration primitive the escrow wraps. \\
+\texttt{generation\allowbreak{}Token}\,{\tiny L15} & exte & view & -- & Interface declaration --- Registry migration primitive the escrow wraps. \\
+\texttt{claim\allowbreak{}By\allowbreak{}Burn}\,{\tiny L16} & exte & -- & -- & Interface declaration --- Registry migration primitive the escrow wraps. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MigrationVesting.sol} \textemdash{} interface \texttt{IStakerOracle} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{is\allowbreak{}Instant}\,{\tiny L24} & exte & view & -- & Interface declaration --- Pluggable instant-tier policy. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/MigrationVesting.sol} \textemdash{} contract \texttt{MigrationVesting} \hfill \normalfont\small(15 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L114} & inte & -- & -- & Binds the registry, the governance owner, the initial window (bounded 1h--14d) and the instant-tier oracle. \newline \textit{State:} W vestWindow,\allowbreak{} stakerOracle \\
+\texttt{start\allowbreak{}Vest}\,{\tiny L135} & exte & -- & non\allowbreak{}Reentrant & Pulls the caller's dead-gen tokens, migrates 1:1 through the registry, books a linear grant, and auto-releases if the wallet is instant-tier. \newline \textit{State:} W \_grants \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom,\allowbreak{} registry.\allowbreak{}claimByBurn,\allowbreak{} \_release \\
+\texttt{vest\allowbreak{}Batch}\,{\tiny L153} & exte & -- & non\allowbreak{}Reentrant & Keeper batch: books grants for every holder who has approved the escrow. Best-effort per holder. \newline \textit{State:} W \_grants \newline \textit{Calls:} IERC20.\allowbreak{}balanceOf/\allowbreak{}allowance,\allowbreak{} \_pullAndVest \\
+\texttt{\_pull\allowbreak{}And\allowbreak{}Vest}\,{\tiny L169} & priv & -- & -- & Pull + migrate + book, verifying the live-token delta actually landed. \newline \textit{State:} W \_grants \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom/\allowbreak{}balanceOf,\allowbreak{} registry.\allowbreak{}claimByBurn,\allowbreak{} \_isInstant \\
+\texttt{claim}\,{\tiny L206} & exte & -- & non\allowbreak{}Reentrant & Releases everything currently vested across the caller's grants. \newline \textit{State:} W \_grants \newline \textit{Calls:} \_release \\
+\texttt{claim\allowbreak{}For}\,{\tiny L213} & exte & -- & non\allowbreak{}Reentrant & Permissionless release TO the beneficiary (keeper convenience). \newline \textit{State:} W \_grants \newline \textit{Calls:} \_release \\
+\texttt{\_release}\,{\tiny L221} & priv & -- & -- & Pays vested-minus-released per grant and prunes drained grants (swap-pop). Per-grant token pinning survives a mid-vest relaunch. \newline \textit{State:} W \_grants \newline \textit{Calls:} IERC20.\allowbreak{}transfer \\
+\texttt{\_vested\allowbreak{}Of}\,{\tiny L245} & priv & view & -- & Linear schedule; window 0 = instant. \\
+\texttt{\_is\allowbreak{}Instant}\,{\tiny L252} & priv & view & -- & Consults the staker oracle; a reverting oracle means "not instant" (the safe outcome). \newline \textit{Calls:} stakerOracle.\allowbreak{}isInstant (try/\allowbreak{}catch) \\
+\texttt{claimable}\,{\tiny L265} & exte & view & -- & Total claimable across a holder's grants. \\
+\texttt{locked}\,{\tiny L273} & exte & view & -- & Total still locked across a holder's grants. \\
+\texttt{grant\allowbreak{}Count}\,{\tiny L281} & exte & view & -- & Number of open grants. \\
+\texttt{grant\allowbreak{}At}\,{\tiny L286} & exte & view & -- & Reads one grant. \\
+\texttt{set\allowbreak{}Vest\allowbreak{}Window}\,{\tiny L296} & exte & -- & only\allowbreak{}Owner & Governance-tunable window for FUTURE grants (existing grants keep their snapshot). \newline \textit{State:} W vestWindow \\
+\texttt{set\allowbreak{}Staker\allowbreak{}Oracle}\,{\tiny L303} & exte & -- & only\allowbreak{}Owner & Swaps the instant-tier policy. \newline \textit{State:} W stakerOracle \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpEngine.sol} \textemdash{} interface \texttt{IPerpRegistry} \hfill \normalfont\small(6 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{current\allowbreak{}Token}\,{\tiny L23} & exte & view & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\texttt{current\allowbreak{}Generation}\,{\tiny L24} & exte & view & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\texttt{last\allowbreak{}Summon\allowbreak{}At}\,{\tiny L25} & exte & view & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\texttt{generation\allowbreak{}Pool\allowbreak{}Id}\,{\tiny L26} & exte & view & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\texttt{generation\allowbreak{}Token}\,{\tiny L27} & exte & view & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\texttt{claim\allowbreak{}By\allowbreak{}Burn}\,{\tiny L28} & exte & -- & -- & Interface declaration --- Registry reads the perp engine needs. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpEngine.sol} \textemdash{} interface \texttt{IPerpHook} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{is\allowbreak{}Dead}\,{\tiny L32} & exte & view & -- & Interface declaration --- Hook reads the perp engine needs. \\
+\texttt{collection}\,{\tiny L34} & exte & view & -- & Interface declaration --- Hook reads the perp engine needs. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpEngine.sol} \textemdash{} contract \texttt{PerpEngine} \hfill \normalfont\small(85 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L276} & inte & -- & -- & Binds poolManager/hook/registry/mifrens, seeds the tier table, the TWAP ring and the synced generation. \newline \textit{State:} W dividend,\allowbreak{} treasury,\allowbreak{} nftBeneficiary,\allowbreak{} tierDepthWei,\allowbreak{} tierLeverage,\allowbreak{} lastFundingAt,\allowbreak{} observations,\allowbreak{} obsIndex,\allowbreak{} lastObsTs,\allowbreak{} lastTick,\allowbreak{} syncedGeneration,\allowbreak{} syncedToken \newline \textit{Calls:} registry.\allowbreak{}currentGeneration/\allowbreak{}currentToken,\allowbreak{} poolManager.\allowbreak{}getSlot0 \\
+\texttt{total\allowbreak{}Eth}\,{\tiny L317} & publ & view & -- & ETH the ETH-vault owns = free PLV + lent to open longs (insurance excluded). \newline \textit{State:} R plv,\allowbreak{} longOiEth \\
+\texttt{free\allowbreak{}Eth}\,{\tiny L319} & exte & view & -- & Instantly withdrawable ETH. \newline \textit{State:} R plv \\
+\texttt{total\allowbreak{}Token\allowbreak{}Assets}\,{\tiny L321} & publ & view & -- & Token the token-vault owns = free inventory + lent to shorts. \newline \textit{State:} R plvToken,\allowbreak{} shortOiToken \\
+\texttt{free\allowbreak{}Token}\,{\tiny L323} & exte & view & -- & Instantly withdrawable token inventory. \newline \textit{State:} R plvToken \\
+\texttt{\_key}\,{\tiny L328} & inte & view & -- & Rebuilds the live PoolKey from registry.currentToken() on every call. \newline \textit{Calls:} registry.\allowbreak{}currentToken \\
+\texttt{\_sqrt\allowbreak{}P}\,{\tiny L332} & inte & view & -- & Spot sqrtPrice of the live pool. \newline \textit{Calls:} poolManager.\allowbreak{}getSlot0 \\
+\texttt{\_current\allowbreak{}Tick}\,{\tiny L333} & inte & view & -- & Spot tick of the live pool. \newline \textit{Calls:} poolManager.\allowbreak{}getSlot0 \\
+\texttt{poke}\,{\tiny L339} & exte & -- & -- & Permissionless keeper entry that refreshes the TWAP observation and accrues funding. \newline \textit{Calls:} \_pokeFunding \\
+\texttt{\_write\allowbreak{}Obs}\,{\tiny L341} & inte & -- & -- & Writes a TWAP observation, throttled to OBS\_INTERVAL so the ring cannot be flooded. \newline \textit{State:} W tickCumulative,\allowbreak{} observations,\allowbreak{} obsIndex,\allowbreak{} lastObsTs,\allowbreak{} lastTick \newline \textit{Calls:} \_currentTick \\
+\texttt{twap\allowbreak{}Tick}\,{\tiny L358} & publ & view & -- & Time-weighted average tick over twapWindow, falling back to the oldest observation if it still spans MIN\_TWAP. \newline \textit{State:} R observations,\allowbreak{} tickCumulative,\allowbreak{} lastObsTs,\allowbreak{} lastTick,\allowbreak{} twapWindow \\
+\texttt{mark\allowbreak{}Sqrt\allowbreak{}Price\allowbreak{}X96}\,{\tiny L384} & publ & view & -- & The manipulation-resistant liquidation mark (TWAP tick; spot only at genuine cold start). \newline \textit{Calls:} twapTick,\allowbreak{} \_sqrtP \\
+\texttt{active\allowbreak{}Eth\allowbreak{}Depth}\,{\tiny L389} & publ & view & -- & ETH-equivalent depth at the current tick; drives leverage tiers, notional caps and the per-block liquidation cap. \newline \textit{Calls:} poolManager.\allowbreak{}getLiquidity/\allowbreak{}getSlot0 \\
+\texttt{max\allowbreak{}Leverage}\,{\tiny L399} & publ & view & -- & Depth-tiered leverage, clamped by maxLeverageCeiling. \newline \textit{State:} R tierDepthWei,\allowbreak{} tierLeverage,\allowbreak{} maxLeverageCeiling \newline \textit{Calls:} activeEthDepth \\
+\texttt{\_quote\allowbreak{}At}\,{\tiny L412} & inte & pure & -- & token $\to$ ETH at a given sqrtPrice. \\
+\texttt{\_quote\allowbreak{}Eth}\,{\tiny L416} & inte & view & -- & token $\to$ ETH at SPOT (funding sizing --- spot-manipulable, see finding L-05). \newline \textit{Calls:} \_sqrtP \\
+\texttt{\_quote\allowbreak{}Mark}\,{\tiny L418} & inte & view & -- & token $\to$ ETH at the TWAP MARK (liquidation trigger). \newline \textit{Calls:} markSqrtPriceX96 \\
+\texttt{\_poke\allowbreak{}Funding}\,{\tiny L421} & inte & -- & -- & Accrues the global funding index from the signed OI imbalance $\times$ elapsed time. \newline \textit{State:} W lastFundingAt,\allowbreak{} fundingIndex \newline \textit{Calls:} \_writeObs,\allowbreak{} \_quoteEth \\
+\texttt{\_funding\allowbreak{}Delta}\,{\tiny L442} & inte & view & -- & Signed funding P\&L for one position, notional pinned to entry and bounded to $\pm$maxFundingBps of collateral. \newline \textit{State:} R fundingIndex,\allowbreak{} maxFundingBps \\
+\texttt{funding\allowbreak{}Delta}\,{\tiny L455} & exte & view & -- & UI view of the above. \\
+\texttt{open\allowbreak{}Long}\,{\tiny L466} & exte & paya & -- & Opens a LONG: takes the open fee, borrows ETH from the PLV, buys token (real price impact), books the position, then best-effort sweeps liquidations. \newline \textit{State:} W plv,\allowbreak{} longOiEth,\allowbreak{} positions,\allowbreak{} nextId,\allowbreak{} openCount,\allowbreak{} \_openIds,\allowbreak{} \_openPos \newline \textit{Calls:} \_guardOpen,\allowbreak{} \_pokeFunding,\allowbreak{} \_takeFee,\allowbreak{} \_swapExactIn,\allowbreak{} \_book,\allowbreak{} \_sweepAfterOpen \\
+\texttt{open\allowbreak{}Long}\,{\tiny L473} & publ & paya & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Opens a LONG: takes the open fee, borrows ETH from the PLV, buys token (real price impact), books the position, then best-effort sweeps liquidations. \newline \textit{State:} W plv,\allowbreak{} longOiEth,\allowbreak{} positions,\allowbreak{} nextId,\allowbreak{} openCount,\allowbreak{} \_openIds,\allowbreak{} \_openPos \newline \textit{Calls:} \_guardOpen,\allowbreak{} \_pokeFunding,\allowbreak{} \_takeFee,\allowbreak{} \_swapExactIn,\allowbreak{} \_book,\allowbreak{} \_sweepAfterOpen \\
+\texttt{open\allowbreak{}Short}\,{\tiny L503} & publ & paya & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Opens a SHORT: borrows token inventory, sells it (price down), holds ETH backing. \newline \textit{State:} W plvToken,\allowbreak{} shortOiToken,\allowbreak{} positions,\allowbreak{} openCount,\allowbreak{} \_openIds \newline \textit{Calls:} \_guardOpen,\allowbreak{} \_ethToToken,\allowbreak{} \_swapExactIn,\allowbreak{} \_book,\allowbreak{} \_sweepAfterOpen \\
+\texttt{close}\,{\tiny L535} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Trader-only close with slippage protection. \newline \textit{Calls:} \_pokeFunding,\allowbreak{} \_settle \\
+\texttt{liquidate}\,{\tiny L542} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Permissionless keeper liquidation, gated on the TWAP mark and the per-timestamp notional cap. \newline \textit{State:} W liqBlock,\allowbreak{} liqEthThisBlock \newline \textit{Calls:} \_quoteMark,\allowbreak{} \_underwaterVal,\allowbreak{} activeEthDepth,\allowbreak{} \_settle \\
+\texttt{liquidate\allowbreak{}In\allowbreak{}Swap}\,{\tiny L566} & exte & -- & -- & Hook-only single in-swap liquidation; never reverts the triggering swap. \newline \textit{State:} W \_liqReentry,\allowbreak{} \_inLocked \newline \textit{Calls:} \_pokeFunding,\allowbreak{} \_tryLiquidate \\
+\texttt{liquidate\allowbreak{}Many\allowbreak{}In\allowbreak{}Swap}\,{\tiny L583} & exte & -- & -- & Hook-only batch in-swap liquidation, capped at MAX\_LIQ\_PER\_SWAP. \newline \textit{State:} same \newline \textit{Calls:} \_tryLiquidate \\
+\texttt{sweep\allowbreak{}Liquidations}\,{\tiny L609} & exte & -- & -- & Hook-only HINT-FREE sweep fired from every swap; scans a rotating window and credits tx.origin. \newline \textit{Calls:} \_doSweep \\
+\texttt{self\allowbreak{}Sweep}\,{\tiny L618} & exte & -- & -- & Self-only post-open sweep entry so it can be wrapped in try/catch with its own unlock. \newline \textit{Calls:} \_doSweep \\
+\texttt{\_sweep\allowbreak{}After\allowbreak{}Open}\,{\tiny L624} & inte & -- & -- & Gas-reserved best-effort sweep after an open. \newline \textit{Calls:} this.\allowbreak{}selfSweep (try/\allowbreak{}catch) \\
+\texttt{\_do\allowbreak{}Sweep}\,{\tiny L634} & inte & -- & -- & Bounded rotating-window scan (SWEEP\_SCAN checks, MAX\_LIQ\_PER\_SWAP kills). \newline \textit{State:} W sweepCursor,\allowbreak{} \_liqReentry,\allowbreak{} \_inLocked \newline \textit{Calls:} \_tryLiquidate \\
+\texttt{\_try\allowbreak{}Liquidate}\,{\tiny L663} & inte & -- & -- & Liquidates one position if genuinely underwater at the mark and within the cap; otherwise a silent no-op. \newline \textit{State:} W liqBlock,\allowbreak{} liqEthThisBlock \newline \textit{Calls:} \_quoteMark,\allowbreak{} \_underwaterVal,\allowbreak{} \_settle \\
+\texttt{force\allowbreak{}Close\allowbreak{}Dead}\,{\tiny L685} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Permissionless solvent close once the token is dead; pays the caller a keeper reward. \newline \textit{Calls:} \_isDead,\allowbreak{} \_pokeFunding,\allowbreak{} \_settle \\
+\texttt{force\allowbreak{}Close\allowbreak{}All\allowbreak{}Dead}\,{\tiny L700} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Closes the whole open set oldest-first (bounded to 96). Reverts wholesale if ANY position's payout send fails (finding H-04). \newline \textit{Calls:} \_settle \\
+\texttt{sync\allowbreak{}Generation}\,{\tiny L725} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested & Re-arms the engine on a new generation: migrates the dead inventory 1:1, re-points plvToken, resets the TWAP ring. Requires openCount == 0. \newline \textit{State:} W plvToken,\allowbreak{} shortOiToken,\allowbreak{} longOiEth,\allowbreak{} observations,\allowbreak{} tickCumulative,\allowbreak{} obsIndex,\allowbreak{} lastObsTs,\allowbreak{} lastTick,\allowbreak{} syncedGeneration,\allowbreak{} syncedToken \newline \textit{Calls:} registry.\allowbreak{}claimByBurn (try/\allowbreak{}catch),\allowbreak{} IERC20.\allowbreak{}balanceOf \\
+\texttt{is\allowbreak{}Liquidatable}\,{\tiny L765} & exte & view & -- & View: is the position underwater at the mark? \newline \textit{Calls:} \_underwater \\
+\texttt{\_underwater}\,{\tiny L772} & inte & view & -- & Underwater test at the TWAP mark. \newline \textit{Calls:} \_quoteMark,\allowbreak{} \_underwaterVal \\
+\texttt{\_underwater\allowbreak{}Val}\,{\tiny L781} & inte & view & -- & Underwater test given a pre-computed mark value (long: value $<$ debt + buffer; short: buy-back cost + buffer $>$ backing). \newline \textit{State:} R maintenanceBps \\
+\texttt{\_settle}\,{\tiny L793} & inte & -- & -- & THE settlement core: unwinds the position through a real pool swap, repays/absorbs, applies funding, takes the liquidation penalty, pays keeper + trader. \newline \textit{State:} W positions,\allowbreak{} openCount,\allowbreak{} longOiEth/\allowbreak{}shortOiToken,\allowbreak{} plv,\allowbreak{} plvToken,\allowbreak{} insuranceEth \newline \textit{Calls:} \_swapExactIn/\allowbreak{}\_buyExactOut,\allowbreak{} \_replenishPlv/\allowbreak{}\_absorbPlvLoss,\allowbreak{} \_routeFee,\allowbreak{} \_sendEth,\allowbreak{} \_awardBadge \\
+\texttt{\_run}\,{\tiny L869} & inte & -- & -- & Routes a swap through a fresh unlock or directly, depending on \_inLocked. \newline \textit{Calls:} poolManager.\allowbreak{}unlock /\allowbreak{} \_execSwap \\
+\texttt{\_swap\allowbreak{}Exact\allowbreak{}In}\,{\tiny L874} & inte & -- & -- & Exact-input swap helper. \newline \textit{Calls:} \_run \\
+\texttt{\_buy\allowbreak{}Exact\allowbreak{}Out}\,{\tiny L879} & inte & -- & -- & Exact-output buy (makes the short inventory whole). \newline \textit{Calls:} \_run \\
+\texttt{unlock\allowbreak{}Callback}\,{\tiny L883} & exte & -- & -- & PoolManager-only unlock entry. \newline \textit{Calls:} \_execSwap \\
+\texttt{\_exec\allowbreak{}Swap}\,{\tiny L891} & inte & -- & -- & Swap body: performs the pool swap tagged with nftBeneficiary and settles both legs. \newline \textit{Calls:} poolManager.\allowbreak{}swap,\allowbreak{} \_settleCur,\allowbreak{} \_take \\
+\texttt{\_guard\allowbreak{}Open}\,{\tiny L921} & inte & view & -- & Blocks opens before the warmup, once the token is dead, or above the depth-tiered leverage. \newline \textit{Calls:} registry.\allowbreak{}lastSummonAt,\allowbreak{} \_isDead,\allowbreak{} maxLeverage \\
+\texttt{\_is\allowbreak{}Dead}\,{\tiny L926} & inte & view & -- & Reads the hook's death verdict, defaulting to "alive" on revert. \newline \textit{Calls:} IPerpHook.\allowbreak{}isDead (try/\allowbreak{}catch) \\
+\texttt{\_take\allowbreak{}Fee}\,{\tiny L929} & inte & -- & -- & Charges the 6.9\% open fee (halved for fren holders) and routes it. \newline \textit{Calls:} mifrens.\allowbreak{}balanceOf,\allowbreak{} \_routeFee \\
+\texttt{\_check\allowbreak{}Notional}\,{\tiny L935} & inte & view & -- & Caps a single position's notional at maxNotionalBps of depth (bounded slippage). \newline \textit{Calls:} activeEthDepth \\
+\texttt{\_book}\,{\tiny L938} & inte & -- & -- & Writes the position and adds it to the enumerable open set. \newline \textit{State:} W nextId,\allowbreak{} openCount,\allowbreak{} positions,\allowbreak{} \_openIds,\allowbreak{} \_openPos \\
+\texttt{\_remove\allowbreak{}Open}\,{\tiny L949} & inte & -- & -- & Swap-and-pop removal from the open set. \newline \textit{State:} W \_openIds,\allowbreak{} \_openPos \\
+\texttt{\_eth\allowbreak{}To\allowbreak{}Token}\,{\tiny L959} & inte & view & -- & ETH $\to$ token at spot. \newline \textit{Calls:} \_sqrtP \\
+\texttt{\_route\allowbreak{}Fee}\,{\tiny L964} & inte & -- & -- & Carves LP yield + insurance (side-attributed) then splits the remainder dividend/treasury. Uses a REVERTING send (finding H-04). \newline \textit{State:} W plv,\allowbreak{} tokYieldEth,\allowbreak{} tokYieldCumulative,\allowbreak{} insuranceEth \newline \textit{Calls:} \_sendEth \\
+\texttt{\_send\allowbreak{}Eth}\,{\tiny L993} & inte & -- & -- & Raw ETH send that REVERTS on failure --- the griefing primitive behind finding H-04. \newline \textit{Calls:} to.\allowbreak{}call \\
+\texttt{\_replenish\allowbreak{}Plv}\,{\tiny L999} & inte & -- & -- & Long bad debt: refills plv from insurance up to the buffer. \newline \textit{State:} W insuranceEth,\allowbreak{} plv \\
+\texttt{\_absorb\allowbreak{}Plv\allowbreak{}Loss}\,{\tiny L1008} & inte & -- & -- & Short bad debt: absorbs the overspend from insurance then LP principal (saturating). \newline \textit{State:} W insuranceEth,\allowbreak{} plv \\
+\texttt{\_award\allowbreak{}Badge}\,{\tiny L1029} & inte & -- & -- & HYBRID trophy: gas-bounded in-swap mint, else a claimable credit. A zero collection address returns success and silently loses the badge (finding L-06). \newline \textit{State:} W badgesOwed \newline \textit{Calls:} IPerpHook.\allowbreak{}collection,\allowbreak{} ILiquidatorMintable.\allowbreak{}mintLiquidator \\
+\texttt{claim\allowbreak{}Liquidator\allowbreak{}Badges}\,{\tiny L1054} & exte & -- & non\allowbreak{}Reentrant & Claims owed badges into the LIVE collection, bounded by n. \newline \textit{State:} W badgesOwed \newline \textit{Calls:} IPerpHook.\allowbreak{}collection,\allowbreak{} mintLiquidator \\
+\texttt{\_settle\allowbreak{}Cur}\,{\tiny L1063} & priv & -- & -- & Settles a currency leg (native via value, ERC20 via sync+transfer+settle). \newline \textit{Calls:} poolManager.\allowbreak{}sync/\allowbreak{}settle,\allowbreak{} \_safeTransfer \\
+\texttt{\_take}\,{\tiny L1067} & priv & -- & -- & poolManager.take wrapper. \newline \textit{Calls:} poolManager.\allowbreak{}take \\
+\texttt{\_safe\allowbreak{}Transfer}\,{\tiny L1068} & priv & -- & -- & Return-value-tolerant ERC20 transfer. \newline \textit{Calls:} token.\allowbreak{}call \\
+\texttt{fund\allowbreak{}Plv}\,{\tiny L1079} & exte & paya & not\allowbreak{}Nested,\allowbreak{} only\allowbreak{}Owner & Owner-only, SHARE-LESS permanent ETH donation to the PLV. \newline \textit{State:} W plv \\
+\texttt{fund\allowbreak{}Plv\allowbreak{}Token}\,{\tiny L1083} & exte & -- & not\allowbreak{}Nested,\allowbreak{} only\allowbreak{}Owner & Owner-only, share-less token inventory donation. \newline \textit{State:} W plvToken \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom \\
+\texttt{fund\allowbreak{}Insurance}\,{\tiny L1088} & exte & paya & -- & Permissionless insurance top-up. \newline \textit{State:} W insuranceEth \\
+\texttt{credit\allowbreak{}Perp\allowbreak{}Fee}\,{\tiny L1095} & exte & paya & -- & Hook-only: credits a redirected perp BUY fee into the ETH PLV. \newline \textit{State:} W plv \\
+\texttt{credit\allowbreak{}Perp\allowbreak{}Fee\allowbreak{}Token}\,{\tiny L1100} & exte & paya & -- & Hook-only: credits a redirected perp SELL fee into the segregated token-side pot. \newline \textit{State:} W tokYieldEth,\allowbreak{} tokYieldCumulative \\
+\texttt{\_credit\allowbreak{}Perp}\,{\tiny L1102} & priv & -- & -- & Shared body; hook-gated, pure accounting so it is safe to nest mid-swap. \newline \textit{State:} W plv /\allowbreak{} tokYieldEth \\
+\texttt{fund\allowbreak{}From\allowbreak{}Vault}\,{\tiny L1115} & exte & paya & only\allowbreak{}Vault & Vault-only ETH deposit into the PLV. \newline \textit{State:} W plv \\
+\texttt{withdraw\allowbreak{}Plv\allowbreak{}To}\,{\tiny L1119} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested,\allowbreak{} only\allowbreak{}Vault & Vault-only pull of FREE ETH. \newline \textit{State:} W plv \newline \textit{Calls:} \_sendEth \\
+\texttt{withdraw\allowbreak{}Tok\allowbreak{}Yield\allowbreak{}To}\,{\tiny L1125} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested,\allowbreak{} only\allowbreak{}Vault & Vault-only pull from the segregated short-side yield pot. \newline \textit{State:} W tokYieldEth \newline \textit{Calls:} \_sendEth \\
+\texttt{fund\allowbreak{}Token\allowbreak{}From\allowbreak{}Vault}\,{\tiny L1130} & exte & -- & only\allowbreak{}Vault & Vault-only token deposit into the short inventory. \newline \textit{State:} W plvToken \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom \\
+\texttt{withdraw\allowbreak{}Plv\allowbreak{}Token\allowbreak{}To}\,{\tiny L1136} & exte & -- & non\allowbreak{}Reentrant,\allowbreak{} not\allowbreak{}Nested,\allowbreak{} only\allowbreak{}Vault & Vault-only pull of FREE token inventory. \newline \textit{State:} W plvToken \newline \textit{Calls:} \_safeTransfer \\
+\texttt{set\allowbreak{}Fees}\,{\tiny L1143} & exte & -- & only\allowbreak{}Owner & Open fee / OG discount / liq penalty / dividend share / keeper cut, all bounded. \newline \textit{State:} W openFeeBps,\allowbreak{} ogDiscountBps,\allowbreak{} liqPenaltyBps,\allowbreak{} divShareBps,\allowbreak{} keeperBps \\
+\texttt{set\allowbreak{}Risk}\,{\tiny L1147} & exte & -- & only\allowbreak{}Owner & Warmup, leverage ceiling, maintenance, notional and OI caps, funding rate. Enforces warmup $\ge$ MIN\_TWAP. \newline \textit{State:} W warmup,\allowbreak{} maxLeverageCeiling,\allowbreak{} maintenanceBps,\allowbreak{} maxNotionalBps,\allowbreak{} maxOiBps,\allowbreak{} fundingRateBpsPerDay \\
+\texttt{set\allowbreak{}Twap\allowbreak{}Window}\,{\tiny L1164} & exte & -- & only\allowbreak{}Owner & Tunes the liquidation-mark averaging window down to a 1s floor. \newline \textit{State:} W twapWindow \\
+\texttt{set\allowbreak{}Tiers}\,{\tiny L1168} & exte & -- & only\allowbreak{}Owner & Depth$\to$leverage tier table; requires levs.length == depths.length + 1. \newline \textit{State:} W tierDepthWei,\allowbreak{} tierLeverage \\
+\texttt{set\allowbreak{}Routing}\,{\tiny L1171} & exte & -- & only\allowbreak{}Owner & Dividend + treasury sinks. \newline \textit{State:} W dividend,\allowbreak{} treasury \\
+\texttt{set\allowbreak{}Nft\allowbreak{}Beneficiary}\,{\tiny L1173} & exte & -- & only\allowbreak{}Owner & Where perp-volume gacha creatures accrue. \newline \textit{State:} W nftBeneficiary \\
+\texttt{set\allowbreak{}Guards}\,{\tiny L1175} & exte & -- & only\allowbreak{}Owner & TWAP window, per-block liquidation cap, funding cap. \newline \textit{State:} W twapWindow,\allowbreak{} maxLiqBps,\allowbreak{} maxFundingBps \\
+\texttt{set\allowbreak{}Vault}\,{\tiny L1187} & exte & -- & only\allowbreak{}Owner & Wires the community PLV. DRAIN GUARD: cannot be re-pointed while depositor funds are staked. \newline \textit{State:} W vault \\
+\texttt{set\allowbreak{}Vault\allowbreak{}Split}\,{\tiny L1193} & exte & -- & only\allowbreak{}Owner & LP-yield / insurance shares of routed fees. \newline \textit{State:} W vaultYieldBps,\allowbreak{} insuranceBps \\
+\texttt{set\allowbreak{}Vault\allowbreak{}Limits}\,{\tiny L1199} & exte & -- & only\allowbreak{}Owner & Utilisation cap + insurance circuit-breaker floor. \newline \textit{State:} W maxUtilBps,\allowbreak{} insuranceFloor \\
+\texttt{set\allowbreak{}Min\allowbreak{}Collateral}\,{\tiny L1204} & exte & -- & only\allowbreak{}Owner & Dust filter on opens, capped at 1 ETH. \newline \textit{State:} W minCollateral \\
+\texttt{skim\allowbreak{}Insurance}\,{\tiny L1213} & exte & -- & only\allowbreak{}Owner & Owner may skim insurance ABOVE insuranceFloor --- which defaults to 0 (finding M-05). \newline \textit{State:} W insuranceEth \newline \textit{Calls:} \_sendEth \\
+\texttt{position\allowbreak{}Health}\,{\tiny L1229} & exte & view & -- & UI view: mark value, debt/backing, liquidatable. \newline \textit{Calls:} \_quoteMark,\allowbreak{} \_underwater \\
+\texttt{receive}\,{\tiny L1240} & exte & paya & -- & Accepts ETH (pool takes, keeper refunds). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpStakerOracle.sol} \textemdash{} interface \texttt{IPerpShares} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{eth\allowbreak{}Share\allowbreak{}Of}\,{\tiny L8} & exte & view & -- & Interface declaration --- PerpVault share reads. \\
+\texttt{tok\allowbreak{}Share\allowbreak{}Of}\,{\tiny L9} & exte & view & -- & Interface declaration --- PerpVault share reads. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpStakerOracle.sol} \textemdash{} contract \texttt{PerpStakerOracle} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L24} & inte & -- & -- & Binds the PerpVault whose shares define the instant tier. \\
+\texttt{is\allowbreak{}Instant}\,{\tiny L29} & exte & view & -- & A wallet is instant-tier iff it holds a live ETH- or token-side PLV share. \newline \textit{Calls:} perpVault.\allowbreak{}ethShareOf/\allowbreak{}tokShareOf \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpVault.sol} \textemdash{} interface \texttt{IPerpEngineVault} \hfill \normalfont\small(10 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{fund\allowbreak{}From\allowbreak{}Vault}\,{\tiny L9} & exte & paya & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{withdraw\allowbreak{}Plv\allowbreak{}To}\,{\tiny L10} & exte & -- & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{fund\allowbreak{}Token\allowbreak{}From\allowbreak{}Vault}\,{\tiny L11} & exte & -- & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{withdraw\allowbreak{}Plv\allowbreak{}Token\allowbreak{}To}\,{\tiny L12} & exte & -- & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{total\allowbreak{}Eth}\,{\tiny L13} & exte & view & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{free\allowbreak{}Eth}\,{\tiny L14} & exte & view & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{total\allowbreak{}Token\allowbreak{}Assets}\,{\tiny L15} & exte & view & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{free\allowbreak{}Token}\,{\tiny L16} & exte & view & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{tok\allowbreak{}Yield\allowbreak{}Cumulative}\,{\tiny L18} & exte & view & -- & Interface declaration --- Engine surface the community vault drives. \\
+\texttt{withdraw\allowbreak{}Tok\allowbreak{}Yield\allowbreak{}To}\,{\tiny L19} & exte & -- & -- & Interface declaration --- Engine surface the community vault drives. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpVault.sol} \textemdash{} interface \texttt{IVaultRegistry} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{current\allowbreak{}Token}\,{\tiny L23} & exte & view & -- & Interface declaration --- Live-token read for the vault. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PerpVault.sol} \textemdash{} contract \texttt{PerpVault} \hfill \normalfont\small(18 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L103} & inte & -- & -- & Binds the engine and the registry (for currentToken). \newline \textit{State:} W engine,\allowbreak{} registry \\
+\texttt{assets\allowbreak{}Eth}\,{\tiny L110} & publ & view & -- & ETH backing LIVE shares = engine.totalEth() $-$ queued exits. \newline \textit{State:} R pendingEth \newline \textit{Calls:} engine.\allowbreak{}totalEth \\
+\texttt{assets\allowbreak{}Tok}\,{\tiny L115} & publ & view & -- & Token backing live shares = engine.totalTokenAssets() $-$ queued exits. \newline \textit{State:} R pendingTok \newline \textit{Calls:} engine.\allowbreak{}totalTokenAssets \\
+\texttt{deposit\allowbreak{}Eth}\,{\tiny L124} & exte & paya & non\allowbreak{}Reentrant & Mints ETH-side shares at the pre-deposit price with a $10^6$ virtual-share offset, then funds the engine. \newline \textit{State:} W ethShares,\allowbreak{} ethShareOf \newline \textit{Calls:} engine.\allowbreak{}fundFromVault \\
+\texttt{withdraw\allowbreak{}Eth}\,{\tiny L137} & exte & -- & non\allowbreak{}Reentrant & Burns shares, pays up to the engine's free ETH, queues the remainder (CEI). \newline \textit{State:} W ethShareOf,\allowbreak{} ethShares,\allowbreak{} pendingEth,\allowbreak{} pendingEthOf \newline \textit{Calls:} engine.\allowbreak{}freeEth/\allowbreak{}withdrawPlvTo \\
+\texttt{claim\allowbreak{}Pending\allowbreak{}Eth}\,{\tiny L161} & exte & -- & non\allowbreak{}Reentrant & Claims a queued ETH exit as liquidity frees up. \newline \textit{State:} W pendingEthOf,\allowbreak{} pendingEth \newline \textit{Calls:} engine.\allowbreak{}freeEth/\allowbreak{}withdrawPlvTo \\
+\texttt{\_sync\allowbreak{}Tok\allowbreak{}Yield}\,{\tiny L177} & inte & -- & -- & Folds newly-accrued short-side yield into the per-share accumulator. SKIPS the fold at zero shares WITHOUT advancing the watermark (finding H-05). \newline \textit{State:} W accEthPerTokShare,\allowbreak{} lastTokYieldCum \newline \textit{Calls:} engine.\allowbreak{}tokYieldCumulative \\
+\texttt{\_settle\allowbreak{}Tok}\,{\tiny L185} & inte & -- & -- & Banks a user's earned-so-far ETH before their share count changes. \newline \textit{State:} W tokRewardOwed \\
+\texttt{\_reset\allowbreak{}Tok\allowbreak{}Debt}\,{\tiny L193} & inte & -- & -- & Rebases a user's reward baseline to their current share count. \newline \textit{State:} W tokRewardDebt \\
+\texttt{deposit\allowbreak{}Token}\,{\tiny L201} & exte & -- & non\allowbreak{}Reentrant & Stakes the live token to back shorts; pulls from the user and pushes into the engine. \newline \textit{State:} W tokShares,\allowbreak{} tokShareOf,\allowbreak{} tokRewardDebt \newline \textit{Calls:} registry.\allowbreak{}currentToken,\allowbreak{} \_pull,\allowbreak{} \_approve,\allowbreak{} engine.\allowbreak{}fundTokenFromVault \\
+\texttt{claim\allowbreak{}Tok\allowbreak{}Yield}\,{\tiny L219} & exte & -- & non\allowbreak{}Reentrant & Claims accrued short-side ETH reward from the segregated pot. \newline \textit{State:} W tokRewardOwed \newline \textit{Calls:} engine.\allowbreak{}withdrawTokYieldTo \\
+\texttt{withdraw\allowbreak{}Token}\,{\tiny L230} & exte & -- & non\allowbreak{}Reentrant & Burns token shares, pays up to free inventory, queues the rest. \newline \textit{State:} W tokShareOf,\allowbreak{} tokShares,\allowbreak{} pendingTok,\allowbreak{} pendingTokOf \newline \textit{Calls:} engine.\allowbreak{}freeToken/\allowbreak{}withdrawPlvTokenTo \\
+\texttt{claim\allowbreak{}Pending\allowbreak{}Token}\,{\tiny L253} & exte & -- & non\allowbreak{}Reentrant & Claims a queued token exit. \newline \textit{State:} W pendingTokOf,\allowbreak{} pendingTok \newline \textit{Calls:} engine.\allowbreak{}freeToken/\allowbreak{}withdrawPlvTokenTo \\
+\texttt{eth\allowbreak{}Position}\,{\tiny L269} & exte & view & -- & UI view: redeemable / instantly available / queued ETH. \newline \textit{Calls:} engine.\allowbreak{}freeEth \\
+\texttt{token\allowbreak{}Position}\,{\tiny L277} & exte & view & -- & UI view for the token side. \newline \textit{Calls:} engine.\allowbreak{}freeToken \\
+\texttt{pending\allowbreak{}Tok\allowbreak{}Yield}\,{\tiny L286} & exte & view & -- & UI view of accrued-but-unclaimed short-side ETH. \newline \textit{Calls:} engine.\allowbreak{}tokYieldCumulative \\
+\texttt{\_pull}\,{\tiny L297} & priv & -- & -- & Return-value-tolerant transferFrom. \newline \textit{Calls:} token.\allowbreak{}call \\
+\texttt{\_approve}\,{\tiny L303} & priv & -- & -- & Return-value-tolerant approve. \newline \textit{Calls:} token.\allowbreak{}call \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{IPositionManagerOps} \hfill \normalfont\small(3 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{modify\allowbreak{}Liquidities}\,{\tiny L32} & exte & paya & -- & Interface declaration --- Minimal PositionManager surface used by PoolOps. \\
+\texttt{next\allowbreak{}Token\allowbreak{}Id}\,{\tiny L33} & exte & view & -- & Interface declaration --- Minimal PositionManager surface used by PoolOps. \\
+\texttt{get\allowbreak{}Position\allowbreak{}Liquidity}\,{\tiny L34} & exte & view & -- & Interface declaration --- Minimal PositionManager surface used by PoolOps. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{ILedgerOps} \hfill \normalfont\small(7 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{redeem}\,{\tiny L42} & exte & -- & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{buyback}\,{\tiny L43} & exte & -- & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{floor\allowbreak{}Per\allowbreak{}NFT}\,{\tiny L44} & exte & view & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{credit}\,{\tiny L45} & exte & -- & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{crystallize}\,{\tiny L46} & exte & -- & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{crystallized}\,{\tiny L47} & exte & view & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\texttt{total\allowbreak{}Entitled}\,{\tiny L48} & exte & view & -- & Interface declaration --- Ledger surface PoolOps drives. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{IColMinted} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{total\allowbreak{}Minted}\,{\tiny L52} & exte & view & -- & Interface declaration --- Live mint-count read. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{IVaultRedeemedOps} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{redeemed}\,{\tiny L55} & exte & view & -- & Interface declaration --- Vault outstanding/redeemed reads used at crystallisation. \\
+\texttt{outstanding}\,{\tiny L57} & exte & view & -- & Interface declaration --- Vault outstanding/redeemed reads used at crystallisation. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{ICollectionOps} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{custody\allowbreak{}Transfer}\,{\tiny L61} & exte & -- & -- & Interface declaration --- Collection custody surface. \\
+\texttt{owner\allowbreak{}Of}\,{\tiny L62} & exte & view & -- & Interface declaration --- Collection custody surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{ILegacyHookOps} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{sweep\allowbreak{}Legacy\allowbreak{}Reserve}\,{\tiny L66} & exte & -- & -- & Interface declaration --- Hook legacy-sweep surface. \\
+\texttt{legacy\allowbreak{}Registry}\,{\tiny L67} & exte & view & -- & Interface declaration --- Hook legacy-sweep surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{ICauldronBurn} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{burn}\,{\tiny L71} & exte & -- & -- & Interface declaration --- Token burn surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{IAutoFlag} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{auto\allowbreak{}Migrate}\,{\tiny L74} & exte & view & -- & Interface declaration --- Auto-migrate opt-in read (self-call under delegatecall). \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} interface \texttt{IPermit2Ops} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{approve}\,{\tiny L87} & exte & -- & -- & Interface declaration --- Permit2 approve surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/PoolOps.sol} \textemdash{} library \texttt{PoolOps} \hfill \normalfont\small(21 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{creature\allowbreak{}For}\,{\tiny L139} & exte & pure & -- & The cycling gen-1/fallback creature name+symbol table (kept out of the registry for EIP-170). \\
+\texttt{\_approve}\,{\tiny L157} & priv & -- & -- & ERC20 approve to Permit2 + Permit2 approve to the PositionManager (300s expiry). \newline \textit{Calls:} IERC20.\allowbreak{}approve,\allowbreak{} IPermit2Ops.\allowbreak{}approve \\
+\texttt{\_sqrt\allowbreak{}Price}\,{\tiny L162} & priv & pure & -- & Babylonian sqrt of (tokenAmount $\ll$ 192)/ethAmount. Reverts on ethAmount == 0. \\
+\texttt{create\allowbreak{}And\allowbreak{}Seed}\,{\tiny L178} & exte & -- & -- & Reference two-position seed (no buy): init pool, mint the full-range active position, mint the out-of-range reserve. \newline \textit{Calls:} poolManager.\allowbreak{}initialize,\allowbreak{} \_seedActive,\allowbreak{} \_seedReserve \\
+\texttt{create\allowbreak{}And\allowbreak{}Seed\allowbreak{}Progressive}\,{\tiny L230} & exte & -- & -- & PROGRESSIVE handoff: places ledger B (reserve) in full, approves ledger A to the seeder and starts the campaign. activePositionId stays 0. \newline \textit{Calls:} poolManager.\allowbreak{}initialize,\allowbreak{} \_seedReserve,\allowbreak{} IERC20.\allowbreak{}approve,\allowbreak{} ISeeder.\allowbreak{}startSeed \\
+\texttt{create\allowbreak{}And\allowbreak{}Seed\allowbreak{}With\allowbreak{}Buy}\,{\tiny L302} & exte & -- & -- & GREEN CANDLE: seed 100\% of supply at a discount, buy exactly the reserve back out (a real first-block trade), re-park it out of range below the post-buy spot. \newline \textit{Calls:} poolManager.\allowbreak{}initialize/\allowbreak{}unlock/\allowbreak{}getSlot0,\allowbreak{} \_seedActive,\allowbreak{} \_seedReserve \\
+\texttt{execute\allowbreak{}Buy}\,{\tiny L361} & exte & -- & -- & Unlock body for the seed/prime buy, running in the REGISTRY's context; tags hookData with the registry so the hook waives the fee. \newline \textit{Calls:} poolManager.\allowbreak{}swap/\allowbreak{}settle/\allowbreak{}take \\
+\texttt{prime\allowbreak{}Buy}\,{\tiny L399} & exte & -- & -- & Owner-funded exact-input market buy whose output goes straight to the treasury (net demand, zero dilution). \newline \textit{Calls:} poolManager.\allowbreak{}unlock \\
+\texttt{deploy\allowbreak{}Token}\,{\tiny L415} & exte & -- & -- & CREATE2 token deploy (salt = generation) with address(this) = the registry. \newline \textit{Calls:} new CauldronToken \\
+\texttt{\_seed\allowbreak{}Active}\,{\tiny L423} & priv & -- & -- & Mints the full-range ACTIVE position (ETH + tradeable tokens) and sweeps excess ETH back. \newline \textit{Calls:} \_approve,\allowbreak{} pm.\allowbreak{}nextTokenId,\allowbreak{} pm.\allowbreak{}modifyLiquidities \\
+\texttt{\_seed\allowbreak{}Reserve}\,{\tiny L462} & priv & -- & -- & Mints the single-sided RESERVE position below the launch tick (pure token1). \newline \textit{Calls:} ReserveLib.\allowbreak{}liquidityForTokenOut,\allowbreak{} \_approve,\allowbreak{} pm.\allowbreak{}modifyLiquidities \\
+\texttt{remove\allowbreak{}All}\,{\tiny L494} & exte & -- & -- & Removes 100\% of a position, takes both currencies, burns the NFT; returns balance deltas. \newline \textit{Calls:} pm.\allowbreak{}getPositionLiquidity,\allowbreak{} pm.\allowbreak{}modifyLiquidities \\
+\texttt{claim\allowbreak{}From\allowbreak{}Reserve}\,{\tiny L524} & publ & -- & -- & Pulls EXACTLY `amount` from the reserve to a recipient --- but CAPS at the position's liquidity and returns silently short (finding H-03). \newline \textit{Calls:} ReserveLib.\allowbreak{}liquidityForTokenOut,\allowbreak{} pm.\allowbreak{}getPositionLiquidity,\allowbreak{} pm.\allowbreak{}modifyLiquidities \\
+\texttt{add\allowbreak{}To\allowbreak{}Reserve}\,{\tiny L564} & publ & -- & -- & Single-sided top-up of the reserve position; returns the amount actually consumed. \newline \textit{Calls:} \_approve,\allowbreak{} pm.\allowbreak{}modifyLiquidities \\
+\texttt{migrate\allowbreak{}One}\,{\tiny L601} & publ & -- & -- & Burn old + claim the same from the reserve. Shared by claimByBurn and the keeper batch. \newline \textit{Calls:} ICauldronBurn.\allowbreak{}burn,\allowbreak{} claimFromReserve \\
+\texttt{auto\allowbreak{}Migrate\allowbreak{}Batch}\,{\tiny L611} & exte & -- & -- & Keeper loop over opted-in holders; reads the opt-in flag via a self-call so it resolves to the registry. \newline \textit{Calls:} IAutoFlag.\allowbreak{}autoMigrate,\allowbreak{} IERC20.\allowbreak{}balanceOf,\allowbreak{} migrateOne \\
+\texttt{do\allowbreak{}Legacy\allowbreak{}Note}\,{\tiny L630} & publ & -- & -- & Splits a live buyback between the forged tranche's ledger and the OG genesis reserve when iteration \#2 continues MiFrens. \newline \textit{Calls:} IColMinted.\allowbreak{}totalMinted,\allowbreak{} ILedgerOps.\allowbreak{}credit \\
+\texttt{materialize\allowbreak{}Legacy}\,{\tiny L657} & exte & -- & -- & Sweeps the hook's buyback tokens and either deposits them into the reserve (live) or burns them and carries the value as a number (relaunch flush). \newline \textit{Calls:} ILegacyHookOps.\allowbreak{}legacyRegistry/\allowbreak{}sweepLegacyReserve,\allowbreak{} addToReserve,\allowbreak{} ICauldronBurn.\allowbreak{}burn,\allowbreak{} doLegacyNote \\
+\texttt{crystallize\allowbreak{}Collection}\,{\tiny L682} & exte & -- & -- & At death, freezes a collection's supply and folds the final swept-ETH sizing into its token entitlement. \newline \textit{Calls:} ILedgerOps.\allowbreak{}crystallized/\allowbreak{}crystallize,\allowbreak{} IVaultRedeemedOps.\allowbreak{}outstanding \\
+\texttt{recycle\allowbreak{}Collection}\,{\tiny L703} & exte & -- & -- & Debits the ledger, moves the NFT to the treasury, pays the floor from the live reserve. Calls collection.custodyTransfer --- which the factory-deployed collection rejects (finding H-01). \newline \textit{Calls:} ICollectionOps.\allowbreak{}ownerOf/\allowbreak{}custodyTransfer,\allowbreak{} ILedgerOps.\allowbreak{}redeem,\allowbreak{} claimFromReserve \\
+\texttt{buy\allowbreak{}Collection}\,{\tiny L723} & exte & -- & -- & Buys a treasury NFT at $2\times$ floor, adds the payment to the reserve, ratchets the ledger, hands the NFT over. \newline \textit{Calls:} ILedgerOps.\allowbreak{}floorPerNFT/\allowbreak{}buyback,\allowbreak{} IERC20.\allowbreak{}transferFrom,\allowbreak{} addToReserve,\allowbreak{} custodyTransfer \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/RedemptionExt.sol} \textemdash{} contract \texttt{RedemptionExt} \hfill \normalfont\small(5 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{redeem\allowbreak{}Og\allowbreak{}Fren}\,{\tiny L54} & exte & -- & non\allowbreak{}Reentrant & RECYCLE an OG fren for its live floor share. Effects first (debit reserve, move NFT to treasury), then pull tokens from the reserve LP. \newline \textit{State:} W genesisReserveOutstanding (registry's) \newline \textit{Calls:} IERC721.\allowbreak{}ownerOf,\allowbreak{} IMiFrensContinuable.\allowbreak{}custodyTransfer,\allowbreak{} PoolOps.\allowbreak{}claimFromReserve \\
+\texttt{buy\allowbreak{}Treasury\allowbreak{}Og\allowbreak{}Fren}\,{\tiny L86} & exte & -- & non\allowbreak{}Reentrant & Buys a treasury-held fren for $2\times$ floor, paid in the live token, which is added to the reserve (floor ratchet). \newline \textit{State:} W genesisReserveOutstanding \newline \textit{Calls:} IERC721.\allowbreak{}ownerOf,\allowbreak{} \_pullGrow,\allowbreak{} custodyTransfer \\
+\texttt{donate\allowbreak{}To\allowbreak{}Reserve}\,{\tiny L107} & exte & -- & non\allowbreak{}Reentrant & Permissionless floor growth; the re-enchant fee routes through here. \newline \textit{State:} W genesisReserveOutstanding \newline \textit{Calls:} \_pullGrow \\
+\texttt{materialize\allowbreak{}Legacy\allowbreak{}Reserve}\,{\tiny L118} & exte & -- & non\allowbreak{}Reentrant & Permissionless: sweeps the hook's held buyback tokens INTO the reserve and credits the ledger in one step (Invariant R by construction). \newline \textit{State:} W genesisPending \newline \textit{Calls:} PoolOps.\allowbreak{}materializeLegacy \\
+\texttt{\_pull\allowbreak{}Grow}\,{\tiny L136} & priv & -- & -- & transferFrom + addToReserve + reserve accounting; emits FloorGrew. \newline \textit{State:} W genesisReserveOutstanding \newline \textit{Calls:} IERC20.\allowbreak{}transferFrom,\allowbreak{} PoolOps.\allowbreak{}addToReserve \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/ReserveLib.sol} \textemdash{} library \texttt{ReserveLib} \hfill \normalfont\small(4 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{\_align\allowbreak{}Down}\,{\tiny L26} & inte & pure & -- & Aligns a tick DOWN to a spacing multiple (toward $-\infty$). \\
+\texttt{\_align\allowbreak{}Up}\,{\tiny L33} & inte & pure & -- & Aligns a tick UP to a spacing multiple (toward $+\infty$). \\
+\texttt{reserve\allowbreak{}Ticks}\,{\tiny L49} & inte & pure & -- & The reserve band: from the lowest usable aligned tick up to launchTick $-$ offset, collapsing to one spacing if degenerate. ORIENTATION is load-bearing (below launch $\Rightarrow$ pure token1). \\
+\texttt{liquidity\allowbreak{}For\allowbreak{}Token\allowbreak{}Out}\,{\tiny L74} & inte & pure & -- & Liquidity representing exactly `amount1` for a fully-below-price range, rounding DOWN. Reverts SafeCastOverflow for pathologically low ticks (finding I-05). \newline \textit{Calls:} LiquidityAmounts.\allowbreak{}getLiquidityForAmount1 \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/RoyaltyRouter.sol} \textemdash{} interface \texttt{ILegacyBuffer} \hfill \normalfont\small(1 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{fund\allowbreak{}Legacy\allowbreak{}Buffer}\,{\tiny L5} & exte & paya & -- & Interface declaration --- Hook buffer top-up surface. \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/RoyaltyRouter.sol} \textemdash{} contract \texttt{RoyaltyRouter} \hfill \normalfont\small(2 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{constructor}\,{\tiny L27} & inte & -- & -- & Binds the hook whose buyback buffer these royalties fund. \\
+\texttt{receive}\,{\tiny L32} & exte & paya & -- & Forwards marketplace royalty ETH straight into the hook's legacy buyback buffer. \newline \textit{Calls:} hook.\allowbreak{}fundLegacyBuffer \\
+\bottomrule\end{longtable}
+\subsubsection*{\texttt{cauldron/SeedLib.sol} \textemdash{} library \texttt{SeedLib} \hfill \normalfont\small(7 functions)}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}p{0.045\textwidth}p{0.042\textwidth}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.54\textwidth}@{}}
+\toprule \textbf{Function} & \textbf{Vis.} & \textbf{Mut.} & \textbf{Access} & \textbf{Role, state touched, external calls} \\ \midrule \endhead
+\texttt{\_align\allowbreak{}Down}\,{\tiny L40} & inte & pure & -- & Tick alignment (down). \\
+\texttt{\_align\allowbreak{}Up}\,{\tiny L45} & inte & pure & -- & Tick alignment (up). \\
+\texttt{deployed\allowbreak{}Target\allowbreak{}Wad}\,{\tiny L58} & inte & pure & -- & The progressive schedule: linear from seedFloor at start to 100\% at start+window; window 0 = atomic. Pure function of elapsed time, hence un-accelerable. \\
+\texttt{ask\allowbreak{}Band}\,{\tiny L84} & inte & pure & -- & The i-th single-sided TOKEN band BELOW the launch tick (what buyers eat). \\
+\texttt{bid\allowbreak{}Band}\,{\tiny L111} & inte & pure & -- & The j-th single-sided ETH band ABOVE the launch tick (what sellers hit). \\
+\texttt{\_band\allowbreak{}Width}\,{\tiny L128} & inte & pure & -- & Equal band width tiling an offset into n bands, never below one spacing. \\
+\texttt{taper\allowbreak{}Weight\allowbreak{}Wad}\,{\tiny L140} & inte & pure & -- & Descending per-band weight, summing to 1e18 bar dust. \\
+\bottomrule\end{longtable}

@@ -1,23 +1,35 @@
 # Magic Internet Frens — mifrens.xyz
 User-agent: *
 Allow: /
+# Crawlers never need the serverless API — keep them off it.
+Disallow: /api/
 
-# AI / LLM crawlers explicitly welcomed (brand discoverability)
+# AI / LLM crawlers explicitly welcomed for content (brand discoverability),
+# but still kept off the API.
 User-agent: GPTBot
 Allow: /
+Disallow: /api/
 User-agent: OAI-SearchBot
 Allow: /
+Disallow: /api/
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /api/
 User-agent: ClaudeBot
 Allow: /
+Disallow: /api/
 User-agent: Claude-Web
 Allow: /
+Disallow: /api/
 User-agent: PerplexityBot
 Allow: /
+Disallow: /api/
 User-agent: Google-Extended
 Allow: /
-User-agent: Bytespider
-Allow: /
+Disallow: /api/
 
-Sitemap: https://mifrens.xyz/sitemap.xml
+# Bytespider ignores crawl budgets and hammers sites — block it outright.
+User-agent: Bytespider
+Disallow: /
+
+Sitemap: https://www.mifrens.xyz/sitemap.xml

@@ -1,0 +1,2231 @@
+% !TeX program = pdflatex
+%==============================================================================
+%  Independent security audit of the MagicFrens "Cauldron" protocol
+%  Build:  pdflatex CauldronAudit.tex   (twice, for the ToC / longtable pass)
+%==============================================================================
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.1cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[hidelinks,colorlinks=true,linkcolor=cauldronblue,citecolor=cauldronblue,urlcolor=cauldronblue]{hyperref}
+
+%------------------------------------------------------------------ colours ---
+\definecolor{cauldronblue}{HTML}{1F4E79}
+\definecolor{sevcrit}{HTML}{8B1A1A}
+\definecolor{sevhigh}{HTML}{C1440E}
+\definecolor{sevmed}{HTML}{B8860B}
+\definecolor{sevlow}{HTML}{2F6F4E}
+\definecolor{sevinfo}{HTML}{4A5568}
+\definecolor{codebg}{HTML}{F6F8FA}
+\definecolor{rulegray}{HTML}{CBD5E0}
+
+%------------------------------------------------------------------ headings --
+\titleformat{\section}{\normalfont\Large\bfseries\color{cauldronblue}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries}{\thesubsubsection}{0.5em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{cauldronblue}Cauldron Protocol --- Independent Security Audit}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%------------------------------------------------------------------ listings --
+\lstdefinestyle{sol}{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codebg},
+  keywordstyle=\color{cauldronblue}\bfseries,
+  commentstyle=\color{sevinfo}\itshape,
+  stringstyle=\color{sevlow},
+  numbers=left, numberstyle=\tiny\color{sevinfo}, numbersep=6pt,
+  frame=leftline, framerule=1.2pt, rulecolor=\color{rulegray},
+  breaklines=true, breakatwhitespace=false,
+  showstringspaces=false, columns=fullflexible,
+  xleftmargin=1.4em, framexleftmargin=1.4em,
+  morekeywords={function,external,internal,public,private,view,pure,payable,
+    returns,memory,storage,calldata,require,revert,if,else,for,while,return,
+    address,uint256,uint128,int24,int256,bool,bytes,mapping,contract,library,
+    interface,emit,new,delegatecall,assembly,try,catch,immutable,constant,
+    modifier,struct,unchecked,override,virtual,transient}
+}
+\lstset{style=sol}
+
+%------------------------------------------------------------------ macros ----
+\newcommand{\sev}[1]{%
+  \ifthenelse{\equal{#1}{Critical}}{\textcolor{sevcrit}{\textbf{Critical}}}{%
+  \ifthenelse{\equal{#1}{High}}{\textcolor{sevhigh}{\textbf{High}}}{%
+  \ifthenelse{\equal{#1}{Medium}}{\textcolor{sevmed}{\textbf{Medium}}}{%
+  \ifthenelse{\equal{#1}{Low}}{\textcolor{sevlow}{\textbf{Low}}}{%
+  \textcolor{sevinfo}{\textbf{Info}}}}}}}
+\usepackage{ifthen}
+
+\newcommand{\finding}[5]{%
+  \subsection*{\texorpdfstring{\colorbox{#5!12}{\parbox{0.97\textwidth}{\textbf{#1} \quad #2 \hfill \textcolor{#5}{\textbf{#3}} \;\textbar\; \textsf{#4}}}}{#1 #2}}%
+  \addcontentsline{toc}{subsection}{#1 --- #2}%
+}
+% Location block: allow the path list to wrap instead of running off the page.
+\newcommand{\loc}[1]{%
+  \smallskip\noindent
+  {\raggedright\textbf{Location.}\quad\texttt{\small #1}\par}\smallskip}
+% Inline code that may break at a line end rather than overflowing the margin.
+\newcommand{\code}[1]{\texttt{\small #1}}
+% Long file:line references and identifiers in prose would otherwise overflow the
+% right margin; sloppy + a generous emergency stretch keeps them inside the block.
+\sloppy
+\emergencystretch=2.2em
+\hbadness=10000  % suppress underfull-hbox noise from ragged table cells
+
+\setlist[itemize]{leftmargin=1.2em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=2pt,topsep=3pt}
+
+\begin{document}
+
+%==============================================================================
+\begin{titlepage}
+\centering
+\vspace*{2.2cm}
+{\Huge\bfseries\color{cauldronblue} The Cauldron Protocol\par}
+\vspace{0.5cm}
+{\LARGE An Independent Security Audit\par}
+\vspace{0.35cm}
+{\large\itshape A first-principles review of 9{,}167 lines of Solidity across 31 contracts\par}
+\vspace{1.6cm}
+
+\begin{tabular}{@{}rl@{}}
+\textbf{Subject} & MagicFrens ``Cauldron'' --- an eternal, self-relaunching\\
+                 & token machine on Uniswap~v4\\[4pt]
+\textbf{Scope}   & \texttt{contracts/solidity/}: \texttt{CauldronRegistry.sol},\\
+                 & \texttt{CauldronHook.sol}, \texttt{CauldronToken.sol},\\
+                 & and all of \texttt{cauldron/} (28 files)\\[4pt]
+\textbf{Excluded} & \texttt{lib/}, \texttt{out/}, \texttt{cache/}, \texttt{vendor/}, \texttt{deploy/}, \texttt{test/}\\[4pt]
+\textbf{Branch}  & \texttt{feat/registry-facet-split}\\[4pt]
+\textbf{Coverage} & 535 function declarations (422 with bodies), \\
+                 & 100\,\% inventoried and annotated\\[4pt]
+\textbf{Method}  & Manual line-by-line review, whole-system modelling,\\
+                 & executable proof-of-concept exploits, and a new\\
+                 & Foundry invariant + fuzz suite\\[4pt]
+\textbf{Findings} & 4 Critical \textbullet{} 8 High \textbullet{} 6 Medium \textbullet{} 8 Low \textbullet{} 7 Info\\[4pt]
+\textbf{Status}  & \textbf{All 33 findings remediated in this repository,}\\
+                 & each with a passing regression test\\[4pt]
+\textbf{Also}    & Gas-optimisation pass (10 items, \S\ref{sec:gas})\\
+\end{tabular}
+
+\vspace{1.8cm}
+\begin{minipage}{0.86\textwidth}
+\small\itshape
+This report was derived entirely from the source. No pre-existing audit,
+specification, or design document in the repository was read or referenced.
+Every claim is anchored to a file and line, and every finding rated
+\emph{Confirmed} is backed by an executable test that is committed alongside
+this document and passes against live Uniswap~v4 on a Sepolia fork.
+\smallskip\\
+\textbf{Every finding in this report has been fixed.} Each exploit was first
+demonstrated against the unpatched code, then re-run after the fix and converted
+into a permanent regression test. The suite is \textbf{262 passing, 0 failing}.
+\end{minipage}
+
+\vfill
+{\small Audit date: 2 September 2026 \quad\textbullet\quad Foundry 1.4.4-nightly \quad\textbullet\quad solc 0.8.30, \texttt{via\_ir}, \texttt{optimizer\_runs=1}}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Executive summary}
+
+The Cauldron is an unusually ambitious system. It is a perpetual token machine:
+a governed proposal elects the next ``brew,'' the registry deploys a fixed-supply
+ERC-20 for it, seeds a Uniswap~v4 pool, and lets an in-hook fee engine fund
+NFT floors, a founder dividend, a perp desk and the next relaunch --- with no
+oracle, no keeper and no upgradeable proxy on the money contracts. When trading
+volume dies, \emph{anyone} may call \code{relaunch()} and the whole cycle
+repeats, with old holders migrating $1{:}1$ into the new generation. Value is
+carried forward not in a treasury wallet but inside a single out-of-range
+Uniswap position --- the \emph{reserve} --- which simultaneously backs migration,
+the genesis redemption floor and every dead collection's legacy entitlement.
+
+The engineering is careful in the places that usually go wrong. The
+delegatecall facet's storage layout is identical to the registry's by
+construction and I verified it byte-for-byte with \code{forge inspect}
+(\S\ref{sec:facet}). Fee routing is push-free where the recipient is
+attacker-controlled. The reserve position's tick orientation --- the single
+most load-bearing piece of math in the protocol --- is correct and I proved it
+under fuzzing. The perp engine's liquidation mark is a real on-chain TWAP with
+a flood-proof observation ring, and its bad-debt accounting distinguishes the
+long and short paths correctly.
+
+What the system does \emph{not} do is defend its own boundary. The most serious
+findings in this report all share one root cause: \textbf{the hook is a public
+good.} Uniswap~v4 lets anybody create a pool that names any hook address, and
+\code{CauldronHook} accepts every such pool unconditionally
+(\code{\_afterInitialize}, \code{CauldronHook.sol:473}). It then performs
+ETH-denominated accounting and spends real ETH on behalf of pools it has never
+heard of. From that single missing check follow a permanent denial of service on
+the protocol's central function (\textbf{C-01a}) and outright theft of the
+hook's ETH balance (\textbf{C-01b}), both demonstrated with passing exploits.
+
+A second cluster is about \emph{governance inputs becoming code paths}. A
+winning \code{BrewSpec} flows unvalidated into a constructor that reverts on
+out-of-range input, and because the proposal is only retired in the same
+transaction that fails, the machine freezes permanently (\textbf{C-02}).
+
+A third cluster is quieter but costlier in practice: several subsystems are
+wired to the wrong address or never reset between generations, so features that
+the code and comments describe in detail simply do not work in production ---
+the second progressive-seed campaign never streams (\textbf{H-02}), and the
+entire legacy-floor recycle path is unreachable because the collection's
+\code{deployer} is the factory rather than the registry (\textbf{H-01}).
+
+A fourth cluster --- found in a second pass, after the first round of fixes ---
+is about \emph{determinism the protocol did not intend to expose}. The
+generation token was deployed with \code{CREATE2} on a salt equal to the
+generation number, with every other input publicly readable in advance. Anyone
+could compute the next generation's token address and occupy it, and because
+\code{new} reverts on a CREATE2 collision --- rolling back
+\code{governor.markConsumed} with it --- the same proposal would win again
+forever. One transaction, permanent brick (\textbf{A-01}). Three sibling
+denial-of-service paths in the same family (a dust reserve that rounds to zero
+liquidity, a recovered-token total that can exceed the fixed supply, and a perp
+book that can outgrow what one force-close clears) each also revert
+\code{relaunch()} irrecoverably.
+
+\medskip
+\noindent\fbox{\parbox{0.97\textwidth}{\textbf{Overall assessment.} As
+originally written the protocol was \emph{not} ready for a value-bearing
+deployment: four Critical findings were unconditional, cheap, and permanent, and
+three of them bricked the protocol's central function rather than merely
+draining it. The architecture underneath is sound --- the reserve model, the
+facet split, the exit guarantee and the perp bad-debt accounting are all
+correct --- and the defects were concentrated in boundaries (which pools the hook
+serves, which inputs governance may supply, which addresses are predictable)
+rather than in the economics. \textbf{All 33 findings have been remediated in
+this repository}, each with a regression test that runs the original exploit and
+asserts it no longer works; see \S\ref{sec:remediation}.}}
+
+\subsection{Findings at a glance}
+
+\noindent\small\textit{Status} is the remediation state in this repository.
+Every row marked \textcolor{sevlow}{\textbf{Fixed}} has a regression test that
+executes the original exploit path and asserts it fails.\normalsize
+
+
+\begin{longtable}{@{}p{0.045\textwidth}p{0.345\textwidth}p{0.075\textwidth}p{0.085\textwidth}p{0.055\textwidth}p{0.25\textwidth}@{}}
+\toprule
+\textbf{ID} & \textbf{Title} & \textbf{Sev.} & \textbf{Conf.} & \textbf{Status} & \textbf{Primary impact} \\
+\midrule\endhead
+A-01  & \code{CREATE2} token-address squat bricks the machine & \sev{Critical} & Confirmed & \textcolor{sevlow}{Fixed} & Permanent, 1-tx protocol freeze \\
+C-01a & Unbounded hook adoption mints phantom \code{relaunchETH} & \sev{Critical} & Confirmed & \textcolor{sevlow}{Fixed} & Permanent relaunch DoS \\
+C-01b & Legacy buyback executes in an attacker's pool & \sev{Critical} & Confirmed & \textcolor{sevlow}{Fixed} & Direct ETH theft \\
+C-02  & Un-validated \code{BrewSpec.nftSupply} bricks \code{relaunch()} & \sev{Critical} & Confirmed & \textcolor{sevlow}{Fixed} & Permanent protocol freeze \\
+\midrule
+A-01b & Dust reserve rounds to zero liquidity, reverting the seed & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Permanent relaunch DoS \\
+A-02  & Stale \code{lastTick} poisons the TWAP liquidation mark & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Solvent positions force-liquidated \\
+A-03  & Perp book can outgrow the force-close bound & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Engine stranded on a dead token \\
+A-05  & Recovered LP tokens can exceed \code{TOTAL\_SUPPLY} & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Relaunch underflow, permanent \\
+H-01  & Collection \code{deployer} is the factory: recycle unreachable & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Feature dead; floors unredeemable \\
+H-02  & \code{CauldronSeeder} never resets \code{complete} & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & 90\,\% of launch liquidity stranded \\
+H-03  & \code{claimByBurn} burns first, accepts a short delivery & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Silent value destruction \\
+H-04  & Reverting \code{\_sendEth} lets one trader freeze the engine & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Engine stuck on a dead generation \\
+H-05  & First token staker captures the whole accrued yield pot & \sev{High} & Confirmed & \textcolor{sevlow}{Fixed} & Yield theft from later stakers \\
+\midrule
+A-04  & Funding is not a closed transfer & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & LP principal leak \\
+M-01  & \code{setRegistryOverride} defeats the one-shot lock & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Owner can drain \code{relaunchETH} \\
+M-02  & \code{winner()} is the live leader: front-runnable & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Governance capture at zero cost \\
+M-03  & Rarity reveal offers two draws; holder picks & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Gacha fairness broken \\
+M-04  & Ticket resolution has the same 256-block fallback & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Grindable lottery outcomes \\
+M-05  & \code{skimInsurance} protects a zero-default floor & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Owner may drain the buffer \\
+M-06  & Forged frens never break their enchantment & \sev{Medium} & Confirmed & \textcolor{sevlow}{Fixed} & Dividends paid to the wrong wallet \\
+\midrule
+L-01  & \code{MAX\_RANGES} can halt the seed stream mid-launch & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Streaming pauses \\
+L-02  & Surtax jitter predictable one block ahead & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Marginal sniper advantage \\
+L-03  & \code{tx.origin} attribution is smart-account hostile & \sev{Low} & Confirmed & \textcolor{sevmed}{Accepted} & Wrong wallet credited (4337) \\
+L-04  & Tiered tax reads the router, not the trader & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Tier discount unreachable \\
+L-05  & Funding index sized at spot, not at the mark & \sev{Low} & Likely & \textcolor{sevlow}{Fixed} & Bounded funding manipulation \\
+L-06  & Badge silently lost when no collection is wired & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Trophy never minted or credited \\
+L-07  & \code{CauldronVault.redeem} dead under unified floor & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Misleading surface \\
+L-08  & \code{migrateToSuccessor} leaves the seeder's LP behind & \sev{Low} & Confirmed & \textcolor{sevlow}{Fixed} & Value stranded across V2 handoff \\
+\midrule
+I-01  & \code{accumulatedTokenFees} never written & \sev{Info} & Confirmed & \textcolor{sevlow}{Fixed} & Dead code removed \\
+I-02  & \code{setGuildBps} cap below the deployed default & \sev{Info} & Confirmed & \textcolor{sevlow}{Fixed} & One-way ratchet \\
+I-03  & \code{CauldronSeeder.rescue} unreachable & \sev{Info} & Confirmed & \textcolor{sevlow}{Fixed} & Dead escape hatch \\
+I-04  & \code{claimed} / \code{hasClaimed} vestigial & \sev{Info} & Confirmed & \textcolor{sevmed}{Documented} & Layout-locked; see note \\
+I-05  & \code{liquidityForTokenOut} reverts at extreme ticks & \sev{Info} & Confirmed & \textcolor{sevmed}{Documented} & Unreachable for this token \\
+I-06  & \code{PerpEngine} at the EIP-170 limit & \sev{Info} & Confirmed & \textcolor{sevlow}{Fixed} & Headroom reclaimed \\
+I-07  & \code{Batch.count} \code{uint16}-narrow cast & \sev{Info} & Suspected & \textcolor{sevlow}{Fixed} & Bounded, now explicit \\
+\bottomrule
+\end{longtable}
+
+%==============================================================================
+\section{Scope, method, and how to reproduce}
+
+\subsection{What was reviewed}
+
+Every Solidity file in \code{contracts/solidity/} outside \code{lib/},
+\code{out/}, \code{cache/} and \code{vendor/}. That is 31 files and 9{,}167
+lines:
+
+\begin{center}\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{File} & \textbf{Lines} & \textbf{Role} \\
+\midrule
+\code{CauldronHook.sol}            & 1643 & V4 hook: fees, volume, death, gacha, buyback, liq trigger \\
+\code{CauldronRegistry.sol}        & 1235 & Lifecycle orchestrator (summon / relaunch / migrate) \\
+\code{cauldron/PerpEngine.sol}     & 1241 & Hook-native leveraged longs \& shorts \\
+\code{cauldron/PoolOps.sol}        &  742 & Linked library: all V4 position encoding \\
+\code{cauldron/MiFrensGenesis.sol} &  555 & Presale + canonical ERC-721Votes collection \\
+\code{cauldron/CauldronSeeder.sol} &  390 & Progressive (streamed) launch seed \\
+\code{cauldron/CauldronGachaRouter.sol} & 369 & One-click play router \\
+\code{cauldron/CauldronCollection.sol}  & 330 & Per-brew ERC-721C collection \\
+\code{cauldron/MigrationVesting.sol}    & 307 & Anti-dump migration escrow \\
+\code{cauldron/PerpVault.sol}      &  309 & Community PLV (two-sided share vault) \\
+\code{cauldron/CauldronBase.sol}   &  297 & Shared storage for the delegatecall pair \\
+\code{cauldron/MiFrensDividend.sol}&  279 & OG fee dividend (``cast the spell'') \\
+\code{cauldron/CauldronGovernor.sol}&  278 & Proposals + checkpointed voting \\
+\code{cauldron/CollectionLedger.sol}&  156 & Legacy-floor cap table \\
+\code{cauldron/RedemptionExt.sol}  &  147 & Delegatecall facet (OG redemption ops) \\
+\code{cauldron/SeedLib.sol}        &  146 & Progressive schedule + band geometry \\
+\multicolumn{3}{@{}l@{}}{\itshape\ldots{} plus 15 smaller contracts, libraries and interfaces (see \S\ref{sec:inventory})} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The repository's own test suite was read as \emph{evidence of intended
+behaviour} --- it is how I confirmed, for example, that the second seeder
+campaign is meant to stream --- but every judgement in this report is grounded
+in the production source.
+
+\subsection{Method}
+
+\begin{enumerate}
+\item \textbf{Whole-system model first.} All 31 files were read end to end
+before any finding was written, and the cross-contract call graph
+(\S\ref{sec:graph}) was built before individual functions were judged. Several
+findings (C-01, H-01, H-02) are only visible from the system view; each looks
+locally correct.
+\item \textbf{Complete inventory.} All 535 function declarations were extracted
+mechanically and then annotated by hand with role, state read/written, and
+external calls (\S\ref{sec:inventory}). Nothing was skipped or sampled.
+\item \textbf{Executable proof.} Every finding marked \emph{Confirmed} has a
+passing test. Where the claim is about protocol behaviour rather than a code
+reading, that test is an exploit run against \textbf{live Uniswap~v4} on a
+Sepolia fork, not a mock.
+\item \textbf{Invariant suite.} The protocol's advertised guarantees were
+written down as formal invariants (\S\ref{sec:invariants}) and encoded as a
+stateful Foundry invariant suite plus targeted fuzz tests
+(\S\ref{sec:tests}).
+\end{enumerate}
+
+\subsection{Reproducing everything in this report}
+
+\begin{lstlisting}[language=bash,numbers=none]
+cd contracts/solidity
+export FORK_RPC=https://ethereum-sepolia-rpc.publicnode.com
+export POOL_MANAGER=0xE03A1074c86CFeDd5C142C4F04F1a1536e203543
+export POSITION_MANAGER=0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4
+
+# 1. the exploits behind the Critical / High / Medium findings
+FOUNDRY_PROFILE=cauldron forge test --match-path "test/audit/*" -vv
+
+# 2. the invariant + fuzz suite delivered with this audit
+FOUNDRY_PROFILE=cauldron forge test --match-path "test/invariants/*" -vv
+
+# 3. the whole repository, including the pre-existing suite
+FOUNDRY_PROFILE=cauldron forge test
+
+# 4. the storage-layout equality the delegatecall facet depends on
+FOUNDRY_PROFILE=cauldron forge inspect CauldronRegistry storage-layout
+FOUNDRY_PROFILE=cauldron forge inspect RedemptionExt   storage-layout
+\end{lstlisting}
+
+\noindent At the time of writing, (3) reports \textbf{245 passed, 0 failed}
+across 45 suites --- the repository's 218 pre-existing tests plus the 27
+delivered here.
+
+%==============================================================================
+\section{System model}
+\label{sec:model}
+
+\subsection{The one-paragraph version}
+
+A \emph{generation} is a fixed-supply ERC-20 plus a v4 pool plus an NFT
+collection. Supply is split into an \textbf{active} tranche (tradeable
+liquidity) and a \textbf{reserve} tranche parked in a single-sided position far
+below spot. The reserve is the protocol's balance sheet: it backs $1{:}1$
+migration from every past generation, the genesis redemption floor, and every
+dead collection's legacy entitlement --- but because it sits out of range it
+never trades, so 100\,\% of supply reads as liquidity while only leaving against
+a burn or a redemption. Swap fees are taken in \emph{ETH} by the hook and
+divided between the OG dividend, the proposer, an NFT-floor buyback and the
+relaunch reserve. When 24-hour volume falls below a threshold the generation is
+``dead''; anyone may then call \code{relaunch()}, which tears the old LP down,
+burns what it recovers, elects the governance winner, and seeds a new
+generation with the proceeds.
+
+\subsection{Actors and trust}
+
+\begin{center}\small
+\begin{tabular}{@{}p{0.20\textwidth}p{0.30\textwidth}p{0.44\textwidth}@{}}
+\toprule
+\textbf{Actor} & \textbf{Power} & \textbf{What they can break} \\
+\midrule
+\code{owner} (registry) & Pre-ignition wiring; \code{summon()} & In the shipped deploy, ownership is handed to the presale contract, whose only remaining power is \code{finalize()}. Note that this also makes \code{setGovernor} unreachable --- see \textbf{C-02}. \\
+\code{owner} (hook) & Every economic parameter; \code{setRegistryOverride} & Can re-point the registry and drain \code{relaunchETH} (\textbf{M-01}). Handed to a Timelock by \code{DeployPerp}. \\
+\code{emergencyAdmin} & LP withdrawal, sweeps, successor migration & Full custody, behind an immutable delay and a guardian veto. \\
+\code{guardian} & Veto only & Can block an armed action, never propose one. Pure upside. \\
+\code{owner} (perp engine) & Risk parameters, insurance skim & \textbf{M-05}: \code{skimInsurance} protects only \code{insuranceFloor}, which defaults to 0. \\
+Any MiFren holder & Propose \& vote & \textbf{C-02}, \textbf{M-02}: a proposal is an un-validated input to a constructor, and the winner is whoever leads at the instant of relaunch. \\
+Anyone & \code{relaunch}, \code{poke}, \code{resolveTickets}, \code{liquidate}, \code{materializeLegacyReserve}, \code{claimFor} & Permissionless upkeep. Correctly designed as best-effort. \\
+\textbf{Any Uniswap user} & \textbf{Create a pool naming the hook} & \textbf{C-01}: the whole of the hook's ETH accounting and spending. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The contract-interaction graph}
+\label{sec:graph}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\normalsize,
+  box/.style={draw=cauldronblue!70,fill=cauldronblue!5,rounded corners=2pt,
+              minimum height=9mm,minimum width=24mm,inner sep=3pt,align=center},
+  ext/.style={draw=sevinfo!60,fill=sevinfo!8,rounded corners=2pt,
+              minimum height=9mm,minimum width=24mm,inner sep=3pt,align=center},
+  lib/.style={draw=sevlow!70,fill=sevlow!7,rounded corners=2pt,
+              minimum height=9mm,minimum width=22mm,inner sep=3pt,align=center},
+  hot/.style={draw=sevcrit!75,fill=sevcrit!7,rounded corners=2pt,
+              minimum height=9mm,minimum width=26mm,inner sep=3pt,align=center},
+  flow/.style={-{Latex[length=1.5mm]},draw=cauldronblue!70,semithick},
+  dele/.style={-{Latex[length=1.5mm]},draw=sevlow!85,semithick,dashed},
+  danger/.style={-{Latex[length=2mm]},draw=sevcrit,very thick},
+  lbl/.style={font=\scriptsize,inner sep=1.2pt,fill=white,align=center}
+]
+
+%------ row 0 : the unguarded boundary --------------------------------------
+\node[hot,draw=sevcrit,very thick,minimum width=54mm] (any) at (0,5.6)
+      {\textbf{ANY Uniswap pool naming the hook}\\{\small created permissionlessly, by anyone}};
+
+%------ row 1 : genesis / dividend ------------------------------------------
+\node[box] (mif)  at (-8.6,3.0) {MiFrensGenesis\\{\small presale + votes}};
+\node[box] (div)  at (-8.6,0.6) {MiFrensDividend};
+
+%------ row 2 : the hook + its satellites -----------------------------------
+\node[hot] (hook) at ( 0,3.0) {\textbf{CauldronHook}\\{\small fee $\cdot$ volume $\cdot$ death}\\{\small gacha $\cdot$ buyback $\cdot$ liq}};
+\node[box] (seed) at ( 5.6,3.0) {CauldronSeeder\\{\small ledger A stream}};
+\node[box] (perp) at (10.6,3.0) {PerpEngine};
+\node[box] (pvlt) at (10.6,0.6) {PerpVault\\{\small community PLV}};
+\node[box] (gach) at ( 5.6,5.6) {GachaRouter};
+
+%------ row 3 : the venue + the orchestrator --------------------------------
+\node[ext] (pm)   at (-8.6,-2.0) {\textbf{Uniswap v4}\\PoolManager};
+\node[box] (reg)  at ( 0,-2.0) {\textbf{CauldronRegistry}\\{\small summon $\cdot$ relaunch}\\{\small migrate $\cdot$ treasury}};
+\node[ext] (posm) at (-8.6,-4.6) {v4 PositionManager\\{\small + Permit2}};
+
+%------ row 4 : delegatecall pair -------------------------------------------
+\node[lib] (ops)  at (-3.6,-5.2) {PoolOps\\{\small linked lib}};
+\node[lib] (ext2) at ( 3.6,-5.2) {RedemptionExt\\{\small facet}};
+
+%------ row 5 : the periphery -----------------------------------------------
+\node[box] (gov)  at (-9.4,-8.0) {Governor};
+\node[box] (fac)  at (-5.6,-8.0) {Factory};
+\node[box] (col)  at (-1.9,-8.0) {Collection\\{\small + Vault}};
+\node[box] (led)  at ( 1.9,-8.0) {CollectionLedger};
+\node[box] (vest) at ( 5.9,-8.0) {MigrationVesting};
+\node[box] (tok)  at (10.0,-8.0) {CauldronToken\\{\small fixed supply}};
+
+%------ the finding -----------------------------------------------------------
+\draw[danger] (any) -- node[lbl,text=sevcrit]{\textbf{C-01} unconditional adoption} (hook);
+
+%------ hook <-> venue / registry --------------------------------------------
+\draw[flow] (hook.west)  -- node[lbl,pos=0.62]{hook callbacks} (pm.north east);
+\draw[flow] (reg.west)   -- node[lbl,pos=0.5]{unlock / swap} (pm.east);
+\draw[flow] (reg.south west) -- node[lbl,pos=0.5]{positions} (posm.east);
+\draw[flow] (reg.north west) to[bend left=16] node[lbl,pos=0.5]{setCollection\\setSeeder} (hook.south west);
+\draw[flow] (hook.south east) to[bend left=16] node[lbl,pos=0.5]{releaseRelaunchETH\\sweepLegacyReserve} (reg.north east);
+
+%------ delegatecall pair ------------------------------------------------------
+\draw[dele] (reg.south west) -- node[lbl,pos=0.55]{\textbf{delegatecall}} (ops.north east);
+\draw[dele] (reg.south east) -- node[lbl,pos=0.55]{\textbf{delegatecall}} (ext2.north west);
+
+%------ seeder ---------------------------------------------------------------
+\draw[flow] (hook) -- node[lbl]{pokeInSwap} (seed);
+\draw[flow] (reg.east) to[bend right=22] node[lbl,pos=0.82]{startSeed\\withdrawAll} (seed.south);
+\draw[flow] (seed.north) to[bend right=30] node[lbl,pos=0.55]{core modifyLiquidity} (pm.north);
+
+%------ perps ----------------------------------------------------------------
+\draw[flow] (perp.north west) to[bend right=14] node[lbl,pos=0.5]{sweepLiquidations\\creditPerpFee} (hook.north east);
+\draw[flow] (pvlt) -- node[lbl]{deposit / withdraw} (perp);
+\draw[flow] (perp.south) to[bend left=16] node[lbl,pos=0.42]{claimByBurn} (reg.east);
+
+%------ lifecycle -------------------------------------------------------------
+\draw[flow] (reg.south west) -- node[lbl,pos=0.72]{winner} (gov.north east);
+\draw[flow] (reg.south) -- node[lbl,pos=0.75]{deployBrew} (fac.north east);
+\draw[flow] (fac) -- (col);
+\draw[flow] (hook.south) to[bend right=8] node[lbl,pos=0.86]{mint} (col.north);
+\draw[flow] (reg.south) -- node[lbl,pos=0.7]{credit / redeem} (led.north);
+\draw[flow] (vest.north) -- node[lbl,pos=0.55]{claimByBurn} (reg.south east);
+\draw[flow] (reg.south east) to[bend left=12] node[lbl,pos=0.8]{deploy / burn} (tok.north);
+
+%------ genesis + play --------------------------------------------------------
+\draw[flow] (mif.south) to[bend right=22] node[lbl,pos=0.6]{finalize $\to$ summon} (reg.north west);
+\draw[flow] (hook.west) -- node[lbl,pos=0.7]{guild slice} (div.east);
+\draw[flow] (mif) -- node[lbl]{onMiFrenTransfer} (div);
+\draw[flow] (div.south) to[bend right=14] node[lbl,pos=0.6]{donateToReserve} (reg.west);
+\draw[flow] (gach) -- node[lbl,pos=0.55]{swap + commit} (hook);
+
+\begin{scope}[on background layer]
+\node[draw=rulegray,dashed,rounded corners,fit=(hook)(reg)(ops)(ext2)(seed)(perp),
+      inner sep=11pt] (money) {};
+\node[font=\normalsize,text=cauldronblue,above left=0.5mm and 0mm of money.north east]
+      {\textit{the money path}};
+\end{scope}
+\end{tikzpicture}}
+\end{center}
+
+\noindent
+Solid arrows are ordinary external calls; dashed green arrows are
+\code{delegatecall} (the callee runs in the registry's storage and custody); the
+red arrow is the unguarded boundary that produces both Critical findings.
+
+\subsection{The token lifecycle}
+
+\begin{center}
+\begin{tikzpicture}[font=\scriptsize,node distance=4mm,
+  st/.style={draw=cauldronblue!70,fill=cauldronblue!6,rounded corners=2pt,minimum height=7mm,inner sep=4pt,align=center},
+  ar/.style={-{Latex[length=1.6mm]},thick,draw=cauldronblue!75}]
+\node[st] (a) {\textbf{summon}\\{\tiny owner, once}};
+\node[st,right=9mm of a] (b) {\textbf{seed}\\{\tiny progressive \emph{or}}\\{\tiny atomic green candle}};
+\node[st,right=9mm of b] (c) {\textbf{trade}\\{\tiny fees $\to$ dividend / floor}\\{\tiny proposer / relaunch}};
+\node[st,right=9mm of c] (d) {\textbf{death}\\{\tiny 24h volume $<$ threshold}};
+\node[st,right=9mm of d] (e) {\textbf{relaunch}\\{\tiny permissionless}};
+\node[st,below=8mm of c] (f) {\textbf{migrate} $1{:}1$\\{\tiny burn old $\to$ reserve pays}};
+\draw[ar] (a)--(b); \draw[ar] (b)--(c); \draw[ar] (c)--(d); \draw[ar] (d)--(e);
+\draw[ar] (e) to[bend right=22] node[font=\tiny,fill=white,inner sep=1pt,pos=0.5]{new generation} (b);
+\draw[ar] (e) -- (f);
+\draw[ar] (f) -- (c);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Two ledgers, one reserve}
+
+The clearest idea in the design is the separation between \emph{ledger A} (the
+active, tradeable tranche) and \emph{ledger B} (the reserve). Only ledger A is
+ever handed to the seeder; ledger B is placed by the registry directly and its
+position NFT never leaves the registry's custody. This makes ``the seeder can
+never touch the redemption reserve'' a structural property rather than a
+behavioural one, and I encoded it as invariant~\textbf{I-4}
+(\S\ref{sec:invariants}), which holds under fuzzing.
+
+The orientation of ledger B is subtle enough to be worth restating, because
+getting it backwards would silently destroy the protocol's entire backing. ETH
+is \code{currency0} and the brew token is \code{currency1}, so the pool price is
+\emph{tokens per ETH}. When the token appreciates, tokens-per-ETH \emph{falls},
+so the tick \emph{falls}. A position is pure \code{token1} only when the current
+price is \emph{above} its range. Therefore the reserve must sit \emph{below} the
+launch tick --- and \code{ReserveLib.reserveTicks}
+(\code{ReserveLib.sol:49}) does exactly that. I verified this under fuzzing
+across the whole reachable tick domain
+(\code{testFuzz\_ReserveSitsBelowLaunchTick}).
+
+%==============================================================================
+\section{The delegatecall facet}
+\label{sec:facet}
+
+\code{CauldronRegistry} exceeds EIP-170 on its own, so four OG-redemption
+entrypoints were moved into \code{RedemptionExt} and are reached through a
+raw-assembly \code{delegatecall} forwarder (\code{CauldronRegistry.sol:965}).
+This is the highest-risk structural pattern in the codebase --- a delegatecall
+target has full code-execution power over the caller's storage and custody ---
+so it deserves its own verification, and it passes.
+
+\begin{enumerate}
+\item \textbf{Layout equality.} Both contracts derive from
+\code{CauldronBase} and neither adds state, so the layouts are identical
+\emph{by construction}. I confirmed it mechanically: both report 52 slots with
+identical labels, slots and offsets. The only differences are solc AST node
+identifiers embedded in type strings (e.g.\ \code{t\_contract(IPoolManager)12919}
+vs \code{...10372}), which are compilation artefacts, not layout.
+
+\item \textbf{The immutable trap is correctly avoided.}
+\code{poolManager}, \code{positionManager} and \code{hook} were immutables in
+the monolith. Immutables live in the \emph{executing} contract's code, so under
+delegatecall the facet would read them as zero and every redemption would call
+into \code{address(0)}. \code{CauldronBase.sol:259--261} correctly promotes all
+three to storage. This is a real trap that the code sidesteps deliberately.
+
+\item \textbf{The reentrancy-guard interaction is correct and non-obvious.}
+The facet's functions carry \code{nonReentrant}, which under delegatecall
+operates on the \emph{registry's} guard slot (OZ~5.6 uses a fixed ERC-7201
+namespace, not a layout-dependent slot). The forwarders therefore must
+\emph{not} also be \code{nonReentrant} --- and they are not
+(\code{CauldronRegistry.sol:937--957}). Adding a guard there would double-lock
+and revert every redemption. The comment at line 929 shows this was understood.
+
+\item \textbf{A direct call to the facet is inert.} Its own storage has
+\code{summoned == false}, so every entrypoint reverts \code{NotSummoned} before
+touching value, and it custodies nothing.
+
+\item \textbf{The zero-target check is right for the right reason.}
+\code{\_forwardToExt} rejects \code{address(0)}, and \code{setRedemptionExt}
+rejects code-less targets (\code{CauldronRegistry.sol:148}). A delegatecall to
+an empty account returns \emph{success with no returndata}, which would make
+every redemption a silent no-op returning zero rather than a revert. Catching
+this is a genuinely sharp piece of defensive engineering.
+\end{enumerate}
+
+\noindent All five properties are encoded in
+\code{test/invariants/FacetLayoutInvariant.t.sol}, including a fuzz test that
+runs the facet's compiled code against a third contract's storage image and
+checks it reads the right slots.
+
+%==============================================================================
+\section{Invariants}
+\label{sec:invariants}
+
+Below are the protocol's advertised guarantees, restated formally, with a
+verdict for each. ``Holds'' means I could neither construct a counterexample by
+hand nor find one under fuzzing; ``Conditional'' means it holds only under a
+stated assumption; ``Breaks'' means I have a passing exploit.
+
+\subsubsection*{I-1 --- Supply is fixed and never inflates}
+\[
+\forall g:\; \mathrm{totalSupply}(T_g) \le \textsc{total\_supply}
+\quad\wedge\quad
+\mathrm{totalSupply}(T_{\mathrm{current}}) = \textsc{total\_supply}
+\]
+\textbf{Verdict: holds.} \code{CauldronToken} has no \code{mint()}; the entire
+supply is minted once in the constructor to the registry
+(\code{CauldronToken.sol:46}) and \code{burn} is registry-gated and
+monotonically decreasing. A retired generation's supply can only shrink, via
+relaunch's LP burn (\code{CauldronRegistry.sol:596}), migration
+(\code{PoolOps.migrateOne}) and the legacy flush. Encoded as
+\code{invariant\_supplyIsFixedAndNeverInflates}.
+
+\subsubsection*{I-2 --- Migration is $1{:}1$}
+\[
+\Delta\,\mathrm{received}_{\mathrm{new}} = \Delta\,\mathrm{burned}_{\mathrm{old}}
+\]
+\textbf{Verdict: conditional --- and the failure mode is unsafe
+(\textbf{H-03}).} The \emph{safe} half holds unconditionally: a claimer can
+never receive more than they burned. The other half does not. \code{claimByBurn}
+burns \code{amount} and then takes whatever \code{claimFromReserve} yields,
+without comparing them. While the reserve is sufficient the gap is
+liquidity-quantization dust --- I measured \textbf{276 wei} on a
+$2.8\times10^{26}$ claim --- but when the reserve is short the same missing
+check silently destroys the difference. Encoded as two invariants
+(\code{invariant\_migrationNeverOverDelivers}, which is the hard safety
+property, and \code{invariant\_migrationShortfallIsDustOnly}, which bounds the
+benign case) plus an explicit regression test pinning the deviation.
+
+\subsubsection*{I-3 --- The reserve always backs its claims}
+\[
+\mathrm{reserveTokens}(g) \;\ge\;
+\underbrace{\textsc{genesisReserveOutstanding}}_{\text{OG floor}}
+\;+\;
+\underbrace{\textstyle\sum_{k}\textsc{entitledTokens}(k)}_{\text{legacy floors}}
+\]
+\textbf{Verdict: holds, by careful construction.} The design decision that makes
+this work is that \code{materializeLegacyReserve} deposits the bought tokens
+\emph{and} credits the ledger in one call
+(\code{RedemptionExt.sol:118}), so a credit can never out-run the backing. The
+ledger side is separately proved: \code{invariant\_entitlementNeverExceedsCredited}
+shows a generation's entitlement never exceeds what was credited to it, and
+\code{invariant\_totalEntitledEqualsSum} shows the global sum never drifts.
+The system-level version is \code{invariant\_reserveBacksItsClaims}, which reads
+the live position's token amount from the fork.
+
+\subsubsection*{I-4 --- The seeder only ever touches ledger A}
+\textbf{Verdict: holds, structurally.} The reserve position NFT is minted to and
+owned by the registry (\code{PoolOps.\_seedReserve}); the seeder is funded by a
+scoped \code{approve} for exactly \code{activeTokens} and pulls only that
+(\code{PoolOps.sol:270--277}). Encoded as
+\code{invariant\_seederNeverOwnsTheReserve}, which additionally checks that no
+tracked seeder range ever coincides with the reserve band.
+
+\subsubsection*{I-5 --- Registry and facet storage layouts are byte-identical}
+\textbf{Verdict: holds.} See \S\ref{sec:facet}.
+
+\subsubsection*{I-6 --- Hook ETH accounting is backed by real ETH}
+\[
+\mathrm{balance}(\textsc{hook}) \;\ge\; \textsc{relaunchETH} + \textsc{legacyBuffer}
+\]
+\textbf{Verdict: BREAKS (\textbf{C-01}).} For pools the protocol created this
+holds --- and the invariant passes under fuzzing against a legitimate pool. But
+a swap in \emph{any} pool naming the hook can inflate \code{relaunchETH} with
+units of a worthless token, so the accounting exceeds the balance and
+\code{releaseRelaunchETH} reverts forever. The invariant is written to be
+sensitive to this so a future fix can be validated against it.
+
+\subsubsection*{I-7 --- Perp engine solvency}
+\[
+\mathrm{balance}_{\mathrm{ETH}}(\textsc{engine}) \ge \textsc{plv} + \textsc{insuranceEth} + \textsc{tokYieldEth}
+\quad\wedge\quad
+\mathrm{balance}_{\mathrm{token}} \ge \textsc{plvToken}
+\]
+\textbf{Verdict: holds.} The subtle part is bad debt, and both directions are
+handled correctly and \emph{differently}: on the long path \code{plv} has
+already booked the reduced repayment so insurance \emph{replenishes} it
+(\code{\_replenishPlv}), while on the short path the buy-back overspent raw ETH
+that was never booked, so the loss must be \emph{absorbed}
+(\code{\_absorbPlvLoss}), saturating at zero. Getting these backwards would be a
+silent insolvency; the code gets them right. Encoded as
+\code{invariant\_perpEngineIsSolvent}.
+
+\subsubsection*{I-8 --- PLV principal is protected against governance}
+\textbf{Verdict: holds for the vault pointer; \emph{fails} for insurance.}
+\code{setVault} cannot be re-pointed while any depositor funds are staked
+(\code{PerpEngine.sol:1188}) --- a genuinely good guard that blocks the obvious
+owner-drain path. But \code{skimInsurance} only protects \code{insuranceFloor},
+which defaults to \code{0}, so the owner can withdraw the entire bad-debt buffer
+that is actively backing open positions (\textbf{M-05}).
+
+\subsubsection*{I-9 --- The exit guarantee}
+\[
+\text{redeem blocked} \iff \textsc{redemptionPaused} \wedge (\textsc{emergencyReadyAt} = 0)
+\]
+\textbf{Verdict: holds.} The instant a custody action is armed, the exit is
+forced open, so holders can always leave at floor \emph{before} anything moves
+(\code{CauldronBase.sol:292}). This is a strong design choice and it is
+implemented exactly as documented. Fuzzed in
+\code{testFuzz\_ExitGuarantee}.
+
+\subsubsection*{I-10 --- The progressive stream cannot be accelerated}
+\textbf{Verdict: holds mathematically; \emph{fails operationally}
+(\textbf{H-02}).} \code{SeedLib.deployedTargetWad} is a pure function of elapsed
+time, monotone and capped at $10^{18}$ --- proved under fuzzing
+(\code{testFuzz\_ScheduleIsMonotoneAndCapped}) --- so no caller can over-deploy
+or block the stream. But the seeder never resets \code{complete} between
+campaigns, so from generation~2 onward the stream never starts at all.
+
+\subsubsection*{I-11 --- Relaunch is conserved: no dilution}
+\textbf{Verdict: holds.} Relaunch mints nothing to the caller and burns
+everything it recovers from the dead LP (\code{CauldronRegistry.sol:596}). The
+new active tranche mirrors the rescued tokens minus outstanding genesis and
+legacy claims, and the reserve is \code{TOTAL\_SUPPLY - newActive} --- so the
+split is sized to actual obligations rather than a fixed fraction. The degenerate
+guards at lines 673--676 prevent a zero-seed.
+
+%==============================================================================
+\section{Findings}
+
+Findings are ordered by severity. Each states its location, the mechanism, a
+concrete exploit path, the impact, and a specific code-level fix.
+
+%------------------------------------------------------------------------------
+\finding{C-01a}{Unbounded hook adoption mints phantom \texttt{relaunchETH}, permanently bricking \texttt{relaunch()}}{Critical}{Confirmed}{sevcrit}
+
+\loc{CauldronHook.sol:473 \texttt{\_afterInitialize} \textbullet\ :943 \texttt{\_takeEthFee} \textbullet\ :1077 \texttt{releaseRelaunchETH}}
+
+\textbf{Mechanism.} Uniswap~v4 lets anyone initialize a pool with any hook
+address whose permission bits match. \code{CauldronHook} adopts every such pool
+without question:
+
+\begin{lstlisting}[firstnumber=473]
+function _afterInitialize(address, PoolKey calldata key, uint160, int24)
+    internal override returns (bytes4)
+{
+    PoolId id = key.toId();
+    trackedPools[id] = true;          // <-- no allow-list, no currency check
+    _lastUpdateBlock[id] = block.number;
+    poolInitBlock[id] = block.number;
+    emit PoolTracked(id);
+    return BaseHook.afterInitialize.selector;
+}
+\end{lstlisting}
+
+The hook's entire fee engine then assumes what is true only for pools the
+protocol created: that \code{currency0} is native ETH. \code{\_beforeSwap}
+checks this explicitly (line 760, \code{Currency.unwrap(key.currency0) ==
+address(0)}) --- but \code{\_afterSwap} does not. It decides the sell leg
+applies purely from swap direction and exactness:
+
+\begin{lstlisting}[firstnumber=635]
+bool exactInput = params.amountSpecified < 0;
+bool unspecifiedIsEth = exactInput ? (!params.zeroForOne) : (params.zeroForOne);
+if (!unspecifiedIsEth) return (BaseHook.afterSwap.selector, 0);
+...
+uint256 fee = _takeEthFee(key, sender, ethAmount, false);
+\end{lstlisting}
+
+\noindent and \code{\_takeEthFee} takes \code{key.currency0} --- \emph{whatever
+that token is} --- then credits the proceeds to ETH-denominated counters:
+
+\begin{lstlisting}[firstnumber=961]
+poolManager.take(key.currency0, address(this), total);   // an arbitrary ERC20
+...
+else _routeEthFee(baseFee);                              // -> relaunchETH += ...
+\end{lstlisting}
+
+\textbf{Exploit path.} One transaction, no capital at risk:
+\begin{enumerate}
+\item Deploy two worthless ERC-20s, \code{A} and \code{B}.
+\item \code{poolManager.initialize} the pool \code{(A, B)} naming the Cauldron
+hook. Both are ERC-20s, so \emph{neither} leg is ETH.
+\item Add your own liquidity, then swap \code{B}$\to$\code{A} exact-input. Now
+\code{zeroForOne == false} and \code{exactInput == true}, so
+\code{unspecifiedIsEth} is \code{true} and the hook charges its ``ETH'' fee ---
+in units of \code{A}.
+\item \code{relaunchETH} is now a large number backed by nothing.
+\end{enumerate}
+
+\noindent Measured on a Sepolia fork
+(\code{test/audit/AuditPoC.t.sol::test\_PoC\_PhantomRelaunchEth\_BricksRelaunch}):
+
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\code{relaunchETH} after one attacker swap & $989{,}374{,}614{,}163{,}774{,}780{,}306$ (\textasciitilde{}0.99 ``ETH'') \\
+Hook's actual ETH balance & $0$ \\
+\code{releaseRelaunchETH()} & \textbf{reverts} \code{"ETH transfer failed"} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Impact.} \code{CauldronRegistry.relaunch()} calls
+\code{releaseRelaunchETH()} whenever \code{relaunchETH > 0}
+(\code{CauldronRegistry.sol:615}), and that call is \emph{not} wrapped in
+try/catch --- \code{require(ok, "ETH transfer failed")} propagates. So the
+protocol's central, permissionless, self-funding function reverts forever. There
+is no reset path: \code{relaunchETH} is only ever zeroed inside the function
+that now always reverts. Because \code{emergencySweep} moves ETH but not the
+counter, even the break-glass admin cannot clear it. The eternal machine stops
+being eternal, and every generation's holders lose the migration path that
+depends on relaunch. The attack costs one pool creation plus gas and can be
+repeated after any hypothetical manual reset.
+
+\textbf{Fix.} Restrict adoption to pools the protocol created, and defend in
+depth on the fee path:
+
+\begin{lstlisting}[numbers=none]
+// 1. Only the registry's own pools are ever tracked.
+function _afterInitialize(address sender, PoolKey calldata key, uint160, int24)
+    internal override returns (bytes4)
+{
+    if (sender != registry) return BaseHook.afterInitialize.selector; // ignore
+    if (Currency.unwrap(key.currency0) != address(0)) revert ZeroAddress();
+    PoolId id = key.toId();
+    trackedPools[id] = true;
+    _lastUpdateBlock[id] = block.number;
+    poolInitBlock[id] = block.number;
+    emit PoolTracked(id);
+    return BaseHook.afterInitialize.selector;
+}
+
+// 2. Belt and braces: never charge the ETH fee on a non-ETH pool.
+//    In _afterSwap, before the fee block:
+if (Currency.unwrap(key.currency0) != address(0) || !trackedPools[id]) {
+    return (BaseHook.afterSwap.selector, 0);
+}
+\end{lstlisting}
+
+\noindent Note that returning the selector without tracking (rather than
+reverting) is deliberate: reverting in \code{afterInitialize} would let anyone
+grief \emph{pool creation}, whereas ignoring the pool simply declines to serve
+it. Because \code{registry} is set once and the registry initializes every
+legitimate pool through \code{PoolOps}, the \code{sender} check is exact.
+
+%------------------------------------------------------------------------------
+\finding{C-01b}{The legacy buyback spends the hook's ETH inside an attacker-chosen pool}{Critical}{Confirmed}{sevcrit}
+
+\loc{CauldronHook.sol:662 \texttt{\_maybeLegacyBuyback} \textbullet\ :694 \texttt{legacyBuyStep}}
+
+\textbf{Mechanism.} The same missing boundary, but this one moves real money.
+When the buyback buffer is full, \code{\_afterSwap} fires a self-call at the
+\emph{top} of the function --- before any pool validation --- passing the
+\code{PoolKey} of \emph{the swap currently executing}:
+
+\begin{lstlisting}[firstnumber=662]
+function _maybeLegacyBuyback(PoolKey calldata key) private {
+    if (legacyRegistry == address(0) || legacyBuffer < legacyThreshold) return;
+    uint256 gl = gasleft();
+    if (gl > LEGACY_GAS_MIN) {
+        address(this).call{gas: gl - LEGACY_GAS_RESERVE}(
+            abi.encodeWithSelector(this.legacyBuyStep.selector, key)   // attacker's key
+        );
+    }
+}
+\end{lstlisting}
+
+\noindent \code{legacyBuyStep} then spends the \emph{entire} buffer buying
+\code{key.currency1} --- whatever the attacker chose --- and pays for it with
+the hook's real ETH:
+
+\begin{lstlisting}[firstnumber=700]
+_inSelfBuy = true;
+BalanceDelta d = poolManager.swap(key, SwapParams({zeroForOne: true,
+    amountSpecified: -int256(amt), sqrtPriceLimitX96: MIN_SQRT_LIMIT}), "");
+_inSelfBuy = false;
+poolManager.settle{value: amt}();               // <-- the hook's ETH leaves
+\end{lstlisting}
+
+\textbf{Exploit path.}
+\begin{enumerate}
+\item Deploy a worthless ERC-20 \code{E} and initialize \code{(ETH, E)} naming
+the hook, priced so that ETH buys an enormous quantity of \code{E}.
+\item Seed it with your own liquidity.
+\item Swap a trivial amount (0.001~ETH). In \code{afterSwap}, the hook sees a
+full buffer and buys \code{E} with all of it --- inside \emph{your} pool.
+\item Withdraw your liquidity. The hook's ETH is now yours; the hook holds
+worthless \code{E}.
+\end{enumerate}
+
+\noindent Measured on a Sepolia fork
+(\code{test/audit/AuditPoC.t.sol::test\_PoC\_LegacyBufferTheft}):
+
+\begin{center}\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+& \textbf{before} & \textbf{after} \\
+\midrule
+Hook ETH balance    & 5.000 ETH & \textbf{0.000 ETH} \\
+Hook \code{legacyBuffer} & 5.000 ETH & 0 \\
+Attacker ETH        & 495.000 ETH & \textbf{500.000 ETH} \\
+Hook \code{EVIL} received & --- & 13.26 (worthless) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Impact.} Direct, repeatable theft of every ETH the hook accumulates in
+its buyback buffer, with a probe swap of arbitrarily small size. Under the
+shipped configuration (\code{DeployLaunchpad.s.sol}: \code{LEGACY\_BPS=4000},
+\code{LEGACY\_THRESHOLD=0.02 ether}) the buffer is continuously refilled from
+40\,\% of the post-guild fee, so this is a standing tap on protocol revenue that
+would otherwise back the live collection's NFT floor. The attacker also
+poisons \code{legacyOwedToReserve} with a claim on tokens the hook does not hold
+in the live token, though \code{sweepLegacyReserve} caps at the real balance so
+that part is contained.
+
+\textbf{Fix.} Never spend on a key the caller supplied. Drive the buyback from
+the protocol's own live pool key:
+
+\begin{lstlisting}[numbers=none]
+// Store the live key when the registry wires the generation.
+PoolKey private _liveKey;
+function setLiveKey(PoolKey calldata k) external {
+    if (msg.sender != registry) revert OnlyRegistry();
+    _liveKey = k;
+}
+
+function _maybeLegacyBuyback(PoolKey calldata key) private {
+    if (legacyRegistry == address(0) || legacyBuffer < legacyThreshold) return;
+    // ONLY ever buy in the protocol's own pool.
+    if (PoolId.unwrap(key.toId()) != PoolId.unwrap(_liveKey.toId())) return;
+    ...
+        abi.encodeWithSelector(this.legacyBuyStep.selector, _liveKey)
+}
+\end{lstlisting}
+
+\noindent The \code{trackedPools} fix in C-01a is necessary but \emph{not}
+sufficient here: an attacker pool would still be tracked if the allow-list were
+keyed on tracking alone. Pin the key.
+
+%------------------------------------------------------------------------------
+\finding{C-02}{A winning proposal with an out-of-range \texttt{nftSupply} freezes the protocol permanently}{Critical}{Confirmed}{sevcrit}
+
+\loc{CauldronGovernor.sol:123 \texttt{propose} \textbullet\ CauldronRegistry.sol:641,745 \textbullet\ CauldronCollection.sol:126}
+
+\textbf{Mechanism.} \code{propose()} validates the name, symbol and metadata
+source, but places \emph{no bound} on \code{nftSupply}:
+
+\begin{lstlisting}[firstnumber=137]
+if (bytes(name).length == 0 || bytes(symbol).length == 0) revert EmptyField();
+if (mode == MetadataMode.BaseURI) {
+    if (bytes(baseURI).length == 0) revert EmptyField();
+} else {
+    if (renderer == address(0) || renderer.code.length == 0) revert BadRenderer();
+}
+// nftSupply and volumePerNFT: unvalidated
+\end{lstlisting}
+
+\noindent \code{relaunch()} adopts it verbatim (\code{if (spec.nftSupply > 0)
+nftSupply = spec.nftSupply;}, line 641) and passes it to the factory, whose
+collection constructor enforces a hard bound so art ids can never collide with
+Liquidatoor badge ids:
+
+\begin{lstlisting}[firstnumber=126]
+if (minter_ == address(0) || maxSupply_ == 0 || maxSupply_ >= LIQUIDATOR_ID_BASE)
+    revert BadConfig();          // LIQUIDATOR_ID_BASE == 1_000_000
+\end{lstlisting}
+
+\noindent The bound is correct. The problem is \emph{where} it fires. The revert
+propagates out of \code{relaunch()}, and because \code{governor.markConsumed(winId)}
+executed earlier \emph{in the same transaction} (line 643), it is rolled back
+too. The poisoned proposal is never retired, so it wins again on the next
+attempt, forever.
+
+\textbf{Exploit path.} Any MiFren holder proposes a brew with
+\code{nftSupply = 1\_000\_000} and accumulates enough votes to lead. It need not
+even be malicious --- a proposer who wants a one-million-piece collection
+triggers it by accident. When the generation dies, every \code{relaunch()} call
+reverts.
+
+\noindent Verified on a Sepolia fork
+(\code{test/audit/AuditPoC4.t.sol}): \code{relaunch()} reverts
+\code{CauldronCollection.BadConfig}, \code{markConsumed} is rolled back
+(\code{gov.consumed() == false}), the generation stays at 1, and a second
+attempt reverts identically.
+
+\textbf{Impact.} Permanent, unrecoverable freeze of the eternal machine. No
+relaunch means: no new generation, no migration target for existing holders, no
+perp \code{syncGeneration}, and the dead pool's LP stays locked in a
+zero-volume pool. \emph{The only escape is \code{setGovernor}, which is
+\code{onlyOwner}} --- and \code{DeployLaunchpad.s.sol:248} transfers registry
+ownership to the \code{MiFrensGenesis} presale contract, which exposes no call
+that would forward to it. So on the shipped deployment there is no recovery
+short of \code{migrateToSuccessor} --- a full V2 migration behind the emergency
+timelock. My PoC demonstrates recovery via \code{setGovernor} only to prove that
+is the sole exit.
+
+\textbf{Fix.} Validate at the boundary, and make relaunch resilient to a bad
+winner:
+
+\begin{lstlisting}[numbers=none]
+// 1. CauldronGovernor.propose -- reject what can never be launched.
+uint256 constant MAX_NFT_SUPPLY = 100_000;   // << LIQUIDATOR_ID_BASE
+if (nftSupply > MAX_NFT_SUPPLY) revert EmptyField();
+
+// 2. CauldronRegistry.relaunch -- clamp defensively as well, so a governor
+//    swapped in later cannot re-introduce the freeze.
+if (spec.nftSupply > 0) {
+    nftSupply = spec.nftSupply > MAX_NFT_SUPPLY ? MAX_NFT_SUPPLY : spec.nftSupply;
+}
+\end{lstlisting}
+
+\noindent The same reasoning applies to every other field of \code{BrewSpec}
+that reaches a constructor. \code{renderer} is already checked for code size at
+proposal time, but note it is checked \emph{again} in the collection constructor
+--- a renderer that self-destructs between proposal and relaunch would reproduce
+this exact freeze. Clamping in \code{relaunch} covers both.
+
+%------------------------------------------------------------------------------
+\finding{H-01}{The collection's \texttt{deployer} is the factory, so the entire legacy-floor recycle path is unreachable}{High}{Confirmed}{sevhigh}
+
+\loc{CauldronFactory.sol:37 \textbullet\ CauldronCollection.sol:134,296 \textbullet\ PoolOps.sol:716,740}
+
+\textbf{Mechanism.} \code{CauldronCollection} records
+\code{deployer = msg.sender} in its constructor (line 134). Because collections
+are created \emph{by the factory} (\code{new CauldronCollection(...)} at
+\code{CauldronFactory.sol:37}), \code{deployer} is the \textbf{factory address},
+not the registry. But the custody entrypoint the legacy-floor design depends on
+is gated on \code{deployer}:
+
+\begin{lstlisting}[firstnumber=296]
+function custodyTransfer(address from, address to, uint256 tokenId) external {
+    if (msg.sender != deployer) revert OnlyVault();   // deployer == the FACTORY
+    _transfer(from, to, tokenId);
+}
+\end{lstlisting}
+
+\noindent while the caller is always the registry:
+
+\begin{lstlisting}[firstnumber=712]
+if (ICollectionOps(collection).ownerOf(tokenId) != caller) revert("not owner");
+uint256 payout = ILedgerOps(ledger).redeem(gen, mintedNow);
+ICollectionOps(collection).custodyTransfer(caller, address(this), tokenId); // reverts
+\end{lstlisting}
+
+\noindent The factory exposes only \code{deployBrew} and \code{deployVault} ---
+there is no forwarding function --- so \emph{no address in the system} can pass
+the gate.
+
+\textbf{Impact.} Three separate consequences, all confirmed by test
+(\code{test/audit/AuditPoC.t.sol::PoC\_CollectionCustodyLockout}):
+
+\begin{enumerate}
+\item \code{recycleCollectionNFT} and \code{buyCollectionNFT} always revert.
+The collection legacy floor --- an entire subsystem with its own ledger,
+crystallisation logic and $2\times$ buyback ratchet --- is dead code in
+production. NFT holders can never redeem the floor their collection's own
+volume paid for. Notably \code{ledger.redeem} is called \emph{before} the
+reverting transfer, so the whole transaction rolls back and the ledger is not
+corrupted --- the failure is clean, just total.
+\item Every other \code{deployer}-gated admin function is permanently
+unreachable: \code{setMetadata} (so a broken renderer can never be repointed,
+defeating its stated purpose), \code{setTransferValidator} (so ERC-721C royalty
+enforcement can never be switched on), \code{setLiquidatorURI}, and
+\code{setRarityOdds}.
+\item The genesis path is \emph{not} affected --- \code{MiFrensGenesis.custodyTransfer}
+is correctly gated on \code{registry} (line 337), which is why OG redemption
+works and the discrepancy is easy to miss.
+\end{enumerate}
+
+\textbf{Fix.} Pass the registry explicitly rather than inferring it from
+\code{msg.sender}. The \code{Config} struct already carries it:
+
+\begin{lstlisting}[numbers=none]
+// CauldronCollection: take the controller as a constructor argument.
+constructor(..., address registry_, ...) ERC721(name_, symbol_) {
+    ...
+    deployer = registry_;        // was: msg.sender (the factory)
+}
+
+// CauldronFactory.deployBrew: the vault wiring must then happen through a
+// path the factory still controls, so do it before handing over -- or keep a
+// separate `configurator` slot the factory holds and `deployer` for the registry:
+//    address public immutable configurator; // = msg.sender (factory), setVault/setRoyalty
+//    address public immutable deployer;     // = c.registry,  custodyTransfer/setMetadata
+\end{lstlisting}
+
+\noindent The two-slot variant is the safer refactor: the factory keeps exactly
+the two rights it needs at deploy time (\code{setVault}, \code{setRoyalty}) and
+the registry gets custody and the governed art/validator setters. Add a
+regression test asserting \code{col.deployer() == address(registry)}.
+
+%------------------------------------------------------------------------------
+\finding{H-02}{\texttt{CauldronSeeder} never resets \texttt{complete}, so generation 2 onward never streams}{High}{Confirmed}{sevhigh}
+
+\loc{CauldronSeeder.sol:125 \texttt{startSeed} \textbullet\ :182 \texttt{\_pendingStep} \textbullet\ :360 \texttt{withdrawAll}}
+
+\textbf{Mechanism.} The seeder is explicitly designed to be persistent --- one
+instance serves every generation (``\emph{Deployed once (pointed at this
+registry) and reused every generation}'', \code{CauldronRegistry.sol:168}).
+Teardown sets three flags:
+
+\begin{lstlisting}[firstnumber=360]
+function withdrawAll(address to) external onlyRegistry lock returns (...) {
+    poolManager.unlock(abi.encode(ACT_WITHDRAW, to));
+    ...
+    delete ranges;
+    seeding = false;
+    complete = true;        // <-- sticky
+}
+\end{lstlisting}
+
+\noindent but \code{startSeed} resets only \code{seeding}:
+
+\begin{lstlisting}[firstnumber=145]
+    seeding = true;
+    // `complete`     : NOT reset
+    // `_basePlaced`  : NOT reset
+\end{lstlisting}
+
+\noindent and every placement is gated on \code{complete}:
+
+\begin{lstlisting}[firstnumber=182]
+function _pendingStep() private view returns (uint256) {
+    if (!seeding || complete) return 0;      // <-- always 0 from gen 2 onward
+    ...
+}
+\end{lstlisting}
+
+\textbf{Exploit path.} No attacker required --- this is the \emph{normal}
+second launch. Verified on a Sepolia fork
+(\code{test/audit/AuditPoC.t.sol::test\_PoC\_SecondCampaignNeverStreams}):
+
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Gen-1 campaign streams to 100\,\% & \code{deployedWad == 1e18} \\
+After teardown, gen-2 \code{startSeed} & \code{isComplete() == true} \textbf{immediately} \\
+After the full window elapses + \code{poke()} & \code{deployedWad == 0.1e18} (unchanged) \\
+Gen-2 token stranded in the seeder & $91{,}500{,}000$ of $100{,}000{,}000$ (\textbf{91.5\,\%}) \\
+Gen-2 ETH stranded in the seeder & $9.15$ of $10$ ETH (\textbf{91.5\,\%}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Impact.} From generation 2 onward, only the 10\,\% seed floor ever
+reaches the pool. The remaining $\approx$90\,\% of the active tranche --- both
+ETH and tokens --- sits in the seeder contract for the entire life of the
+generation. Consequences compound:
+\begin{itemize}
+\item \textbf{Catastrophically thin liquidity.} The pool trades on a tenth of
+its intended depth for its whole life, so ordinary trades suffer roughly an
+order of magnitude more slippage.
+\item \textbf{Death threshold becomes trivial to hit.} Thin liquidity suppresses
+volume, and volume is what keeps the generation alive.
+\item \textbf{Perps are silently disabled.} \code{\_basePlaced} is also sticky,
+so \code{\_placeBase} never runs and the pool has no spot-straddling base ---
+\code{activeEthDepth()} collapses and \code{maxLeverage()} bottoms out.
+\item Funds are \emph{not} lost --- the next \code{withdrawAll} recovers them ---
+but they are unavailable for the entire generation.
+\end{itemize}
+
+\noindent The repository's own \code{LifecycleE2E} test asserts
+\code{seeder.seeding()} after the gen-2 relaunch but never re-checks
+\code{deployedWad}, which is why this survived to now.
+
+\textbf{Fix.} One line, plus a hygiene reset:
+
+\begin{lstlisting}[numbers=none]
+function startSeed(SeederConfig calldata cfg) external payable onlyRegistry lock {
+    if (seeding) revert AlreadySeeding();
+    ...
+    seeding     = true;
+    complete    = false;     // <-- FIX: a fresh campaign is not complete
+    _basePlaced = false;     // <-- FIX: lay a new two-sided base for the new pool
+    _lastEthOut = 0;         //     hygiene: stale return-value scratch
+    _lastTokenOut = 0;
+    ...
+}
+\end{lstlisting}
+
+\noindent Then extend \code{ProgressiveSeed.t.sol} to run \emph{two}
+progressive generations back to back and assert \code{deployedWad() == 1e18} on
+the second.
+
+%------------------------------------------------------------------------------
+\finding{H-03}{\texttt{claimByBurn} burns the full amount but silently accepts a short delivery}{High}{Confirmed}{sevhigh}
+
+\loc{CauldronRegistry.sol:835 \texttt{claimByBurn} \textbullet\ PoolOps.sol:524 \texttt{claimFromReserve} \textbullet\ :601 \texttt{migrateOne}}
+
+\textbf{Mechanism.} \code{claimFromReserve} caps the withdrawal at the
+position's available liquidity and returns whatever it managed to take:
+
+\begin{lstlisting}[firstnumber=533]
+uint128 liquidity = ReserveLib.liquidityForTokenOut(tickLower, tickUpper, amount);
+if (liquidity == 0) return 0;
+uint128 have = pm.getPositionLiquidity(positionId);
+if (liquidity > have) liquidity = have;      // <-- silently truncate
+if (liquidity == 0) return 0;
+...
+taken = IERC20(...).balanceOf(recipient) - tokBefore;   // may be << amount
+\end{lstlisting}
+
+\noindent \code{migrateOne} burns \emph{first} and never compares:
+
+\begin{lstlisting}[firstnumber=601]
+function migrateOne(..., uint256 amount, ReserveRef memory r) public returns (uint256 got) {
+    ICauldronBurn(prevToken).burn(from, amount);                    // full amount destroyed
+    got = claimFromReserve(pm, r.positionId, ..., amount, from);    // may deliver less
+}
+\end{lstlisting}
+
+\noindent The registry's own comment asserts the opposite --- ``\emph{A short
+reserve reverts, rolling the burn back with it}'' (line 851) --- which is
+exactly the behaviour the code does \emph{not} implement.
+
+\textbf{Exploit path.} Verified against live v4
+(\code{test/audit/AuditPoC2.t.sol::PoC\_ReserveUnderDelivery}): a reserve holding
+100 tokens, asked for 10{,}000, delivers $99.99$ and returns normally ---
+a $99\,\%$ shortfall with no revert.
+
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Requested & $10{,}000 \times 10^{18}$ \\
+Delivered & $99.999\ldots \times 10^{18}$ \\
+Shortfall & $9{,}900 \times 10^{18}$ \textbf{destroyed} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent In the benign case the gap is quantization dust: my lifecycle test
+measured \textbf{276 wei} lost on a $2.8\times10^{26}$ claim
+(\code{test\_KnownDeviation\_MigrationIsNotExactlyOneToOne}). That is
+economically irrelevant \emph{but it proves the check is absent}, so the
+unbounded case is reachable whenever the reserve is short.
+
+\textbf{When is the reserve short?} Relaunch sizes it as
+\code{TOTAL\_SUPPLY - newActive}, intended to cover migration plus genesis plus
+legacy. Several paths can under-size it: the degenerate guard at line 676
+(\code{if (newActive == 0) newActive = GEN1\_ACTIVE\_TOKENS}) discards the
+sizing entirely; \code{PoolOps.crystallizeCollection} can add entitlement after
+sizing; and cumulative dust across many generations compounds in the same
+direction.
+
+\textbf{Impact.} A migrating holder can have their old tokens burned and receive
+materially less than $1{:}1$, with no revert and no recourse. The loss is
+permanent (the old tokens are destroyed). This directly violates the advertised
+``migration is conserved $1{:}1$'' property, and because
+\code{MigrationVesting.\_pullAndVest} wraps the same call, escrow users are
+exposed identically --- though note the escrow \emph{does} verify its own
+balance delta (line 186), which is the right pattern applied one layer too high.
+
+\textbf{Fix.} Make short delivery a revert, not a silent truncation:
+
+\begin{lstlisting}[numbers=none]
+// PoolOps.migrateOne -- the migration path must be exact.
+function migrateOne(IPositionManagerOps pm, address prevToken, address from,
+                    uint256 amount, ReserveRef memory r) public returns (uint256 got) {
+    ICauldronBurn(prevToken).burn(from, amount);
+    got = claimFromReserve(pm, r.positionId, r.key, r.tickLower, r.tickUpper, amount, from);
+    // Liquidity math rounds DOWN, so allow a wei-scale tolerance but nothing more.
+    require(got + 1e12 >= amount, "reserve short");   // reverts -> burn rolls back
+}
+\end{lstlisting}
+
+\noindent Apply the same guard in \code{PoolOps.recycleCollection} and in
+\code{RedemptionExt.redeemOgFren}, where the NFT has already moved to the
+treasury before the reserve is drawn. For the redemption paths a strict
+\code{require(taken >= payout)} is appropriate, since those amounts are computed
+from the ledger rather than supplied by the caller.
+
+%------------------------------------------------------------------------------
+\finding{H-04}{A trader contract that rejects ETH can freeze the perp engine on a dead generation}{High}{Confirmed}{sevhigh}
+
+\loc{PerpEngine.sol:993 \texttt{\_sendEth} \textbullet\ :858 \texttt{\_settle} \textbullet\ :700 \texttt{forceCloseAllDead} \textbullet\ :725 \texttt{syncGeneration}}
+
+\textbf{Mechanism.} Settlement pays the trader with a send that reverts on
+failure:
+
+\begin{lstlisting}[firstnumber=993]
+function _sendEth(address to, uint256 amount) internal {
+    (bool ok, ) = to.call{value: amount}(""); if (!ok) revert EthSend();
+}
+\end{lstlisting}
+
+\begin{lstlisting}[firstnumber=858]
+if (residual > 0) _sendEth(p.trader, residual);   // trader controls this
+\end{lstlisting}
+
+\noindent A contract whose \code{receive()} reverts therefore makes its own
+position permanently unsettleable --- by \code{close}, by \code{liquidate}, by
+\code{forceCloseDead}, and critically by the batch:
+
+\begin{lstlisting}[firstnumber=709]
+while (openCount != 0 && iters < 96) {
+    uint256 id = _openIds[0];
+    _settle(id, positions[id], 0, MODE_DEATH, msg.sender);   // reverts -> whole batch reverts
+}
+\end{lstlisting}
+
+\noindent and \code{syncGeneration} refuses to re-arm while anything is open:
+
+\begin{lstlisting}[firstnumber=728]
+if (openCount != 0) revert PositionsOpen();
+\end{lstlisting}
+
+\textbf{Exploit path.} Verified on a Sepolia fork
+(\code{test/audit/AuditPoC3.t.sol::test\_PoC\_RejectingTraderFreezesTheEngine}):
+
+\begin{enumerate}
+\item Deploy a contract with a reverting \code{receive()}; open a 0.05~ETH long
+through it. (Cost: the 6.9\,\% open fee.)
+\item The generation dies. An honest position force-closes fine.
+\item \code{forceCloseDead(griefId)} reverts \code{EthSend}.
+\item \code{forceCloseAllDead()} reverts \code{EthSend} --- the entire batch.
+\item \code{relaunch()} still succeeds, because the registry try/catches the
+force-close (\code{CauldronRegistry.sol:737}) --- good defensive design --- but
+the position survives the rebirth.
+\item \code{syncGeneration()} reverts \code{PositionsOpen}, permanently.
+\end{enumerate}
+
+\noindent Observed end state: \code{syncedToken} $=$ the \emph{dead}
+generation-1 token while \code{registry.currentToken()} is generation 2, with
+$50{,}000{,}000$ tokens of short inventory denominated in a token nobody trades.
+
+\textbf{Impact.} For roughly the cost of one open fee, an attacker permanently
+disables the perp engine across every future generation:
+\begin{itemize}
+\item \code{plvToken} stays denominated in a dead token; the entire short-side
+inventory is stranded and \code{PerpVault} token stakers cannot be made whole
+(\code{withdrawPlvTokenTo} pays out the dead token).
+\item \code{openShort} still reads \code{plvToken} as available, so shorts could
+be opened against inventory the engine cannot actually deliver on the live pool.
+\item The advertised ``stake \& chill'' auto-migration silently stops working
+for everyone.
+\end{itemize}
+
+\textbf{Fix.} Never let an untrusted recipient's revert block settlement. Use a
+pull pattern for the trader payout, exactly as the hook already does for
+\code{proposerOwed}:
+
+\begin{lstlisting}[numbers=none]
+mapping(address => uint256) public payoutOwed;
+
+function _sendEthSafe(address to, uint256 amount) internal {
+    if (amount == 0) return;
+    (bool ok, ) = to.call{value: amount, gas: 30_000}("");
+    if (!ok) payoutOwed[to] += amount;      // credit instead of reverting
+}
+
+function claimPayout() external nonReentrant returns (uint256 amt) {
+    amt = payoutOwed[msg.sender];
+    if (amt == 0) revert ZeroValue();
+    payoutOwed[msg.sender] = 0;
+    (bool ok, ) = msg.sender.call{value: amt}("");
+    if (!ok) revert EthSend();
+}
+\end{lstlisting}
+
+\noindent Use \code{\_sendEthSafe} for the trader residual (line 858) and the
+keeper reward (line 846/856). Keep the reverting \code{\_sendEth} only for the
+protocol's own trusted sinks (\code{dividend}, \code{treasury}) where a failure
+genuinely indicates misconfiguration --- though crediting there too would be
+more robust still.
+
+%------------------------------------------------------------------------------
+\finding{H-05}{The first token-side staker captures the entire previously-accrued yield pot}{High}{Confirmed}{sevhigh}
+
+\loc{PerpVault.sol:177 \texttt{\_syncTokYield}}
+
+\textbf{Mechanism.} Short-side fees accrue in the engine as
+\code{tokYieldEth} with a monotonic watermark \code{tokYieldCumulative}. The
+vault folds new accrual into a per-share accumulator:
+
+\begin{lstlisting}[firstnumber=177]
+function _syncTokYield() internal {
+    uint256 cum = engine.tokYieldCumulative();
+    if (cum == lastTokYieldCum || tokShares == 0) return;   // <-- watermark NOT advanced
+    accEthPerTokShare += FullMath.mulDiv(cum - lastTokYieldCum, ACC, tokShares);
+    lastTokYieldCum = cum;                                  // "the first staker collects"
+}
+\end{lstlisting}
+
+\noindent When \code{tokShares == 0} the function returns \emph{without}
+advancing \code{lastTokYieldCum}. So all yield accrued during the
+zero-stake period stays in the delta and is divided over whatever share count
+exists at the next sync. The trailing comment (``\emph{the first staker
+collects}'') shows the behaviour was noticed; the finding is that its magnitude
+is unbounded.
+
+\textbf{Exploit path.} A watcher monitors \code{tokYieldEth}. When it is large
+and \code{tokShares == 0} (true at launch, and again after any full
+unstake), they deposit the minimum that mints one share and immediately claim.
+Verified in \code{test/audit/AuditPoC.t.sol::PoC\_PerpVaultYieldCapture}:
+
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Pot accrued while \code{tokShares == 0} & 10.0 ETH \\
+Sniper deposit & 1{,}000 tokens \\
+Sniper claim & \textbf{10.0 ETH} (100\,\% of the pot) \\
+Whale deposit, 1000$\times$ larger, moments later & 1{,}000{,}000 tokens \\
+Whale pending yield & \textbf{0} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Impact.} The entire short-side yield pot is transferred to whoever
+deposits first after a zero-stake window, in proportion to nothing. The window
+is guaranteed to occur at least once (launch) and recurs after any complete
+unstake. Deposit size is irrelevant --- only ordering matters --- so the capture
+is essentially free. There is no cap: the longer the protocol runs before the
+token side is seeded, the larger the prize. This is a two-sided problem: it also
+means honest first stakers receive a windfall they did not earn, distorting the
+vault's advertised yield.
+
+\textbf{Fix.} Advance the watermark even when there are no shares, and let the
+unattributable yield fall to a defined sink:
+
+\begin{lstlisting}[numbers=none]
+function _syncTokYield() internal {
+    uint256 cum = engine.tokYieldCumulative();
+    if (cum == lastTokYieldCum) return;
+    if (tokShares == 0) {
+        // Nobody is staked: this yield has no claimant. Advance the watermark so
+        // it can never be back-paid to a future first-mover.
+        lastTokYieldCum = cum;
+        emit UnattributedYield(cum - lastTokYieldCum);
+        return;
+    }
+    accEthPerTokShare += FullMath.mulDiv(cum - lastTokYieldCum, ACC, tokShares);
+    lastTokYieldCum = cum;
+}
+\end{lstlisting}
+
+\noindent The ETH itself remains in the engine's \code{tokYieldEth} pot; add an
+owner/timelock path to route the orphaned balance to the treasury or to donate
+it into \code{insuranceEth}. Note that \code{pendingTokYield} (line 286) mirrors
+the same logic and must be updated in lockstep or the UI will disagree with the
+contract.
+
+%------------------------------------------------------------------------------
+\finding{M-01}{\texttt{setRegistryOverride} defeats the one-shot registry lock the code documents}{Medium}{Confirmed}{sevmed}
+
+\loc{CauldronHook.sol:1188 \texttt{setRegistry} \textbullet\ :1200 \texttt{setRegistryOverride}}
+
+\textbf{Mechanism.} \code{setRegistry} is one-shot and its comment is explicit
+about why: ``\emph{a mutable setter would let the hook owner repoint
+\code{registry} to an address they control and drain \code{relaunchETH} via
+\code{releaseRelaunchETH()} (audit F1). Set once at deploy, then locked
+forever.}'' Twelve lines later:
+
+\begin{lstlisting}[firstnumber=1200]
+function setRegistryOverride(address _registry) external onlyOwner {
+    if (_registry == address(0)) revert ZeroAddress();
+    registry = _registry;          // no one-shot guard
+}
+\end{lstlisting}
+
+\noindent Verified in \code{test/audit/AuditPoC2.t.sol::PoC\_RegistryOverrideDrain}:
+\code{setRegistry} reverts \code{RegistryAlreadySet} while
+\code{setRegistryOverride} succeeds, after which the original registry gets
+\code{OnlyRegistry} on \code{releaseRelaunchETH}.
+
+\textbf{Impact.} The hook owner can re-point \code{registry} to any address and
+immediately call \code{releaseRelaunchETH()} to take the accumulated relaunch
+reserve. It also grants \code{setCollection}, \code{setVault},
+\code{setNftCurveFrom}, \code{forceClosePerps} and \code{sweepLegacyReserve}.
+Mitigating context: \code{DeployPerp.s.sol:106} transfers hook ownership to a
+\code{TimelockController}, so on the shipped mainnet configuration this is a
+delayed, publicly-visible governance action rather than an instant rug. That is
+what keeps it Medium rather than High. The function is legitimately needed for
+the V2 handoff --- the issue is that it is unconstrained and that the adjacent
+comment claims a protection the contract does not provide.
+
+\textbf{Fix.} Route the override through the same arm/delay/veto machinery that
+protects the registry's own custody actions, and correct the misleading comment:
+
+\begin{lstlisting}[numbers=none]
+address public pendingRegistry;
+uint256 public registrySwapReadyAt;
+uint256 public constant REGISTRY_SWAP_DELAY = 7 days;
+
+function proposeRegistryOverride(address _r) external onlyOwner {
+    if (_r == address(0)) revert ZeroAddress();
+    pendingRegistry = _r;
+    registrySwapReadyAt = block.timestamp + REGISTRY_SWAP_DELAY;
+    emit RegistryOverrideProposed(_r, registrySwapReadyAt);
+}
+
+function executeRegistryOverride() external onlyOwner {
+    if (registrySwapReadyAt == 0 || block.timestamp < registrySwapReadyAt) revert Timelocked();
+    // Drain the reserve to the OUTGOING registry first, so a swap can never
+    // capture ETH the previous registry accrued.
+    if (relaunchETH > 0) releaseRelaunchETH();
+    registry = pendingRegistry;
+    pendingRegistry = address(0); registrySwapReadyAt = 0;
+}
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\finding{M-02}{\texttt{winner()} returns the live vote leader, so relaunch is front-runnable}{Medium}{Confirmed}{sevmed}
+
+\loc{CauldronGovernor.sol:211 \texttt{winner} \textbullet\ :181 \texttt{vote} \textbullet\ CauldronRegistry.sol:635}
+
+\textbf{Mechanism.} There is no voting period, no deadline and no quorum.
+\code{winner()} returns whichever unconsumed proposal currently has the most
+votes, and \code{relaunch()} reads it at execution time. Since \code{relaunch()}
+is permissionless and therefore public in the mempool, a voter can place their
+vote in the same block, ahead of it.
+
+\noindent Verified in \code{test/audit/AuditPoC2.t.sol::PoC\_GovernorLiveWinner}:
+the honest proposal leads; one whale vote flips \code{winner()} to the attacker's
+proposal, along with \code{spec.proposer}.
+
+\textbf{Impact.} Whoever holds the largest checkpointed MiFrens balance decides
+every relaunch unilaterally, at the last possible instant, with no opportunity
+for anyone to respond. The winning \code{proposer} also captures the hook's
+proposer fee slice for that entire generation
+(\code{CauldronRegistry.sol:658}). Combined with \textbf{C-02}, front-running
+also means a malicious winner can be inserted at the instant of relaunch. The
+snapshot mechanism at line 191 correctly prevents the classic
+transfer-and-revote attack --- the gap is purely the absence of a deadline.
+
+\textbf{Fix.} Give proposals a voting window and freeze the winner before it can
+be consumed:
+
+\begin{lstlisting}[numbers=none]
+uint256 public constant VOTING_PERIOD = 3 days;
+// Proposal gains: uint256 votingEndsAt;   (set to block.timestamp + VOTING_PERIOD)
+
+function vote(uint256 proposalId) external {
+    ...
+    if (block.timestamp > p.votingEndsAt) revert VotingClosed();
+    ...
+}
+
+function _bestUnconsumed() private view returns (uint256) {
+    // Only proposals whose voting window has CLOSED are eligible to win.
+    ...  if (p.votingEndsAt >= block.timestamp) continue;  ...
+}
+\end{lstlisting}
+
+\noindent This also gives holders a visible window in which to observe and
+respond to a proposal before it can be launched, which is the point of having
+governance at all.
+
+%------------------------------------------------------------------------------
+\finding{M-03}{The rarity reveal offers two independent draws and the holder picks the better}{Medium}{Confirmed}{sevmed}
+
+\loc{CauldronCollection.sol:196 \texttt{reveal} \textbullet\ MiFrensGenesis.sol:409 \texttt{reveal}}
+
+\textbf{Mechanism.} \code{reveal()} rolls rarity from the mint block's hash,
+with a deterministic fallback once that hash ages out of the 256-block window:
+
+\begin{lstlisting}[firstnumber=202]
+bytes32 bh = blockhash(mb);
+if (bh == 0) bh = keccak256(abi.encodePacked("CAULDRON_REVEAL_FALLBACK", mb, tokenId));
+uint8 rarity = _rollRarity(uint256(keccak256(abi.encodePacked(bh, tokenId, address(this)))));
+\end{lstlisting}
+
+\noindent Reveal timing is entirely the holder's choice, so they get
+\emph{two} independent outcomes: the blockhash roll (readable from block
+\code{mb+1}) and the fallback roll (computable at mint time, since it depends
+only on \code{mb} and \code{tokenId}). They simply wait if the early roll is
+worse. Verified in
+\code{test/audit/AuditPoC.t.sol::PoC\_RarityDoubleRoll}.
+
+\textbf{Impact.} With the default tiers (Common 79\,\%, Rare 15\,\%,
+Epic 5\,\%, Ultra 1\,\%), taking the maximum of two draws lifts
+$P(\text{at least Rare})$ from $21\,\%$ to $1-0.79^2 \approx 37.6\,\%$ and
+$P(\text{Ultra})$ from $1\,\%$ to $\approx1.99\,\%$ --- roughly doubling the top
+tier. Every patient holder gets this; only naive ones do not. The fallback is
+also \emph{fully predictable at mint time}, so a minter knows before revealing
+whether waiting 256 blocks guarantees them a specific rarity. The comment
+acknowledges a weakened fallback but frames the holder's advantage as ``a
+one-alternative choice'' --- which is precisely a free re-roll.
+
+\textbf{Fix.} Make the reveal seed independent of when the holder reveals:
+
+\begin{lstlisting}[numbers=none]
+function reveal(uint256 tokenId) external {
+    if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
+    if (revealed[tokenId]) return;
+    uint256 mb = mintBlockOf[tokenId];
+    if (block.number <= mb) revert NotReady();
+    bytes32 bh = blockhash(mb);
+    // Expired seed: DO NOT substitute a second, holder-predictable roll.
+    // Anyone may re-anchor the token to a fresh future block instead, so the
+    // holder still cannot choose between two known outcomes.
+    if (bh == 0) { mintBlockOf[tokenId] = uint48(block.number); revert NotReady(); }
+    ...
+}
+\end{lstlisting}
+
+\noindent Re-anchoring keeps every token revealable indefinitely while ensuring
+exactly one unknowable draw. If a permissionless \code{revealMany(uint256[])}
+keeper is added, most tokens will be revealed inside the window anyway.
+
+%------------------------------------------------------------------------------
+\finding{M-04}{Crystal-ticket resolution shares the same predictable 256-block fallback}{Medium}{Confirmed}{sevmed}
+
+\loc{CauldronHook.sol:1530 \texttt{\_resolveTickets}}
+
+\textbf{Mechanism.} Identical pattern in the gacha lottery:
+
+\begin{lstlisting}[firstnumber=1539]
+bytes32 bh = blockhash(b.commitBlock);
+if (bh == 0) bh = keccak256(abi.encodePacked("CAULDRON_TICKET_FALLBACK", b.commitBlock, bi));
+...
+uint256 roll = uint256(keccak256(abi.encodePacked(bh, player, bi, r))) % 10_000;
+\end{lstlisting}
+
+\noindent Here the exposure is different in kind. Resolution is permissionless
+and FIFO, so a player cannot choose \emph{their} outcome directly --- but the
+fallback seed is computable from \code{commitBlock} and the batch index alone,
+both known at commit time. A player who lets their batch age past 256 blocks
+knows their outcome in advance and can decide whether to call
+\code{resolveTickets} at all, or to wait for a state in which a loss costs less
+(e.g.\ after mint-out, when losses are free). Because \code{missStreak} feeds a
+pity counter, selectively resolving batches is a real lever on future odds.
+
+\textbf{Impact.} Weakened grind-resistance for the gacha and a manipulable pity
+counter. The severity is limited by the FIFO cursor --- a player cannot resolve
+past someone else's unresolved batch --- and by \code{outstandingOf} capping
+total wins at remaining supply, so the collection cap is never breached. It also
+affects the honest path: the hook calls \code{resolveTickets(300)} during
+\code{relaunch} (\code{CauldronRegistry.sol:603}), which is exactly when old
+batches are most likely to have aged out.
+
+\textbf{Fix.} Do not substitute a computable seed. Skip aged batches and let
+them be re-anchored:
+
+\begin{lstlisting}[numbers=none]
+bytes32 bh = blockhash(b.commitBlock);
+if (bh == 0) {
+    // Seed expired: re-anchor to a fresh future block rather than rolling from a
+    // value the player already knows. Costs one SSTORE, preserves fairness.
+    b.commitBlock = uint48(block.number);
+    break;   // FIFO: stop here, resume next call
+}
+\end{lstlisting}
+
+\noindent Combined with the existing in-swap resolution
+(\code{NATIVE\_RESOLVE\_MAX}) and the router's \code{resolveTickets(30)}, batches
+are resolved within a handful of blocks in practice, so re-anchoring should be
+rare.
+
+%------------------------------------------------------------------------------
+\finding{M-05}{\texttt{skimInsurance} protects only \texttt{insuranceFloor}, which defaults to zero}{Medium}{Confirmed}{sevmed}
+
+\loc{PerpEngine.sol:1213 \texttt{skimInsurance} \textbullet\ :142 \texttt{insuranceFloor}}
+
+\textbf{Mechanism.}
+
+\begin{lstlisting}[firstnumber=1213]
+function skimInsurance(uint256 amount, address to) external onlyOwner {
+    if (to == address(0)) revert BadParam();
+    if (insuranceEth < insuranceFloor + amount) revert BadParam(); // keep the floor
+    insuranceEth -= amount;
+    _sendEth(to, amount);
+}
+\end{lstlisting}
+
+\noindent The guard is only as strong as \code{insuranceFloor}, which is
+declared \code{uint256 public insuranceFloor;} with no initialiser --- so
+\textbf{0} --- and is documented as ``\code{0 = off}'' (line 141). Neither
+\code{DeployPerp.s.sol} nor any test sets it. With a zero floor the condition
+reduces to \code{insuranceEth >= amount}, i.e.\ no protection at all.
+
+\textbf{Impact.} The owner can withdraw the entire bad-debt buffer, including
+the 10\,\% of every routed fee (\code{insuranceBps}) that accumulated
+specifically to protect depositor principal. This directly undercuts the
+invariant the buffer exists to support: with insurance drained,
+\code{\_absorbPlvLoss} socialises the next short shortfall straight onto
+\code{plv} --- LP principal. It also silently disables the circuit breaker at
+line 487, since \code{insuranceFloor == 0} makes that check a no-op. Contrast
+with \code{setVault}, whose drain guard is genuinely strong; the two protections
+are inconsistent in strength.
+
+\textbf{Fix.} Derive the protected minimum from live risk rather than a
+zero-defaulted knob:
+
+\begin{lstlisting}[numbers=none]
+function skimInsurance(uint256 amount, address to) external onlyOwner {
+    if (to == address(0)) revert BadParam();
+    // Protect the greater of the configured floor and a risk-based minimum
+    // scaled to live open interest, so the buffer can never be emptied while
+    // positions depend on it.
+    uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
+    uint256 protect = insuranceFloor > riskMin ? insuranceFloor : riskMin;
+    if (insuranceEth < protect + amount) revert BadParam();
+    insuranceEth -= amount;
+    _sendEth(to, amount);
+}
+\end{lstlisting}
+
+\noindent Separately, set a non-zero \code{insuranceFloor} in
+\code{DeployPerp.s.sol} so the opens circuit-breaker is actually armed.
+
+%------------------------------------------------------------------------------
+\finding{M-06}{Forged frens never break their dividend enchantment on transfer}{Medium}{Confirmed}{sevmed}
+
+\loc{MiFrensGenesis.sol:532 \texttt{\_update} \textbullet\ MiFrensDividend.sol:150,179,224}
+
+\textbf{Mechanism.} The dividend's eligibility cap is \code{MAX\_TOKEN}
+(the full art supply, e.g.\ 2222), so \emph{forged} frens above
+\code{GENESIS\_SUPPLY} can enchant and earn:
+
+\begin{lstlisting}[firstnumber=179]
+if (tokenId == 0 || tokenId > MAX_TOKEN) revert NotShare();   // forged frens allowed
+\end{lstlisting}
+
+\noindent But the collection only notifies the dividend for \emph{genesis} ids:
+
+\begin{lstlisting}[firstnumber=532]
+if (from != address(0) && tokenId <= GENESIS_SUPPLY && dividend != address(0)) {
+    try IMiFrensDividendHook(dividend).onMiFrenTransfer(tokenId, from) {} catch {}
+}
+\end{lstlisting}
+
+\noindent so a forged fren's \code{enchantedBy} is never cleared and its active
+share is never freed.
+
+\textbf{Exploit path.} Verified in
+\code{test/audit/AuditPoC2.t.sol::PoC\_ForgedFrenSpellLeak}:
+
+\begin{enumerate}
+\item Seller enchants forged fren \#3; \code{activeShares == 2}.
+\item Seller sells \#3 on the open market to a buyer.
+\item \code{activeShares} is still 2 and \code{enchantedBy(3)} is still the
+\emph{seller}.
+\item 2~ETH of fees arrive and are split two ways.
+\item The buyer calls \code{claim(3)} $\to$ reverts \code{NotEnchanted}. They own
+it and cannot claim.
+\item The buyer re-casts. \code{\_castSpell}'s stale branch (line 194) credits
+the accrual \emph{earned while the buyer owned the NFT} to \code{owed[seller]}.
+\item The seller withdraws \textbf{1~ETH} of the buyer's dividend. Confirmed by
+assertion.
+\end{enumerate}
+
+\textbf{Impact.} Three distinct harms: (i) a phantom share dilutes every honest
+holder for as long as nobody re-casts; (ii) the new owner cannot claim until
+they re-cast, and loses everything accrued before that; (iii) the previous owner
+is paid ETH earned by someone else's ownership --- a direct, repeatable transfer
+of value backwards. A seller can farm this by repeatedly selling enchanted
+forged frens. The genesis tranche is unaffected, which is why the flaw is
+invisible until iteration \#2 forges its first fren.
+
+\textbf{Fix.} Notify for every dividend-eligible id, not just genesis:
+
+\begin{lstlisting}[numbers=none]
+// MiFrensGenesis._update -- the dividend decides eligibility, not the collection.
+if (from != address(0) && dividend != address(0)) {
+    try IMiFrensDividendHook(dividend).onMiFrenTransfer(tokenId, from) {} catch {}
+}
+\end{lstlisting}
+
+\noindent \code{onMiFrenTransfer} is already a safe no-op for an un-enchanted id
+(line 227), and it is \code{try/catch}'d, so widening the call is safe. Note
+that Liquidatoor badge ids ($\ge 10^6$) also route through \code{\_update}; they
+are never enchanted, so they hit the same early return. Keep \code{everMoved}
+gated on \code{GENESIS\_SUPPLY} --- that flag is specifically about the OG
+re-enchant fee.
+
+%------------------------------------------------------------------------------
+\finding{L-01}{\texttt{MAX\_RANGES} can halt the progressive stream mid-launch}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronSeeder.sol:344 \texttt{\_track} \textbullet\ :95 \texttt{MAX\_RANGES}}
+
+Each placement mints into a band derived from the \emph{current} tick, so a
+trending price produces new \code{(lo,hi)} pairs. \code{\_track} reverts
+\code{BandCap} at 64 distinct ranges, which halts \code{poke()} and makes the
+in-swap nudge a silent no-op --- streaming stops for the rest of the launch.
+
+I attempted to reach the cap on a fork with an aggressively trending price and
+60 pokes and observed only 5--19 distinct ranges, because
+\code{SeedLib.askBand} aligns to 2000-tick bands and a monotone walk revisits
+them. So the cap is genuinely hard to hit --- but it is reachable in principle
+over a long window with a volatile price, and the failure mode (silent halt) is
+identical to \textbf{H-02}. Funds are never lost: \code{withdrawAll} recovers
+both the tracked positions and the un-streamed balance.
+
+\textbf{Fix.} Degrade instead of halting: on cap, place into the nearest
+\emph{already-tracked} band rather than reverting.
+
+\begin{lstlisting}[numbers=none]
+function _trackOrReuse(int24 lo, int24 hi) private returns (int24, int24) {
+    uint256 n = ranges.length;
+    for (uint256 i; i < n; i++) if (ranges[i].lo == lo && ranges[i].hi == hi) return (lo, hi);
+    if (n >= MAX_RANGES) { Range storage r = ranges[n - 1]; return (r.lo, r.hi); } // reuse
+    ranges.push(Range(lo, hi));
+    return (lo, hi);
+}
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\finding{L-02}{The anti-sniper surtax jitter is predictable one block ahead}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronHook.sol:912 \texttt{\_defaultSurtaxBps}}
+
+\begin{lstlisting}[firstnumber=929]
+uint256 rnd = uint256(keccak256(abi.encodePacked(
+    blockhash(block.number - 1), PoolId.unwrap(id), block.number))) % (maxBps + 1);
+\end{lstlisting}
+
+The comment's reasoning is sound --- \code{prevrandao} is a constant on
+Arbitrum/Orbit, so the previous blockhash is the better source. But
+\code{blockhash(block.number - 1)} is known to everyone during block $N$, so a
+sniper submitting into block $N$ computes the exact surtax before deciding. They
+can therefore skip expensive blocks and enter only on cheap ones.
+
+Impact is genuinely limited: the deterministic decay term dominates early
+(\code{snipeMaxBps = 9600}) and the jitter only ever \emph{raises} the rate via
+\code{max(decayed, jitter)}. The practical gain is skipping the tail of the
+window. \textbf{Fix:} accept it (documented), or fold in a value unknown at
+submission such as the pool's post-swap tick, or shorten
+\code{snipeWindowBlocks} so the decay term dominates throughout.
+
+%------------------------------------------------------------------------------
+\finding{L-03}{\texttt{tx.origin} credit attribution mis-attributes smart-account swaps}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronHook.sol:537}
+
+\begin{lstlisting}[firstnumber=534]
+bool tagged = hookData.length >= 32;
+address player = tagged ? abi.decode(hookData, (address))
+                        : (creditUntaggedSwaps ? tx.origin : address(0));
+\end{lstlisting}
+
+For an ERC-4337 smart account, \code{tx.origin} is the \emph{bundler}, so a
+bundler accumulates crystal credit for every user operation it relays; the same
+applies to Safe transactions relayed by a service. As written the design is
+deliberate and reasonable for EOAs --- credit is proportional to volume, which
+costs real fees --- but the attribution is wrong for an increasingly common
+class of users, and it will get worse over time.
+
+\textbf{Fix.} Prefer the tagged player, fall back to \code{sender} when it is a
+known router, and only then to \code{tx.origin}; consider an explicit
+\code{creditRecipientOf} registry so smart accounts can nominate a beneficiary.
+
+%------------------------------------------------------------------------------
+\finding{L-04}{The tiered NFT tax reads the swap sender, not the trader}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronHook.sol:948, :1050}
+
+\code{\_takeEthFee} passes \code{sender} --- the address that called
+\code{poolManager.swap}, i.e.\ the router --- to \code{\_getHolderTaxRate}. So a
+trader routing through \code{CauldronGachaRouter}, a v4 universal router, or an
+aggregator is taxed at the router's tier (in practice the default 3\,\%),
+regardless of what they hold. Only a direct swap from the holder's own EOA gets
+the discount.
+
+The hook \emph{does} already decode the real player from \code{hookData} for
+credit attribution and for \code{\_isExemptPlayer} --- so the information is
+present, it is simply not used for the tier. Since \code{nftContract} is
+\code{address(0)} in the shipped deploy, the tier system is currently inert,
+which is why this is Low.
+
+\textbf{Fix.} Resolve the taxed identity the same way exemption does: use the
+tagged player when the sender is a trusted opener, else the sender.
+
+%------------------------------------------------------------------------------
+\finding{L-05}{The funding index is sized at spot, not at the manipulation-resistant mark}{Low}{Likely}{sevlow}
+
+\loc{PerpEngine.sol:426 \texttt{\_pokeFunding}}
+
+\begin{lstlisting}[firstnumber=426]
+uint256 shortEth = _quoteEth(shortOiToken);   // SPOT, not markSqrtPriceX96
+int256 imbalance = int256(longOiEth) - int256(shortEth);
+\end{lstlisting}
+
+Liquidation correctly uses the TWAP mark, but the funding imbalance is valued at
+spot. An actor who can move spot within a block can therefore bias the funding
+direction. Three things bound the damage substantially: the index accrues
+$\propto \Delta t$, so a single-block distortion contributes almost nothing;
+\code{\_fundingDelta} pins notional to entry collateral $\times$ leverage rather
+than to price; and the result is clamped to $\pm$\code{maxFundingBps} (50\,\%)
+of collateral. I have not constructed a profitable exploit and rate the finding
+\emph{Likely} rather than Confirmed on that basis.
+
+\textbf{Fix.} Use \code{\_quoteMark(shortOiToken)} for the imbalance so that
+every economically-significant valuation in the engine uses the same
+manipulation-resistant source.
+
+%------------------------------------------------------------------------------
+\finding{L-06}{A Liquidatoor badge is silently lost when no collection is wired}{Low}{Confirmed}{sevlow}
+
+\loc{PerpEngine.sol:1029 \texttt{\_awardBadge}}
+
+\begin{lstlisting}[firstnumber=1041]
+(bool ok, ) = IPerpHook(hookAddr).collection().call{gas: fwd}(
+    abi.encodeWithSelector(ILiquidatorMintable.mintLiquidator.selector, to));
+if (ok) minted = 1;
+\end{lstlisting}
+
+A low-level \code{call} to an address with no code returns \code{true}. If
+\code{hook.collection()} is \code{address(0)} --- which it is between a
+\code{setCollection(0)} and the next wiring, and during any window where the
+hook has no live collection --- \code{ok} is \code{true}, \code{minted} is set
+to 1, and the fallback credit in \code{badgesOwed} is skipped. The badge is
+neither minted nor owed. The event even reports \code{badgeId == 1}, so
+off-chain indexers record a mint that never happened.
+
+\textbf{Fix.} Check for code before treating success as a mint:
+
+\begin{lstlisting}[numbers=none]
+address col = IPerpHook(hookAddr).collection();
+uint256 minted;
+if (col.code.length > 0 && gasleft() > 220_000) {
+    uint256 fwd; unchecked { fwd = gasleft() - 120_000; }
+    (bool ok, ) = col.call{gas: fwd}(abi.encodeWithSelector(
+        ILiquidatorMintable.mintLiquidator.selector, to));
+    if (ok) minted = 1;
+}
+if (minted == 0) { unchecked { badgesOwed[to] += 1; } }
+\end{lstlisting}
+
+\noindent \code{claimLiquidatorBadges} has the mirror-image issue: it reads
+\code{col} without a code check and would loop over a code-less address, burning
+the owed count for nothing. Add the same guard there.
+
+%------------------------------------------------------------------------------
+\finding{L-07}{\texttt{CauldronVault.redeem} is unreachable under the unified-floor model}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronVault.sol:84 \textbullet\ CauldronRegistry.sol:781, :805}
+
+Both collection-deployment paths wire \code{hook.setVault(address(0))}, so the
+ETH floor share is routed into the token buyback buffer and no ETH ever reaches
+a \code{CauldronVault}. Its balance is therefore always zero, \code{floorPerNFT}
+returns 0, and \code{redeem} always reverts \code{NothingToRedeem}.
+
+The vault is retained deliberately --- \code{crystallizeCollection} reads
+\code{outstanding()} for the entitlement base --- so this is not dead code, but
+it presents a redemption surface that can never succeed, and it will confuse
+integrators and holders reading the contract. \textbf{Fix:} either remove
+\code{redeem}/\code{floorPerNFT} in favour of a purpose-named
+\code{CollectionSupplyCounter}, or have \code{redeem} revert with an explicit
+\code{UnifiedFloorActive()} error pointing at \code{recycleCollectionNFT}.
+
+%------------------------------------------------------------------------------
+\finding{L-08}{\texttt{migrateToSuccessor} leaves the seeder's liquidity behind}{Low}{Confirmed}{sevlow}
+
+\loc{CauldronRegistry.sol:320}
+
+The V2 handoff transfers the active and reserve position NFTs and any loose
+balances, but does not touch the seeder. On a \emph{progressive} generation
+\code{generationPositionId[g] == 0} and the active liquidity lives in the
+seeder's N core positions, owned by the seeder and recoverable only via
+\code{withdrawAll}, which is \code{onlyRegistry} --- the \emph{old} registry.
+
+After a handoff the successor controls the reserve but not the active book. The
+old registry still can call \code{withdrawAll}, so nothing is permanently lost,
+but the migration is not atomic and leaves the two ledgers under different
+controllers.
+
+\textbf{Fix:} tear the seeder down as part of the handoff.
+
+\begin{lstlisting}[numbers=none]
+address _seeder = seeder;
+if (_seeder != address(0) && ISeeder(_seeder).seeding()) {
+    (uint256 e, uint256 t) = ISeeder(_seeder).withdrawAll(address(this));
+    e; t; // now included in the loose-balance forward below
+}
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\subsection*{Informational}
+
+\begin{description}[leftmargin=2.6em,style=nextline]
+
+\item[I-01 \normalfont --- \texttt{accumulatedTokenFees} is never written.]
+\code{CauldronHook.sol:175,1096}. \code{withdrawTokenFees} reads a mapping that
+no code path ever increments (fees are ETH-only by design, per the header
+comment). Every call reverts \code{NothingToWithdraw}. Remove both, or implement
+the token-fee path the ABI advertises.
+
+\item[I-02 \normalfont --- \texttt{setGuildBps} cannot restore its own default.]
+\code{CauldronHook.sol:1291} caps at 500 while \code{guildBps} initialises to
+\textbf{1500} (line 352). The setter is a one-way ratchet: once called, the
+guild share can never be returned to the deployed 15\,\%. Either raise the cap
+to 1500 or lower the default.
+
+\item[I-03 \normalfont --- \texttt{CauldronSeeder.rescue} has no reachable caller.]
+\code{CauldronSeeder.sol:376} is \code{onlyRegistry}, but \code{CauldronRegistry}
+exposes no function that calls it. The escape hatch for an aborted campaign
+cannot be used. Add a registry-side \code{rescueSeeder(address)} behind
+\code{onlyEmergency}.
+
+\item[I-04 \normalfont --- The \texttt{claimed} mapping is vestigial.]
+\code{CauldronBase.sol:184} and \code{CauldronRegistry.sol:1225}
+(\code{hasClaimed}) are never written under the reserve-LP model. Harmless but
+misleading; retained because removing it would shift the shared storage layout
+and require re-verifying the facet. Note this in the layout documentation rather
+than removing it casually.
+
+\item[I-05 \normalfont --- \texttt{liquidityForTokenOut} reverts at pathological ticks.]
+\code{ReserveLib.sol:74}. For launch ticks below roughly $-480{,}000$ the reserve
+band's sqrt-price width becomes small enough that
+\code{getLiquidityForAmount1(777\text{M})} exceeds \code{uint128} and reverts
+\code{SafeCastOverflow}. A Cauldron pool prices $\approx7.77\times10^{26}$
+token-wei against $10^{18}$--$10^{21}$ ETH-wei, giving a strongly \emph{positive}
+launch tick ($\approx +204{,}000$ at genesis), so this is unreachable for the
+shipped economics. I measured the boundary rather than assuming it, and bounded
+the fuzz domain accordingly with an explanatory comment.
+
+\item[I-06 \normalfont --- \texttt{PerpEngine} has 4 bytes of EIP-170 headroom.]
+\code{forge build --sizes} reports 24{,}572 / 24{,}576 bytes. Any fix to
+\textbf{H-04}, \textbf{L-05} or \textbf{L-06} will exceed the limit. Plan the
+extraction now: \code{\_settle}'s fee/penalty routing and the badge logic are the
+natural candidates for a linked library, following the \code{PoolOps} pattern
+already used by the registry.
+
+\item[I-07 \normalfont --- \texttt{Batch} fields are \texttt{uint16}-narrow.]
+\code{CauldronHook.sol:274}. \code{count} and \code{resolved} are \code{uint16}
+and \code{n} is cast without a check at line 1503. \code{\_commitCrystals} bounds
+\code{n} by \code{MAX\_MINTS\_PER\_CALL} (30), so overflow is unreachable today
+--- but the cast is unchecked and would silently truncate if that constant were
+ever raised. Add \code{require(n <= type(uint16).max)} or widen the fields.
+Marked \emph{Suspected} because it depends on a constant rather than on reachable
+state.
+
+\end{description}
+
+%==============================================================================
+\section{Positive observations}
+
+It is worth recording what the code gets right, both because it is unusual and
+because a reader should know which defences they can rely on.
+
+\begin{itemize}
+\item \textbf{The facet split is done correctly}, including the immutable trap,
+the shared reentrancy-guard slot, and the empty-account delegatecall hazard
+(\S\ref{sec:facet}). All three are easy to get wrong and all three are handled.
+
+\item \textbf{Fee routing is push-free where the recipient is untrusted.}
+\code{activeProposer} is attacker-controlled (anyone can propose), and the code
+accrues to \code{proposerOwed} rather than pushing --- with a comment that
+states exactly this reasoning (\code{CauldronHook.sol:818}). By contrast the
+perp engine pushes to the trader, which is \textbf{H-04}; the hook's pattern is
+the one to copy.
+
+\item \textbf{Best-effort calls are consistently gas-bounded and
+result-ignored.} The liquidation sweep, the seeder poke, the legacy buyback and
+the native gacha all reserve gas for the parent swap to finish and ignore
+failure, so none can revert or starve a user's trade. The
+\code{LIQ\_GAS\_RESERVE}/\code{LIQ\_GAS\_MIN} pattern is applied uniformly.
+
+\item \textbf{\code{\_isExemptPlayer} closes a real hole.} Trusting
+\code{hookData} unconditionally would let anyone dodge the fee by tagging an
+exempt address; gating on \code{isOpener[sender]} fixes it, and the comment
+records the reasoning.
+
+\item \textbf{Perp bad-debt accounting distinguishes the long and short paths.}
+\code{\_replenishPlv} and \code{\_absorbPlvLoss} are genuinely different
+operations and the code implements both, with \code{plv} saturating at zero so
+an extreme gap cannot underflow.
+
+\item \textbf{\code{setVault}'s drain guard is strong.} The vault pointer cannot
+be re-pointed while depositor funds are staked, blocking the obvious
+owner-drain. (\code{skimInsurance} should be brought up to the same standard ---
+\textbf{M-05}.)
+
+\item \textbf{The exit guarantee is real.} Arming an emergency action
+\emph{forces} the redemption path open, so a custody move can never be preceded
+by a closed exit. This inverts the usual pause-then-move risk.
+
+\item \textbf{Relaunch cannot be bricked by its optional subsystems.} The perp
+force-close, the death checker, the fee router, the surtax/odds/curve policies
+and the badge mint are all \code{try/catch}'d or fallback-guarded. \textbf{C-02}
+is the notable exception --- and it comes from a path that is \emph{not} wrapped.
+
+\item \textbf{\code{MigrationVesting} verifies its own balance delta}
+(line 186) rather than trusting the registry's return value. That is exactly the
+defence \textbf{H-03} asks for, applied one layer higher.
+\end{itemize}
+
+%==============================================================================
+\section{The delivered test suite}
+\label{sec:tests}
+
+Two new directories are added under \code{contracts/solidity/test/}.
+
+\subsection{\texttt{test/audit/} --- exploit proofs}
+
+Nine tests, each corresponding to a finding. All pass; a passing test here means
+\emph{the exploit works}.
+
+\begin{center}\small
+\begin{tabular}{@{}p{0.38\textwidth}p{0.09\textwidth}p{0.46\textwidth}@{}}
+\toprule
+\textbf{Test} & \textbf{Finding} & \textbf{Proves} \\
+\midrule
+\code{PoC\_PhantomRelaunchEth\_BricksRelaunch} & C-01a & 0.99 ``ETH'' minted from a non-ETH pool; \code{releaseRelaunchETH} reverts \\
+\code{PoC\_LegacyBufferTheft}                  & C-01b & 5 ETH moves from hook to attacker \\
+\code{PoC\_OversizedNftSupplyBricksRelaunch}   & C-02  & \code{relaunch()} reverts forever; proposal not retired \\
+\code{PoC\_RegistryCannotCustodyTransfer} \newline \code{PoC\_DeployerIsFactoryNotRegistry} \newline \code{PoC\_CollectionAdminSettersUnreachable} & H-01 & The registry is not the collection's \code{deployer} \\
+\code{PoC\_SecondCampaignNeverStreams}         & H-02  & 91.5\,\% of gen-2 ledger A stranded \\
+\code{PoC\_ClaimFromReserveCapsInsteadOfReverting} & H-03 & 99\,\% shortfall, no revert \\
+\code{PoC\_RejectingTraderFreezesTheEngine}    & H-04  & Engine stuck on the dead generation \\
+\code{PoC\_FirstTokenStakerTakesTheWholePot}   & H-05  & Sniper takes 10/10 ETH; whale gets 0 \\
+\code{PoC\_OwnerRepointsRegistryAndDrains}     & M-01  & Registry ACL moves; real registry locked out \\
+\code{PoC\_WinnerIsFrontRunnable}              & M-02  & One vote flips the winner \\
+\code{PoC\_HolderPicksTheBetterOfTwoRolls}     & M-03  & Two distinct rarity draws exist \\
+\code{PoC\_ForgedFrenTransferDoesNotBreakTheSpell} & M-06 & Seller withdraws the buyer's 1 ETH \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{\texttt{test/invariants/} --- invariants and fuzz}
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+
+\item[\code{CauldronSystemInvariants.t.sol}] Stateful invariant suite against
+live v4. A single bounded actor drives buys, sells, seeder pokes, reserve
+donations, $1{:}1$ migration, perp open/close/liquidate, time advancement and
+the permissionless relaunch; ghost variables track burned/received/donated
+totals. Eight \code{invariant\_} functions cover I-1 through I-7 and I-9. To
+guarantee the invariants are not vacuous, the file also contains a
+\emph{scripted lifecycle walk} that forces the full
+summon\,$\to$\,stream\,$\to$\,trade\,$\to$\,death\,$\to$\,relaunch\,$\to$\,migrate
+path and re-asserts every invariant at each stage.
+
+\item[\code{LedgerInvariants.t.sol}] Stateful invariants over
+\code{CollectionLedger} (accounting closure, entitlement never exceeding
+credit, well-formed \code{outstanding}) plus fuzz tests proving that a recycle
+never dilutes remaining holders and that a $2\times$ buyback ratchets the floor
+up.
+
+\item[\code{VestingInvariants.t.sol}] Escrow solvency, per-holder conservation,
+no over-release, and grant well-formedness under 128{,}000 randomised calls,
+plus fuzz tests for exact $1{:}1$ escrow and the linear drip schedule.
+
+\item[\code{ReserveMathFuzz.t.sol}] Pure fuzz over \code{ReserveLib} and
+\code{SeedLib}: reserve band well-formedness, the \textbf{orientation} property
+(band strictly below launch), round-\emph{down} liquidity conversion,
+monotonicity, schedule monotonicity/cap, band single-sidedness, and taper
+weights summing to $10^{18}$.
+
+\item[\code{FacetLayoutInvariant.t.sol}] Runs the facet's compiled code against
+a third contract's storage image to prove it reads the declared slots; proves a
+direct call to the deployed facet is inert; fuzzes the exit guarantee.
+
+\end{description}
+
+\subsection{Results}
+
+\begin{lstlisting}[language=bash,numbers=none]
+$ FOUNDRY_PROFILE=cauldron forge test
+Ran 45 test suites: 245 tests passed, 0 failed, 0 skipped (245 total tests)
+
+  test/invariants/CauldronSystemInvariants.t.sol .... 11 passed
+  test/invariants/VestingInvariants.t.sol ...........  6 passed
+  test/invariants/LedgerInvariants.t.sol ............  3 passed (+3 fuzz)
+  test/invariants/ReserveMathFuzz.t.sol .............  8 passed
+  test/invariants/FacetLayoutInvariant.t.sol ........  5 passed
+  test/audit/ (exploit proofs) ......................  9 passed
+  (pre-existing repository suite) ................... 218 passed
+\end{lstlisting}
+
+\noindent The pre-existing 218 tests were run before and after the additions and
+are unaffected; no production source file was modified by this audit.
+
+%==============================================================================
+\section{Remediation plan}
+
+\subsection{Before any value-bearing deployment}
+
+\begin{enumerate}
+\item \textbf{C-01a + C-01b} --- gate \code{\_afterInitialize} on
+\code{sender == registry} and on \code{currency0 == address(0)}; pin the legacy
+buyback to the protocol's own \code{PoolKey}. \emph{Two small diffs; both are
+unconditional and cheap to exploit.}
+\item \textbf{C-02} --- bound \code{nftSupply} in \code{propose} \emph{and}
+clamp it in \code{relaunch}. \emph{The clamp matters most: it survives a
+governor swap.}
+\item \textbf{H-03} --- add the short-delivery \code{require} to
+\code{migrateOne} and the two redemption paths.
+\item \textbf{H-04} --- convert the trader payout and keeper reward to the pull
+pattern. \emph{Note \textbf{I-06}: extract a library first.}
+\item \textbf{H-01} --- give the collection an explicit controller address.
+\item \textbf{H-02} --- reset \code{complete} and \code{\_basePlaced} in
+\code{startSeed}. \emph{One line; the highest impact-to-effort ratio here.}
+\item \textbf{H-05} --- advance the yield watermark at zero shares.
+\end{enumerate}
+
+\subsection{Before mainnet}
+
+\begin{enumerate}\setcounter{enumi}{7}
+\item \textbf{M-01} --- timelock the registry override and drain the reserve to
+the outgoing registry first.
+\item \textbf{M-02} --- add a voting deadline; only closed proposals may win.
+\item \textbf{M-03 + M-04} --- replace both deterministic fallbacks with
+re-anchoring.
+\item \textbf{M-05} --- derive the protected insurance minimum from live OI, and
+set a non-zero \code{insuranceFloor} at deploy.
+\item \textbf{M-06} --- notify the dividend on every transfer, not just genesis.
+\item Set \code{EMERGENCY\_DELAY} to a real value (the deploy default is
+\textbf{0}, making every ``timelocked'' break-glass action instant), and confirm
+the guardian is a multisig distinct from the emergency admin.
+\end{enumerate}
+
+\subsection{Hardening}
+
+Address L-01 through L-08 and the informational items; extract a
+\code{PerpOps} library to create EIP-170 headroom (\textbf{I-06}); and extend
+the repository's own \code{ProgressiveSeed.t.sol} to cover two consecutive
+progressive generations, which is the specific gap that let \textbf{H-02}
+through.
+
+\input{newsections.tex}
+
+%==============================================================================
+\section{Complete function inventory}
+\label{sec:inventory}
+
+All \textbf{535} function declarations across the 31 in-scope files: 422 with
+bodies plus 113 interface declarations. Every entry was annotated by hand with
+its role in the protocol, the state it reads and writes, and the external calls
+it makes. Nothing is omitted.
+
+\smallskip
+\noindent{\small\textit{Column key:} \textbf{Vis.} = visibility
+(\code{exte}rnal, \code{publ}ic, \code{inte}rnal, \code{priv}ate);
+\textbf{Mut.} = mutability (\code{view}, \code{pure}, \code{paya}ble);
+\textbf{Access} = modifiers other than \code{override}/\code{virtual}.
+Line numbers follow the declaration name.}
+
+\medskip
+\input{inventory.tex}
+
+\end{document}

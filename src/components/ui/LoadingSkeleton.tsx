@@ -28,7 +28,7 @@ function injectPulseStyle() {
 const LoadingSkeleton: FC<LoadingSkeletonProps> = ({
   width = "100%",
   height = "20px",
-  borderRadius = "8px",
+  borderRadius = "var(--r-sm)",
   className = "",
   style,
 }) => {

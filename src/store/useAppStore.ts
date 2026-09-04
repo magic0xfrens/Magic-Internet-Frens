@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { robinhoodChain } from "@/config/chains";
+import { ACTIVE_CHAIN } from "@/config/chains";
 import type { ProtocolStats } from "@/types/global";
 
-type Network = typeof robinhoodChain;
+type Network = typeof ACTIVE_CHAIN;
 
 const PENDING_MINTS_KEY = "magicfrens_pending_mints";
 const PENDING_BUYS_KEY = "magicfrens_pending_buys";
@@ -124,6 +124,17 @@ interface AppState {
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 
+  // Cauldron nav badges — published by TheCauldron so the left rail can show
+  // live counters (open perps / open proposals / iteration) without the rail
+  // having to re-read the chain itself.
+  cauldronNav: CauldronNav;
+  setCauldronNav: (nav: Partial<CauldronNav>) => void;
+
+  // Same idea for the MiFrens vault — the rail shows how many frens and
+  // collectibles the wallet holds without mounting the vault itself.
+  mifrensNav: MifrensNav;
+  setMifrensNav: (nav: Partial<MifrensNav>) => void;
+
   // Protocol Stats
   protocolStats: ProtocolStats | null;
   setProtocolStats: (stats: ProtocolStats | null) => void;
@@ -160,6 +171,25 @@ interface AppState {
   clearStalePendingReservations: () => void;
 }
 
+export interface CauldronNav {
+  /** False until a generation is live — the rail hides Leverage until then,
+      because that view renders nothing without a summoned brew. */
+  summoned: boolean;
+  /** Open perp positions across the book (drives the Leverage badge). */
+  perps: number;
+  /** Live governance proposals. */
+  proposals: number;
+  /** Current iteration number — 0 until the first generation is summoned. */
+  gen: number;
+}
+
+export interface MifrensNav {
+  /** Frens held in the genesis MiFrens collection (OG + volume-minted). */
+  frens: number;
+  /** Forged creatures + Liquidatoor badges combined. */
+  collectibles: number;
+}
+
 export interface AppNotification {
   id: string;
   type: "success" | "error" | "warning" | "info";
@@ -172,14 +202,22 @@ export interface AppNotification {
 let notificationId = 0;
 
 export const useAppStore = create<AppState>((set) => ({
-  // Network — Robinhood Chain (single-chain app)
-  network: robinhoodChain,
+  // Network — active chain (Robinhood on mainnet, Sepolia on testnet)
+  network: ACTIVE_CHAIN,
   setNetwork: (network) => set({ network }),
 
   // UI
   sidebarOpen: false,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+  // Cauldron nav badges
+  cauldronNav: { summoned: false, perps: 0, proposals: 0, gen: 0 },
+  setCauldronNav: (nav) => set((s) => ({ cauldronNav: { ...s.cauldronNav, ...nav } })),
+
+  // MiFrens nav badges
+  mifrensNav: { frens: 0, collectibles: 0 },
+  setMifrensNav: (nav) => set((s) => ({ mifrensNav: { ...s.mifrensNav, ...nav } })),
 
   // Protocol Stats
   protocolStats: null,

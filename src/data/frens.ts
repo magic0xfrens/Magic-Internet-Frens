@@ -317,3 +317,18 @@ export function getTraitStats(): TraitStat[] {
 
   return stats;
 }
+
+/** Deterministic fren art from a numeric seed (e.g. a tokenId). Used to render
+ *  forged creatures + genesis frens consistently across the app WITHOUT relying
+ *  on an on-chain renderer (the per-iteration collection renderer can be unset or
+ *  broken; the art is fully derivable from the id, same combo the mint encodes). */
+export function frenFromSeed(seed: number, forceClass?: FrenClass) {
+  const cls = forceClass ?? CLASS_ORDER[seed % CLASS_ORDER.length];
+  const bodies = BODIES[cls];
+  const items = ITEMS[cls];
+  const faces = cls === "Gnome" ? GNOME_FACES : cls === "Elf" ? ELF_FACES : FACES;
+  const bodyIdx = (seed * 7 + 3) % bodies.length;
+  const faceIdx = (seed * 13 + 5) % faces.length;
+  const itemIdx = (seed * 5 + 2) % items.length;
+  return { cls, bodyFile: bodies[bodyIdx].file, faceFile: faces[faceIdx].file, itemFile: items[itemIdx].file, bodyIdx, faceIdx, itemIdx };
+}

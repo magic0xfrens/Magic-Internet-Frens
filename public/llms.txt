@@ -9,19 +9,32 @@
 - **1111 genesis MiFrens**: fully on-chain pixel-art NFTs (wizards, kings, knights, gnomes, elves, apprentices, peasants). Each is unique and inscribed forever.
 - **The Cauldron**: an eternal, autonomous token machine built on Uniswap v4. Each "iteration" token lives, is traded, and — when its 24h volume dies — is reborn as the next iteration chosen by MiFren-holder governance. It funds itself entirely from its own swap fees. No team withdrawal path.
 - **Genesis dividend**: holders of the 1111 genesis MiFrens earn a perpetual share of every iteration's trading fees. Holders "cast the spell" to activate a fren's fee-earning.
-- **The token model**: each iteration's token is fixed-supply, non-mintable, and non-freezable. Holders migrate 1:1 into new iterations by burning the old token.
-- **The Crystal Cauldron (gacha game)**: players "spin" trading volume (buy → sell → buy loops) to earn Mana and summon SEALED CRYSTALS — real ERC-721 NFTs. A sealed crystal can be OPENED to reveal the fully on-chain creature inside, or BURNED to redeem its equal share of the floor vault in ETH. Every sealed crystal shares one identical placeholder until opened. It is a commit-reveal lottery: the crystal is sealed one block and its contents are rolled from a future blockhash, so outcomes can't be foreseen, grinded, or re-rolled. A pity counter guarantees a win after enough misses.
+- **Genesis redemption floor**: each genesis fren has a live floor denominated in whatever iteration token is currently running, designed to ratchet UP (recycle at floor → NFT to treasury → resold at 2× → the reserve grows → the floor rises for everyone). Claimable while the token trades below its per-iteration reserve ceiling.
+- **The token model**: each iteration's token is fixed-supply (777,000,000), non-mintable, and non-freezable. Holders migrate 1:1 into new iterations by burning the old token. Migration is optional.
+- **The Crystal Cauldron (gacha game)**: trading volume banks credit (buys weighted 1.5×, sells 0.5×), which is spent to commit CRYSTALS. A crystal is a ticket inside the hook, not a tradeable token. Each is rolled later from its commit block's hash — a value that did not exist when you played, so outcomes can't be foreseen, grinded, or re-rolled. A win mints a real ERC-721 that arrives UNREVEALED (a shared placeholder, tradeable in that state); reveal() then rolls its rarity and flips the art. Odds scale with ETH play size up to 90% at 0.5 ETH, and a pity counter guarantees a win after 8 consecutive misses.
+- **Perps**: hook-native leveraged longs and shorts on the live token with real price impact — every open, close and liquidation is an actual Uniswap v4 swap. No external oracle; liquidation marks use the engine's own on-chain TWAP.
 
 ## Key facts
 - Collection size: 2222 total (1111 genesis frens minted at launch + 1111 forged via trading volume in The Cauldron)
 - Fully on-chain art (pixel sprites, deterministic per token)
-- Chain: Ethereum (Sepolia testnet; mainnet target)
+- Built and tested on Ethereum Sepolia; deployment target is Robinhood Chain, an Arbitrum Nitro/Orbit L2 with ETH as the native gas token
+- Swap fee: 3% default (capped at 10%), taken in ETH on both legs; Uniswap LP fee tier is 0. Split from the top: 0.5% to the iteration's proposer, 15% to the genesis dividend, then the collection floor buyback and the relaunch reserve
 - Iteration #1 brew: "Gnomeland" ($GNOME)
+- Contract addresses are NOT listed here on purpose: they rotate every round, and per-iteration addresses (token, collection, pool id) rotate at every rebirth. Read them live from the registry (currentToken, generationCollection, generationPoolId) or from the docs page, which renders them live.
 - Brand voice: playful, magical, "gm fren", "wagmi", wizard/arcane theme
 - Accent color: Robinhood lime (#d5fd51) on wizard purple (#2A1F54)
 
+## Full machine-readable docs
+For EVERYTHING — every mechanic, fee split, tier weight, parameter, lifecycle
+path, security property and known limitation — in one self-contained markdown
+file, read:
+- https://mifrens.xyz/llms-full.txt
+- https://mifrens.xyz/magicfrens-llm.md (identical, .md extension)
+- Rendered docs page (full text in the DOM): https://mifrens.xyz/#/docs
+
 ## Links
 - Home: https://mifrens.xyz/
+- Docs: https://mifrens.xyz/#/docs
 - My MiFrens (collection dashboard): https://mifrens.xyz/#/mi-frens
 - The Cauldron (live token console): https://mifrens.xyz/#/cauldrons
 - X / Twitter: https://x.com/magic0xfrens

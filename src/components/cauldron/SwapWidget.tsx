@@ -3,6 +3,9 @@ import { formatEther, parseEther, type Address } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
+import { usePerpLiqHint } from "@/hooks/usePerpLiqHint";
+import { useLiquidatoorWatch } from "@/hooks/useLiquidatoorWatch";
+import LiquidatoorModal from "@/components/cauldron/LiquidatoorModal";
 import { CAULDRON, ERC20_SWAP_ABI } from "@/config/cauldron";
 
 interface SwapWidgetProps {
@@ -44,7 +47,13 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
   const [err, setErr] = useState<string>("");
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { buy, sell, approveToken, isPending, confirming, confirmed, reset } = useCauldronSwap();
+  const { buy, sell, approveToken, isPending, confirming, confirmed, reset, txHash } = useCauldronSwap();
+  // The most-at-risk perp position to tag onto this swap: if our trade tips it
+  // past the mark, the hook auto-liquidates it and mints us a Liquidatoor badge.
+  // A buy threatens shorts, a sell threatens longs. 0n keeps the cheaper path.
+  const liqHint = usePerpLiqHint(mode);
+  // Pop "Congrats Liquidatoor!" if this spot trade rekt someone + badged us.
+  const { hit: liqHit, ack: ackLiq } = useLiquidatoorWatch(txHash);
 
   const side = mode === "buy" ? col : C.red;
 
@@ -84,12 +93,14 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
     try {
       if (mode === "buy") {
         if (eth <= 0) { setErr("Enter an ETH amount"); return; }
-        await buy(eth, 0n, 0);
+        await buy(eth, 0n, 0, liqHint);
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
         if (needsApproval) { await approveToken(token); return; } // approve first
-        await sell(tokensIn, 0n, 0);
+        // Pass the exact on-chain balance so a "MAX" that rounds a hair high
+        // (float precision on big balances) is clamped instead of reverting.
+        await sell(tokensIn, 0n, 0, liqHint, balanceWei as bigint | undefined);
       }
     } catch (e: unknown) {
       const m = e as { shortMessage?: string; message?: string };
@@ -110,10 +121,10 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
   return (
     <aside className="sw">
       <style>{`
-        .sw { position: sticky; top: 16px; border-radius: 14px; padding: 13px; background: rgba(23, 18, 42, 0.28); border: 1px solid rgba(255,255,255,0.05); }
-        .sw__toggle { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: rgba(8,6,15,0.5); margin-bottom: 11px; }
+        .sw { position: sticky; top: 16px; border-radius: var(--r-sm); padding: 13px; background: rgba(23, 18, 42, 0.28); border: 1px solid rgba(255,255,255,0.05); }
+        .sw__toggle { display: flex; gap: 3px; padding: 3px; border-radius: var(--r-sm); background: rgba(8,6,15,0.5); margin-bottom: 11px; }
         .sw__toggle button {
-          flex: 1; padding: 6px 0; border-radius: 7px; border: none; cursor: pointer;
+          flex: 1; padding: 6px 0; border-radius: var(--r-sm); border: none; cursor: pointer;
           font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 12px;
           background: none; color: ${C.mute}; transition: all 0.15s ease;
         }
@@ -122,17 +133,17 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
         .sw__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
         .sw__title { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: ${C.mute}; }
         .sw__spot { font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; }
-        .sw__field { background: rgba(8,6,15,0.45); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 9px 11px; }
+        .sw__field { background: rgba(8,6,15,0.45); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r-sm); padding: 9px 11px; }
         .sw__field-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
         .sw__lbl { font-family: "DM Mono", monospace; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: ${C.mute}; }
         .sw__sub { font-family: "DM Mono", monospace; font-size: 9px; color: ${C.mute}; }
         .sw__row { display: flex; align-items: center; gap: 8px; }
         .sw__input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 20px; color: ${C.cream}; letter-spacing: -0.01em; }
         .sw__input::placeholder { color: rgba(143,131,184,0.45); }
-        .sw__coin { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 11px; color: ${C.cream}; white-space: nowrap; }
+        .sw__coin { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--r-chip); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 11px; color: ${C.cream}; white-space: nowrap; }
         .sw__coin-dot { width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; font-size: 8px; }
         .sw__chips { display: flex; gap: 5px; margin: 7px 0; }
-        .sw__chip { flex: 1; padding: 4px 0; border-radius: 7px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; cursor: pointer; transition: all 0.15s ease; }
+        .sw__chip { flex: 1; padding: 4px 0; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; cursor: pointer; transition: all 0.15s ease; }
         .sw__chip:hover { border-color: ${side}55; color: ${C.cream}; }
         .sw__chip--on { background: ${side}1a; border-color: ${side}88; color: ${side}; }
         .sw__out { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 2px 0; margin-top: 2px; }
@@ -140,7 +151,7 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
         .sw__out-v { font-family: "DM Mono", monospace; font-size: 12px; color: ${C.cream}; }
         .sw__gacha { font-family: "DM Sans", sans-serif; font-size: 9.5px; line-height: 1.4; color: ${C.mute}; margin: 8px 2px 10px; opacity: 0.85; }
         .sw__gacha b { color: ${col}; font-weight: 600; }
-        .sw__cta { width: 100%; padding: 9px; border-radius: 10px; border: 1px solid ${side}66; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.02em; color: ${side}; background: ${side}14; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+        .sw__cta { width: 100%; padding: 9px; border-radius: var(--r-sm); border: 1px solid ${side}66; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.02em; color: ${side}; background: ${side}14; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
         .sw__cta:hover:not(:disabled) { background: ${side}26; border-color: ${side}; }
         .sw__cta:disabled { opacity: 0.5; cursor: default; }
         .sw__cta--busy { background: transparent; }
@@ -208,13 +219,16 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
         </>
       )}
 
-      <button className={`sw__cta ${busy ? "sw__cta--busy" : ""}`} onClick={onAction} disabled={busy}>
+      <button className={`sw__cta ${busy ? "sw__cta--busy" : ""}`} onClick={onAction}
+        disabled={busy || (isConnected && (mode === "buy" ? eth <= 0 : tokensIn <= 0 && !needsApproval))}>
         {busy && <span style={{ display: "inline-block", animation: "sw-spin 1s linear infinite", marginRight: 6 }}>⏳</span>}
         {btnLabel}
       </button>
 
       {err && <div className="sw__err">{err}</div>}
       <div className="sw__foot">via Cauldron V4 hook · 3% fee → floor + genesis</div>
+
+      {liqHit && <LiquidatoorModal hit={liqHit} onClose={ackLiq} />}
     </aside>
   );
 }

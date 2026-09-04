@@ -154,7 +154,7 @@ const css = `
 
   .mf-seal {
     display: flex; align-items: center; gap: 10px; margin: 0 auto; padding: 12px 26px;
-    border: none; border-radius: 30px; cursor: pointer;
+    border: none; border-radius: var(--r-lg); cursor: pointer;
     background: linear-gradient(180deg, #8f2b2b, #6e1f1f); color: #f3e3c0;
     font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: 14px; letter-spacing: 0.03em;
     box-shadow: 0 6px 18px rgba(110, 31, 31, 0.5), inset 0 1px 0 rgba(255,255,255,0.15);

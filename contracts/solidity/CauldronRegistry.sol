@@ -1,56 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {Currency} from "v4-core/src/types/Currency.sol";
-import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
-import {TickMath} from "v4-core/src/libraries/TickMath.sol";
-import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {PoolId} from "v4-core/src/types/PoolId.sol";
 
 import {CauldronToken} from "./CauldronToken.sol";
 import {CauldronHook} from "./CauldronHook.sol";
 import {ICauldronGovernor, BrewSpec, MetadataMode, LaunchLib} from "./cauldron/ICauldron.sol";
-import {PoolOps, IPositionManagerOps, SeedResult} from "./cauldron/PoolOps.sol";
-
-interface ICauldronFactory {
-    struct Config {
-        string name; string symbol; address hook; address registry;
-        uint256 maxSupply; MetadataMode mode; string baseURI; address renderer;
-        address royaltyReceiver; uint96 royaltyBps;
-    }
-    function deployBrew(Config calldata c) external returns (address collection, address vault);
-    function deployVault(address collection, address registry) external returns (address vault);
-}
-
-/// @notice The canonical MiFrens collection surface the registry drives when
-///         iteration #2 CONTINUES it (keeps minting the rest of the art).
-interface IMiFrensContinuable {
-    function setMinter(address minter) external;
-    function setVault(address vault) external;
-    function totalMinted() external view returns (uint256);
-}
-
-interface IVaultClose {
-    function close() external returns (uint256 swept);
-}
-
-/// @notice Minimal V4 PositionManager interface — only the calls the registry
-///         makes. Defined locally because the full v4-periphery IPositionManager
-///         extends IPermit2Forwarder, which drags permit2's =0.8.17 solc pin
-///         into our ^0.8.26 compilation unit. (Permit2 approvals now live in
-///         the PoolOps library.)
-interface IPositionManager {
-    function modifyLiquidities(bytes calldata unlockData, uint256 deadline) external payable;
-    function nextTokenId() external view returns (uint256);
-    function getPositionLiquidity(uint256 tokenId) external view returns (uint128 liquidity);
-}
+import {PoolOps, IPositionManagerOps, SeedResult, ReserveRef, SeedParams} from "./cauldron/PoolOps.sol";
+import {ISeeder} from "./cauldron/ISeeder.sol";
+// Shared storage base + the type surface both the registry and the RedemptionExt
+// delegatecall facet see (interfaces moved here so the layouts stay identical).
+import {
+    CauldronBase,
+    ICauldronFactory,
+    IMiFrensContinuable,
+    IVaultClose,
+    IPerpSync,
+    ICollectionLedger,
+    IPositionManager
+} from "./cauldron/CauldronBase.sol";
 
 /**
  * @title CauldronRegistry
@@ -76,33 +51,12 @@ interface IPositionManager {
  *    Gen 3: Shadow Wraith (WRAITH)         Gen 6: Storm Elemental (STORM)
  *    Gen 7+: Cycle repeats
  */
-contract CauldronRegistry is Ownable, ReentrancyGuard {
-    using PoolIdLibrary for PoolKey;
+contract CauldronRegistry is CauldronBase, IUnlockCallback {
+    // Errors + the shared redemption events/views/storage now live in
+    // {CauldronBase} (shared with the RedemptionExt delegatecall facet).
 
     // -----------------------------------------------------------------------
-    // Errors
-    // -----------------------------------------------------------------------
-    error AlreadySummoned();
-    error NotSummoned();
-    error TokenStillAlive();
-    error AlreadyClaimed();
-    error NoBalance();
-    error UnknownGeneration();
-    error CannotClaimCurrentGen();
-    error InsufficientETH();
-    error NoLiquidityToSeed();
-    error TooYoung();
-    error NoProposal();
-    error NotAdmin();
-    error Timelocked();
-    error EthSend();
-    error BadConfig();
-    error TooHigh();
-    error NotOwnerOf();
-    error Fee();
-
-    // -----------------------------------------------------------------------
-    // Events
+    // Events (registry-only)
     // -----------------------------------------------------------------------
     event CauldronSummoned(
         uint256 indexed generation,
@@ -138,148 +92,53 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     );
 
 
-    // -----------------------------------------------------------------------
-    // Constants
-    // -----------------------------------------------------------------------
-    uint256 public constant TOTAL_SUPPLY = 777_000_000e18;         // 777M tokens
-    // Relaunch mints NO caller bounty — nothing extra is created, so migration
-    // stays perfectly conserved 1:1 and holders are never diluted by a rebirth.
-    // No Uniswap LP fee: the LP is protocol-owned (this registry) and recycled
-    // at relaunch, so an LP fee would just be a redundant tax on top of the
-    // hook fee. All value capture happens via the hook (routable to guild /
-    // floor / relaunch). Traders pay only the hook fee.
-    uint24  public constant POOL_FEE = 0;                          // 0% LP fee
-    int24   public constant TICK_SPACING = 200;                    // tick granularity
-
-    /// @notice The migration/genesis RESERVE is held as an out-of-range,
-    ///         single-sided TOKEN liquidity position instead of a wallet balance,
-    ///         so 100% of supply reads as LP (no whale-look FUD) yet only ever
-    ///         leaves 1:1 against a burn/claim. ETH is currency0, so the pool
-    ///         price is token-per-ETH; a token appreciating 69x means the pool
-    ///         price FALLS 69x → the reserve's tick range sits BELOW the launch
-    ///         tick by this offset. Pure token1 while currentTick > reserveTickUpper.
-    ///         ln(69)/ln(1.0001) ≈ 42343, aligned up to TICK_SPACING (200) = 42400.
-    int24 public constant RESERVE_CEILING_OFFSET = 42400;          // ≈ 69x
-
-    /// @notice The ACTIVE tradeable band is a FIXED 10% of supply every
-    ///         generation (constant depth + consistent launch behaviour); the
-    ///         other 90% is the out-of-range reserve, claimed 1:1 by burn.
-    uint256 public constant GEN1_ACTIVE_TOKENS = TOTAL_SUPPLY / 10;
-
-    // -----------------------------------------------------------------------
-    // Immutables
-    // -----------------------------------------------------------------------
-    IPoolManager public immutable poolManager;
-    IPositionManager public immutable positionManager;
-    CauldronHook public immutable hook;
-
-    // -----------------------------------------------------------------------
-    // State
-    // -----------------------------------------------------------------------
-    bool public summoned;
-    uint256 public currentGeneration;
-    address public currentToken;
-
-    /// @notice generation -> token address
-    mapping(uint256 => address) public generationToken;
-
-    /// @notice generation -> V4 pool ID
-    mapping(uint256 => PoolId) public generationPoolId;
-
-    /// @notice generation -> PoolKey (stored for LP removal)
-    mapping(uint256 => PoolKey) public generationPoolKey;
-
-    /// @notice generation -> ACTIVE position NFT token ID (full-range, sets price)
-    mapping(uint256 => uint256) public generationPositionId;
-
-    /// @notice generation -> RESERVE position NFT id (out-of-range single-sided
-    ///         token; the migration + genesis supply lives here, claimed 1:1).
-    mapping(uint256 => uint256) public generationReservePositionId;
-    /// @notice generation -> reserve tick band (needed to size exact-N claims).
-    mapping(uint256 => int24) public reserveTickLower;
-    mapping(uint256 => int24) public reserveTickUpper;
-    /// @notice Unclaimed genesis bonus carried forward — re-reserved every gen so
-    ///         an OG can always claim it (genesis persists across iterations).
-    uint256 public genesisReserveOutstanding;
-
-    /// @notice generation + holder -> claimed
-    mapping(uint256 => mapping(address => bool)) public claimed;
-
-    /// @notice generation -> NFT collection minted from that brew's volume
-    mapping(uint256 => address) public generationCollection;
-
-    /// @notice generation -> that brew's NFT floor vault
-    mapping(uint256 => address) public generationVault;
-
-    /// @notice Factory that deploys each brew's collection + vault (off-registry
-    ///         bytecode to stay under the 24KB limit).
-    ICauldronFactory public factory;
-
-    /// @notice Proposal governor. When set + populated, relaunch launches the
-    ///         winning proposal (name, ticker, metadata). Else it cycles creatures.
-    ICauldronGovernor public governor;
-
-    /// @notice Per-brew NFT collection supply cap.
-    uint256 public nftMaxSupply = 3333;
-
-    /// @notice EIP-2981 royalty receiver for EVERY brew's collection — the genesis
-    ///         MiFrens dividend. Secondary-sale royalties from all collections flow
-    ///         here, so the OG 1111 earn from all protocol NFT trades too.
-    address public royaltyDividend;
-    /// @notice Secondary-sale royalty (bps) set on each collection. Default 5%.
-    uint96 public royaltyBps = 500;
-
-    /// @notice Genesis brew NFT metadata (iteration #1), owner-set before ignition.
-    MetadataMode public genesisMode;
-    string public genesisBaseURI;
-    address public genesisRenderer;
-
-    // --- Genesis bonus: reward the founding MiFrens guild with a slice of the
-    //     first iteration's token supply. Default 0 (off) so it's opt-in. ---
-    /// @notice The MiFrens ERC721 whose holders may claim the genesis bonus.
-    address public mifrens;
-    /// @notice Bonus share of gen-1 supply reserved for MiFrens holders (bps).
-    uint256 public genesisBonusBps;
-    /// @notice Number of equal shares the bonus pool is split into (MiFrens supply).
-    uint256 public genesisShares;
-    /// @notice Tokens per MiFren, fixed at summon.
-    uint256 public genesisSharePerFren;
-    /// @notice mifrenTokenId => claimed the genesis bonus.
-    mapping(uint256 => bool) public genesisClaimed;
-
-    /// @notice OG-holder airdrop reserve: a fixed amount of iteration-1 tokens
-    ///         sent to `airdropWallet` at summon (for off-LP distribution to the
-    ///         OG $GNOME holders who migrated from other chains). Owner-set
-    ///         pre-summon; carved from the LP seed just like the genesis bonus.
-    address public airdropWallet;
-    uint256 public airdropReserve;
-
-    /// @notice Break-glass admin that can recover LP + sweep the registry. Set at
-    ///         deploy (immutable) — pass a Gnosis Safe multisig on mainnet, the
-    ///         deployer EOA on testnet. Kept separate from `owner` on purpose.
-    address public immutable emergencyAdmin;
-    /// @notice Timelock on every emergency action. IMMUTABLE — set at deploy so
-    ///         the admin can't lower it to rug instantly. 0 = instant (testnet);
-    ///         e.g. 7 days on mainnet, so a withdrawal must be armed on-chain and
-    ///         wait the delay — holders can watch it coming and exit first.
-    uint256 public immutable emergencyDelay;
-    /// @notice When an armed emergency action becomes executable (0 = not armed).
-    ///         One arming authorises one action, then it's consumed.
-    uint256 public emergencyReadyAt;
-
-    /// @notice Timestamp the current generation was summoned/reborn. Relaunch is
-    ///         blocked until `minLifetime` has elapsed, so a fresh pool (which
-    ///         reads "dead" at 0 volume) can't be killed the moment it launches.
-    uint256 public lastSummonAt;
-    /// @notice Minimum seconds a brew must live before it can be relaunched.
-    ///         Adjustable by the break-glass admin during the test phase.
-    uint256 public minLifetime = 1 hours;
-
     event CollectionDeployed(uint256 indexed generation, address collection, MetadataMode mode);
     event GenesisBonusReserved(uint256 pool, uint256 perFren);
-    event GenesisBonusClaimed(uint256 indexed mifrenTokenId, address indexed holder, uint256 amount);
+    /// @notice The redemption circuit-breaker was toggled (protection, timelocked).
+    event RedemptionPauseSet(bool paused);
     event EmergencyWithdraw(uint256 indexed gen, address indexed to, uint256 eth, uint256 tokens);
     event EmergencyArmed(uint256 readyAt);
+    event EmergencyVetoed(address indexed guardian);
+    event GuardianSet(address indexed guardian);
+    event SuccessorSet(address indexed successor);
+    event MigratedToSuccessor(address indexed successor, uint256 generations);
+    event ClaimGateSet(address indexed gate);
+
+    // -----------------------------------------------------------------------
+    // Immutables (registry-only). The RedemptionExt facet never reads these, and
+    // immutables live in code (not storage) so they don't affect the shared
+    // layout — safe to keep here rather than promote to CauldronBase storage.
+    // NOTE: `poolManager`/`positionManager`/`hook` are the OPPOSITE case — the
+    // facet DOES read them under delegatecall, so they are STORAGE in CauldronBase
+    // (immutables would resolve to zero in the facet's context).
+    // -----------------------------------------------------------------------
+    /// @notice Break-glass admin that can recover LP + sweep the registry.
+    address public immutable emergencyAdmin;
+    /// @notice Timelock on every emergency action. IMMUTABLE (can't be lowered).
+    uint256 public immutable emergencyDelay;
+
+    /// @notice Gas kept in reserve for the REST of `relaunch()` when it forwards
+    ///         to an unbounded sub-call (audit Z-07). The 63/64 rule means an
+    ///         out-of-gas child would otherwise consume all but 1/64 of the gas and
+    ///         the `catch` would resume with far too little to finish the rebirth —
+    ///         a full perp book (64 positions × ~450k settlement) or a large crystal
+    ///         backlog could brick relaunch outright. Capping the sub-calls to
+    ///         `gasleft() - RELAUNCH_TAIL_RESERVE` makes an OOG child consume only
+    ///         its budget; the rebirth always completes and any un-cleared positions
+    ///         / tickets are drained afterwards by the permissionless keeper paths.
+    uint256 internal constant RELAUNCH_TAIL_RESERVE = 8_000_000;
+    /// @notice Ticket-resolution budget inside relaunch (bounded so it can never
+    ///         starve the rebirth). The rest resolve post-relaunch (permissionless).
+    uint256 internal constant RELAUNCH_TICKETS = 50;
+
+    /// @notice Emitted when the reserve cannot fully cover all three claimants
+    ///         (1:1 migration + genesis floor + collection legacy floors) at a
+    ///         relaunch, because the accumulated legacy entitlement met or exceeded
+    ///         the new active supply. The reserve is then sized as large as the
+    ///         supply allows; the shortfall is observable here rather than silent
+    ///         (audit Z-12). Claims are first-come until a future generation with a
+    ///         larger recovery restores full coverage.
+    event ReserveShortfall(uint256 indexed gen, uint256 legacyEntitled, uint256 activeAvailable);
 
     // -----------------------------------------------------------------------
     // Constructor
@@ -290,13 +149,86 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         address _hook,
         address _emergencyAdmin,
         uint256 _emergencyDelay
-    ) Ownable(msg.sender) {
+    ) {
+        // Former immutables → STORAGE (see CauldronBase). The RedemptionExt facet
+        // reads these under delegatecall, where an immutable would be zero.
         poolManager = IPoolManager(_poolManager);
         positionManager = IPositionManager(_positionManager);
         hook = CauldronHook(payable(_hook));
         // Testnet: deployer EOA + delay 0. Mainnet: a Safe multisig + e.g. 7 days.
         emergencyAdmin = _emergencyAdmin == address(0) ? msg.sender : _emergencyAdmin;
         emergencyDelay = _emergencyDelay;
+    }
+
+    /// @notice One-time wiring of the {RedemptionExt} facet the OG-redemption ops
+    ///         delegatecall into. A delegatecall target has full code-execution
+    ///         power over this registry's storage + custody, so it is settable
+    ///         ONCE (then frozen) — deploy-script only. Owner = deployer/timelock.
+    function setRedemptionExt(address ext) external onlyOwner {
+        // Must be a CONTRACT: a delegatecall to a code-less address returns SUCCESS
+        // with empty returndata, which would make every forwarded redemption a
+        // silent no-op (return 0, move nothing) instead of reverting. Reject EOAs /
+        // undeployed targets so a deploy-time fat-finger fails loudly here.
+        if (ext.code.length == 0) revert BadConfig();
+        if (redemptionExt != address(0)) revert AlreadySummoned(); // frozen after first set
+        redemptionExt = ext;
+    }
+
+    /// @notice Set the reserve ceiling (tick offset) the NEXT summon/relaunch uses.
+    ///         Owner = timelock; picked per iteration alongside the winning brew.
+    ///         offset = ln(mult)/ln(1.0001). Bounds are sanity only. Default = 69×.
+    function setReserveCeiling(int24 offset) external onlyOwner {
+        if (offset < 4000 || offset > 138000) revert BadConfig();
+        nextReserveCeilingOffset = offset;
+    }
+
+    // -----------------------------------------------------------------------
+    // PROGRESSIVE SEED wiring (opt-in; owner/timelock). Default off keeps the
+    // atomic green-candle path byte-for-byte unchanged.
+    // -----------------------------------------------------------------------
+    event SeederSet(address indexed seeder);
+    event SeedWindowSet(uint64 window);
+
+    /// @notice Wire the persistent progressive seeder ({CauldronSeeder}). Deployed
+    ///         once (pointed at this registry) and reused every generation. Set to
+    ///         address(0) to turn the feature back off (atomic seed). Owner-gated.
+    ///         Propagates to the hook so afterSwap streams it in-swap (keeperless);
+    ///         to keep the seeder but disable ONLY the in-swap nudge (fall back to
+    ///         permissionless poke), call `hook.setSeeder(0)` directly.
+    function setSeeder(address _seeder) external onlyOwner {
+        seeder = _seeder;
+        hook.setSeeder(_seeder);
+        emit SeederSet(_seeder);
+    }
+
+    /// @notice BREAK-GLASS for an ABORTED progressive campaign: return the seeder's
+    ///         loose ledger-A funds to this registry. The seeder's `rescue` is
+    ///         `onlyRegistry`, but no registry function called it — the escape hatch
+    ///         was unreachable (audit I-03). Emergency-admin gated + timelocked,
+    ///         like every other custody action. Only ever touches ledger A; the
+    ///         redemption reserve is a separate position the seeder cannot hold.
+    function rescueSeeder() external onlyEmergency timelocked nonReentrant {
+        address s = seeder;
+        if (s == address(0)) revert NotConfigured();
+        ISeeder(s).rescue(address(this));
+    }
+
+    /// @notice Set the launch window (seconds) the NEXT summon/relaunch streams the
+    ///         active tranche over. 0 = atomic. Progressive fires only when this is
+    ///         > 0 AND a seeder is set. Owner = timelock, chosen per iteration.
+    ///         Bounded to a sane range so a fat-finger can't strand the active LP in
+    ///         a decade-long stream or a zero-safety instant.
+    function setSeedWindow(uint64 window) external onlyOwner {
+        if (window != 0 && (window < 60 || window > 7 days)) revert BadConfig();
+        nextSeedWindow = window;
+        emit SeedWindowSet(window);
+    }
+
+    /// @notice The token fee to RE-enchant a moved fren = enchantFeeMultBps × the
+    ///         live floor. The MiFrensDividend reads this and (for a moved fren)
+    ///         collects it, routing it into the reserve via `donateToReserve`.
+    function enchantFee() external view returns (uint256) {
+        return (floorPerFren() * enchantFeeMultBps) / 10_000;
     }
 
     modifier onlyEmergency() {
@@ -309,11 +241,49 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     ///      armed on-chain and the delay elapsed. Consumed inside the tx so a
     ///      revert also rolls back the consumption.
     modifier timelocked() {
-        if (emergencyDelay != 0) {
-            if (emergencyReadyAt == 0 || block.timestamp < emergencyReadyAt) revert Timelocked();
-            emergencyReadyAt = 0;
-        }
+        _consumeTimelock();
         _;
+    }
+
+    /// @dev Body of {timelocked}, factored out so a function can apply the delay
+    ///      CONDITIONALLY (see {setClaimGate}, which timelocks only the restricting
+    ///      direction).
+    ///
+    ///  ARMING IS ALWAYS MANDATORY (audit F-19). This whole check used to be
+    ///  wrapped in `if (emergencyDelay != 0)`, so a deployment constructed with a
+    ///  zero delay skipped it entirely — and that did far more than remove the
+    ///  waiting period. `emergencyReadyAt` was then NEVER set, and
+    ///  {CauldronBase._redeemBlocked} keys THE EXIT GUARANTEE off exactly that
+    ///  variable:
+    ///
+    ///      _redeemBlocked() == redemptionPaused && emergencyReadyAt == 0
+    ///
+    ///  so with a zero delay the guarantee that "arming a custody action forces
+    ///  the redemption exit OPEN so holders can always leave at floor first"
+    ///  silently did not exist. The admin could `setRedemptionPaused(true)` (which
+    ///  is deliberately immediate, being a fast circuit-breaker) and then withdraw
+    ///  the LP with holders still locked out — precisely the sequence the forced
+    ///  exit was written to prevent. The protection was absent while appearing
+    ///  present, and `emergencyDelay` is `immutable`, so a deployment could never
+    ///  be corrected.
+    ///
+    ///  Separating the two concerns fixes it structurally rather than by
+    ///  configuration: the ARM decides whether an exit window EXISTS, and
+    ///  `emergencyDelay` decides how LONG it is. A custody action now always
+    ///  requires a prior `armEmergency()`, so `emergencyReadyAt` is always set —
+    ///  and the exit therefore always opens — no matter how the delay was
+    ///  configured. A zero delay degrades the window to a transaction boundary
+    ///  instead of deleting the mechanism.
+    function _consumeTimelock() private {
+        if (emergencyReadyAt == 0) revert Timelocked();                       // must be armed
+        if (emergencyDelay != 0 && block.timestamp < emergencyReadyAt) revert Timelocked();
+        emergencyReadyAt = 0;
+    }
+
+    /// @notice Delegate the one-time genesis ignition to `who` (the presale) WITHOUT
+    ///         handing over ownership. See {CauldronBase.igniter} (audit Z-06).
+    function setIgniter(address who) external onlyOwner {
+        igniter = who;
     }
 
     /// @notice Announce an emergency action on-chain; it becomes executable after
@@ -321,6 +291,48 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     function armEmergency() external onlyEmergency {
         emergencyReadyAt = block.timestamp + emergencyDelay;
         emit EmergencyArmed(emergencyReadyAt);
+    }
+
+    /// @notice GUARDIAN VETO: cancel a queued emergency action during its window.
+    ///         The guardian can ONLY cancel (never propose, never move funds) — a
+    ///         pure-upside safety role. Set by the emergencyAdmin (timelock).
+    function setGuardian(address who) external {
+        // Owner may set it once at deploy (pre-handoff); thereafter only the
+        // emergencyAdmin (timelock) can change this safety role.
+        if (msg.sender != emergencyAdmin && msg.sender != owner()) revert NotAdmin();
+        guardian = who;
+        emit GuardianSet(who);
+    }
+
+    /// @notice Cancel the armed emergency action. Guardian-only. Turns the "watch
+    ///         and flee" window into "watch and BLOCK".
+    function vetoEmergency() external {
+        if (msg.sender != guardian) revert NotAdmin();
+        emergencyReadyAt = 0;
+        emit EmergencyVetoed(msg.sender);
+    }
+
+    // NOTE: `_redeemBlocked()` (THE EXIT GUARANTEE) now lives in {CauldronBase} —
+    // it is shared with the RedemptionExt facet and recycleCollectionNFT.
+
+    /// @notice PROTECTION: pause/unpause the genesis redemption path. Gated to the
+    ///         emergencyAdmin (the governance timelock) — a targeted circuit-breaker
+    ///         so a discovered bug in redeemOgFren can be halted without the nuclear
+    ///         emergencyWithdrawLP. NOT timelocked itself (a live exploit needs a
+    ///         fast stop); it only ever DISABLES a permissionless flow, never moves
+    ///         funds, so it carries no rug surface.
+    function setRedemptionPaused(bool paused) external onlyEmergency {
+        redemptionPaused = paused;
+        emit RedemptionPauseSet(paused);
+    }
+
+    /// @notice Tune the re-enchant fee multiple (bps of the live floor). Gated to
+    ///         the emergencyAdmin (timelock). Capped at 100× to prevent a fat-finger
+    ///         from making re-enchant impossible. 0 = free re-enchant (disables the
+    ///         fee sink). Original never-moved OGs are always free regardless.
+    function setEnchantFeeMult(uint256 bps) external onlyEmergency {
+        if (bps > 1_000_000) revert TooHigh(); // <= 100×
+        enchantFeeMultBps = bps;
     }
 
     /// @notice Break-glass: pull a generation's LP (ETH + tokens) to the admin.
@@ -347,6 +359,87 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // V2 UPGRADE -- controller handoff (no LP teardown)
+    // -----------------------------------------------------------------------
+
+    /// @notice Telegraph the V2 upgrade target. Timelock/emergencyAdmin only. Just
+    ///         sets the pointer + emits — the custody MOVE is `migrateToSuccessor`,
+    ///         which is separately armed+timelocked so holders get the forced-open
+    ///         exit window before anything moves.
+    function setSuccessor(address _successor) external onlyEmergency {
+        successor = _successor;
+        emit SuccessorSet(_successor);
+    }
+
+    /// @notice Route the instant 1:1 migration through a vesting escrow (anti-dump).
+    ///         Set to a deployed {MigrationVesting} to ENFORCE linear vesting on
+    ///         ordinary holders; set back to address(0) to restore instant
+    ///         migration. Governance-only. The perp engine is always exempt.
+    ///
+    ///  ASYMMETRIC TIMELOCK (audit Z-08). Setting a non-zero gate CLOSES the 1:1
+    ///  migration path for every ordinary holder instantly — `claimByBurn`,
+    ///  `claimByBurnUpTo` and `autoMigrateBatch` all revert `VestingEnforced` — and it
+    ///  used to be neither timelocked nor guardian-vetoable, so a single un-announced
+    ///  call could trap every old-generation holder indefinitely. That is exactly the
+    ///  class of action the arm-and-wait window exists for, and (unlike the redemption
+    ///  pause) nothing forced the exit back open to compensate. Restricting now
+    ///  requires an armed, vetoable, delayed action; RESTORING instant migration stays
+    ///  immediate, so the safe direction is never slowed down.
+    function setClaimGate(address gate) external onlyEmergency {
+        if (gate != address(0)) _consumeTimelock();
+        claimGate = gate;
+        emit ClaimGateSet(gate);
+    }
+
+    /// @notice Hand the LIVE liquidity to the successor by transferring the CURRENT
+    ///         generation's active + reserve position-NFTs' OWNERSHIP — NOT
+    ///         withdrawing them. The Uniswap positions (and thus price/liquidity)
+    ///         are completely untouched; only the owner-of-record changes, so V2 can
+    ///         manage the exact same LP. Loose ETH + current-token balance follow.
+    ///         Armed+timelocked (the exit is forced open during the window) and
+    ///         guardian-vetoable. NOT callable mid-relaunch. Treasury frens + the
+    ///         MiFrens custody pointer are re-homed separately by governance
+    ///         (mifrens.setRegistry(successor)); the hook is re-pointed via
+    ///         hook.setRegistryOverride(successor) under the same timelock.
+    function migrateToSuccessor() external onlyEmergency timelocked nonReentrant {
+        address to = successor;
+        if (to == address(0)) revert BadConfig();
+        uint256 g = currentGeneration;
+
+        // Transfer the live position-NFTs (ownership move — no liquidity withdrawal).
+        uint256 activeId = generationPositionId[g];
+        uint256 reserveId = generationReservePositionId[g];
+        if (activeId != 0) IERC721(address(positionManager)).transferFrom(address(this), to, activeId);
+        if (reserveId != 0) IERC721(address(positionManager)).transferFrom(address(this), to, reserveId);
+
+        // PROGRESSIVE GENERATIONS (audit L-08). On a streamed generation
+        // `generationPositionId[g]` is 0 — the ACTIVE book lives in the seeder's N
+        // core positions, which are owned by the SEEDER and recoverable only via
+        // `withdrawAll`, which is `onlyRegistry` on the OLD registry. Without this,
+        // a handoff gave the successor the reserve but left the entire active book
+        // stranded behind the outgoing controller. Unwind it here so the migration
+        // is atomic and both ledgers move together; the recovered ETH + token then
+        // leave with the loose balances below.
+        address _seeder = seeder;
+        if (_seeder != address(0) && ISeeder(_seeder).seeding()) {
+            ISeeder(_seeder).withdrawAll(address(this));
+        }
+
+        // Follow with any loose balances (the bulk of value is inside the LP above).
+        address tok = generationToken[g];
+        if (tok != address(0)) {
+            uint256 bal = IERC20(tok).balanceOf(address(this));
+            if (bal > 0) IERC20(tok).transfer(to, bal);
+        }
+        uint256 ethBal = address(this).balance;
+        if (ethBal > 0) {
+            (bool ok, ) = to.call{value: ethBal}("");
+            if (!ok) revert EthSend();
+        }
+        emit MigratedToSuccessor(to, g);
+    }
+
     receive() external payable {}
 
     // -----------------------------------------------------------------------
@@ -370,7 +463,7 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
 
     /// @notice Per-brew NFT collection supply cap.
     function setNftMaxSupply(uint256 _max) external onlyOwner {
-        if (_max == 0) revert BadConfig();
+        if (_max == 0 || _max > MAX_NFT_SUPPLY) revert BadConfig(); // audit C-02
         nftMaxSupply = _max;
     }
 
@@ -423,6 +516,31 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         airdropReserve = _amount;
     }
 
+    /// @notice Owner sets who may fund/reclaim the prime buy (pre-summon only).
+    function setPrimeFunder(address who) external onlyOwner {
+        if (summoned) revert AlreadySummoned();
+        primeFunder = who;
+    }
+
+    /// @notice Pre-fund the genesis prime buy with personal ETH (send 2-3Ξ before
+    ///         MiFrens mints out). Spent at summon on a first-block market buy →
+    ///         GNOME to the treasury/airdrop wallet. Reclaim anytime pre-summon via
+    ///         `sweepPrimeBuy` (post-summon the balance is already spent → 0).
+    ///         Gated to `primeFunder` so it works after the presale ownership handoff.
+    function fundPrimeBuy() external payable {
+        if (msg.sender != primeFunder) revert NotAdmin();
+        primeBuyEth += msg.value;
+    }
+
+    /// @notice Reclaim any un-spent prime-buy ETH back to the funder.
+    function sweepPrimeBuy() external {
+        if (msg.sender != primeFunder) revert NotAdmin();
+        uint256 amt = primeBuyEth;
+        primeBuyEth = 0;
+        (bool ok,) = msg.sender.call{value: amt}("");
+        if (!ok) revert BadConfig();
+    }
+
     // -----------------------------------------------------------------------
     // SUMMON -- Genesis (one-time, owner provides initial ETH)
     // -----------------------------------------------------------------------
@@ -439,10 +557,13 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     function summon()
         external
         payable
-        onlyOwner
         nonReentrant
         returns (address token, PoolId poolId)
     {
+        // Owner OR the delegated igniter (the presale). Splitting ignition out of
+        // ownership is what lets ownership stay with governance — see
+        // {CauldronBase.igniter} (audit Z-06). One-shot either way (`summoned`).
+        if (msg.sender != owner() && msg.sender != igniter) revert NotAdmin();
         if (summoned) revert AlreadySummoned();
         if (msg.value == 0) revert InsufficientETH();
 
@@ -452,10 +573,10 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
 
         // Iteration #1 is Gnomeland (creature idx 0). Brand every token
         // "<name> by Magic Internet Frens" — suffix hardcoded on-chain.
-        (string memory rawName, string memory symbol) = getCreatureForGeneration(1);
+        (string memory rawName, string memory symbol) = PoolOps.creatureFor(1);
         string memory name = LaunchLib.displayName(rawName);
 
-        // 1. Deploy token via CREATE2 (salt = generation)
+        // 1. Deploy the generation's fixed-supply token (plain CREATE — audit A-01)
         token = _deployToken(name, symbol, 1);
         currentToken = token;
         generationToken[1] = token;
@@ -480,10 +601,29 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
             IERC20(token).transfer(airdropWallet, airdropReserve);
         }
 
-        // 3. Create the pool + seed TWO positions: active (10% + ETH, sets price)
-        //    and the out-of-range reserve (the rest — migration + genesis supply
-        //    as LP, not a wallet bag → no whale-look FUD, claimed 1:1 by burn).
-        poolId = _createPoolAndSeed(token, activeTokens, msg.value, reserveTokens, 1);
+        // 3. Create the pool + seed. Default = GREEN-CANDLE buy: seed 100% active at
+        //    a deep discount, then buy the reserve back out and re-park it out of
+        //    range → a REAL first-block market buy (visible candle). If progressive
+        //    seeding is armed (seeder + window), the active tranche instead streams
+        //    in over the window (see _seedGeneration). Either way the reserve backs
+        //    migration/genesis 1:1. Registry is opener + tax-exempt so a buy isn't taxed.
+        poolId = _seedGeneration(token, activeTokens, msg.value, reserveTokens, 1);
+
+        // 3b. PRIME BUY — if the owner pre-funded personal ETH (fundPrimeBuy), do a
+        //     REAL first-block market buy of the fresh pool and route the bought
+        //     GNOME to the treasury/airdrop wallet (net demand + zero dilution; the
+        //     treasury airdrops it to OG holders later). Runs AFTER the reseed so it
+        //     hits the exact expected starting price. Registry is opener + tax-exempt
+        //     so the buy pays no fee/surtax.
+        if (primeBuyEth > 0) {
+            uint256 amt = primeBuyEth;
+            primeBuyEth = 0;
+            // Prefer the treasury/airdrop wallet; fall back to the funder if unset.
+            address to = airdropWallet != address(0) ? airdropWallet : primeFunder;
+            _seedBuyUnlocked = true;
+            PoolOps.primeBuy(poolManager, generationPoolKey[1], amt, to);
+            _seedBuyUnlocked = false;
+        }
 
         // 4. Deploy the genesis NFT collection + point the volume hook at it.
         _deployCollection(1, name, symbol, genesisMode, genesisBaseURI, genesisRenderer, nftMaxSupply);
@@ -537,6 +677,15 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         //    their old iteration; migrating to the new brew is optional.
         emit CauldronDied(oldGen, oldToken, block.number);
 
+        // 2b. AUTO-MIGRATE PERPS (set-and-forget): force-close every open position
+        //     WHILE THE OLD POOL IS STILL ALIVE (settlement swaps need it), oldest-
+        //     first + deterministic inside the engine. Best-effort — a revert here
+        //     can NEVER brick the rebirth (the manual forceCloseDead path remains).
+        //     The engine is tax-exempt, so these swaps don't touch the hook fee /
+        //     legacy buyback (no nesting). `isDead` was checked ONCE above, so the
+        //     force-close volume can't re-gate the rebirth.
+        _perpHousekeep(false); // force-close all (old pool alive)
+
         // 3. Recover ETH + tokens from the dead pool's LP position.
         (uint256 ethFromLP, uint256 tokensFromLP) = _removeLiquidity(oldGen);
         emit LiquidityRecovered(oldGen, ethFromLP);
@@ -552,7 +701,12 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         //     closes, so pending winners mint while the floor is still open and
         //     funded — they end up backed, not stranded (audit L2). Bounded loop;
         //     stragglers committed this very block resolve later (documented).
-        hook.resolveTickets(300);
+        //     GAS-CAPPED + try/catch (audit Z-07): an unbounded mint loop must never
+        //     starve the rebirth. Bounded to RELAUNCH_TICKETS with a reserved tail;
+        //     the remainder is drained by the permissionless resolveTickets path.
+        if (gasleft() > RELAUNCH_TAIL_RESERVE) {
+            try hook.resolveTickets{gas: gasleft() - RELAUNCH_TAIL_RESERVE}(RELAUNCH_TICKETS) {} catch {}
+        }
 
         // 3b. Close the dead brew's floor vault: NFT redemption stops and the
         //     remaining floor ETH sweeps here to seed the next launch.
@@ -590,30 +744,106 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         mode = spec.mode;
         baseURI = spec.baseURI;
         renderer = spec.renderer;
-        if (spec.nftSupply > 0) nftSupply = spec.nftSupply;
+        // CLAMP, never revert (audit C-02): an out-of-range supply would revert in
+        // the collection constructor, which rolls `markConsumed` back with the tx —
+        // so the poisoned proposal would win again forever and freeze the machine.
+        // The governor bounds this too; clamping here survives a governor swap.
+        if (spec.nftSupply > 0) {
+            nftSupply = spec.nftSupply > MAX_NFT_SUPPLY ? MAX_NFT_SUPPLY : spec.nftSupply;
+        }
         uint256 volPerNFT = spec.volumePerNFT; // proposer's mint-out volume target
         governor.markConsumed(winId);
 
         // Brand: "<name> by Magic Internet Frens" (hardcoded suffix on-chain).
         name = LaunchLib.displayName(name);
 
-        // 7. Deploy new token via CREATE2 (salt = generation)
+        // 7. Deploy the new generation's token (plain CREATE — audit A-01)
         token = _deployToken(name, symbol, newGen);
         currentToken = token;
         generationToken[newGen] = token;
 
-        // 8. Seed TWO positions for the newborn. The ACTIVE tradeable band is
-        //    FIXED at the same token amount every generation (constant depth →
-        //    consistent launch behaviour), paired with all the recovered ETH. The
-        //    RESERVE is the rest (~90%) as an out-of-range single-sided token
-        //    position; it shrinks 1:1 as holders migrate/claim during the gen and
-        //    resets to full on each rebirth (fresh fixed supply, no mint). 90%
-        //    always over-covers the migration demand.
-        uint256 newActive = GEN1_ACTIVE_TOKENS;
+        // PROPOSER FLYWHEEL: record the winning author + point the hook's proposer
+        // slice at them, so THIS iteration's volume trickles a tiny fee to whoever
+        // proposed it (decentralized incentive to keep the machine moving).
+        generationProposer[newGen] = spec.proposer;
+        generationParent[newGen] = oldGen; // V1 linear chain; V2 branch graph seam
+        hook.setActiveProposer(spec.proposer);
+
+        // 8. Seed TWO positions for the newborn. The new ACTIVE band mirrors the
+        //    tokens RESCUED from the dead LP (so depth tracks what survived the
+        //    prior gen), MINUS the still-unclaimed genesis airdrop (which must stay
+        //    claimable). The RESERVE is everything else = migration demand +
+        //    unclaimed genesis — DYNAMIC, sized to actual need, not a fixed
+        //    fraction. Conserves exactly: reserve(=TOTAL−newActive) covers the old
+        //    circulating supply migrating 1:1 PLUS the OG airdrop carryover.
+        // Fold the OG share of iteration-#2 live buybacks into the redemption floor
+        // BEFORE sizing, so the new reserve covers the grown OG entitlement and the
+        // OG floor "moons" into the new iteration alongside the forged floor.
+        genesisReserveOutstanding += genesisPending;
+        genesisPending = 0;
+        uint256 unclaimedGenesis = genesisReserveOutstanding;
+        uint256 newActive = tokensFromLP > unclaimedGenesis
+            ? tokensFromLP - unclaimedGenesis
+            : tokensFromLP; // degenerate guard (near-total migration) — never 0-seed
+        // OBSERVABLE UNDER-COVERAGE (audit F-06). The Z-12 fix made the LEGACY
+        // shortfall observable but left this twin fallback silent, and it is the more
+        // dangerous of the two: it fires when the dead pool returned NOTHING
+        // (`tokensFromLP == 0` — a fully drained book, or a progressive generation
+        // whose teardown recovered no token), and it hard-sets the active band to 80%
+        // of supply. `newReserve` is then only 20% of supply while migration demand is
+        // ~100%, so the exit guarantee silently degrades to first-come-first-served
+        // and late migrants hit `reserve short`. Reuse the same signal the legacy path
+        // emits so an indexer/monitor sees BOTH shortfall shapes.
+        if (newActive == 0) {
+            emit ReserveShortfall(newGen, unclaimedGenesis, 0);
+            newActive = GEN1_ACTIVE_TOKENS; // ultra-rare fallback
+        }
+
+        // 8b. LEGACY FLOOR: flush any un-materialized live buybacks into the dying
+        //     collection's ledger FIRST (so sizing covers them), crystallize it, then
+        //     carve its reserve out of the new active supply.
+        if (address(collectionLedger) != address(0)) {
+            _flushLegacyAtRelaunch(oldGen, oldToken);
+            PoolOps.crystallizeCollection(
+                address(collectionLedger), generationCollection[oldGen], generationVault[oldGen],
+                oldGen, vaultSwept, newActive, totalETH
+            );
+            uint256 legacy = collectionLedger.totalEntitled();
+            // CLAMP-TO-ZERO, not skip (audit Z-12). The old `newActive > legacy ?
+            // newActive - legacy : newActive` SKIPPED the subtraction entirely when
+            // legacy >= newActive, so the reserve was not enlarged for the legacy
+            // claim at all and the shortfall was silent. Now: subtract when we can,
+            // and when the entitlement meets/exceeds the active supply, enlarge the
+            // reserve maximally and EMIT so the under-coverage is observable. The
+            // active-pool floor below (GEN1_ACTIVE_TOKENS) keeps the newborn pool
+            // tradeable; proportional haircutting across claimants is an owner policy.
+            if (newActive > legacy) {
+                newActive -= legacy;
+            } else {
+                emit ReserveShortfall(newGen, legacy, newActive);
+                newActive = 0;
+            }
+            if (newActive == 0) newActive = GEN1_ACTIVE_TOKENS;
+        }
+        // CLAMP (audit A-05). `newActive` is derived from what the DEAD pool gave
+        // back, and that can exceed the fixed supply: `PoolOps.removeAll` collects
+        // accrued FEES along with principal, so anyone who calls
+        // `poolManager.donate()` on the live pool inflates the recovered amount.
+        // The newborn only ever holds TOTAL_SUPPLY, so an un-clamped
+        // `TOTAL_SUPPLY - newActive` would UNDERFLOW and revert — permanently
+        // bricking `relaunch()` (and rolling back `markConsumed` with it, so the
+        // same proposal keeps winning). Clamping keeps the rebirth alive; the
+        // surplus simply stays with the registry.
+        if (newActive > TOTAL_SUPPLY) newActive = TOTAL_SUPPLY;
         uint256 newReserve = TOTAL_SUPPLY - newActive;
 
-        // 9. Seed the new pool: fixed active band + ALL the ETH; reserve = rest.
-        poolId = _createPoolAndSeed(token, newActive, totalETH, newReserve, newGen);
+        // 9. Seed the newborn. Default: the migration reserve is funded by a REAL
+        //    first-block buy (green candle) — seed 100% active at a deep discount,
+        //    buy `newReserve` out, re-park it out of range → active LP lands at
+        //    exactly (newActive, totalETH) with the reserve arriving as visible
+        //    volume. If progressive seeding is armed, the active tranche streams in
+        //    over the window instead (reserve placed silently). See _seedGeneration.
+        poolId = _seedGeneration(token, newActive, totalETH, newReserve, newGen);
 
         // 10. NFT collection for the new brew.
         //     ITERATION #2 is special: it does NOT deploy a fresh collection —
@@ -630,7 +860,37 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         // curve (flat: total mint-out ≈ volumePerNFT * nftSupply). 0 = unchanged.
         hook.setNftCurveFrom(volPerNFT);
 
+        // Re-arm the perp engine on the NEW token: migrate its dead-token inventory
+        // 1:1 (from the reserve just seeded) + reset its TWAP. openCount is now 0
+        // (force-closed in step 2b). Best-effort — never bricks the rebirth.
+        _perpHousekeep(true); // sync to the new gen
+
         emit CauldronReborn(newGen, token, poolId, name, symbol);
+    }
+
+    /// @dev Best-effort perp relaunch housekeeping (reads the engine off the hook,
+    ///      so the registry needs no engine pointer). `sync=false` → force-close all
+    ///      dead positions (old pool alive); `sync=true` → re-arm on the new token.
+    ///      try/catch so it can NEVER brick the rebirth.
+    function _perpHousekeep(bool sync) private {
+        if (sync) {
+            address eng = hook.perpEngine();
+            if (eng != address(0)) { try IPerpSync(eng).syncGeneration() {} catch {} }
+        } else {
+            // The HOOK force-closes all perps behind a transient "relaunch-close"
+            // flag that makes it skip the fee + legacy buyback ONLY for that window
+            // (so the dying-pool settlement swaps don't nest). Perp swaps stay fully
+            // fee-paying the rest of the time — high-volume revenue is preserved.
+            // try/catch + GAS CAP (audit Z-07): a full book (64 × ~450k settlement)
+            // can exceed a block, and without a cap the 63/64 rule would leave the
+            // parent too little to finish the rebirth. Reserve the tail so an
+            // over-large force-close is bounded; any survivors are cleared afterwards
+            // by the permissionless forceCloseDead path, then syncGeneration re-arms.
+            uint256 g = gasleft();
+            if (g > RELAUNCH_TAIL_RESERVE) {
+                try hook.forceClosePerps{gas: g - RELAUNCH_TAIL_RESERVE}() {} catch {}
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -668,9 +928,12 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
             })
         );
         generationCollection[gen] = col;
-        generationVault[gen] = vlt;
+        generationVault[gen] = vlt; // kept for crystallize's supply count (holds no ETH)
         hook.setCollection(col);
-        hook.setVault(vlt);
+        // UNIFIED FLOOR: no ETH vault — route the fee floor-share into the token
+        // buyback buffer (setVault(0)); the vault stays deployed only as a supply
+        // counter for crystallize.
+        hook.setVault(address(0));
         emit CollectionDeployed(gen, col, mode);
     }
 
@@ -685,13 +948,16 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
      */
     function _continueMiFrens(uint256 gen) private {
         address col = mifrens;
-        address vlt = factory.deployVault(col, address(this));
+        // The continuation vault serves ONLY the forged tranche (ids > genesisShares)
+        // — the OGs have their own dividend + redemption floor and must not dilute
+        // or draw this one, so the vault's floorOffset = genesisShares.
+        address vlt = factory.deployVault(col, address(this), genesisShares);
         generationCollection[gen] = col;
-        generationVault[gen] = vlt;
+        generationVault[gen] = vlt; // kept for crystallize's supply count (holds no ETH)
         IMiFrensContinuable(col).setVault(vlt);
         IMiFrensContinuable(col).setMinter(address(hook));
         hook.setCollection(col);
-        hook.setVault(vlt);
+        hook.setVault(address(0)); // unified floor: fee floor-share → token buyback
         emit CollectionDeployed(gen, col, MetadataMode.BaseURI);
     }
 
@@ -716,28 +982,69 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
      *      (atomically un-burning), so the holder keeps their old token — nothing
      *      is ever stranded.
      */
+    // NOTE: NOT nonReentrant — it burns the caller's tokens then pulls the same 1:1
+    // from the reserve via the (trusted) PositionManager; neither calls back into
+    // arbitrary code, so there's no reentrancy vector. Dropping the guard also lets
+    // the perp engine's syncGeneration migrate its inventory DURING relaunch (which
+    // holds the registry's reentrancy lock) — the "stake & chill" auto-migrate.
     function claimByBurn(uint256 fromGen, uint256 amount)
         external
-        nonReentrant
         returns (uint256 claimedAmount)
     {
         if (fromGen == 0 || fromGen >= currentGeneration) revert CannotClaimCurrentGen();
+        // Anti-dump gate: when a vesting escrow is set, the instant direct path is
+        // closed to ordinary holders — they must migrate through the escrow (which
+        // drips the claim). The perp engine is exempt so its own inventory
+        // migration during relaunch (via syncGeneration) is never blocked.
+        if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) {
+            revert VestingEnforced();
+        }
         address prevToken = generationToken[fromGen];
         if (prevToken == address(0)) revert UnknownGeneration();
         if (amount == 0 || IERC20(prevToken).balanceOf(msg.sender) < amount) revert NoBalance();
 
-        // Burn the caller's previous-gen tokens, then release the same amount of
-        // current-gen tokens 1:1 from the RESERVE position (single-sided, out of
-        // range → pure token, no ETH, no price move). No mint. If the reserve is
-        // short the removal reverts, rolling the burn back with it.
-        CauldronToken(prevToken).burn(msg.sender, amount);
+        // Burn old, release the same 1:1 from the reserve (out of range → no price
+        // move, no mint). A short reserve reverts, rolling the burn back with it.
         uint256 g = currentGeneration;
-        claimedAmount = PoolOps.claimFromReserve(
-            IPositionManagerOps(address(positionManager)),
-            generationReservePositionId[g], generationPoolKey[g],
-            reserveTickLower[g], reserveTickUpper[g], amount, msg.sender
+        claimedAmount = PoolOps.migrateOne(
+            IPositionManagerOps(address(positionManager)), prevToken, msg.sender, amount,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
         );
+        emit HolderClaimed(fromGen, msg.sender, claimedAmount);
+    }
 
+    /// @notice CAPACITY-AWARE 1:1 migration: burn up to `maxAmount` of `fromGen`
+    ///         and receive exactly that much of the live token, but never more than
+    ///         the reserve can actually deliver. Returns the amount migrated.
+    ///
+    ///  This exists for the PERP ENGINE's own inventory sync. `claimByBurn` is
+    ///  strict — it burns `amount` and REVERTS if the reserve is short (audit H-03,
+    ///  which is what protects ordinary holders from a silent partial fill). But
+    ///  the engine migrates its whole book in one shot at every relaunch, so a
+    ///  strict call would revert inside `syncGeneration`'s try/catch and leave the
+    ///  engine stranded on a dead token. Sizing to capacity first gives it a partial
+    ///  migration that is still exactly 1:1 on every wei it does burn.
+    ///  Same gating as `claimByBurn`: the vesting escrow and the engine are exempt.
+    function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount)
+        external
+        returns (uint256 claimedAmount)
+    {
+        if (fromGen == 0 || fromGen >= currentGeneration) revert CannotClaimCurrentGen();
+        if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) {
+            revert VestingEnforced();
+        }
+        address prevToken = generationToken[fromGen];
+        if (prevToken == address(0)) revert UnknownGeneration();
+        if (maxAmount == 0) revert NoBalance();
+        uint256 bal = IERC20(prevToken).balanceOf(msg.sender);
+        if (bal < maxAmount) maxAmount = bal;
+        if (maxAmount == 0) revert NoBalance();
+
+        uint256 g = currentGeneration;
+        claimedAmount = PoolOps.migrateUpTo(
+            IPositionManagerOps(address(positionManager)), prevToken, msg.sender, maxAmount,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
+        );
         emit HolderClaimed(fromGen, msg.sender, claimedAmount);
     }
 
@@ -745,10 +1052,8 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     // AUTO-MIGRATE -- hands-off, keeper-executed migration (opt-in)
     // -----------------------------------------------------------------------
 
-    /// @notice Fee to opt into auto-migration for a non-fren wallet.
-    uint256 public constant AUTO_MIGRATE_FEE = 0.069 ether;
-    /// @notice Wallets that opted into hands-off, keeper-executed migration.
-    mapping(address => bool) public autoMigrate;
+    // NOTE: `AUTO_MIGRATE_FEE` + `autoMigrate` now live in {CauldronBase} (autoMigrate
+    // is storage slot 40 — the last of the shared baseline layout).
 
     event AutoMigrateSet(address indexed who);
     event AutoMigrated(uint256 indexed fromGen, address indexed holder, uint256 amount);
@@ -758,10 +1063,35 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     ///         frens (any MiFren holder); 0.069 ETH for everyone else (the fee
     ///         stays in the registry and seeds the next launch).
     function enableAutoMigrate() external payable {
-        if (IERC721(mifrens).balanceOf(msg.sender) == 0) {
+        // Frens (any MiFren holder) opt in free; everyone else pays the fee. When
+        // `mifrens` is unset (the genesis bonus is opt-in and may never be wired),
+        // there is no fren tier → charge the fee for everyone. Guard the zero
+        // address so we never `balanceOf` a non-contract (which reverts).
+        if (mifrens == address(0) || IERC721(mifrens).balanceOf(msg.sender) == 0) {
             if (msg.value < AUTO_MIGRATE_FEE) revert Fee();
         }
         autoMigrate[msg.sender] = true;
+        emit AutoMigrateSet(msg.sender);
+    }
+
+    /// @notice Revoke the hands-off migration consent (audit F-02).
+    ///
+    ///  `enableAutoMigrate` is an IRREVOCABLE grant without this. The flag is the
+    ///  ONLY thing standing between a wallet and `autoMigrateBatch`, which calls
+    ///  `CauldronToken.burn(holder, balance)` — a registry-only primitive that needs
+    ///  no allowance — so an opted-in wallet's entire old-generation balance can be
+    ///  burned by ANY permissionless keeper, at ANY future relaunch, at a moment the
+    ///  holder did not choose. That directly contradicts the migration contract's
+    ///  own stated model ("Migration is a choice, not a requirement... old tokens are
+    ///  never frozen, so a holder who prefers a past iteration simply keeps it"): a
+    ///  holder who decides they prefer iteration N had no way to stop the machine
+    ///  from converting them into iteration N+1. Consent must be withdrawable.
+    ///
+    ///  Free (revoking a permission must never be gated behind a fee) and effective
+    ///  immediately: `PoolOps.autoMigrateBatch` reads the flag per holder, per call.
+    ///  Re-opting in costs the fee again, exactly as the first time.
+    function disableAutoMigrate() external {
+        autoMigrate[msg.sender] = false;
         emit AutoMigrateSet(msg.sender);
     }
 
@@ -777,24 +1107,17 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         nonReentrant
     {
         if (fromGen == 0 || fromGen >= currentGeneration) revert CannotClaimCurrentGen();
+        // The keeper auto-migrate delivers INSTANTLY to holders, so it's a vesting
+        // bypass — disabled while the escrow gate is on. Holders instead approve the
+        // {MigrationVesting} escrow and a keeper calls its `vestBatch`.
+        if (claimGate != address(0)) revert VestingEnforced();
         address prevToken = generationToken[fromGen];
         if (prevToken == address(0)) revert UnknownGeneration();
         uint256 g = currentGeneration;
-        IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
-        PoolKey memory key = generationPoolKey[g];
-        uint256 rid = generationReservePositionId[g];
-        int24 rlo = reserveTickLower[g];
-        int24 rhi = reserveTickUpper[g];
-        for (uint256 i = 0; i < holders.length; i++) {
-            address h = holders[i];
-            if (!autoMigrate[h]) continue;
-            uint256 bal = IERC20(prevToken).balanceOf(h);
-            if (bal == 0) continue;
-            // Burn the holder's old balance, release 1:1 from the reserve to them.
-            CauldronToken(prevToken).burn(h, bal);
-            uint256 got = PoolOps.claimFromReserve(pm, rid, key, rlo, rhi, bal, h);
-            emit AutoMigrated(fromGen, h, got);
-        }
+        PoolOps.autoMigrateBatch(
+            IPositionManagerOps(address(positionManager)), prevToken, fromGen, holders,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
+        );
     }
 
     // NOTE: the old `burnUnclaimed` is obsolete in the reserve-LP model — a dead
@@ -803,79 +1126,140 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
     // wallet to sweep.
 
     // -----------------------------------------------------------------------
-    // GENESIS BONUS -- founding MiFrens claim their gift of iteration #1
+    // GENESIS RECYCLE-REDEMPTION -- delegatecall forwarders → {RedemptionExt}
     // -----------------------------------------------------------------------
+    //
+    // The OG-redemption ops (redeemOgFren / buyTreasuryOgFren / donateToReserve /
+    // materializeLegacyReserve) live in the {RedemptionExt} facet — extracted to
+    // reclaim EIP-170 headroom for the progressive-seed wiring. The registry keeps
+    // THIN forwarders that DELEGATECALL the facet with the original calldata: the
+    // facet's code runs in THIS registry's context (its storage, its custody, and
+    // it is the msg.sender the PositionManager / MiFrens see), so custody +
+    // accounting semantics are byte-for-byte what they were in the monolith.
+    //
+    // ⚠️ Reentrancy: the facet functions keep their own `nonReentrant`, which runs
+    //    against the registry's ReentrancyGuard slot (shared via CauldronBase).
+    //    The forwarders therefore must NOT be `nonReentrant` — a guard here would
+    //    double-lock and revert every redemption. See CauldronBase + RedemptionExt.
 
-    /**
-     * @notice Claim the genesis bonus for a MiFren you own. One claim per NFT.
-     *
-     *  IMPORTANT: this is a GIFT layered on top of the art you already bought.
-     *  It is NOT a promise that the token's value equals what you paid for the
-     *  NFT. At launch FDV the airdrop is intentionally a small fraction of mint
-     *  cost — that is how supply is distributed fairly. You bought the art.
-     */
-    function claimGenesis(uint256 mifrenTokenId) external nonReentrant returns (uint256 amount) {
-        if (!summoned) revert NotSummoned();
-        if (genesisSharePerFren == 0) revert BadConfig();
-        // OG-only (audit F-12): the reserve is sized for the genesis tranche, so
-        // only genesis ids (1..genesisShares) may claim — a later volume-minted
-        // MiFren (id > genesisShares) can never siphon a founder's airdrop share.
-        if (mifrenTokenId == 0 || mifrenTokenId > genesisShares) revert BadConfig();
-        if (genesisClaimed[mifrenTokenId]) revert AlreadyClaimed();
-        if (IERC721(mifrens).ownerOf(mifrenTokenId) != msg.sender) revert NotOwnerOf();
-
-        genesisClaimed[mifrenTokenId] = true;
-        amount = genesisSharePerFren;
-        if (genesisReserveOutstanding >= amount) genesisReserveOutstanding -= amount;
-
-        // Genesis PERSISTS across iterations: pull the gift from the CURRENT gen's
-        // reserve position (single-sided token, out of range) so an OG always
-        // receives LIVE tokens, whichever iteration they finally claim in.
-        uint256 g = currentGeneration;
-        amount = PoolOps.claimFromReserve(
-            IPositionManagerOps(address(positionManager)),
-            generationReservePositionId[g], generationPoolKey[g],
-            reserveTickLower[g], reserveTickUpper[g], amount, msg.sender
-        );
-        emit GenesisBonusClaimed(mifrenTokenId, msg.sender, amount);
+    /// @notice RECYCLE a genesis (OG) MiFren for its LIVE floor share of whatever
+    ///         token the machine is running. OG-only; NFT moves to treasury (not
+    ///         burned) to be resold at 2× via {buyTreasuryOgFren}. See RedemptionExt.
+    function redeemOgFren(uint256) external returns (uint256) {
+        _forwardToExt();
     }
 
-    /**
-     * @notice Claim the genesis bonus for MANY MiFrens in ONE transaction — a
-     *         single reserve `decreaseLiquidity` for the combined amount, marking
-     *         every id claimed. A holder of 20 frens pays one LP removal, not 20.
-     *         Already-claimed ids are skipped (not reverted); every remaining id
-     *         must be owned by the caller and within the genesis tranche.
-     */
-    function claimGenesisMany(uint256[] calldata mifrenTokenIds)
-        external
-        nonReentrant
-        returns (uint256 total)
-    {
-        if (!summoned) revert NotSummoned();
-        if (genesisSharePerFren == 0) revert BadConfig();
+    /// @notice BUY a treasury-held (recycled) genesis fren for 2× the live floor,
+    ///         paid in the current token → added to the reserve (floor ratchets up).
+    function buyTreasuryOgFren(uint256) external returns (uint256) {
+        _forwardToExt();
+    }
 
-        uint256 count;
-        for (uint256 i = 0; i < mifrenTokenIds.length; i++) {
-            uint256 id = mifrenTokenIds[i];
-            if (id == 0 || id > genesisShares) revert BadConfig();
-            if (genesisClaimed[id]) continue; // idempotent: skip already-claimed
-            if (IERC721(mifrens).ownerOf(id) != msg.sender) revert NotOwnerOf();
-            genesisClaimed[id] = true;
-            count++;
+    /// @notice Permissionlessly GROW the genesis floor: donate current token into
+    ///         the reserve (caller must approve first). See RedemptionExt.
+    function donateToReserve(uint256) external {
+        _forwardToExt();
+    }
+
+    /// @notice Permissionless: deposit the hook's held live-buyback tokens into the
+    ///         shared reserve LP + credit the collection ledger. See RedemptionExt.
+    function materializeLegacyReserve() external returns (uint256) {
+        _forwardToExt();
+    }
+
+    /// @dev Forward the FULL calldata (selector + args) to the RedemptionExt facet
+    ///      via DELEGATECALL — the facet executes on this registry's storage +
+    ///      custody — bubbling its return data / revert verbatim. `redemptionExt`
+    ///      is set once at deploy and frozen; a zero target is rejected because a
+    ///      delegatecall to an empty account returns SUCCESS with no data (which
+    ///      would make an unset facet silently no-op instead of reverting).
+    function _forwardToExt() private {
+        address ext = redemptionExt;
+        if (ext == address(0)) revert NotConfigured();
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let ok := delegatecall(gas(), ext, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch ok
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
         }
-        if (count == 0) revert AlreadyClaimed();
+    }
 
-        uint256 amount = genesisSharePerFren * count;
-        if (genesisReserveOutstanding >= amount) genesisReserveOutstanding -= amount;
+    // -----------------------------------------------------------------------
+    // LEGACY FLOOR -- volume collections keep their fee value forever
+    // -----------------------------------------------------------------------
 
-        uint256 g = currentGeneration;
-        total = PoolOps.claimFromReserve(
-            IPositionManagerOps(address(positionManager)),
-            generationReservePositionId[g], generationPoolKey[g],
-            reserveTickLower[g], reserveTickUpper[g], amount, msg.sender
+    event CollectionRecycled(uint256 indexed gen, uint256 indexed tokenId, address indexed holder, uint256 payout);
+    event CollectionBought(uint256 indexed gen, uint256 indexed tokenId, address indexed buyer, uint256 paid);
+
+    /// @notice Wire the legacy-floor cap table (one-time, owner/deployer). Zero
+    ///         keeps the legacy floor OFF (collections behave exactly as before).
+    function setCollectionLedger(address ledger) external onlyOwner {
+        collectionLedger = ICollectionLedger(ledger);
+    }
+
+    /// @notice The hook reports a live buyback: record the bought tokens against the
+    ///         CURRENT collection's pending legacy entitlement (folded in at death).
+    ///         Hook-only; no-op if the ledger isn't wired.
+    ///
+    ///  ITERATION #2 is special — it CONTINUES the MiFrens collection, so OGs
+    ///  (1..genesisShares) and forged frens (>genesisShares) share it. To keep the
+    ///  OGs senior, the buyback is SPLIT so both floors rise at the SAME per-fren
+    ///  rate (∝ fren count): the forged share → the ledger, the OG share → the
+    ///  genesis reserve (via genesisPending, folded at the next relaunch). Because
+    ///  the OG floor starts higher (the 20% seed + recycle ratchets), it stays >=
+    ///  the forged floor forever. Any other iteration → all to the collection ledger.
+    /// @dev At relaunch, flush the hook's un-materialized live-buyback tokens for the
+    ///      DYING gen: credit its ledger with the amount (value carries as a NUMBER —
+    ///      the new reserve is sized below to cover the grown totalEntitled in the new
+    ///      token) and BURN the swept dead-gen tokens along with the LP recovery.
+    ///      Keeps a collection's last buybacks in its floor even if no keeper called
+    ///      materializeLegacyReserve before death.
+    function _flushLegacyAtRelaunch(uint256 oldGen, address oldToken) private {
+        ReserveRef memory empty; // unused on the burn path (toReserve = false)
+        (, uint256 og) = PoolOps.materializeLegacy(
+            IPositionManagerOps(address(positionManager)), address(hook), address(this),
+            address(collectionLedger), mifrens, genesisShares, oldGen, generationCollection[oldGen],
+            oldToken, empty, false
         );
-        emit GenesisBonusClaimed(0, msg.sender, total); // id 0 = batch marker
+        genesisPending += og;
+    }
+
+    /// @notice RECYCLE a dead collection's NFT for its live-token floor. Pays the
+    ///         floor from the shared reserve and moves the NFT to the treasury (the
+    ///         registry) to be resold at 2× — NOT burned. Mirrors the genesis
+    ///         recycle, but the floor is this collection's ledger entitlement.
+    function recycleCollectionNFT(uint256 gen, uint256 tokenId)
+        external nonReentrant returns (uint256 amount)
+    {
+        if (_redeemBlocked()) revert RedemptionPaused();
+        address col = generationCollection[gen];
+        if (address(collectionLedger) == address(0) || col == address(0)) revert BadConfig();
+        uint256 g = currentGeneration; // pay in the LIVE token, from the shared reserve
+        amount = PoolOps.recycleCollection(
+            IPositionManagerOps(address(positionManager)),
+            address(collectionLedger), col, gen, tokenId, msg.sender,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
+        );
+        emit CollectionRecycled(gen, tokenId, msg.sender, amount);
+    }
+
+    /// @notice BUY a treasury-held (recycled) collection NFT for 2× its floor, paid
+    ///         in the live token → added to the reserve → the collection's floor
+    ///         ratchets up for every remaining NFT.
+    function buyCollectionNFT(uint256 gen, uint256 tokenId)
+        external nonReentrant returns (uint256 paid)
+    {
+        address col = generationCollection[gen];
+        if (address(collectionLedger) == address(0) || col == address(0)) revert BadConfig();
+        uint256 g = currentGeneration;
+        paid = PoolOps.buyCollection(
+            IPositionManagerOps(address(positionManager)),
+            address(collectionLedger), col, generationToken[g], gen, tokenId, msg.sender,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
+        );
+        emit CollectionBought(gen, tokenId, msg.sender, paid);
     }
 
     // -----------------------------------------------------------------------
@@ -895,9 +1279,12 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         address deadToken = generationToken[gen];
         IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
 
-        (uint256 e1, uint256 t1) = PoolOps.removeAll(pm, generationPositionId[gen], key, deadToken);
-        ethRecovered = e1;
-        tokensRecovered = t1;
+        // ACTIVE position. For a PROGRESSIVE gen this is 0 (the seeder owns the N
+        // mini-positions instead) — skip the pm call so it never touches token id 0.
+        uint256 activeId = generationPositionId[gen];
+        if (activeId != 0) {
+            (ethRecovered, tokensRecovered) = PoolOps.removeAll(pm, activeId, key, deadToken);
+        }
 
         uint256 rid = generationReservePositionId[gen];
         if (rid != 0) {
@@ -905,33 +1292,40 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
             ethRecovered += e2;
             tokensRecovered += t2;
         }
+
+        // PROGRESSIVE TEARDOWN: unwind the seeder's N mini-positions (whatever mix
+        // of ETH + token they hold after trading) + any un-streamed ledger-A funds,
+        // back to this registry, so a streamed generation is recovered in full at
+        // relaunch with nothing stranded. The seeder only ever holds ledger A (the
+        // 69× redemption reserve is a separate pool position it can't touch). Safe to
+        // skip when the seeder is unset or idle (e.g. an atomic generation).
+        address _seeder = seeder;
+        if (_seeder != address(0) && ISeeder(_seeder).seeding()) {
+            (uint256 e3, uint256 t3) = ISeeder(_seeder).withdrawAll(address(this));
+            ethRecovered += e3;
+            tokensRecovered += t3;
+        }
     }
 
     // -----------------------------------------------------------------------
-    // Internal: Deploy Token via CREATE2
+    // Internal: Deploy the generation token
     // -----------------------------------------------------------------------
 
     /**
-     * @dev Deploy a CauldronToken using CREATE2 with generation as salt.
-     *      Token addresses are deterministic and predictable.
-     *      Passes poolManager address so dead tokens can whitelist LP removal.
+     * @dev Deploy a CauldronToken. Uses plain CREATE, NOT CREATE2 (audit A-01):
+     *      a CREATE2 address keyed on the generation number is fully predictable
+     *      before the deploy, so anyone could squat it and permanently brick
+     *      `relaunch()`. See {PoolOps.deployToken}.
      */
     function _deployToken(
         string memory name,
         string memory symbol,
         uint256 gen
     ) private returns (address token) {
-        bytes32 salt = bytes32(gen);
-
-        token = address(
-            new CauldronToken{salt: salt}(
-                name,
-                symbol,
-                gen,
-                address(this),      // registry (also the fixed-supply mint recipient)
-                TOTAL_SUPPLY        // full supply minted once in the ctor; no mint() exists
-            )
-        );
+        // Delegated to PoolOps so the 3.2 KB CauldronToken creation blob lives
+        // there, not in this registry (EIP-170). Delegatecall keeps
+        // address(this) = registry, so the registry is the deployer + token owner.
+        token = PoolOps.deployToken(name, symbol, gen, TOTAL_SUPPLY);
     }
 
     // -----------------------------------------------------------------------
@@ -949,18 +1343,73 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
      *      All PositionManager encoding is delegated to the linked PoolOps library
      *      so the registry fits under EIP-170.
      */
-    function _createPoolAndSeed(
+    // NOTE: the old silent-seed `_createPoolAndSeed` was removed — BOTH genesis and
+    // relaunch now use `_createPoolAndSeedWithBuy` (the green candle), so iteration #1
+    // launches with a real first-block market buy like every rebirth. PoolOps still
+    // exposes `createAndSeed` for reference / external callers.
+
+    /**
+     * @dev RELAUNCH seed variant: the migration reserve is funded by a real
+     *      first-block market BUY (green candle) instead of a silent single-sided
+     *      seed. See `PoolOps.createAndSeedWithBuy`. We arm `_seedBuyUnlocked` so
+     *      the PoolManager's re-entry into `unlockCallback` (which drives the buy)
+     *      is accepted for exactly this window and nothing else.
+     */
+    function _createPoolAndSeedWithBuy(
         address token,
         uint256 activeTokens,
         uint256 ethAmount,
         uint256 reserveTokens,
         uint256 gen
     ) private returns (PoolId poolId) {
-        SeedResult memory r = PoolOps.createAndSeed(
+        // Per-iteration ceiling: use the configured `next` value (default = 69×).
+        _seedBuyUnlocked = true;
+        SeedResult memory r = PoolOps.createAndSeedWithBuy(
             poolManager, IPositionManagerOps(address(positionManager)), address(hook),
             token, activeTokens, ethAmount, reserveTokens,
-            TICK_SPACING, POOL_FEE, RESERVE_CEILING_OFFSET
+            TICK_SPACING, POOL_FEE, nextReserveCeilingOffset
         );
+        _seedBuyUnlocked = false;
+        poolId = _recordSeed(r, gen);
+    }
+
+    /**
+     * @dev Seed a generation's pool. Dispatches between two paths:
+     *   - PROGRESSIVE (opt-in: `seeder != 0 && nextSeedWindow > 0`): place the
+     *     reserve (ledger B) out-of-range in full, then hand the ACTIVE tranche
+     *     (ledger A: ETH + tokens) to the persistent {CauldronSeeder}, which streams
+     *     it into the pool over `nextSeedWindow`. No green-candle buy — the reserve
+     *     is placed silently single-sided (the anti-snipe comes from the thin
+     *     streamed book, not a candle). `activePositionId` is 0 (the seeder owns N
+     *     mini-positions, torn down at relaunch via {ISeeder.withdrawAll}).
+     *   - ATOMIC (default): the green-candle path, unchanged.
+     * Delegatecalled PoolOps runs in the registry's context, so its token transfer
+     * to the seeder + the seeder's `onlyRegistry` both resolve to this registry.
+     */
+    function _seedGeneration(
+        address token,
+        uint256 activeTokens,
+        uint256 ethAmount,
+        uint256 reserveTokens,
+        uint256 gen
+    ) private returns (PoolId poolId) {
+        if (seeder != address(0) && nextSeedWindow > 0) {
+            SeedResult memory r = PoolOps.createAndSeedProgressive(
+                poolManager, IPositionManagerOps(address(positionManager)), address(hook),
+                token, activeTokens, ethAmount, reserveTokens,
+                TICK_SPACING, POOL_FEE, nextReserveCeilingOffset,
+                SeedParams({seeder: seeder, gen: gen, window: nextSeedWindow})
+            );
+            poolId = _recordSeed(r, gen);
+        } else {
+            poolId = _createPoolAndSeedWithBuy(token, activeTokens, ethAmount, reserveTokens, gen);
+        }
+    }
+
+    /// @dev Persist a freshly-seeded pool's positions/ticks under `gen`, and push the
+    ///      LIVE key to the hook so its legacy buyback can only ever spend into THIS
+    ///      pool (audit C-01b) — never into the key of whatever swap triggered it.
+    function _recordSeed(SeedResult memory r, uint256 gen) private returns (PoolId poolId) {
         poolId = r.poolId;
         generationPoolId[gen] = r.poolId;
         generationPoolKey[gen] = r.key;
@@ -968,6 +1417,20 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         generationReservePositionId[gen] = r.reservePositionId;
         reserveTickLower[gen] = r.reserveTickLower;
         reserveTickUpper[gen] = r.reserveTickUpper;
+        hook.setLiveKey(r.key);
+    }
+
+    /**
+     * @notice PoolManager unlock hook — accepted ONLY while a relaunch buy is
+     *         armed (`_seedBuyUnlocked`) and only from the PoolManager itself. The
+     *         swap encoding lives in the linked `PoolOps` library (delegatecalled,
+     *         so it runs in this registry's context: it settles the registry's ETH
+     *         and receives the bought token).
+     */
+    function unlockCallback(bytes calldata data) external returns (bytes memory) {
+        if (msg.sender != address(poolManager)) revert NotPoolManager();
+        if (!_seedBuyUnlocked) revert NotPoolManager();
+        return PoolOps.executeBuy(data);
     }
 
     // -----------------------------------------------------------------------
@@ -978,35 +1441,28 @@ contract CauldronRegistry is Ownable, ReentrancyGuard {
         return claimed[generation_][holder];
     }
 
-    /// @notice Get the creature info for a generation (cycles through 6).
-    function getCreatureForGeneration(uint256 gen)
-        public
-        pure
-        returns (string memory name, string memory symbol)
-    {
-        uint256 idx = (gen - 1) % 6;
-        if (idx == 0) return ("Gnomeland", "GNOME");
-        if (idx == 1) return ("Ethereal Spirit", "SPIRIT");
-        if (idx == 2) return ("Shadow Wraith", "WRAITH");
-        if (idx == 3) return ("Infernal Beast", "BEAST");
-        if (idx == 4) return ("Astral Entity", "ASTRAL");
-        return ("Storm Elemental", "STORM");
+    /// @notice Whether the genesis redemption floor is claimable at spot RIGHT NOW,
+    ///         and the current per-fren floor. The reserve is a single-sided token
+    ///         band placed BELOW the launch tick; it only pays pure token while spot
+    ///         stays ABOVE the band's upper tick. If the token appreciates past its
+    ///         ~69x ceiling (spot trades INTO the band), claims temporarily
+    ///         short-deliver and revert (audit Y-01) — so the frontend should read
+    ///         this and show "floor temporarily out of range during a pump" instead
+    ///         of a bare revert. `floorPerFren()` keeps returning the advertised
+    ///         value regardless; this is the reachability signal that pairs with it.
+    function floorClaimableNow() external view returns (bool claimable, uint256 perFren) {
+        perFren = floorPerFren();
+        uint256 g = currentGeneration;
+        if (!summoned || perFren == 0) return (false, perFren);
+        (, int24 tick,,) = StateLibrary.getSlot0(poolManager, generationPoolId[g]);
+        claimable = tick > reserveTickUpper[g];
     }
 
-    /// @notice Predict the address of a CauldronToken before deployment.
-    function predictTokenAddress(uint256 gen) external view returns (address) {
-        (string memory name, string memory symbol) = getCreatureForGeneration(gen);
-        bytes32 salt = bytes32(gen);
-
-        bytes memory bytecode = abi.encodePacked(
-            type(CauldronToken).creationCode,
-            abi.encode(name, symbol, gen, address(this), TOTAL_SUPPLY)
-        );
-
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode))
-        );
-
-        return address(uint160(uint256(hash)));
-    }
+    // NOTE: `getCreatureForGeneration` moved fully into the linked PoolOps library
+    // (`PoolOps.creatureFor`) to save registry EIP-170 bytecode — summon calls it
+    // directly, tests call the library. Relaunches (gen 2+) name from the BrewSpec.
+    // NOTE: `predictTokenAddress` (a frontend-convenience CREATE2 preview) was
+    // removed to reclaim EIP-170 headroom — it had zero on-chain/frontend callers.
+    // Token addresses are now non-deterministic by design (audit A-01); read the
+    // live address from `currentToken()` / the CauldronSummoned|Reborn events.
 }

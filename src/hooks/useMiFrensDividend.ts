@@ -140,7 +140,7 @@ export function useMiFrensDividend() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed } =
-    useWaitForTransactionReceipt({ hash: txHash });
+    useWaitForTransactionReceipt({ hash: txHash, chainId: CAULDRON.chainId });
 
   const [state, setState] = useState<DividendState>({
     ownedGenesis: [],

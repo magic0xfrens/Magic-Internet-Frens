@@ -1,0 +1,695 @@
+UNISWAP FOUNDATION - AUDIT SUBSIDY APPLICATION
+Magic Internet Frens / The Magic Internet Cauldron
+
+Paste each answer into its matching web form field.
+Replace anything in [SQUARE BRACKETS] before submitting.
+
+
+=====================================================================
+WHAT ARE YOU BUILDING AND WHY DOES IT MATTER?
+=====================================================================
+
+We're building the Magic Internet Cauldron, an autonomous, self-funding token machine built as a Uniswap v4 hook, where the hook IS the entire economic engine rather than a fee tweak bolted onto a normal pool.
+
+The one-line version: we are an ANTI-LAUNCHPAD. Instead of millions of random coins, one to rule them all.
+
+Every launchpad in the market competes on emission count. The dominant launchpad on Robinhood Chain minted over 12,000 new tokens in a single 24-hour window; the launchpad it displaced voluntarily shut off new launches after clearing an estimated $12M in fees, citing low-quality tokens flooding the platform. Almost all of those pools are dead within a week, and each one leaves permanently orphaned liquidity on the chain. We think that is the actual problem in this category, and that emitting more assets cannot solve it. So we emit exactly one, and we make it survive.
+
+One "iteration" token trades at a time in an ETH-paired v4 pool. There is no LP fee (POOL_FEE = 0); 100% of trading revenue is an ETH-denominated hook fee taken via return deltas and routed per-swap to four sinks: an NFT-holder dividend, a per-collection redemption floor, the iteration's proposer, and the reserve that funds the next launch. When a token's rolling 24-hour volume falls below a death threshold, anyone can permissionlessly trigger a relaunch: protocol-owned liquidity is recovered, a new token is deployed and seeded, and holders migrate 1:1 forever. The machine is designed to run indefinitely with no treasury top-up, because it is funded entirely by its own swap fees.
+
+Why it matters: the launchpad category today is a sequence of disposable, extractive events. A pool is created, insiders exit, liquidity dies, the contract is abandoned, and the next one starts from zero. We're testing whether v4 hooks can make that cycle accountable instead. Value that accrues during a launch is captured on-chain in ETH, held in protocol-owned liquidity, and converted into a redemption floor that holders can actually exit into, and into the seed capital for the next launch, so each generation inherits the last one's balance sheet rather than its wreckage. Holders of retired generations never lose their claim; they migrate 1:1 or redeem at a floor that only ratchets upward.
+
+Three things this demonstrates for v4 specifically:
+
+1. The fee model can be currency-chosen rather than currency-imposed. Return deltas let a protocol denominate 100% of revenue in ETH on both legs of a trade, which is impossible under an LP fee because LP fees always accrue in the input currency.
+
+2. Real leverage can live inside a swap. Our perpetuals open, close and liquidate through actual pool swaps. No external oracle, no synthetic book, real price impact, with liquidations swept opportunistically from afterSwap so any trade on any interface can trigger one and earn the keeper reward.
+
+3. Launch fairness can be structural. Liquidity streams into the pool progressively from inside afterSwap using core modifyLiquidity. It is keeperless, and un-frontrunnable because the deployed fraction is a pure function of elapsed time. In fork tests a block-0 whale receives roughly 8x fewer tokens for roughly 23x the price impact of a later buyer. That is anti-snipe by book shape, not by punitive tax.
+
+It matters to us that this is genuinely v4-native. None of the above is portable to v2 or v3. If it works, it is an argument that hooks change what a token launch is, not just what it costs.
+
+
+=====================================================================
+WHO ARE YOUR MAIN COMPETITORS, AND WHAT SETS YOU APART FROM THEM?
+=====================================================================
+
+First, the framing, because it determines who our competitors actually are. We are not a launchpad. We are the anti-launchpad. Every incumbent in this category competes on how MANY tokens it can emit; we compete on emitting exactly ONE, forever. Instead of millions of random coins, one to rule them all.
+
+That is not a slogan, it is the architecture. There is one live pool, one live token, one liquidity book, and one balance sheet. When a token dies, we do not launch another alongside it, we REBIRTH it: liquidity is recovered, holders migrate 1:1, and the lineage continues. Liquidity compounds across generations instead of fragmenting across thousands of orphaned pools.
+
+Pons / pons.family - the dominant launchpad on Robinhood Chain and the clearest illustration of what we are arguing against. It is a no-code, bonding-curve launchpad for fixed-supply tokens that graduate into locked Uniswap liquidity, funded by a fee-driven buyback-and-burn on $PONS. At its peak it minted 12,384 new tokens in a single 24-hour window, drove roughly $116M of 24-hour launchpad volume, and accounted for around 54% of all transactions on Robinhood Chain. It is, by any measure, extremely successful at the thing it does.
+
+But look at what it replaced. NOXA was the chain's largest launchpad until it voluntarily stopped accepting new launches on 11 July 2026, after clearing an estimated $12M in protocol fees, citing low-quality tokens flooding the platform. The category's own leading operator concluded that unbounded emission was the problem, and shut the tap off. That is the strongest possible statement of the thesis we are building on: emission volume is not the same as ecosystem value, and at 12,000 tokens a day, the marginal pool is a liability. Almost all of those pools are dead within a week, and every one of them is permanently orphaned liquidity sitting on the chain.
+
+We are the structural answer to that. Where Pons produces N tokens and lets N-1 of them die abandoned, we produce one token at a time and make its death an ACCOUNTED-FOR state transition: protocol-owned liquidity recovered, holders migrated 1:1, and a redemption floor that only ratchets upward. Their fee revenue buys back their platform token; ours buys back the floor under the token holders. They monetise the launch; we underwrite the exit.
+
+We also do not compete for the same volume. Pons's value to a chain is transaction count. Ours is depth: one pool that gets deeper every generation, and is worth routing through.
+
+Other direct v4 and launchpad comparables:
+
+Flaunch (v4 hook memecoin launchpad) - progressive bid wall plus fee revenue share to creators. Our closest neighbour technically. They optimise creator revenue; we optimise holder exit. Our fee funds a redemption floor and the next generation's liquidity, not a creator payout. And our launches are a single continuing lineage, not N independent tokens.
+
+Doppler / Whetstone - dynamic bonding-curve auctions on v4 for price discovery. Doppler solves initial price discovery. We solve what happens after volume dies: recovery of protocol-owned liquidity, 1:1 migration, and a floor that ratchets. Complementary rather than competing.
+
+Clanker - high-volume permissionless token deployment on Base, v3-era design. Volume-first, with no post-launch accountability layer. We are deliberately the opposite: one live token, a real balance sheet, an enforced exit.
+
+Panoptic, InfinityPools, and LP-derived leverage designs - their leverage is derived from LP positions; ours executes as real swaps against our own pool, so leverage and spot price are the same market. Liquidations are ordinary swaps, not a separate keeper network.
+
+pump.fun / Virtuals / hood.fun / RobinPad and the wider launchpad field - bonding-curve launchpads outside Uniswap's fee stack. Off-Uniswap economics that graduate into a DEX. Our economics live inside the pool for the token's whole life. Same anti-launchpad objection as Pons: they are optimised for issuance count, we are optimised for the survival of a single asset.
+
+What actually sets us apart, stated plainly:
+
+One token, forever. Every competitor in this list is a token FACTORY. We are a token. That single decision is what makes a redemption floor, 1:1 migration, protocol-owned liquidity recovery, and a hook-native perp market on our own book possible at all. None of them are available to a platform that emits thousands of assets it cannot underwrite.
+
+ETH-denominated fee on both legs. By construction the token side of every pool is a soon-to-be-retired asset; accruing revenue in it would strand that revenue at the next rebirth. This forces the return-delta design and is the single decision everything else follows from.
+
+A redemption floor that can only ratchet up. Recycling a creature routes ETH to the treasury, which buys back into the reserve, so the floor never falls. Redemption is an enforced exit, not a promise.
+
+Rebirth as a first-class primitive. Permissionless relaunch, 1:1 migration forever, protocol-owned liquidity recovered rather than abandoned. No competitor treats the death of a token as an accounted-for state transition.
+
+Hook-native perps with no oracle. Marks come from the engine's own on-chain TWAP ring; liquidations happen inside other people's swaps.
+
+Router-less swaps are a first-class path. A buy from the Uniswap interface or any aggregator, with no hookData and no router, is fully served: correctly charged, earns NFT-forging credit, and can trigger a liquidation. We designed for the aggregator case rather than requiring our own frontend.
+
+If you take one thing from this answer: the category's problem is not that launching a token is too hard, it is that launching a token is too easy and nobody owns what happens next. Pons proved the demand side at 12,000 tokens a day. NOXA proved the cost side by shutting down over it. We are the third answer, which is to stop counting launches and start compounding one.
+
+
+=====================================================================
+WHAT ARE YOUR KEY DISTRIBUTION CHANNELS, AND HOW WILL YOU ACQUIRE
+USERS?
+=====================================================================
+
+1. Aggregator- and interface-native by design. This is our most important channel. Most hook protocols require you to trade through their own router; ours does not. A swap arriving with empty hookData from the Uniswap interface, 1inch, Matcha, or any aggregator is charged correctly, accrues NFT-forging credit to the buyer rather than the router, and can trigger a perp liquidation. That means every aggregator is a distribution channel for us on day one, with no integration required. This was a deliberate architectural cost we paid up front.
+
+2. The existing MiFrens NFT holder base. The genesis MiFrens collection of 1,111 rares is the protocol's permanent dividend class. Every swap, on every generation, forever, pays them. That is a standing, self-interested constituency with a reason to bring volume. We funded an airdrop to the original 41 holders from a tax-exempt deployer allocation purchased at market, rather than by diluting anyone.
+
+3. The gacha and collectible loop. Buying the token forges NFTs in-swap via commit-reveal, with pity mechanics. Collectibles are the acquisition funnel and the retention loop at once, because trading is the mint. Liquidatoor trophy badges mint to whoever's swap triggers a liquidation, which turns routine trading into a collectible event.
+
+4. Relaunch as a recurring, permissionless marketing event. Every rebirth is a scheduled, community-governed, on-chain moment with a proposer fee slice, which is an economic incentive for someone other than us to organise attention around it. The lineage gives us a recurring news cycle instead of a single launch.
+
+5. Docs written for humans and for agents. Public docs at mifrens.xyz/#/docs with a machine-readable llms.txt, so LLM-driven research surfaces the protocol accurately. Cheap, and increasingly where discovery actually happens.
+
+6. Post-audit: routing and allowlist integration. Being routable through the Uniswap interface is a step-change in reachable users, and it is gated on exactly the audit this subsidy would fund. That is the honest sequencing: audit, then allowlist, then distribution.
+
+[FILL IN - add any of these you actually use: Farcaster and X handles, Discord or Telegram size, partner or KOL relationships, listing plans such as DexScreener, DexTools, CoinGecko, and current community size.]
+
+
+=====================================================================
+ARE YOU USING A CUSTOM ACCOUNTING APPROACH? DOES YOUR HOOK USE
+beforeSwapReturnDelta OR afterSwapReturnDelta?
+=====================================================================
+
+Yes, both.
+
+The hook declares:
+
+  afterInitialize:       true    (adopt only pools our registry created)
+  beforeSwap:            true    (charge the ETH fee on buys)
+  afterSwap:             true    (charge the ETH fee on sells)
+  beforeSwapReturnDelta: true
+  afterSwapReturnDelta:  true
+  all other permissions: false   (no initialize, donate, or liquidity callbacks)
+
+Encoded flag bits 0x10cc. The deployed address 0x31ee3436d96533e91874cda5dfc70cb521f750cc carries exactly those low bits and no others, verifiable with uint160(hook) & Hooks.ALL_HOOK_MASK. We hold no liquidity-callback or donate permissions, so the hook cannot interpose on modifyLiquidity or donate at all.
+
+Why both flags are load-bearing. The hook's economics require the fee to be denominated in ETH on every trade. In v4, the afterSwap return delta can only act on the unspecified currency. With currency0 as native ETH, the four quadrants are:
+
+  exact-in BUY  (zeroForOne, amt<0): specified ETH in,  unspecified token out - afterSwap could only charge in TOKEN (unusable)
+  exact-out BUY (zeroForOne, amt>0): specified token out, unspecified ETH in  - afterSwap could charge in ETH (usable)
+  exact-in SELL (!zeroForOne, amt<0): specified token in, unspecified ETH out - afterSwap could charge in ETH (usable)
+  exact-out SELL(!zeroForOne, amt>0): specified ETH out,  unspecified token in - afterSwap could only charge in TOKEN (unusable)
+
+The exact-input buy is the dominant trade and is what the Uniswap interface and every aggregator emit, and it has the token as its unspecified leg. Charging it in ETH therefore requires skimming the specified input in beforeSwap, which means beforeSwapReturnDelta. There is no alternative mechanism.
+
+afterSwapReturnDelta charges the sell side. Without it the hook cannot take value from a swap at all, because a poolManager.take() with no offsetting return delta leaves an unsettled negative delta and the unlock reverts with CurrencyNotSettled.
+
+We evaluated the delta-free alternative and rejected it on merit. A dynamic LP fee (DYNAMIC_FEE_FLAG plus a beforeSwap override) needs no delta flag, and our LP is protocol-owned so the fee would land in our own positions. We did not choose it, for three reasons:
+
+1. LP fees accrue in the input currency (Pool.sol: zeroForOne ? feeGrowthGlobal0 : feeGrowthGlobal1), so every sell would accrue the retiring token, which is exactly what the ETH-only fee exists to prevent.
+
+2. It would introduce a keeper. Our positions sit in the periphery PositionManager, which opens its own unlock and therefore cannot be harvested inside a swap. Per-swap routing would become a batch harvest.
+
+3. It would be JIT-extractable. We hold no liquidity-callback permissions, so LPing into our pools is permissionless. Under an LP fee a searcher could JIT a concentrated position around a large swap and capture the fee, including the launch surtax, inverting the mechanic it exists for. Under the delta model this is structurally impossible, because the hook takes the fee directly regardless of who provides liquidity.
+
+The delta flags make the hook safer, not less safe, and they are also precisely why we want a professional audit before mainnet routing.
+
+
+=====================================================================
+UNIQUE FEATURES OF YOUR HOOK AND THE COMPLEXITIES THEY INTRODUCE
+(EXECUTION FLOW, ACCOUNTING LOGIC, EDGE CASES, ARCHITECTURE)
+=====================================================================
+
+CUSTOM ACCOUNTING: FOUR CONTRACTS SETTLING IN ONE UNLOCK
+
+A single swap can involve four settling parties: the hook, the registry's liquidity library, the perp engine, and the progressive seeder. Each settles its own deltas in its own frame. Two details our internal audit specifically verified:
+
+- The legacy buyback settles the realised debit read from the returned delta, not the intended amount, so a binding price limit cannot leave a positive un-taken delta and revert the user's swap.
+- The perp engine switches to an in-place swap when it is already inside the lock, rather than re-entering unlock.
+
+Both are exactly the class of bug an auditor should be paid to hunt, and both are why we are applying.
+
+afterSwap DOES OPTIONAL WORK, AND NONE OF IT CAN BREAK A SWAP
+
+afterSwap may trigger a nested buyback swap, a seeder liquidity placement, a perp-liquidation sweep, and an NFT mint. Every one is invoked with a reserved gas budget and an ignored result:
+
+  uint256 g = gasleft();
+  if (g > LIQ_GAS_RESERVE + LIQ_GAS_MIN) {
+      perpEngine.call{gas: g - LIQ_GAS_RESERVE}(...);   // result ignored
+  }
+
+An optional step that runs out of gas or reverts is a silent no-op, and the parent swap always completes its fee take and returns. Reserves are held independently for the liquidation sweep, the gacha step, the buyback, and the seeder poke. Nested swaps are guarded by transient flags (_inSelfBuy, _inRelaunchClose) so they never re-enter fee logic or recurse. Gas work brought short-liquidation cost from 957k down to roughly 450k specifically so a normal-sized swap can afford to trigger one.
+
+POOL ADOPTION IS CLOSED
+
+v4 lets anyone initialise a pool naming any hook, so _afterInitialize is an untrusted entrypoint. We adopt a pool only if sender == registry AND currency0 is native ETH. A foreign pool naming this hook is declined rather than reverted, so we cannot be used to grief pool creation, and every value-moving path is gated on the adoption flag, meaning such a pool gets no fee logic, no accounting and no spending. This was a Critical finding in our own review, C-01, now fixed with regression tests.
+
+FEE BOUNDS, INCLUDING THE ONE THAT DESERVES SCRUTINY
+
+  Base hook fee:   300 bps (3%), governance-tunable, hard-capped at MAX_TAX_BPS = 1000 (10%)
+  Launch surtax:   up to 9,600 bps. Time-decaying anti-snipe, linear decay to ZERO across
+                   snipeWindowBlocks (default 30 blocks). Routed 100% to NFT holders.
+  Absolute clamp:  9,900 bps (MAX_TOTAL_FEE_BPS). A swap always retains at least 1%,
+                   so it can never return zero.
+  LP fee tier:     0. Traders pay the hook fee only; there is no stacked LP fee.
+
+We flag the surtax explicitly because a hook that can take 99% of a swap deserves a second look. It exists only in the opening minutes of a freshly summoned pool, decays deterministically to zero, is bounded by an immutable constant ceiling, and is paid to token holders rather than to us. Steady state is 3%.
+
+DISCLOSED INTEGRATION DEFECT: EXACT-OUTPUT SELLS CURRENTLY REVERT
+
+_beforeSwap reverts with ExactOutSellUnsupported for the (amountSpecified > 0, !zeroForOne) quadrant. The reason is the quadrant table above: the unspecified leg there is the token, so v4's return-delta mechanism physically cannot take an ETH fee. The prior behaviour served that quadrant for free, which was a measured fee bypass (0 wei versus 4.24e15 wei on the identical exact-input sell) that also accrued crystal credit and lifetime volume. We now refuse it rather than serve it free.
+
+We accept that reverting a whole quadrant is a poor router citizen, and it is the one item we consider a genuine integration defect rather than a trade-off. Because the specified currency in that quadrant IS ETH, the fee can be taken via beforeSwapReturnDelta on the specified side, which we already hold, so the fix requires no additional permission and no address re-mine. It is scheduled into the pre-audit freeze. Every other quadrant is served today.
+
+NOT UPGRADEABLE, AND THE CUSTODY POWER WE ARE DISCLOSING ANYWAY
+
+The hook is a plain contract. No proxy, no delegatecall in the hook, no admin that can replace its code. Three things could superficially read as upgradeability:
+
+1. Policy modules (IDeathChecker, ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter). Each is a view that returns a number. It never custodies or moves funds, its output is clamped to the same immutable ceilings as the built-in rule, and a reverting module falls back to the built-in rule. IFeeRouter returns amounts only; the hook performs the sends, and a split that does not sum exactly to the fee is discarded in favour of the built-in split.
+
+2. Controller pointer. setRegistry is one-shot. Replacing it requires proposeRegistryOverride, then a REGISTRY_SWAP_DELAY of 7 days declared as a constant so the owner cannot shorten their own notice period, then executeRegistryOverride, which flushes the accrued fee reserve to the outgoing controller first so a swap cannot capture ETH the previous controller accrued.
+
+3. Ownership. The hook is owned by an OpenZeppelin TimelockController, an audited standard chosen specifically to avoid an upgradeable proxy on the money path. Every parameter change is schedule, wait, execute.
+
+Break-glass, stated in full. emergencyWithdrawLP and emergencySweep on the registry can remove a generation's protocol-owned liquidity. Four things bound it: the emergency admin is immutable, set in the constructor with no setter, and it is the governance timelock; actions are announced on-chain and delayed; an independent guardian can veto during that window and can only ever cancel, never propose or move funds; and arming forces the redemption exit open, so it cannot be used to trap holders ahead of a custody move. Governance cannot mint tokens, freeze balances, pause transfers, touch any token or NFT held in a user's wallet, or shorten its own delays. None of this is reachable from the hook. These are registry functions over protocol-owned liquidity and cannot affect swap execution, settlement, or any routed trade.
+
+hookData IS OPTIONAL ON EVERY PATH
+
+An empty hookData is a designed-for case, not a degraded one. Fee tier falls back to sender. NFT credit falls back to tx.origin, which is deliberate and documented, because crediting sender would send the NFT to the router instead of the buyer; ERC-4337 users should route through a tagging opener, and creditUntaggedSwaps can disable the path entirely. Fee exemption requires isOpener[sender], an explicit allowlist, so an arbitrary caller cannot tag an exempt address and dodge the fee.
+
+KNOWN ARCHITECTURAL CONSTRAINT
+
+The hook sits 88 bytes below the EIP-170 limit. We have already done one facet split, a shared-storage base plus a delegatecall RedemptionExt facet with byte-identical storage layouts verified mechanically across 53 entries, to reclaim 3.4KB. This is a process constraint on the audit: scope should be frozen before review, because we cannot absorb large remediation diffs into the hook without another extraction. We would rather the auditor know this on day one.
+
+
+=====================================================================
+PLEASE EXPLAIN THE TECH OF YOUR UNISWAP PRODUCT / INTEGRATION,
+FIRST IN ELI5, THEN IN TECHNICAL DEPTH
+=====================================================================
+
+ELI5
+
+Imagine a cauldron that brews one magic coin at a time.
+
+Every time someone buys or sells that coin, the cauldron takes a small pinch of ETH, never the coin itself, because the coin is temporary and the ETH is not. That ETH goes four places: to the people holding the original NFTs, forever; into a floor fund that guarantees you can always sell your coin back for a real price; to whoever proposed the current brew; and into a savings pot for the next brew.
+
+When a coin stops being traded, and the cauldron watches this itself, on-chain, anybody can ring the bell. The old coin's liquidity is pulled back out, a brand-new coin is brewed with it, and everyone who held the old coin swaps 1:1 into the new one. Nobody gets left holding a dead bag. That is the whole point.
+
+Along the way, buying the coin randomly forges collectible creatures, like a gacha machine built into the trade itself. And you can take leveraged bets on the coin using the same pool everyone else trades in, so your bet actually moves the price, and when someone gets liquidated it happens inside somebody else's ordinary trade.
+
+The clever part is that all of this lives inside Uniswap itself, in a piece of code called a hook, instead of in a separate app bolted on the side.
+
+TECHNICAL DEPTH
+
+Architecture. Around 30 Solidity files, roughly 10,200 raw lines and 5,400 nSLOC:
+
+  CauldronHook.sol (1,863 lines) - the v4 hook. Fee engine, volume and death oracle,
+      crystal accrual, gacha trigger, liquidation sweep, buyback, seeder poke.
+      Permissions 0x10cc.
+  CauldronRegistry.sol (1,468) plus CauldronBase.sol and RedemptionExt.sol - the
+      orchestrator. summon() genesis, permissionless relaunch(), 1:1 claimTokens(gen),
+      redemption, protocol-owned-liquidity management. Facet-split for EIP-170 with a
+      mechanically verified identical storage layout.
+  PerpEngine.sol (1,404) plus PerpVault.sol and PerpStakerOracle.sol - hook-native
+      longs and shorts.
+  PoolOps.sol (821) - v4 liquidity operations, token deployment, Permit2 plumbing.
+  CauldronSeeder.sol (484) plus SeedLib.sol - progressive in-swap liquidity streaming.
+  MiFrensGenesis.sol (612), CauldronCollection.sol, MiFrensDividend.sol,
+      CauldronGachaRouter.sol - the NFT and dividend layer. ERC-721C, EIP-2981
+      royalties routed to the genesis dividend.
+  CauldronGovernor.sol, MigrationVesting.sol, CollectionLedger.sol, ReserveLib.sol,
+      DefaultFeeRouter.sol, CauldronToken.sol (fixed-supply, non-mintable,
+      non-freezable).
+
+Swap execution flow:
+
+  beforeSwap
+    - self-buy or relaunch-close flag set?     -> zero delta, no fee
+    - pool not adopted (_served)?              -> zero delta, no fee
+    - exact-out SELL quadrant?                 -> revert ExactOutSellUnsupported
+    - not an exact-input ETH-in buy?           -> zero delta (afterSwap handles it)
+    - fee-exempt opener?                       -> zero delta
+    - otherwise skim the ETH fee off the specified input
+        -> toBeforeSwapDelta(int128(fee), 0), so only (amountIn - fee) is swapped
+
+  afterSwap
+    - self-buy or relaunch-close?              -> no-op
+    - pool not adopted?                        -> no-op
+    - maybe legacy buyback        (gas-reserved, result ignored)
+    - maybe seeder poke           (gas-reserved, result ignored)
+    - volume accounting -> 24h rolling window -> isDead() oracle
+    - crystal credit -> buyer (hookData tag, else tx.origin), buy/sell weighted
+    - maybe perp liquidation sweep (gas-reserved, result ignored)
+    - maybe gacha forge, commit-reveal (gas-reserved)
+    - on SELLs, take the ETH fee via afterSwapReturnDelta
+
+  fee routing, per swap, ETH-denominated
+    - proposerBps -> proposerOwed[proposer]  (PULL, never push - reentrancy fix A-01)
+    - guildBps    -> genesis MiFrens dividend
+    - floorBps    -> the active brew's floor vault
+    - remainder   -> relaunchETH reserve, which funds the next generation
+
+Perpetuals. Opens, closes and liquidations are real pool swaps against the same pool as spot, so leverage carries genuine price impact and there is no basis between a perp price and the market. Liquidation marks come from the engine's own on-chain TWAP ring, OBS_CARDINALITY = 32. Underwater positions are swept opportunistically from afterSwap under a gas reserve, so any swap on any interface can trigger a liquidation and earn the keeper reward, keeperBps = 145, roughly 0.1% of collateral. MAX_OPEN_POSITIONS = 64 bounds force-close work. A frontend guard prevents opening a position that would be born underwater against the TWAP.
+
+Progressive seeding. Launch liquidity streams into the pool over a configurable window via core modifyLiquidity, called from afterSwap. It is keeperless, with a permissionless poke() fallback and a governance kill-switch, hook.setSeeder(0). The deployed fraction is a pure function of elapsed time, so it cannot be frontrun. Fork-measured: a block-0 whale gets roughly 8x fewer tokens for roughly 23x the price impact of a later buyer.
+
+The floor. A recycle-ratchet. Recycling a creature routes ETH to the treasury, which buys back into the reserve, growing it, so the floor only rises. The reserve is a single-sided out-of-range band, and a CollectionLedger provides O(1) accounting so every collection, not just genesis, has a self-funded floor.
+
+Migration. 1:1 or it reverts. MigrationVesting drips old-to-new-generation claims linearly, governance-settable and bounded between 1 hour and 14 days, with perp stakers exempt, enforced by a registry claim gate.
+
+
+=====================================================================
+HOW WILL YOUR PROJECT BENEFIT THE UNISWAP ECOSYSTEM?
+=====================================================================
+
+1. It routes 100% of a token's lifetime volume through v4, permanently. There is no bonding curve, no graduation, no separate venue. Spot trading, leverage, liquidations, launch seeding, buybacks, redemption and rebirth are all v4 swaps and modifyLiquidity calls against the PoolManager. Every mechanic we add is v4 volume.
+
+2. It is a worked reference implementation of return-delta accounting. We wrote a public derivation of why the exact-input-buy quadrant forces beforeSwapReturnDelta if you want ETH-denominated fees, why the dynamic-LP-fee alternative is JIT-extractable when you hold no liquidity permissions, and why exact-output sells are structurally unservable in an ETH-fee-only design. We found a measured fee bypass in our own hook from exactly this asymmetry, finding Z-01. That table and that bug class generalise to every hook that wants single-currency fees. It is a mistake other teams will make, and we have written it up publicly so they do not have to.
+
+3. Adversarial findings we are publishing back. Our internal red-team produced findings we believe are ecosystem-relevant beyond us: a CREATE2 token-squat on deterministic per-generation token deployment, Critical, fixed by moving to plain CREATE; stale-lastTick TWAP poisoning in in-hook oracles, High; the _afterInitialize untrusted-adoption pattern, Critical, since anyone can initialise a pool naming your hook; and delta-settlement failures when multiple contracts settle inside one unlock. Exploit proofs-of-concept live in test/attacks/ with written reports. Whatever a professional audit adds, we will publish too.
+
+4. Aggregator-friendly hook behaviour as a norm. We treat the router-less, empty-hookData swap as the primary case, not the fallback. That is the behaviour the ecosystem needs hooks to have if v4 liquidity is going to be routable by default, and we are trying to demonstrate it is achievable without giving up hook-native mechanics.
+
+5. Composability we cannot reach without an audit. Being routable through the Uniswap interface, being safely aggregated, and being integrated by third parties are all downstream of a professional review. The subsidy converts a self-audited testnet system into ecosystem-usable liquidity.
+
+6. A new fee-recycling primitive. ETH-denominated, protocol-owned, recycled into protocol-owned liquidity and an enforced floor. If it works, it is an alternative to the extract-and-abandon launch pattern that currently produces most of the dead pools on every chain.
+
+
+=====================================================================
+DOES YOUR PROJECT INTERACT WITH OTHER DEFI PROTOCOLS, AND IF SO, HOW?
+=====================================================================
+
+Deliberately, our external surface is narrow. The fewer external dependencies on the money path, the smaller the audit and the fewer the trust assumptions.
+
+Uniswap v4, our core dependency:
+- PoolManager: initialize, swap, modifyLiquidity, take and settle. The seeder and perp engine call core modifyLiquidity and swap directly from inside a lock; the registry uses periphery for protocol-owned liquidity.
+- PositionManager (v4-periphery): protocol-owned liquidity positions. A V2 handoff is designed as a position-NFT ownership transfer rather than a teardown, so price and liquidity are untouched across an upgrade.
+- Permit2: required by periphery's _pay, which pulls ERC-20s via Permit2 rather than a plain approve. The registry approves Permit2 and grants the PositionManager an allowance before modifyLiquidities. Without this, summon() and relaunch() revert on real v4.
+
+OpenZeppelin:
+- TimelockController owns the hook and the perp engine, and is the registry's immutable emergency admin. Chosen specifically to avoid an upgradeable proxy on the money path.
+- Standard ERC-20, ERC-721, Ownable and ReentrancyGuard primitives.
+
+Token standards:
+- ERC-721C creator tokens with a settable transferValidator, and EIP-2981 royalties at 500 bps routed to the genesis MiFrens dividend, so secondary NFT sales also pay the OG holder class.
+
+What we explicitly do not do:
+- No external price oracle, Chainlink, Pyth or otherwise. Perp marks come from our own on-chain TWAP ring.
+- No lending market, no yield aggregator, no bridge, no external staking protocol, no rehypothecation. Perp collateral sits in our own vault.
+- No external liquidity venue. We are a single-venue protocol by design.
+
+The audit scope is therefore almost entirely first-party code plus the v4 integration surface, which is where the actual risk is.
+
+
+=====================================================================
+WHAT IS YOUR EXPECTED TIMELINE TO DEPLOY ON UNICHAIN?
+=====================================================================
+
+Target: within 30 days of audit completion, committed no later than [FILL IN - suggest 60 days post-audit].
+
+Reasoning, stated honestly:
+
+The contracts are chain-portable today. The only chain-specific dependencies are the v4 PoolManager, PositionManager and Permit2 addresses, which are env-driven in DeployLaunchpad.s.sol, and the hook's CREATE2-mined address, which we re-mine per chain via vendor/HookMiner.sol. There is no chain-specific business logic.
+
+Our frontend is already a one-environment-variable network switch, with ACTIVE_CHAIN as the single source of truth, so adding Unichain is a config change plus a round manifest, not a rewrite.
+
+Two chain-semantics items must be re-verified on Unichain before launch, and we will not skip them. First, blockhash and prevrandao quality for the commit-reveal gacha, since this is documented as insecure on some L2s and we gate the feature on verification. Second, block.timestamp granularity and block.number semantics, which feed the TWAP window and the 24-hour death clock. We have a written review of exactly these issues for our other L2 target and will repeat it for Unichain.
+
+The blocker is not engineering, it is assurance. We are not putting a hook with beforeSwapReturnDelta and afterSwapReturnDelta and a leverage engine onto a production chain without a professional audit. That is precisely what this application is for.
+
+Concrete plan: freeze scope, audit, remediate, re-run the full suite including live-v4 fork tests against Unichain, deploy, summon generation 1 with progressive seeding, then cut over the indexer and frontend.
+
+
+=====================================================================
+PLEASE LIST ALL THE OTHER BLOCKCHAINS YOU PLAN TO DEPLOY ON, ALONG
+WITH THE ANTICIPATED TIMELINE FOR EACH DEPLOYMENT
+=====================================================================
+
+Ethereum Sepolia - LIVE TODAY. The full system is deployed and exercised: genesis summon with green-candle and prime buy, progressive seeding, snipe probes, perp long and short open and close, indexer and floor tracking verified end to end. This is our continuous integration environment. Live now, maintained indefinitely.
+
+Unichain - primary production target for this application. Within 30 days of audit completion.
+
+Ethereum mainnet - the blockhash-derived randomness is soundest here, and it is the natural home for the genesis NFT class. [FILL IN - suggest Q1 2027, or "concurrent with Unichain" if that is the intent.]
+
+Robinhood Chain (Arbitrum Orbit L2, chainId 4663) - secondary L2 target, and the chain where our thesis has the sharpest contrast. It is currently the most launchpad-saturated chain in the market, with roughly 15 launchpads arriving in three weeks and a single one accounting for around 54% of all network transactions. It is the best possible proving ground for an anti-launchpad. Uniswap Labs' own Pools Trade launched there in August 2026, so the v4 surface we depend on is already present. Our frontend already supports the chain behind VITE_NETWORK, and a written L2-semantics review exists in ROBINHOOD_L2_REVIEW.md covering prevrandao = 1 grindability, sub-minute block.timestamp noise, and block.number equals L1 drift on the death clock. [FILL IN - post-audit, suggest 60 to 90 days after Unichain.]
+
+Base and Arbitrum - under consideration only, contingent on where v4 liquidity and users actually are after the Unichain launch. Not committed.
+
+We would rather list four chains we will actually ship than ten we will not. Unichain is the deployment this audit is for.
+
+
+=====================================================================
+FOR EACH KEY TEAM MEMBER: NAME AND ROLE, BRIEF BIO, RELEVANT
+EXPERIENCE IN DEFI / BLOCKCHAIN, PREVIOUS SUCCESSFUL PROJECTS
+=====================================================================
+
+[FILL IN - this entire section. Reviewers weight it heavily. Structure below;
+replace the bracketed content. If you are pseudonymous, say so explicitly and
+lean on verifiable on-chain and repository evidence. Grant reviewers accept
+pseudonymity far more readily than vagueness.]
+
+[NAME OR PSEUDONYM] - Founder, Protocol and Smart Contract Lead
+
+Bio: [FILL IN - two or three sentences. Background, what you did before, why you are building this.]
+
+DeFi and blockchain experience: [FILL IN - years, specific protocols, Solidity and Foundry depth, prior audits participated in or received.]
+
+Previous successful projects: [FILL IN - with links. If none, say so plainly and point at this codebase instead.]
+
+Verifiable evidence for this project:
+- Sole author of roughly 10,200 lines of production Solidity across 30 contracts, plus roughly 14,000 lines of tests: 360 test functions across 50 test files, including handler-driven invariants and fork tests that drive live Uniswap v4 rather than a mock.
+- Authored two full internal audit reports, MagicFrens_Independent_Audit_2026-09.pdf and CauldronAudit.pdf, and two adversarial red-team exploit reports with working proofs of concept, test/attacks/EXPLOIT_REPORT.md and EXPLOIT_REPORT_PASS3.md.
+- 31 or more full deploy rounds on Sepolia with a complete lifecycle exercised live: summon, trade, progressive seed, perp open and close, relaunch, 1:1 migration.
+- Live indexer built on Ponder, frontend, and staleness-guard infrastructure in production.
+
+[Additional team members - repeat the block above, or delete if solo. If solo, state it directly. "Solo builder" is credible; a fabricated team is not.]
+
+
+=====================================================================
+DID YOU, AS A TEAM, ALREADY DEVELOP PREVIOUS BLOCKCHAIN / DEFI
+PROJECTS?  (YES / NO)
+=====================================================================
+
+[FILL IN - answer Yes or No honestly.]
+
+If No, the honest and still-strong answer is:
+
+No prior shipped DeFi protocol under this team. The Cauldron is our first, and we have compensated for that by over-investing in assurance rather than by claiming a track record: 31 full deploy rounds on Sepolia, two complete self-authored audit reports, two adversarial red-team passes with working exploit proofs of concept, 360 tests including handler-driven invariants at 128,000 calls each and fork tests against live Uniswap v4, and a public brief that discloses our own unfixed integration defect and our own break-glass custody power before anyone asks. We would rather be judged on that than on a resume.
+
+
+=====================================================================
+PLEASE PROVIDE MORE INFORMATION ON THIS PREVIOUS WORK
+=====================================================================
+
+[FILL IN - if the answer above is Yes, list each prior project with what it was,
+your role, links to repo, contract addresses or site, outcome, and any audit
+history. If the answer is No, paste the paragraph above and add the following.]
+
+Within this project, the work already completed and independently verifiable:
+
+MagicFrens_Independent_Audit_2026-09.pdf - a from-scratch review of all roughly 9,200 lines, conducted against the intended deployment target and deriving findings solely from source. No critical findings outstanding. Every Medium and Low was either fixed with a regression test that fails against the pre-fix bytecode, or disclosed with remediation.
+
+An earlier full audit round - 33 findings across 9,167 lines, all fixed with regressions, including 4 Critical: the CREATE2 token squat, untrusted hook adoption, and an nftSupply freeze.
+
+Three adversarial red-team passes with exploit proofs of concept in test/attacks/: CREATE2 squat, stale-tick TWAP poisoning, force-close dust-spam denial of service, exact-output-sell fee bypass, governance lockout, L2 block-clock drift, reserve-ceiling breach, and depth-cap manipulation.
+
+A full gas audit - short-liquidation cost reduced from 957k to roughly 450k so ordinary swaps can afford to trigger a liquidation.
+
+MagicFrens_Uniswap_Hook_Allowlist_Brief.pdf - a public, self-critical technical brief written for Uniswap reviewers, disclosing our own defects.
+
+
+=====================================================================
+WHERE IS YOUR TEAM PRIMARILY BASED?
+=====================================================================
+
+[FILL IN - country or region. If distributed or pseudonymous, state that.
+"Distributed / remote" or "Pseudonymous, primarily [region] timezone" are both
+acceptable answers.]
+
+
+=====================================================================
+CONFIRMATION
+=====================================================================
+
+I understand that the audit must begin within 30 days of subsidy approval, and if the subsidy does not cover 100% of the audit cost, I will cover the remaining amount. CONFIRMED.
+
+
+=====================================================================
+WHEN DID YOU LAUNCH / EXPECT TO LAUNCH?
+=====================================================================
+
+10/10/2026 - public mainnet launch on Unichain, conditional on audit completion and remediation.
+
+The system has been continuously live on Ethereum Sepolia through 31 or more deploy rounds, with a full lifecycle exercised on-chain: genesis summon, progressive-seeded launch, real trading, perp opens, closes and liquidations, permissionless relaunch, and 1:1 migration. The 10/10/2026 date is the production launch. The protocol itself is not pre-product.
+
+
+=====================================================================
+PLEASE PROVIDE INFORMATION ON YOUR DEVELOPMENT MILESTONES AND TIMELINE
+=====================================================================
+
+COMPLETED
+
+- v4 hook fee engine, ETH-denominated with both return deltas, volume and death oracle, permissionless relaunch, 1:1 migration. Live on Sepolia.
+- Fixed-supply, non-mintable, non-freezable iteration token. Done.
+- Genesis NFT layer: ERC-721C plus EIP-2981 royalties routed to a holder dividend, in-swap commit-reveal gacha with pity. Live.
+- Hook-native perpetuals: longs and shorts as real pool swaps, own TWAP ring, in-afterSwap liquidation sweep, Liquidatoor trophy badges. Live on Sepolia, open and close validated on-chain.
+- Recycle-ratchet redemption floor plus CollectionLedger O(1) per-collection floor accounting. Live, ratchet proven on-chain.
+- Timelock governance, IFeeRouter, guardian veto, forced-exit-on-arm. Done.
+- EIP-170 facet split: shared base plus RedemptionExt, storage layout mechanically verified across 53 entries. Done.
+- Progressive in-swap seeding via core modifyLiquidity, keeperless with a permissionless poke() fallback. Live, anti-snipe fork-proven at roughly 8x fewer tokens and 23x impact for a block-0 whale.
+- MigrationVesting: linear old-to-new drip, bounded 1 hour to 14 days, staker-exempt, registry claim gate. Built and fork-tested.
+- V2-ready governed pointer swap: position-NFT handoff with no LP teardown, exit guarantee, guardian veto. Built and fork-tested.
+- Four internal audit rounds plus three adversarial red-team passes, all findings fixed with regressions. Done.
+- Gas audit, short liquidation 957k to roughly 450k. Done.
+- Indexer built on Ponder, staleness guard, live frontend. In production.
+- 360 tests across 50 suites: unit, fuzz, handler invariants at 128,000 calls each, live-v4 fork tests. All passing.
+
+REMAINING, TO AUDIT AND LAUNCH
+
+1. Fix the exact-output-sell quadrant via beforeSwapReturnDelta on the specified side. No new permission, no address re-mine. Target: [FILL IN - 2 weeks from approval].
+2. Unichain chain-semantics verification: prevrandao and blockhash quality for gacha, block.timestamp granularity for the TWAP window, block.number semantics for the 24-hour death clock. Target: [FILL IN].
+3. Scope freeze, no further contract changes. Target: [FILL IN].
+4. Professional audit, this subsidy. Begins within 30 days of approval.
+5. Remediation, regression tests that fail against pre-fix bytecode, and a full re-run including fork tests. Two to three weeks post-report.
+6. Unichain deployment, hook address re-mine, genesis summon with progressive seeding. Within 30 days of audit completion.
+7. Indexer and frontend cutover, public launch. 10/10/2026.
+8. Post-launch: Uniswap interface allowlist and routing integration. Post-audit.
+
+
+=====================================================================
+IS YOUR PROJECT LIVE ON MAINNET?  (YES / NO)
+=====================================================================
+
+NO.
+
+Live on Ethereum Sepolia, chainId 11155111, through 31 or more deploy rounds, with the full lifecycle exercised on-chain. Current pinned round:
+
+  Hook            0x31ee3436d96533e91874cda5dfc70cb521f750cc
+  Registry        0x6629a99fbb485c36ee63eb1190486660234611b8
+  Perp engine     0x330493674b6038ae7aa5627ebbb1adb9929a9b53
+  Timelock owner  0x872996d5f14268972aa776e220a9241908073350
+  v4 PoolManager  0xE03A1074c86CFeDd5C142C4F04F1a1536e203543
+  Live pool ID    0x9b2457a9fec9c0894bd389f510e690526fe6fbbfd9a1b8fa56e6fcf878d69a8c
+
+A newer round carrying the facet split and progressive seeding is also deployed on Sepolia. [FILL IN - confirm which round you want cited as the audit-scope deployment before submitting. The manifest at indexer/deployments/round.json currently pins r31.]
+
+Going to mainnet without a professional audit is the thing we are specifically refusing to do.
+
+
+=====================================================================
+TOTAL VALUE LOCKED (TVL) - SIX MONTHS AFTER LAUNCH
+=====================================================================
+
+Framing note: our TVL is structurally protocol-owned. There is no third-party LP incentive program, because the protocol owns its liquidity and funds it from its own fees. So our TVL measures retained protocol revenue, not mercenary deposits, and it is far stickier than an incentivised pool's.
+
+                                          Bear      Base      Bull
+  Protocol-owned liquidity (live gen)     $150k     $600k     $2.5M
+  Redemption reserve / floor              $60k      $250k     $1.1M
+  Perp vault collateral (ETH + token)     $40k      $200k     $900k
+  Relaunch reserve (next-gen seed)        $25k      $110k     $500k
+  TOTAL TVL                               ~$275k    ~$1.16M   ~$5.0M
+
+Reasoning: protocol-owned liquidity grows as a fixed fraction of cumulative fee revenue. At a 3% steady-state fee with floorBps plus reserve routing, roughly 60 to 70% of every fee is retained as TVL rather than distributed. The base case implies roughly $1.5M to $2M cumulative volume over six months, which is modest for a v4 launchpad and consistent with a single-token-at-a-time design that deliberately does not fragment liquidity across many pools. The floor component is monotonic by construction, because the recycle-ratchet means it can only increase.
+
+[FILL IN - sanity-check against your own expectations. Reviewers respect
+conservative-and-reasoned over optimistic-and-round. If you would rather be more
+conservative, lower these. Do not raise them.]
+
+
+=====================================================================
+UNIQUE MONTHLY ACTIVE USERS (MAUs) - SIX MONTHS AFTER LAUNCH
+=====================================================================
+
+                                          Bear      Base      Bull
+  Unique addresses transacting / month     400      2,500     12,000
+
+Reasoning: the base case anchors on the existing genesis NFT holder class as a committed core in the hundreds, multiplied by the gacha and collectible loop, which historically converts traders into repeat traders because the trade is the mint. Because router-less aggregator swaps are fully served, our addressable users are everyone who can reach a v4 pool, not just visitors to our frontend. The bull case assumes one relaunch cycle achieves organic attention.
+
+
+=====================================================================
+MONTHLY TRANSACTIONS COUNT - SIX MONTHS AFTER LAUNCH
+=====================================================================
+
+                                          Bear      Base      Bull
+  On-chain transactions / month           3,000     22,000    110,000
+
+Reasoning: our per-user transaction intensity is structurally high, because a single active user generates spot swaps, perp opens and closes, gacha commits and reveals, NFT redemptions, and migration claims. The base case is roughly 9 transactions per MAU per month, which is conservative for a protocol where trading, minting and leverage share one venue. Liquidations and seeder pokes ride inside existing swaps rather than adding transactions, which is a deliberate design choice that lowers this number while raising per-transaction value to the chain.
+
+
+=====================================================================
+HOW MANY LINES OF CODE WILL NEED TO BE AUDITED?
+=====================================================================
+
+Roughly 10,200 raw lines, or roughly 5,400 nSLOC, across 30 first-party Solidity files.
+
+  CauldronHook.sol (the v4 hook)                          1,863
+  CauldronRegistry.sol                                    1,468
+  PerpEngine.sol                                          1,404
+  PoolOps.sol (v4 liquidity ops, token deploy, Permit2)     821
+  MiFrensGenesis.sol                                        612
+  CauldronSeeder.sol                                        484
+  CauldronGachaRouter.sol                                   369
+  CauldronCollection.sol                                    357
+  CauldronGovernor.sol                                      334
+  PerpVault.sol                                             326
+  CauldronBase.sol                                          316
+  MigrationVesting.sol                                      307
+  MiFrensDividend.sol                                       279
+  RedemptionExt, CollectionLedger, SeedLib, ReserveLib,
+  CauldronVault, LaunchSniper, CauldronFactory,
+  CauldronToken, PerpStakerOracle, DefaultFeeRouter,
+  RoyaltyRouter                                          ~1,000 combined
+  Interfaces (ICauldron, IPolicies, ISeeder,
+  ICreatorToken, IDeathChecker, ILiquidatorMintable)        228
+
+Notes for scoping the quote:
+
+The codebase is heavily commented. nSLOC is roughly 53% of raw lines, because security-relevant decisions are documented inline with their finding IDs. This should make review faster, not slower.
+
+Excluded from scope: lib/ (Uniswap v4, OpenZeppelin, forge-std), vendor/ (BaseHook.sol, HookMiner.sol), deploy/ scripts, and test/ (a further 14,000 lines).
+
+The NFT render layer, render/, 536 lines, can be included or excluded at the auditor's discretion. It does not touch the swap path.
+
+A minimal-scope option exists if budget is the constraint: hook, registry, PoolOps, PerpEngine and CauldronSeeder together are roughly 6,040 raw lines, or 3,200 nSLOC, and cover every contract that can settle a v4 delta or move ETH inside a swap.
+
+
+=====================================================================
+LATEST DATE (DD/MM/YYYY) BY WHICH THE SCOPED SMART CONTRACTS WILL BE
+FINALIZED AND READY FOR AUDIT
+=====================================================================
+
+[FILL IN - DD/MM/YYYY. Suggested 15/10/2026, but set this yourself and set it
+late enough to be true. The form warns that overrunning it can revoke the
+subsidy.]
+
+Work remaining before freeze is small and enumerated in the milestones section: the exact-output-sell fix, which requires no new permission and no address re-mine, and Unichain chain-semantics verification for blockhash, prevrandao and block-clock behaviour. Everything else, meaning all features, all internal audits and all red-team passes, is complete and tested. We would rather freeze early and hand the auditor a stationary target than keep shipping into the review window, and the EIP-170 headroom situation makes a stable scope genuinely important to both sides.
+
+
+=====================================================================
+HOW IS YOUR PROJECT CURRENTLY FUNDED: BOOTSTRAPPED, VENTURE CAPITAL,
+PUBLIC SALES, GRANTS, OR OTHER SOURCES?
+=====================================================================
+
+[FILL IN - verify before submitting. The draft below assumes bootstrapped and
+self-funded, which matches the repository history. Correct it if wrong.]
+
+Bootstrapped and self-funded. No venture capital, no private round, no public token sale of the protocol token, no pre-seed.
+
+Development, deployment costs across 31 or more Sepolia rounds, and infrastructure including indexer hosting, RPC and frontend have been funded personally by the founder. [FILL IN - approximate amount invested to date, if you are comfortable stating it.]
+
+The protocol is architected to be self-funding after launch. 100% of trading revenue is captured on-chain in ETH and routed to the holder dividend, the redemption floor, the iteration proposer, and the next generation's seed reserve. There is no ongoing operational funding requirement, because the machine pays for its own liquidity.
+
+On distribution fairness: the OG holder airdrop was funded by a tax-exempt deployer allocation purchased at market, not by minting and not by diluting holders. The genesis NFT class earns from every swap on every generation, permanently. That is the founding constituency's compensation, and it is on-chain rather than promised.
+
+[FILL IN - if a genesis NFT presale raised funds, disclose the amount and what it
+funded. Reviewers will find MagicFrensPresale.sol in the repository, so disclose
+it rather than omit it.]
+
+
+=====================================================================
+PLEASE PROVIDE INFORMATION ON THE GRANTS OR SUBSIDIES YOU RECEIVED
+=====================================================================
+
+[FILL IN - verify. Draft assumes none.]
+
+None to date. We have not received any grant, subsidy, or ecosystem funding from any source, including the Uniswap Foundation.
+
+This is our first grant application of any kind. [FILL IN - if you have any pending applications elsewhere, disclose them here. Overlapping funding is a normal thing to declare and a bad thing to be caught omitting.]
+
+
+=====================================================================
+WHY DOES YOUR PROJECT DESERVE THIS SUBSIDY, AND HOW WILL THE
+SUBSIDIZED AUDIT CONTRIBUTE TO ITS SUCCESS?
+=====================================================================
+
+Why this project.
+
+We are a bootstrapped team asking for the one thing money genuinely cannot substitute for: adversarial review by people who are not us. We have done everything we can do ourselves. Four internal audit rounds. Three adversarial red-team passes with working exploit proofs of concept. 360 tests including handler-driven invariants at 128,000 calls each and fork tests that drive live Uniswap v4 rather than a mock. Two full audit reports written up in LaTeX. A gas audit. Byte-level storage-layout verification across a delegatecall pair. 31 or more full deploy rounds on Sepolia with the entire lifecycle exercised on-chain.
+
+That work found real things: a Critical CREATE2 token squat, a Critical untrusted-pool-adoption hole in _afterInitialize, a High stale-tick TWAP poison, a measured fee bypass on the exact-output-sell quadrant, and a push-payment reentrancy in the proposer fee path. All fixed with regression tests that fail against the pre-fix bytecode. But it was found by the person who wrote the bugs, and we are clear-eyed about what that is worth.
+
+Why this hook specifically deserves the scrutiny.
+
+This is exactly the risk profile the subsidy exists for: beforeSwapReturnDelta AND afterSwapReturnDelta, custom accounting where four contracts can settle inside one unlock, a leverage engine whose liquidations execute inside other users' swaps, and liquidity that streams into the pool from within afterSwap via core modifyLiquidity. Every one of those is a place where a subtle delta-settlement error becomes someone else's failed transaction, or worse. A hook with these permissions on production liquidity, unaudited, is a bad outcome for Uniswap as well as for us. We would rather not be that.
+
+What the audit unlocks.
+
+1. Mainnet at all. We will not deploy this to production without external review. The audit is not a milestone on our roadmap; it is the gate in front of it.
+2. Routability. Being reachable through the Uniswap interface and safely aggregated is downstream of a professional report. That converts a working testnet system into ecosystem-usable liquidity.
+3. Third-party integration. Nobody should build on an unaudited hook that can take a 99% surtax in its opening blocks, even a deterministically decaying one.
+4. Published findings. We have published every internal finding, including our own unfixed integration defect and our own break-glass custody power, before anyone asked. We will publish the audit's findings the same way. The return-delta quadrant analysis is already public precisely because it generalises. Other hook teams will hit the same asymmetry, and one of them will ship the fee bypass we caught in ourselves.
+
+And one thing we will say plainly. We have disclosed our own defects in this application. Exact-output sells revert. The hook is 88 bytes from the EIP-170 limit. There is a break-glass custody path over protocol-owned liquidity. The reserve ceiling can pause redemption if the token appreciates past it. tx.origin is used deliberately for NFT attribution and is wrong for ERC-4337 smart accounts. We listed these because we would rather an auditor start from our honest map than discover we drew a flattering one. That is the posture we would bring to the engagement.
+
+
+=====================================================================
+ANY OTHER RELEVANT INFORMATION YOU MIGHT WANT TO SHARE WITH US?
+=====================================================================
+
+Artifacts ready for your reviewer today:
+
+  Uniswap hook technical brief, written for your reviewers, self-critical
+      contracts/solidity/audit/MagicFrens_Uniswap_Hook_Allowlist_Brief.pdf
+  Independent audit report, roughly 9,200 lines, from scratch
+      contracts/solidity/audit/MagicFrens_Independent_Audit_2026-09.pdf
+  Earlier full audit report
+      contracts/solidity/audit/CauldronAudit.pdf
+  Adversarial exploit reports and proofs of concept
+      contracts/solidity/test/attacks/EXPLOIT_REPORT.md and EXPLOIT_REPORT_PASS3.md
+  L2 chain-semantics review
+      ROBINHOOD_L2_REVIEW.md
+  Mainnet launch runbook
+      MAINNET_LAUNCH.md
+  Hook source
+      contracts/solidity/CauldronHook.sol
+  Full test suite
+      FOUNDRY_PROFILE=cauldron forge test
+  Public docs and machine-readable docs
+      https://mifrens.xyz/#/docs and https://mifrens.xyz/llms.txt
+
+One operational question we would genuinely like answered. Our design summons a new pool at every rebirth: the same hook, the same ETH / iteration-token shape, a new currency1 and therefore a new PoolId. The hook itself is permanent and immutable. We have assumed hook allowlisting attaches to the hook address, which would make review a one-time event. If it attaches per-pool instead, we would appreciate knowing, because it materially changes how we operate, and we would rather align with your process now than discover the mismatch after launch.
+
+On auditor selection. Given the profile, meaning v4 return-delta accounting, multi-party settlement inside one unlock, and an in-swap leverage engine, we would prioritise a firm with demonstrated v4 hook experience over general Solidity coverage, and we would welcome a recommendation.
+
+[FILL IN - repository link if public, X and Farcaster handles, Discord or
+Telegram, and any preferred auditor.]
+
+
+=====================================================================
+PRE-SUBMISSION CHECKLIST
+=====================================================================
+
+  [ ] Distribution channels - add real socials and community links
+  [ ] Other blockchains - confirm mainnet and Robinhood Chain timelines
+  [ ] Team members - bios. This is the heaviest-weighted blank in the form
+  [ ] Previous projects - Yes or No, and the detail answer
+  [ ] Team location
+  [ ] Milestones - dates for items 1 through 3
+  [ ] Live on mainnet - confirm which deployed round is the audit-scope reference
+  [ ] Projections - sanity-check TVL, MAU and transaction counts
+  [ ] Finalization date - set it late enough to be true
+  [ ] Funding - amounts, and disclose the presale if it raised anything
+  [ ] Grants - confirm none, or disclose pending applications
+  [ ] Other information - repository link and social handles
+  [ ] Attach MagicFrens_Uniswap_Hook_Allowlist_Brief.pdf
+  [ ] Attach MagicFrens_Independent_Audit_2026-09.pdf

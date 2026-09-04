@@ -1,0 +1,30 @@
+{
+  "_comment": "CANONICAL ROUND MANIFEST \u2014 the SINGLE source of truth for the live deployment. Consumed by BOTH the indexer (ponder.config.ts + start.mjs via ./deployments/round.json) AND the frontend (src/config/cauldron.ts + perp.ts via ../../indexer/deployments/round.json). It lives inside indexer/ because `railway up` only uploads that dir. To ship a new round: bump `round` + `schema` (new schema forces a clean reindex), update the addresses/poolIds/blocks, then run `node scripts/deploy-round.mjs --push`. NEVER set these as Railway env vars \u2014 env overrides silently drift (that caused the r29-served-as-r31 incident).",
+  "round": 32,
+  "schema": "cauldron_r32a",
+  "chainId": 11155111,
+  "indexerUrl": "https://mifrens-indexer-app-production.up.railway.app",
+  "blocks": {
+    "deploy": 11625783,
+    "perp": 11625842,
+    "indexer": 11625783
+  },
+  "contracts": {
+    "registry": "0x56022128bF27a58f3c03cFE72Cb2b5F460E46940",
+    "hook": "0xEC66519e9fC09D1D53E25BEC9009872B2A6110cC",
+    "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+    "governor": "0x5EE58687Cf438f3d30a9C668CD63042415F833d3",
+    "dividend": "0xD67b9f63fFeccb3080A56307875F8AFc1839E8A8",
+    "presale": "0x01d87a1459830BA5562E3d53f0a2d3a1cC099422",
+    "gachaRouter": "0x1519A9E3962831e1B83Ac0508ac52F91a2Be18A1",
+    "timelock": "0xBc1C27Edd1Cb66437D4B2290F9787a51081bDfB3",
+    "collectionLedger": "0x899fFa63030292021A6608F536D53Bf2451Dc8F3",
+    "perpEngine": "0x706eEbBF2C9CbeA25b4150ED0379DDE9DCc41f75",
+    "perpVault": "0x00B07D1e07C1a39e7DA2BBD7C614805c4e2A4389"
+  },
+  "poolIds": [
+    "0x1d4b4059e5ff7260e044a57e7279b8cd73f30a0643c4a88939d7c73ad369b88b"
+  ],
+  "genesisSupply": 1111,
+  "deathThresholdEth": 0
+}

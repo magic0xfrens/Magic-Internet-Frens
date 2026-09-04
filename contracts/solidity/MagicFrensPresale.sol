@@ -194,8 +194,10 @@ contract MagicFrensPresale is Ownable, ReentrancyGuard {
      * @notice Add addresses to whitelist
      */
     function addToWhitelist(address[] calldata addresses) external onlyOwner {
-        for (uint256 i = 0; i < addresses.length; i++) {
+        uint256 n = addresses.length;
+        for (uint256 i = 0; i < n;) {
             whitelist[addresses[i]] = true;
+            unchecked { ++i; }
         }
     }
 

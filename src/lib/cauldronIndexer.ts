@@ -21,20 +21,39 @@ export interface IndexedNft {
   revealed: boolean;
 }
 
+/**
+ * In-flight request dedupe. Several independent consumers ask for the same
+ * wallet's NFTs on the same render pass — the vault grid, the dividend panel
+ * and the rail's profile card all mount together — and each would otherwise
+ * fire its own copy of this request. Keyed by owner, cleared as soon as the
+ * request settles, so this is a coalescer and not a cache: the next mount
+ * still gets fresh data.
+ */
+const ownedNftsInFlight = new Map<string, Promise<IndexedNft[] | null>>();
+
 /** All NFTs a wallet owns, across every Cauldron collection. */
-export async function fetchOwnedNfts(owner: Address): Promise<IndexedNft[] | null> {
-  const base = indexerBase();
-  if (!base) return null;
-  try {
-    const res = await fetch(`${base}/nfts/${owner.toLowerCase()}?limit=2000`, {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { nfts?: IndexedNft[] };
-    return data.nfts ?? [];
-  } catch {
-    return null;
-  }
+export function fetchOwnedNfts(owner: Address): Promise<IndexedNft[] | null> {
+  const key = owner.toLowerCase();
+  const pending = ownedNftsInFlight.get(key);
+  if (pending) return pending;
+
+  const req = (async (): Promise<IndexedNft[] | null> => {
+    const base = indexerBase();
+    if (!base) return null;
+    try {
+      const res = await fetch(`${base}/nfts/${key}?limit=2000`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { nfts?: IndexedNft[] };
+      return data.nfts ?? [];
+    } catch {
+      return null;
+    }
+  })().finally(() => ownedNftsInFlight.delete(key));
+
+  ownedNftsInFlight.set(key, req);
+  return req;
 }
 
 /**

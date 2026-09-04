@@ -6,6 +6,7 @@ import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MetadataMode, ICollectionRenderer, ICauldronCollection} from "./ICauldron.sol";
 import {ICreatorToken, ITransferValidator} from "./ICreatorToken.sol";
+import {ILiquidatorMintable} from "./ILiquidatorMintable.sol";
 
 /**
  * @title CauldronCollection
@@ -20,7 +21,7 @@ import {ICreatorToken, ITransferValidator} from "./ICreatorToken.sol";
  *  Only the `minter` (the volume hook) can mint, and only up to `maxSupply`.
  *  There is no admin surface at all after construction.
  */
-contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollection {
+contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollection, ILiquidatorMintable {
     using Strings for uint256;
 
     error OnlyMinter();
@@ -28,12 +29,22 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     error MintedOut();
     error BadConfig();
     error VaultSet();
+    error OnlyLiquidatorMinter();
+    error NotReady();
 
     /// @notice The volume hook allowed to mint (set once, at deploy).
     address public immutable minter;
 
-    /// @notice The deployer (registry) allowed to wire the vault.
+    /// @notice The CONTROLLER — the Cauldron registry. Holds custody + the governed
+    ///         art/validator setters. Passed EXPLICITLY (audit H-01): inferring it
+    ///         from `msg.sender` made it the FACTORY, so `custodyTransfer` (and thus
+    ///         the whole legacy-floor recycle) plus every admin setter were
+    ///         permanently unreachable — the factory exposes no forwarder.
     address public immutable deployer;
+
+    /// @notice The FACTORY that deployed this collection. Keeps exactly the two
+    ///         rights it needs during `deployBrew`: `setVault` and `setRoyalty`.
+    address public immutable configurator;
 
     /// @notice The vault allowed to burn on redeem (set once, after deploy).
     address public vault;
@@ -41,24 +52,55 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     /// @notice Hard cap on the collection.
     uint256 public immutable maxSupply;
 
-    /// @notice Metadata resolution mode (immutable).
-    MetadataMode public immutable mode;
+    /// @notice Metadata resolution mode. UPGRADABLE via `setMetadata` (deployer/
+    ///         timelock) so a broken/reverting renderer can be repointed WITHOUT a
+    ///         collection redeploy — art is fixable, not frozen at a bad choice.
+    MetadataMode public mode;
 
-    /// @notice On-chain renderer (mode == Renderer).
-    address public immutable renderer;
+    /// @notice On-chain renderer (mode == Renderer). Upgradable via setMetadata.
+    address public renderer;
 
-    /// @notice Base URI (mode == BaseURI).
+    /// @notice Base URI (mode == BaseURI). Upgradable via setMetadata.
     string private _baseTokenURI;
 
     uint256 public totalMinted;
+
+    // ── Liquidatoor badges (OnChain Collectibles) ───────────────────────────
+    // A trophy struck when a fren is responsible for a perp liquidation. Badges
+    // are minted by the wired PerpEngine (`liquidatorMinter`) into a SEPARATE,
+    // uncapped id range starting at LIQUIDATOR_ID_BASE, so awarding them never
+    // touches the art tranche's `totalMinted`/`maxSupply`. Always revealed.
+    uint256 public constant LIQUIDATOR_ID_BASE = 1_000_000;
+
+    /// @notice The PerpEngine allowed to mint Liquidatoor badges (deployer-set).
+    address public liquidatorMinter;
+
+    /// @notice Count of badges struck (id = LIQUIDATOR_ID_BASE + this).
+    uint256 public liquidatorMinted;
+
+    /// @notice tokenId => whether it is a Liquidatoor badge (vs art).
+    mapping(uint256 => bool) public isLiquidatoor;
+
+    /// @notice Metadata base for badges: tokenURI(badge) = liquidatorURI + id.
+    string public liquidatorURI = "https://magicfrens.xyz/api/cauldron/liquidatoor?id=";
+
+    event LiquidatoorMinted(address indexed to, uint256 indexed tokenId);
 
     // ── Gacha rarity + reveal ────────────────────────────────────────────
     // Rarity tiers: 0=Common, 1=Rare, 2=Epic, 3=Ultra. Rolled at mint from an
     // on-chain seed and stored. Cumulative odds in bps (last must be 10000).
     uint16[4] public rarityCumBps = [uint16(7900), 9400, 9900, 10000];
 
-    /// @notice tokenId => rarity tier (0..3).
+    /// @notice tokenId => rarity tier (0..3). Set at reveal(), not mint (see below).
     mapping(uint256 => uint8) public rarityOf;
+
+    /// @notice tokenId => the block it was minted in. The rarity is rolled at
+    ///         reveal() from THIS block's hash (a value nobody can know at mint
+    ///         time), so a minter can't grind rares by simulating the mint. Needed
+    ///         because Arbitrum/Orbit `prevrandao` is a constant (1) — the old
+    ///         mint-time seed was fully predictable there. Commit-reveal on a
+    ///         future blockhash mirrors the crystal gacha's grind-resistant roll.
+    mapping(uint256 => uint48) public mintBlockOf;
 
     /// @notice tokenId => revealed. Unrevealed tokens show the placeholder URI.
     mapping(uint256 => bool) public revealed;
@@ -68,6 +110,9 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
 
     event Minted(address indexed to, uint256 indexed tokenId, uint8 rarity);
     event Revealed(uint256 indexed tokenId, uint8 rarity);
+    /// @notice The reveal seed expired (>256 blocks); re-anchored to a fresh block
+    ///         rather than rolling from a predictable fallback (audit M-03).
+    event ReAnchored(uint256 indexed tokenId, uint48 newMintBlock);
 
     /// @notice ERC-721C transfer validator. Every transfer is checked against it,
     ///         so a market that doesn't pay the royalty is BLOCKED — the fee to
@@ -80,6 +125,7 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         string memory name_,
         string memory symbol_,
         address minter_,
+        address registry_,
         uint256 maxSupply_,
         MetadataMode mode_,
         string memory baseURI_,
@@ -87,7 +133,10 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         address royaltyReceiver_,
         uint96 royaltyBps_
     ) ERC721(name_, symbol_) {
-        if (minter_ == address(0) || maxSupply_ == 0) revert BadConfig();
+        // maxSupply must stay below the badge id range so art and Liquidatoor
+        // badge ids can never collide. (Audit L-01)
+        if (minter_ == address(0) || registry_ == address(0)) revert BadConfig();
+        if (maxSupply_ == 0 || maxSupply_ >= LIQUIDATOR_ID_BASE) revert BadConfig();
         if (mode_ == MetadataMode.Renderer) {
             if (renderer_ == address(0) || renderer_.code.length == 0) revert BadConfig();
         } else {
@@ -95,7 +144,8 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         }
         require(royaltyBps_ <= 1000, "royalty too high"); // <= 10%
         minter = minter_;
-        deployer = msg.sender;
+        deployer = registry_;      // the CONTROLLER (audit H-01), not the factory
+        configurator = msg.sender; // the factory, for its two deploy-time setters
         maxSupply = maxSupply_;
         mode = mode_;
         renderer = renderer_;
@@ -142,29 +192,47 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     }
 
     /// @notice Mint the next token to `to`. Only the volume hook may call.
-    ///         Rolls the token's gacha rarity on-chain; it mints unrevealed.
+    ///         Mints UNREVEALED and records the mint block; the gacha rarity is
+    ///         rolled later in reveal() from that block's future hash, so it can't
+    ///         be predicted (and grinded) at mint time.
     function mint(address to) external returns (uint256 tokenId) {
         if (msg.sender != minter) revert OnlyMinter();
         if (totalMinted >= maxSupply) revert MintedOut();
         tokenId = ++totalMinted; // 1-indexed
 
-        uint256 seed = uint256(keccak256(abi.encodePacked(
-            blockhash(block.number - 1), block.prevrandao, to, tokenId, address(this)
-        )));
-        uint8 rarity = _rollRarity(seed);
-        rarityOf[tokenId] = rarity;
-
+        mintBlockOf[tokenId] = uint48(block.number); // commit; rarity rolled at reveal
         _mint(to, tokenId);
-        emit Minted(to, tokenId, rarity);
+        emit Minted(to, tokenId, 0); // rarity provisional (0) until revealed
     }
 
-    /// @notice Reveal a token you own — flips its metadata from placeholder to
-    ///         the rarity-based art.
+    /// @notice Reveal a token you own — rolls its rarity from the mint block's
+    ///         hash (unknowable at mint → grind-resistant) and flips the metadata.
     function reveal(uint256 tokenId) external {
         if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
         if (!revealed[tokenId]) {
+            uint256 mb = mintBlockOf[tokenId];
+            if (block.number <= mb) revert NotReady(); // seed not known yet
+            bytes32 bh = blockhash(mb);
+            // EXPIRED SEED (audit M-03): `blockhash` only reaches back ~256 blocks.
+            // Substituting a DETERMINISTIC fallback here handed the holder a SECOND,
+            // fully-predictable draw — computable at mint time — so they could
+            // simply wait out the window whenever the first roll was poor and take
+            // the better of two. With the default tiers that lifts P(>= Rare) from
+            // 21% to ~37.6% and roughly DOUBLES the top tier.
+            // Instead we RE-ANCHOR to a fresh future block: the token stays
+            // revealable forever, but there is always exactly ONE unknowable draw.
+            // NOTE: we must NOT revert here — a revert would roll the re-anchor
+            // back, leaving the token stuck. Return quietly instead; the holder
+            // (or a keeper) calls reveal() again once the new block is mined.
+            if (bh == 0) {
+                mintBlockOf[tokenId] = uint48(block.number);
+                emit ReAnchored(tokenId, uint48(block.number));
+                return;
+            }
+            uint8 rarity = _rollRarity(uint256(keccak256(abi.encodePacked(bh, tokenId, address(this)))));
+            rarityOf[tokenId] = rarity;
             revealed[tokenId] = true;
-            emit Revealed(tokenId, rarityOf[tokenId]);
+            emit Revealed(tokenId, rarity);
         }
     }
 
@@ -176,11 +244,69 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         return 0;
     }
 
-    /// @notice One-time wiring of the floor vault (by the deployer/registry).
+    /// @notice One-time wiring of the floor vault. Callable by the FACTORY (which
+    ///         does it inside `deployBrew`) or the registry.
     function setVault(address _vault) external {
-        if (msg.sender != deployer) revert OnlyMinter();
+        if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter();
         if (vault != address(0)) revert VaultSet();
         vault = _vault;
+    }
+
+    /// @notice Re-point the EIP-2981 royalty receiver (deployer only). The factory
+    ///         calls this right after wiring the vault so a volume collection's
+    ///         secondary-sale royalties flow to its OWN floor vault — its secondary
+    ///         volume backs its own floor (and, at death, its legacy entitlement).
+    function setRoyalty(address receiver, uint96 bps) external {
+        if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter();
+        require(bps <= 1000, "royalty too high"); // <= 10%
+        _setDefaultRoyalty(receiver, bps);
+    }
+
+    /// @notice Wire (or re-point) the PerpEngine allowed to mint Liquidatoor
+    ///         badges. Callable by the deployer OR the `minter` (the volume hook)
+    ///         — so the hook can AUTO-WIRE badges on every summon/relaunch with
+    ///         no manual step. Re-settable so a redeployed engine can swap in.
+    function setLiquidatorMinter(address _minter) external {
+        if (msg.sender != deployer && msg.sender != minter) revert OnlyMinter();
+        liquidatorMinter = _minter;
+    }
+
+    /// @notice UPGRADE the art source (deployer/timelock only): switch mode and set
+    ///         the renderer (Renderer mode) or base URI (BaseURI mode). Lets a
+    ///         broken/reverting renderer be repointed to a working one — or to a
+    ///         BaseURI art endpoint — WITHOUT redeploying the collection. Governed,
+    ///         so it fixes art, it can't silently rug the proposer's choice.
+    function setMetadata(MetadataMode _mode, address _renderer, string calldata baseURI_) external {
+        if (msg.sender != deployer) revert OnlyMinter();
+        if (_mode == MetadataMode.Renderer) {
+            if (_renderer == address(0) || _renderer.code.length == 0) revert BadConfig();
+            renderer = _renderer;
+        } else {
+            _baseTokenURI = baseURI_;
+        }
+        mode = _mode;
+    }
+
+    /// @notice Update the Liquidatoor metadata base (deployer only).
+    function setLiquidatorURI(string calldata uri) external {
+        if (msg.sender != deployer) revert OnlyMinter();
+        liquidatorURI = uri;
+    }
+
+    /// @notice Mint a Liquidatoor badge to `to`. Only the wired PerpEngine.
+    ///         Uncapped, always revealed, in the LIQUIDATOR_ID_BASE id range so
+    ///         it never consumes the art supply.
+    function mintLiquidator(address to) external returns (uint256 tokenId) {
+        if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter();
+        tokenId = LIQUIDATOR_ID_BASE + (++liquidatorMinted);
+        isLiquidatoor[tokenId] = true;
+        _mint(to, tokenId);
+        emit LiquidatoorMinted(to, tokenId);
+    }
+
+    /// @notice Marketplace/API helper: the Liquidatoor trait for a token.
+    function liquidatoorTrait(uint256 tokenId) external view returns (string memory) {
+        return isLiquidatoor[tokenId] ? "true" : "false";
     }
 
     /// @notice Burn a token on redemption. Only the vault may call.
@@ -189,10 +315,24 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         _burn(tokenId);
     }
 
+    /// @notice Registry-gated transfer with NO approval — used by the legacy-floor
+    ///         recycle: move a redeemed volume NFT into the treasury (the registry)
+    ///         and later back out to a buyer. The registry (this contract's
+    ///         `deployer`) verifies ownership before calling. Never burns — the
+    ///         collection size is preserved; the NFT just recycles.
+    function custodyTransfer(address from, address to, uint256 tokenId) external {
+        if (msg.sender != deployer) revert OnlyVault();
+        _transfer(from, to, tokenId);
+    }
+
     /// @inheritdoc ERC721
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
-        // Unrevealed tokens show the placeholder.
+        // Liquidatoor badges resolve to their own metadata (always revealed).
+        if (isLiquidatoor[tokenId]) {
+            return string.concat(liquidatorURI, tokenId.toString());
+        }
+        // Unrevealed art tokens show the placeholder.
         if (!revealed[tokenId]) return unrevealedURI;
         if (mode == MetadataMode.Renderer) {
             return ICollectionRenderer(renderer).tokenURI(tokenId);

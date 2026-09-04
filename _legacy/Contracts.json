@@ -1,0 +1,29 @@
+{
+  "0x2105": {
+    "referralAddress": "0x8Ce8fc672190DeabD318CC5E97FaDBE526E3450F",
+    "miFrensAddress": "0xDF0d7879c11f992ef2149CCc448F30D75afc4146",
+    "miCauldronAddress": "0x956A34E2aDAEA79D0d6EeBFaD22832e3bbd29E9d",
+    "miSpellsAddress": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miManaAddress": "0x29B86bDCaC7F40516124440a178f4b0EC79A11Ac",
+    "leaderboard": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miBridge": "0x80180A478cD986273D0416036250d5B1e060f422"
+  },
+  "0xa4b1": {
+    "referralAddress": "0x8Ce8fc672190DeabD318CC5E97FaDBE526E3450F",
+    "miFrensAddress": "0xDF0d7879c11f992ef2149CCc448F30D75afc4146",
+    "miCauldronAddress": "0x956A34E2aDAEA79D0d6EeBFaD22832e3bbd29E9d",
+    "miSpellsAddress": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miManaAddress": "0x29B86bDCaC7F40516124440a178f4b0EC79A11Ac",
+    "leaderboard": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miBridge": "0x80180A478cD986273D0416036250d5B1e060f422"
+  },
+  "0xa86a": {
+    "referralAddress": "0x8Ce8fc672190DeabD318CC5E97FaDBE526E3450F",
+    "miFrensAddress": "0xDF0d7879c11f992ef2149CCc448F30D75afc4146",
+    "miCauldronAddress": "0x956A34E2aDAEA79D0d6EeBFaD22832e3bbd29E9d",
+    "miSpellsAddress": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miManaAddress": "0x29B86bDCaC7F40516124440a178f4b0EC79A11Ac",
+    "leaderboard": "0x16712fC68b9d429563f6928c4a79C2E2a8f0aC7C",
+    "miBridge": "0x80180A478cD986273D0416036250d5B1e060f422"
+  }
+}

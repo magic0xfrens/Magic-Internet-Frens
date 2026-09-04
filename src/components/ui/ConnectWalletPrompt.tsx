@@ -20,7 +20,7 @@ const ConnectWalletPrompt: FC<ConnectWalletPromptProps> = ({
         justifyContent: "center",
         gap: "20px",
         padding: "60px 24px",
-        borderRadius: "16px",
+        borderRadius: "var(--r-md)",
         border: "1px solid rgba(247, 147, 26, 0.15)",
         background:
           "linear-gradient(146deg, rgba(0, 10, 35, 0.07) 0%, rgba(247, 147, 26, 0.05) 101.49%)",
@@ -58,7 +58,7 @@ const ConnectWalletPrompt: FC<ConnectWalletPromptProps> = ({
         onClick={openConnectModal}
         style={{
           padding: "12px 32px",
-          borderRadius: "10px",
+          borderRadius: "var(--r-sm)",
           border: "none",
           background: "linear-gradient(90deg, #d5fd51, #f5c542)",
           color: "#0c0f1c",

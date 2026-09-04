@@ -1,0 +1,502 @@
+%==============================================================================
+%  Second-pass findings (A-series), remediation register, and the gas audit.
+%  \input{} from CauldronAudit.tex.
+%==============================================================================
+
+\section{Second-pass findings: lifecycle denial of service}
+\label{sec:apass}
+
+After the first round of fixes I re-attacked the protocol from a different
+angle: instead of asking \emph{what can be drained}, I asked \emph{what can be
+made to revert forever}. That framing is unusually productive here because
+\code{relaunch()} is permissionless, is the only path that carries value into
+the next generation, and --- critically --- retires the winning proposal
+\emph{in the same transaction it might revert in}. Any reachable revert inside
+it is therefore not a temporary failure but a permanent, self-perpetuating one.
+
+Five findings came out of that pass. Four are denial of service on the
+lifecycle; one is mark manipulation on the perp desk.
+
+%------------------------------------------------------------------------------
+\finding{A-01}{\texttt{CREATE2} token-address squatting permanently bricks the eternal machine}{Critical}{Confirmed}{sevcrit}
+
+\loc{cauldron/PoolOps.sol:415 \texttt{deployToken} \textbullet\ CauldronRegistry.sol:1170 \texttt{\_deployToken}}
+
+\textbf{Mechanism.} Every generation's ERC-20 was deployed at a fully
+deterministic address:
+
+\begin{lstlisting}[firstnumber=419]
+token = address(new CauldronToken{salt: bytes32(gen)}(
+            name, symbol, gen, address(this), totalSupply));
+\end{lstlisting}
+
+Every input is public \emph{before} the transaction that would deploy it:
+
+\begin{center}\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\code{salt} & the next generation number --- \code{currentGeneration() + 1} \\
+deployer & the registry (constant; \code{PoolOps} is delegatecalled) \\
+\code{name} & \code{LaunchLib.displayName(spec.name)} \\
+\code{symbol} & \code{spec.symbol} \\
+\code{totalSupply} & \code{TOTAL\_SUPPLY} (constant) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent and \code{(name, symbol)} come from \code{governor.winner()} --- a
+public view whose result is \emph{frozen} once the leading proposal's voting
+window has closed. So anyone can compute the next generation's token address and
+deploy any contract there first.
+
+\textbf{Why it is permanent.} CREATE2 into an occupied address fails; Solidity's
+\code{new\{salt\}} reverts on failure; and that revert propagates out of
+\code{relaunch()}. Because \code{governor.markConsumed(winId)} executed earlier
+\emph{in the same transaction} (\code{CauldronRegistry.sol:679}), it is rolled
+back too --- so the same proposal wins again, targeting the same squatted
+address, forever. This is the same self-perpetuating structure as \textbf{C-02},
+reached by a completely different route.
+
+\textbf{Exploit path.} Read \code{winner()}. Compute the address. Deploy
+anything there (a 5-byte stub suffices). Total cost: one transaction. Verified
+on a Sepolia fork in \code{test/attacks/A01\_Create2Squat.t.sol}: before the fix,
+\code{relaunch()} reverted, \code{gov.consumedCount()} stayed \code{0}, and a
+retry 30 days later reverted identically.
+
+\textbf{Impact.} Permanent, permissionless, single-transaction denial of the
+entire protocol lifecycle. No relaunch means no migration target for existing
+holders, no reserve for the next generation, LP locked in a dead zero-volume
+pool, and the perp engine stranded on a dead token. On the shipped deployment
+there is no recovery: \code{setGovernor} is \code{onlyOwner} and ownership is
+handed to the presale contract, which exposes no call to it.
+
+\textbf{Fix (applied).} Use plain \code{CREATE}. The address then derives from
+\code{(registry, registry nonce)}, and only the registry can advance its own
+nonce --- there is no address for an attacker to occupy. This is structural
+immunity rather than probabilistic hardening (a CREATE2 miner would need a
+$2^{160}$ preimage search to hit a specific address). Nothing depended on
+predictability: the \code{predictTokenAddress} helper had already been removed as
+having no callers.
+
+\begin{lstlisting}[numbers=none]
+-   token = address(new CauldronToken{salt: bytes32(gen)}(
+-               name, symbol, gen, address(this), totalSupply));
++   token = address(new CauldronToken(name, symbol, gen, address(this), totalSupply));
+\end{lstlisting}
+
+\noindent Consumers must read the live address from \code{currentToken()} or the
+\code{CauldronSummoned}\,/\,\code{CauldronReborn} events rather than deriving it.
+
+%------------------------------------------------------------------------------
+\finding{A-01b}{A dust reserve rounds to zero liquidity and reverts the seed}{High}{Confirmed}{sevhigh}
+
+\loc{cauldron/PoolOps.sol:479 \texttt{\_seedReserve}}
+
+\textbf{Mechanism.} \code{ReserveLib.liquidityForTokenOut} rounds \emph{down}
+(correctly --- see invariant R-3). A sufficiently small reserve tranche therefore
+maps to \textbf{zero} liquidity, and \code{MINT\_POSITION} with zero liquidity
+reverts \code{CannotUpdateEmptyPosition} inside the PositionManager.
+
+The guard above it only checked the token \emph{amount}:
+
+\begin{lstlisting}[firstnumber=258]
+if (reserveTokens > 0) {                       // 2648 wei passes this...
+    (r.reserveTickLower, r.reserveTickUpper) = ReserveLib.reserveTicks(...);
+    r.reservePositionId = _seedReserve(pm, r.key, ..., reserveTokens, token);
+}                                              // ...but yields L = 0 -> revert
+\end{lstlisting}
+
+\textbf{Reachability.} This is not exotic. \code{newActive} is sized from the
+tokens rescued from the dead LP; when a generation dies having traded almost
+nothing, \code{newActive} absorbs nearly the entire supply and
+\code{newReserve = TOTAL\_SUPPLY - newActive} is dust. I hit it on the first
+fork run of a plain summon-then-relaunch with no genesis bonus configured.
+
+\textbf{Impact.} Same permanent-freeze structure as A-01 and C-02: the revert
+propagates out of \code{relaunch()} and rolls back \code{markConsumed}.
+
+\textbf{Fix (applied).} Return \code{0} instead of minting an empty position.
+Every consumer already handles a zero reserve id --- \code{claimFromReserve} and
+\code{addToReserve} no-op at zero liquidity, and \code{\_removeLiquidity} skips a
+zero id --- and it is the correct outcome: a dust reserve backs nothing, so there
+is nothing to place.
+
+\begin{lstlisting}[numbers=none]
+uint128 liquidity = ReserveLib.liquidityForTokenOut(tickLower, tickUpper, tokenAmount);
+if (liquidity == 0) return 0;   // <-- nothing to place; never mint an empty position
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\finding{A-02}{A stale \texttt{lastTick} lets an atomic round-trip poison the liquidation mark}{High}{Confirmed}{sevhigh}
+
+\loc{cauldron/PerpEngine.sol:346 \texttt{\_writeObs} \textbullet\ :365 \texttt{twapTick}}
+
+\textbf{Mechanism.} Observation writes are throttled to one per
+\code{OBS\_INTERVAL} (15s) so the ring cannot be flooded --- a good defence. But
+the throttle used to bail out of the \emph{entire} function:
+
+\begin{lstlisting}[firstnumber=346]
+uint32 dt = nowTs - lastObsTs;
+if (dt < OBS_INTERVAL) return;               // <-- bails out completely
+tickCumulative += int56(lastTick) * int56(uint56(dt));
+...
+lastTick = _currentTick();                   // <-- so this is SKIPPED
+\end{lstlisting}
+
+\noindent leaving \code{lastTick} holding whatever the tick was at the last
+un-throttled write. \code{twapTick} then extrapolates the un-recorded tail with
+that value:
+
+\begin{lstlisting}[firstnumber=383]
+int56 cumNow = tickCumulative + int56(lastTick) * int56(uint56(nowTs - lastObsTs));
+\end{lstlisting}
+
+\textbf{Exploit path.} One atomic transaction:
+\begin{enumerate}
+\item \textbf{Crash} spot with a large sell. The hook's \code{afterSwap} sweep
+pokes the engine, a write lands, and \code{lastTick} freezes at the crashed tick.
+\item \textbf{Restore} spot by buying back in the \emph{same} transaction.
+\code{dt == 0}, so the old code returned early and \code{lastTick} stayed
+crashed.
+\item \textbf{Wait.} The crashed tick is now credited for every second until the
+next write --- up to a full \code{twapWindow} --- even though spot never moved.
+\end{enumerate}
+
+\noindent The attacker's only cost is the round-trip's fee and slippage. Verified
+in \code{test/attacks/A02\_PerpAttacks.t.sol}: spot tick before and after the
+round-trip were identical (\code{172349}), yet a healthy 2$\times$ long became
+liquidatable and the attacker collected the keeper reward.
+
+\textbf{Impact.} Defeats the protocol's stated guarantee that ``liquidations are
+triggered off a time-weighted average tick $\ldots$ so a single-block flash-move
+can't farm liquidations.'' Solvent positions are force-closed and the attacker
+takes the keeper cut; the trader loses the liquidation penalty for nothing.
+
+\textbf{Fix (applied).} Always integrate the elapsed interval and always refresh
+\code{lastTick}, so the tail is extrapolated at the tick genuinely in force.
+Ring \emph{appends} keep their own throttle clock (\code{lastRingTs}, packed into
+the same storage slot), so flood-resistance is unchanged.
+
+\begin{lstlisting}[numbers=none]
+function _writeObs() internal {
+    uint32 nowTs = uint32(block.timestamp);
+    uint32 dt = nowTs - lastObsTs;
+    if (dt > 0) {                                  // ALWAYS integrate
+        tickCumulative += int56(lastTick) * int56(uint56(dt));
+        lastObsTs = nowTs;
+    }
+    if (nowTs - lastRingTs >= OBS_INTERVAL) {      // appends stay throttled
+        observations[obsIndex] = Observation(nowTs, tickCumulative);
+        obsIndex = (obsIndex + 1) & OBS_MASK;
+        lastRingTs = nowTs;
+    }
+    lastTick = _currentTick();                     // ALWAYS refresh
+}
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\finding{A-03}{The perp book can outgrow what one force-close clears, stranding the engine}{High}{Confirmed}{sevhigh}
+
+\loc{cauldron/PerpEngine.sol:700 \texttt{forceCloseAllDead} \textbullet\ :725 \texttt{syncGeneration}}
+
+\textbf{Mechanism.} \code{forceCloseAllDead} is bounded to 96 iterations for gas
+safety, and the registry drives it exactly \emph{once}, at relaunch
+(\code{CauldronRegistry.sol:586}). Nothing bounded how many positions could
+exist. With a 0.003~ETH dust floor, 100 positions cost roughly 0.4~ETH to open.
+
+\textbf{Why it is unrecoverable.} The leftovers cannot simply be closed
+afterwards. \code{syncGeneration} refuses to re-arm while \code{openCount != 0},
+and after the rebirth \code{forceCloseDead} is unusable in two independent ways:
+\code{\_isDead()} now reads the \emph{new} pool (alive), and even if it did not,
+\code{\_settle} would swap the position's \emph{old}-generation \code{size}
+against the \emph{new} pool. So the engine is pinned to a dead generation with
+its entire short inventory denominated in a token nobody trades.
+
+\textbf{Fix (applied).} Bound the book below the force-close bound, so ``one
+relaunch drains the whole book'' becomes structural:
+
+\begin{lstlisting}[numbers=none]
+uint256 public constant MAX_OPEN_POSITIONS = 64;   // < FORCE_CLOSE_MAX (96)
+uint256 internal constant FORCE_CLOSE_MAX = 96;
+
+function _book(...) internal returns (uint256 id) {
+    if (openCount >= MAX_OPEN_POSITIONS) revert OiCapped();
+    ...
+}
+\end{lstlisting}
+
+\noindent Deliberately a \code{constant}, not an owner-tunable: it underwrites a
+structural guarantee, so there should be no way to configure it into violation.
+The regression fills the book to exactly \code{MAX\_OPEN\_POSITIONS}, confirms
+the next open is refused, and confirms one \code{forceCloseAllDead} drains it.
+
+\textbf{Residual risk (accepted, documented).} A capped book can be filled to
+block new perp opens. That griefing costs the 6.9\,\% open fee on every slot,
+carries real market risk, and exposes every slot to liquidation --- and it only
+blocks the perp desk, never the protocol. That is a strictly better failure mode
+than permanently stranding the engine.
+
+%------------------------------------------------------------------------------
+\finding{A-05}{Recovered LP tokens can exceed \texttt{TOTAL\_SUPPLY}, underflowing the relaunch}{High}{Confirmed}{sevhigh}
+
+\loc{CauldronRegistry.sol:721}
+
+\textbf{Mechanism.}
+
+\begin{lstlisting}[firstnumber=721]
+uint256 newReserve = TOTAL_SUPPLY - newActive;    // reverts if newActive > TOTAL_SUPPLY
+\end{lstlisting}
+
+\code{newActive} is derived from \code{tokensFromLP} --- what the dead pool
+actually returned. That is \emph{not} bounded by the fixed supply, because
+\code{PoolOps.removeAll} uses \code{DECREASE\_LIQUIDITY} + \code{TAKE\_PAIR},
+which collects accrued \textbf{fees} alongside principal. Uniswap~v4 exposes
+\code{poolManager.donate()}, which credits arbitrary amounts to in-range
+liquidity providers --- so anyone can inflate what the registry's position pays
+out at teardown.
+
+\textbf{Exploit path.} Buy tokens on the open market, call \code{donate()} on the
+live pool. At the next relaunch the registry recovers more than
+\code{TOTAL\_SUPPLY}, the subtraction underflows, and \code{relaunch()} reverts
+--- rolling back \code{markConsumed} with it, permanently. The attacker pays
+market price for the donated tokens; the protocol is bricked forever. It is also
+reachable \emph{by accident}, from anyone donating to ``support'' the pool.
+
+\textbf{Impact.} Permanent lifecycle freeze, same structure as A-01 and C-02.
+
+\textbf{Fix (applied).} Clamp. The newborn only ever holds \code{TOTAL\_SUPPLY},
+so an active tranche above it is meaningless; the surplus simply stays with the
+registry.
+
+\begin{lstlisting}[numbers=none]
+if (newActive > TOTAL_SUPPLY) newActive = TOTAL_SUPPLY;
+uint256 newReserve = TOTAL_SUPPLY - newActive;
+\end{lstlisting}
+
+%------------------------------------------------------------------------------
+\finding{A-04}{Funding is not a closed transfer, so it leaks LP principal}{Medium}{Confirmed}{sevmed}
+
+\loc{cauldron/PerpEngine.sol:797 (in \texttt{\_settle})}
+
+\textbf{Mechanism.} The paying side was capped by its \emph{own} residual; the
+receiving side was capped only by the \emph{whole vault}:
+
+\begin{lstlisting}[firstnumber=795]
+if (fd > 0) {                            // crowded side PAYS
+    uint256 pay = uint256(fd);
+    if (pay > residual) pay = residual;   // <-- capped by its OWN residual
+    plv += pay; residual -= pay;
+} else if (fd < 0) {                     // underweight side RECEIVES
+    uint256 credit = uint256(-fd);
+    if (credit > plv) credit = plv;       // <-- capped only by the WHOLE vault
+    plv -= credit; residual += credit;
+}
+\end{lstlisting}
+
+Any position closing at a loss --- and \emph{every} liquidated long, where
+\code{repay = proceeds} leaves \code{residual == 0} --- pays less than it owes,
+while receivers still draw in full. The difference came straight out of LP
+principal.
+
+\textbf{Fix (applied).} Pay receivers from the \code{insuranceEth} buffer first,
+exactly as every other bad-debt path in the contract already does
+(\code{\_replenishPlv}, \code{\_absorbPlvLoss}), so an unmatched funding claim
+consumes the buffer that exists for it before touching depositor capital.
+
+\begin{lstlisting}[numbers=none]
+} else if (fd < 0) {
+    uint256 credit = uint256(-fd);
+    uint256 fromIns = credit < insuranceEth ? credit : insuranceEth;
+    insuranceEth -= fromIns;                 // buffer absorbs it FIRST
+    uint256 rest = credit - fromIns;
+    if (rest > plv) rest = plv;              // never overdraw the vault
+    plv -= rest;
+    residual += fromIns + rest;
+}
+\end{lstlisting}
+
+\noindent Verified by a 257-run fuzz
+(\code{testFuzz\_Invariant\_A04\_PlvNeverShrinksOnSolventRoundTrip}) that a
+solvent open-and-close round trip never shrinks the vault.
+
+%==============================================================================
+\section{Gas optimisation}
+\label{sec:gas}
+
+A gas pass was run after remediation, on the paths that execute most often: the
+V4 swap callbacks (every trade), and the perp engine's mark and settlement (every
+open, close and liquidation). Measurements are Foundry gas-report averages from
+the fork suite, before and after.
+
+\subsection{Applied optimisations}
+
+\begin{longtable}{@{}p{0.06\textwidth}p{0.40\textwidth}p{0.48\textwidth}@{}}
+\toprule
+\textbf{ID} & \textbf{Change} & \textbf{Why it pays} \\
+\midrule\endhead
+G-06 & \code{twapTick}: linear ring scan $\to$ \textbf{binary search} & Observations are written in strictly increasing timestamp order into a wrapping ring, so the populated slots are already sorted from the oldest (\code{obsIndex} once wrapped). $\approx$5 SLOADs instead of an unconditional 32, on a path that runs on every open, close, liquidation and funding poke. \\
+G-07 & \code{OBS\_CARDINALITY} wrap: modulo $\to$ \textbf{mask} & The ring is a power of two, so \code{\& OBS\_MASK} replaces \code{\% OBS\_CARDINALITY}. Cheaper in gas \emph{and} bytecode. \\
+G-09 & Hash the \code{PoolId} \textbf{once per swap} & \code{key.toId()} is a \code{keccak256} over the 5-field \code{PoolKey}. The swap path hashed it three separate times (adoption gate, volume, fee). Now computed once in the callback and threaded down. \\
+G-10 & Volume ring: \code{uint256[24]} $\to$ \code{uint128[24]} & Two buckets share a slot, so the 24-bucket sum behind \code{isDead} costs 12 SLOADs instead of 24. A bucket holds one hour of ETH volume in wei; \code{uint128} caps at $3.4\times10^{20}$ ETH, so the narrowing is unreachable --- and the add saturates rather than wrapping. \\
+G-05 & Drop an \code{abi.encode}/\code{decode} round trip & The in-lock swap path marshalled a \code{SwapReq} to \code{bytes} and immediately decoded it. Only the \code{unlock} path needs the encoding; the in-lock path now passes the struct directly. \\
+G-03 & Remove the 2-arg \code{openLong} overload & A pure forwarder to the 3-arg form. Every caller (frontend, router, tests) already used the 3-arg signature. \\
+G-04 & Remove \code{liquidateInSwap} / \code{liquidateManyInSwap} & Dead: the hook has only ever called the hint-free \code{sweepLiquidations}. They also carried their own \code{\_inLocked} reentrancy surface. \\
+G-11 & \code{MAX\_OPEN\_POSITIONS} as a \code{constant} & Removes a storage getter, its SLOAD, and a setter --- and makes the A-03 guarantee non-misconfigurable. \\
+G-01 & \code{accumulatedTokenFees} + \code{withdrawTokenFees} removed & Dead surface (finding I-01). \\
+G-02 & \code{getVolume24h} loop \code{unchecked} & 24 \code{uint128} addends cannot overflow a \code{uint256}. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Measured effect}
+
+\begin{center}\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Function} & \textbf{Before} & \textbf{After} & \textbf{Change} \\
+\midrule
+\code{CauldronHook.isDead} (median)   & 65{,}704 & 40{,}085 & $-39\%$ \\
+\code{PerpEngine.liquidate} (median)  & 152{,}104 & \phantom{0}93{,}167 & $-39\%$ \\
+\code{PerpEngine.poke} (avg)          & \phantom{0}89{,}357 & \phantom{0}63{,}108 & $-29\%$ \\
+\code{PerpEngine.openLong} (avg)      & 772{,}187 & 673{,}703 & $-13\%$ \\
+\code{PerpEngine.openShort} (avg)     & 773{,}263 & 671{,}775 & $-13\%$ \\
+\code{PerpEngine.forceCloseDead}      & 320{,}910 & 298{,}290 & $-7\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The \code{liquidate} and \code{isDead} improvements matter most: the
+former runs inside the in-swap sweep on \emph{every} trade, where the gas budget
+is what decides whether an underwater position actually gets closed, and the
+latter gates every perp open as well as the relaunch check.
+
+\noindent The \code{openLong}/\code{openShort} averages are dominated by the real
+pool swap, so the $\approx$13\,\% is the fixed overhead falling away rather than
+the swap getting cheaper.
+
+\subsection{Deliberately not done}
+
+\begin{itemize}
+\item \textbf{Caching \code{\_key()} in the perp engine.} It reads
+\code{registry.currentToken()} on every call, which is a cross-contract SLOAD.
+Caching it would save real gas but would introduce a staleness bug across a
+relaunch --- exactly the class of defect A-03 and H-04 are about. Correctness
+wins.
+\item \textbf{Packing the \code{Position} struct.} \code{size} and
+\code{principal} are genuinely \code{uint256}-scale (token amounts at $10^{18}$
+precision against a 777M supply), so narrowing them would risk truncation on the
+settlement path for a one-slot saving.
+\item \textbf{Extracting a \code{PerpOps} library for EIP-170 headroom.}
+Measured: the delegatecall stubs cost more bytecode than the extracted bodies
+saved (a net \emph{1 byte} gain for the badge helper, and $-866$ bytes for the
+settlement tail). Removing dead code (G-03, G-04) reclaimed far more.
+\end{itemize}
+
+\subsection{Remaining EIP-170 headroom}
+
+\begin{center}\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Contract} & \textbf{Runtime size} & \textbf{Margin} \\
+\midrule
+\code{CauldronHook}     & 24{,}518 & \textcolor{sevhigh}{58} \\
+\code{PerpEngine}       & 24{,}510 & \textcolor{sevhigh}{66} \\
+\code{CauldronRegistry} & 23{,}620 & 956 \\
+\code{PoolOps}          & 20{,}012 & 4{,}564 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{This is the single most important operational note in the
+report.} The hook and the engine sit within $\approx$60 bytes of the limit. Any
+future change to either --- including a one-line security fix --- will not
+compile. Before the next feature lands, extract a linked library from one of
+them along the \code{PoolOps} pattern the registry already uses. Do it while
+there is no incident pressure, not during one.
+
+%==============================================================================
+\section{Remediation}
+\label{sec:remediation}
+
+Every finding in this report was fixed in this repository. The workflow for each
+was: demonstrate the exploit against the unpatched code, apply the fix, re-run
+the same exploit and confirm it fails, then rewrite the test as a permanent
+regression that asserts the fixed behaviour.
+
+\subsection{Regression coverage}
+
+\begin{center}\small
+\begin{tabular}{@{}p{0.34\textwidth}p{0.60\textwidth}@{}}
+\toprule
+\textbf{File} & \textbf{Covers} \\
+\midrule
+\code{test/attacks/A01\_Create2Squat.t.sol}   & A-01 (address unpredictable; summon and relaunch both survive a squat) \\
+\code{test/attacks/A02\_PerpAttacks.t.sol}    & A-02, A-03, A-04 (mark resists an atomic round-trip; a full book force-closes; funding never shrinks the vault) \\
+\code{test/attacks/A05\_ReserveFloorSeeder.t.sol} & A-05, plus migration exactness, seeder-fund isolation and facet freezing \\
+\code{test/audit/AuditPoC.t.sol}              & C-01a, C-01b, H-01, H-02, H-05, M-03 \\
+\code{test/audit/AuditPoC2.t.sol}             & H-03, M-01, M-02, M-06, L-01 \\
+\code{test/audit/AuditPoC3.t.sol}             & H-04 (both the single- and batch-close paths) \\
+\code{test/audit/AuditPoC4.t.sol}             & C-02 (registry clamp and governor rejection) \\
+\code{test/invariants/}                       & The invariant register of \S\ref{sec:invariants} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Deliberate non-fixes}
+
+Three items were considered and consciously left as they are. Each is a
+trade-off, not an oversight.
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+
+\item[L-03 --- \texttt{tx.origin} credit attribution.] \textsc{Accepted.} The
+finding is correct: under ERC-4337 \code{tx.origin} is the bundler, so a relayer
+would accrue crystal credit for the operations it relays. But every alternative
+is worse for the case that dominates in practice. A user clicking \emph{Buy} in
+any Uniswap UI or aggregator arrives with \code{sender} set to the \emph{router},
+so crediting \code{sender} would send the crystal --- and the NFT it forges --- to
+a router contract instead of the person who paid. Crediting the EOA that signed
+the transaction is the only attribution that reaches the buyer without a trusted
+tag. Smart-account users should route through a tagging opener, and
+\code{creditUntaggedSwaps} can disable the path entirely. Documented in the code.
+
+\item[I-04 --- the vestigial \texttt{claimed} mapping.] \textsc{Documented.}
+Removing it would shift the shared storage layout that the registry and the
+\code{RedemptionExt} facet must agree on slot-for-slot. The cost of re-verifying
+that layout outweighs the benefit of deleting an unused mapping.
+
+\item[I-05 --- \texttt{liquidityForTokenOut} at extreme ticks.]
+\textsc{Documented.} Unreachable for this token's economics (a Cauldron pool's
+launch tick is strongly positive, $\approx +204{,}000$; the overflow regime
+begins below roughly $-480{,}000$). The fuzz domain is bounded accordingly with
+an explanatory comment rather than hidden.
+
+\end{description}
+
+\subsection{Deployment-script hardening}
+
+Two defaults were changed because they silently disabled protections the
+contracts implement correctly:
+
+\begin{itemize}
+\item \code{EMERGENCY\_DELAY} defaulted to \textbf{0}, which made every
+``timelocked'' break-glass action --- \code{emergencyWithdrawLP},
+\code{emergencySweep}, \code{migrateToSuccessor} --- execute instantly, with no
+arm-and-wait window for holders to exit and none for the guardian to veto. The
+delay is \emph{immutable} once constructed, so a zero could never be corrected.
+Now defaults to 48 hours.
+\item \code{insuranceFloor} was never set, leaving it \textbf{0}. That both
+disabled the opens circuit-breaker (\code{insuranceEth < insuranceFloor} is never
+true) and, before the M-05 fix, let \code{skimInsurance} drain the entire
+bad-debt buffer. Now armed explicitly at deploy.
+\end{itemize}
+
+\subsection{Verification}
+
+\begin{lstlisting}[language=bash,numbers=none]
+$ FOUNDRY_PROFILE=cauldron forge test
+Ran 48 test suites: 262 tests passed, 0 failed, 0 skipped (262 total tests)
+\end{lstlisting}
+
+\noindent That is the repository's original 218 tests --- all still passing,
+unmodified except where a fix deliberately changed behaviour --- plus 44
+delivered here.

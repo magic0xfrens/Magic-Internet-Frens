@@ -59,9 +59,10 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     struct PlayData {
         address player;
         uint256 ethIn;      // ETH to spend on a buy leg (0 to skip)
-        uint256 gnomeIn;    // token to spend on a sell leg (0 to skip)
-        uint256 minGnomeOut;
+        uint256 tokenIn;    // iteration token to spend on a sell leg (0 to skip)
+        uint256 minTokenOut;
         uint256 minEthOut;
+        uint256[] liqHints; // perp positions to auto-liquidate this swap (empty = none)
     }
 
     struct ChurnData {
@@ -107,19 +108,41 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         });
     }
 
-    /// @notice One-click play. Send ETH to buy and/or approve+pass `gnomeIn` to
+    /// @notice One-click play. Send ETH to buy and/or approve+pass `tokenIn` to
     ///         sell; the volume is credited to you and your crystals opened.
-    function play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax)
+    function play(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax)
         external
         payable
         nonReentrant
         returns (uint256 opened)
     {
-        if (msg.value == 0 && gnomeIn == 0) revert NothingSupplied();
+        return _play(tokenIn, minTokenOut, minEthOut, openMax, new uint256[](0));
+    }
+
+    /// @notice Same as {play}, but tags the swap with perp `liqHints`: any of
+    ///         those positions that is underwater at the TWAP mark is auto-
+    ///         liquidated inside this swap (a single trade can rekt SEVERAL),
+    ///         minting YOU (the swapper) a Liquidatoor badge + keeper reward for
+    ///         each. Stale/healthy hints are silent no-ops, so passing them never
+    ///         risks your trade. Frontends supply the crossed position ids here.
+    function playLiq(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax, uint256[] calldata liqHints)
+        external
+        payable
+        nonReentrant
+        returns (uint256 opened)
+    {
+        return _play(tokenIn, minTokenOut, minEthOut, openMax, liqHints);
+    }
+
+    function _play(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax, uint256[] memory liqHints)
+        internal
+        returns (uint256 opened)
+    {
+        if (msg.value == 0 && tokenIn == 0) revert NothingSupplied();
         PoolKey memory key = _key();
 
-        if (gnomeIn > 0) {
-            _safeTransferFrom(Currency.unwrap(key.currency1), msg.sender, address(this), gnomeIn);
+        if (tokenIn > 0) {
+            _safeTransferFrom(Currency.unwrap(key.currency1), msg.sender, address(this), tokenIn);
         }
 
         bytes memory ret = poolManager.unlock(
@@ -128,13 +151,14 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 abi.encode(PlayData({
                     player: msg.sender,
                     ethIn: msg.value,
-                    gnomeIn: gnomeIn,
-                    minGnomeOut: minGnomeOut,
-                    minEthOut: minEthOut
+                    tokenIn: tokenIn,
+                    minTokenOut: minTokenOut,
+                    minEthOut: minEthOut,
+                    liqHints: liqHints
                 }))
             )
         );
-        (uint256 ethConsumed, uint256 gnomeConsumed, uint256 sellEthGross) =
+        (uint256 ethConsumed, uint256 tokenConsumed, uint256 sellEthGross) =
             abi.decode(ret, (uint256, uint256, uint256));
 
         // Slippage guard on the sell proceeds before any external send.
@@ -148,8 +172,8 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         hook.resolveTickets(MAX_MINTS_PER_CALL);
 
         // INTERACTIONS: refund unused sell input, pay sell proceeds + ETH refund.
-        if (gnomeIn > gnomeConsumed) {
-            _safeTransfer(Currency.unwrap(key.currency1), msg.sender, gnomeIn - gnomeConsumed);
+        if (tokenIn > tokenConsumed) {
+            _safeTransfer(Currency.unwrap(key.currency1), msg.sender, tokenIn - tokenConsumed);
         }
         uint256 ethOut = sellEthGross + (msg.value - ethConsumed); // proceeds + refund
         if (ethOut > 0) {
@@ -216,13 +240,16 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
 
         PlayData memory d = abi.decode(payload, (PlayData));
         PoolKey memory key = _key();
-        bytes memory hookData = abi.encode(d.player); // credit the player
+        // Credit the player (first word) + carry the optional perp liqHint (second
+        // word) so an underwater position can be auto-liquidated inside this swap.
+        // Consumers that only read the player decode the first word, unaffected.
+        bytes memory hookData = abi.encode(d.player, d.liqHints);
 
         Currency eth = key.currency0;
-        Currency gnome = key.currency1;
+        Currency tok = key.currency1;
 
         uint256 ethConsumed;
-        uint256 gnomeConsumed;
+        uint256 tokenConsumed;
         uint256 sellEthGross;
 
         // BUY leg: ETH -> creature token
@@ -233,40 +260,41 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 hookData
             );
             uint256 outAmount = uint256(uint128(delta.amount1()));
-            if (outAmount < d.minGnomeOut) revert Slippage();
+            if (outAmount < d.minTokenOut) revert Slippage();
             ethConsumed = uint256(uint128(-delta.amount0()));
             _settle(eth, ethConsumed, true);
-            _take(gnome, d.player, outAmount);
+            _take(tok, d.player, outAmount);
         }
 
         // SELL leg: creature token -> ETH
-        if (d.gnomeIn > 0) {
+        if (d.tokenIn > 0) {
             BalanceDelta delta = poolManager.swap(
                 key,
-                SwapParams({zeroForOne: false, amountSpecified: -int256(d.gnomeIn), sqrtPriceLimitX96: _limit(false)}),
+                SwapParams({zeroForOne: false, amountSpecified: -int256(d.tokenIn), sqrtPriceLimitX96: _limit(false)}),
                 hookData
             );
             uint256 outAmount = uint256(uint128(delta.amount0()));
-            gnomeConsumed = uint256(uint128(-delta.amount1()));
-            _settle(gnome, gnomeConsumed, false);
+            tokenConsumed = uint256(uint128(-delta.amount1()));
+            _settle(tok, tokenConsumed, false);
             _take(eth, address(this), outAmount); // held; play() pays the player
             sellEthGross = outAmount;
         }
 
-        return abi.encode(ethConsumed, gnomeConsumed, sellEthGross);
+        return abi.encode(ethConsumed, tokenConsumed, sellEthGross);
     }
 
     function _churn(ChurnData memory c) private returns (bytes memory) {
         PoolKey memory key = _key();
         bytes memory hookData = abi.encode(c.player);
         Currency eth = key.currency0;
-        Currency gnome = key.currency1;
+        Currency tok = key.currency1;
 
         uint256 ethBal = c.ethIn;
-        uint256 gnomeBal;
+        uint256 tokBal;
         uint256 playWei;
 
-        for (uint256 i = 0; i < c.loops; i++) {
+        uint256 loops = c.loops;
+        for (uint256 i = 0; i < loops;) {
             if (ethBal > 0) {
                 BalanceDelta delta = poolManager.swap(
                     key,
@@ -276,28 +304,29 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 uint256 inE = uint256(uint128(-delta.amount0()));
                 uint256 outG = uint256(uint128(delta.amount1()));
                 _settle(eth, inE, true);
-                _take(gnome, address(this), outG);
+                _take(tok, address(this), outG);
                 playWei += inE;
-                gnomeBal += outG;
+                tokBal += outG;
                 ethBal = 0;
             }
-            if (i + 1 < c.loops && gnomeBal > 0) {
+            if (i + 1 < loops && tokBal > 0) {
                 BalanceDelta delta = poolManager.swap(
                     key,
-                    SwapParams({zeroForOne: false, amountSpecified: -int256(gnomeBal), sqrtPriceLimitX96: _limit(false)}),
+                    SwapParams({zeroForOne: false, amountSpecified: -int256(tokBal), sqrtPriceLimitX96: _limit(false)}),
                     hookData
                 );
                 uint256 inG = uint256(uint128(-delta.amount1()));
                 uint256 outE = uint256(uint128(delta.amount0()));
-                _settle(gnome, inG, false);
+                _settle(tok, inG, false);
                 _take(eth, address(this), outE);
                 playWei += outE;
                 ethBal += outE;
-                gnomeBal = 0;
+                tokBal = 0;
             }
+            unchecked { ++i; }
         }
 
-        if (gnomeBal > 0) _safeTransfer(Currency.unwrap(gnome), c.player, gnomeBal);
+        if (tokBal > 0) _safeTransfer(Currency.unwrap(tok), c.player, tokBal);
         return abi.encode(playWei, ethBal);
     }
 

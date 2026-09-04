@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { formatEther, type Address } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { CAULDRON, COLLECTION_ABI, VAULT_ABI } from "@/config/cauldron";
+import { nftTokenUrl, NETWORK_SHORT } from "@/config/chains";
+import FrenSprite from "@/components/shared/FrenSprite";
+import { frenFromSeed } from "@/data/frens";
 
 const RARITY = ["Common", "Rare", "Epic", "Ultra", "Legendary"];
 const RARITY_COL = ["#8f83b8", "#5ac8fa", "#c07cff", "#f5c542", "#d5fd51"];
@@ -116,7 +119,7 @@ export default function CreatureModal({ creature, onClose, onChanged }: Props) {
 
   const floorEth = Number(formatEther(floorWei));
   const rcol = RARITY_COL[rarity] ?? RARITY_COL[0];
-  const osUrl = `https://testnets.opensea.io/assets/sepolia/${creature.collection}/${creature.tokenId}`;
+  const osUrl = nftTokenUrl(creature.collection, creature.tokenId);
 
   return (
     <div className="cm-overlay" onClick={onClose}>
@@ -134,7 +137,15 @@ export default function CreatureModal({ creature, onClose, onChanged }: Props) {
         ) : (
           <>
             <div className="cm-art">
-              <img src={revealed ? (image || "/crystal.png") : "/crystal.png"} alt={name || `#${creature.tokenId}`} />
+              {revealed && !image ? (
+                // Renderer art missing → deterministic pixel fren from the tokenId.
+                (() => { const f = frenFromSeed(creature.tokenId); return (
+                  <FrenSprite bodyFile={f.bodyFile} faceFile={f.faceFile} itemFile={f.itemFile}
+                    bodyIdx={f.bodyIdx} faceIdx={f.faceIdx} itemIdx={f.itemIdx} alt={name || `#${creature.tokenId}`} />
+                ); })()
+              ) : (
+                <img src={revealed ? (image || "/crystal.png") : "/crystal.png"} alt={name || `#${creature.tokenId}`} />
+              )}
               {!revealed && <span className="cm-sealed">SEALED</span>}
             </div>
 
@@ -162,7 +173,7 @@ export default function CreatureModal({ creature, onClose, onChanged }: Props) {
                   : `🔥 Burn for floor · ${floorEth.toFixed(5)} Ξ`}
               </button>
 
-              <a className="cm-os" href={osUrl} target="_blank" rel="noopener">View on OpenSea ↗</a>
+              <a className="cm-os" href={osUrl} target="_blank" rel="noopener">View on {NETWORK_SHORT === "Robinhood" ? "Explorer" : "OpenSea"} ↗</a>
 
               {err && <div className="cm-err">{err}</div>}
               <p className="cm-note">Burning is permanent — it destroys the NFT and pays out its equal share of the floor vault.</p>
@@ -179,20 +190,20 @@ const css = (rcol: string) => `
     background: rgba(8,6,15,0.78); backdrop-filter: blur(6px); animation: cm-fade 0.2s ease; }
   .cm { position: relative; width: 100%; max-width: 720px; display: grid; grid-template-columns: 1fr 1fr; gap: 0;
     background: linear-gradient(160deg, #1b1436, #120c22); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 18px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,0.6); animation: cm-pop 0.25s cubic-bezier(.2,1.3,.4,1); }
+    border-radius: var(--r-md); overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,0.6); animation: cm-pop 0.25s cubic-bezier(.2,1.3,.4,1); }
   .cm-x { position: absolute; top: 12px; right: 12px; z-index: 3; width: 30px; height: 30px; border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.1); background: rgba(8,6,15,0.6); color: #b8adcc; cursor: pointer; font-size: 13px; }
   .cm-x:hover { color: #f5f0e8; border-color: rgba(255,255,255,0.25); }
   .cm-art { position: relative; display: grid; place-items: center; padding: 24px; background: radial-gradient(120% 100% at 50% 30%, ${rcol}18, transparent 65%); }
   .cm-art img { width: 100%; max-width: 260px; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated;
-    border-radius: 14px; filter: drop-shadow(0 8px 30px rgba(0,0,0,0.5)); }
+    border-radius: var(--r-sm); filter: drop-shadow(0 8px 30px rgba(0,0,0,0.5)); }
   .cm-sealed { position: absolute; top: 20px; left: 20px; font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.14em;
-    color: #8f83b8; border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 3px 9px; background: rgba(8,6,15,0.5); }
+    color: #8f83b8; border: 1px solid rgba(255,255,255,0.12); border-radius: var(--r-chip); padding: 3px 9px; background: rgba(8,6,15,0.5); }
   .cm-body { padding: 26px 26px 22px; display: flex; flex-direction: column; }
   .cm-eyebrow { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
   .cm-name { font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: 21px; color: #f5f0e8; margin: 5px 0 8px; }
   .cm-sub { font-family: "DM Sans", sans-serif; font-size: 12.5px; color: #b8adcc; line-height: 1.55; margin: 0 0 18px; }
-  .cm-btn { width: 100%; padding: 12px; border-radius: 11px; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 14px;
+  .cm-btn { width: 100%; padding: 12px; border-radius: var(--r-sm); font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 14px;
     cursor: pointer; border: 1px solid transparent; transition: all 0.15s; margin-bottom: 9px; }
   .cm-btn:disabled { opacity: 0.5; cursor: default; }
   .cm-btn--reveal { background: ${rcol}1c; border-color: ${rcol}; color: ${rcol}; }

@@ -28,12 +28,12 @@
     background: #333;
     color: #fff;
     padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
 }
 
 .status {
     padding: 0.5rem 1.5rem;
-    border-radius: 2rem;
+    border-radius: var(--r-lg);
     font-weight: bold;
     font-size: 1.2rem;
 }
@@ -64,7 +64,7 @@
 .stat-card {
     background: linear-gradient(135deg, rgba(255,69,0,0.1), rgba(255,165,0,0.1));
     border: 2px solid rgba(255,69,0,0.3);
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     padding: 1.5rem;
     transition: transform 0.2s;
 }
@@ -111,7 +111,7 @@
 .your-position {
     background: rgba(0,0,0,0.3);
     padding: 1.5rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     margin-bottom: 2rem;
 }
 
@@ -128,7 +128,7 @@
 .rebirth-section {
     background: linear-gradient(135deg, rgba(255,0,0,0.2), rgba(255,69,0,0.2));
     border: 2px solid #ff4500;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     padding: 2rem;
     text-align: center;
     margin-bottom: 2rem;
@@ -146,7 +146,7 @@
     padding: 1rem 2rem;
     font-size: 1.2rem;
     font-weight: bold;
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -159,7 +159,7 @@
 .claims-section {
     background: rgba(0,0,0,0.3);
     padding: 1.5rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     margin-bottom: 2rem;
 }
 
@@ -169,7 +169,7 @@
     align-items: center;
     background: rgba(255,165,0,0.1);
     padding: 1rem;
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
     margin-bottom: 0.5rem;
 }
 
@@ -178,7 +178,7 @@
     color: #000;
     border: none;
     padding: 0.5rem 1.5rem;
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
     font-weight: bold;
     cursor: pointer;
 }
@@ -197,7 +197,7 @@
     gap: 1rem;
     padding: 1rem;
     background: rgba(0,0,0,0.2);
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
     margin-bottom: 0.5rem;
 }
 
@@ -209,7 +209,7 @@
     background: #ff4500;
     color: white;
     padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     font-weight: bold;
 }
 
@@ -242,7 +242,7 @@
     position: relative;
     height: 60px;
     background: rgba(0,0,0,0.3);
-    border-radius: 2rem;
+    border-radius: var(--r-lg);
     overflow: hidden;
     margin-bottom: 2rem;
 }
@@ -274,7 +274,7 @@
     text-align: center;
     padding: 1rem;
     background: rgba(0,0,0,0.2);
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
 }
 
 .progress-stats .label {
@@ -301,7 +301,7 @@
     padding: 1.5rem 3rem;
     font-size: 1.5rem;
     font-weight: bold;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -319,7 +319,7 @@
 .phoenix-preview {
     background: rgba(0,0,0,0.3);
     padding: 2rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     margin-bottom: 2rem;
 }
 
@@ -342,7 +342,7 @@
     background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2));
     border: 2px solid #ffd700;
     padding: 2rem;
-    border-radius: 1rem;
+    border-radius: var(--r-md);
     text-align: center;
     animation: glow 2s infinite;
 }
@@ -389,7 +389,7 @@
     background: linear-gradient(135deg, #ff4500, #ffa500);
     color: white;
     padding: 1rem 2rem;
-    border-radius: 0.5rem;
+    border-radius: var(--r-sm);
     text-decoration: none;
     font-weight: bold;
     font-size: 1.2rem;

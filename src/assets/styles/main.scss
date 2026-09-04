@@ -1,3 +1,45 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Design tokens
+//
+// These are CSS custom properties, not SCSS variables, on purpose: every
+// component ships its own inline `<style>` block (template literals), which
+// SCSS can't reach at build time but `var()` resolves at paint time. One
+// source of truth that both the .scss files and the inline blocks can read.
+// ─────────────────────────────────────────────────────────────────────────────
+:root {
+  // Radius — one step tighter than the old ad-hoc 12/16/20/24/999 mix.
+  --r-xs: 4px;      // tags, progress tracks, inline code
+  --r-chip: 6px;    // badges + pills that used to be 999px
+  --r-sm: 8px;      // inputs, buttons, rows, small tiles
+  --r-md: 12px;     // cards, panels, modals
+  --r-lg: 16px;     // hero containers, large media
+  --r-full: 999px;  // avatars, dots, the landing hero arrow-CTA — genuine circles only
+
+  // z-index scale — replaces the ad-hoc 1/2/50/100/9999 values.
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-rail: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+
+  // Layout
+  --rail-w: 240px;
+  --hdr-h: 56px;
+
+  // Brand — single source for both the cream landing and the dark console.
+  --void: #0e0a1a;
+  --cream: #f5f0e8;
+  --ink: #2a1f54;
+  --lime: #d5fd51;
+  --violet: #7c5cfc;
+  --amber: #f5c542;
+  --red: #ff4d6d;
+  --green: #3ddc84;
+  --mute: #8f83b8;
+  --dim: #b8adcc;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

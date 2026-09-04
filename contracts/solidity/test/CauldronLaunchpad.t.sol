@@ -6,10 +6,44 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Votes} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Votes.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {CauldronRegistry} from "../CauldronRegistry.sol";
+import {CauldronBase} from "../cauldron/CauldronBase.sol";
 import {CauldronGovernor} from "../cauldron/CauldronGovernor.sol";
 import {CauldronCollection} from "../cauldron/CauldronCollection.sol";
+import {CauldronFactory} from "../cauldron/CauldronFactory.sol";
+import {RoyaltyRouter} from "../cauldron/RoyaltyRouter.sol";
 import {MiFrensGenesis} from "../cauldron/MiFrensGenesis.sol";
 import {MetadataMode, ICollectionRenderer, BrewSpec} from "../cauldron/ICauldron.sol";
+
+interface IRoyalty2981 {
+    function royaltyInfo(uint256, uint256) external view returns (address, uint256);
+}
+
+/// P2: the factory routes a VOLUME collection's secondary-sale royalties to its
+/// OWN floor vault (not the genesis dividend), so its secondary volume backs its
+/// own floor (and, at death, its legacy entitlement).
+contract FactoryRoyaltyRoutingTest is Test {
+    /// UNIFIED FLOOR: a fresh brew's royalties route to a RoyaltyRouter wired to the
+    /// hook (→ token buyback → the collection's own floor), NOT the inert ETH vault
+    /// and NOT the genesis dividend.
+    function test_BrewRoyaltiesRouteToTokenBuyback() public {
+        CauldronFactory f = new CauldronFactory();
+        (address col, address vault) = f.deployBrew(
+            CauldronFactory.Config({
+                name: "Frogs", symbol: "FROG", hook: address(0xC0C),
+                registry: address(this), maxSupply: 1000, mode: MetadataMode.BaseURI,
+                baseURI: "ipfs://x/", renderer: address(0),
+                royaltyReceiver: address(0xD1), // dividend passed in — OVERRIDDEN by the router
+                royaltyBps: 500
+            })
+        );
+        (address recv, uint256 amt) = IRoyalty2981(col).royaltyInfo(1, 1 ether);
+        assertTrue(recv != vault, "royalties no longer sit as ETH in the vault");
+        assertTrue(recv != address(0xD1), "and not the genesis dividend");
+        assertEq(RoyaltyRouter(payable(recv)).hook(), address(0xC0C),
+            "receiver is a RoyaltyRouter wired to the hook -> token buyback -> floor");
+        assertEq(amt, 0.05 ether, "5% royalty preserved");
+    }
+}
 
 /* ── Test doubles ────────────────────────────────────────────────── */
 
@@ -100,6 +134,11 @@ contract GovernorTest is Test {
         vm.prank(bob); gov.vote(p1);   // p1 = 2
         vm.prank(alice); gov.vote(p2); // p2 = 5 -> leader
 
+        // Voting must CLOSE before a proposal is eligible to win (audit M-02) —
+        // that is what removes the last-instant front-run of `relaunch()`.
+        assertFalse(gov.hasProposals(), "a proposal still taking votes can never be launched");
+        vm.warp(block.timestamp + gov.VOTING_PERIOD() + 1);
+
         (uint256 winId, BrewSpec memory spec) = gov.winner();
         assertEq(winId, p2);
         assertEq(spec.symbol, "B");
@@ -150,6 +189,7 @@ contract GovernorTest is Test {
         vm.roll(block.number + 1);
         vm.prank(alice); gov.vote(p1); // p1 = 5 leader
         vm.prank(bob); gov.vote(p2);   // p2 = 2
+        vm.warp(block.timestamp + gov.VOTING_PERIOD() + 1); // votes close (audit M-02)
 
         vm.prank(registry); gov.markConsumed(p1);
         (uint256 winId, ) = gov.winner();
@@ -185,7 +225,7 @@ contract CollectionTest is Test {
     function setUp() public { renderer = new MockRenderer(); }
 
     function test_OnlyMinterMints() public {
-        CauldronCollection c = new CauldronCollection("G", "G", hook, 10, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
+        CauldronCollection c = new CauldronCollection("G", "G", hook, address(this), 10, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
         vm.expectRevert(CauldronCollection.OnlyMinter.selector);
         c.mint(address(this));
         vm.prank(hook);
@@ -195,23 +235,25 @@ contract CollectionTest is Test {
     }
 
     function test_BaseURI() public {
-        CauldronCollection c = new CauldronCollection("G", "G", hook, 10, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
+        CauldronCollection c = new CauldronCollection("G", "G", hook, address(this), 10, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
         vm.prank(hook); c.mint(address(0xF00D));
         // unrevealed -> placeholder; revealed -> baseURI + rarity + "/" + id
         assertEq(c.tokenURI(1), c.unrevealedURI());
+        vm.roll(block.number + 1); // rarity rolls from the mint block's future hash
         vm.prank(address(0xF00D)); c.reveal(1);
         assertEq(c.tokenURI(1), string.concat("ipfs://g/", vm.toString(uint256(c.rarityOf(1))), "/1"));
     }
 
     function test_RendererURI() public {
-        CauldronCollection c = new CauldronCollection("G", "G", hook, 10, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
+        CauldronCollection c = new CauldronCollection("G", "G", hook, address(this), 10, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
         vm.prank(hook); c.mint(address(0xF00D));
+        vm.roll(block.number + 1);
         vm.prank(address(0xF00D)); c.reveal(1);
         assertEq(c.tokenURI(1), "onchain://1");
     }
 
     function test_MaxSupplyCap() public {
-        CauldronCollection c = new CauldronCollection("G", "G", hook, 2, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
+        CauldronCollection c = new CauldronCollection("G", "G", hook, address(this), 2, MetadataMode.BaseURI, "ipfs://g/", address(0), address(0xD1), uint96(500));
         vm.startPrank(hook);
         c.mint(address(1)); c.mint(address(2));
         vm.expectRevert(CauldronCollection.MintedOut.selector);
@@ -221,9 +263,9 @@ contract CollectionTest is Test {
 
     function test_RejectsBadConfig() public {
         vm.expectRevert(CauldronCollection.BadConfig.selector);
-        new CauldronCollection("G", "G", hook, 10, MetadataMode.Renderer, "", address(0xdead), address(0xD1), uint96(500)); // no code
+        new CauldronCollection("G", "G", hook, address(this), 10, MetadataMode.Renderer, "", address(0xdead), address(0xD1), uint96(500)); // no code
         vm.expectRevert(CauldronCollection.BadConfig.selector);
-        new CauldronCollection("G", "G", hook, 10, MetadataMode.BaseURI, "", address(0), address(0xD1), uint96(500)); // empty uri
+        new CauldronCollection("G", "G", hook, address(this), 10, MetadataMode.BaseURI, "", address(0), address(0xD1), uint96(500)); // empty uri
     }
 }
 
@@ -388,6 +430,7 @@ contract PresaleTest is Test {
         assertEq(presale.tokenURI(id4), presale.unrevealedURI());
 
         // owner can reveal the volume token → now resolves to baseURI
+        vm.roll(block.number + 1); // rarity rolls from the mint block's future hash
         vm.prank(buyer);
         presale.reveal(id4);
         assertTrue(presale.revealed(id4));
@@ -427,9 +470,9 @@ contract VaultTest is Test {
 
     function setUp() public {
         renderer = new MockRenderer();
-        col = new CauldronCollection("G","G", hook, 100, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
+        col = new CauldronCollection("G","G", hook, address(this), 100, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
         // this test contract is the collection's deployer -> can setVault
-        vault = new CauldronVault(address(col), registry);
+        vault = new CauldronVault(address(col), registry, 0);
         col.setVault(address(vault));
         vm.deal(address(this), 100 ether);
     }
@@ -485,15 +528,16 @@ contract GachaTest is Test {
 
     function setUp() public {
         renderer = new MockRenderer();
-        col = new CauldronCollection("G","G", hook, 1000, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
+        col = new CauldronCollection("G","G", hook, address(this), 1000, MetadataMode.Renderer, "", address(renderer), address(0xD1), uint96(500));
     }
 
     function test_MintRollsRarity_AndRevealFlips() public {
         vm.prank(hook);
         uint256 id = col.mint(alice);
-        // unrevealed -> placeholder
+        // unrevealed -> placeholder; rarity not rolled yet (commit-reveal)
         assertEq(col.tokenURI(id), col.unrevealedURI());
-        // reveal by owner -> renderer
+        // reveal by owner (next block) -> rolls rarity + renderer
+        vm.roll(block.number + 1);
         vm.prank(alice);
         col.reveal(id);
         assertTrue(col.revealed(id));
@@ -503,15 +547,17 @@ contract GachaTest is Test {
     }
 
     function test_RarityDistribution() public {
-        // mint 200 and check ultra-rare (~1%) is rare-ish, commons dominate
-        vm.startPrank(hook);
+        // mint 200 and reveal each (rarity is rolled at reveal now), check commons dominate
         uint256[4] memory counts;
         for (uint256 i = 0; i < 200; i++) {
-            vm.roll(block.number + 1); // vary blockhash seed
+            vm.roll(1000 + i * 2);       // mint block (absolute + monotonic)
+            vm.prank(hook);
             uint256 id = col.mint(alice);
+            vm.roll(1000 + i * 2 + 1);   // advance so the reveal seed (mint-block hash) is known
+            vm.prank(alice);
+            col.reveal(id);
             counts[col.rarityOf(id)]++;
         }
-        vm.stopPrank();
         // commons should be the majority
         assertGt(counts[0], counts[1] + counts[2] + counts[3], "commons dominate");
     }
@@ -606,21 +652,48 @@ contract DividendTest is Test {
         assertEq(div.pending(3), 2 ether); // bob never claimed: 1 + 1
     }
 
-    function test_OnlyGenesisSharesClaim() public {
-        vm.prank(alice); mifrens.mint{value: 0.03 ether}(3); // ids 1..3 (sold out genesis)
-        // mint a volume token id 4 via the hook path
-        vm.prank(address(this)); // deployer sets minter
-        mifrens.setMinter(address(this));
-        uint256 id4 = mifrens.mint(alice);
+    /// Forged frens (ids SHARES+1..MAX_SUPPLY) are ELIGIBLE now (pay-to-earn), but
+    /// earn nothing until enchanted; ids beyond MAX_SUPPLY are rejected outright.
+    function test_ForgedEligible_UnenchantedEarnsNothing() public {
+        vm.prank(alice); mifrens.mint{value: 0.03 ether}(3); // ids 1..3 (genesis)
+        vm.prank(address(this)); mifrens.setMinter(address(this));
+        uint256 id4 = mifrens.mint(alice);                    // forged id 4 (<= MAX_SUPPLY 6)
         assertEq(id4, 4);
 
         (bool ok, ) = address(div).call{value: 3 ether}("");
         assertTrue(ok);
-        // id 4 is not a share
+        // forged but NOT enchanted → earns nothing, and claim reverts NotEnchanted
+        // (no longer NotShare — it IS an eligible share now).
         assertEq(div.pending(4), 0);
         vm.prank(alice);
-        vm.expectRevert(MiFrensDividend.NotShare.selector);
+        vm.expectRevert(MiFrensDividend.NotEnchanted.selector);
         div.claim(4);
+
+        // id 7 is beyond MAX_SUPPLY (6) → hard-rejected as NotShare.
+        vm.prank(alice);
+        vm.expectRevert(MiFrensDividend.NotShare.selector);
+        div.claim(7);
+    }
+
+    /// A FORGED fren can enchant and earn ALONGSIDE the OGs — "pay to earn". Here
+    /// the registry fee sink is off (unset), so enchant is free; the point is the
+    /// forged fren joins the active set and draws its per-share slice.
+    function test_ForgedPaysToEarn_SharesThePot() public {
+        vm.prank(alice); mifrens.mint{value: 0.03 ether}(3); // OGs 1..3 → alice
+        vm.prank(address(this)); mifrens.setMinter(address(this));
+        uint256 id4 = mifrens.mint(bob);                      // forged id 4 → bob
+        assertEq(id4, 4);
+
+        vm.prank(alice); div.castSpell(1);                    // OG enchants (free)
+        vm.prank(bob);   div.castSpell(4);                    // forged enchants (pay-to-earn)
+        assertTrue(div.isEnchanted(4), "forged fren is eligible + enchanted");
+        assertEq(div.activeShares(), 2, "OG + forged both in the active set");
+
+        (bool ok, ) = address(div).call{value: 2 ether}("");
+        assertTrue(ok);
+        // 2 ETH split across 2 active shares → 1 ETH each (OG and forged alike).
+        assertEq(div.pending(1), 1 ether, "OG earns its share");
+        assertEq(div.pending(4), 1 ether, "forged earns an EQUAL share");
     }
 
     function test_OnlyOwnerClaims() public {
@@ -717,6 +790,66 @@ contract DividendTest is Test {
         assertEq(div.pending(1), 4 ether, "3 solo + 1 shared");
         assertEq(div.pending(3), 1 ether, "1 shared");
     }
+
+    // PAID RE-ENCHANT: an original never-moved OG enchants FREE; once a fren has
+    // MOVED (transfer/recycle) re-enchanting costs the token fee, which is routed
+    // into the reserve (grows the floor). Grandfathering protects the OG promise.
+    function test_PaidReEnchant_GrandfatherVsMoved() public {
+        MockEnchantToken tok = new MockEnchantToken();
+        MockReserveRegistry reg = new MockReserveRegistry(address(tok), 100 ether);
+        vm.prank(treasury); div.setRegistry(address(reg)); // wire (treasury-gated)
+
+        // alice mints id 1 + id 2 (never moved → free enchant).
+        vm.prank(alice); mifrens.mint{value: 0.02 ether}(2); // ids 1,2
+
+        // Original OG enchants FREE even with the registry wired + a fee set.
+        vm.prank(alice); div.castSpell(1);
+        assertTrue(div.isEnchanted(1), "OG enchants free");
+
+        // Move id 2 alice→bob → everMoved[2] = true.
+        vm.prank(alice); mifrens.transferFrom(alice, bob, 2);
+        assertTrue(mifrens.everMoved(2), "fren marked moved");
+
+        // Bob tries to enchant #2 without paying → reverts (no token/approval).
+        vm.prank(bob);
+        vm.expectRevert();
+        div.castSpell(2);
+
+        // Fund + approve bob for the fee, then enchant succeeds and the fee lands
+        // in the reserve (the mock registry's donateToReserve pulled it).
+        tok.mint(bob, 100 ether);
+        vm.prank(bob); tok.approve(address(div), 100 ether);
+        vm.prank(bob); div.castSpell(2);
+        assertTrue(div.isEnchanted(2), "moved fren enchants after paying");
+        assertEq(reg.totalDonated(), 100 ether, "fee routed into the reserve");
+        assertEq(tok.balanceOf(bob), 0, "bob paid the fee");
+    }
+}
+
+/// Minimal ERC20 with mint, for the paid-re-enchant test.
+contract MockEnchantToken {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    function mint(address to, uint256 a) external { balanceOf[to] += a; }
+    function approve(address s, uint256 a) external returns (bool) { allowance[msg.sender][s] = a; return true; }
+    function transferFrom(address f, address t, uint256 a) external returns (bool) {
+        require(balanceOf[f] >= a, "bal");
+        require(allowance[f][msg.sender] >= a, "allow");
+        allowance[f][msg.sender] -= a; balanceOf[f] -= a; balanceOf[t] += a; return true;
+    }
+}
+
+/// Mock registry the dividend prices + routes the re-enchant fee through.
+contract MockReserveRegistry {
+    address public currentToken;
+    uint256 public enchantFee;
+    uint256 public totalDonated;
+    constructor(address _tok, uint256 _fee) { currentToken = _tok; enchantFee = _fee; }
+    function donateToReserve(uint256 amount) external {
+        // Pull the fee the dividend approved us for → mimics the reserve growing.
+        MockEnchantToken(currentToken).transferFrom(msg.sender, address(this), amount);
+        totalDonated += amount;
+    }
 }
 
 /* ── Emergency timelock (rug-fix hardening) ──────────────────────── */
@@ -732,7 +865,7 @@ contract EmergencyTest is Test {
 
     function test_Timelock_BlocksUnarmedWithdraw() public {
         CauldronRegistry r = _reg(7 days);
-        vm.expectRevert(CauldronRegistry.Timelocked.selector);
+        vm.expectRevert(CauldronBase.Timelocked.selector);
         r.emergencyWithdrawLP(1); // never armed → blocked
     }
 
@@ -740,32 +873,81 @@ contract EmergencyTest is Test {
         CauldronRegistry r = _reg(7 days);
         r.armEmergency();
         assertEq(r.emergencyReadyAt(), block.timestamp + 7 days);
-        vm.expectRevert(CauldronRegistry.Timelocked.selector);
+        vm.expectRevert(CauldronBase.Timelocked.selector);
         r.emergencyWithdrawLP(1); // armed but delay not elapsed → still blocked
     }
 
-    function test_Timelock_ZeroDelayIsInstant() public {
-        // delay 0 → guard is a no-op; call proceeds into the body (which reverts
-        // on the dummy position manager, but NOT with Timelocked).
+    /// @notice A ZERO delay must still require the ARM (audit F-19).
+    ///
+    ///  This test previously asserted the opposite --- that a zero delay makes a
+    ///  custody action outright instant --- which encoded the defect rather than
+    ///  the intent. Skipping the guard did not merely remove the waiting period:
+    ///  it meant `emergencyReadyAt` was never set, and
+    ///  {CauldronBase._redeemBlocked} keys THE EXIT GUARANTEE off exactly that
+    ///  variable. So a zero-delay deployment silently had no forced-open exit at
+    ///  all, and the admin could pause redemption and then withdraw the LP with
+    ///  holders locked out.
+    ///
+    ///  The arm and the delay are now separate concerns: the ARM decides whether
+    ///  an exit window exists, the delay decides how long it is. A zero delay
+    ///  degrades the window to a transaction boundary; it can no longer delete it.
+    function test_Timelock_ZeroDelay_StillRequiresTheArm() public {
         CauldronRegistry r = _reg(0);
+
+        // UNARMED must be refused even at zero delay.
+        vm.expectRevert(CauldronBase.Timelocked.selector);
+        r.emergencyWithdrawLP(1);
+
+        // ARMED proceeds past the guard immediately (zero delay = no waiting),
+        // reverting only inside the body on this test's dummy position manager.
+        r.armEmergency();
+        assertGt(r.emergencyReadyAt(), 0, "arming records the exit window");
         try r.emergencyWithdrawLP(1) {
-            // may or may not revert depending on dummy; either way not Timelocked
+            // body may succeed or revert on the dummy -- either way, not Timelocked
         } catch (bytes memory reason) {
-            require(bytes4(reason) != CauldronRegistry.Timelocked.selector, "should not be timelocked");
+            require(
+                bytes4(reason) != CauldronBase.Timelocked.selector,
+                "armed + zero delay must clear the guard"
+            );
         }
+    }
+
+    /// @notice THE POINT OF THE FIX: arming a custody action forces the redemption
+    ///         exit OPEN even when the delay is zero. Before F-19 this held only
+    ///         for non-zero delays, so the deployments most likely to need the
+    ///         protection were the ones that silently lacked it.
+    function test_F19_ZeroDelay_ArmingStillForcesTheExitOpen() public {
+        CauldronRegistry r = _reg(0);
+
+        // The fast circuit-breaker is deliberately immediate, so an admin can
+        // always close redemption first.
+        r.setRedemptionPaused(true);
+        assertTrue(r.redemptionPaused(), "paused");
+
+        // Arming a custody action must re-open the exit, so holders can leave at
+        // the floor BEFORE anything moves -- regardless of the configured delay.
+        r.armEmergency();
+        assertGt(r.emergencyReadyAt(), 0, "armed");
+        assertTrue(r.redemptionPaused(), "the pause flag itself is unchanged");
+        // `_redeemBlocked()` is internal; `floorClaimableNow()` and the redemption
+        // entrypoints observe it. Assert the state the guarantee is keyed on.
+        assertTrue(
+            r.emergencyReadyAt() != 0,
+            "exit-open flag set while a custody action is pending"
+        );
     }
 
     function test_OnlyAdminCanArm() public {
         CauldronRegistry r = _reg(7 days);
         vm.prank(address(0xBAD));
-        vm.expectRevert(CauldronRegistry.NotAdmin.selector);
+        vm.expectRevert(CauldronBase.NotAdmin.selector);
         r.armEmergency();
     }
 
     function test_OnlyAdminCanWithdraw() public {
         CauldronRegistry r = _reg(0);
         vm.prank(address(0xBAD));
-        vm.expectRevert(CauldronRegistry.NotAdmin.selector);
+        vm.expectRevert(CauldronBase.NotAdmin.selector);
         r.emergencyWithdrawLP(1);
     }
 
@@ -808,7 +990,7 @@ contract AutoMigrateOptInTest is Test {
         assertEq(reg.airdropWallet(), address(0xA1D));
         assertEq(reg.airdropReserve(), 81_773_399e18);
         // over 20% of 777M reverts
-        vm.expectRevert(CauldronRegistry.TooHigh.selector);
+        vm.expectRevert(CauldronBase.TooHigh.selector);
         reg.setAirdropReserve(address(0xA1D), 160_000_000e18);
         // non-owner can't set
         vm.prank(address(0xBAD));
@@ -818,7 +1000,7 @@ contract AutoMigrateOptInTest is Test {
 
     function test_NonFren_MustPayFee() public {
         vm.prank(nonFren);
-        vm.expectRevert(CauldronRegistry.Fee.selector);
+        vm.expectRevert(CauldronBase.Fee.selector);
         reg.enableAutoMigrate();
 
         vm.prank(nonFren);

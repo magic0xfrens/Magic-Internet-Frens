@@ -1,39 +1,71 @@
-import { sepolia } from "viem/chains";
 import type { Address } from "viem";
+import { ACTIVE_CHAIN_ID } from "@/config/chains";
+// ── SINGLE SOURCE OF TRUTH ──────────────────────────────────────────────────
+// The live deployment's addresses/blocks come from ONE manifest shared with the
+// indexer: indexer/deployments/round.json. It physically lives in indexer/ because
+// `railway up` only uploads that dir; the frontend reaches into it so both sides
+// can NEVER drift (that drift served r29 data as r31). To ship a round: edit that
+// file + run scripts/deploy-round.mjs. Per-iteration token/collection/vault rotate
+// on relaunch — read those live from the registry, don't pin them here.
+import round from "../../indexer/deployments/round.json";
 
-/**
- * Live Cauldron (Magic Internet Frens) deployment — the eternal launchpad.
- * Canonical Sepolia addresses from
- * contracts/solidity/deployments/sepolia-launch.json (v4, audited).
- * gen-1 GnomeLand is LIVE. Per-iteration addresses (token/collection/vault)
- * rotate on relaunch — read them live from the registry, don't pin.
- */
 export const CAULDRON = {
-  chainId: sepolia.id,
-  // round-17 (CANONICAL): reserve-LP migration + 30% genesis bonus + presale
-  // cancel/refund + batch genesis claim. 100% of supply lives in two V4 positions
-  // (active 10% + out-of-range reserve 90%) → no whale FUD; claims release 1:1
-  // from the reserve. Each fren reclaims 30% of mint value (B/A=0.30). Live at the
-  // real 0.0222 mint price (24.66 ETH raised → FDV ~246 ETH). gen-1 GNOME LIVE.
-  registry: "0x65Dd9Ba0eB1dA5C7CBcDA01d3d9218e804C7a54c" as Address,
-  hook: "0x82FC4A9da3B9953b6BCF67Fb29F644C59d4bd0CC" as Address,
-  gachaRouter: "0x0165F9A190B216bD410b6f8Ea538A7168DE90147" as Address,
-  dividend: "0x96Bd816C9A5089b453BF7C56fBA716D4a6Cc32A2" as Address,
-  governor: "0xf9730985C55D3deB26f070b45A65CD96F0E36D0E" as Address,
-  mifrens: "0x4D180c050978F0037d030BaC455c3cfA70aAA8e1" as Address, // MiFrensGenesis (collection)
-  poolManager: "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543" as Address, // V4 (Sepolia)
-  genesisSupply: 1111,
-  deathThresholdEth: 0.05, // matches DEATH_THRESHOLD env on this deploy
-  deployBlock: 11581000n, // round-14 launchpad deploy block — bound getLogs
+  chainId: ACTIVE_CHAIN_ID,
+  registry: round.contracts.registry as Address,
+  hook: round.contracts.hook as Address,
+  gachaRouter: round.contracts.gachaRouter as Address,
+  dividend: round.contracts.dividend as Address,
+  governor: round.contracts.governor as Address,
+  mifrens: round.contracts.presale as Address, // MiFrensGenesis (presale/collection)
+  timelock: round.contracts.timelock as Address, // owns hook+engine; registry emergencyAdmin
+  collectionLedger: round.contracts.collectionLedger as Address, // legacy-floor cap table
+  poolManager: round.contracts.poolManager as Address, // V4 (Sepolia)
+  genesisSupply: round.genesisSupply,
+  deathThresholdEth: round.deathThresholdEth, // 0 post-summon so the fresh pool trades
+  deployBlock: BigInt(round.blocks.deploy), // launchpad deploy block — bounds getLogs
 };
 
 /**
  * Cauldron price indexer (Ponder). Serves OHLC candles + volume per generation
- * at /candles/:gen. When unset/unreachable the chart falls back to on-chain
- * getLogs. Set VITE_CAULDRON_INDEXER to your deployed indexer URL.
+ * at /candles/:gen. The public Railway URL is the DEFAULT (it's a public API, not
+ * a secret) so the chart/swaps work even if the Vercel VITE_CAULDRON_INDEXER env
+ * is unset/empty — that empty-env footgun blanked the live chart ("awaiting first
+ * swaps") despite the indexer being healthy. Override via env for local/staging.
  */
-export const CAULDRON_INDEXER: string =
-  (import.meta.env?.VITE_CAULDRON_INDEXER as string) || "";
+const DEFAULT_INDEXER = round.indexerUrl;
+// HARDEN the override: only accept an ABSOLUTE http(s) URL. A blank OR
+// relative/garbage value (e.g. "/", "mifrens…", a trailing-slash-only string)
+// would otherwise make every `${INDEXER}/candles/…` fetch resolve to a RELATIVE
+// path → the SPA rewrite serves index.html (200) → JSON.parse fails → the hooks
+// retry every few seconds. Across ~10 pollers that silently melts the chart AND
+// hammers Vercel with edge requests. Anything not clearly absolute → the default.
+function resolveIndexer(): string {
+  const raw = ((import.meta.env?.VITE_CAULDRON_INDEXER as string) || "").trim();
+  // Must be an ABSOLUTE http(s) URL (rejects "", "/", "mifrens…", trailing-slash).
+  if (!/^https?:\/\/[^/]+/i.test(raw)) return DEFAULT_INDEXER;
+  const url = raw.replace(/\/+$/, "");
+  // CRITICAL: never let the indexer point at our OWN origin. If it did, every
+  // `${INDEXER}/candles/…` etc. would hit the SPA rewrite, get index.html (HTTP
+  // 200), fail JSON.parse, and the ~10 pollers would retry every few seconds
+  // FOREVER — silently melting the chart AND draining Vercel edge requests. If
+  // VITE_CAULDRON_INDEXER is misconfigured to the site's own domain, fall back
+  // to the real (Railway) indexer instead of self-DoSing.
+  try {
+    if (typeof window !== "undefined") {
+      const bare = (h: string) => h.toLowerCase().replace(/^www\./, "");
+      if (bare(new URL(url).host) === bare(window.location.host)) return DEFAULT_INDEXER;
+    }
+  } catch { return DEFAULT_INDEXER; }
+  return url;
+}
+export const CAULDRON_INDEXER: string = resolveIndexer();
+
+/** Liquidatoor badges (OnChain Collectibles) mint into this id range on every
+ *  collection, kept separate from the art tranche. A tokenId at/above this is a
+ *  Liquidatoor trophy, not a creature. Mirrors LIQUIDATOR_ID_BASE on-chain. */
+export const LIQUIDATOR_ID_BASE = 1_000_000;
+export const isLiquidatoorId = (tokenId: number | bigint) =>
+  BigInt(tokenId) >= BigInt(LIQUIDATOR_ID_BASE);
 
 /** MiFrensDividend — genesis holders claim a share of every iteration's fees. */
 export const DIVIDEND_ABI = [
@@ -63,11 +95,29 @@ export const REGISTRY_ABI = [
   { type: "function", name: "generationPositionId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "relaunch", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "address" }, { type: "bytes32" }] },
   { type: "function", name: "claimByBurn", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "claimGenesis", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
-  // Batch claim — one reserve removal for many frens (a 20-fren holder pays 1 tx).
-  { type: "function", name: "claimGenesisMany", stateMutability: "nonpayable", inputs: [{ type: "uint256[]" }], outputs: [{ type: "uint256" }] },
+  // RECYCLE-REDEMPTION FLOOR (v2): redeem a genesis fren → receive floorPerFren of
+  // the LIVE token (from the reserve); the NFT moves to the TREASURY (not burned).
+  { type: "function", name: "redeemOgFren", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  // Buy a treasury-held (recycled) fren for 2× floor → payment grows the reserve.
+  { type: "function", name: "buyTreasuryOgFren", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  // Permissionlessly grow the floor by donating current token into the reserve.
+  { type: "function", name: "donateToReserve", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
+  // DYNAMIC floor: tokens redeemable per fren right now (ratchets up over time).
+  { type: "function", name: "floorPerFren", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  // Re-enchant fee for a MOVED fren (= enchantFeeMultBps × floor). OGs are free.
+  { type: "function", name: "enchantFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "genesisSharePerFren", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "genesisClaimed", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "genesisReserveOutstanding", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "genesisShares", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  // Protection circuit-breaker: redemption is paused. Included so viem decodes the
+  // revert to a friendly name.
+  { type: "error", name: "RedemptionPaused", inputs: [] },
+  // COLLECTION LEGACY FLOOR (r28): recycle a dead collection's NFT for its live-token
+  // floor (NFT → treasury), or buy a treasury-held one for 2× floor (grows the floor).
+  { type: "function", name: "recycleCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "buyCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "collectionLedger", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "generationToken", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "summoned", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   { type: "function", name: "lastSummonAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "minLifetime", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -111,6 +161,37 @@ export const HOOK_ABI = [
     { name: "ticketId", type: "uint256", indexed: true },
     { name: "tokenId", type: "uint256", indexed: false },
   ] },
+  // Crystals FORGED this spin (committed; resolve on a later spin — commit-reveal).
+  { type: "event", name: "CrystalsCommitted", inputs: [
+    { name: "player", type: "address", indexed: true },
+    { name: "count", type: "uint256", indexed: false },
+    { name: "oddsBps", type: "uint256", indexed: false },
+  ] },
+  // A resolved crystal that LOST (built the pity counter).
+  { type: "event", name: "TicketLost", inputs: [
+    { name: "player", type: "address", indexed: true },
+    { name: "ticketId", type: "uint256", indexed: true },
+  ] },
+] as const;
+
+/** CollectionLedger — the per-collection legacy-floor cap table (r28). Each past
+ *  volume collection keeps a token entitlement, redeemable from the shared reserve,
+ *  that moons with the machine. floorPerNFT rises via 2× buybacks + live buyback. */
+export const LEDGER_ABI = [
+  { type: "function", name: "floorPerNFT", stateMutability: "view", inputs: [{ name: "gen", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "entitledTokens", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "outstanding", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "crystallized", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
+  // Live-buyback accumulator for the CURRENT collection (folds into its floor at death).
+  { type: "function", name: "pending", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "totalEntitled", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
+
+/** Hook reads for the live buyback progress bar. */
+export const HOOK_LEGACY_ABI = [
+  { type: "function", name: "legacyBuffer", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "legacyThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "legacyBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
 /** CauldronGovernor — proposals + votes (for the governance panel). */
@@ -149,9 +230,12 @@ export const GOVERNOR_ABI = [
   },
 ] as const;
 
-/** MiFrens NFT balanceOf — gate proposing to holders. */
+/** MiFrens NFT reads — holder gating + recycle-floor UI (grandfather + treasury). */
 export const MIFRENS_ERC721_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ownerOf", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  // everMoved: false = original OG (free enchant), true = moved (paid re-enchant).
+  { type: "function", name: "everMoved", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
 /** ERC20 read/approve — for selling the iteration token back through the router. */
@@ -175,6 +259,15 @@ export const COLLECTION_ABI = [
   { type: "function", name: "ownerOf", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "tokenURI", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "string" }] },
   { type: "function", name: "vault", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  // Liquidatoor badges (OnChain Collectibles). Struck when a fren is responsible
+  // for a perp liquidation; live in the LIQUIDATOR_ID_BASE id range, uncapped.
+  { type: "function", name: "isLiquidatoor", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "liquidatorMinted", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "LIQUIDATOR_ID_BASE", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "event", name: "LiquidatoorMinted", inputs: [
+    { name: "to", type: "address", indexed: true },
+    { name: "tokenId", type: "uint256", indexed: true },
+  ] },
 ] as const;
 
 /** CauldronVault — burn an NFT to claim its equal share of the floor (ETH). */
@@ -194,17 +287,31 @@ export const TOKEN_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
-/** CauldronGachaRouter — one-click buy. `play` with ETH value + gnomeIn=0 is a
+/** CauldronGachaRouter — one-click buy. `play` with ETH value + tokenIn=0 is a
  *  clean ETH→token buy (delivers the token to you) that also credits volume and
  *  rolls the crystal gacha (a chance to forge a creature NFT). */
 export const GACHA_ROUTER_ABI = [
   {
     type: "function", name: "play", stateMutability: "payable",
     inputs: [
-      { name: "gnomeIn", type: "uint256" },
-      { name: "minGnomeOut", type: "uint256" },
+      { name: "tokenIn", type: "uint256" },
+      { name: "minTokenOut", type: "uint256" },
       { name: "minEthOut", type: "uint256" },
       { name: "openMax", type: "uint256" },
+    ],
+    outputs: [{ name: "opened", type: "uint256" }],
+  },
+  // Same as play, but tags the swap with a perp `liqHint` — if that position is
+  // underwater at the mark, the swap auto-liquidates it and mints the swapper a
+  // Liquidatoor badge. A stale/healthy hint is a silent no-op.
+  {
+    type: "function", name: "playLiq", stateMutability: "payable",
+    inputs: [
+      { name: "tokenIn", type: "uint256" },
+      { name: "minTokenOut", type: "uint256" },
+      { name: "minEthOut", type: "uint256" },
+      { name: "openMax", type: "uint256" },
+      { name: "liqHint", type: "uint256" },
     ],
     outputs: [{ name: "opened", type: "uint256" }],
   },

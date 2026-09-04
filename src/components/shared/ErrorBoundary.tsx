@@ -50,7 +50,7 @@ const wrap: React.CSSProperties = {
   fontFamily: '"DM Sans", system-ui, sans-serif',
 };
 const card: React.CSSProperties = {
-  textAlign: "center", maxWidth: 380, padding: "34px 28px", borderRadius: 18,
+  textAlign: "center", maxWidth: 380, padding: "34px 28px", borderRadius: "var(--r-md)",
   background: "linear-gradient(160deg,#1b1436,#120c22)",
   border: "1px solid rgba(213,253,81,0.2)", boxShadow: "0 24px 70px rgba(0,0,0,0.5)",
 };
@@ -59,7 +59,7 @@ const h1: React.CSSProperties = {
 };
 const p: React.CSSProperties = { fontSize: 13.5, color: "#b8adcc", margin: "0 0 20px", lineHeight: 1.5 };
 const btn: React.CSSProperties = {
-  padding: "10px 22px", borderRadius: 11, border: "1px solid #d5fd51",
+  padding: "10px 22px", borderRadius: "var(--r-sm)", border: "1px solid #d5fd51",
   background: "rgba(213,253,81,0.14)", color: "#d5fd51", fontWeight: 600,
   fontFamily: '"Fredoka", sans-serif', fontSize: 14, cursor: "pointer",
 };

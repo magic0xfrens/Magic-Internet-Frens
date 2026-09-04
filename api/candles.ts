@@ -20,9 +20,9 @@ import { sepolia } from "viem/chains";
 
 const CHAIN = sepolia;
 const RPC = process.env.SEPOLIA_RPC || process.env.PONDER_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
-const REGISTRY = (process.env.REGISTRY_ADDRESS || "0x51056e25be0b07e398c21535be6caa84d42f9a33") as Address;
+const REGISTRY = (process.env.REGISTRY_ADDRESS || "0xf311cFdb3D185Cd5e862ca09E84051109c723802") as Address;
 const POOL_MANAGER = (process.env.POOL_MANAGER_ADDRESS || "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543") as Address;
-const START_BLOCK = BigInt(process.env.START_BLOCK || "11520000");
+const START_BLOCK = BigInt(process.env.START_BLOCK || "11590480");
 const CANDLE_SECONDS = Number(process.env.CANDLE_SECONDS || "300");
 const MAX_LOG_RANGE = 9000n;      // stay under public-RPC getLogs caps
 const INDEX_MIN_INTERVAL = 12;    // seconds between incremental indexes per pool

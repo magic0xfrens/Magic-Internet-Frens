@@ -2,8 +2,8 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": { "builder": "NIXPACKS" },
   "deploy": {
-    "startCommand": "npx ponder start --schema cauldron_prod17",
-    "healthcheckPath": "/candles/1",
+    "startCommand": "node start.mjs",
+    "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10

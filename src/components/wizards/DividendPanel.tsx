@@ -6,12 +6,16 @@ import { useMiFrensDividend } from "@/hooks/useMiFrensDividend";
  * "cast the spell" to draw fees; fewer casters means the ones who did earn more.
  * Shows enchant status + claimable ETH across all your genesis frens, with
  * one-click cast-all / claim-all / withdraw.
+ *
+ * Accepts the shared `div` instance from the parent so the enchant count stays in
+ * sync with the stat strip (calling the hook twice made two instances that drifted:
+ * casting here refetched the panel but not the parent's "Enchanted" stat).
  */
-export default function DividendPanel() {
+export default function DividendPanel({ div }: { div: ReturnType<typeof useMiFrensDividend> }) {
   const {
     ownedGenesis, enchanted, totalPending, owed, unenchantedIds, loading, error,
     claimAll, castAll, withdrawOwed, isPending, confirming,
-  } = useMiFrensDividend();
+  } = div;
 
   if (!loading && ownedGenesis.length === 0) {
     return (
@@ -92,7 +96,7 @@ export default function DividendPanel() {
 
 const css = `
   .dvd {
-    margin: 0 0 22px; padding: 18px 22px; border-radius: 18px;
+    margin: 0 0 22px; padding: 18px 22px; border-radius: var(--r-md);
     border: 1px solid rgba(213, 253, 81, 0.28);
     background:
       radial-gradient(120% 140% at 0% 0%, rgba(213,253,81,0.10), transparent 55%),
@@ -109,7 +113,7 @@ const css = `
   .dvd__err { font-family: "DM Mono", monospace; font-size: 11px; color: #ff8a7a; }
   .dvd__btn {
     flex-shrink: 0; font-family: "DM Mono", monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
-    color: #17112f; background: #d5fd51; border: none; border-radius: 12px;
+    color: #17112f; background: #d5fd51; border: none; border-radius: var(--r-sm);
     padding: 13px 22px; cursor: pointer; box-shadow: 0 5px 0 #a9cc2f; transition: transform .15s, box-shadow .15s, opacity .2s;
   }
   .dvd__btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 0 #a9cc2f; }
@@ -120,7 +124,7 @@ const css = `
   .dvd__btn--ghost:hover:not(:disabled) { background: rgba(213,253,81,0.08); transform: none; }
   .dvd__spell {
     display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    margin-top: 16px; padding: 14px 16px; border-radius: 13px;
+    margin-top: 16px; padding: 14px 16px; border-radius: var(--r-sm);
     background: rgba(124,92,252,0.10); border: 1px solid rgba(124,92,252,0.28);
   }
   .dvd__spell-info { display: flex; flex-direction: column; gap: 2px; }
@@ -130,7 +134,7 @@ const css = `
   .dvd__spell-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .dvd__frens { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
   .dvd__chip {
-    font-family: "DM Mono", monospace; font-size: 10.5px; padding: 4px 8px; border-radius: 7px;
+    font-family: "DM Mono", monospace; font-size: 10.5px; padding: 4px 8px; border-radius: var(--r-sm);
     color: rgba(231,225,245,0.55); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
   }
   .dvd__chip--on { color: #d5fd51; background: rgba(213,253,81,0.10); border-color: rgba(213,253,81,0.32); }
