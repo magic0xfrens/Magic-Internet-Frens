@@ -22,6 +22,7 @@ import {INFTContract} from "./interfaces/INFTContract.sol";
 import {ICauldronCollection} from "./cauldron/ICauldron.sol";
 import {IDeathChecker} from "./cauldron/IDeathChecker.sol";
 import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/IPolicies.sol";
+import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 
 /// @notice The hook-native perp engine — auto-liquidated from afterSwap.
 /// @notice The registry's treasury-curated quote allowlist. The hook reads it to
@@ -855,26 +856,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         if (amt < legacyThreshold) return;
         legacyBuffer = 0;
 
+        // The swap/settle/take mechanics live in a LINKED library so this hook
+        // stays under the EIP-170 limit. It is delegatecalled, so it runs in this
+        // contract's context — the ETH settled is ours and the token taken lands
+        // here. All bookkeeping stays on this side, which keeps every public
+        // getter the indexer reads exactly where it was.
         _inSelfBuy = true;
-        // Exact-INPUT ETH→token: spend up to `amt` ETH for whatever token it buys.
-        BalanceDelta d = poolManager.swap(
-            key,
-            SwapParams({ zeroForOne: true, amountSpecified: -int256(amt), sqrtPriceLimitX96: MIN_SQRT_LIMIT }),
-            ""
-        );
+        (uint256 spent, uint256 got) = LegacyBuyLib.buyStep(poolManager, key, amt);
         _inSelfBuy = false;
 
-        // SETTLE THE REALISED DEBIT, not the intended `amt` (audit Z-17). If the
-        // price limit ever binds, the pool consumes LESS than `amt`; settling the
-        // constant `amt` would over-settle, leaving a positive ETH delta that is
-        // never taken — and since deltas must net to zero at unlock close, that
-        // would revert the USER's parent swap. Settle exactly what was spent and
-        // return the unspent remainder to the buffer so it funds the next buy.
-        uint256 spent = uint256(uint128(-d.amount0())); // ETH actually paid
-        poolManager.settle{value: spent}();             // pay the ETH we owe
-        if (spent < amt) { unchecked { legacyBuffer += amt - spent; } } // refund remainder
-        uint256 got = uint256(uint128(d.amount1()));    // token we're owed
-        poolManager.take(key.currency1, address(this), got); // hold it here
+        // Return the unspent remainder to the buffer so it funds the next buy
+        // (the price limit can bind and consume less than `amt`).
+        if (spent < amt) { unchecked { legacyBuffer += amt - spent; } }
 
         // DEFER the ledger credit: we hold the tokens and track them. The registry's
         // permissionless `materializeLegacyReserve` deposits them into the reserve LP
