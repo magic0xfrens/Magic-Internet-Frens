@@ -1,0 +1,16 @@
+# Railway installs dependencies during its own build, so uploading node_modules
+# only inflates the archive — 205MB here, over Cloudflare's upload limit.
+node_modules
+
+# Local Ponder sync state + codegen. Both are rebuilt on deploy, and the sync
+# cache is specific to whatever database it was built against.
+.ponder
+generated
+
+# Local env — Railway holds the real values as service variables.
+.env
+.env.local
+.env.*.local
+
+*.log
+.DS_Store
