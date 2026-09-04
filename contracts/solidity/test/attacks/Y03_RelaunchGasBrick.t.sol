@@ -63,7 +63,7 @@ contract Y03_RelaunchGasBrick is YBase {
             address bot = address(uint160(0xD05700 + i));
             vm.deal(bot, 0.01 ether);
             vm.prank(bot, bot);
-            perp.openLong{value: 0.004 ether}(1, 0, 0);
+            perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         }
         assertEq(perp.openCount(), cap, "book filled to the cap");
 
@@ -103,7 +103,7 @@ contract Y03_RelaunchGasBrick is YBase {
             address bot = address(uint160(0xD06700 + i));
             vm.deal(bot, 0.01 ether);
             vm.prank(bot, bot);
-            perp.openLong{value: 0.004 ether}(1, 0, 0);
+            perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         }
         hook.setDeathThreshold(type(uint256).max);
         _warp(registry.minLifetime() + 1 days + 1);

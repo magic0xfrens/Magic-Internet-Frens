@@ -26,7 +26,7 @@ contract RejectEthTrader {
     PerpEngine public perp;
     constructor(PerpEngine p) payable { perp = p; }
     function open(uint8 lev) external payable returns (uint256) {
-        return perp.openLong{value: msg.value}(lev, 0, 0);
+        return perp.openLong{value: msg.value}(lev, 0, 0, msg.value);
     }
     receive() external payable { revert("no eth"); }
 }
@@ -111,7 +111,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
             IPoolManager(poolManager), address(hook), address(registry),
             address(new NoFrens2()), dividend, treasury, address(this)
         );
-        perp.fundPlv{value: 5 ether}();
+        perp.fundPlv{value: 5 ether}(5 ether);
         uint256 seed = 50_000_000 ether;
         deal(token, address(this), seed);
         IERC20Minimal(token).approve(address(perp), seed);
@@ -135,7 +135,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         assertEq(perp.openCount(), 1, "grief position open");
 
         // A normal trader also opens (so we can show they are NOT the problem).
-        uint256 healthyId = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 healthyId = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         assertEq(perp.openCount(), 2, "two positions open");
 
         // Kill the generation.
@@ -176,7 +176,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         RejectEthTrader griefer = new RejectEthTrader(perp);
         vm.deal(address(griefer), 1 ether);
         griefer.open{value: 0.05 ether}(2);
-        perp.openLong{value: 0.05 ether}(2, 0, 0);
+        perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         assertEq(perp.openCount(), 2, "two positions open");
 
         hook.setDeathThreshold(1 ether);

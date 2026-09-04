@@ -196,7 +196,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
             address(new NoFrens()), dividend, treasury, address(this)
         );
         hook.setPerpEngine(address(perp));
-        perp.fundPlv{value: 5 ether}();                 // STAKE the ETH side (long leverage)
+        perp.fundPlv{value: 5 ether}(5 ether);                 // STAKE the ETH side (long leverage)
         uint256 seed = 50_000_000 ether;
         deal(token3, address(this), seed);
         IERC20Minimal(token3).approve(address(perp), seed);
@@ -209,7 +209,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         // LONG
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 longId = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 longId = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         (address lt,,,,,,,) = perp.positions(longId);
         assertEq(lt, trader, "long opened");
         vm.prank(trader);
@@ -219,7 +219,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         // SHORT
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 shortId = perp.openShort{value: 0.05 ether}(2, 0, 0);
+        uint256 shortId = perp.openShort{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         (address str,,,,,,,) = perp.positions(shortId);
         assertEq(str, trader, "short opened");
         vm.prank(trader);
@@ -232,7 +232,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         perp.setRisk(24 hours, 3, 4_000, 500, 3_000, 100); // 40% maintenance
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 liqId = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 liqId = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         uint256 plvBefore = perp.plv();
         _sustainedCrash(token3, 200_000_000 ether);
         assertTrue(perp.isLiquidatable(liqId), "sustained crash liquidatable");
@@ -268,7 +268,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
             address(new NoFrens()), dividend, treasury, address(this)
         );
         hook.setPerpEngine(address(perp));
-        perp.fundPlv{value: 5 ether}();
+        perp.fundPlv{value: 5 ether}(5 ether);
         uint256 seed = 50_000_000 ether;
         deal(tok, address(this), seed);
         IERC20Minimal(tok).approve(address(perp), seed);
@@ -292,7 +292,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         // LONG opens + closes cleanly on the base book.
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 longId = perp.openLong{value: col}(2, 0, 0);
+        uint256 longId = perp.openLong{value: col}(2, 0, 0, col);
         (address l0,,,,,,,) = perp.positions(longId);
         assertEq(l0, trader, "long opened on the progressive gen via the base");
         vm.prank(trader); perp.close(longId, 0);
@@ -303,7 +303,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         perp.setTwapWindow(60); // mark hugs spot so the crash crosses maintenance
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 liqId = perp.openLong{value: col}(2, 0, 0);
+        uint256 liqId = perp.openLong{value: col}(2, 0, 0, col);
         (address l1,,,,,,,) = perp.positions(liqId);
         assertEq(l1, trader, "liq long opened");
         uint256 plvBefore = perp.plv();

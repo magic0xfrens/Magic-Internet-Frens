@@ -56,7 +56,7 @@ contract Z02_PerpStaleMark is ZAuditBase {
         frens = new ZMockMiFrens();
         engine = new PerpEngine(pm, address(hook), address(registry), address(frens), DIVIDEND, TREASURY, address(this));
         hook.setPerpEngine(address(engine));
-        engine.fundPlv{value: 5 ether}();
+        engine.fundPlv{value: 5 ether}(5 ether);
         // warmup 60s (>= MIN_TWAP); everything else at defaults.
         engine.setRisk(60, 3, 1500, 500, 3000, 100);
         // Keep the pool "alive" for the whole test so opens are never gated on death.
@@ -106,7 +106,7 @@ contract Z02_PerpStaleMark is ZAuditBase {
         vm.roll(block.number + 300);
         vm.warp(block.timestamp + 1 hours);
 
-        uint256 id = engine.openLong{value: 0.1 ether}(2, 0, 0);
+        uint256 id = engine.openLong{value: 0.1 ether}(2, 0, 0, 0.1 ether);
         (address trader,,,,,,,) = engine.positions(id);
 
         assertEq(trader, address(this), "FIXED: position survives its own open tx");
@@ -133,7 +133,7 @@ contract Z02_PerpStaleMark is ZAuditBase {
             engine.poke();
         }
 
-        uint256 id = engine.openLong{value: 0.1 ether}(2, 0, 0);
+        uint256 id = engine.openLong{value: 0.1 ether}(2, 0, 0, 0.1 ether);
         (address trader,,,,,,,) = engine.positions(id);
 
         assertEq(trader, address(this), "control: position survives when the mark is fresh");

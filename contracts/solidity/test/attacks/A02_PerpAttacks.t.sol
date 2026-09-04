@@ -92,7 +92,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
             address(new NoFrens()), address(0xD1D1), address(0x7E7E), address(this)
         );
         hook.setPerpEngine(address(perp));
-        perp.fundPlv{value: 50 ether}();
+        perp.fundPlv{value: 50 ether}(50 ether);
 
         uint256 seed = 50_000_000 ether;
         deal(token, address(this), seed, true);
@@ -147,7 +147,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         console2.log("maxLeverage:", perp.maxLeverage());
 
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.1 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.1 ether}(2, 0, 0, 0.1 ether);
         assertFalse(perp.isLiquidatable(id), "fresh 2x long is healthy");
 
         (, int24 tickBefore,,) = pm.getSlot0(_key().toId());
@@ -179,7 +179,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         if (!active) return;
 
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.1 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.1 ether}(2, 0, 0, 0.1 ether);
         assertFalse(perp.isLiquidatable(id), "healthy at open");
 
         _poisonMark();
@@ -281,7 +281,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         vm.deal(oneMore, 1 ether);
         vm.prank(oneMore, oneMore);
         vm.expectRevert(PerpEngine.OiCapped.selector);
-        perp.openLong{value: 0.01 ether}(1, 0, 0);
+        perp.openLong{value: 0.01 ether}(1, 0, 0, 0.01 ether);
     }
 
     /// @notice REGRESSION: a maximally-spammed book no longer strands the engine
@@ -346,7 +346,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         uint256 ins0 = perp.insuranceEth();
 
         vm.prank(trader);
-        uint256 id = perp.openLong{value: collateral}(lev, 0, 0);
+        uint256 id = perp.openLong{value: collateral}(lev, 0, 0, collateral);
 
         vm.warp(block.timestamp + 1 hours);
         vm.roll(block.number + 10);
@@ -369,7 +369,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
             address bot = address(uint160(0xD05700 + i));
             vm.deal(bot, stake);
             vm.prank(bot, bot);
-            perp.openLong{value: stake}(1, 0, 0); // leverage 1 => borrow 0 => NO OI
+            perp.openLong{value: stake}(1, 0, 0, stake); // leverage 1 => borrow 0 => NO OI
         }
     }
 

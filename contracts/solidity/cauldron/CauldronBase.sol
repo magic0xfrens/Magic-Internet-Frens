@@ -312,6 +312,17 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  every following slot and silently corrupt the facet's view of state.
     mapping(address => bool) public allowedQuote;   // slot 48
 
+    /// @notice The quote asset each generation is priced in. `address(0)` is
+    ///         native ETH, which is every generation today, so an existing
+    ///         deployment reads exactly as it did before.
+    ///
+    ///  Recorded per generation rather than globally because a generation's quote
+    ///  is fixed at summon and must stay readable for the whole life of that
+    ///  pool — the perp engine, the seeder and the floor all need to know what
+    ///  the book is denominated in long after a later generation has launched
+    ///  against something else.
+    mapping(uint256 => address) public generationQuote;   // slot 49
+
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)
     // -----------------------------------------------------------------------

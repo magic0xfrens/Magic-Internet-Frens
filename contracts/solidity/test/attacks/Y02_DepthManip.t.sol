@@ -83,7 +83,7 @@ contract Y02_DepthManip is YBase {
         vm.deal(trader, honestCollateral + 1 ether);
         vm.prank(trader, trader);
         vm.expectRevert(PerpEngine.BadLeverage.selector);
-        perp.openLong{value: honestCollateral}(2, 0, 0);
+        perp.openLong{value: honestCollateral}(2, 0, 0, honestCollateral);
 
         // ── INFLATE: mint a fat concentrated band straddling spot ────────────
         _mintFatBand();
@@ -94,7 +94,7 @@ contract Y02_DepthManip is YBase {
 
         // The SAME position that just reverted now sails through the cap.
         vm.prank(trader, trader);
-        uint256 id = perp.openLong{value: honestCollateral}(2, 0, 0);
+        uint256 id = perp.openLong{value: honestCollateral}(2, 0, 0, honestCollateral);
         assertGt(id, 0, "oversized position opened against inflated depth");
 
         // ── BURN the band: the position now sits on the THIN true book ───────
@@ -142,7 +142,7 @@ contract Y02_DepthManip is YBase {
         if (collateral > plvRoom) collateral = plvRoom;
 
         vm.prank(attacker, attacker);
-        uint256 id = perp.openLong{value: collateral}(2, 0, 0);
+        uint256 id = perp.openLong{value: collateral}(2, 0, 0, collateral);
         console2.log("oversized collateral opened (wei):", collateral);
 
         // ── BURN the band: the long now sits on the thin true book.

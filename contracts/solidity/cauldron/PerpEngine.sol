@@ -22,6 +22,10 @@ import {PerpSwapLib} from "./PerpSwapLib.sol";
 
 interface IPerpRegistry {
     function currentToken() external view returns (address);
+    /// The quote a generation is priced in (0 = native ETH). Read as a mapping
+    /// rather than via a convenience getter: the registry is at the EIP-170
+    /// ceiling and cannot afford the extra dispatcher entry.
+    function generationQuote(uint256 gen) external view returns (address);
     function currentGeneration() external view returns (uint256);
     function lastSummonAt() external view returns (uint256);
     function generationPoolId(uint256) external view returns (PoolId);
@@ -97,7 +101,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         creatures accrue HERE (default: treasury) instead of being stranded
     ///         in the engine. NOTE: keep this NON-tax-exempt so perp swaps still
     ///         pay the hook fee into the OG dividend.
-    address public nftBeneficiary;
+    address internal nftBeneficiary;
     uint256 public openFeeBps = 690;
     uint256 public ogDiscountBps = 5_000;
     uint256 public liqPenaltyBps = 690;
@@ -145,6 +149,49 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @notice ETH bad-debt buffer. A shortfall on close/liquidation (proceeds <
     ///         debt) is covered from here FIRST, so depositor principal is only
     ///         touched once this is exhausted. Auto-accrues from `insuranceBps`.
+    /// @notice What this engine's book is denominated in: collateral, principal,
+    ///         `plv`, `insuranceEth`, funding and every payout. `address(0)` is
+    ///         native ETH.
+    ///
+    ///  Set when the engine adopts a generation and re-read on every sync, so it
+    ///  always matches the pool it is trading against. The accounting itself was
+    ///  always unit-agnostic — `plv` and the rest are plain counters — so only
+    ///  the TRANSPORT differs: native arrives as `msg.value` and leaves by
+    ///  `call{value:}`, an ERC20 arrives by `transferFrom` and leaves by
+    ///  `transfer`.
+    address public quote;
+
+    /// @dev True when the book is denominated in native ETH.
+    function _quoteIsNative() internal view returns (bool) { return quote == address(0); }
+
+    /// @dev Pull `amount` of the quote from `from` into this engine.
+    ///
+    ///  Native: the value must already have arrived with the call, so this only
+    ///  asserts it. ERC20: pulled by `transferFrom`, which requires a prior
+    ///  approval — and any ETH sent alongside would be stranded, so it is
+    ///  refused rather than silently kept.
+    function _pullQuote(address from, uint256 amount) internal {
+        if (_quoteIsNative()) {
+            if (msg.value != amount) revert BadParam();
+        } else {
+            if (msg.value != 0) revert BadParam();
+            IERC20(quote).transferFrom(from, address(this), amount);
+        }
+    }
+
+    /// @dev Push `amount` of the quote to `to`, reverting on failure. For
+    ///      recipients the protocol chooses (dividend, treasury) — an attacker
+    ///      controlled one must use {_payOut} instead.
+    function _pushQuote(address to, uint256 amount) internal {
+        if (amount == 0) return;
+        if (_quoteIsNative()) {
+            (bool ok, ) = to.call{value: amount}("");
+            if (!ok) revert EthSend();
+        } else {
+            IERC20(quote).transfer(to, amount);
+        }
+    }
+
     uint256 public insuranceEth;
     /// @notice Of every ROUTED fee (open fee + liq penalty): this share stays in
     ///         the PLV as LP yield (raises share price), and `insuranceBps` funds
@@ -156,7 +203,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256 public maxUtilBps = 8_000;
     /// @notice Bad-debt circuit breaker: once insurance is depleted below this
     ///         (in wei), new opens are paused until it refills from fees. 0 = off.
-    uint256 public insuranceFloor;
+    uint256 internal insuranceFloor;
     /// @notice Funding: annualized-ish rate applied to the net-imbalance fraction,
     ///         charged to the crowded side per second, accruing to the PLV.
     uint256 public fundingRateBpsPerDay = 100; // 1%/day at 100% imbalance
@@ -187,16 +234,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
                                                         // (floor for a tunable window)
     struct Observation { uint32 ts; int56 tickCumulative; }
     Observation[OBS_CARDINALITY] public observations;
-    uint16 public obsIndex;          // next slot to write
-    int56 public tickCumulative;     // Σ tick·dt up to lastObsTs
-    uint32 public lastObsTs;         // last time tickCumulative was INTEGRATED
+    uint16 internal obsIndex;          // next slot to write
+    int56 internal tickCumulative;     // Σ tick·dt up to lastObsTs
+    uint32 internal lastObsTs;         // last time tickCumulative was INTEGRATED
     int24 public lastTick;
     /// @dev Last time a RING ENTRY was appended. Kept separate from `lastObsTs`
     ///      (audit A-02) so the integration clock can advance on EVERY observation
     ///      while ring appends stay throttled to OBS_INTERVAL — the two used to
     ///      share one clock, which is what let a stale tick poison the mark.
     ///      Packs into the same slot as the four fields above (16+56+32+24+32 bits).
-    uint32 public lastRingTs;
+    uint32 internal lastRingTs;
 
     // ── per-timestamp liquidation throttle ──
     // Keyed on block.timestamp, not block.number: on Arbitrum/Orbit block.number
@@ -228,8 +275,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256 public tokYieldCumulative;
 
     // ── funding index (scaled 1e18); + means longs pay, − means shorts pay ──
-    int256 public fundingIndex;
-    uint64 public lastFundingAt;
+    int256 internal fundingIndex;
+    uint64 internal lastFundingAt;
 
     struct Position {
         address trader;
@@ -258,7 +305,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     //    underwater positions without a hint. O(1) add/remove (swap-and-pop).
     uint256[] internal _openIds;                    // live position ids
     mapping(uint256 => uint256) internal _openPos;  // id → 1-based index in _openIds
-    uint256 public sweepCursor;                     // rotating scan start
+    uint256 internal sweepCursor;                     // rotating scan start
     uint256 internal constant SWEEP_SCAN = 12;      // positions checked per swap
     uint256 public longOiEth;    // Σ ETH borrowed by open longs
     uint256 public shortOiToken; // Σ token owed by open shorts
@@ -368,8 +415,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     //  it had no on-chain/frontend/indexer consumers.)
 
     // ── pool + price ──
+    /// @dev The live pool's key. Currencies are ORDERED BY ADDRESS as v4
+    ///      requires: native ETH is address(0) and always sorts first, but an
+    ///      ERC20 quote sorts against a CREATE-deployed token and may land
+    ///      either side. Building the key with the quote pinned to currency0
+    ///      would produce a key that hashes to a pool which does not exist.
     function _key() internal view returns (PoolKey memory) {
-        return PoolKey({currency0: Currency.wrap(address(0)), currency1: Currency.wrap(registry.currentToken()),
+        address q = quote;
+        address t = registry.currentToken();
+        (address c0, address c1) = q < t ? (q, t) : (t, q);
+        return PoolKey({currency0: Currency.wrap(c0), currency1: Currency.wrap(c1),
             fee: POOL_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(hookAddr)});
     }
     function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_key().toId()); }
@@ -594,12 +649,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // entry + forwarding stub bought the headroom for the audit fixes.
     /// @notice Open a long. `liqHint` is vestigial (the post-open sweep is HINT-FREE
     ///         — see {_sweepAfterOpen}); pass 0. Kept only for ABI stability.
-    function openLong(uint8 leverage, uint256 minTokenOut, uint256 liqHint) public payable nonReentrant notNested returns (uint256 id) {
-        if (msg.value == 0) revert ZeroValue();
+    /// @notice Collateral is stated explicitly as `amount` so a non-native quote
+    ///         can be pulled by `transferFrom`. For a NATIVE book it must equal
+    ///         `msg.value`; for an ERC20 book no value may be sent and the
+    ///         caller must have approved this engine first.
+    function openLong(uint8 leverage, uint256 minTokenOut, uint256 liqHint, uint256 amount)
+        public payable nonReentrant notNested returns (uint256 id)
+    {
+        if (amount == 0) revert ZeroValue();
+        _pullQuote(msg.sender, amount);
         _guardOpen(leverage);
         _pokeFunding();
 
-        uint256 collateral = _takeFee(msg.value, true);
+        uint256 collateral = _takeFee(amount, true);
         if (collateral < minCollateral) revert DustPosition(); // dust filter
         uint256 borrow = collateral * (leverage - 1);
         if (borrow > plv) revert PlvInsufficient();
@@ -624,12 +686,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     /// @notice Open a short AND optionally rekt someone (see {openLong} liqHint).
-    function openShort(uint8 leverage, uint256 minEthOut, uint256 liqHint) public payable nonReentrant notNested returns (uint256 id) {
-        if (msg.value == 0) revert ZeroValue();
+    /// @notice Collateral is stated explicitly as `amount` so a non-native quote
+    ///         can be pulled by `transferFrom`. For a NATIVE book it must equal
+    ///         `msg.value`; for an ERC20 book no value may be sent and the
+    ///         caller must have approved this engine first.
+    function openShort(uint8 leverage, uint256 minEthOut, uint256 liqHint, uint256 amount)
+        public payable nonReentrant notNested returns (uint256 id)
+    {
+        if (amount == 0) revert ZeroValue();
+        _pullQuote(msg.sender, amount);
         _guardOpen(leverage);
         _pokeFunding();
 
-        uint256 collateral = _takeFee(msg.value, false);
+        uint256 collateral = _takeFee(amount, false);
         if (collateral < minCollateral) revert DustPosition(); // dust filter
         // Notional (in ETH) = collateral × leverage; borrow that much TOKEN value.
         uint256 notionalEth = collateral * leverage;
@@ -826,15 +895,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // 1:1. Best-effort: if migration isn't available the sync still proceeds
         // (owner can re-seed via fundPlvToken), nothing bricks.
         if (fromGen != 0 && fromGen < gen && syncedToken != address(0)) {
-            uint256 oldBal = IERC20(syncedToken).balanceOf(address(this));
-            if (oldBal > 0) {
-                // CAPACITY-AWARE (audit H-03): migrate as much as the reserve can
-                // actually deliver, exactly 1:1. The strict `claimByBurn` would
-                // revert on a thin reserve and strand the engine on a dead token;
-                // the pre-fix version silently burned the whole book for dust.
-                try registry.claimByBurnUpTo(fromGen, oldBal) returns (uint256 got) { migratedIn = got; }
-                catch { /* migration unavailable → keep old, owner can re-seed */ }
-            }
+            migratedIn = PerpSwapLib.migrateInventory(address(registry), syncedToken, fromGen);
         }
 
         // Re-arm the token side to whatever the engine now actually holds of the
@@ -854,12 +915,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         lastTick = _currentTick();
         observations[0] = Observation(uint32(block.timestamp), 0);
 
-        //  ETH-QUOTED GENERATIONS ONLY, for now. Checked HERE — at the single
-        //  point the engine adopts a generation — rather than on every open, so
-        //  an unsupported brew can never become live to trade against at all.
-        //  The swap direction above is already quote-agnostic; the value legs
-        //  (payable opens, call{value:} payouts, plvEth, insuranceEth) are not.
-        if (Currency.unwrap(_key().currency0) != address(0)) revert QuoteNotSupported();
+        //  ADOPT THE GENERATION'S QUOTE. Done at the single point the engine
+        //  takes on a generation, so `quote` can never disagree with the pool it
+        //  is trading against.
+        //
+        //  Refused while positions are still open in the OLD quote: their
+        //  collateral, principal and payouts are denominated in it, and
+        //  switching underneath them would re-denominate live user funds. The
+        //  caller already requires openCount == 0 to sync, so this is a belt on
+        //  that brace rather than a new restriction.
+        address newQuote = registry.generationQuote(gen);
+        if (newQuote != quote && openCount != 0) revert PositionsOpen();
+        quote = newQuote;
 
         syncedGeneration = gen;
         syncedToken = newTok;
@@ -1116,9 +1183,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (toTre > 0 && treasury != address(0)) _payOut(treasury, toTre);
         emit FeeRouted(toDiv, toTre);
     }
-    function _sendEth(address to, uint256 amount) internal {
-        (bool ok, ) = to.call{value: amount}(""); if (!ok) revert EthSend();
-    }
+    function _sendEth(address to, uint256 amount) internal { _pushQuote(to, amount); }
 
     /// @dev SETTLEMENT-SAFE payout (audit H-04). Used for the two recipients a
     ///      SETTLEMENT pays that an attacker controls: the position's trader and the
@@ -1132,7 +1197,21 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      cannot consume the settlement's budget either.
     function _payOut(address to, uint256 amount) internal {
         if (amount == 0) return;
-        (bool ok, ) = to.call{value: amount, gas: 30_000}("");
+        bool ok;
+        if (_quoteIsNative()) {
+            (ok, ) = to.call{value: amount, gas: 30_000}("");
+        } else {
+            //  The same griefing surface exists for an ERC20 quote, by a
+            //  different mechanism: a blacklistable token (true of most
+            //  tokenized equities) can make one recipient permanently
+            //  unpayable, and a non-standard token returns false rather than
+            //  reverting. Both are caught here so the credit-instead-of-revert
+            //  guarantee holds whatever the book is denominated in.
+            (bool called, bytes memory ret) = quote.call(
+                abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+            );
+            ok = called && (ret.length == 0 || abi.decode(ret, (bool)));
+        }
         if (!ok) { unchecked { payoutOwed[to] += amount; } emit PayoutOwed(to, amount); }
     }
 
@@ -1142,8 +1221,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         amount = payoutOwed[msg.sender];
         if (amount == 0) revert ZeroValue();
         payoutOwed[msg.sender] = 0;                     // effects before interaction
-        (bool ok, ) = msg.sender.call{value: amount}("");
-        if (!ok) revert EthSend();
+        _pushQuote(msg.sender, amount);
     }
     /// @dev LONG bad debt: `plv` already booked the reduced repayment, so ADD the
     ///      insurance cover back into plv to make depositors whole up to the
@@ -1265,11 +1343,6 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // observable from the collection's own mint events, so no event here.
         for (uint256 i = 0; i < n;) { ILiquidatorMintable(col).mintLiquidator(msg.sender); unchecked { ++i; } }
     }
-    function _settleCur(Currency c, uint256 amount, bool isNative) private {
-        if (isNative) { poolManager.settle{value: amount}(); }
-        else { poolManager.sync(c); _safeTransfer(Currency.unwrap(c), address(poolManager), amount); poolManager.settle(); }
-    }
-    function _take(Currency c, address to, uint256 amount) private { if (amount > 0) poolManager.take(c, to, amount); }
     function _safeTransfer(address token, address to, uint256 amount) private {
         (bool ok, bytes memory data) = token.call(abi.encodeWithSelector(IERC20Minimal.transfer.selector, to, amount));
         if (!(ok && (data.length == 0 || abi.decode(data, (bool))))) revert BadParam();
@@ -1281,7 +1354,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         shares minted → not withdrawable). Community capital MUST go through
     ///         `PerpVault.depositEth` instead so it's share-backed & recoverable.
     ///         (Audit L-02)
-    function fundPlv() external payable onlyOwner notNested { plv += msg.value; emit PlvFunded(msg.value, 0); }
+    /// @notice Fund the PLV. `amount` is stated explicitly so a non-native quote
+    ///         can be pulled by `transferFrom`; for a native book it must equal
+    ///         `msg.value`.
+    function fundPlv(uint256 amount) external payable onlyOwner notNested {
+        _pullQuote(msg.sender, amount);
+        plv += amount;
+        emit PlvFunded(amount, 0);
+    }
     /// @notice Seed the TOKEN side (lent to shorts). owner-ONLY + share-less — a
     ///         permanent donation; use `PerpVault.depositToken` for recoverable
     ///         inventory. Caller must approve the token. (Audit L-02)
@@ -1290,7 +1370,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         plvToken += amount; emit PlvFunded(0, amount);
     }
     /// @notice Seed insurance directly (owner or anyone topping up the buffer).
-    function fundInsurance() external payable { insuranceEth += msg.value; }
+    /// @notice Fund the insurance buffer (see fundPlv on the amount argument).
+    function fundInsurance(uint256 amount) external payable {
+        _pullQuote(msg.sender, amount);
+        insuranceEth += amount;
+    }
 
     /// @notice HOOK-ONLY: credit a redirected perp-swap trading fee into the ETH PLV
     ///         → yield for the ETH stakers who back leverage (they bear the bad-debt

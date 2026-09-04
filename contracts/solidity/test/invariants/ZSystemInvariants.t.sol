@@ -99,7 +99,7 @@ contract ZSystemInvariants is Test {
             pm, address(hook), address(registry), address(new ZInvFrens()), address(0xD1), address(0x77), address(this)
         );
         hook.setPerpEngine(address(engine));
-        engine.fundPlv{value: 10 ether}();
+        engine.fundPlv{value: 10 ether}(10 ether);
         engine.setRisk(60, 3, 1500, 500, 3000, 100);
         hook.setDeathThreshold(0); // keep the pool tradable for the whole run
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
@@ -305,7 +305,7 @@ contract ZHandler is Test {
     function openLong(uint256 seed) external {
         uint256 c = bound(seed, 0.005 ether, 0.3 ether);
         if (address(this).balance < c + 1 ether) return;
-        try engine.openLong{value: c}(2, 0, 0) returns (uint256 id) {
+        try engine.openLong{value: c}(2, 0, 0, c) returns (uint256 id) {
             openIds.push(id);
             opens++;
         } catch {}
@@ -314,7 +314,7 @@ contract ZHandler is Test {
     function openShort(uint256 seed) external {
         uint256 c = bound(seed, 0.005 ether, 0.3 ether);
         if (address(this).balance < c + 1 ether) return;
-        try engine.openShort{value: c}(2, 0, 0) returns (uint256 id) {
+        try engine.openShort{value: c}(2, 0, 0, c) returns (uint256 id) {
             openIds.push(id);
             opens++;
         } catch {}

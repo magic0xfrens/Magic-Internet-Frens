@@ -201,7 +201,7 @@ contract CauldronHandler is Test, IUnlockCallback {
         collateral = bound(collateral, 0.005 ether, 0.05 ether);
         lev = uint8(bound(lev, 1, 2));
         if (address(this).balance < collateral + 0.05 ether) return;
-        try perp.openLong{value: collateral}(lev, 0, 0) returns (uint256 id) {
+        try perp.openLong{value: collateral}(lev, 0, 0, collateral) returns (uint256 id) {
             openPositions.push(id); ghostPerpOpens++;
         } catch {}
     }
@@ -212,7 +212,7 @@ contract CauldronHandler is Test, IUnlockCallback {
         collateral = bound(collateral, 0.005 ether, 0.05 ether);
         lev = uint8(bound(lev, 1, 2));
         if (address(this).balance < collateral + 0.05 ether) return;
-        try perp.openShort{value: collateral}(lev, 0, 0) returns (uint256 id) {
+        try perp.openShort{value: collateral}(lev, 0, 0, collateral) returns (uint256 id) {
             openPositions.push(id); ghostPerpOpens++;
         } catch {}
     }
@@ -394,7 +394,7 @@ contract CauldronSystemInvariants is StdInvariant, Test, IUnlockCallback {
             address(mifrens), address(0xD1D1), address(0x7E7E), address(this)
         );
         hook.setPerpEngine(address(perp));
-        perp.fundPlv{value: 5 ether}();
+        perp.fundPlv{value: 5 ether}(5 ether);
         perp.setRisk(1 hours, 3, 1500, 500, 3000, 100); // short warmup so opens are reachable
 
         handler = new CauldronHandler{value: 200 ether}(pm, registry, hook, seeder);

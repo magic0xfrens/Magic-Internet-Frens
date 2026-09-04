@@ -141,7 +141,7 @@ abstract contract YBase is Test, IUnlockCallback {
             address(new YNoFrens()), address(0xD1D1), address(0x7E7E), address(this)
         );
         hook.setPerpEngine(address(perp));
-        perp.fundPlv{value: plvEth}();
+        perp.fundPlv{value: plvEth}(plvEth);
         deal(token, address(this), plvToken, true);
         IERC20Minimal(token).approve(address(perp), plvToken);
         perp.fundPlvToken(plvToken);

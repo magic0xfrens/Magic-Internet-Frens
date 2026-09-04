@@ -84,7 +84,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
             IPoolManager(poolManager), address(hook), address(registry),
             address(new NoFrens()), dividend, treasury, address(this)
         );
-        perp.fundPlv{value: 5 ether}();       // seed the ETH side (long leverage)
+        perp.fundPlv{value: 5 ether}(5 ether);       // seed the ETH side (long leverage)
 
         // Seed the TOKEN side (short inventory) with an allocation of supply —
         // exactly the "% of supply to shorts" model (a grant, not a market buy).
@@ -201,7 +201,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
 
         (address t, bool isLong, uint128 col, uint256 size, uint256 principal,, uint8 lev,) = perp.positions(id);
         assertEq(t, trader, "trader");
@@ -236,7 +236,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openShort{value: 0.02 ether}(2, 0, 0);
+        uint256 id = perp.openShort{value: 0.02 ether}(2, 0, 0, 0.02 ether);
 
         (address t, bool isLong, uint128 col, uint256 size, uint256 principal,,,) = perp.positions(id);
         assertEq(t, trader, "trader");
@@ -266,7 +266,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         vm.expectRevert(PerpEngine.Healthy.selector);
         perp.liquidate(id);
     }
@@ -276,7 +276,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         vm.expectRevert(PerpEngine.BadLeverage.selector);
-        perp.openLong{value: 0.02 ether}(3, 0, 0); // depth tier is 2× here
+        perp.openLong{value: 0.02 ether}(3, 0, 0, 0.02 ether); // depth tier is 2× here
     }
 
     /* ── Phase 3: TWAP mark ─────────────────────────────────────────────── */
@@ -288,7 +288,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         // brutal same-block crash on spot…
         _crashSell(200_000_000 ether);
@@ -314,7 +314,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         // A mild sustained crash crosses the (wide) maintenance threshold while
         // the position still holds equity → penalty buffer intact.
@@ -341,7 +341,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.03 ether}(2, 0, 0); // opened while alive
+        uint256 id = perp.openLong{value: 0.03 ether}(2, 0, 0, 0.03 ether); // opened while alive
 
         // kill the token (volume-based death): raise the threshold sky-high.
         hook.setDeathThreshold(type(uint256).max);
@@ -350,7 +350,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.deal(trader, 1 ether);
         vm.prank(trader);
         vm.expectRevert(PerpEngine.TokenDead.selector);
-        perp.openLong{value: 0.02 ether}(2, 0, 0);
+        perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
 
         // …but the live position can be permissionlessly force-closed (solvent,
         // no penalty) — a keeper earns a small reward, the trader keeps the rest.
@@ -379,7 +379,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         assertEq(perp.openCount(), 0, "starts empty");
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         assertEq(perp.openCount(), 1, "one open");
         vm.prank(trader);
         perp.close(id, 0);
@@ -398,7 +398,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         _sustainedCrash(1_200_000_000 ether);
         assertTrue(perp.isLiquidatable(id), "underwater");
@@ -419,13 +419,13 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // net LONG imbalance
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 longId = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 longId = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         // a smaller short on the underweight side
         address t2 = address(0x5057);
         vm.deal(t2, 5 ether);
         vm.prank(t2);
-        uint256 shortId = perp.openShort{value: 0.02 ether}(2, 0, 0);
+        uint256 shortId = perp.openShort{value: 0.02 ether}(2, 0, 0, 0.02 ether);
 
         // let funding accrue with the book net-long
         vm.warp(block.timestamp + 12 hours);
@@ -447,7 +447,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         // spam observations forward (respecting the 30s throttle) for ~20 min.
         for (uint256 i = 0; i < 45; i++) {
@@ -472,7 +472,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        perp.openLong{value: 0.02 ether}(2, 0, 0);
+        perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         vm.expectRevert(PerpEngine.OnlyHook.selector);
         perp.sweepLiquidations(address(0xBEEF));
     }
@@ -489,7 +489,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         _sustainedCrash(200_000_000 ether);
         assertTrue(perp.isLiquidatable(id), "underwater at the mark");
@@ -530,7 +530,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         address attacker = address(0xBAD);
         uint256 badgesBefore = CauldronCollection(col).liquidatorMinted();
@@ -557,8 +557,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.startPrank(trader);
-        uint256 a = perp.openLong{value: 0.05 ether}(2, 0, 0);
-        uint256 b = perp.openLong{value: 0.04 ether}(2, 0, 0);
+        uint256 a = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
+        uint256 b = perp.openLong{value: 0.04 ether}(2, 0, 0, 0.04 ether);
         vm.stopPrank();
 
         _sustainedCrash(200_000_000 ether);
@@ -586,7 +586,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.deal(trader, 1 ether);
         vm.prank(trader);
         vm.expectRevert(PerpEngine.DustPosition.selector);
-        perp.openLong{value: 0.005 ether}(2, 0, 0); // 0.005 − fee < 0.01 → dust
+        perp.openLong{value: 0.005 ether}(2, 0, 0, 0.005 ether); // 0.005 − fee < 0.01 → dust
     }
 
     /// A HEALTHY hint is a silent no-op: the swap still succeeds, nothing is
@@ -597,7 +597,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
 
         uint256 badgesBefore = CauldronCollection(col).liquidatorMinted();
         _hintSell(1_000 ether, address(0x5AAA), id); // healthy → skip
@@ -618,7 +618,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         _wireBadges();
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0); // engine swaps internally
+        uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether); // engine swaps internally
         (address t,,,,,,,) = perp.positions(id);
         assertEq(t, trader, "opened fine - engine swap did not re-enter");
         vm.prank(trader);
@@ -639,7 +639,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         ReentrantKeeper keeper = new ReentrantKeeper(perp);
         _sustainedCrash(200_000_000 ether);
@@ -667,7 +667,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // Victim opens a long, then a sustained crash puts them underwater.
         vm.deal(trader, 5 ether);
         vm.prank(trader);
-        uint256 victim = perp.openLong{value: 0.05 ether}(2, 0, 0);
+        uint256 victim = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         _sustainedCrash(200_000_000 ether);
         assertTrue(perp.isLiquidatable(victim), "victim underwater at mark");
 
@@ -676,7 +676,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.deal(hunter, 5 ether);
         uint256 badgesBefore = CauldronCollection(col).liquidatorMinted();
         vm.prank(hunter);
-        uint256 mine = perp.openLong{value: 0.02 ether}(2, 0, victim);
+        uint256 mine = perp.openLong{value: 0.02 ether}(2, 0, victim, 0.02 ether);
 
         // The victim is gone, the hunter holds a fresh long AND a badge.
         (address vt,,,,,,,) = perp.positions(victim);
@@ -703,7 +703,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         uint256 relaunchBefore = hook.relaunchETH();
 
         // A perp open swaps the pool (sender == engine) → fee routed to OGs + PLV.
-        perp.openLong{value: 0.05 ether}(2, 0, 0);
+        perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
         // 30% of the perp fee → genesis dividend (external send, unambiguous).
         assertGt(dividend.balance, guildBefore, "genesis dividend grew (30pct perp fee to OGs)");
@@ -719,7 +719,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // SIDE-ATTRIBUTION: a SHORT open SELLS the token → its fee credits the TOKEN
         // stakers' pot (tokYieldEth), not the ETH side. Buys→ETH, sells→token.
         uint256 tokYieldBefore = perp.tokYieldEth();
-        perp.openShort{value: 0.02 ether}(2, 0, 0);
+        perp.openShort{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         assertGt(perp.tokYieldEth(), tokYieldBefore, "short SELL fee credited the token stakers (tokYieldEth)");
     }
 
@@ -740,8 +740,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // normally (revenue). The hook exempts it only for the force-close window.
         assertFalse(hook.taxExempt(address(perp)), "engine NOT permanently exempt (revenue preserved)");
         // Open a LONG and a SHORT on gen-1 (both must force-close at relaunch).
-        perp.openLong{value: 0.05 ether}(2, 0, 0);
-        perp.openShort{value: 0.02 ether}(2, 0, 0);
+        perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
+        perp.openShort{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         assertEq(perp.openCount(), 2, "two positions open");
         uint256 plvEthBefore = perp.plv();
         assertEq(perp.syncedGeneration(), 1, "armed for gen-1");
@@ -993,7 +993,7 @@ contract ReentrantKeeper {
     receive() external payable {
         // Attempt a re-entry mid-liquidation. openLong runs `notNested` (before its
         // body), which reverts because the engine is settling an in-swap liq.
-        try perp.openLong{value: 0}(2, 0, 0) returns (uint256) {
+        try perp.openLong{value: 0}(2, 0, 0, 0) returns (uint256) {
             // reached the body → guard FAILED to block (leave reentryBlocked false)
         } catch {
             reentryBlocked = true; // guard reverted the re-entry — expected

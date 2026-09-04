@@ -109,6 +109,27 @@ library PerpSwapLib {
         }
     }
 
+    /// @notice Convert the engine's leftover balance of a DEAD generation's token
+    ///         into the live one, 1:1, via the registry's burn-claim.
+    /// @dev CAPACITY-AWARE (audit H-03): claims as much as the reserve can
+    ///      actually deliver. The strict `claimByBurn` reverts on a thin reserve
+    ///      and would strand the engine holding a dead token.
+    ///
+    ///      Best-effort by design — if migration is unavailable the caller keeps
+    ///      the old inventory and the owner can re-seed, rather than the sync
+    ///      reverting and leaving the engine armed on a dead generation.
+    function migrateInventory(address registry, address oldToken, uint256 fromGen)
+        external
+        returns (uint256 migratedIn)
+    {
+        uint256 oldBal = IERC20(oldToken).balanceOf(address(this));
+        if (oldBal == 0) return 0;
+        (bool ok, bytes memory ret) = registry.call(
+            abi.encodeWithSignature("claimByBurnUpTo(uint256,uint256)", fromGen, oldBal)
+        );
+        if (ok && ret.length >= 32) migratedIn = abi.decode(ret, (uint256));
+    }
+
     uint160 internal constant MIN_LIMIT = 4295128740;
     uint160 internal constant SQRT_MAX = 1461446703485210103287273052203988822378723970342;
 }
