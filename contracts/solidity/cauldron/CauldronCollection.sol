@@ -90,7 +90,7 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     address public liquidatorRenderer;
 
     /// @notice Metadata base for badges: tokenURI(badge) = liquidatorURI + id.
-    string public liquidatorURI = "https://magicfrens.xyz/api/cauldron/liquidatoor?id=";
+    string public liquidatorURI = "https://www.mifrens.xyz/api/cauldron/liquidatoor?id=";
 
     event LiquidatoorMinted(address indexed to, uint256 indexed tokenId);
 
@@ -114,7 +114,7 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     mapping(uint256 => bool) public revealed;
 
     /// @notice Placeholder metadata shown before reveal.
-    string public unrevealedURI = "https://magicfrens.xyz/api/cauldron/unrevealed";
+    string public unrevealedURI = "https://www.mifrens.xyz/api/cauldron/unrevealed";
 
     event Minted(address indexed to, uint256 indexed tokenId, uint8 rarity);
     event Revealed(uint256 indexed tokenId, uint8 rarity);

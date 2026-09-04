@@ -96,10 +96,10 @@ contract LiquidatoorBadgeTest is Test {
         vm.prank(engine);
         uint256 b1 = col.mintLiquidator(alice);
 
-        string memory expected = string.concat(
-            "https://magicfrens.xyz/api/cauldron/liquidatoor?id=",
-            vm.toString(b1)
-        );
+        // Derived from the contract, not a copied literal: the point of the
+        // assertion is the CONCATENATION rule, and hardcoding the host meant a
+        // domain change failed here instead of where it mattered.
+        string memory expected = string.concat(col.liquidatorURI(), vm.toString(b1));
         assertEq(col.tokenURI(b1), expected, "badge uri = liquidatorURI + id");
 
         // A deployer can repoint the base.

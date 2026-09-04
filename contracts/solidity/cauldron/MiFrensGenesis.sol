@@ -168,7 +168,7 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///         Shared endpoint — a Liquidatoor badge looks the same on every
     ///         collection (proof-of-kill), so both this and the per-brew
     ///         collections point at the one /api/cauldron/liquidatoor route.
-    string public liquidatorURI = "https://magicfrens.xyz/api/cauldron/liquidatoor?id=";
+    string public liquidatorURI = "https://www.mifrens.xyz/api/cauldron/liquidatoor?id=";
 
     event LiquidatoorMinted(address indexed to, uint256 indexed tokenId);
 
@@ -181,7 +181,7 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///         block's future hash (unknowable at mint) so it can't be grinded —
     ///         essential on Arbitrum/Orbit where `prevrandao` is a constant.
     mapping(uint256 => uint48) public mintBlockOf;
-    string public unrevealedURI = "https://magicfrens.xyz/api/mifren/unrevealed";
+    string public unrevealedURI = "https://www.mifrens.xyz/api/cauldron/unrevealed";
 
     event Bought(address indexed buyer, uint256 quantity, uint256 firstTokenId);
     event Finalized(address indexed caller, address token, uint256 seededETH);

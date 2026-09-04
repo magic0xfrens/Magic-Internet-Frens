@@ -39,7 +39,9 @@ contract UriDump is Test {
         });
         Holder h = new Holder(s);
         string memory uri = h.uri(r, 212);
-        vm.writeFile("render-out/tokenURI.txt", uri);
+        // Diagnostic, not an assertion. Only the `render` profile may write, so
+        // elsewhere just report the size rather than failing the suite.
+        try vm.writeFile("render-out/tokenURI.txt", uri) {} catch {}
         emit log_named_uint("tokenURI bytes", bytes(uri).length);
     }
 }

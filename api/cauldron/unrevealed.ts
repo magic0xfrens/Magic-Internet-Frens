@@ -19,8 +19,8 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     name: "Sealed Crystal",
     description:
       "A crystal summoned from the Cauldron's trading volume. Open it to reveal the creature sealed inside — or trade it unopened as a mystery box. Every sealed crystal is identical until cracked. Forged by Magic Internet Frens.",
-    image: "https://magicfrens.xyz/crystal.png",
-    external_url: "https://magicfrens.xyz",
+    image: "https://www.mifrens.xyz/crystal.png",
+    external_url: "https://www.mifrens.xyz",
     attributes: [
       { trait_type: "State", value: "Sealed" },
       { trait_type: "Contents", value: "Unknown creature" },
