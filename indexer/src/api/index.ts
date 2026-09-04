@@ -185,7 +185,6 @@ const POSLIQ = [{ type: "function", name: "getPositionLiquidity", stateMutabilit
 // seeder's own core positions, so it has no PositionManager position id.
 const SEEDER_READ = [
   { type: "function", name: "ethTotal", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "placedWad", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 const REG_SEEDER = [
   { type: "function", name: "seeder", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
@@ -218,13 +217,19 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
     // deployed ETH budget, which is what relaunch() recovers via withdrawAll.
     const seeder = await perpClient.readContract({ address: REGISTRY, abi: REG_SEEDER, functionName: "seeder" }) as `0x${string}`;
     if (!seeder || seeder === "0x0000000000000000000000000000000000000000") return 0;
-    const [ethTotalWei, placedWad] = await Promise.all([
-      perpClient.readContract({ address: seeder, abi: SEEDER_READ, functionName: "ethTotal" }) as Promise<bigint>,
-      perpClient.readContract({ address: seeder, abi: SEEDER_READ, functionName: "placedWad" }) as Promise<bigint>,
-    ]);
-    // Only the streamed fraction is actually in the pool; the rest is still
-    // queued in the seeder and is recovered too, so count the full budget.
-    void placedWad;
+    // ethTotal is the exact ETH the seeder was funded with at start — the
+    // contract enforces `msg.value == cfg.ethTotal` — and the seeder holds no
+    // ETH of its own once streaming has run, so this is the ETH now sitting in
+    // its pool positions. Teardown's withdrawAll recovers those positions, so it
+    // is also what the next launch has to work with.
+    //
+    // Conservative by construction: net buy inflow since launch also sits in the
+    // pool and is recovered, so the real figure is this or higher. Streaming
+    // progress does not change it — unplaced budget is still held by the seeder
+    // and recovered the same way.
+    const ethTotalWei = await perpClient.readContract({
+      address: seeder, abi: SEEDER_READ, functionName: "ethTotal",
+    }) as bigint;
     return Number(formatEther(ethTotalWei));
   } catch (e) { console.error("lpEthOf failed:", String(e).slice(0,200)); return 0; }
 }
