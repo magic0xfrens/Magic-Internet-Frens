@@ -17,6 +17,9 @@ export const CAULDRON = {
   dividend: round.contracts.dividend as Address,
   governor: round.contracts.governor as Address,
   mifrens: round.contracts.presale as Address, // MiFrensGenesis (presale/collection)
+  // Treasury rotation. Optional: a deployment predating the rotator omits it,
+  // and the UI hides the panel rather than rendering a dead button.
+  quoteRotator: (round.contracts as Record<string, string>).quoteRotator as Address | undefined,
   timelock: round.contracts.timelock as Address, // owns hook+engine; registry emergencyAdmin
   collectionLedger: round.contracts.collectionLedger as Address, // legacy-floor cap table
   poolManager: round.contracts.poolManager as Address, // V4 (Sepolia)

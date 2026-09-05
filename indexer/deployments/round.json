@@ -21,11 +21,38 @@
     "timelock": "0x06705E8c819D962bEf3a3d7d0fF5a91E404e23B3",
     "collectionLedger": "0x181bb6C5D8C425f2Cd1802Cc92e972363381cc51",
     "perpEngine": "0x9FF01eCeeA11D565982Ea6ec5992Ad17A5EA14CC",
-    "perpVault": "0x75c7CbD4Ea0FA9B86B8C1f5354A4369f5bBE9770"
+    "perpVault": "0x75c7CbD4Ea0FA9B86B8C1f5354A4369f5bBE9770",
+    "quoteRotator": "0x4E2dB9D7Fd8b0d7C0A548235F7c72D0fbcB05124"
   },
   "poolIds": [
     "0x1d4b4059e5ff7260e044a57e7279b8cd73f30a0643c4a88939d7c73ad369b88b"
   ],
   "genesisSupply": 1111,
-  "deathThresholdEth": 0
+  "deathThresholdEth": 0,
+  "quoteAssets": [
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "name": "Ether",
+      "decimals": 18,
+      "glyph": "\u039e",
+      "blurb": "The default. Deepest liquidity, and the only pair perps support today."
+    },
+    {
+      "address": "0xeDFd2eA3f44821dA02fFF085e893e677479D622C",
+      "symbol": "USDG",
+      "name": "Magic USD",
+      "decimals": 6,
+      "glyph": "$",
+      "blurb": "Stable pair. Park the LP here when the guild wants out of ETH volatility."
+    },
+    {
+      "address": "0x4F3Df1F4d7B1C876abbA34F7Ada254906288Cd79",
+      "symbol": "xNVDA",
+      "name": "Nvidia (synthetic)",
+      "decimals": 18,
+      "glyph": "",
+      "blurb": "Equity pair. The brew trades against a stock instead of a currency."
+    }
+  ]
 }

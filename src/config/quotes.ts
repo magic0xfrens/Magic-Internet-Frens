@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import round from "../../indexer/deployments/round.json";
 
 /**
  * Quote assets — what an iteration's token is PRICED IN.
@@ -31,20 +32,22 @@ export interface QuoteAsset {
 export const NATIVE_QUOTE: Address = "0x0000000000000000000000000000000000000000";
 
 /**
- * Presentation for quotes we know about. ETH is first and always present: it is
- * allowed at construction and the registry refuses to remove it, so every brew
- * can always launch against it.
+ * Presentation for the quotes this deployment allows, READ FROM THE MANIFEST.
+ *
+ * Hardcoding these would be the same bug that made a sold-out presale render as
+ * "0 / 1111": a literal here would silently outlive the deployment it described.
+ * The manifest is the single source of truth, and useAllowedQuotes still filters
+ * this list through the registry's on-chain allowlist, so the chain has the
+ * final say on what is selectable.
  */
-export const KNOWN_QUOTES: QuoteAsset[] = [
-  {
-    address: NATIVE_QUOTE,
-    symbol: "ETH",
-    name: "Ether",
-    decimals: 18,
-    glyph: "Ξ",
-    blurb: "The default. Deepest liquidity, and the only pair perps support today.",
-  },
-];
+export const KNOWN_QUOTES: QuoteAsset[] = (round.quoteAssets ?? []).map((q) => ({
+  address: q.address as Address,
+  symbol: q.symbol,
+  name: q.name,
+  decimals: q.decimals,
+  glyph: q.glyph,
+  blurb: q.blurb,
+}));
 
 /** Presentation for `quote`, falling back to a shortened address for anything
  *  approved on-chain that this file does not know about yet. */

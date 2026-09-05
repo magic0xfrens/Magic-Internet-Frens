@@ -15,6 +15,7 @@ import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
+import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -794,6 +795,8 @@ export default function TheCauldron() {
 
         {/* ══ GOVERNANCE ══ */}
         {tab === "governance" && (
+          <>
+          <TreasuryRotation gen={m.gen} col={col} />
           <section className="tc-card tc-gov">
             <div className="tc-gov__head">
               <div>
@@ -824,6 +827,7 @@ export default function TheCauldron() {
               </div>
             )}
           </section>
+          </>
         )}
 
         {/* ══ LINEAGE ══ */}
@@ -1762,6 +1766,24 @@ function Styles() {
     .tc-propose__seg--pair { margin-bottom: 8px; flex-wrap: wrap; }
     .tc-propose__seg--pair button { font-size: 12px; letter-spacing: 0.02em; }
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
+    /* TREASURY ROTATION — set apart from the proposal card because it moves
+       real liquidity rather than casting a vote. */
+    .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 20px 22px; margin-bottom: 18px; }
+    .tc-rot__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .tc-rot__title { font-family: "Cinzel", serif; font-size: 20px; margin: 4px 0 0; color: #f4f1ff; }
+    .tc-rot__lead { font-family: "DM Sans", sans-serif; font-size: 12.5px; line-height: 1.6; color: ${C.mute}; margin: 10px 0 16px; max-width: 640px; }
+    .tc-rot__targets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .tc-rot__targets button { font-family: "DM Mono", monospace; font-size: 12px; color: ${C.mute}; background: rgba(8,6,15,0.5); border: 1px solid rgba(255,255,255,0.07); padding: 7px 13px; border-radius: var(--r-sm); cursor: pointer; transition: all 0.15s ease; }
+    .tc-rot__targets button:hover { color: #f4f1ff; border-color: rgba(255,255,255,0.16); }
+    .tc-rot__targets button.on { background: rgba(213,253,81,0.16); color: ${C.lime}; border-color: rgba(213,253,81,0.3); }
+    .tc-rot__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .tc-rot__grid label { display: flex; flex-direction: column; gap: 5px; }
+    .tc-rot__grid input { background: rgba(8,6,15,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r-sm); padding: 9px 11px; color: #f4f1ff; font-family: "DM Mono", monospace; font-size: 13px; }
+    .tc-rot__steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tc-rot__steps .tc-btn { font-size: 12px; padding: 9px 14px; }
+    .tc-rot__note { font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.55; color: ${C.mute}; opacity: 0.85; margin: 0; }
+    .tc-rot__log { list-style: none; padding: 10px 12px; margin: 12px 0 0; background: rgba(0,0,0,0.28); border-radius: var(--r-sm); font-size: 11px; color: ${C.mute}; }
+    .tc-rot__log li { padding: 2px 0; }
     .tc-perp-gate { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-sm); background: rgba(246,200,106,0.07); border: 1px solid rgba(246,200,106,0.22); }
     .tc-propose__pair-warn { margin: 8px 0 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: #f6c86a; opacity: 0.92; }
     .tc-propose__err { font-family: "DM Sans", sans-serif; font-size: 10px; color: ${C.red}; margin-top: 3px; }
