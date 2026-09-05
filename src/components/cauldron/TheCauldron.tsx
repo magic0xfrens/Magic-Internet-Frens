@@ -18,7 +18,6 @@ import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
-import { LiveSwapToast } from "@/components/cauldron/LiveSwapToast";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -156,13 +155,20 @@ function usdCompact(v: number): string {
 }
 
 /* ═══════════════════════ EKG price chart + liquidation heatmap ═══════════ */
+const BUY_C = "rgb(70,230,124)";
+const SELL_C = "rgb(255,86,96)";
 const LIQ_LONG = "#ff5470";  // long liquidation walls (below price)
 const LIQ_SHORT = "#d5fd51"; // short liquidation walls (above price)
 const HEAT_ROWS = 26;
 
 type LiqPos = { isLong: boolean; liqPrice: number; notionalEth: number };
 
-function EKG({ series, color, dead, liq }: { series: number[]; color: string; dead: boolean; liq?: LiqPos[] }) {
+function EKG({ series, color, dead, liq, pulse }: {
+  series: number[]; color: string; dead: boolean; liq?: LiqPos[];
+  /** The most recent live swap, or null. Drives the leading-edge flash so a
+   *  trade is visible ON the chart rather than in a box floating over the page. */
+  pulse?: { id: number; isBuy: boolean; size?: string } | null;
+}) {
   const W = 640, H = 180, pad = 8;
 
   // Y-domain: the series range, expanded to REVEAL the liquidation walls (that's
@@ -213,6 +219,23 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
   const last = series.length ? series[series.length - 1] : 0;
   const hasHeat = rows.length > 0;
 
+  //  LEADING-EDGE FLASH. A trade paints here, on the line itself, instead of in
+  //  a toast over the stat cards. Keyed on the swap id so consecutive trades
+  //  re-fire the animation rather than the class sticking on.
+  const [flash, setFlash] = useState<{ id: number; isBuy: boolean; size?: string } | null>(null);
+  useEffect(() => {
+    if (!pulse) return;
+    setFlash(pulse);
+    const t = setTimeout(() => setFlash(null), 1400);
+    return () => clearTimeout(t);
+  }, [pulse?.id]);
+
+  // The line's own end point, so the pulse sits exactly where price is now.
+  // Reuses yOf rather than recomputing the scale — a second copy of that maths
+  // is how the dot drifts off the line the first time the domain changes.
+  const endX = W - pad;
+  const endY = series.length ? yOf(series[series.length - 1]) : H / 2;
+
   return (
     <div className="tc-ekg">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="tc-ekg__svg">
@@ -242,6 +265,15 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
           <>
             <path d={`${path} L${W - pad},${H} L${pad},${H} Z`} fill="url(#ekgfill)" />
             <path d={path} fill="none" stroke={color} strokeWidth="2.2" filter="url(#ekgglow)" className={dead ? "" : "tc-ekg__line"} strokeLinecap="round" strokeLinejoin="round" />
+
+            {/* The live tip: always breathing so the chart reads as connected,
+                and flaring green/red for a beat when a trade lands. */}
+            {!dead && series.length >= 2 && (
+              <g className={flash ? (flash.isBuy ? "tc-tip is-buy" : "tc-tip is-sell") : "tc-tip"}>
+                <circle cx={endX} cy={endY} r="9" className="tc-tip__halo" fill={flash ? (flash.isBuy ? BUY_C : SELL_C) : color} />
+                <circle cx={endX} cy={endY} r="3.2" fill={flash ? (flash.isBuy ? BUY_C : SELL_C) : color} className="tc-tip__dot" />
+              </g>
+            )}
           </>
         )}
       </svg>
@@ -252,6 +284,16 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
         <div className="tc-ekg__legend">
           <span><i style={{ background: LIQ_SHORT }} />short liqs</span>
           <span><i style={{ background: LIQ_LONG }} />long liqs</span>
+        </div>
+      )}
+      {/* The trade itself, inside the chart's own frame. This replaced a toast
+          that floated over the stat cards — it belongs where the price is, and
+          it disappears rather than stacking, because the tape below is the
+          durable record. */}
+      {flash?.size && (
+        <div className={`tc-ekg__tick ${flash.isBuy ? "is-buy" : "is-sell"}`}>
+          <b>{flash.isBuy ? "BUY" : "SELL"}</b>
+          <span>{flash.size}</span>
         </div>
       )}
       {series.length < 2 && <div className="tc-ekg__empty">awaiting first swaps…</div>}
@@ -689,7 +731,6 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        <LiveSwapToast swaps={live_.recent} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
@@ -739,7 +780,15 @@ export default function TheCauldron() {
                         fetch-and-fallback path that updated on a slower cycle.
                         Falls back to the machine's series only when the tape has
                         not loaded yet. */}
-                    <EKG series={ekgSeries} color={col} dead={m.phase === "dead"} />
+                    <EKG series={ekgSeries} color={col} dead={m.phase === "dead"} pulse={live_.recent[0]
+                        ? {
+                            id: live_.recent[0].id,
+                            isBuy: live_.recent[0].isBuy,
+                            size: `${Number(live_.recent[0].quoteWei) / 1e18 < 0.0001
+                              ? "<0.0001"
+                              : (Number(live_.recent[0].quoteWei) / 1e18).toFixed(4)} ${liveQuote.glyph || liveQuote.symbol}`,
+                          }
+                        : null} />
                     <div className="tc-tele">
                       <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
                       <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
@@ -1841,36 +1890,28 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
-    /* LIVE TRADE FEED — websocket-painted, released one at a time so a block
-       full of swaps reads as a stream rather than one event. Bottom-LEFT:
-       bottom-right covered the stat cards. */
-    .tc-feed { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column-reverse; gap: 5px; z-index: 60; pointer-events: none; }
-    .tc-feed__row {
-      display: flex; align-items: center; gap: 9px;
-      padding: 6px 13px 6px 9px;
-      border-radius: 999px;
-      background: rgba(12,10,20,0.88);
-      border: 1px solid rgba(255,255,255,0.06);
-      font-size: 11px; color: #efeaff;
-      backdrop-filter: blur(14px) saturate(1.3);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.42);
-      animation: tcFeedIn 0.42s cubic-bezier(0.16,1,0.3,1);
-      transition: opacity 0.5s ease;
-      white-space: nowrap;
-    }
-    .tc-feed__row.is-buy  { box-shadow: 0 4px 18px rgba(0,0,0,0.42), inset 2px 0 0 rgb(70,230,124); }
-    .tc-feed__row.is-sell { box-shadow: 0 4px 18px rgba(0,0,0,0.42), inset 2px 0 0 rgb(255,86,96); }
-    .tc-feed__glyph { font-size: 8px; line-height: 1; }
-    .is-buy  .tc-feed__glyph { color: rgb(70,230,124); text-shadow: 0 0 8px rgba(70,230,124,0.7); }
-    .is-sell .tc-feed__glyph { color: rgb(255,86,96); text-shadow: 0 0 8px rgba(255,86,96,0.7); }
-    .tc-feed__side { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.14em; opacity: 0.75; }
-    .is-buy  .tc-feed__side { color: rgb(120,240,160); }
-    .is-sell .tc-feed__side { color: rgb(255,130,138); }
-    .tc-feed__amt { font-size: 11.5px; font-weight: 500; }
-    .tc-feed__amt em { font-style: normal; opacity: 0.42; margin-left: 3px; font-size: 10px; }
-    .tc-feed__tok { font-size: 9.5px; opacity: 0.34; padding-left: 2px; border-left: 1px solid rgba(255,255,255,0.09); margin-left: 2px; }
-    @keyframes tcFeedIn { from { opacity: 0; transform: translateX(-22px) scale(0.92); } to { opacity: 1; transform: none; } }
-    @media (max-width: 720px) { .tc-feed { left: 10px; bottom: 10px; } .tc-feed__tok { display: none; } }
+    /* LIVE TRADE, ON THE CHART. A floating toast covered the stat cards and read
+       as a separate widget; the trade belongs where the price is. The tip
+       breathes constantly so the line looks connected, and flares green or red
+       for a beat when a swap lands. */
+    .tc-tip__halo { opacity: 0.18; transform-origin: center; animation: tcTipBreathe 2.4s ease-in-out infinite; }
+    .tc-tip__dot { filter: drop-shadow(0 0 5px currentColor); }
+    .tc-tip.is-buy  .tc-tip__halo { animation: tcTipFlare 1.4s cubic-bezier(0.16,1,0.3,1); opacity: 0.5; }
+    .tc-tip.is-sell .tc-tip__halo { animation: tcTipFlare 1.4s cubic-bezier(0.16,1,0.3,1); opacity: 0.5; }
+    .tc-tip.is-buy  .tc-tip__dot,
+    .tc-tip.is-sell .tc-tip__dot { animation: tcTipPop 1.4s cubic-bezier(0.16,1,0.3,1); }
+    @keyframes tcTipBreathe { 0%,100% { opacity: 0.14; } 50% { opacity: 0.3; } }
+    @keyframes tcTipFlare { 0% { opacity: 0.85; r: 4; } 60% { opacity: 0.35; } 100% { opacity: 0.18; } }
+    @keyframes tcTipPop { 0% { transform: scale(2.1); } 55% { transform: scale(0.9); } 100% { transform: scale(1); } }
+
+    /* A one-line ticker INSIDE the chart, bottom-left — reads as part of the
+       chart's own chrome rather than a notification stacked over the page. */
+    .tc-ekg__tick { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 7px; font-family: "DM Mono", monospace; font-size: 10.5px; padding: 4px 10px 4px 8px; border-radius: 999px; background: rgba(10,8,18,0.62); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); animation: tcTickIn 0.4s cubic-bezier(0.16,1,0.3,1); pointer-events: none; }
+    .tc-ekg__tick.is-buy  { color: rgb(120,240,160); }
+    .tc-ekg__tick.is-sell { color: rgb(255,130,138); }
+    .tc-ekg__tick b { font-weight: 600; letter-spacing: 0.1em; font-size: 9px; opacity: 0.8; }
+    .tc-ekg__tick span { color: #efeaff; }
+    @keyframes tcTickIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }
