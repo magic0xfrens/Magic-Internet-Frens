@@ -119,10 +119,14 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           let isBuy = false;
           if (raw.length >= 64) {
             const w0 = BigInt("0x" + raw.slice(0, 64));
-            // int128 is sign-extended into the word; negative means it left the
-            // pool, i.e. the trader RECEIVED quote → a sell.
             const signed = w0 >= (1n << 255n) ? w0 - (1n << 256n) : w0;
-            isBuy = signed > 0n;
+            //  The event carries the SWAPPER's balance delta, not the pool's
+            //  (v4 PoolManager emits `delta` from _accountPoolBalanceDelta(...,
+            //  msg.sender)). So a NEGATIVE quote leg means the swapper paid
+            //  quote in — a BUY. I had this inverted, and every buy showed as a
+            //  sell. Verified against real logs from our pool: amount0=-0.03
+            //  with amount1=+2.57M is a buy.
+            isBuy = signed < 0n;
             quoteWei = signed < 0n ? -signed : signed;
           }
           // Token leg is the second word (currency1 by construction).
