@@ -217,3 +217,65 @@ An audit pass at the end of each phase, not once at the end:
 4. A failed payout never bricks a swap — it rolls to the relaunch reserve, in
    the quote, exactly as the ETH path does today.
 5. Depth in the primary quote never falls below the governed floor.
+
+---
+
+## Re-pairing a LIVE generation
+
+A pool's currencies are inside its `PoolId` (`keccak256(abi.encode(PoolKey))`),
+so a different quote is a different pool — always. "Changing the pair" therefore
+means standing up a second pool and moving value into it.
+
+### The constraint that shapes everything
+
+Converting the LP's ETH into USDG requires **selling ETH for USDG somewhere**,
+and that somewhere is an external pool. Today nothing in the protocol swaps
+outside its own pools (verified: every `poolManager.swap` call site targets a
+pool we created). Adding that would introduce a dependency whose depth and
+honesty we do not control, on trades made with protocol-owned liquidity — and a
+thin or manipulated USDG/ETH market turns into a bad fill on the treasury.
+
+### The approach that avoids it
+
+We hold 777,000,000 tokens, most parked in the out-of-range reserve. So seed the
+new `(USDG, token)` pool **single-sided with tokens only**, below spot — exactly
+what `_seedReserve` already does for the reserve position.
+
+- No ETH is sold, so there is **no conversion swap and no sandwich surface**.
+- The pool is live and tradeable immediately: anyone can buy the token with USDG.
+- **Traders bring the USDG in.** The quote side fills from organic demand rather
+  than from a scheduled protocol sale.
+- The ETH pool is untouched and keeps trading; the two pools arbitrage against
+  each other, which is what actually equalises price.
+
+This satisfies the stated requirements directly:
+
+| Requirement | How |
+| --- | --- |
+| Never remove 100% of the old LP | Removes **none** of it |
+| Community sets the share | Governance picks the % of TOKEN supply placed in the new pool |
+| Gradual + automatic | Fills with organic demand; no timer, no protocol swap |
+| No sandwich slippage | There is no protocol trade to sandwich |
+
+### What still has to be built
+
+1. **`generationPools[gen]` — a set, not a single id.** Today
+   `generationPoolId[gen]` is 1:1 and the LP position, seed and death check all
+   assume it.
+2. **Death detection must aggregate.** `isDead(PoolId)` measures volume per
+   pool. Split liquidity and the primary pool's volume can fall under
+   `deathThreshold` while the generation is healthy — a spurious relaunch. This
+   is the one thing that genuinely breaks, and it must land before any second
+   pool goes live.
+3. **Guardrails.** Max share per non-primary quote, minimum share in the primary,
+   and a cooldown between changes.
+4. **Frontend.** Show which pool a price came from and let the user pick.
+
+### If a true ETH→USDG conversion is still wanted later
+
+Mirror `CauldronSeeder`: a time-windowed target, `step = target - done`, poked
+from inside `afterSwap`, with a minimum step so dust is skipped. Gradual and
+automatic falls straight out of that machinery. It still needs the external
+market, so it should be gated on a per-step slippage bound and a floor that
+keeps a fixed share of liquidity in ETH.
+
