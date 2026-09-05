@@ -18,6 +18,7 @@ import {CauldronGachaRouter} from "../cauldron/CauldronGachaRouter.sol";
 import {CollectionLedger} from "../cauldron/CollectionLedger.sol";
 import {LiquidatoorRenderer} from "../render/LiquidatoorRenderer.sol";
 import {BadgeArtLib} from "./BadgeArtLib.sol";
+import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
@@ -283,6 +284,17 @@ contract DeployLaunchpad is Script {
             // against the EIP-170 ceiling and the factory has room to spare.
             factory.setLiquidatorRenderer(address(badgeRenderer));
         }
+
+        // 4c. QuoteRotator — the guild's treasury arm. It converts a measured
+        //     slice of the LP from one approved quote into another, so the LP is
+        //     not permanently long whatever it launched against.
+        //
+        //     Deployed HERE rather than as a follow-up script: `beginRotation`
+        //     reverts NotConfigured without it, and a launch that silently omits
+        //     it looks complete right up until governance tries to use it.
+        QuoteRotator rotator = new QuoteRotator(address(registry), IPoolManager(poolManager));
+        console2.log("QuoteRotator    :", address(rotator));
+
         registry.setGenesisBonus(address(presale), bonusBps, supply);
         // OG-holder airdrop: DEFAULT is the "snipe" model (no reserve → no
         // presaler dilution). The deployer is flagged fee-EXEMPT so it can buy

@@ -334,9 +334,15 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
     }
 
     /// @notice Point badge metadata at an on-chain renderer (address(0) = use
-    ///         `liquidatorURI`). Same admin as the other metadata setters.
+    ///         `liquidatorURI`).
+    /// @dev Accepts the CONFIGURATOR as well as the deployer, exactly like
+    ///      {setRoyalty}. The factory is the configurator and is the only party
+    ///      that can set this at the moment a collection is created — `deployer`
+    ///      is the REGISTRY (audit H-01), not the factory, so a deployer-only
+    ///      guard made the factory's call revert OnlyMinter and took the whole
+    ///      summon down with it.
     function setLiquidatorRenderer(address r) external {
-        if (msg.sender != deployer) revert OnlyMinter();
+        if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter();
         liquidatorRenderer = r;
     }
 
