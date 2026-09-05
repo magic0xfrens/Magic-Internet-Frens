@@ -104,7 +104,14 @@ library PerpSwapLib {
             poolManager.settle{value: amount}();
         } else {
             poolManager.sync(c);
-            IERC20(Currency.unwrap(c)).transfer(address(poolManager), amount);
+            //  Return value CHECKED: a token that returns false instead of
+            //  reverting would leave the settle short, and v4 requires deltas to
+            //  net to zero at unlock close — so the failure would surface as the
+            //  USER's swap reverting, with no clue why.
+            (bool ok, bytes memory ret) = Currency.unwrap(c).call(
+                abi.encodeWithSelector(IERC20.transfer.selector, address(poolManager), amount)
+            );
+            require(ok && (ret.length == 0 || abi.decode(ret, (bool))), "transfer");
             poolManager.settle();
         }
     }

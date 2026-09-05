@@ -175,7 +175,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             if (msg.value != amount) revert BadParam();
         } else {
             if (msg.value != 0) revert BadParam();
-            IERC20(quote).transferFrom(from, address(this), amount);
+            //  Return value CHECKED. A non-standard token (USDT and most
+            //  tokenized equities) returns false rather than reverting, and an
+            //  unchecked pull would credit collateral that never arrived —
+            //  a free position, paid for by everyone else's.
+            (bool ok, bytes memory ret) = quote.call(
+                abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, from, address(this), amount)
+            );
+            if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert BadParam();
         }
     }
 
@@ -188,7 +195,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             (bool ok, ) = to.call{value: amount}("");
             if (!ok) revert EthSend();
         } else {
-            IERC20(quote).transfer(to, amount);
+            _safeTransfer(quote, to, amount);
         }
     }
 
