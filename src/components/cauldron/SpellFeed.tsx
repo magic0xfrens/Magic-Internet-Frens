@@ -97,11 +97,11 @@ export function SpellFeed({ events, glyph }: { events: LiveSwap[]; glyph: string
         };
       });
 
-      setVisible((v) => [...merged.reverse(), ...v].slice(0, 4));
+      setVisible((v) => [...merged.reverse(), ...v].slice(0, 3));
       for (const m of merged) {
-        setTimeout(() => setVisible((v) => v.filter((x) => x.id !== m.id)), 6500);
+        setTimeout(() => setVisible((v) => v.filter((x) => x.id !== m.id)), 10000);
       }
-    }, 700); // long enough to catch a block's worth, short enough to feel live
+    }, 900); // long enough to catch a block's worth, short enough to feel live
   }, [events]);
 
   if (visible.length === 0) return null;

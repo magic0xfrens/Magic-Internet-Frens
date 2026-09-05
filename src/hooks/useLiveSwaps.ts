@@ -85,6 +85,9 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
   //  React batches state updates, so several swaps arriving in the same tick
   //  collapsed into one and a busy pool showed a single toast. The gacha router
   //  fires a buy and a sell back to back, which is exactly that case.
+  //  Holds 80, not the handful the toasts need: the activity drawer reads the
+  //  same list as a scrollable history, so the cap is set by what is worth
+  //  keeping in view rather than by what is currently on screen.
   const [recent, setRecent] = useState<LiveSwap[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -210,7 +213,7 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
             return [{
               id: nextId++, key, kind, isBuy: kind === "buy",
               quoteWei, tokenWei, price, ts: Date.now(), txHash: hash, who, detail,
-            }, ...prev].slice(0, 24);
+            }, ...prev].slice(0, 80);
           });
           setNonce((n) => n + 1);
         } catch { /* malformed frame — ignore */ }

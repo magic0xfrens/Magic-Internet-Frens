@@ -19,6 +19,7 @@ import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
+import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
 import { useIndexerHealth } from "@/hooks/useIndexerHealth";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
@@ -603,6 +604,7 @@ export default function TheCauldron() {
           document.body, so no card's backdrop-filter can capture its
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
+      <ActivityDrawer events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
       {health.degraded && (
         <div className={`tc-health is-${health.state}`} role="status">
           <span className="tc-health__dot" />
@@ -1911,6 +1913,63 @@ function Styles() {
     .tc-health__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: tcHealthPulse 1.4s ease-in-out infinite; }
     .tc-health b { font-weight: 500; opacity: 0.6; }
     @keyframes tcHealthPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* THE GRIMOIRE — the full activity run, on demand. The toasts announce and
+       leave; this is where you look when something scrolled past. */
+    .tc-grim__tab {
+      position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+      z-index: 75; display: flex; flex-direction: column; align-items: center; gap: 7px;
+      padding: 15px 8px; border: 1px solid rgba(168,140,255,0.2); border-right: none;
+      border-radius: 12px 0 0 12px; cursor: pointer;
+      background: linear-gradient(135deg, rgba(30,22,58,0.95), rgba(14,11,26,0.95));
+      backdrop-filter: blur(14px); color: #cbb6ff; font-family: "DM Mono", monospace;
+      transition: right 0.42s cubic-bezier(0.16,1,0.3,1), color 0.2s, border-color 0.2s;
+    }
+    .tc-grim__tab:hover { color: #efe7ff; border-color: rgba(168,140,255,0.45); }
+    .tc-grim__tab.is-open { right: 320px; }
+    .tc-grim__tab-text { writing-mode: vertical-rl; font-size: 9px; letter-spacing: 0.24em; }
+    .tc-grim__tab-icon { font-size: 14px; line-height: 1; opacity: 0.7; }
+    .tc-grim__tab-count { font-size: 9px; padding: 2px 5px; border-radius: 6px; background: rgba(196,142,255,0.22); color: #d9c4ff; }
+
+    .tc-grim {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 74;
+      display: flex; flex-direction: column;
+      background: linear-gradient(180deg, rgba(22,16,42,0.97), rgba(11,9,20,0.98));
+      border-left: 1px solid rgba(168,140,255,0.16);
+      backdrop-filter: blur(20px) saturate(1.2);
+      box-shadow: -18px 0 50px rgba(0,0,0,0.55);
+      transform: translateX(100%);
+      transition: transform 0.42s cubic-bezier(0.16,1,0.3,1);
+    }
+    .tc-grim.is-open { transform: none; }
+    .tc-grim__head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .tc-grim__eyebrow { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(196,142,255,0.75); margin-bottom: 5px; }
+    .tc-grim__title { font-family: "Cinzel", serif; font-size: 17px; margin: 0; color: #f2ecff; }
+    .tc-grim__close { background: none; border: none; color: rgba(255,255,255,0.34); font-size: 14px; cursor: pointer; padding: 2px 4px; }
+    .tc-grim__close:hover { color: #fff; }
+
+    .tc-grim__list { flex: 1; overflow-y: auto; padding: 8px 10px 20px; scrollbar-width: thin; }
+    .tc-grim__list::-webkit-scrollbar { width: 5px; }
+    .tc-grim__list::-webkit-scrollbar-thumb { background: rgba(168,140,255,0.22); border-radius: 3px; }
+    .tc-grim__row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; text-decoration: none; color: inherit; border-left: 2px solid transparent; transition: background 0.18s; }
+    .tc-grim__row:hover { background: rgba(255,255,255,0.045); }
+    .tc-grim__row.is-good  { border-left-color: rgba(70,230,124,0.75); }
+    .tc-grim__row.is-bad   { border-left-color: rgba(255,86,96,0.75); }
+    .tc-grim__row.is-magic { border-left-color: rgba(196,142,255,0.75); }
+    .tc-grim__row.is-neutral { border-left-color: rgba(255,255,255,0.18); }
+    .tc-grim__rune { font-size: 14px; }
+    .tc-grim__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .tc-grim__label { font-family: "Cinzel", serif; font-size: 11.5px; color: #ece4ff; }
+    .is-good .tc-grim__label  { color: rgb(150,245,180); }
+    .is-bad .tc-grim__label   { color: rgb(255,140,148); }
+    .is-magic .tc-grim__label { color: rgb(214,178,255); }
+    .tc-grim__meta { font-size: 9px; opacity: 0.32; }
+    .tc-grim__right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .tc-grim__amt { font-size: 10.5px; opacity: 0.8; }
+    .tc-grim__ago { font-size: 9px; opacity: 0.3; }
+    .tc-grim__empty { padding: 40px 18px; text-align: center; font-family: "DM Sans", sans-serif; font-size: 12px; color: rgba(255,255,255,0.42); display: flex; flex-direction: column; gap: 8px; }
+    .tc-grim__empty span { font-size: 10.5px; opacity: 0.55; line-height: 1.5; }
+    @media (max-width: 860px) { .tc-grim { width: 84vw; } .tc-grim__tab.is-open { right: 84vw; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }
