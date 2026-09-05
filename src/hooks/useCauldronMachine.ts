@@ -337,21 +337,40 @@ export function useCauldronMachine() {
     const perNft = supply > 0n
       ? parseEther(Math.max(0, p.mintOutEth).toFixed(18)) / supply
       : 0n;
+    //  WHICH GOVERNOR IS LIVE? The quote argument only exists on a governor
+    //  deployed with the quote work. Sending it to an older one encodes a
+    //  selector that contract does not have, so the transaction reverts after
+    //  the user has already signed it.
+    //
+    //  Probed against the registry rather than assumed: `allowedQuote` is part
+    //  of the same deployment, so its presence answers the question in one cheap
+    //  read, and the app keeps working across the redeploy without a code change.
+    let supportsQuote = false;
+    try {
+      await publicClient!.readContract({
+        address: CAULDRON.registry, abi: REGISTRY_ABI,
+        functionName: "allowedQuote",
+        args: ["0x0000000000000000000000000000000000000000"],
+      });
+      supportsQuote = true;
+    } catch { supportsQuote = false; }
+
+    const baseArgs = [
+      p.name, p.symbol.toUpperCase(),
+      useRenderer ? 1 : 0, // 1 = Renderer, 0 = BaseURI
+      useRenderer ? "" : (p.baseURI || "https://mifrens.xyz/api/cauldron/"),
+      (useRenderer ? p.renderer! : "0x0000000000000000000000000000000000000000") as Address,
+      p.website ?? "", p.socials ?? "", supply, perNft,
+    ] as const;
+
     return writeContractAsync({
       address: CAULDRON.governor, abi: GOVERNOR_ABI, functionName: "propose",
-      args: [
-        p.name, p.symbol.toUpperCase(),
-        useRenderer ? 1 : 0, // 1 = Renderer, 0 = BaseURI
-        useRenderer ? "" : (p.baseURI || "https://mifrens.xyz/api/cauldron/"),
-        (useRenderer ? p.renderer! : "0x0000000000000000000000000000000000000000") as Address,
-        p.website ?? "", p.socials ?? "", supply, perNft,
-        // What the brew is priced in. The registry validates this against its
-        // allowlist here AND again at relaunch, so an unvetted pair can never
-        // reach a vote nor become a pool.
-        (p.quote ?? "0x0000000000000000000000000000000000000000") as Address,
-      ],
+      args: (supportsQuote
+        ? [...baseArgs, (p.quote ?? "0x0000000000000000000000000000000000000000") as Address]
+        : baseArgs) as never,
     });
-  }, [address, chainId, switchChainAsync, writeContractAsync]);
+  }, [address, chainId, switchChainAsync, writeContractAsync, publicClient]);
+
 
   // Does the connected wallet hold a MiFren? (gates proposing)
   const { data: mifrenBalance } = useReadContract({

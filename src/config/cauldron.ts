@@ -199,6 +199,21 @@ export const GOVERNOR_ABI = [
   { type: "function", name: "vote", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
   { type: "function", name: "hasVoted", stateMutability: "view", inputs: [{ type: "uint256" }, { type: "address" }], outputs: [{ type: "bool" }] },
   {
+    // The PRE-QUOTE signature, kept as an OVERLOAD so the app still works
+    // against a governor deployed before the quote work. viem picks between the
+    // two by argument count; useCauldronMachine decides which to send from a
+    // capability probe against the live registry.
+    type: "function", name: "propose", stateMutability: "nonpayable",
+    inputs: [
+      { name: "name", type: "string" }, { name: "symbol", type: "string" },
+      { name: "mode", type: "uint8" }, { name: "baseURI", type: "string" },
+      { name: "renderer", type: "address" }, { name: "website", type: "string" },
+      { name: "socials", type: "string" }, { name: "nftSupply", type: "uint256" },
+      { name: "volumePerNFT", type: "uint256" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  {
     type: "function", name: "propose", stateMutability: "nonpayable",
     inputs: [
       { name: "name", type: "string" }, { name: "symbol", type: "string" },
