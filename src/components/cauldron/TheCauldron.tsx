@@ -18,6 +18,7 @@ import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
+import { LiveSwapToast } from "@/components/cauldron/LiveSwapToast";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -667,6 +668,7 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
+                        <LiveSwapToast swap={live.latest} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
@@ -1818,6 +1820,18 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
+    /* LIVE SWAP TOASTS — painted from the websocket the moment a block lands,
+       so the page reacts before the indexer has caught up. */
+    .tc-toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column-reverse; gap: 8px; z-index: 60; pointer-events: none; }
+    .tc-toast { display: flex; align-items: center; gap: 9px; padding: 9px 14px; border-radius: var(--r-sm); background: rgba(10,8,18,0.94); border: 1px solid rgba(255,255,255,0.09); font-size: 12px; color: #f4f1ff; box-shadow: 0 8px 24px rgba(0,0,0,0.45); animation: tcToastIn 0.28s cubic-bezier(0.2,0.9,0.3,1); }
+    .tc-toast.buy { border-color: rgba(60,224,114,0.4); }
+    .tc-toast.sell { border-color: rgba(255,59,70,0.4); }
+    .tc-toast__dot { width: 7px; height: 7px; border-radius: 50%; }
+    .tc-toast.buy .tc-toast__dot { background: rgb(60,224,114); box-shadow: 0 0 9px rgb(60,224,114); }
+    .tc-toast.sell .tc-toast__dot { background: rgb(255,59,70); box-shadow: 0 0 9px rgb(255,59,70); }
+    .tc-toast__live { font-size: 9px; opacity: 0.5; letter-spacing: 0.08em; }
+    @keyframes tcToastIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }
     .tc-seed__row { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; margin-bottom: 5px; }

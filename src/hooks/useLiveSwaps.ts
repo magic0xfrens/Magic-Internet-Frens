@@ -32,8 +32,20 @@ const WS_URLS: Record<number, string[]> = {
 /** keccak256("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)") */
 const SWAP_TOPIC = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
 
-export function useLiveSwaps(): { nonce: number; connected: boolean } {
+/** A swap seen on the wire, decoded far enough to show instantly. */
+export interface LiveSwap {
+  /** Monotonic id so a list can key on it. */
+  id: number;
+  /** true = someone BOUGHT the token (quote went in). */
+  isBuy: boolean;
+  /** Quote-side size, in wei. Approximate by design — see below. */
+  quoteWei: bigint;
+  txHash: string;
+}
+
+export function useLiveSwaps(): { nonce: number; connected: boolean; latest: LiveSwap | null } {
   const [nonce, setNonce] = useState(0);
+  const [latest, setLatest] = useState<LiveSwap | null>(null);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -76,6 +88,29 @@ export function useLiveSwaps(): { nonce: number; connected: boolean } {
           // subscribing to all of them would wake the page on unrelated trades.
           const pid = String(log.topics[1] ?? "").toLowerCase();
           if (poolIds.length > 0 && !poolIds.includes(pid)) return;
+
+          //  Decode just enough for an INSTANT toast, then let the indexer
+          //  deliver the authoritative numbers a moment later. v4 packs
+          //  (amount0, amount1, sqrtPriceX96, liquidity, tick, fee) into data;
+          //  amount0 is the first 32-byte word and, because the quote is always
+          //  currency0 by construction, it is the quote leg.
+          //
+          //  Deliberately approximate: this exists to make the page feel alive
+          //  the moment a block lands, NOT to become a second source of truth.
+          //  The indexer still owns the tape and the candles.
+          const raw = String(log.data ?? "").slice(2);
+          let quoteWei = 0n;
+          let isBuy = false;
+          if (raw.length >= 64) {
+            const w0 = BigInt("0x" + raw.slice(0, 64));
+            // int128 is sign-extended into the word; negative means it left the
+            // pool, i.e. the trader RECEIVED quote → a sell.
+            const signed = w0 >= (1n << 255n) ? w0 - (1n << 256n) : w0;
+            isBuy = signed > 0n;
+            quoteWei = signed < 0n ? -signed : signed;
+          }
+          const id = Date.now();
+          setLatest({ id, isBuy, quoteWei, txHash: String(log.transactionHash ?? "") });
           setNonce((n) => n + 1);
         } catch { /* malformed frame — ignore */ }
       };
@@ -100,5 +135,5 @@ export function useLiveSwaps(): { nonce: number; connected: boolean } {
     };
   }, []);
 
-  return { nonce, connected };
+  return { nonce, connected, latest };
 }
