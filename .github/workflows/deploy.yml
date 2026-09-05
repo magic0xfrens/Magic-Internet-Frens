@@ -31,36 +31,17 @@ jobs:
       - name: Type-check the frontend
         run: npm run type-check
 
-  # Only redeploy the indexer when something it actually depends on changed.
-  # A CSS tweak should not resync a Ponder schema.
-  indexer:
-    needs: verify
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 2 }
-      - id: changed
-        name: Did the indexer or the manifest change?
-        run: |
-          if git diff --name-only HEAD^ HEAD | grep -qE '^indexer/'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No indexer/manifest changes - skipping redeploy."
-          fi
-      - name: Deploy to Railway
-        if: steps.changed.outputs.run == 'true'
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY_TOKEN is not set. Add it in Settings > Secrets > Actions."
-            exit 1
-          fi
-          npm i -g @railway/cli
-          # --path-as-root because Railway uploads from the REPO root by default,
-          # which sends ~250MB and fails; the indexer is the only thing it needs.
-          railway up --path-as-root indexer --service indexer --detach
+  # NOTE: there is deliberately no Railway job here.
+  #
+  # Railway is now connected directly to this repo (root directory /indexer), so
+  # it redeploys the indexer on push by itself. Running `railway up` from CI as
+  # well would deploy the same commit twice — two builds racing, and a Ponder
+  # resync started while another is mid-flight.
+  #
+  # The verify job above still gates nothing-ships-broken for the frontend, but
+  # be aware Railway's own trigger does NOT wait for it: a bad manifest can reach
+  # the indexer even while CI is red. That is the trade for having Railway watch
+  # the repo directly, and it is why verify-manifest also runs on prebuild.
 
   # Vercel builds on push by itself once the repo is linked in its dashboard, so
   # this only reports whether that link is actually live — a silent missing link
