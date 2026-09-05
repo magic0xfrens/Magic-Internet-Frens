@@ -56,18 +56,35 @@ export function useMiFrensPresale() {
 
   // FALLBACK: the direct contract reads (used only if the indexer is unset/down).
   const { data: mintedRpc, refetch: refetchMinted } = useReadContract({
-    ...common, functionName: "minted", query: { refetchInterval: 5000, enabled: !INDEXER },
+    //  ALWAYS ENABLED, never `enabled: !INDEXER`. Disabling the chain read left
+    //  the page with no floor under a slow, restarting or backfilling indexer —
+    //  which is exactly how a sold-out 1111/1111 presale rendered as "0 / 1111".
+    //  Polled slowly because the indexer is still the primary; this is a safety
+    //  net, not a second poller.
+    ...common, functionName: "minted", query: { refetchInterval: INDEXER ? 20000 : 5000 },
   });
   const { data: soldOutRpc, refetch: refetchSoldOut } = useReadContract({
-    ...common, functionName: "soldOut", query: { refetchInterval: 5000, enabled: !INDEXER },
+    ...common, functionName: "soldOut", query: { refetchInterval: INDEXER ? 20000 : 5000 },
   });
   const { data: finalizedRpc, refetch: refetchFinalized } = useReadContract({
-    ...common, functionName: "finalized", query: { refetchInterval: 5000, enabled: !INDEXER },
+    ...common, functionName: "finalized", query: { refetchInterval: INDEXER ? 20000 : 5000 },
   });
-  // Ponder wins; contract read is the fallback.
-  const minted = ponder.minted != null ? BigInt(ponder.minted) : mintedRpc;
-  const soldOut = ponder.soldOut != null ? ponder.soldOut : soldOutRpc;
-  const finalizedOnchain = ponder.finalized != null ? ponder.finalized : finalizedRpc;
+  //  MERGED BY MONOTONICITY, not by precedence.
+  //
+  //  "Ponder wins, chain is the fallback" reads sensibly and is wrong: a
+  //  backfilling indexer returns minted:0, which is NOT null, so it beat the
+  //  correct on-chain value and the page showed 0 / 1111 for a sold-out presale.
+  //  A fallback that only applies when the primary is ABSENT is no fallback at
+  //  all — the dangerous case is the primary being present and wrong.
+  //
+  //  These three values only ever move one way: mints accumulate, and soldOut
+  //  and finalized latch true. So the larger/truer of the two sources is always
+  //  the correct answer, whichever is momentarily behind. No staleness
+  //  heuristics, no clock skew, nothing to tune.
+  const mintedPonder = ponder.minted != null ? BigInt(ponder.minted) : 0n;
+  const minted = mintedPonder > (mintedRpc ?? 0n) ? mintedPonder : (mintedRpc ?? 0n);
+  const soldOut = Boolean(ponder.soldOut) || Boolean(soldOutRpc);
+  const finalizedOnchain = Boolean(ponder.finalized) || Boolean(finalizedRpc);
   const { data: myBalance, refetch: refetchBalance } = useReadContract({
     ...common,
     functionName: "balanceOf",

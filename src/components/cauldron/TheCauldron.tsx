@@ -19,6 +19,7 @@ import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
+import { useIndexerHealth } from "@/hooks/useIndexerHealth";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -385,6 +386,9 @@ export default function TheCauldron() {
   // refreshes the chart and tape the moment its block is seen, instead of
   // waiting out the poll interval. The polls stay as the fallback.
   const live_ = useLiveSwaps();
+  // Says out loud when the data behind the page is not trustworthy, rather than
+  // letting an empty indexer render as a confident, wrong, empty page.
+  const health = useIndexerHealth();
   const presale = useMiFrensPresale();
   // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
   const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
@@ -593,6 +597,16 @@ export default function TheCauldron() {
           document.body, so no card's backdrop-filter can capture its
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
+      {health.degraded && (
+        <div className={`tc-health is-${health.state}`} role="status">
+          <span className="tc-health__dot" />
+          <span className="tc-mono">
+            {health.state === "down" ? "indexer unreachable" : health.reason}
+            {" · "}
+            <b>live prices still on-chain</b>
+          </span>
+        </div>
+      )}
       <div className="tc-embers" aria-hidden>
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>
@@ -1881,6 +1895,15 @@ function Styles() {
     .tc-spell__who { font-size: 9px; opacity: 0.34; align-self: flex-start; padding-top: 2px; }
     @keyframes tcSpellIn { from { opacity: 0; transform: translateX(26px) scale(0.94); } to { opacity: 1; transform: none; } }
     @media (max-width: 860px) { .tc-spell { display: none; } }
+
+    /* INDEXER HEALTH. Most of the page reads from Ponder with no chain
+       fallback, so when it is behind the UI renders empty rather than wrong-
+       looking. This makes that state visible instead of silent. */
+    .tc-health { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 80; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; font-size: 11px; background: rgba(20,14,8,0.94); border: 1px solid rgba(246,200,106,0.3); color: #f6d9a0; backdrop-filter: blur(12px); box-shadow: 0 6px 22px rgba(0,0,0,0.5); }
+    .tc-health.is-down { border-color: rgba(255,86,96,0.35); color: #ffc9cd; background: rgba(28,10,12,0.94); }
+    .tc-health__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: tcHealthPulse 1.4s ease-in-out infinite; }
+    .tc-health b { font-weight: 500; opacity: 0.6; }
+    @keyframes tcHealthPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }
