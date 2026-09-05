@@ -380,7 +380,7 @@ export default function TheCauldron() {
   // Websocket ping on every swap in our pool: a trade made on ANY machine
   // refreshes the chart and tape the moment its block is seen, instead of
   // waiting out the poll interval. The polls stay as the fallback.
-  const live = useLiveSwaps();
+  const live_ = useLiveSwaps();
   const presale = useMiFrensPresale();
   // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
   const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
@@ -394,7 +394,7 @@ export default function TheCauldron() {
     m.gen,
     m.summoned,
     5000,
-    m.confirmed ? m.txHash : `ws:${live.nonce}`,
+    m.confirmed ? m.txHash : `ws:${live_.nonce}`,
   );
   // What THIS brew is priced in. Fixed at summon, so it is read once per
   // generation rather than polled hard.
@@ -412,10 +412,31 @@ export default function TheCauldron() {
   // The brew EKG plots the SAME tape the trading chart does. Deriving both from
   // one source is what keeps them consistent; the tape is already fetched above
   // for the chart, so this costs no extra request.
-  const ekgSeries = useMemo(
-    () => (tradeTape.length >= 2 ? tradeTape.map((t) => t.price) : m.priceSeries),
-    [tradeTape, m.priceSeries],
-  );
+  const ekgSeries = useMemo(() => {
+    const base = tradeTape.length >= 2 ? tradeTape.map((t) => t.price) : m.priceSeries;
+
+    //  LIVE TAIL. The indexer builds the tape, so a fresh trade only reaches the
+    //  chart once Ponder has indexed its block — seconds during which the line
+    //  sits still while the pool is moving. Each swap already carries its
+    //  post-trade sqrtPriceX96 on the wire, so the price it left behind is known
+    //  the instant the block is seen.
+    //
+    //  These points are PROVISIONAL and get dropped the moment the indexed tape
+    //  is long enough to contain them: `base` is the source of truth, this only
+    //  covers the gap. A live point is appended only if it is newer than what
+    //  the tape already knows, so a handoff never double-draws the same trade.
+    const live = live_.recent
+      .filter((sw) => sw.price > 0)
+      .sort((a, b) => a.ts - b.ts)
+      .map((sw) => sw.price);
+
+    if (live.length === 0) return base;
+    // Only the tail that the tape has not caught up to yet.
+    const tail = live.slice(-6);
+    const lastKnown = base.length > 0 ? base[base.length - 1] : 0;
+    const fresh = tail.filter((p) => p !== lastKnown);
+    return fresh.length > 0 ? [...base, ...fresh] : base;
+  }, [tradeTape, m.priceSeries, live_.recent]);
   // The view lives in the URL (`?v=…`) rather than local state: the left rail
   // owns the tab strip now, and Leverage / Governance become shareable links.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -668,7 +689,7 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        <LiveSwapToast swaps={live.recent} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
+                        <LiveSwapToast swaps={live_.recent} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
@@ -1820,37 +1841,36 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
-    /* LIVE TRADE FEED — painted from the websocket the moment a block lands.
-       Bottom-LEFT: bottom-right covered the stat cards, and a feed that hides
-       the numbers it reports on is worse than no feed. */
-    .tc-feed { position: fixed; left: 18px; bottom: 18px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 60; pointer-events: none; max-width: 260px; }
+    /* LIVE TRADE FEED — websocket-painted, released one at a time so a block
+       full of swaps reads as a stream rather than one event. Bottom-LEFT:
+       bottom-right covered the stat cards. */
+    .tc-feed { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column-reverse; gap: 5px; z-index: 60; pointer-events: none; }
     .tc-feed__row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 12px 7px 10px;
-      border-radius: 10px;
-      background: linear-gradient(90deg, rgba(14,11,24,0.97), rgba(14,11,24,0.86));
-      border: 1px solid rgba(255,255,255,0.07);
-      border-left-width: 2px;
-      font-size: 11.5px; color: #efeaff;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-      animation: tcFeedIn 0.34s cubic-bezier(0.16,1,0.3,1);
-      transition: opacity 0.4s ease;
+      display: flex; align-items: center; gap: 9px;
+      padding: 6px 13px 6px 9px;
+      border-radius: 999px;
+      background: rgba(12,10,20,0.88);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 11px; color: #efeaff;
+      backdrop-filter: blur(14px) saturate(1.3);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.42);
+      animation: tcFeedIn 0.42s cubic-bezier(0.16,1,0.3,1);
+      transition: opacity 0.5s ease;
+      white-space: nowrap;
     }
-    .tc-feed__row.is-buy  { border-left-color: rgb(60,224,114); }
-    .tc-feed__row.is-sell { border-left-color: rgb(255,77,88); }
-    .tc-feed__pulse { width: 6px; height: 6px; border-radius: 50%; flex: none; animation: tcPulse 1.6s ease-in-out infinite; }
-    .is-buy  .tc-feed__pulse { background: rgb(60,224,114); box-shadow: 0 0 8px rgb(60,224,114); }
-    .is-sell .tc-feed__pulse { background: rgb(255,77,88); box-shadow: 0 0 8px rgb(255,77,88); }
-    .tc-feed__side { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; opacity: 0.85; }
-    .is-buy  .tc-feed__side { color: rgb(96,236,142); }
-    .is-sell .tc-feed__side { color: rgb(255,110,120); }
-    .tc-feed__amt { margin-left: auto; font-size: 11.5px; }
-    .tc-feed__amt em { font-style: normal; opacity: 0.5; margin-left: 3px; }
-    .tc-feed__tok { font-size: 10px; opacity: 0.4; }
-    @keyframes tcFeedIn { from { opacity: 0; transform: translateX(-16px) scale(0.96); } to { opacity: 1; transform: none; } }
-    @keyframes tcPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-    @media (max-width: 720px) { .tc-feed { left: 10px; bottom: 10px; max-width: 190px; } }
+    .tc-feed__row.is-buy  { box-shadow: 0 4px 18px rgba(0,0,0,0.42), inset 2px 0 0 rgb(70,230,124); }
+    .tc-feed__row.is-sell { box-shadow: 0 4px 18px rgba(0,0,0,0.42), inset 2px 0 0 rgb(255,86,96); }
+    .tc-feed__glyph { font-size: 8px; line-height: 1; }
+    .is-buy  .tc-feed__glyph { color: rgb(70,230,124); text-shadow: 0 0 8px rgba(70,230,124,0.7); }
+    .is-sell .tc-feed__glyph { color: rgb(255,86,96); text-shadow: 0 0 8px rgba(255,86,96,0.7); }
+    .tc-feed__side { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.14em; opacity: 0.75; }
+    .is-buy  .tc-feed__side { color: rgb(120,240,160); }
+    .is-sell .tc-feed__side { color: rgb(255,130,138); }
+    .tc-feed__amt { font-size: 11.5px; font-weight: 500; }
+    .tc-feed__amt em { font-style: normal; opacity: 0.42; margin-left: 3px; font-size: 10px; }
+    .tc-feed__tok { font-size: 9.5px; opacity: 0.34; padding-left: 2px; border-left: 1px solid rgba(255,255,255,0.09); margin-left: 2px; }
+    @keyframes tcFeedIn { from { opacity: 0; transform: translateX(-22px) scale(0.92); } to { opacity: 1; transform: none; } }
+    @media (max-width: 720px) { .tc-feed { left: 10px; bottom: 10px; } .tc-feed__tok { display: none; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }

@@ -46,6 +46,12 @@ export interface LiveSwap {
   quoteWei: bigint;
   /** Token-side size, in wei. */
   tokenWei: bigint;
+  /** Quote per token, derived from the swap's own post-trade sqrtPriceX96 — so
+   *  the chart can move on the tick the block lands, before the indexer has
+   *  built the candle. */
+  price: number;
+  /** Wall-clock ms the log was seen. */
+  ts: number;
   txHash: string;
 }
 
@@ -126,13 +132,27 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
             const st = w1 >= (1n << 255n) ? w1 - (1n << 256n) : w1;
             tokenWei = st < 0n ? -st : st;
           }
+          //  POST-TRADE PRICE, straight from the log. v4 packs sqrtPriceX96 as
+          //  the third word, so the exact price this swap left behind is already
+          //  on the wire — no extra call, no waiting for the indexer.
+          //
+          //  price(token in quote) = 1 / (sqrtP / 2^96)^2, because the quote is
+          //  currency0 by construction and sqrtPriceX96 encodes amount1/amount0.
+          let price = 0;
+          if (raw.length >= 192) {
+            const sqrtP = BigInt("0x" + raw.slice(128, 192));
+            if (sqrtP > 0n) {
+              const r = Number(sqrtP) / 2 ** 96;
+              price = r > 0 ? 1 / (r * r) : 0;
+            }
+          }
           const hash = String(log.transactionHash ?? "");
           const key = `${hash}:${String(log.logIndex ?? "")}`;
           setRecent((prev) => {
             // Same log can arrive twice across a reconnect; key on tx+logIndex
             // so a re-subscribe does not double-paint the feed.
             if (prev.some((x) => x.key === key)) return prev;
-            return [{ id: nextId++, key, isBuy, quoteWei, tokenWei, txHash: hash }, ...prev].slice(0, 12);
+            return [{ id: nextId++, key, isBuy, quoteWei, tokenWei, price, ts: Date.now(), txHash: hash }, ...prev].slice(0, 24);
           });
           setNonce((n) => n + 1);
         } catch { /* malformed frame — ignore */ }
