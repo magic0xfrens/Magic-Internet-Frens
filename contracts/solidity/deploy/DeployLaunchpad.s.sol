@@ -49,7 +49,9 @@ interface IOwnable {
  *    -> swaps mint NFTs by volume -> volume dies -> anyone relaunch() -> winner.
  *
  *  Env:
- *    PRIVATE_KEY        deployer (required)
+ *    PRIVATE_KEY        deployer key (OPTIONAL — prefer `--account <name>`,
+ *                       which reads an encrypted keystore and keeps the raw key
+ *                       out of the environment and shell history)
  *    POOL_MANAGER       V4 PoolManager (required)
  *    POSITION_MANAGER   V4 PositionManager (required)
  *    GNOME_RENDERER     iteration #1 on-chain renderer (default: Sepolia Gnome)
@@ -73,8 +75,16 @@ contract DeployLaunchpad is Script {
     address constant DEFAULT_GNOME_RENDERER = 0x15EbCb6c3cf473b4DF5F7DF05cD5609513dEe4A7;
 
     function run() external {
-        uint256 pk = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(pk);
+        //  SIGNER. Prefer an ENCRYPTED KEYSTORE (`--account <name>`), which
+        //  never puts the raw key in the environment, the shell history or a
+        //  process listing. `PRIVATE_KEY` stays supported for CI and for
+        //  unattended runs, but it is no longer required.
+        //
+        //  With `--account`, forge already knows the signer, so the script must
+        //  NOT pass one to startBroadcast — doing so would override the keystore
+        //  and fail on the missing env var before it ever prompted.
+        uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
+        address deployer = pk != 0 ? vm.addr(pk) : msg.sender;
         address poolManager = vm.envAddress("POOL_MANAGER");
         address positionManager = vm.envAddress("POSITION_MANAGER");
         address gnomeRenderer = vm.envOr("GNOME_RENDERER", DEFAULT_GNOME_RENDERER);
@@ -93,7 +103,8 @@ contract DeployLaunchpad is Script {
         // grant these to a Gnosis Safe + revoke the EOA (no redeploy).
         uint256 tlDelay = vm.envOr("TIMELOCK_DELAY", uint256(180));
 
-        vm.startBroadcast(pk);
+        if (pk != 0) vm.startBroadcast(pk);
+        else vm.startBroadcast();   // signer supplied by --account / --private-key
 
         // 0. GOVERNANCE TIMELOCK — the eventual owner of hook/registry-emergency/
         //    perp engine. Deployed FIRST because the registry's `emergencyAdmin` is
