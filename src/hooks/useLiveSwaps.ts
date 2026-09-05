@@ -33,19 +33,29 @@ const WS_URLS: Record<number, string[]> = {
 const SWAP_TOPIC = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
 
 /** A swap seen on the wire, decoded far enough to show instantly. */
+let nextId = 1;
+
 export interface LiveSwap {
   /** Monotonic id so a list can key on it. */
   id: number;
+  /** tx hash + log index — dedupes the same log across a reconnect. */
+  key: string;
   /** true = someone BOUGHT the token (quote went in). */
   isBuy: boolean;
   /** Quote-side size, in wei. Approximate by design — see below. */
   quoteWei: bigint;
+  /** Token-side size, in wei. */
+  tokenWei: bigint;
   txHash: string;
 }
 
-export function useLiveSwaps(): { nonce: number; connected: boolean; latest: LiveSwap | null } {
+export function useLiveSwaps(): { nonce: number; connected: boolean; recent: LiveSwap[] } {
   const [nonce, setNonce] = useState(0);
-  const [latest, setLatest] = useState<LiveSwap | null>(null);
+  //  A ROLLING LIST, not a single `latest`. Exposing one value dropped events:
+  //  React batches state updates, so several swaps arriving in the same tick
+  //  collapsed into one and a busy pool showed a single toast. The gacha router
+  //  fires a buy and a sell back to back, which is exactly that case.
+  const [recent, setRecent] = useState<LiveSwap[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -109,8 +119,21 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; latest: Liv
             isBuy = signed > 0n;
             quoteWei = signed < 0n ? -signed : signed;
           }
-          const id = Date.now();
-          setLatest({ id, isBuy, quoteWei, txHash: String(log.transactionHash ?? "") });
+          // Token leg is the second word (currency1 by construction).
+          let tokenWei = 0n;
+          if (raw.length >= 128) {
+            const w1 = BigInt("0x" + raw.slice(64, 128));
+            const st = w1 >= (1n << 255n) ? w1 - (1n << 256n) : w1;
+            tokenWei = st < 0n ? -st : st;
+          }
+          const hash = String(log.transactionHash ?? "");
+          const key = `${hash}:${String(log.logIndex ?? "")}`;
+          setRecent((prev) => {
+            // Same log can arrive twice across a reconnect; key on tx+logIndex
+            // so a re-subscribe does not double-paint the feed.
+            if (prev.some((x) => x.key === key)) return prev;
+            return [{ id: nextId++, key, isBuy, quoteWei, tokenWei, txHash: hash }, ...prev].slice(0, 12);
+          });
           setNonce((n) => n + 1);
         } catch { /* malformed frame — ignore */ }
       };
@@ -135,5 +158,5 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; latest: Liv
     };
   }, []);
 
-  return { nonce, connected, latest };
+  return { nonce, connected, recent };
 }

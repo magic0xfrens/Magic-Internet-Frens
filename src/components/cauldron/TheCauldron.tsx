@@ -668,7 +668,7 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        <LiveSwapToast swap={live.latest} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
+                        <LiveSwapToast swaps={live.recent} symbol={liveQuote.symbol} glyph={liveQuote.glyph} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
@@ -1820,17 +1820,37 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
-    /* LIVE SWAP TOASTS — painted from the websocket the moment a block lands,
-       so the page reacts before the indexer has caught up. */
-    .tc-toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column-reverse; gap: 8px; z-index: 60; pointer-events: none; }
-    .tc-toast { display: flex; align-items: center; gap: 9px; padding: 9px 14px; border-radius: var(--r-sm); background: rgba(10,8,18,0.94); border: 1px solid rgba(255,255,255,0.09); font-size: 12px; color: #f4f1ff; box-shadow: 0 8px 24px rgba(0,0,0,0.45); animation: tcToastIn 0.28s cubic-bezier(0.2,0.9,0.3,1); }
-    .tc-toast.buy { border-color: rgba(60,224,114,0.4); }
-    .tc-toast.sell { border-color: rgba(255,59,70,0.4); }
-    .tc-toast__dot { width: 7px; height: 7px; border-radius: 50%; }
-    .tc-toast.buy .tc-toast__dot { background: rgb(60,224,114); box-shadow: 0 0 9px rgb(60,224,114); }
-    .tc-toast.sell .tc-toast__dot { background: rgb(255,59,70); box-shadow: 0 0 9px rgb(255,59,70); }
-    .tc-toast__live { font-size: 9px; opacity: 0.5; letter-spacing: 0.08em; }
-    @keyframes tcToastIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+    /* LIVE TRADE FEED — painted from the websocket the moment a block lands.
+       Bottom-LEFT: bottom-right covered the stat cards, and a feed that hides
+       the numbers it reports on is worse than no feed. */
+    .tc-feed { position: fixed; left: 18px; bottom: 18px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 60; pointer-events: none; max-width: 260px; }
+    .tc-feed__row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px 7px 10px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(14,11,24,0.97), rgba(14,11,24,0.86));
+      border: 1px solid rgba(255,255,255,0.07);
+      border-left-width: 2px;
+      font-size: 11.5px; color: #efeaff;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      animation: tcFeedIn 0.34s cubic-bezier(0.16,1,0.3,1);
+      transition: opacity 0.4s ease;
+    }
+    .tc-feed__row.is-buy  { border-left-color: rgb(60,224,114); }
+    .tc-feed__row.is-sell { border-left-color: rgb(255,77,88); }
+    .tc-feed__pulse { width: 6px; height: 6px; border-radius: 50%; flex: none; animation: tcPulse 1.6s ease-in-out infinite; }
+    .is-buy  .tc-feed__pulse { background: rgb(60,224,114); box-shadow: 0 0 8px rgb(60,224,114); }
+    .is-sell .tc-feed__pulse { background: rgb(255,77,88); box-shadow: 0 0 8px rgb(255,77,88); }
+    .tc-feed__side { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; opacity: 0.85; }
+    .is-buy  .tc-feed__side { color: rgb(96,236,142); }
+    .is-sell .tc-feed__side { color: rgb(255,110,120); }
+    .tc-feed__amt { margin-left: auto; font-size: 11.5px; }
+    .tc-feed__amt em { font-style: normal; opacity: 0.5; margin-left: 3px; }
+    .tc-feed__tok { font-size: 10px; opacity: 0.4; }
+    @keyframes tcFeedIn { from { opacity: 0; transform: translateX(-16px) scale(0.96); } to { opacity: 1; transform: none; } }
+    @keyframes tcPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (max-width: 720px) { .tc-feed { left: 10px; bottom: 10px; max-width: 190px; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }
