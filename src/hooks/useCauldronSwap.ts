@@ -93,6 +93,37 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync],
   );
 
+  /**
+   * Open MANY sealed crystals in one transaction.
+   *
+   * Revealing was per-token, so a wallet holding thirty crystals paid thirty
+   * base fees to see what it already owned. The on-chain work per token is
+   * identical; this just stops paying for a transaction over and over.
+   *
+   * The contract caps a batch at 50, so longer lists are chunked rather than
+   * reverting — a holder should not have to know that limit exists.
+   */
+  const revealMany = useCallback(
+    async (collection: Address, tokenIds: bigint[]): Promise<`0x${string}`[]> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (tokenIds.length === 0) return [];
+      if (chainId !== CAULDRON.chainId) {
+        await switchChainAsync({ chainId: CAULDRON.chainId });
+      }
+      const hashes: `0x${string}`[] = [];
+      for (let i = 0; i < tokenIds.length; i += 50) {
+        hashes.push(await writeContractAsync({
+          address: collection,
+          abi: COLLECTION_ABI,
+          functionName: "revealBatch",
+          args: [tokenIds.slice(i, i + 50)],
+        }));
+      }
+      return hashes;
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
   /** Crack open crystals from ALREADY-earned credit — no fresh buy. Commits the
    *  banked crystals (odds derived on-chain) + resolves matured tickets. */
   const openReady = useCallback(
@@ -151,5 +182,5 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync],
   );
 
-  return { buy, sell, spin, reveal, openReady, approveToken, txHash, receipt, isPending, confirming, confirmed, reset };
+  return { buy, sell, spin, reveal, revealMany, openReady, approveToken, txHash, receipt, isPending, confirming, confirmed, reset };
 }

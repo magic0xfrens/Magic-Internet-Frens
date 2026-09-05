@@ -58,6 +58,7 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     error RegistryAlreadySet();
     error ZeroAddress();
     error OnlyMinter();
+    error BadBatch();
     error OnlyVault();
     error OnlyLiquidatorMinter();
     error NotAuthorized();
@@ -452,6 +453,34 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     /// @notice Reveal a volume-tranche token you own — rolls its rarity from the
     ///         mint block's hash (unknowable at mint → grind-resistant).
     function reveal(uint256 tokenId) external {
+        _reveal(tokenId);
+    }
+
+    /**
+     * @notice Reveal many tokens in ONE transaction.
+     * @dev Revealing was one token per transaction, so a holder with thirty
+     *      crystals paid thirty base fees (21,000 gas each) to see what they
+     *      already owned. The per-token work is identical either way; batching
+     *      simply stops paying for a transaction over and over.
+     *
+     *      The RANDOMNESS IS UNCHANGED. Each token still rolls from its own
+     *      mint block's hash, so a batch is exactly N independent draws — there
+     *      is no shared seed to grind and no new way to influence an outcome.
+     *
+     *      Already-revealed ids are skipped rather than reverting, so a caller
+     *      can pass their whole wallet without first filtering it. A token whose
+     *      seed has expired re-anchors and the batch continues, matching the
+     *      single-token behaviour (audit M-03).
+     */
+    function revealBatch(uint256[] calldata tokenIds) external {
+        uint256 n = tokenIds.length;
+        // Bounded so a caller cannot build a batch that runs out of gas midway
+        // and wastes the whole fee.
+        if (n == 0 || n > 50) revert BadBatch();
+        for (uint256 i; i < n; ++i) _reveal(tokenIds[i]);
+    }
+
+    function _reveal(uint256 tokenId) private {
         if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
         if (!revealed[tokenId]) {
             uint256 mb = mintBlockOf[tokenId];

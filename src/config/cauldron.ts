@@ -256,6 +256,9 @@ export const COLLECTION_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   // Sealed-crystal reveal (mystery-box): owner opens a crystal → creature art.
   { type: "function", name: "reveal", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [] },
+  // Reveal many in ONE transaction. Revealing was per-token, so a wallet with
+  // thirty crystals paid thirty base fees to see what it already owned.
+  { type: "function", name: "revealBatch", stateMutability: "nonpayable", inputs: [{ name: "tokenIds", type: "uint256[]" }], outputs: [] },
   { type: "function", name: "revealed", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "rarityOf", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint8" }] },
   { type: "function", name: "ownerOf", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },

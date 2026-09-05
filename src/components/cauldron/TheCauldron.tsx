@@ -649,7 +649,7 @@ export default function TheCauldron() {
           document.body, so no card's backdrop-filter can capture its
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
-      <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} />
+      <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} ticker={m.ticker} />
       {health.degraded && (
         <div className={`tc-health is-${health.state}`} role="status">
           <span className="tc-health__dot" />
@@ -1996,24 +1996,39 @@ function Styles() {
     .tc-grim__list { flex: 1; overflow-y: auto; padding: 8px 10px 20px; scrollbar-width: thin; }
     .tc-grim__list::-webkit-scrollbar { width: 5px; }
     .tc-grim__list::-webkit-scrollbar-thumb { background: rgba(168,140,255,0.22); border-radius: 3px; }
-    .tc-grim__row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; text-decoration: none; color: inherit; border-left: 2px solid transparent; transition: background 0.18s; }
-    .tc-grim__row:hover { background: rgba(255,255,255,0.045); }
+
+    .tc-grim__item { border-radius: 10px; overflow: hidden; margin-bottom: 2px; }
+    .tc-grim__item.is-expanded { background: rgba(255,255,255,0.035); }
+    /* A row is a BUTTON, not a link: clicking should open the detail, not leave
+       the page. The tx link lives inside, where it is an explicit choice. */
+    .tc-grim__row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; background: none; border: none; border-left: 2px solid transparent; text-align: left; cursor: pointer; color: inherit; transition: background 0.16s; }
+    .tc-grim__row:hover { background: rgba(255,255,255,0.05); }
     .tc-grim__row.is-good  { border-left-color: rgba(70,230,124,0.75); }
     .tc-grim__row.is-bad   { border-left-color: rgba(255,86,96,0.75); }
     .tc-grim__row.is-magic { border-left-color: rgba(196,142,255,0.75); }
     .tc-grim__row.is-neutral { border-left-color: rgba(255,255,255,0.18); }
-    .tc-grim__rune { font-size: 14px; }
-    .tc-grim__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-    .tc-grim__label { font-family: "Cinzel", serif; font-size: 11.5px; color: #ece4ff; }
-    .is-good .tc-grim__label  { color: rgb(150,245,180); }
-    .is-bad .tc-grim__label   { color: rgb(255,140,148); }
-    .is-magic .tc-grim__label { color: rgb(214,178,255); }
-    .tc-grim__meta { font-size: 9px; opacity: 0.32; }
-    .tc-grim__right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-    .tc-grim__amt { font-size: 10.5px; opacity: 0.8; }
+    .tc-grim__rune { font-size: 15px; flex: none; }
+    .tc-grim__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+    /* The ACTION reads first and plainly; the fren-speak is flavour beneath it. */
+    .tc-grim__verb { font-family: "DM Sans", sans-serif; font-size: 12.5px; font-weight: 600; color: #f0eaff; letter-spacing: 0.01em; }
+    .tc-grim__verb em { font-style: normal; opacity: 0.55; font-weight: 500; }
+    .is-good .tc-grim__verb  { color: rgb(150,245,180); }
+    .is-bad .tc-grim__verb   { color: rgb(255,140,148); }
+    .is-magic .tc-grim__verb { color: rgb(214,178,255); }
+    .tc-grim__flavour { font-family: "DM Sans", sans-serif; font-size: 10px; font-style: italic; opacity: 0.32; }
+    .tc-grim__right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
+    .tc-grim__amt { font-size: 11.5px; font-weight: 600; opacity: 0.9; }
     .tc-grim__ago { font-size: 9px; opacity: 0.3; }
-    .tc-grim__empty { padding: 40px 18px; text-align: center; font-family: "DM Sans", sans-serif; font-size: 12px; color: rgba(255,255,255,0.42); display: flex; flex-direction: column; gap: 8px; }
-    .tc-grim__empty span { font-size: 10.5px; opacity: 0.55; line-height: 1.5; }
+    .tc-grim__chev { font-size: 8px; opacity: 0.25; flex: none; margin-left: 2px; }
+
+    .tc-grim__detail { padding: 4px 12px 12px 34px; display: flex; flex-direction: column; gap: 5px; animation: tcDetailIn 0.24s ease; }
+    .tc-grim__kv { display: flex; justify-content: space-between; gap: 12px; font-family: "DM Sans", sans-serif; font-size: 11px; }
+    .tc-grim__kv span:first-child { opacity: 0.38; }
+    .tc-grim__kv span:last-child { color: #e8e0ff; }
+    .tc-grim__tx { margin-top: 5px; font-family: "DM Mono", monospace; font-size: 10.5px; color: rgb(196,142,255); text-decoration: none; opacity: 0.85; }
+    .tc-grim__tx:hover { opacity: 1; text-decoration: underline; }
+    @keyframes tcDetailIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
     @media (max-width: 860px) { .tc-grim { width: 84vw; } .tc-grim__tab.is-open { right: 84vw; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
