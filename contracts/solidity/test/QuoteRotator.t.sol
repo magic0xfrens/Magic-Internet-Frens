@@ -3,6 +3,9 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 
 /// @dev A registry stub exposing only the allowlist the rotator consults.
@@ -12,186 +15,180 @@ contract RegistryStub {
 }
 
 /**
- * @dev The MiFrens guild managing what its own LP is denominated in.
+ * @dev The guild converting a MEASURED amount of one quote into another.
  *
- *  The treasury has always been long ETH by default. These targets make that a
- *  decision: rotate into USDG near a top, back later, hold an equity. Because
- *  the swap leg touches a market the protocol does not own, the tests here are
- *  mostly about what a step is NOT allowed to do.
+ *  The design point these tests protect: a rotation is a FLOW ("convert 30% of
+ *  our ETH"), not a target allocation ("hold 40% USDG"). A flow is a fraction of
+ *  one asset measured against itself, so nothing is compared across assets and
+ *  no price oracle is needed. An earlier version compared raw balances across
+ *  assets, which is meaningless when ETH has 18 decimals and USDC has 6.
  */
 contract QuoteRotatorTest is Test {
     QuoteRotator rot;
     RegistryStub reg;
 
     address constant USDG = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address constant XNVDA = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant STRANGER = address(0xBAD);
     address constant NATIVE = address(0);
+
+    // 1 ETH -> at least 2,000 USDG, scaled 1e18.
+    uint256 constant MIN_RATE = 2000e18;
 
     function setUp() public {
         reg = new RegistryStub();
         reg.set(USDG, true);
-        reg.set(XNVDA, true);
-        rot = new QuoteRotator(address(reg), IPoolManager(address(0xdead)), NATIVE);
+        rot = new QuoteRotator(address(reg), IPoolManager(address(0xdead)));
+    }
+
+    function _plan() internal {
+        rot.setPlan(NATIVE, USDG, 30 ether, 3 ether, MIN_RATE, 1 hours);
     }
 
     // ---------------------------------------------------------------------
-    // The allocation is the guild's to set, and nobody else's
+    // A plan is a flow, in each asset's own units
     // ---------------------------------------------------------------------
 
-    function test_StartsFullyInThePrimary() public view {
-        assertEq(rot.targetBps(NATIVE), 10_000, "100% ETH at deploy");
-        assertEq(rot.primaryQuote(), NATIVE);
+    function test_PlanIsDenominatedInTheSoldAssetAlone() public {
+        _plan();
+        (address from, address to, uint128 totalIn, uint128 sliceIn,,, uint256 minRate,,) = rot.plan();
+
+        assertEq(from, NATIVE, "selling ETH");
+        assertEq(to, USDG, "buying USDG");
+        assertEq(totalIn, 30 ether, "a fraction of ONE asset, not a cross-asset ratio");
+        assertEq(sliceIn, 3 ether, "ten slices");
+        assertEq(minRate, MIN_RATE, "the price floor is governed, not read from a pool");
     }
 
-    function test_GuildCanSetAnAllocation() public {
-        address[] memory q = new address[](2);
-        uint16[] memory b = new uint16[](2);
-        (q[0], b[0]) = (NATIVE, 6000);
-        (q[1], b[1]) = (USDG, 4000);
-        rot.setTargets(q, b);
-
-        assertEq(rot.targetBps(NATIVE), 6000, "60% ETH");
-        assertEq(rot.targetBps(USDG), 4000, "40% USDG");
+    /// Nothing is due before the plan's interval elapses, and nothing at all is
+    /// due while the contract holds none of the asset it is meant to sell.
+    function test_NothingIsDueWithoutFunds() public {
+        _plan();
+        assertEq(rot.nextSliceSize(), 0, "no ETH held, so no slice is possible");
     }
 
-    function test_StrangerCannotSetTheAllocation() public {
-        address[] memory q = new address[](1);
-        uint16[] memory b = new uint16[](1);
-        (q[0], b[0]) = (NATIVE, 10_000);
+    function test_SliceIsCappedByHoldings() public {
+        _plan();
+        vm.deal(address(rot), 1 ether); // less than one 3 ETH slice
+        assertEq(rot.nextSliceSize(), 1 ether, "never sells more than it holds");
+    }
 
-        vm.prank(STRANGER);
-        vm.expectRevert(QuoteRotator.NotOwner.selector);
-        rot.setTargets(q, b);
+    function test_SliceIsCappedByWhatRemains() public {
+        rot.setPlan(NATIVE, USDG, 4 ether, 3 ether, MIN_RATE, 1 hours);
+        vm.deal(address(rot), 100 ether);
+        assertEq(rot.nextSliceSize(), 3 ether, "first slice is a full slice");
     }
 
     // ---------------------------------------------------------------------
-    // What an allocation is never allowed to be
+    // The price floor is the whole protection, so it cannot be waived
     // ---------------------------------------------------------------------
 
-    /// The treasury curates which assets are acceptable. A rotation into
-    /// something unvetted is how a hostile "quote" would drain the LP, so it is
-    /// refused at the allocation boundary rather than at execution.
-    function test_CannotTargetAnUnvettedQuote() public {
-        address[] memory q = new address[](2);
-        uint16[] memory b = new uint16[](2);
-        (q[0], b[0]) = (NATIVE, 5000);
-        (q[1], b[1]) = (address(0xDEAD), 5000); // never allowlisted
+    /// A zero floor accepts ANY fill, including a fully manipulated one. This is
+    /// the single most dangerous value in the contract, so it is refused.
+    function test_ZeroMinRateIsRefused() public {
+        vm.expectRevert(QuoteRotator.BadConfig.selector);
+        rot.setPlan(NATIVE, USDG, 30 ether, 3 ether, 0, 1 hours);
+    }
 
+    /// The floor must come from governance rather than from the pool at
+    /// execution time. Reading spot at execution is exactly the manipulation the
+    /// bound exists to stop, and an earlier version did precisely that.
+    function test_MinRateIsStoredNotDerived() public {
+        _plan();
+        (,,,,,, uint256 minRate,,) = rot.plan();
+        assertEq(minRate, MIN_RATE, "stored verbatim from the vote");
+    }
+
+    // ---------------------------------------------------------------------
+    // What a plan may never be
+    // ---------------------------------------------------------------------
+
+    function test_CannotBuyAnUnvettedQuote() public {
         vm.expectRevert(QuoteRotator.NotAllowedQuote.selector);
-        rot.setTargets(q, b);
+        rot.setPlan(NATIVE, address(0xDEAD), 30 ether, 3 ether, MIN_RATE, 1 hours);
     }
 
-    /// An allocation that does not sum to 100% would leave the remainder
-    /// undefined, and the rotation loop would chase a target that never settles.
-    function test_AllocationMustSumToOneHundredPercent() public {
-        address[] memory q = new address[](2);
-        uint16[] memory b = new uint16[](2);
-        (q[0], b[0]) = (NATIVE, 5000);
-        (q[1], b[1]) = (USDG, 4000); // 90%
-
+    function test_CannotRotateAnAssetIntoItself() public {
         vm.expectRevert(QuoteRotator.BadConfig.selector);
-        rot.setTargets(q, b);
+        rot.setPlan(USDG, USDG, 30 ether, 3 ether, MIN_RATE, 1 hours);
     }
 
-    /// THE IMPORTANT ONE. However the guild votes, the LP can never fully leave
-    /// the asset the protocol is denominated in — an all-in rotation into an
-    /// equity would leave the machine unable to price or pay anything.
-    function test_CannotRotateOutOfThePrimaryEntirely() public {
-        address[] memory q = new address[](1);
-        uint16[] memory b = new uint16[](1);
-        (q[0], b[0]) = (USDG, 10_000); // 100% USDG, 0% ETH
-
-        vm.expectRevert(QuoteRotator.FloorBreached.selector);
-        rot.setTargets(q, b);
-    }
-
-    /// The same guard just below the boundary: the floor is 30%, so 29% fails.
-    function test_PrimaryShareBelowTheFloorIsRefused() public {
-        address[] memory q = new address[](2);
-        uint16[] memory b = new uint16[](2);
-        (q[0], b[0]) = (NATIVE, 2900);
-        (q[1], b[1]) = (USDG, 7100);
-
-        vm.expectRevert(QuoteRotator.FloorBreached.selector);
-        rot.setTargets(q, b);
-    }
-
-    /// Dropping a quote from a new allocation must actually zero it. Without
-    /// clearing the previous set first, a removed quote would keep its old
-    /// target and the totals would never sum to 100% again.
-    function test_DroppedQuoteIsZeroedNotStranded() public {
-        address[] memory q = new address[](3);
-        uint16[] memory b = new uint16[](3);
-        (q[0], b[0]) = (NATIVE, 4000);
-        (q[1], b[1]) = (USDG, 3000);
-        (q[2], b[2]) = (XNVDA, 3000);
-        rot.setTargets(q, b);
-        assertEq(rot.targetBps(XNVDA), 3000);
-
-        // Re-allocate without XNVDA at all.
-        address[] memory q2 = new address[](2);
-        uint16[] memory b2 = new uint16[](2);
-        (q2[0], b2[0]) = (NATIVE, 5000);
-        (q2[1], b2[1]) = (USDG, 5000);
-        rot.setTargets(q2, b2);
-
-        assertEq(rot.targetBps(XNVDA), 0, "a dropped quote must be zeroed");
-        assertEq(uint256(rot.targetBps(NATIVE)) + rot.targetBps(USDG), 10_000, "and the rest still sums");
-    }
-
-    // ---------------------------------------------------------------------
-    // Execution limits
-    // ---------------------------------------------------------------------
-
-    /// Slicing is the execution strategy: one large conversion is both a
-    /// sandwich target and a self-inflicted price impact. The cooldown is what
-    /// forces it to happen over time.
-    function test_StepsAreRateLimited() public {
-        vm.warp(block.timestamp + 2 hours);
-        // No holdings, so there is nothing to rotate and the step is a no-op...
-        assertEq(rot.nextStepSize(), 0, "nothing to do while empty");
-    }
-
-    /// A careless or compromised owner must still not be able to configure a
-    /// single step that empties the LP.
-    function test_ParamsAreBounded() public {
-        // >20% per step
+    function test_SliceCannotExceedTheTotal() public {
         vm.expectRevert(QuoteRotator.BadConfig.selector);
-        rot.setParams(3000, 2001, 1 hours, 100, 1800, 10);
-
-        // >5% slippage
-        vm.expectRevert(QuoteRotator.BadConfig.selector);
-        rot.setParams(3000, 500, 1 hours, 501, 1800, 10);
-
-        // A TWAP window short enough to be cheap to manipulate
-        vm.expectRevert(QuoteRotator.BadConfig.selector);
-        rot.setParams(3000, 500, 1 hours, 100, 299, 10);
-
-        // A keeper reward above 1%
-        vm.expectRevert(QuoteRotator.BadConfig.selector);
-        rot.setParams(3000, 500, 1 hours, 100, 1800, 101);
+        rot.setPlan(NATIVE, USDG, 3 ether, 30 ether, MIN_RATE, 1 hours);
     }
 
-    function test_StrangerCannotChangeParams() public {
+    function test_StrangerCannotSetOrCancelAPlan() public {
         vm.prank(STRANGER);
         vm.expectRevert(QuoteRotator.NotOwner.selector);
-        rot.setParams(0, 2000, 0, 500, 300, 100);
+        rot.setPlan(NATIVE, USDG, 30 ether, 3 ether, MIN_RATE, 1 hours);
+
+        _plan();
+        vm.prank(STRANGER);
+        vm.expectRevert(QuoteRotator.NotOwner.selector);
+        rot.cancelPlan();
     }
 
-    /// Sanity: the guild CAN hold several assets at once, which is the point of
-    /// the whole design — spread the LP, not just flip it.
-    function test_MultipleQuotesCanBeHeldTogether() public {
-        address[] memory q = new address[](3);
-        uint16[] memory b = new uint16[](3);
-        (q[0], b[0]) = (NATIVE, 4000);
-        (q[1], b[1]) = (USDG, 3500);
-        (q[2], b[2]) = (XNVDA, 2500);
-        rot.setTargets(q, b);
+    /// The guild must be able to abandon a rotation when the market moves
+    /// against the thesis it was voted on, keeping whatever already converted.
+    function test_PlanCanBeCancelled() public {
+        _plan();
+        rot.cancelPlan();
+        (, , uint128 totalIn,,,,,,) = rot.plan();
+        assertEq(totalIn, 0, "plan cleared");
+        assertEq(rot.nextSliceSize(), 0, "and nothing more executes");
+    }
 
-        assertEq(rot.targetBps(NATIVE), 4000);
-        assertEq(rot.targetBps(USDG), 3500);
-        assertEq(rot.targetBps(XNVDA), 2500);
-        assertEq(rot.trackedQuotesLength(), 3, "all three are walked by the rotation loop");
+    function test_StepWithoutAPlanReverts() public {
+        vm.deal(address(rot), 10 ether);
+        // A route is irrelevant here; there is simply nothing scheduled.
+        vm.expectRevert(QuoteRotator.NoPlan.selector);
+        rot.rotateStep(_dummyRoute());
+    }
+
+    // ---------------------------------------------------------------------
+    // Custody
+    // ---------------------------------------------------------------------
+
+    /// Converted assets must be able to LEAVE, to be re-deployed as liquidity in
+    /// the new pair. An earlier version could convert and then only ever hold.
+    function test_ConvertedAssetsCanBeWithdrawn() public {
+        vm.deal(address(rot), 5 ether);
+        address dest = address(0xC0FFEE);
+
+        rot.withdraw(NATIVE, dest, 2 ether);
+        assertEq(dest.balance, 2 ether, "assets can be put back to work");
+        assertEq(address(rot).balance, 3 ether, "the rest stays");
+    }
+
+    function test_StrangerCannotWithdraw() public {
+        vm.deal(address(rot), 5 ether);
+        vm.prank(STRANGER);
+        vm.expectRevert(QuoteRotator.NotOwner.selector);
+        rot.withdraw(NATIVE, STRANGER, 5 ether);
+    }
+
+    function test_WithdrawToZeroIsRefused() public {
+        vm.deal(address(rot), 1 ether);
+        vm.expectRevert(QuoteRotator.BadConfig.selector);
+        rot.withdraw(NATIVE, address(0), 1 ether);
+    }
+
+    function test_KeeperRewardIsCapped() public {
+        vm.expectRevert(QuoteRotator.BadConfig.selector);
+        rot.setKeeperBps(101); // >1%
+        rot.setKeeperBps(50);
+        assertEq(rot.keeperBps(), 50);
+    }
+
+    /// A well-formed ETH/USDG route. Never actually swapped through in these
+    /// tests — the calls that use it revert before reaching the pool.
+    function _dummyRoute() internal pure returns (PoolKey memory) {
+        return PoolKey({
+            currency0: Currency.wrap(NATIVE),
+            currency1: Currency.wrap(USDG),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: IHooks(address(0))
+        });
     }
 }
