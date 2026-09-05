@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {PoolOps, IPositionManagerOps, ReserveRef} from "./PoolOps.sol";
+import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
 
 /**
@@ -35,6 +36,11 @@ import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
  *
  *  Behaviour is byte-for-byte the pre-split monolith; only the location changed.
  */
+/// @notice The hook's generation-volume registration.
+interface IHookVolume {
+    function linkVolume(PoolId primary, PoolId secondary) external;
+}
+
 contract RedemptionExt is CauldronBase {
     /**
      * @notice RECYCLE a genesis (OG) MiFren for its LIVE floor share of WHATEVER
@@ -163,13 +169,6 @@ contract RedemptionExt is CauldronBase {
     // QUOTE ROTATION -- the guild manages what the LP is denominated in
     // -----------------------------------------------------------------------
 
-    /// @notice Point the registry at the contract that converts rotation
-    ///         proceeds. Owner-only, read through the registry's own storage.
-    function setQuoteRotator(address r) external onlyOwner {
-        quoteRotator = r;
-        emit QuoteRotatorSet(r);
-    }
-
     /**
      * @notice Withdraw a measured share of the LIVE pair's liquidity and hand the
      *         quote side to the rotator to convert.
@@ -187,7 +186,12 @@ contract RedemptionExt is CauldronBase {
      *  under delegatecall it runs on the registry's storage and custody, so the
      *  liquidity and the recovered assets never leave the registry's control.
      */
-    function beginRotation(uint16 bps) external onlyOwner returns (uint256 quoteOut) {
+    /// @param rotator Where to send the proceeds. Pass address(0) to reuse the
+    ///        currently configured rotator; passing a new one re-points it. The
+    ///        setter is folded in here rather than standing alone because the
+    ///        registry has no dispatcher budget for a separate entry.
+    function beginRotation(uint16 bps, address rotator) external onlyOwner returns (uint256 quoteOut) {
+        if (rotator != address(0)) { quoteRotator = rotator; emit QuoteRotatorSet(rotator); }
         address rot = quoteRotator;
         if (rot == address(0)) revert NotConfigured();
 
@@ -208,4 +212,55 @@ contract RedemptionExt is CauldronBase {
 
     event QuoteRotatorSet(address rotator);
     event RotationBegun(uint256 indexed gen, address indexed quote, uint256 amount, uint16 bps);
+
+    /**
+     * @notice Deploy converted proceeds as liquidity in the new pair, and tell
+     *         the hook the pair belongs to this generation.
+     *
+     *  The return leg. Handles a FIRST rotation and a rotation BACK identically:
+     *  {PoolOps.openOrAddPair} initializes a fresh pair or tops up a live one, so
+     *  the guild can move into USDG and later move back into ETH without a
+     *  different code path.
+     *
+     *  linkVolume is the part that must not be forgotten. Death is judged on 24h
+     *  volume, and once liquidity is split the primary pool alone can fall under
+     *  the threshold while the generation is healthy — relaunching something
+     *  perfectly alive. Registering the sibling here is what makes the hook count
+     *  the generation rather than one pool.
+     *
+     * @param quote       the pair's quote asset (already converted, held here)
+     * @param quoteAmount how much of it to deploy
+     * @param tokenAmount how much of the generation's token to pair with it
+     */
+    function completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount)
+        external
+        onlyOwner
+        returns (uint256 positionId)
+    {
+        if (!allowedQuote[quote]) revert NotConfigured();
+        uint256 gen = currentGeneration;
+
+        PoolId poolId;
+        (poolId, positionId) = PoolOps.openOrAddPair(
+            poolManager,
+            IPositionManagerOps(address(positionManager)),
+            address(hook),
+            generationToken[gen],
+            quote,
+            quoteAmount,
+            tokenAmount,
+            TICK_SPACING,
+            POOL_FEE
+        );
+
+        // Count this pair's volume toward the generation, or splitting liquidity
+        // would look like the generation dying.
+        IHookVolume(address(hook)).linkVolume(generationPoolId[gen], poolId);
+
+        emit RotationCompleted(gen, quote, poolId, quoteAmount, tokenAmount);
+    }
+
+    event RotationCompleted(
+        uint256 indexed gen, address indexed quote, PoolId poolId, uint256 quoteAmount, uint256 tokenAmount
+    );
 }

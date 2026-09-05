@@ -637,6 +637,69 @@ library PoolOps {
      *         positions. Returns recovered (eth, tokens) via balance deltas.
      */
     /**
+     * @notice Open a pair for an EXISTING token against a new quote, or add to it
+     *         if it already exists.
+     *
+     *  The return leg of a rotation. It must handle BOTH cases because the guild
+     *  can rotate back: converting ETH into USDG creates the USDG pair, and
+     *  converting back later must ADD to the ETH pair that is already live
+     *  rather than trying to initialize it again.
+     *
+     *  Currency order needs no sorting logic here — the token was mined above
+     *  {QUOTE_WATERMARK} and no quote above it can be allowlisted, so the quote
+     *  is always currency0. That invariant is what keeps this a top-up rather
+     *  than a second orientation to reason about.
+     *
+     * @return poolId     the pair's id, for the caller to register with the hook
+     * @return positionId the freshly minted liquidity position
+     */
+    function openOrAddPair(
+        IPoolManager poolManager,
+        IPositionManagerOps pm,
+        address hook,
+        address token,
+        address quote,
+        uint256 quoteAmount,
+        uint256 tokenAmount,
+        int24 tickSpacing,
+        uint24 poolFee
+    ) external returns (PoolId poolId, uint256 positionId) {
+        require(quoteAmount > 0 && tokenAmount > 0, "amt");
+        require(token > quote, "order"); // the watermark invariant, asserted
+
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(quote),
+            currency1: Currency.wrap(token),
+            fee: poolFee,
+            tickSpacing: tickSpacing,
+            hooks: IHooks(hook)
+        });
+        poolId = key.toId();
+
+        //  Price the pair off the amounts contributed. On a FIRST open that sets
+        //  the opening price; on a top-up `initialize` reverts, the live price
+        //  stands, and the CONTRIBUTED price must be discarded.
+        //
+        //  Reading the live price back is not cosmetic. Liquidity is sized from
+        //  the price it is minted at, so sizing a top-up at the contributed
+        //  ratio while the pool sits somewhere else makes the mint demand more
+        //  of one side than was supplied — the PositionManager then reverts
+        //  MaximumAmountExceeded and the whole rotation fails to land. Caught by
+        //  the fork test; a stub cannot surface it.
+        uint160 sqrtPriceX96 = _sqrtPrice(tokenAmount, quoteAmount);
+        try poolManager.initialize(key, sqrtPriceX96) returns (int24) {
+            // fresh pair: the contributed ratio IS the price
+        } catch {
+            (uint160 live,,,) = StateLibrary.getSlot0(poolManager, poolId);
+            if (live != 0) sqrtPriceX96 = live;
+        }
+
+        positionId = _seedActive(
+            quote, pm, key, sqrtPriceX96, quoteAmount, tokenAmount, token, tickSpacing
+        );
+    }
+
+    /**
      * @notice Remove a MEASURED share of a position, keeping the position alive.
      * @dev The rotation path: the guild converts part of its liquidity into a
      *      different quote, so this must never take everything. The position is
