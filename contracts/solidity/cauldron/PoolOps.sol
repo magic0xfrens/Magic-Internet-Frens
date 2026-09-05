@@ -436,6 +436,87 @@ library PoolOps {
         token = address(new CauldronToken(name, symbol, gen, address(this), totalSupply));
     }
 
+    /// @dev How many salts to try before giving up and launching against ETH.
+    ///      Each try is one keccak over ~85 bytes (~40 gas), and the loop exits
+    ///      on the FIRST hit — for a quote in the lower half of the address
+    ///      space that is the first or second iteration. The bound only matters
+    ///      for a pathologically high quote, where it caps the cost instead of
+    ///      letting the loop spin.
+    uint256 private constant SALT_TRIES = 1024;
+
+    /**
+     * @notice Deploy the iteration token at an address that sorts ABOVE `quote`.
+     *
+     *  WHY. Uniswap v4 orders a pool's currencies by address, and every liquidity
+     *  routine below is written for "quote = currency0, token = currency1": the
+     *  price is `_sqrtPrice(tokenAmount, quoteAmount)`, the reserve is sized with
+     *  `getLiquidityForAmount1`, and the reserve band sits BELOW spot. Native ETH
+     *  is `address(0)` so it satisfied that for free. An ERC20 quote does not —
+     *  and rather than making every one of those routines correct in two mirrored
+     *  orientations, the token is deployed so the ONE audited orientation always
+     *  holds.
+     *
+     *  WHY THIS CANNOT BE FRONT-RUN. The deployer baked into a CREATE2 address is
+     *  `address(this)` — and because {PoolOps} is a linked library reached by
+     *  DELEGATECALL, that is the REGISTRY. Reproducing this address would require
+     *  being the registry, so no third party can occupy it first. This is
+     *  deliberately NOT the public deterministic deployer (0x4e59b448…): the
+     *  initcode here is fully predictable from the winning proposal, so a
+     *  permissionless factory would let anyone deploy the address first and make
+     *  `relaunch()` revert — which rolls back `markConsumed`, re-elects the same
+     *  proposal, and bricks the machine (audit C-02 class).
+     *
+     *  WHY IT CANNOT BE BRICKED. If no salt in `SALT_TRIES` lands above the quote,
+     *  this does NOT revert — it deploys unmined and reports `address(0)`, so the
+     *  caller launches the generation against ETH. A quote that is merely awkward
+     *  costs the brew its chosen pair, never its existence.
+     *
+     * @param quote The intended quote asset. `address(0)` (native ETH) needs no
+     *              mining at all: every contract address is above it.
+     * @return token The deployed token.
+     * @return quoteUsed `quote` when mining succeeded, else `address(0)` (ETH) —
+     *              the caller MUST record this rather than what it asked for.
+     */
+    function deployTokenAbove(
+        string memory name,
+        string memory symbol,
+        uint256 gen,
+        uint256 totalSupply,
+        address quote
+    ) external returns (address token, address quoteUsed) {
+        // Native ETH is address(0); any deployed contract sorts above it, so the
+        // common case keeps the exact bytecode and gas it had before.
+        if (quote == address(0)) {
+            return (address(new CauldronToken(name, symbol, gen, address(this), totalSupply)), address(0));
+        }
+
+        bytes32 initHash = keccak256(
+            abi.encodePacked(
+                type(CauldronToken).creationCode,
+                abi.encode(name, symbol, gen, address(this), totalSupply)
+            )
+        );
+
+        for (uint256 i; i < SALT_TRIES; ++i) {
+            bytes32 salt = keccak256(abi.encode(gen, i));
+            address predicted = address(uint160(uint256(
+                keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initHash))
+            )));
+            if (predicted > quote) {
+                token = address(new CauldronToken{salt: salt}(name, symbol, gen, address(this), totalSupply));
+                // The mined address is the one that was predicted, or the whole
+                // premise is wrong — assert rather than trust the arithmetic.
+                require(token == predicted && token > quote, "mine");
+                return (token, quote);
+            }
+        }
+
+        // Could not sort above this quote. Launch against ETH instead of
+        // reverting: a failed relaunch would roll back `markConsumed` and
+        // permanently brick the machine.
+        return (address(new CauldronToken(name, symbol, gen, address(this), totalSupply)), address(0));
+    }
+
     /// @dev Mint the ACTIVE full-range position (ETH + tradeable token slice).
     function _seedActive(
         IPositionManagerOps pm,
