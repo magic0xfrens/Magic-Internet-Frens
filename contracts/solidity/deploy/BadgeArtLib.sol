@@ -52,8 +52,26 @@ library BadgeArtLib {
         _assertEscaped(longBody);
         _assertEscaped(shortBody);
 
-        r.setArt(true, chunk(longBody));
-        r.setArt(false, chunk(shortBody));
+        //  ONE CHUNK PER TRANSACTION. SSTORE2 costs ~200 gas per byte, so a
+        //  24KB chunk is ~5M gas and a whole 94KB side in one call is ~30M —
+        //  above what RPCs accept for a single transaction, and above mainnet's
+        //  block limit outright. That is what made the deploy fail with "gas
+        //  limit too high"; the art itself was never the problem.
+        //
+        //  The first chunk uses setArt, which CLEARS the side, so a re-run
+        //  replaces the art rather than appending to it. Every later chunk uses
+        //  appendArt, which would otherwise be wiped by the next setArt.
+        _uploadSide(r, true, chunk(longBody));
+        _uploadSide(r, false, chunk(shortBody));
+    }
+
+    function _uploadSide(LiquidatoorRenderer r, bool isLong, bytes[] memory chunks) private {
+        for (uint256 i; i < chunks.length; ++i) {
+            bytes[] memory one = new bytes[](1);
+            one[0] = chunks[i];
+            if (i == 0) r.setArt(isLong, one);
+            else r.appendArt(isLong, one);
+        }
     }
 
     /// @dev A raw '#' terminates a utf8 data URI at the fragment, so the image

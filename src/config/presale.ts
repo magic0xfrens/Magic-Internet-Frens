@@ -1,18 +1,28 @@
 import type { Address } from "viem";
-import { ACTIVE_CHAIN_ID } from "@/config/chains";
+import { CAULDRON } from "@/config/cauldron";
+import round from "../../indexer/deployments/round.json";
 
 /**
- * Live MiFrensPresale deployment (the genesis fundraise contract the UI mints
- * against). Update after each deploy. Address is per-deployment; chainId follows
- * the active network (VITE_NETWORK).
+ * The live MiFrensGenesis deployment the mint UI talks to.
+ *
+ * ADDRESS AND CHAIN COME FROM THE MANIFEST, never from a literal here. This file
+ * used to hardcode its own address, which silently went stale two deployments
+ * ago: the manifest pointed at the current contract while the mint modal still
+ * read a round-31 one, so a sold-out presale rendered as "0 / 1111".
+ *
+ * Nothing about a deployment should be written twice. Everything below that CAN
+ * be read from the chain is; only display defaults remain, and they are marked.
  */
 export const PRESALE = {
-  chainId: ACTIVE_CHAIN_ID,
-  address: "0x648604e8fe6ebda37acd58906347b9531799a1a7" as Address, // round-31 MiFrensGenesis (SOLD OUT + summoned)
-  priceEth: 0.0062,   // per MiFren (round-31 thin-LP rehearsal) — display only
-  priceWei: 6200000000000000n, // EXACT on-chain PRICE; value = priceWei * quantity (no float drift → no WrongPrice revert)
-  maxSupply: 1111,     // genesis (OG) tranche; art cap 2222 incl. volume mints
-  maxPerWallet: 1200,  // per-wallet cap this round (deployer minted the bulk)
+  chainId: CAULDRON.chainId,
+  address: CAULDRON.mifrens as Address,
+  /** Display default only — the mint reads PRICE() on-chain before sending. */
+  priceEth: 0.0062,
+  /** EXACT wei, so value = priceWei * quantity cannot drift into WrongPrice. */
+  priceWei: 6200000000000000n,
+  maxSupply: round.genesisSupply ?? 1111,
+  /** Contract enforces MAX_PER_WALLET; this is only a UI hint. */
+  maxPerWallet: 100,
 };
 
 /** Minimal ABI — only what the mint UI needs. */

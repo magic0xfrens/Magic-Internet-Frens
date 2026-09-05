@@ -62,12 +62,33 @@ contract LiquidatoorRenderer {
         if (msg.sender != owner) revert NotOwner();
         address[] storage dst = isLong ? longArt : shortArt;
         while (dst.length != 0) dst.pop();
+        _append(dst, isLong, chunks);
+    }
+
+    /**
+     * @notice Add more chunks to a side WITHOUT clearing what is already there.
+     * @dev The artwork is ~70-95KB per side, and SSTORE2 costs roughly 200 gas
+     *      per byte — so uploading a whole side in one call is ~30M gas. That
+     *      exceeds what most RPCs will accept for a single transaction and is
+     *      above mainnet's block limit entirely, which made the deploy fail with
+     *      "gas limit too high" rather than anything being wrong with the art.
+     *
+     *      Splitting across transactions needs an append that does not wipe the
+     *      previous batch, which {setArt} does by design. Use setArt for the
+     *      first batch and this for the rest.
+     */
+    function appendArt(bool isLong, bytes[] calldata chunks) external {
+        if (msg.sender != owner) revert NotOwner();
+        _append(isLong ? longArt : shortArt, isLong, chunks);
+    }
+
+    function _append(address[] storage dst, bool isLong, bytes[] calldata chunks) private {
         uint256 total;
         for (uint256 i; i < chunks.length; ++i) {
             dst.push(SSTORE2.write(chunks[i]));
             total += chunks[i].length;
         }
-        emit ArtSet(isLong, chunks.length, total);
+        emit ArtSet(isLong, dst.length, total);
     }
 
     /// @notice The stored artwork for one side, reassembled.

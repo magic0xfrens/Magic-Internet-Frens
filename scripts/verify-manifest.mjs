@@ -96,6 +96,15 @@ const BANNED_ENV = [
   "POSITION_MANAGER", "REGISTRY_ADDRESS", "POOL_MANAGER_ADDRESS", "START_BLOCK",
 ];
 
+// Addresses that legitimately live in the code because they are NOT ours and do
+// not change with a deployment. Anything not listed here is treated as stale
+// deployment identity.
+const THIRD_PARTY = new Set([
+  "0xf1ed28fa139f2df5cf3ed140aa9f803c79554519", // Blast LockingMultiRewards
+]);
+
+const MANIFEST_GUARD = fileURLToPath(import.meta.url);
+
 const manifestAddresses = new Set(
   Object.values(m.contracts ?? {}).filter(isAddress).map((a) => a.toLowerCase()),
 );
@@ -134,6 +143,28 @@ for (const dir of SCAN_DIRS) {
     for (const lit of text.match(/0x[0-9a-fA-F]{40}/g) ?? []) {
       if (manifestAddresses.has(lit.toLowerCase())) {
         errors.push(`${rel} hardcodes ${lit}, which the manifest already defines`);
+      }
+    }
+
+    // ...but the worse case is an address the manifest does NOT define, because
+    // matching-the-manifest was never the point — being STALE is. src/config/
+    // presale.ts hardcoded a round-31 address and passed this check for two
+    // deployments, while the manifest pointed somewhere else entirely. A sold-out
+    // presale rendered as "0 / 1111" and nothing failed.
+    //
+    // So inside config directories, ANY address literal is rejected unless it is
+    // explicitly declared third-party below. Deployment identity belongs in the
+    // manifest; anything else must say why.
+    if (/(^|\/)config\//.test(rel)) {
+      for (const lit of text.match(/0x[0-9a-fA-F]{40}/g) ?? []) {
+        const low = lit.toLowerCase();
+        if (THIRD_PARTY.has(low)) continue;
+        if (/^0x0+$/.test(low) || /^0xf+$/.test(low)) continue; // zero / sentinel
+        errors.push(
+          `${rel} hardcodes ${lit} in a config file. Deployment addresses must come ` +
+          `from indexer/deployments/round.json; if this is a third-party contract, ` +
+          `add it to THIRD_PARTY in ${relative(ROOT, MANIFEST_GUARD)}.`,
+        );
       }
     }
   }

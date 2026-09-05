@@ -1,27 +1,27 @@
 {
   "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
-  "round": 32,
-  "schema": "cauldron_r32a",
+  "round": 33,
+  "schema": "cauldron_r33",
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
-    "deploy": 11625783,
-    "perp": 11625842,
-    "indexer": 11625783
+    "deploy": 11639590,
+    "perp": 11639590,
+    "indexer": 11639590
   },
   "contracts": {
-    "registry": "0x56022128bF27a58f3c03cFE72Cb2b5F460E46940",
-    "hook": "0xEC66519e9fC09D1D53E25BEC9009872B2A6110cC",
+    "registry": "0x3FD7649FcF3aF0CB511E625e7d868d98bb85D7D4",
+    "hook": "0x38aa46384a8BC68425bF0D893b58E7ee114C50Cc",
     "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
     "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
-    "governor": "0x5EE58687Cf438f3d30a9C668CD63042415F833d3",
-    "dividend": "0xD67b9f63fFeccb3080A56307875F8AFc1839E8A8",
-    "presale": "0x01d87a1459830BA5562E3d53f0a2d3a1cC099422",
-    "gachaRouter": "0x1519A9E3962831e1B83Ac0508ac52F91a2Be18A1",
-    "timelock": "0xBc1C27Edd1Cb66437D4B2290F9787a51081bDfB3",
-    "collectionLedger": "0x899fFa63030292021A6608F536D53Bf2451Dc8F3",
-    "perpEngine": "0x706eEbBF2C9CbeA25b4150ED0379DDE9DCc41f75",
-    "perpVault": "0x00B07D1e07C1a39e7DA2BBD7C614805c4e2A4389"
+    "governor": "0xBFF8231409880193Ccf7217CDe1e19dbaC49Dcc1",
+    "dividend": "0xa5a17C5632C5a0f5A5ED5fc2A9225BAbCc18e359",
+    "presale": "0x62099e8feE2ce99D75384cdbf94D7383AA075c2d",
+    "gachaRouter": "0xAdB652C44766b94dd3E76D6B93E14Ded4121B74B",
+    "timelock": "0x06705E8c819D962bEf3a3d7d0fF5a91E404e23B3",
+    "collectionLedger": "0x181bb6C5D8C425f2Cd1802Cc92e972363381cc51",
+    "perpEngine": "0x9FF01eCeeA11D565982Ea6ec5992Ad17A5EA14CC",
+    "perpVault": "0x75c7CbD4Ea0FA9B86B8C1f5354A4369f5bBE9770"
   },
   "poolIds": [
     "0x1d4b4059e5ff7260e044a57e7279b8cd73f30a0643c4a88939d7c73ad369b88b"
