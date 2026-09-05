@@ -423,27 +423,33 @@ export default function TheCauldron() {
   const ekgSeries = useMemo(() => {
     const base = tradeTape.length >= 2 ? tradeTape.map((t) => t.price) : m.priceSeries;
 
-    //  LIVE TAIL. The indexer builds the tape, so a fresh trade only reaches the
-    //  chart once Ponder has indexed its block — seconds during which the line
-    //  sits still while the pool is moving. Each swap already carries its
-    //  post-trade sqrtPriceX96 on the wire, so the price it left behind is known
-    //  the instant the block is seen.
+    //  LIVE TAIL, HANDED OVER BY TIMESTAMP.
     //
-    //  These points are PROVISIONAL and get dropped the moment the indexed tape
-    //  is long enough to contain them: `base` is the source of truth, this only
-    //  covers the gap. A live point is appended only if it is newer than what
-    //  the tape already knows, so a handoff never double-draws the same trade.
+    //  The indexer builds the tape, so a fresh trade only reaches the chart once
+    //  Ponder has indexed its block. Each swap already carries its post-trade
+    //  sqrtPriceX96 on the wire, so the price it left behind is known the instant
+    //  the block is seen — this covers that gap and nothing more.
+    //
+    //  The handoff is the part that has to be right. An earlier version appended
+    //  the last few live prices and only dropped one that exactly equalled the
+    //  tape's final point, so once the indexer caught up the SAME trades were
+    //  drawn twice — the chart kicked and doubled back. Comparing timestamps
+    //  instead means a live point disappears the moment the indexed tape covers
+    //  its block, which is a clean handover rather than a guess.
+    const newestIndexed = tradeTape.length > 0
+      ? Math.max(...tradeTape.map((t) => t.t)) * 1000
+      : 0;
+
     const live = live_.recent
-      .filter((sw) => sw.price > 0)
+      .filter((sw) => (sw.kind === "buy" || sw.kind === "sell") && sw.price > 0)
+      // Only what the tape has NOT reached yet. A small lag allowance absorbs
+      // block-time vs wall-clock skew without letting a real trade slip through.
+      .filter((sw) => newestIndexed === 0 || sw.ts > newestIndexed + 4000)
       .sort((a, b) => a.ts - b.ts)
       .map((sw) => sw.price);
 
     if (live.length === 0) return base;
-    // Only the tail that the tape has not caught up to yet.
-    const tail = live.slice(-6);
-    const lastKnown = base.length > 0 ? base[base.length - 1] : 0;
-    const fresh = tail.filter((p) => p !== lastKnown);
-    return fresh.length > 0 ? [...base, ...fresh] : base;
+    return [...base, ...live.slice(-4)];
   }, [tradeTape, m.priceSeries, live_.recent]);
   // The view lives in the URL (`?v=…`) rather than local state: the left rail
   // owns the tab strip now, and Leverage / Governance become shareable links.
@@ -1875,7 +1881,7 @@ function Styles() {
       border: 1px solid rgba(168,140,255,0.16);
       box-shadow: 0 8px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
       backdrop-filter: blur(16px) saturate(1.25);
-      animation: tcSpellIn 0.46s cubic-bezier(0.16,1,0.3,1);
+      animation: tcSpellIn 0.5s cubic-bezier(0.16,1,0.3,1);
       transition: opacity 0.55s ease;
       position: relative; overflow: hidden;
     }
@@ -1892,6 +1898,7 @@ function Styles() {
     .is-bad .tc-spell__label   { color: rgb(255,140,148); }
     .is-magic .tc-spell__label { color: rgb(214,178,255); }
     .tc-spell__amt { font-size: 10.5px; opacity: 0.72; }
+    .tc-spell__x { font-family: "DM Mono", monospace; font-size: 10px; font-weight: 600; margin-right: 5px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.09); }
     .tc-spell__who { font-size: 9px; opacity: 0.34; align-self: flex-start; padding-top: 2px; }
     @keyframes tcSpellIn { from { opacity: 0; transform: translateX(26px) scale(0.94); } to { opacity: 1; transform: none; } }
     @media (max-width: 860px) { .tc-spell { display: none; } }

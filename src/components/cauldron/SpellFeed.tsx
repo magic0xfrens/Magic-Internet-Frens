@@ -37,32 +37,71 @@ const SPELL: Record<EventKind, { icon: string; label: string; tone: "good" | "ba
 
 const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 
+/** One card: either a single event, or several of the same kind merged. */
+interface Entry {
+  id: number;
+  kind: EventKind;
+  count: number;
+  quoteWei: bigint;
+  who?: string;
+  detail?: string;
+}
+
 export function SpellFeed({ events, glyph }: { events: LiveSwap[]; glyph: string }) {
-  const [visible, setVisible] = useState<LiveSwap[]>([]);
-  const queue = useRef<LiveSwap[]>([]);
+  const [visible, setVisible] = useState<Entry[]>([]);
+  const pending = useRef<LiveSwap[]>([]);
   const seen = useRef<Set<number>>(new Set());
-  const draining = useRef(false);
+  const flushAt = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Oldest first so a burst replays in the order it actually happened.
     const fresh = [...events].reverse().filter((e) => !seen.current.has(e.id));
     if (fresh.length === 0) return;
     for (const e of fresh) seen.current.add(e.id);
-    queue.current.push(...fresh);
-    if (draining.current) return;
-    draining.current = true;
+    pending.current.push(...fresh);
 
-    const pop = () => {
-      const next = queue.current.shift();
-      if (!next) { draining.current = false; return; }
-      setVisible((v) => [next, ...v].slice(0, 5));
-      // Each ages out on its own timer, so a burst drains steadily rather than
-      // the whole stack vanishing at once.
-      setTimeout(() => setVisible((v) => v.filter((x) => x.id !== next.id)), 7000);
-      // Tighter when a backlog is waiting: a busy block should feel busy.
-      setTimeout(pop, queue.current.length > 3 ? 150 : 300);
-    };
-    pop();
+    //  COALESCE, don't stream.
+    //
+    //  One gacha spin emits a commit, a swap and a dozen ticket resolutions in a
+    //  SINGLE block. Announcing each separately produced a wall of near-identical
+    //  cards flashing past too fast to read — technically accurate and useless.
+    //
+    //  So a short window is collected and same-kind events are merged into one
+    //  card with a count: "7× fren forged" instead of seven cards. Bursts read as
+    //  one event because that is what they are, and a genuinely isolated trade
+    //  still shows on its own.
+    if (flushAt.current) return;
+    flushAt.current = setTimeout(() => {
+      flushAt.current = null;
+      const batch = pending.current;
+      pending.current = [];
+      if (batch.length === 0) return;
+
+      const groups = new Map<EventKind, LiveSwap[]>();
+      for (const e of batch) {
+        const g = groups.get(e.kind) ?? [];
+        g.push(e);
+        groups.set(e.kind, g);
+      }
+
+      const merged: Entry[] = [...groups.entries()].map(([kind, list]) => {
+        const head = list[list.length - 1];
+        // Buys and sells sum their size; the total is the interesting number.
+        const totalWei = list.reduce((a, e) => a + e.quoteWei, 0n);
+        return {
+          id: head.id,
+          kind,
+          count: list.length,
+          quoteWei: totalWei,
+          who: list.length === 1 ? head.who : undefined,
+          detail: list.length === 1 ? head.detail : undefined,
+        };
+      });
+
+      setVisible((v) => [...merged.reverse(), ...v].slice(0, 4));
+      for (const m of merged) {
+        setTimeout(() => setVisible((v) => v.filter((x) => x.id !== m.id)), 6500);
+      }
+    }, 700); // long enough to catch a block's worth, short enough to feel live
   }, [events]);
 
   if (visible.length === 0) return null;
@@ -73,19 +112,24 @@ export function SpellFeed({ events, glyph }: { events: LiveSwap[]; glyph: string
       {visible.map((e, i) => {
         const s = SPELL[e.kind] ?? SPELL["gacha-miss"];
         const q = Number(formatEther(e.quoteWei));
-        const amount = e.kind === "buy" || e.kind === "sell"
+        const isTrade = e.kind === "buy" || e.kind === "sell";
+        const amount = isTrade
           ? `${q < 0.0001 ? "<0.0001" : q.toFixed(4)} ${glyph}`
           : e.detail;
         return (
           <div
             key={e.id}
             className={`tc-spell__row is-${s.tone}`}
-            // Older entries recede so the stack reads as depth, not a wall.
-            style={{ opacity: Math.max(0.32, 1 - i * 0.17) }}
+            style={{ opacity: Math.max(0.4, 1 - i * 0.18) }}
           >
             <span className="tc-spell__rune">{s.icon}</span>
             <span className="tc-spell__body">
-              <span className="tc-spell__label">{s.label}</span>
+              <span className="tc-spell__label">
+                {/* A count only appears when there IS one — a lone trade should
+                    not read as "1x". */}
+                {e.count > 1 && <b className="tc-spell__x">{e.count}×</b>}
+                {s.label}
+              </span>
               {amount && <span className="tc-spell__amt tc-mono">{amount}</span>}
             </span>
             {e.who && <span className="tc-spell__who tc-mono">{short(e.who)}</span>}
