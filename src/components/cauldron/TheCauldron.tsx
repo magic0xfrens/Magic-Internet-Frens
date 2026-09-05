@@ -18,6 +18,7 @@ import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
+import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -163,12 +164,7 @@ const HEAT_ROWS = 26;
 
 type LiqPos = { isLong: boolean; liqPrice: number; notionalEth: number };
 
-function EKG({ series, color, dead, liq, pulse }: {
-  series: number[]; color: string; dead: boolean; liq?: LiqPos[];
-  /** The most recent live swap, or null. Drives the leading-edge flash so a
-   *  trade is visible ON the chart rather than in a box floating over the page. */
-  pulse?: { id: number; isBuy: boolean; size?: string } | null;
-}) {
+function EKG({ series, color, dead, liq }: { series: number[]; color: string; dead: boolean; liq?: LiqPos[] }) {
   const W = 640, H = 180, pad = 8;
 
   // Y-domain: the series range, expanded to REVEAL the liquidation walls (that's
@@ -219,22 +215,6 @@ function EKG({ series, color, dead, liq, pulse }: {
   const last = series.length ? series[series.length - 1] : 0;
   const hasHeat = rows.length > 0;
 
-  //  LEADING-EDGE FLASH. A trade paints here, on the line itself, instead of in
-  //  a toast over the stat cards. Keyed on the swap id so consecutive trades
-  //  re-fire the animation rather than the class sticking on.
-  const [flash, setFlash] = useState<{ id: number; isBuy: boolean; size?: string } | null>(null);
-  useEffect(() => {
-    if (!pulse) return;
-    setFlash(pulse);
-    const t = setTimeout(() => setFlash(null), 1400);
-    return () => clearTimeout(t);
-  }, [pulse?.id]);
-
-  // The line's own end point, so the pulse sits exactly where price is now.
-  // Reuses yOf rather than recomputing the scale — a second copy of that maths
-  // is how the dot drifts off the line the first time the domain changes.
-  const endX = W - pad;
-  const endY = series.length ? yOf(series[series.length - 1]) : H / 2;
 
   return (
     <div className="tc-ekg">
@@ -266,14 +246,6 @@ function EKG({ series, color, dead, liq, pulse }: {
             <path d={`${path} L${W - pad},${H} L${pad},${H} Z`} fill="url(#ekgfill)" />
             <path d={path} fill="none" stroke={color} strokeWidth="2.2" filter="url(#ekgglow)" className={dead ? "" : "tc-ekg__line"} strokeLinecap="round" strokeLinejoin="round" />
 
-            {/* The live tip: always breathing so the chart reads as connected,
-                and flaring green/red for a beat when a trade lands. */}
-            {!dead && series.length >= 2 && (
-              <g className={flash ? (flash.isBuy ? "tc-tip is-buy" : "tc-tip is-sell") : "tc-tip"}>
-                <circle cx={endX} cy={endY} r="9" className="tc-tip__halo" fill={flash ? (flash.isBuy ? BUY_C : SELL_C) : color} />
-                <circle cx={endX} cy={endY} r="3.2" fill={flash ? (flash.isBuy ? BUY_C : SELL_C) : color} className="tc-tip__dot" />
-              </g>
-            )}
           </>
         )}
       </svg>
@@ -284,16 +256,6 @@ function EKG({ series, color, dead, liq, pulse }: {
         <div className="tc-ekg__legend">
           <span><i style={{ background: LIQ_SHORT }} />short liqs</span>
           <span><i style={{ background: LIQ_LONG }} />long liqs</span>
-        </div>
-      )}
-      {/* The trade itself, inside the chart's own frame. This replaced a toast
-          that floated over the stat cards — it belongs where the price is, and
-          it disappears rather than stacking, because the tape below is the
-          durable record. */}
-      {flash?.size && (
-        <div className={`tc-ekg__tick ${flash.isBuy ? "is-buy" : "is-sell"}`}>
-          <b>{flash.isBuy ? "BUY" : "SELL"}</b>
-          <span>{flash.size}</span>
         </div>
       )}
       {series.length < 2 && <div className="tc-ekg__empty">awaiting first swaps…</div>}
@@ -731,6 +693,7 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
+                        <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
@@ -780,15 +743,7 @@ export default function TheCauldron() {
                         fetch-and-fallback path that updated on a slower cycle.
                         Falls back to the machine's series only when the tape has
                         not loaded yet. */}
-                    <EKG series={ekgSeries} color={col} dead={m.phase === "dead"} pulse={live_.recent[0]
-                        ? {
-                            id: live_.recent[0].id,
-                            isBuy: live_.recent[0].isBuy,
-                            size: `${Number(live_.recent[0].quoteWei) / 1e18 < 0.0001
-                              ? "<0.0001"
-                              : (Number(live_.recent[0].quoteWei) / 1e18).toFixed(4)} ${liveQuote.glyph || liveQuote.symbol}`,
-                          }
-                        : null} />
+                    <EKG series={ekgSeries} color={col} dead={m.phase === "dead"} />
                     <div className="tc-tele">
                       <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
                       <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
@@ -1890,28 +1845,38 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
-    /* LIVE TRADE, ON THE CHART. A floating toast covered the stat cards and read
-       as a separate widget; the trade belongs where the price is. The tip
-       breathes constantly so the line looks connected, and flares green or red
-       for a beat when a swap lands. */
-    .tc-tip__halo { opacity: 0.18; transform-origin: center; animation: tcTipBreathe 2.4s ease-in-out infinite; }
-    .tc-tip__dot { filter: drop-shadow(0 0 5px currentColor); }
-    .tc-tip.is-buy  .tc-tip__halo { animation: tcTipFlare 1.4s cubic-bezier(0.16,1,0.3,1); opacity: 0.5; }
-    .tc-tip.is-sell .tc-tip__halo { animation: tcTipFlare 1.4s cubic-bezier(0.16,1,0.3,1); opacity: 0.5; }
-    .tc-tip.is-buy  .tc-tip__dot,
-    .tc-tip.is-sell .tc-tip__dot { animation: tcTipPop 1.4s cubic-bezier(0.16,1,0.3,1); }
-    @keyframes tcTipBreathe { 0%,100% { opacity: 0.14; } 50% { opacity: 0.3; } }
-    @keyframes tcTipFlare { 0% { opacity: 0.85; r: 4; } 60% { opacity: 0.35; } 100% { opacity: 0.18; } }
-    @keyframes tcTipPop { 0% { transform: scale(2.1); } 55% { transform: scale(0.9); } 100% { transform: scale(1); } }
-
-    /* A one-line ticker INSIDE the chart, bottom-left — reads as part of the
-       chart's own chrome rather than a notification stacked over the page. */
-    .tc-ekg__tick { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 7px; font-family: "DM Mono", monospace; font-size: 10.5px; padding: 4px 10px 4px 8px; border-radius: 999px; background: rgba(10,8,18,0.62); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); animation: tcTickIn 0.4s cubic-bezier(0.16,1,0.3,1); pointer-events: none; }
-    .tc-ekg__tick.is-buy  { color: rgb(120,240,160); }
-    .tc-ekg__tick.is-sell { color: rgb(255,130,138); }
-    .tc-ekg__tick b { font-weight: 600; letter-spacing: 0.1em; font-size: 9px; opacity: 0.8; }
-    .tc-ekg__tick span { color: #efeaff; }
-    @keyframes tcTickIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    /* THE SPELLBOOK — every on-chain action, announced from the websocket as it
+       lands. Top-right: out of the way of the chart and the stat cards, which is
+       where earlier attempts kept landing. */
+    .tc-spell { position: fixed; top: 76px; right: 20px; display: flex; flex-direction: column; gap: 7px; z-index: 70; pointer-events: none; width: 232px; }
+    .tc-spell__row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(30,22,58,0.94), rgba(14,11,26,0.94));
+      border: 1px solid rgba(168,140,255,0.16);
+      box-shadow: 0 8px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      backdrop-filter: blur(16px) saturate(1.25);
+      animation: tcSpellIn 0.46s cubic-bezier(0.16,1,0.3,1);
+      transition: opacity 0.55s ease;
+      position: relative; overflow: hidden;
+    }
+    /* A thin rune-light down the left edge, tinted by what happened. */
+    .tc-spell__row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; }
+    .tc-spell__row.is-good::before  { background: linear-gradient(180deg, rgb(70,230,124), rgba(70,230,124,0.25)); box-shadow: 0 0 10px rgba(70,230,124,0.55); }
+    .tc-spell__row.is-bad::before   { background: linear-gradient(180deg, rgb(255,86,96), rgba(255,86,96,0.25)); box-shadow: 0 0 10px rgba(255,86,96,0.55); }
+    .tc-spell__row.is-magic::before { background: linear-gradient(180deg, rgb(196,142,255), rgba(196,142,255,0.25)); box-shadow: 0 0 10px rgba(196,142,255,0.55); }
+    .tc-spell__row.is-neutral::before { background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08)); }
+    .tc-spell__rune { font-size: 16px; line-height: 1; filter: drop-shadow(0 0 6px rgba(196,142,255,0.5)); }
+    .tc-spell__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+    .tc-spell__label { font-family: "Cinzel", serif; font-size: 11.5px; letter-spacing: 0.02em; color: #efe7ff; }
+    .is-good .tc-spell__label  { color: rgb(150,245,180); }
+    .is-bad .tc-spell__label   { color: rgb(255,140,148); }
+    .is-magic .tc-spell__label { color: rgb(214,178,255); }
+    .tc-spell__amt { font-size: 10.5px; opacity: 0.72; }
+    .tc-spell__who { font-size: 9px; opacity: 0.34; align-self: flex-start; padding-top: 2px; }
+    @keyframes tcSpellIn { from { opacity: 0; transform: translateX(26px) scale(0.94); } to { opacity: 1; transform: none; } }
+    @media (max-width: 860px) { .tc-spell { display: none; } }
 
     /* PROGRESSIVE SEED — depth streams in, so show it filling. */
     .tc-seed { margin-top: 10px; }

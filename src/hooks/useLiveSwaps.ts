@@ -29,13 +29,37 @@ const WS_URLS: Record<number, string[]> = {
   ],
 };
 
-/** keccak256("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)") */
-const SWAP_TOPIC = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
+/**
+ * Every on-chain moment worth announcing. All computed with `cast keccak` from
+ * the contracts' own signatures — never copied from memory, because a wrong
+ * topic fails SILENTLY: the subscription simply never fires and the feed looks
+ * merely quiet.
+ */
+const T = {
+  SWAP:       "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+  TICKET_WON: "0x815a28d7714bfb45656bbe3915784ef7dc362a81214c0fc345acd6f3d06008df",
+  TICKET_LOST:"0x6d6a3ab4fc11e4c40e9e158bd734734c7fde55c273b4d4022a954393798939f6",
+  COMMITTED:  "0x195520287a075821816e5be932675619f8d84ced71b19c60c3a5e32a6aa32cbd",
+  OPENED_NFT: "0xb43df8a46d3a14f5ef33cd586c8526aa0ddf9441cede7bba37f10081e89a55ff",
+  PERP_OPEN:  "0x451ba9f5da6c3cca354859f0ad9c9016fc1084c46fb82e11e64ab1778f79db36",
+  PERP_CLOSE: "0x9bedef2f5157c2a58603b19345b17634f86cfcee701cffdb762a1b4d16ce5971",
+  LIQUIDATED: "0xf4c6cbfcc96248be8ecbaf76de0fee34f71f2fadd9af537dd38c2657621930d6",
+  BADGE:      "0xddd9ec74671af2df8ea4a7740b5c7fc4056acd0a803d23719360bea0c89d7e13",
+} as const;
+
+export type EventKind =
+  | "buy" | "sell" | "gacha-commit" | "gacha-win" | "gacha-miss"
+  | "perp-open" | "perp-close" | "liquidation" | "badge";
 
 /** A swap seen on the wire, decoded far enough to show instantly. */
 let nextId = 1;
 
 export interface LiveSwap {
+  kind: EventKind;
+  /** Who did it, when the event names them. */
+  who?: string;
+  /** Pre-formatted detail for the toast (count, leverage, pnl…). */
+  detail?: string;
   /** Monotonic id so a list can key on it. */
   id: number;
   /** tx hash + log index — dedupes the same log across a reconnect. */
@@ -88,10 +112,21 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
 
       ws.onopen = () => {
         setConnected(true);
+        //  Two subscriptions, because the interesting events live in different
+        //  places: swaps come from the PoolManager, everything else (gacha,
+        //  perps, liquidations) from our own hook and engine. Filtering by our
+        //  addresses keeps unrelated v4 traffic off the socket.
         ws.send(JSON.stringify({
           jsonrpc: "2.0", id: 1, method: "eth_subscribe",
-          params: ["logs", { address: pm, topics: [SWAP_TOPIC] }],
+          params: ["logs", { address: pm, topics: [T.SWAP] }],
         }));
+        const ours = [round.contracts.hook, round.contracts.perpEngine].filter(Boolean);
+        if (ours.length > 0) {
+          ws.send(JSON.stringify({
+            jsonrpc: "2.0", id: 2, method: "eth_subscribe",
+            params: ["logs", { address: ours }],
+          }));
+        }
       };
 
       ws.onmessage = (e) => {
@@ -102,61 +137,80 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           // topics[1] is the poolId. Filter here rather than in the
           // subscription: v4 emits every pool's swaps from one address, and
           // subscribing to all of them would wake the page on unrelated trades.
-          const pid = String(log.topics[1] ?? "").toLowerCase();
-          if (poolIds.length > 0 && !poolIds.includes(pid)) return;
-
-          //  Decode just enough for an INSTANT toast, then let the indexer
-          //  deliver the authoritative numbers a moment later. v4 packs
-          //  (amount0, amount1, sqrtPriceX96, liquidity, tick, fee) into data;
-          //  amount0 is the first 32-byte word and, because the quote is always
-          //  currency0 by construction, it is the quote leg.
-          //
-          //  Deliberately approximate: this exists to make the page feel alive
-          //  the moment a block lands, NOT to become a second source of truth.
-          //  The indexer still owns the tape and the candles.
+          const topic0 = String(log.topics[0] ?? "").toLowerCase();
           const raw = String(log.data ?? "").slice(2);
-          let quoteWei = 0n;
-          let isBuy = false;
-          if (raw.length >= 64) {
-            const w0 = BigInt("0x" + raw.slice(0, 64));
-            const signed = w0 >= (1n << 255n) ? w0 - (1n << 256n) : w0;
-            //  The event carries the SWAPPER's balance delta, not the pool's
-            //  (v4 PoolManager emits `delta` from _accountPoolBalanceDelta(...,
-            //  msg.sender)). So a NEGATIVE quote leg means the swapper paid
-            //  quote in — a BUY. I had this inverted, and every buy showed as a
-            //  sell. Verified against real logs from our pool: amount0=-0.03
-            //  with amount1=+2.57M is a buy.
-            isBuy = signed < 0n;
-            quoteWei = signed < 0n ? -signed : signed;
+          const word = (n: number) => {
+            const w = raw.slice(n * 64, (n + 1) * 64);
+            return w.length === 64 ? BigInt("0x" + w) : 0n;
+          };
+          const signedWord = (n: number) => {
+            const w = word(n);
+            return w >= (1n << 255n) ? w - (1n << 256n) : w;
+          };
+          const addrTopic = (n: number) => "0x" + String(log.topics[n] ?? "").slice(-40);
+          const eth = (v: bigint) => {
+            const f = Number(v) / 1e18;
+            return f < 0.0001 ? "<0.0001" : f.toFixed(4);
+          };
+
+          let kind: EventKind | null = null;
+          let quoteWei = 0n, tokenWei = 0n, price = 0;
+          let who: string | undefined;
+          let detail: string | undefined;
+
+          if (topic0 === T.SWAP) {
+            // Only OUR pool: v4 emits every pool's swaps from one address.
+            const pid = String(log.topics[1] ?? "").toLowerCase();
+            if (poolIds.length > 0 && !poolIds.includes(pid)) return;
+
+            //  The event carries the SWAPPER's balance delta (PoolManager emits
+            //  the same delta it accounts to msg.sender), so a NEGATIVE quote
+            //  leg means they paid quote in — a buy.
+            const q = signedWord(0);
+            const t = signedWord(1);
+            kind = q < 0n ? "buy" : "sell";
+            quoteWei = q < 0n ? -q : q;
+            tokenWei = t < 0n ? -t : t;
+            // price = 1 / (sqrtP / 2^96)^2 — quote is currency0 by construction.
+            const sqrtP = word(2);
+            if (sqrtP > 0n) { const r = Number(sqrtP) / 2 ** 96; price = r > 0 ? 1 / (r * r) : 0; }
+            detail = `${eth(quoteWei)} ${"" }`;
+          } else if (topic0 === T.COMMITTED) {
+            kind = "gacha-commit"; who = addrTopic(1);
+            detail = `${word(0)} crystal${word(0) === 1n ? "" : "s"}`;
+          } else if (topic0 === T.TICKET_WON) {
+            kind = "gacha-win"; who = addrTopic(1);
+            detail = `fren #${word(0)}`;
+          } else if (topic0 === T.TICKET_LOST) {
+            kind = "gacha-miss"; who = addrTopic(1);
+          } else if (topic0 === T.OPENED_NFT) {
+            kind = "gacha-commit"; who = addrTopic(1);
+            detail = `${word(0)} forged`;
+          } else if (topic0 === T.PERP_OPEN) {
+            kind = "perp-open"; who = addrTopic(2);
+            // (isLong, collateral, size, leverage)
+            detail = `${signedWord(0) !== 0n ? "LONG" : "SHORT"} ${word(3)}x · ${eth(word(1))}`;
+          } else if (topic0 === T.PERP_CLOSE) {
+            kind = "perp-close"; who = addrTopic(2);
+            const pnl = signedWord(1);
+            detail = `${pnl >= 0n ? "+" : "-"}${eth(pnl < 0n ? -pnl : pnl)}`;
+          } else if (topic0 === T.LIQUIDATED) {
+            kind = "liquidation"; who = addrTopic(2);
+            detail = `${eth(word(0))} penalty`;
+          } else if (topic0 === T.BADGE) {
+            kind = "badge"; who = addrTopic(2);
+            detail = `badge #${word(0)}`;
           }
-          // Token leg is the second word (currency1 by construction).
-          let tokenWei = 0n;
-          if (raw.length >= 128) {
-            const w1 = BigInt("0x" + raw.slice(64, 128));
-            const st = w1 >= (1n << 255n) ? w1 - (1n << 256n) : w1;
-            tokenWei = st < 0n ? -st : st;
-          }
-          //  POST-TRADE PRICE, straight from the log. v4 packs sqrtPriceX96 as
-          //  the third word, so the exact price this swap left behind is already
-          //  on the wire — no extra call, no waiting for the indexer.
-          //
-          //  price(token in quote) = 1 / (sqrtP / 2^96)^2, because the quote is
-          //  currency0 by construction and sqrtPriceX96 encodes amount1/amount0.
-          let price = 0;
-          if (raw.length >= 192) {
-            const sqrtP = BigInt("0x" + raw.slice(128, 192));
-            if (sqrtP > 0n) {
-              const r = Number(sqrtP) / 2 ** 96;
-              price = r > 0 ? 1 / (r * r) : 0;
-            }
-          }
+          if (!kind) return;
+
           const hash = String(log.transactionHash ?? "");
           const key = `${hash}:${String(log.logIndex ?? "")}`;
           setRecent((prev) => {
-            // Same log can arrive twice across a reconnect; key on tx+logIndex
-            // so a re-subscribe does not double-paint the feed.
             if (prev.some((x) => x.key === key)) return prev;
-            return [{ id: nextId++, key, isBuy, quoteWei, tokenWei, price, ts: Date.now(), txHash: hash }, ...prev].slice(0, 24);
+            return [{
+              id: nextId++, key, kind, isBuy: kind === "buy",
+              quoteWei, tokenWei, price, ts: Date.now(), txHash: hash, who, detail,
+            }, ...prev].slice(0, 24);
           });
           setNonce((n) => n + 1);
         } catch { /* malformed frame — ignore */ }
