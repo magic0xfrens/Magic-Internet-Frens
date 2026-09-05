@@ -16,6 +16,8 @@ import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
+import { useSeedProgress } from "@/hooks/useSeedProgress";
+import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -374,15 +376,31 @@ function Core({ vitality, phase, ticker }: { vitality: number; phase: Phase; tic
 /* ═══════════════════════ main ═══════════════════════ */
 export default function TheCauldron() {
   const m = useCauldronMachine();
+  // Websocket ping on every swap in our pool: a trade made on ANY machine
+  // refreshes the chart and tape the moment its block is seen, instead of
+  // waiting out the poll interval. The polls stay as the fallback.
+  const live = useLiveSwaps();
   const presale = useMiFrensPresale();
   // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
   const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
   // m.txHash advances on every confirmed action, so the tape re-pulls right
   // after a swap instead of waiting out its interval.
-  const tradeTape = useSwapTape(m.gen, m.summoned, 5000, m.confirmed ? m.txHash : null);
+  // The websocket nonce is passed as the refresh key, so a swap made ANYWHERE —
+  // another browser, a bot, a raw Uniswap trade — refetches the tape the moment
+  // the block is seen, instead of waiting out the poll interval. The 5s poll
+  // stays as the fallback for when the socket is down.
+  const tradeTape = useSwapTape(
+    m.gen,
+    m.summoned,
+    5000,
+    m.confirmed ? m.txHash : `ws:${live.nonce}`,
+  );
   // What THIS brew is priced in. Fixed at summon, so it is read once per
   // generation rather than polled hard.
   const liveQuoteAddr = useCurrentQuote(m.gen);
+  // Progressive launch: depth streams in over a window rather than landing at
+  // once, so the page shows it filling instead of just looking thin.
+  const seed = useSeedProgress();
   const liveQuote = quoteMeta(liveQuoteAddr);
   const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
@@ -649,6 +667,32 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
+                        {seed.active && (
+                          <div className="tc-seed" title="Liquidity is streamed in as swaps poke the seeder">
+                            <div className="tc-seed__row">
+                              <span className="tc-mono tc-dim">
+                                Liquidity deploying · {(seed.placed * 100).toFixed(0)}%
+                              </span>
+                              <span className="tc-mono tc-dim">
+                                {seed.ranges} band{seed.ranges === 1 ? "" : "s"}
+                                {seed.remaining > 0 && ` · ${Math.ceil(seed.remaining / 60)}m left`}
+                              </span>
+                            </div>
+                            <div className="tc-seed__track">
+                              {/* Two bars: what the SCHEDULE expects (ghost) and what is
+                                  actually placed (solid). They diverge on a quiet pool,
+                                  because slivers only land when a swap pokes the seeder —
+                                  which is the most useful thing to see on a new launch. */}
+                              <div className="tc-seed__target" style={{ width: `${seed.target * 100}%` }} />
+                              <div className="tc-seed__fill" style={{ width: `${seed.placed * 100}%`, background: col }} />
+                            </div>
+                            {seed.target - seed.placed > 0.05 && (
+                              <div className="tc-mono tc-seed__hint">
+                                waiting on a swap to place the next sliver
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
                       </div>
                       <div className="tc-chart-mcap">
@@ -1768,6 +1812,13 @@ function Styles() {
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
     /* TREASURY ROTATION — set apart from the proposal card because it moves
        real liquidity rather than casting a vote. */
+    /* PROGRESSIVE SEED — depth streams in, so show it filling. */
+    .tc-seed { margin-top: 10px; }
+    .tc-seed__row { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; margin-bottom: 5px; }
+    .tc-seed__track { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+    .tc-seed__target { position: absolute; inset: 0 auto 0 0; background: rgba(255,255,255,0.14); transition: width 0.6s ease; }
+    .tc-seed__fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width 0.6s ease; }
+    .tc-seed__hint { font-size: 9.5px; opacity: 0.55; margin-top: 4px; }
     .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 20px 22px; margin-bottom: 18px; }
     .tc-rot__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .tc-rot__title { font-family: "Cinzel", serif; font-size: 20px; margin: 4px 0 0; color: #f4f1ff; }

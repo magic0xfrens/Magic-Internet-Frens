@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePoll } from "@/hooks/usePoll";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 
@@ -10,7 +10,18 @@ const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
  * OHLC candles for a generation, straight from Ponder (/candles/:gen) — no
  * browser RPC. Returns the candle series (ETH per token) for a candlestick chart.
  */
-export function useCandles(generation = 1, enabled = true, intervalMs = 12000): { candles: Candle[]; last: number } {
+/**
+ * @param refreshKey Change it to force an immediate refetch. The cauldron passes
+ *   the websocket swap nonce, so a trade made on ANY machine redraws the chart
+ *   the moment its block is seen instead of up to 12s later. The interval stays
+ *   as the fallback for when the socket is down.
+ */
+export function useCandles(
+  generation = 1,
+  enabled = true,
+  intervalMs = 12000,
+  refreshKey?: string | number | null,
+): { candles: Candle[]; last: number } {
   const [state, setState] = useState<{ candles: Candle[]; last: number }>({ candles: [], last: 0 });
 
   const load = useCallback(async () => {
@@ -24,6 +35,13 @@ export function useCandles(generation = 1, enabled = true, intervalMs = 12000): 
   }, [generation]);
 
   usePoll(load, intervalMs, enabled && !!INDEXER);
+
+  // Refetch the instant the key changes — the websocket sees a swap long before
+  // the next interval would have fired.
+  useEffect(() => {
+    if (refreshKey == null || !enabled || !INDEXER) return;
+    void load();
+  }, [refreshKey, enabled, load]);
 
   return state;
 }
