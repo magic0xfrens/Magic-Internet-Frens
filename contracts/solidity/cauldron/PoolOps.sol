@@ -636,6 +636,77 @@ library PoolOps {
      *         burning the NFT. Used at death for BOTH the active + reserve
      *         positions. Returns recovered (eth, tokens) via balance deltas.
      */
+    /**
+     * @notice Remove a MEASURED share of a position, keeping the position alive.
+     * @dev The rotation path: the guild converts part of its liquidity into a
+     *      different quote, so this must never take everything. The position is
+     *      NOT burned — unlike {removeAll}, which is the death path — because the
+     *      original pair keeps trading throughout.
+     *
+     *      Both sides are measured by BALANCE DELTA rather than trusted from the
+     *      caller's arithmetic, and the quote side is read from `quote` rather
+     *      than assumed native: an ERC20-quoted generation recovers nothing into
+     *      `address(this).balance`.
+     *
+     * @param bps Share of current liquidity to withdraw. Capped below 100% so a
+     *            rotation can never empty the pair it is rotating out of.
+     */
+    function removePartial(
+        IPositionManagerOps pm,
+        uint256 positionId,
+        PoolKey memory key,
+        address token,
+        address quote,
+        uint16 bps
+    ) external returns (uint256 quoteRecovered, uint256 tokensRecovered) {
+        require(bps > 0 && bps <= MAX_ROTATION_BPS, "bps");
+        uint128 liquidity = pm.getPositionLiquidity(positionId);
+        if (liquidity == 0) return (0, 0);
+
+        uint128 take = uint128((uint256(liquidity) * bps) / 10_000);
+        if (take == 0) return (0, 0);
+
+        uint256 qBefore = _balance(quote);
+        uint256 tBefore = IERC20(token).balanceOf(address(this));
+
+        // No BURN_POSITION: the position must survive so the original pair keeps
+        // trading while the rotation runs.
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.DECREASE_LIQUIDITY), uint8(Actions.TAKE_PAIR)
+        );
+        bytes[] memory params = new bytes[](2);
+        params[0] = abi.encode(positionId, take, uint128(0), uint128(0), bytes(""));
+        params[1] = abi.encode(key.currency0, key.currency1, address(this));
+
+        pm.modifyLiquidities(abi.encode(actions, params), block.timestamp + 120);
+
+        quoteRecovered = _balance(quote) - qBefore;
+        tokensRecovered = IERC20(token).balanceOf(address(this)) - tBefore;
+    }
+
+    /// @dev Hard ceiling on a single rotation. A rotation is a reallocation, not
+    ///      an exit: leaving the original pair with no depth would strand every
+    ///      holder who wants to trade it while the new pair is still filling.
+    uint16 internal constant MAX_ROTATION_BPS = 5000; // 50%
+
+    /// @notice Send native or ERC20, checking the ERC20 return value. Lives here
+    ///         rather than in the registry, which has no bytecode budget left.
+    function sendAsset(address asset, address to, uint256 amount) external {
+        if (amount == 0) return;
+        if (asset == address(0)) {
+            (bool ok, ) = to.call{value: amount}("");
+            require(ok, "send");
+        } else {
+            (bool ok, bytes memory ret) =
+                asset.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+            require(ok && (ret.length == 0 || abi.decode(ret, (bool))), "send");
+        }
+    }
+
+    function _balance(address asset) private view returns (uint256) {
+        return asset == address(0) ? address(this).balance : IERC20(asset).balanceOf(address(this));
+    }
+
     function removeAll(IPositionManagerOps pm, uint256 positionId, PoolKey memory key, address token)
         external
         returns (uint256 ethRecovered, uint256 tokensRecovered)

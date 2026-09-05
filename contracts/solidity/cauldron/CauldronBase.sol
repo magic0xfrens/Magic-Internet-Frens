@@ -205,7 +205,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     mapping(uint256 => address) public generationVault;
 
     /// @notice The legacy-floor cap table (see CollectionLedger). Zero = off.
-    ICollectionLedger public collectionLedger;
+    ICollectionLedger internal collectionLedger;
     /// @notice OG share of iteration-#2 live buybacks, folded into
     ///         `genesisReserveOutstanding` at the next relaunch.
     uint256 internal genesisPending;
@@ -330,6 +330,13 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  the book is denominated in long after a later generation has launched
     ///  against something else.
     mapping(uint256 => address) public generationQuote;   // slot 49
+
+    /// @notice Where a rotation's proceeds are converted (the QuoteRotator).
+    ///
+    ///  APPENDED, like everything after it must be: inserting storage mid-layout
+    ///  renumbers every slot below and silently breaks anything addressing a
+    ///  slot directly, including the registry/facet layout invariant.
+    address internal quoteRotator;                        // slot 50
 
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)

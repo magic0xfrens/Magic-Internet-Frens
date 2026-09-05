@@ -158,4 +158,54 @@ contract RedemptionExt is CauldronBase {
         genesisReserveOutstanding += added;
         emit FloorGrew(added, genesisReserveOutstanding, floorPerFren());
     }
+
+    // -----------------------------------------------------------------------
+    // QUOTE ROTATION -- the guild manages what the LP is denominated in
+    // -----------------------------------------------------------------------
+
+    /// @notice Point the registry at the contract that converts rotation
+    ///         proceeds. Owner-only, read through the registry's own storage.
+    function setQuoteRotator(address r) external onlyOwner {
+        quoteRotator = r;
+        emit QuoteRotatorSet(r);
+    }
+
+    /**
+     * @notice Withdraw a measured share of the LIVE pair's liquidity and hand the
+     *         quote side to the rotator to convert.
+     *
+     *  Step one of the fund-manager path. The TOKEN side deliberately stays with
+     *  the registry: it is the same token in either pair, so there is nothing to
+     *  convert and moving it would only add a hop and a custody boundary.
+     *
+     *  This does NOT create the destination pool. A rotation runs over hours in
+     *  slices and the amount of new quote it yields is not known until it
+     *  finishes, so committing to a pool price up front would mean guessing it.
+     *  Seeding happens afterwards, against the amount actually received.
+     *
+     *  Lives in this facet rather than the registry purely for EIP-170 headroom;
+     *  under delegatecall it runs on the registry's storage and custody, so the
+     *  liquidity and the recovered assets never leave the registry's control.
+     */
+    function beginRotation(uint16 bps) external onlyOwner returns (uint256 quoteOut) {
+        address rot = quoteRotator;
+        if (rot == address(0)) revert NotConfigured();
+
+        uint256 gen = currentGeneration;
+        address quote = generationQuote[gen];
+
+        (quoteOut, ) = PoolOps.removePartial(
+            IPositionManagerOps(address(positionManager)),
+            generationPositionId[gen],
+            generationPoolKey[gen],
+            generationToken[gen],
+            quote,
+            bps
+        );
+        if (quoteOut > 0) PoolOps.sendAsset(quote, rot, quoteOut);
+        emit RotationBegun(gen, quote, quoteOut, bps);
+    }
+
+    event QuoteRotatorSet(address rotator);
+    event RotationBegun(uint256 indexed gen, address indexed quote, uint256 amount, uint16 bps);
 }

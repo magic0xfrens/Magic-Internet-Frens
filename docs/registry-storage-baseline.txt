@@ -110,5 +110,16 @@
 | igniter                     | address                                      | 46   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
 |-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------|
 | allowedQuote                | mapping(address => bool)                     | 47   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
+| generationQuote             | mapping(uint256 => address)                  | 48   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
+| quoteRotator                | address                                      | 49   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
 ╰-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------╯
+
+NOTE. New storage is APPENDED here, never inserted. CauldronRegistry and the
+RedemptionExt facet share this layout under delegatecall, so an inserted slot
+renumbers everything below it and the facet starts reading the wrong variable.
+The same mistake in CauldronHook silently broke three tests that address
+legacyOwedToReserve by slot.
+
+The authoritative check is the FacetLayoutInvariant suite, not this file — this
+is a human-readable snapshot.
 
