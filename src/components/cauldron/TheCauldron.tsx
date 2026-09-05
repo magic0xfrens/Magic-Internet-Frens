@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { useAppStore } from "@/store/useAppStore";
@@ -20,6 +20,7 @@ import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
+import { useActivityFeed } from "@/hooks/useActivityFeed";
 import { useIndexerHealth } from "@/hooks/useIndexerHealth";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
@@ -217,6 +218,38 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
   const last = series.length ? series[series.length - 1] : 0;
   const hasHeat = rows.length > 0;
 
+  //  THE DRAW-IN, MEASURED RATHER THAN GUESSED.
+  //
+  //  This used to be `stroke-dasharray: 1400` in CSS. A dasharray is a REPEATING
+  //  pattern, so once the path grew past 1400 units everything beyond it landed
+  //  in the gap: the bright stroke stopped and only the fill gradient showed
+  //  through, which reads as the line fading out partway along. More trades made
+  //  it worse, so it appeared exactly when the chart got interesting.
+  //
+  //  Measuring the path means the dash always covers it, whatever the shape.
+  const lineRef = useRef<SVGPathElement | null>(null);
+  const drawn = useRef(false);
+  useEffect(() => {
+    const el = lineRef.current;
+    if (!el || !path) return;
+    const len = el.getTotalLength();
+    if (!Number.isFinite(len) || len <= 0) return;
+    el.style.strokeDasharray = `${len}`;
+    if (drawn.current || dead) {
+      // Already introduced: never re-animate, or the line would redraw itself
+      // on every incoming trade.
+      el.style.strokeDashoffset = "0";
+      return;
+    }
+    drawn.current = true;
+    el.style.strokeDashoffset = `${len}`;
+    // Next frame, so the browser has the start state before transitioning.
+    requestAnimationFrame(() => {
+      el.style.transition = "stroke-dashoffset 2.2s ease";
+      el.style.strokeDashoffset = "0";
+    });
+  }, [path, dead]);
+
 
   return (
     <div className="tc-ekg">
@@ -246,7 +279,16 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
         {path && (
           <>
             <path d={`${path} L${W - pad},${H} L${pad},${H} Z`} fill="url(#ekgfill)" />
-            <path d={path} fill="none" stroke={color} strokeWidth="2.2" filter="url(#ekgglow)" className={dead ? "" : "tc-ekg__line"} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              ref={lineRef}
+              d={path}
+              fill="none"
+              stroke={color}
+              strokeWidth="2.2"
+              filter="url(#ekgglow)"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
 
           </>
         )}
@@ -390,6 +432,9 @@ export default function TheCauldron() {
   // Says out loud when the data behind the page is not trustworthy, rather than
   // letting an empty indexer render as a confident, wrong, empty page.
   const health = useIndexerHealth();
+  // Indexed history + live socket, merged. The drawer survives a refresh; the
+  // toasts stay purely live because they only ever announce what just happened.
+  const activity = useActivityFeed(m.gen, live_.recent);
   const presale = useMiFrensPresale();
   // Live perp positions → liquidation heatmap + OHLC candles (all from Ponder).
   const heat = usePerpHeatmap(m.summoned && m.phase !== "dead", m.gen);
@@ -604,7 +649,7 @@ export default function TheCauldron() {
           document.body, so no card's backdrop-filter can capture its
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
-      <ActivityDrawer events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
+      <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} />
       {health.degraded && (
         <div className={`tc-health is-${health.state}`} role="status">
           <span className="tc-health__dot" />
@@ -1788,9 +1833,9 @@ function Styles() {
 
     .tc-ekg { position: relative; height: 180px; margin: 4px 0 16px; border-radius: var(--r-sm); overflow: hidden; background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
     .tc-ekg__svg { width: 100%; height: 100%; display: block; }
-    .tc-ekg__line { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: tc-draw 2.2s ease forwards; }
-    @keyframes tc-draw { to { stroke-dashoffset: 0; } }
-    .tc-ekg__last { position: absolute; top: 10px; right: 12px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; }
+    /* The price label sat directly on the line and became unreadable against
+       it. A dark pill lifts it off without hiding the chart underneath. */
+    .tc-ekg__last { position: absolute; top: 10px; right: 12px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 7px; background: rgba(8,6,15,0.78); border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(6px); letter-spacing: 0.02em; }
     .tc-ekg__empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: "DM Mono", monospace; font-size: 12px; color: ${C.mute}; }
     .tc-ekg__legend { position: absolute; bottom: 8px; left: 12px; display: flex; gap: 12px; font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.04em; color: ${C.mute}; text-transform: uppercase; pointer-events: none; }
     .tc-ekg__legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -2154,7 +2199,7 @@ function Styles() {
     .tc-face__zoom > div { width: 100% !important; height: 100% !important; transform: scale(2.35); transform-origin: 50% 47%; }
 
     @media (prefers-reduced-motion: reduce) {
-      .tc-core__halo--pulse, .tc-core__orb--live, .tc-core__ring--a, .tc-core__ring--b, .tc-vital__fill--beat, .tc-ekg__line, .tc-ember { animation: none !important; }
+      .tc-core__halo--pulse, .tc-core__orb--live, .tc-core__ring--a, .tc-core__ring--b, .tc-vital__fill--beat, .tc-ember { animation: none !important; }
     }
     `}</style>
   );
