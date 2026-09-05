@@ -447,6 +447,28 @@ library PoolOps {
     uint256 private constant SALT_TRIES = 1024;
 
     /**
+     * @notice Every iteration token is mined above THIS, not merely above the
+     *         quote it launches with.
+     *
+     *  Mining above the launch quote alone would only make the token adoptable
+     *  by that one asset. An ETH generation's token is then guaranteed nothing
+     *  except `> 0`, so a later switch to a USDG pair would be a coin flip on
+     *  the ordering — and the token cannot be redeployed, because it already
+     *  holds all the liquidity.
+     *
+     *  Mining above a fixed watermark instead, and refusing to allowlist any
+     *  quote above it (see CauldronRegistry.setAllowedQuote), makes adoptability
+     *  an INVARIANT: any permitted quote sorts below any token, so ANY
+     *  generation can migrate to ANY approved pair, forever.
+     *
+     *  0xf000… covers 93.75% of the address space, which comfortably contains
+     *  every real quote asset (USDC 0xA0b8…, DAI 0x6B17…, USDT 0xdAC1…). The
+     *  cost is one extra keccak per rejected candidate; measured at ~4.4k gas
+     *  for the whole search, once, at deploy.
+     */
+    address internal constant QUOTE_WATERMARK = 0xf000000000000000000000000000000000000000;
+
+    /**
      * @notice Deploy the iteration token at an address that sorts ABOVE `quote`.
      *
      *  WHY. Uniswap v4 orders a pool's currencies by address, and every liquidity
@@ -486,11 +508,10 @@ library PoolOps {
         uint256 totalSupply,
         address quote
     ) external returns (address token, address quoteUsed) {
-        // Native ETH is address(0); any deployed contract sorts above it, so the
-        // common case keeps the exact bytecode and gas it had before.
-        if (quote == address(0)) {
-            return (address(new CauldronToken(name, symbol, gen, address(this), totalSupply)), address(0));
-        }
+        //  Mine above the WATERMARK, never merely above `quote` — including for
+        //  native ETH, whose address(0) would otherwise impose no constraint at
+        //  all and leave the token unable to adopt an ERC20 pair later.
+        address floor = quote > QUOTE_WATERMARK ? quote : QUOTE_WATERMARK;
 
         bytes32 initHash = keccak256(
             abi.encodePacked(
@@ -504,11 +525,11 @@ library PoolOps {
             address predicted = address(uint160(uint256(
                 keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initHash))
             )));
-            if (predicted > quote) {
+            if (predicted > floor) {
                 token = address(new CauldronToken{salt: salt}(name, symbol, gen, address(this), totalSupply));
                 // The mined address is the one that was predicted, or the whole
                 // premise is wrong — assert rather than trust the arithmetic.
-                require(token == predicted && token > quote, "mine");
+                require(token == predicted && token > floor, "mine");
                 return (token, quote);
             }
         }

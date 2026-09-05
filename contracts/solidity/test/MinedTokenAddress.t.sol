@@ -200,6 +200,39 @@ contract MinedTokenAddressTest is Test {
         assertLt(mined, plain + 40_000, "search cost stays in the noise");
     }
 
+    // ---------------------------------------------------------------------
+    // The WATERMARK invariant: any allowed quote is adoptable by any token
+    // ---------------------------------------------------------------------
+
+    address constant WATERMARK = 0xf000000000000000000000000000000000000000;
+
+    /// The point of the watermark: a token launched against ETH must still sort
+    /// above a quote it might adopt LATER. Mining only above the launch quote
+    /// would leave an ETH token guaranteed nothing but `> 0`, and it cannot be
+    /// redeployed once it holds the liquidity.
+    function test_EthLaunchedTokenIsStillAdoptableByAnErc20Quote() public {
+        (address token, address quoteUsed) =
+            PoolOps.deployTokenAbove("Gnomeland", "GNOME", 2, SUPPLY, address(0));
+
+        assertEq(quoteUsed, address(0), "it launches against ETH");
+        assertGt(uint160(token), uint160(WATERMARK), "but is mined above the watermark");
+        // Therefore it already sorts above every real quote asset.
+        assertGt(uint160(token), uint160(USDC_LIKE), "adoptable by a USDC-like quote");
+        assertGt(uint160(token), uint160(0x6B175474E89094C44Da98b954EedeAC495271d0F), "and DAI");
+        assertGt(uint160(token), uint160(0xdAC17F958D2ee523a2206206994597C13D831ec7), "and USDT");
+    }
+
+    /// Restated as the invariant itself, over many generations: the property
+    /// must hold for every token the machine will ever mint, not just one.
+    function test_EveryGenerationClearsTheWatermark() public {
+        for (uint256 gen = 2; gen < 14; ++gen) {
+            (address token, ) = PoolOps.deployTokenAbove(
+                string.concat("Gen", vm.toString(gen)), "G", gen, SUPPLY, address(0)
+            );
+            assertGt(uint160(token), uint160(WATERMARK), "every generation clears it");
+        }
+    }
+
     function _create2(address deployer, bytes32 salt, bytes32 initHash)
         private
         pure

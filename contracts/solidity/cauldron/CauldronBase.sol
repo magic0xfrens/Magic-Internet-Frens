@@ -96,6 +96,14 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///      fallback every generation can launch against, and the sink a failed
     ///      non-ETH payout rolls into.
     error NativeQuoteRequired();
+    /// @dev A quote at or above {PoolOps.QUOTE_WATERMARK} could sort above the
+    ///      iteration token and invert the pool. See setAllowedQuote.
+    error QuoteAboveWatermark();
+
+    /// @dev Mirrors PoolOps.QUOTE_WATERMARK. Duplicated rather than imported to
+    ///      keep the registry free of a link-time dependency on the library for
+    ///      a compile-time constant; the invariant test asserts they match.
+    address internal constant QUOTE_WATERMARK = 0xf000000000000000000000000000000000000000;
     error AlreadySummoned();
     error NotSummoned();
     error TokenStillAlive();
@@ -208,7 +216,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ICauldronGovernor public governor;
 
     /// @notice Per-brew NFT collection supply cap.
-    uint256 public nftMaxSupply = 3333;
+    uint256 internal nftMaxSupply = 3333;
 
     /// @notice EIP-2981 royalty receiver for EVERY brew's collection.
     address internal royaltyDividend;
@@ -227,7 +235,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     /// @notice Number of equal shares the bonus pool is split into (MiFrens supply).
     uint256 public genesisShares;
     /// @notice The INITIAL per-fren reserve share, fixed at summon.
-    uint256 public genesisSharePerFren;
+    uint256 internal genesisSharePerFren;
 
     /// @notice Re-enchant fee multiple (bps of the LIVE floor). Default 15000 = 1.5×.
     uint256 internal enchantFeeMultBps = 15_000;

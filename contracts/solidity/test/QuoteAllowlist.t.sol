@@ -96,4 +96,48 @@ contract QuoteAllowlistTest is Test {
         registry.setAllowedQuote(USDG, true);
         assertTrue(registry.allowedQuote(USDG), "now proposable");
     }
+
+    // -----------------------------------------------------------------------
+    // The watermark ceiling — the other half of the adoptability invariant
+    // -----------------------------------------------------------------------
+
+    address constant WATERMARK = 0xf000000000000000000000000000000000000000;
+
+    /// Tokens are mined ABOVE the watermark, so a quote at or above it could
+    /// sort above the token and invert the pool. Refusing it here is what makes
+    /// "any allowed quote is adoptable by any generation" an invariant rather
+    /// than a hope.
+    function test_QuoteAtOrAboveWatermarkIsRefused() public {
+        vm.expectRevert(CauldronBase.QuoteAboveWatermark.selector);
+        registry.setAllowedQuote(WATERMARK, true);
+
+        vm.expectRevert(CauldronBase.QuoteAboveWatermark.selector);
+        registry.setAllowedQuote(address(type(uint160).max), true);
+
+        assertFalse(registry.allowedQuote(WATERMARK), "must not be allowed");
+    }
+
+    /// Every real quote asset sits far below the watermark, so the ceiling costs
+    /// nothing in practice.
+    function test_RealQuoteAssetsAreUnaffected() public {
+        address[3] memory real = [
+            0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, // USDC
+            0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
+            0xdAC17F958D2ee523a2206206994597C13D831ec7  // USDT
+        ];
+        for (uint256 i; i < real.length; ++i) {
+            registry.setAllowedQuote(real[i], true);
+            assertTrue(registry.allowedQuote(real[i]), "a real quote must be allowlistable");
+        }
+    }
+
+    /// DISALLOWING must never be blocked by the ceiling — otherwise a quote that
+    /// somehow got in could never be removed.
+    function test_CeilingNeverBlocksRemoval() public {
+        registry.setAllowedQuote(USDG, true);
+        registry.setAllowedQuote(USDG, false);
+        assertFalse(registry.allowedQuote(USDG));
+        // Removing something above the watermark is a no-op, not a revert.
+        registry.setAllowedQuote(WATERMARK, false);
+    }
 }

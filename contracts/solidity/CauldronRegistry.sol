@@ -220,6 +220,17 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///  pair, not a surprise.
     function setAllowedQuote(address quote, bool allowed) external onlyOwner {
         if (quote == address(0) && !allowed) revert NativeQuoteRequired();
+        //  CEILING. Every iteration token is mined ABOVE PoolOps.QUOTE_WATERMARK,
+        //  so a quote at or above it could sort ABOVE the token — inverting the
+        //  pool and breaking every "quote = currency0" assumption in the seeding
+        //  and liquidity math.
+        //
+        //  Refusing here is what upgrades adoptability from a hope to an
+        //  INVARIANT: any allowlisted quote sorts below any token, so ANY
+        //  generation can migrate to ANY approved pair. The bound excludes only
+        //  the top 6.25% of the address space and no real quote asset lives
+        //  there (USDC 0xA0b8, DAI 0x6B17, USDT 0xdAC1).
+        if (allowed && uint160(quote) >= uint160(QUOTE_WATERMARK)) revert QuoteAboveWatermark();
         allowedQuote[quote] = allowed;
         emit QuoteAllowed(quote, allowed);
     }
