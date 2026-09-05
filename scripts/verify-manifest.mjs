@@ -84,6 +84,43 @@ else m.poolIds.forEach((p, i) => {
   if (!isHash32(p)) errors.push(`poolIds[${i}] is not a 32-byte pool id: ${p}`);
 });
 
+// A poolId that no longer matches the live registry indexes NOTHING: the chart
+// stays empty and the trade tape reads "awaiting first swaps" forever, with no
+// error anywhere. That is exactly what happened after a summon left this value
+// pointing at the previous deployment's pool.
+//
+// Warn rather than fail: this needs a live RPC, and a build should not break
+// because a node is briefly unreachable.
+if (process.env.SKIP_POOL_CHECK !== "1" && Array.isArray(m.poolIds) && m.contracts?.registry) {
+  const rpc = process.env.VERIFY_RPC;
+  if (rpc) {
+    try {
+      const body = {
+        jsonrpc: "2.0", id: 1, method: "eth_call",
+        params: [{
+          to: m.contracts.registry,
+          // generationPoolId(uint256) for the live generation is resolved by the
+          // caller; here we just check gen 1, which every deployment has.
+          data: "0xcb648bed" + "1".padStart(64, "0"), // generationPoolId(1)
+        }, "latest"],
+      };
+      const res = await fetch(rpc, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(body), signal: AbortSignal.timeout(8000),
+      });
+      const j = await res.json();
+      if (j?.result && /^0x[0-9a-f]{64}$/i.test(j.result) && !/^0x0+$/.test(j.result)) {
+        if (!m.poolIds.map((p) => p.toLowerCase()).includes(j.result.toLowerCase())) {
+          warnings.push(
+            `poolIds does not contain the registry's gen-1 pool (${j.result}). ` +
+            "The indexer will index nothing and the chart will stay empty.",
+          );
+        }
+      }
+    } catch { /* node unreachable - not a build failure */ }
+  }
+}
+
 /* ── 2. nothing bypasses the manifest ────────────────────────────────────── */
 const SCAN_DIRS = ["src", "api", "indexer/src", "indexer/ponder.config.ts"];
 const SKIP = /node_modules|\.ponder|generated|dist|deployments|abis|\.test\./;

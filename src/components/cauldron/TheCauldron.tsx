@@ -667,11 +667,17 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        {seed.active && (
+                        {/* Shown while streaming AND once finished. Hiding it on
+                            completion meant a fast launch — two swaps was enough
+                            here — displayed nothing at all, so there was no way
+                            to tell "not started" from "already fully deployed". */}
+                        {(seed.active || seed.complete) && (
                           <div className="tc-seed" title="Liquidity is streamed in as swaps poke the seeder">
                             <div className="tc-seed__row">
                               <span className="tc-mono tc-dim">
-                                Liquidity deploying · {(seed.placed * 100).toFixed(0)}%
+                                {seed.complete
+                                  ? `Liquidity fully deployed · 100%`
+                                  : `Liquidity deploying · ${(seed.placed * 100).toFixed(0)}%`}
                               </span>
                               <span className="tc-mono tc-dim">
                                 {seed.ranges} band{seed.ranges === 1 ? "" : "s"}
@@ -686,7 +692,7 @@ export default function TheCauldron() {
                               <div className="tc-seed__target" style={{ width: `${seed.target * 100}%` }} />
                               <div className="tc-seed__fill" style={{ width: `${seed.placed * 100}%`, background: col }} />
                             </div>
-                            {seed.target - seed.placed > 0.05 && (
+                            {!seed.complete && seed.target - seed.placed > 0.05 && (
                               <div className="tc-mono tc-seed__hint">
                                 waiting on a swap to place the next sliver
                               </div>
