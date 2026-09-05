@@ -64,7 +64,8 @@ contract PoC_ReserveUnderDelivery is Test {
             900_000 ether,   // active
             1 ether,         // ETH
             100 ether,       // reserve — the whole migration/genesis backing
-            200, 0, 42_400
+            200, 0, 42_400,
+            address(0)      // native ETH quote, as before
         );
         assertGt(r.reservePositionId, 0, "reserve placed");
 

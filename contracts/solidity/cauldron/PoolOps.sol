@@ -185,10 +185,13 @@ library PoolOps {
         uint256 reserveTokens,
         int24 tickSpacing,
         uint24 poolFee,
-        int24 ceilingOffset
+        int24 ceilingOffset,
+        /// The asset this pool is PRICED IN (address(0) = native ETH).
+        /// Always currency0: the token is deployed to sort above it.
+        address quote
     ) external returns (SeedResult memory r) {
         r.key = PoolKey({
-            currency0: Currency.wrap(address(0)),
+            currency0: Currency.wrap(quote),
             currency1: Currency.wrap(token),
             fee: poolFee,
             tickSpacing: tickSpacing,
@@ -200,13 +203,13 @@ library PoolOps {
         poolManager.initialize(r.key, sqrtPriceX96);
         int24 launchTick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
 
-        r.activePositionId = _seedActive(pm, r.key, sqrtPriceX96, ethAmount, activeTokens, token, tickSpacing);
+        r.activePositionId = _seedActive(quote, pm, r.key, sqrtPriceX96, ethAmount, activeTokens, token, tickSpacing);
 
         if (reserveTokens > 0) {
             (r.reserveTickLower, r.reserveTickUpper) =
                 ReserveLib.reserveTicks(launchTick, tickSpacing, ceilingOffset);
             r.reservePositionId =
-                _seedReserve(pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token);
+                _seedReserve(quote, pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token);
         }
     }
 
@@ -238,10 +241,13 @@ library PoolOps {
         int24 tickSpacing,
         uint24 poolFee,
         int24 ceilingOffset,
-        SeedParams calldata sp
+        SeedParams calldata sp,
+        /// The asset this pool is PRICED IN (address(0) = native ETH).
+        /// Always currency0: the token is deployed to sort above it.
+        address quote
     ) external returns (SeedResult memory r) {
         r.key = PoolKey({
-            currency0: Currency.wrap(address(0)),
+            currency0: Currency.wrap(quote),
             currency1: Currency.wrap(token),
             fee: poolFee,
             tickSpacing: tickSpacing,
@@ -259,7 +265,7 @@ library PoolOps {
             (r.reserveTickLower, r.reserveTickUpper) =
                 ReserveLib.reserveTicks(launchTick, tickSpacing, ceilingOffset);
             r.reservePositionId =
-                _seedReserve(pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token);
+                _seedReserve(quote, pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token);
         }
 
         // Ledger A → the seeder. APPROVE the active tokens (the seeder pulls them
@@ -309,10 +315,13 @@ library PoolOps {
         uint256 reserveTokens,
         int24 tickSpacing,
         uint24 poolFee,
-        int24 ceilingOffset
+        int24 ceilingOffset,
+        /// The asset this pool is PRICED IN (address(0) = native ETH).
+        /// Always currency0: the token is deployed to sort above it.
+        address quote
     ) external returns (SeedResult memory r) {
         r.key = PoolKey({
-            currency0: Currency.wrap(address(0)),
+            currency0: Currency.wrap(quote),
             currency1: Currency.wrap(token),
             fee: poolFee,
             tickSpacing: tickSpacing,
@@ -331,7 +340,7 @@ library PoolOps {
         poolManager.initialize(r.key, sqrtPriceX96);
 
         // 1. Seed 100% of supply into the active full-range position.
-        r.activePositionId = _seedActive(pm, r.key, sqrtPriceX96, ethActive, totalTokens, token, tickSpacing);
+        r.activePositionId = _seedActive(quote, pm, r.key, sqrtPriceX96, ethActive, totalTokens, token, tickSpacing);
 
         // 2 + 3. Buy the reserve out of the fresh pool, then re-park it out of range.
         if (reserveTokens > 0) {
@@ -346,7 +355,7 @@ library PoolOps {
             (r.reserveTickLower, r.reserveTickUpper) =
                 ReserveLib.reserveTicks(finalTick, tickSpacing, ceilingOffset);
             r.reservePositionId =
-                _seedReserve(pm, r.key, r.reserveTickLower, r.reserveTickUpper, bought, token);
+                _seedReserve(quote, pm, r.key, r.reserveTickLower, r.reserveTickUpper, bought, token);
         }
     }
 
@@ -429,13 +438,6 @@ library PoolOps {
      *  search on keccak256. Nothing depended on the token address being predictable
      *  — the `predictTokenAddress` helper was already removed as having no callers.
      */
-    function deployToken(string memory name, string memory symbol, uint256 gen, uint256 totalSupply)
-        external
-        returns (address token)
-    {
-        token = address(new CauldronToken(name, symbol, gen, address(this), totalSupply));
-    }
-
     /// @dev How many salts to try before giving up and launching against ETH.
     ///      Each try is one keccak over ~85 bytes (~40 gas), and the loop exits
     ///      on the FIRST hit — for a quote in the lower half of the address
@@ -519,6 +521,7 @@ library PoolOps {
 
     /// @dev Mint the ACTIVE full-range position (ETH + tradeable token slice).
     function _seedActive(
+        address quote,
         IPositionManagerOps pm,
         PoolKey memory key,
         uint160 sqrtPriceX96,
@@ -548,16 +551,25 @@ library PoolOps {
             key, minTick, maxTick, liquidity,
             uint128(ethAmount), uint128(tokenAmount), address(this), bytes("")
         );
-        params[1] = abi.encode(Currency.wrap(address(0)), Currency.wrap(token));
-        params[2] = abi.encode(Currency.wrap(address(0)), address(this)); // excess ETH back
+        params[1] = abi.encode(Currency.wrap(quote), Currency.wrap(token));
+        params[2] = abi.encode(Currency.wrap(quote), address(this)); // excess quote back
 
         positionId = pm.nextTokenId();
-        pm.modifyLiquidities{value: ethAmount}(abi.encode(actions, params), block.timestamp + 120);
+        //  Native pays by forwarding value; an ERC20 quote is PULLED by the
+        //  PositionManager, so it must be approved instead. Sending value with an
+        //  ERC20 quote would strand it in the PositionManager.
+        if (quote == address(0)) {
+            pm.modifyLiquidities{value: ethAmount}(abi.encode(actions, params), block.timestamp + 120);
+        } else {
+            _approve(quote, address(pm), ethAmount);
+            pm.modifyLiquidities(abi.encode(actions, params), block.timestamp + 120);
+        }
     }
 
     /// @dev Mint the RESERVE single-sided TOKEN position, out of range BELOW the
     ///      launch tick (pure token1 until the token pumps into it).
     function _seedReserve(
+        address quote,
         IPositionManagerOps pm,
         PoolKey memory key,
         int24 tickLower,
@@ -591,8 +603,8 @@ library PoolOps {
             key, tickLower, tickUpper, liquidity,
             uint128(0), uint128(tokenAmount), address(this), bytes("")
         );
-        params[1] = abi.encode(Currency.wrap(address(0)), Currency.wrap(token));
-        params[2] = abi.encode(Currency.wrap(address(0)), address(this));
+        params[1] = abi.encode(Currency.wrap(quote), Currency.wrap(token));
+        params[2] = abi.encode(Currency.wrap(quote), address(this));
 
         positionId = pm.nextTokenId();
         pm.modifyLiquidities(abi.encode(actions, params), block.timestamp + 120);

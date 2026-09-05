@@ -606,7 +606,7 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         string memory name = LaunchLib.displayName(rawName);
 
         // 1. Deploy the generation's fixed-supply token (plain CREATE — audit A-01)
-        token = _deployToken(name, symbol, 1);
+        (token, ) = _deployToken(name, symbol, 1, address(0));
         currentToken = token;
         generationToken[1] = token;
         // generationQuote[1] stays address(0) = native ETH. Generation 1 launches
@@ -799,7 +799,7 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         name = LaunchLib.displayName(name);
 
         // 7. Deploy the new generation's token (plain CREATE — audit A-01)
-        token = _deployToken(name, symbol, newGen);
+        (token, specQuote) = _deployToken(name, symbol, newGen, specQuote);
         currentToken = token;
         generationToken[newGen] = token;
         // The quote is fixed for this generation's whole life: the engine, the
@@ -1365,12 +1365,19 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     function _deployToken(
         string memory name,
         string memory symbol,
-        uint256 gen
-    ) private returns (address token) {
+        uint256 gen,
+        address want
+    ) private returns (address token, address quoteUsed) {
         // Delegated to PoolOps so the 3.2 KB CauldronToken creation blob lives
         // there, not in this registry (EIP-170). Delegatecall keeps
-        // address(this) = registry, so the registry is the deployer + token owner.
-        token = PoolOps.deployToken(name, symbol, gen, TOTAL_SUPPLY);
+        // address(this) = registry, so the registry is the deployer + token owner
+        // — and, for a mined address, the CREATE2 deployer nobody else can be.
+        //
+        // The token is mined to sort ABOVE the quote so "quote = currency0" holds
+        // for every pool. Whatever quote comes back is what was actually
+        // achievable, so recording it here keeps generationQuote from ever
+        // claiming a pair the pool was not built for.
+        (token, quoteUsed) = PoolOps.deployTokenAbove(name, symbol, gen, TOTAL_SUPPLY, want);
     }
 
     // -----------------------------------------------------------------------
@@ -1412,7 +1419,8 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         SeedResult memory r = PoolOps.createAndSeedWithBuy(
             poolManager, IPositionManagerOps(address(positionManager)), address(hook),
             token, activeTokens, ethAmount, reserveTokens,
-            TICK_SPACING, POOL_FEE, nextReserveCeilingOffset
+            TICK_SPACING, POOL_FEE, nextReserveCeilingOffset,
+            generationQuote[gen]
         );
         _seedBuyUnlocked = false;
         poolId = _recordSeed(r, gen);
@@ -1443,7 +1451,8 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
                 poolManager, IPositionManagerOps(address(positionManager)), address(hook),
                 token, activeTokens, ethAmount, reserveTokens,
                 TICK_SPACING, POOL_FEE, nextReserveCeilingOffset,
-                SeedParams({seeder: seeder, gen: gen, window: nextSeedWindow})
+                SeedParams({seeder: seeder, gen: gen, window: nextSeedWindow}),
+                generationQuote[gen]
             );
             poolId = _recordSeed(r, gen);
         } else {

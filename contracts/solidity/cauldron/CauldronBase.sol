@@ -211,14 +211,14 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     uint256 public nftMaxSupply = 3333;
 
     /// @notice EIP-2981 royalty receiver for EVERY brew's collection.
-    address public royaltyDividend;
+    address internal royaltyDividend;
     /// @notice Secondary-sale royalty (bps). Default 5%.
     uint96 internal royaltyBps = 500;
 
     /// @notice Genesis brew NFT metadata (iteration #1), owner-set before ignition.
     MetadataMode public genesisMode;
     string public genesisBaseURI;
-    address public genesisRenderer;
+    address internal genesisRenderer;
 
     /// @notice The MiFrens ERC721 whose holders may claim the genesis bonus.
     address public mifrens;
@@ -230,7 +230,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     uint256 public genesisSharePerFren;
 
     /// @notice Re-enchant fee multiple (bps of the LIVE floor). Default 15000 = 1.5×.
-    uint256 public enchantFeeMultBps = 15_000;
+    uint256 internal enchantFeeMultBps = 15_000;
 
     /// @notice PROTECTION circuit-breaker for the redemption path. Default false.
     bool public redemptionPaused;
