@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatEther } from "viem";
 import type { LiveSwap, EventKind } from "@/hooks/useLiveSwaps";
 
@@ -10,9 +11,17 @@ import type { LiveSwap, EventKind } from "@/hooks/useLiveSwaps";
  * and the tape and charts below remain the durable, indexed record. If the two
  * ever disagreed, the indexer is right and this has already gone.
  *
- * Top-right, released one at a time. A block can carry a dozen events — the
- * gacha router alone fires a commit, a swap and several ticket resolutions — and
- * dumping them together reads as one thing happening instead of a busy cauldron.
+ * Top-right of the PAGE, released one at a time. A block can carry a dozen
+ * events — the gacha router alone fires a commit, a swap and several ticket
+ * resolutions — and dumping them together reads as one thing happening instead
+ * of a busy cauldron.
+ *
+ * RENDERED THROUGH A PORTAL, which is not incidental. `position: fixed` is
+ * resolved against the nearest ancestor with a transform, filter or
+ * backdrop-filter — and `.tc-card` has one. Mounted inline it was therefore
+ * pinned to the chart card's top-right rather than the viewport's, which is
+ * exactly the bug it looked like. A portal to document.body escapes every such
+ * ancestor by construction.
  */
 const SPELL: Record<EventKind, { icon: string; label: string; tone: "good" | "bad" | "magic" | "neutral" }> = {
   "buy":          { icon: "🐸", label: "gib tendies",   tone: "good" },
@@ -57,8 +66,9 @@ export function SpellFeed({ events, glyph }: { events: LiveSwap[]; glyph: string
   }, [events]);
 
   if (visible.length === 0) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div className="tc-spell" aria-live="polite">
       {visible.map((e, i) => {
         const s = SPELL[e.kind] ?? SPELL["gacha-miss"];
@@ -82,6 +92,7 @@ export function SpellFeed({ events, glyph }: { events: LiveSwap[]; glyph: string
           </div>
         );
       })}
-    </div>
+    </div>,
+    document.body,
   );
 }

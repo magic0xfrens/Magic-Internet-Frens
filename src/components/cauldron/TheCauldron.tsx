@@ -588,6 +588,11 @@ export default function TheCauldron() {
 
   return (
     <div className="tc">
+      {/* Page-level, not inside the trade tab: a liquidation or a forged fren
+          should still announce while you are reading governance. Portals to
+          document.body, so no card's backdrop-filter can capture its
+          position:fixed. */}
+      <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
       <div className="tc-embers" aria-hidden>
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>
@@ -693,7 +698,6 @@ export default function TheCauldron() {
                     <div className="tc-chart-head">
                       <div>
                         <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
                         {/* Shown while streaming AND once finished. Hiding it on
                             completion meant a fast launch — two swaps was enough
                             here — displayed nothing at all, so there was no way
