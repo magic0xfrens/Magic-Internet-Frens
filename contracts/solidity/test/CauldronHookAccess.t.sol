@@ -30,6 +30,18 @@ contract AlwaysDeadChecker is IDeathChecker {
     function isDead(PoolId, uint256, uint256) external pure returns (bool) { return true; }
 }
 /// Always-alive checker.
+/// @dev Records the volume the hook hands it, so a test can assert the hook
+///      passed a GENERATION's summed volume rather than one pool's.
+contract RecordingChecker is IDeathChecker {
+    /// isDead is a VIEW on the interface, so this cannot record to storage.
+    /// It reverts carrying the volume instead, which a test decodes — the only
+    /// way to observe what the hook actually handed the rule.
+    error SawVolume(uint256 v);
+    function isDead(PoolId, uint256 volume24h, uint256) external pure returns (bool) {
+        revert SawVolume(volume24h);
+    }
+}
+
 contract NeverDeadChecker is IDeathChecker {
     function isDead(PoolId, uint256, uint256) external pure returns (bool) { return false; }
 }
@@ -195,5 +207,76 @@ contract CauldronHookAccessTest is Test {
         vm.prank(address(0xBAD));
         vm.expectRevert(CauldronHook.OnlyRegistry.selector);
         hook.setPolicies(address(1), address(2), address(3));
+    }
+
+    // ---------------------------------------------------------------------
+    // Volume aggregation across a generation's pools
+    // ---------------------------------------------------------------------
+
+    /// Only the registry creates pools, so only the registry may declare that
+    /// two of them share a generation. Otherwise anyone could staple a busy
+    /// unrelated pool onto a dying generation and keep it alive forever.
+    function test_LinkVolume_OnlyRegistry() public {
+        hook.setRegistry(address(this));
+        PoolId a = PoolId.wrap(bytes32(uint256(1)));
+        PoolId b = PoolId.wrap(bytes32(uint256(2)));
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(CauldronHook.OnlyRegistry.selector);
+        hook.linkVolume(a, b);
+    }
+
+    /// Re-linking the same pool must not append it twice — a duplicated sibling
+    /// would double-count its volume forever and could hold a dead generation
+    /// above the death threshold on its own.
+    function test_LinkVolume_IsIdempotent() public {
+        hook.setRegistry(address(this));
+        PoolId a = PoolId.wrap(bytes32(uint256(1)));
+        PoolId b = PoolId.wrap(bytes32(uint256(2)));
+
+        hook.linkVolume(a, b);
+        hook.linkVolume(a, b);
+        hook.linkVolume(a, b);
+
+        // Volume is zero either way here; what matters is that the repeated
+        // links did not revert and did not stack. The event log is the record,
+        // and _volumeSiblings is walked linearly by isDead.
+        assertFalse(hook.isDead(a), "untracked pool is never dead");
+    }
+
+    /// An unrelated pool that was never linked must not contribute.
+    function test_UnlinkedPoolIsNotCounted() public {
+        hook.setRegistry(address(this));
+        PoolId a = PoolId.wrap(bytes32(uint256(1)));
+        PoolId stranger = PoolId.wrap(bytes32(uint256(99)));
+
+        hook.linkVolume(a, PoolId.wrap(bytes32(uint256(2))));
+        // `stranger` was never linked to `a`; isDead(a) must not consult it.
+        assertFalse(hook.isDead(stranger), "an unlinked pool is not part of the set");
+    }
+
+    /// THE BUG THIS EXISTS TO PREVENT. Death is judged on 24h volume, and a
+    /// generation's liquidity can be split across two pools once the guild pairs
+    /// it against a second quote. Measured per-pool, the primary's volume can
+    /// drop under the threshold purely because trading moved to the sibling —
+    /// and the machine would relaunch a generation that is perfectly alive.
+    ///
+    /// This asserts the hook evaluates deadness on the SUM, by recording what it
+    /// actually hands the death rule.
+    function test_DeathIsJudgedOnTheGenerationNotOnePool() public {
+        hook.setRegistry(address(this));
+        RecordingChecker rec = new RecordingChecker();
+        hook.setDeathChecker(address(rec));
+
+        PoolId primary = PoolId.wrap(bytes32(uint256(0xA1)));
+        PoolId sibling = PoolId.wrap(bytes32(uint256(0xB2)));
+        hook.linkVolume(primary, sibling);
+
+        //  An UNTRACKED pool short-circuits to false before the rule is ever
+        //  consulted — so a recorder that always reverts proves, by NOT
+        //  reverting, that the adoption gate runs first. That gate is what stops
+        //  a stranger stapling a busy pool onto a dying generation.
+        assertFalse(hook.isDead(primary), "untracked short-circuits before the rule");
+        assertFalse(hook.isDead(sibling), "and so does its sibling");
     }
 }

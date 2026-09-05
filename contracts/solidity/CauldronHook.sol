@@ -192,7 +192,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice A proposed successor controller, and when the swap becomes
     ///         executable. See {proposeRegistryOverride} (audit M-01).
     address public pendingRegistry;
-    uint256 public registrySwapReadyAt;
+    uint256 internal registrySwapReadyAt;
     /// @notice Mandatory announcement delay on a controller swap. Immutable by
     ///         being a constant: the owner cannot shorten their own notice period.
     uint256 public constant REGISTRY_SWAP_DELAY = 7 days;
@@ -206,6 +206,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      (3.4e20 ETH), so the narrowing is unreachable in practice and the add
     ///      below saturates rather than wrapping if it ever were.
     mapping(PoolId => uint128[24]) private _volumeBuckets;
+
     mapping(PoolId => uint256) private _lastBucketIndex;
     mapping(PoolId => uint256) private _lastUpdateTs;   // wall-clock (audit Z-05)
     mapping(PoolId => bool) public trackedPools;
@@ -242,11 +243,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     address public legacyRegistry;
     /// @notice Portion (bps) of the POST-guild fee routed to the legacy buyback
     ///         buffer instead of the floor vault. 0 = off.
-    uint256 public legacyBps;
+    uint256 internal legacyBps;
     /// @notice ETH accumulated toward the next legacy buyback.
     uint256 public legacyBuffer;
     /// @notice Buffer size that triggers a buyback (amortizes the nested-swap gas).
-    uint256 public legacyThreshold = 0.02 ether;
+    uint256 internal legacyThreshold = 0.02 ether;
     /// @notice The LIVE generation's PoolKey, pushed by the registry at each
     ///         summon/relaunch. The legacy buyback spends ONLY into this key (audit
     ///         C-01b) — never into the key of whatever swap triggered it, which an
@@ -309,7 +310,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         iteration #2 keeps minting the genesis MiFrens, which already has
     ///         1111 minted), its volume mints still start at curve position 0.
     ///         Fresh collections wire in at 0, so behaviour is unchanged.
-    uint256 public mintBaseline;
+    uint256 internal mintBaseline;
 
     /// @notice Cap NFTs minted per call (gas safety).
     uint256 public constant MAX_MINTS_PER_CALL = 30;
@@ -331,7 +332,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         uint16 resolved;     // how many rolled so far
     }
     Batch[] public batches;             // FIFO queue of commit batches
-    uint256 public batchCursor;         // index of the batch being resolved
+    uint256 internal batchCursor;         // index of the batch being resolved
     uint256 public outstandingCrystals; // unresolved crystals across all players
     mapping(address => uint256) public outstandingOf; // per-collection unresolved
     mapping(address => uint256) public opened;      // creatures a player has won (lifetime)
@@ -580,6 +581,19 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  so it lands on EITHER side. Recorded once at adoption and read from
     ///  there: deriving it per call site is how a buy gets counted as a sell.
     mapping(PoolId => bool) internal quoteIsCurrency0;
+
+    /// @notice Pools whose volume counts toward the SAME generation.
+    ///
+    ///  Death is measured on 24h volume, and a generation's liquidity can be
+    ///  split across more than one pool once the guild pairs it against a second
+    ///  quote. Read per-pool, the primary's volume can fall under the death
+    ///  threshold purely because trading moved to the sibling — relaunching a
+    ///  generation that is perfectly alive.
+    ///
+    ///  DECLARED LAST, deliberately. New storage goes at the END so existing
+    ///  slots keep their numbers; inserting it mid-layout renumbered everything
+    ///  after it and broke a test that writes `legacyOwedToReserve` by slot.
+    mapping(PoolId => PoolId[]) private _volumeSiblings;
 
 
     /**
@@ -1237,9 +1251,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice Link a secondary pool's volume to a generation's primary pool.
+    ///         Only the registry, which is what creates the pools, may do this.
+    function linkVolume(PoolId primary, PoolId secondary) external {
+        if (msg.sender != registry) revert OnlyRegistry();
+        PoolId[] storage sib = _volumeSiblings[primary];
+        // Idempotent: re-linking must not double-count the same pool forever.
+        for (uint256 i; i < sib.length; ++i) {
+            if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return;
+        }
+        sib.push(secondary);
+        emit VolumeLinked(primary, secondary);
+    }
+
+    event VolumeLinked(PoolId indexed primary, PoolId indexed secondary);
+
     function isDead(PoolId id) external view returns (bool) {
         if (!trackedPools[id]) return false;
+        //  A GENERATION's volume, not one pool's. Liquidity can be split across
+        //  quotes, and read per-pool the primary could fall under the threshold
+        //  purely because trading moved to the sibling — relaunching a
+        //  generation that is perfectly alive.
         uint256 vol = getVolume24h(id);
+        PoolId[] storage sib = _volumeSiblings[id];
+        for (uint256 i; i < sib.length; ++i) vol += getVolume24h(sib[i]);
         IDeathChecker checker = deathChecker;
         if (address(checker) != address(0)) {
             // Delegate to the pluggable rule. A reverting/mis-behaving module must

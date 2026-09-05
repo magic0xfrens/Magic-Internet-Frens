@@ -33,6 +33,24 @@ contract LegacySweepHandler is Test {
     FinalMockToken public tok;
     uint256 public constant SLOT_LEGACY_OWED = 27;
 
+    /// @dev The slot above is hardcoded, so ANY storage inserted before
+    ///      `legacyOwedToReserve` silently renumbers it and these tests start
+    ///      writing into an unrelated variable — they fail with a confusing
+    ///      arithmetic mismatch rather than "the layout moved". This asserts the
+    ///      slot still holds what we think it does before relying on it.
+    ///
+    ///      New hook storage must be appended at the END of the layout.
+    function _assertSlotIsLegacyOwed() internal {
+        uint256 probe = 123_456_789;
+        bytes32 prev = vm.load(address(hook), bytes32(SLOT_LEGACY_OWED));
+        vm.store(address(hook), bytes32(SLOT_LEGACY_OWED), bytes32(probe));
+        assertEq(
+            hook.legacyOwedToReserve(), probe,
+            "SLOT_LEGACY_OWED no longer points at legacyOwedToReserve - append new storage at the END"
+        );
+        vm.store(address(hook), bytes32(SLOT_LEGACY_OWED), prev);
+    }
+
     /// @notice Total the hook has ever handed to the registry via a sweep.
     uint256 public totalSwept;
     /// @notice Total ever recorded as owed (the sum of every `owed` we staged).
@@ -49,6 +67,7 @@ contract LegacySweepHandler is Test {
         uint256 a = bound(uint256(amount), 0, 1e24);
         tok.mint(address(hook), a);
         uint256 owed = hook.legacyOwedToReserve() + a;
+        _assertSlotIsLegacyOwed();
         vm.store(address(hook), bytes32(SLOT_LEGACY_OWED), bytes32(owed));
         totalStaged += a;
     }
@@ -58,6 +77,7 @@ contract LegacySweepHandler is Test {
     function desync(uint96 extraOwed) external {
         uint256 a = bound(uint256(extraOwed), 0, 1e24);
         uint256 owed = hook.legacyOwedToReserve() + a;
+        _assertSlotIsLegacyOwed();
         vm.store(address(hook), bytes32(SLOT_LEGACY_OWED), bytes32(owed));
         totalStaged += a;
     }
