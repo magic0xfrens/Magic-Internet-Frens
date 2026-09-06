@@ -1914,146 +1914,60 @@ function Styles() {
     .tc-propose__seg--pair { margin-bottom: 8px; flex-wrap: wrap; }
     .tc-propose__seg--pair button { font-size: 12px; letter-spacing: 0.02em; }
     .tc-propose__pair-blurb { margin: 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: ${C.mute}; }
-    /* TREASURY ROTATION — set apart from the proposal card because it moves
-       real liquidity rather than casting a vote. */
-    /* THE SPELLBOOK — every on-chain action, announced from the websocket as it
-       lands. Top-right: out of the way of the chart and the stat cards, which is
-       where earlier attempts kept landing. */
-    .tc-spell { position: fixed; top: 76px; right: 20px; display: flex; flex-direction: column; gap: 7px; z-index: 70; pointer-events: none; width: 232px; }
-    .tc-spell__row {
-      display: flex; align-items: center; gap: 9px;
-      padding: 9px 12px;
-      border-radius: 13px;
-      background: linear-gradient(135deg, rgba(30,22,58,0.94), rgba(14,11,26,0.94));
-      border: 1px solid rgba(168,140,255,0.16);
-      box-shadow: 0 8px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-      backdrop-filter: blur(16px) saturate(1.25);
-      animation: tcSpellIn 0.5s cubic-bezier(0.16,1,0.3,1);
-      transition: opacity 0.55s ease;
-      position: relative; overflow: hidden;
+    /* TREASURY DESK. A donut for what backs the pool, a dropdown that scales
+       past two assets, and steps that say WHY they are unavailable rather than
+       failing on click. */
+    .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 22px; margin-bottom: 18px; }
+    .tr-head { margin-bottom: 16px; }
+    .tr-title { font-family: "Cinzel", serif; font-size: 21px; margin: 4px 0 0; color: #f4f1ff; }
+
+    .tr-top { display: grid; grid-template-columns: 168px 1fr; gap: 22px; align-items: start; }
+    @media (max-width: 720px) { .tr-top { grid-template-columns: 1fr; } }
+
+    .tr-alloc { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .tr-alloc__ring { width: 148px; height: 148px; }
+    .tr-alloc__moved { transition: stroke-dasharray 0.45s cubic-bezier(0.16,1,0.3,1), stroke-dashoffset 0.45s cubic-bezier(0.16,1,0.3,1); }
+    .tr-alloc__big { font-family: "Cinzel", serif; font-size: 21px; fill: #f4f1ff; }
+    .tr-alloc__sub { font-family: "DM Mono", monospace; font-size: 9px; fill: rgba(255,255,255,0.42); letter-spacing: 0.14em; }
+    .tr-alloc__key { display: flex; flex-direction: column; gap: 5px; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; }
+    .tr-alloc__key span { display: flex; align-items: center; gap: 6px; }
+    .tr-alloc__key i { width: 8px; height: 8px; border-radius: 2px; }
+    .tr-alloc__key b { color: #efeaff; font-weight: 600; }
+
+    .tr-controls { display: flex; flex-direction: column; gap: 14px; }
+    .tr-field { display: flex; flex-direction: column; gap: 6px; }
+    .tr-field > span { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: ${C.mute}; }
+    .tr-field > span b { color: #efeaff; }
+    .tr-field em { font-style: normal; font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.mute}; opacity: 0.65; line-height: 1.45; }
+    .tr-field select, .tr-field input[type="number"] {
+      background: rgba(8,6,15,0.7); border: 1px solid rgba(255,255,255,0.09); border-radius: var(--r-sm);
+      padding: 9px 11px; color: #f4f1ff; font-family: "DM Mono", monospace; font-size: 12.5px; width: 100%;
     }
-    /* A thin rune-light down the left edge, tinted by what happened. */
-    .tc-spell__row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; }
-    .tc-spell__row.is-good::before  { background: linear-gradient(180deg, rgb(70,230,124), rgba(70,230,124,0.25)); box-shadow: 0 0 10px rgba(70,230,124,0.55); }
-    .tc-spell__row.is-bad::before   { background: linear-gradient(180deg, rgb(255,86,96), rgba(255,86,96,0.25)); box-shadow: 0 0 10px rgba(255,86,96,0.55); }
-    .tc-spell__row.is-magic::before { background: linear-gradient(180deg, rgb(196,142,255), rgba(196,142,255,0.25)); box-shadow: 0 0 10px rgba(196,142,255,0.55); }
-    .tc-spell__row.is-neutral::before { background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08)); }
-    .tc-spell__rune { font-size: 16px; line-height: 1; filter: drop-shadow(0 0 6px rgba(196,142,255,0.5)); }
-    .tc-spell__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-    .tc-spell__label { font-family: "Cinzel", serif; font-size: 11.5px; letter-spacing: 0.02em; color: #efe7ff; }
-    .is-good .tc-spell__label  { color: rgb(150,245,180); }
-    .is-bad .tc-spell__label   { color: rgb(255,140,148); }
-    .is-magic .tc-spell__label { color: rgb(214,178,255); }
-    .tc-spell__amt { font-size: 10.5px; opacity: 0.72; }
-    .tc-spell__x { font-family: "DM Mono", monospace; font-size: 10px; font-weight: 600; margin-right: 5px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.09); }
-    .tc-spell__who { font-size: 9px; opacity: 0.34; align-self: flex-start; padding-top: 2px; }
-    @keyframes tcSpellIn { from { opacity: 0; transform: translateX(26px) scale(0.94); } to { opacity: 1; transform: none; } }
-    @media (max-width: 860px) { .tc-spell { display: none; } }
+    .tr-field select { cursor: pointer; }
+    .tr-field input[type="range"] { accent-color: ${C.lime}; width: 100%; }
+    .tr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tr-suffix { position: relative; display: flex; align-items: center; }
+    .tr-suffix i { position: absolute; right: 11px; font-style: normal; font-family: "DM Mono", monospace; font-size: 11px; opacity: 0.4; }
 
-    /* INDEXER HEALTH. Most of the page reads from Ponder with no chain
-       fallback, so when it is behind the UI renders empty rather than wrong-
-       looking. This makes that state visible instead of silent. */
-    .tc-health { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 80; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; font-size: 11px; background: rgba(20,14,8,0.94); border: 1px solid rgba(246,200,106,0.3); color: #f6d9a0; backdrop-filter: blur(12px); box-shadow: 0 6px 22px rgba(0,0,0,0.5); }
-    .tc-health.is-down { border-color: rgba(255,86,96,0.35); color: #ffc9cd; background: rgba(28,10,12,0.94); }
-    .tc-health__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: tcHealthPulse 1.4s ease-in-out infinite; }
-    .tc-health b { font-weight: 500; opacity: 0.6; }
-    @keyframes tcHealthPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
-
-    /* THE GRIMOIRE — the full activity run, on demand. The toasts announce and
-       leave; this is where you look when something scrolled past. */
-    .tc-grim__tab {
-      position: fixed; right: 0; top: 50%; transform: translateY(-50%);
-      z-index: 75; display: flex; flex-direction: column; align-items: center; gap: 7px;
-      padding: 15px 8px; border: 1px solid rgba(168,140,255,0.2); border-right: none;
-      border-radius: 12px 0 0 12px; cursor: pointer;
-      background: linear-gradient(135deg, rgba(30,22,58,0.95), rgba(14,11,26,0.95));
-      backdrop-filter: blur(14px); color: #cbb6ff; font-family: "DM Mono", monospace;
-      transition: right 0.42s cubic-bezier(0.16,1,0.3,1), color 0.2s, border-color 0.2s;
+    .tr-steps { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 8px; }
+    .tr-steps li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .tr-steps button {
+      display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px;
+      padding: 11px 14px; border-radius: var(--r-sm); cursor: pointer; text-align: left;
+      background: rgba(213,253,81,0.08); border: 1px solid rgba(213,253,81,0.22); color: #f0f6dd;
+      font-family: "DM Sans", sans-serif; font-size: 12.5px; transition: background 0.16s, transform 0.16s;
     }
-    .tc-grim__tab:hover { color: #efe7ff; border-color: rgba(168,140,255,0.45); }
-    .tc-grim__tab.is-open { right: 320px; }
-    .tc-grim__tab-text { writing-mode: vertical-rl; font-size: 9px; letter-spacing: 0.24em; }
-    .tc-grim__tab-icon { font-size: 14px; line-height: 1; opacity: 0.7; }
-    .tc-grim__tab-count { font-size: 9px; padding: 2px 5px; border-radius: 6px; background: rgba(196,142,255,0.22); color: #d9c4ff; }
+    .tr-steps button:hover:not(:disabled) { background: rgba(213,253,81,0.16); transform: translateY(-1px); }
+    .tr-steps button:disabled { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.07); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+    .tr-steps__n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-family: "DM Mono", monospace; font-size: 10px; background: rgba(0,0,0,0.32); flex: none; }
+    .tr-steps__why { font-family: "DM Sans", sans-serif; font-size: 10.5px; color: #f6c86a; opacity: 0.8; }
 
-    .tc-grim {
-      position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 74;
-      display: flex; flex-direction: column;
-      background: linear-gradient(180deg, rgba(22,16,42,0.97), rgba(11,9,20,0.98));
-      border-left: 1px solid rgba(168,140,255,0.16);
-      backdrop-filter: blur(20px) saturate(1.2);
-      box-shadow: -18px 0 50px rgba(0,0,0,0.55);
-      transform: translateX(100%);
-      transition: transform 0.42s cubic-bezier(0.16,1,0.3,1);
-    }
-    .tc-grim.is-open { transform: none; }
-    .tc-grim__head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .tc-grim__eyebrow { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(196,142,255,0.75); margin-bottom: 5px; }
-    .tc-grim__title { font-family: "Cinzel", serif; font-size: 17px; margin: 0; color: #f2ecff; }
-    .tc-grim__close { background: none; border: none; color: rgba(255,255,255,0.34); font-size: 14px; cursor: pointer; padding: 2px 4px; }
-    .tc-grim__close:hover { color: #fff; }
+    .tr-gov { margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 14px; }
+    .tr-gov summary { font-family: "DM Mono", monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(196,142,255,0.85); cursor: pointer; }
+    .tr-gov p { font-family: "DM Sans", sans-serif; font-size: 11.5px; line-height: 1.6; color: ${C.mute}; margin: 10px 0 0; max-width: 640px; }
+    .tr-gov__gap { border-left: 2px solid rgba(246,200,106,0.4); padding-left: 11px; color: #e8d7b4; }
+    .tr-log { list-style: none; padding: 10px 12px; margin: 14px 0 0; background: rgba(0,0,0,0.28); border-radius: var(--r-sm); font-size: 11px; color: ${C.mute}; }
 
-    .tc-grim__list { flex: 1; overflow-y: auto; padding: 8px 10px 20px; scrollbar-width: thin; }
-    .tc-grim__list::-webkit-scrollbar { width: 5px; }
-    .tc-grim__list::-webkit-scrollbar-thumb { background: rgba(168,140,255,0.22); border-radius: 3px; }
-
-    .tc-grim__item { border-radius: 10px; overflow: hidden; margin-bottom: 2px; }
-    .tc-grim__item.is-expanded { background: rgba(255,255,255,0.035); }
-    /* A row is a BUTTON, not a link: clicking should open the detail, not leave
-       the page. The tx link lives inside, where it is an explicit choice. */
-    .tc-grim__row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; background: none; border: none; border-left: 2px solid transparent; text-align: left; cursor: pointer; color: inherit; transition: background 0.16s; }
-    .tc-grim__row:hover { background: rgba(255,255,255,0.05); }
-    .tc-grim__row.is-good  { border-left-color: rgba(70,230,124,0.75); }
-    .tc-grim__row.is-bad   { border-left-color: rgba(255,86,96,0.75); }
-    .tc-grim__row.is-magic { border-left-color: rgba(196,142,255,0.75); }
-    .tc-grim__row.is-neutral { border-left-color: rgba(255,255,255,0.18); }
-    .tc-grim__rune { font-size: 15px; flex: none; }
-    .tc-grim__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-    /* The ACTION reads first and plainly; the fren-speak is flavour beneath it. */
-    .tc-grim__verb { font-family: "DM Sans", sans-serif; font-size: 12.5px; font-weight: 600; color: #f0eaff; letter-spacing: 0.01em; }
-    .tc-grim__verb em { font-style: normal; opacity: 0.55; font-weight: 500; }
-    .is-good .tc-grim__verb  { color: rgb(150,245,180); }
-    .is-bad .tc-grim__verb   { color: rgb(255,140,148); }
-    .is-magic .tc-grim__verb { color: rgb(214,178,255); }
-    .tc-grim__flavour { font-family: "DM Sans", sans-serif; font-size: 10px; font-style: italic; opacity: 0.32; }
-    .tc-grim__right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
-    .tc-grim__amt { font-size: 11.5px; font-weight: 600; opacity: 0.9; }
-    .tc-grim__ago { font-size: 9px; opacity: 0.3; }
-    .tc-grim__chev { font-size: 8px; opacity: 0.25; flex: none; margin-left: 2px; }
-
-    .tc-grim__detail { padding: 4px 12px 12px 34px; display: flex; flex-direction: column; gap: 5px; animation: tcDetailIn 0.24s ease; }
-    .tc-grim__kv { display: flex; justify-content: space-between; gap: 12px; font-family: "DM Sans", sans-serif; font-size: 11px; }
-    .tc-grim__kv span:first-child { opacity: 0.38; }
-    .tc-grim__kv span:last-child { color: #e8e0ff; }
-    .tc-grim__tx { margin-top: 5px; font-family: "DM Mono", monospace; font-size: 10.5px; color: rgb(196,142,255); text-decoration: none; opacity: 0.85; }
-    .tc-grim__tx:hover { opacity: 1; text-decoration: underline; }
-    @keyframes tcDetailIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-
-    @media (max-width: 860px) { .tc-grim { width: 84vw; } .tc-grim__tab.is-open { right: 84vw; } }
-
-    /* PROGRESSIVE SEED — depth streams in, so show it filling. */
-    .tc-seed { margin-top: 10px; }
-    .tc-seed__row { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; margin-bottom: 5px; }
-    .tc-seed__track { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
-    .tc-seed__target { position: absolute; inset: 0 auto 0 0; background: rgba(255,255,255,0.14); transition: width 0.6s ease; }
-    .tc-seed__fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width 0.6s ease; }
-    .tc-seed__hint { font-size: 9.5px; opacity: 0.55; margin-top: 4px; }
-    .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 20px 22px; margin-bottom: 18px; }
-    .tc-rot__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .tc-rot__title { font-family: "Cinzel", serif; font-size: 20px; margin: 4px 0 0; color: #f4f1ff; }
-    .tc-rot__lead { font-family: "DM Sans", sans-serif; font-size: 12.5px; line-height: 1.6; color: ${C.mute}; margin: 10px 0 16px; max-width: 640px; }
-    .tc-rot__targets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-    .tc-rot__targets button { font-family: "DM Mono", monospace; font-size: 12px; color: ${C.mute}; background: rgba(8,6,15,0.5); border: 1px solid rgba(255,255,255,0.07); padding: 7px 13px; border-radius: var(--r-sm); cursor: pointer; transition: all 0.15s ease; }
-    .tc-rot__targets button:hover { color: #f4f1ff; border-color: rgba(255,255,255,0.16); }
-    .tc-rot__targets button.on { background: rgba(213,253,81,0.16); color: ${C.lime}; border-color: rgba(213,253,81,0.3); }
-    .tc-rot__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
-    .tc-rot__grid label { display: flex; flex-direction: column; gap: 5px; }
-    .tc-rot__grid input { background: rgba(8,6,15,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r-sm); padding: 9px 11px; color: #f4f1ff; font-family: "DM Mono", monospace; font-size: 13px; }
-    .tc-rot__steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .tc-rot__steps .tc-btn { font-size: 12px; padding: 9px 14px; }
-    .tc-rot__note { font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.55; color: ${C.mute}; opacity: 0.85; margin: 0; }
-    .tc-rot__log { list-style: none; padding: 10px 12px; margin: 12px 0 0; background: rgba(0,0,0,0.28); border-radius: var(--r-sm); font-size: 11px; color: ${C.mute}; }
-    .tc-rot__log li { padding: 2px 0; }
     .tc-perp-gate { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-sm); background: rgba(246,200,106,0.07); border: 1px solid rgba(246,200,106,0.22); }
     .tc-propose__pair-warn { margin: 8px 0 0; font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; color: #f6c86a; opacity: 0.92; }
     .tc-propose__err { font-family: "DM Sans", sans-serif; font-size: 10px; color: ${C.red}; margin-top: 3px; }
