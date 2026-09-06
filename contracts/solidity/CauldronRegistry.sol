@@ -218,17 +218,18 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///  known decimals. Where it can be paused or blacklisted by a third party —
     ///  true of most tokenized equities — that is a disclosed property of the
     ///  pair, not a surprise.
-    /// @notice Pull a measured share of the live pair's liquidity and hand the
-    ///         quote side to the rotator to convert. See RedemptionExt.
+    /// @notice Move ONE slice of liquidity into another quote: remove, swap and
+    ///         redeploy in a single transaction. See RedemptionExt.
     ///
     ///  Forwarded rather than implemented here: the registry sits against the
     ///  EIP-170 ceiling, and the facet already runs on this contract's storage
     ///  and custody under delegatecall.
-    function beginRotation(uint16, address) external returns (uint256) { _forwardToExt(); }
+    function rotateSlice(address, uint16, uint256, PoolKey calldata) external returns (uint256, uint256) {
+        _forwardToExt();
+    }
 
-    /// @notice Deploy converted proceeds as liquidity in the new pair and
-    ///         register it with the hook. See RedemptionExt.
-    function completeRotation(address, uint256, uint256) external returns (uint256) { _forwardToExt(); }
+    /// @notice Point the registry at its rotator. See RedemptionExt.
+    function setQuoteRotator(address) external { _forwardToExt(); }
 
     function setAllowedQuote(address quote, bool allowed) external onlyOwner {
         if (quote == address(0) && !allowed) revert NativeQuoteRequired();

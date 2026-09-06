@@ -216,6 +216,32 @@ contract QuoteRotator {
         emit Rotated(p.from, p.to, size, out, msg.sender);
     }
 
+    /**
+     * @notice Convert an exact amount, right now, in one call.
+     * @dev The plan machinery above schedules a conversion over hours. This is
+     *      the other shape: a single bounded slice, executed inside the caller's
+     *      transaction, so liquidity is removed and redeployed without ever
+     *      sitting idle between the two.
+     *
+     *      Owner-only because the caller decides the size and the floor — those
+     *      are exactly the two things a permissionless caller must not choose.
+     *      The owner is the registry, which derives both from governed limits.
+     */
+    function swapOnce(
+        PoolKey calldata route,
+        address from,
+        address to,
+        uint256 amountIn,
+        uint256 minOut
+    ) external onlyOwner returns (uint256 out) {
+        if (amountIn == 0) revert BadConfig();
+        if (!_allowed(to)) revert NotAllowedQuote();
+        if (!_routeMatches(route, from, to)) revert NoRoute();
+        out = _swap(route, from, to, amountIn);
+        if (out < minOut) revert SlippageTooHigh();
+        emit Rotated(from, to, amountIn, out, msg.sender);
+    }
+
     // -----------------------------------------------------------------------
     // Custody
     // -----------------------------------------------------------------------

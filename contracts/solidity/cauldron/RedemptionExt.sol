@@ -6,6 +6,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {PoolOps, IPositionManagerOps, ReserveRef} from "./PoolOps.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
 
 /**
@@ -37,6 +38,12 @@ import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
  *  Behaviour is byte-for-byte the pre-split monolith; only the location changed.
  */
 /// @notice The hook's generation-volume registration.
+interface IQuoteRotator {
+    function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut)
+        external returns (uint256);
+    function withdraw(address asset, address to, uint256 amount) external;
+}
+
 interface IHookVolume {
     function linkVolume(PoolId primary, PoolId secondary) external;
 }
@@ -170,45 +177,95 @@ contract RedemptionExt is CauldronBase {
     // -----------------------------------------------------------------------
 
     /**
-     * @notice Withdraw a measured share of the LIVE pair's liquidity and hand the
-     *         quote side to the rotator to convert.
+     * @notice Move ONE slice of liquidity from the live pair into another quote,
+     *         end to end, in a single transaction.
      *
-     *  Step one of the fund-manager path. The TOKEN side deliberately stays with
-     *  the registry: it is the same token in either pair, so there is nothing to
-     *  convert and moving it would only add a hop and a custody boundary.
+     *  Remove a chunk -> swap it -> redeploy it. Liquidity is out of the market
+     *  only for the few opcodes between those three steps, never between
+     *  transactions.
      *
-     *  This does NOT create the destination pool. A rotation runs over hours in
-     *  slices and the amount of new quote it yields is not known until it
-     *  finishes, so committing to a pool price up front would mean guessing it.
-     *  Seeding happens afterwards, against the amount actually received.
+     *  THIS REPLACED A TWO-PHASE DESIGN and the reason matters. That version
+     *  pulled the whole rotation (say 30% of the pool) out in one call, parked
+     *  it in the rotator, and converted it over hours. For those hours nearly a
+     *  third of the pool's depth simply was not there: every trader ate worse
+     *  execution, the price moved further on the same flow, and the protocol
+     *  earned nothing on the idle balance. Slicing the WHOLE cycle instead of
+     *  just the swap keeps the pool whole throughout.
      *
-     *  Lives in this facet rather than the registry purely for EIP-170 headroom;
-     *  under delegatecall it runs on the registry's storage and custody, so the
-     *  liquidity and the recovered assets never leave the registry's control.
+     *  Repeat this call to rotate further. Each one is independently bounded, so
+     *  there is no long-lived pending state to unwind if the guild changes its
+     *  mind — it simply stops calling.
+     *
+     * @param toQuote   destination asset; must be on the registry's allowlist
+     * @param sliceBps  share of CURRENT liquidity to move (capped below)
+     * @param minOut    floor on the swap, set from the market by the caller
+     * @param route     the pool to trade through
      */
-    /// @param rotator Where to send the proceeds. Pass address(0) to reuse the
-    ///        currently configured rotator; passing a new one re-points it. The
-    ///        setter is folded in here rather than standing alone because the
-    ///        registry has no dispatcher budget for a separate entry.
-    function beginRotation(uint16 bps, address rotator) external onlyOwner returns (uint256 quoteOut) {
-        if (rotator != address(0)) { quoteRotator = rotator; emit QuoteRotatorSet(rotator); }
+    function rotateSlice(
+        address toQuote,
+        uint16 sliceBps,
+        uint256 minOut,
+        PoolKey calldata route
+    ) external onlyOwner returns (uint256 moved, uint256 positionId) {
         address rot = quoteRotator;
         if (rot == address(0)) revert NotConfigured();
+        if (!allowedQuote[toQuote]) revert NotConfigured();
+        //  A slice is a SLICE. Capped well below the 50% removal limit so no
+        //  single call can take a meaningful bite out of live depth, and so the
+        //  swap it performs stays small enough not to move the route's price.
+        if (sliceBps == 0 || sliceBps > MAX_SLICE_BPS) revert BadConfig();
 
         uint256 gen = currentGeneration;
-        address quote = generationQuote[gen];
+        address fromQuote = generationQuote[gen];
+        address token = generationToken[gen];
 
-        (quoteOut, ) = PoolOps.removePartial(
+        // 1. Take the slice out of the live pair. The position survives — this
+        //    is a reallocation, not an exit.
+        (uint256 quoteOut, uint256 tokenOut) = PoolOps.removePartial(
             IPositionManagerOps(address(positionManager)),
             generationPositionId[gen],
             generationPoolKey[gen],
-            generationToken[gen],
-            quote,
-            bps
+            token,
+            fromQuote,
+            sliceBps
         );
-        if (quoteOut > 0) PoolOps.sendAsset(quote, rot, quoteOut);
-        emit RotationBegun(gen, quote, quoteOut, bps);
+        if (quoteOut == 0 || tokenOut == 0) revert BadConfig();
+
+        // 2. Convert the quote side. The token side is the same asset in either
+        //    pair, so it needs no conversion and never leaves this contract.
+        PoolOps.sendAsset(fromQuote, rot, quoteOut);
+        moved = IQuoteRotator(rot).swapOnce(route, fromQuote, toQuote, quoteOut, minOut);
+        IQuoteRotator(rot).withdraw(toQuote, address(this), moved);
+
+        // 3. Redeploy immediately into the destination pair, opening it on the
+        //    first slice and topping it up on every later one.
+        PoolId poolId;
+        (poolId, positionId) = PoolOps.openOrAddPair(
+            poolManager,
+            IPositionManagerOps(address(positionManager)),
+            address(hook),
+            token,
+            toQuote,
+            moved,
+            tokenOut,
+            TICK_SPACING,
+            POOL_FEE
+        );
+
+        // Count the new pair toward this generation, or splitting liquidity
+        // would read as the generation dying.
+        IHookVolume(address(hook)).linkVolume(generationPoolId[gen], poolId);
+        emit SliceRotated(gen, fromQuote, toQuote, quoteOut, moved, sliceBps);
     }
+
+    /// @dev Ceiling on a single slice. Small on purpose: the point of slicing is
+    ///      that no one call meaningfully thins the pool or moves the route.
+    uint16 internal constant MAX_SLICE_BPS = 500; // 5%
+
+    event SliceRotated(
+        uint256 indexed gen, address indexed from, address indexed to,
+        uint256 quoteIn, uint256 quoteOut, uint16 sliceBps
+    );
 
     event QuoteRotatorSet(address rotator);
     event RotationBegun(uint256 indexed gen, address indexed quote, uint256 amount, uint16 bps);
