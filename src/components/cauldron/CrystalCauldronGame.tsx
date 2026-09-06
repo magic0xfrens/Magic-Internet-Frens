@@ -377,7 +377,17 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       <div className="ccg-vault">
         <div className="ccg-vault-head">
           <span>Your crystals</span>
-          <span className="ccg-vault-n">{sealed.length} sealed</span>
+          <span className="ccg-vault-n">
+            {sealed.length} sealed
+            {/* Only with MORE than one: "Open all 1" is noise. */}
+            {sealed.length > 1 && (
+              <button className="ccg-openall" disabled={busy} onClick={doOpenAll}>
+                {phase === "opening" && openingId.current === null
+                  ? "Opening…"
+                  : `Open all ${sealed.length}`}
+              </button>
+            )}
+          </span>
         </div>
         {vault.length === 0 ? (
           <div className="ccg-vault-empty">No crystals yet — spin to summon your first.</div>
