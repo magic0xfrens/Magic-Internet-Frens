@@ -160,3 +160,55 @@ permissionlessly in slices within it.
 4. **Governor proposal types** — diversify / consolidate / rebalance.
 5. **Tests throughout.** `TreasuryGovernor` currently has none, and voting maths
    is the last thing that should ship on inspection alone.
+
+
+---
+
+## The fee basket — an unfinished path, found by asking the right question
+
+"Where do fees go when a generation trades in several quotes?" turns out to be
+the gap that blocks multi-quote in production. Verified in the code, not assumed:
+
+- The fee is TAKEN in the quote — `poolManager.take(quoteIsCurrency0 ? c0 : c1, …)`
+  is already currency-agnostic. So a USDG pool collects **USDG** fees. Correct.
+- Every fee is then ROUTED with `.call{value:}` — the guild dividend, the floor
+  vault, the perp stakers, the surtax. Five sites, all native ETH.
+- `MiFrensDividend` accrues in `receive() external payable`. It can only ever
+  hold ETH.
+
+So a USDG-quoted generation would collect USDG and be unable to distribute it.
+The fee take was generalised; the fee *distribution* was not.
+
+### The floor is fine
+
+The collection floor already becomes **token buy pressure** rather than banked
+quote: the floor share routes to the buyback buffer and market-buys the
+iteration token. That path is quote-agnostic in intent — it just needs
+`legacyBuyStep` generalised, which is already flagged and deliberately gated to
+ETH pools today.
+
+### The dividend is the hard part
+
+Three shapes, and the third is almost certainly right:
+
+1. **Convert everything to ETH at collection.** Simple, keeps `MiFrensDividend`
+   untouched — but it sells the basket at whatever price the moment produces,
+   and burns gas on a swap per fee.
+2. **A dividend per asset.** Honest, and it makes claiming N transactions and the
+   UI N times harder. Also strands dust in assets nobody wants to claim.
+3. **One accumulator, USD-denominated, paid in a chosen asset.** Track each
+   holder's entitlement in USD via the same oracle the volume accounting uses,
+   and let a claim be settled in whichever basket asset the treasury is longest.
+   Tracking stays a single number per holder however many pools exist, and the
+   composition question moves from accounting into settlement, where it belongs.
+
+Option 3 also answers "how does this stay clean when pool composition changes and
+different pools generate different volumes" — it does not track composition at
+all. It tracks value, which is invariant to where the volume came from.
+
+### Ordering
+
+This is a prerequisite for a live non-ETH generation, not an enhancement. The
+perp engine already refuses non-ETH generations for exactly the same reason —
+its collateral and payouts are native — and the dividend needs the same honesty
+until it is fixed.
