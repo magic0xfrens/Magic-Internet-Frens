@@ -53,7 +53,37 @@ Robinhood Chain has Chainlink feeds for all 95 stock tokens, and the L2 sequence
 uptime feed must be checked alongside them — a stale price during a sequencer
 outage is exactly when an arb bound would be wrong.
 
-### 2. Volume — measure the TOKEN side, not the quote
+### 2. Volume in USD — `QuoteOracle` (BUILT)
+
+Everything downstream of volume is denominated in ETH today: `deathThreshold`
+(1 ether) and `volumePerNFT` (0.02 ether). With one quote that is fine. With two
+it is incoherent — a fren's mint-out cost would depend on which pool you happened
+to trade in, and death would sum figures 1e12 apart.
+
+**USD is the common denominator that makes multi-pool actually work.** A fren
+costs $X of volume wherever it was earned; a generation is dead below $Y/day
+across all its pools.
+
+`QuoteOracle` returns USD per RAW unit scaled 1e18, so a caller does
+`usdVolume = rawVolume * factor / 1e18` with no decimals handling at the call
+site — getting decimals wrong per call site is the bug it exists to remove.
+
+It REFUSES to answer (returns 0) when: no feed, the answer is stale past its
+heartbeat, the answer is non-positive, or the L2 sequencer is down or only just
+back. Callers must read 0 as "cannot judge", never "no volume" — death is
+irreversible, so the failure direction is toward ALIVE.
+
+**This reverses my earlier position, and the earlier reasoning was wrong.** I
+argued an oracle on death detection was a manipulation surface. That conflated
+deriving a price from our own thin pools (manipulable) with a Chainlink feed
+aggregated off-chain across venues (not manipulable by any flash loan). The
+governance scalar's real property was never safety — it was staleness.
+
+Still to do: re-denominate `deathThreshold` and `volumePerNFT` in USD and wire
+the hook to the oracle. That is the same re-denomination flagged below, now with
+a correct source for the conversion.
+
+### 2b. Volume — token-side alternative (rejected in favour of USD)
 
 > **Attempted, reverted, and worth knowing why.** The switch itself is three
 > lines and works: a fork test proves a 6-decimal-quoted pool reports
