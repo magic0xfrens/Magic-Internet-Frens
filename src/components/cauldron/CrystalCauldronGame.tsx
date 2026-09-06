@@ -74,7 +74,7 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const pub = usePublicClient({ chainId: CAULDRON.chainId });
-  const { spin, reveal, isPending, reset } = useCauldronSwap();
+  const { spin, reveal, revealMany, isPending, reset } = useCauldronSwap();
 
   const [stake, setStake] = useState(0.03);
   const [loops, setLoops] = useState(3);
@@ -173,6 +173,56 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       reset();
     }
   }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, address, refOpened, refMiss, refProg, onBought, reset]);
+
+  /**
+   * Open EVERY sealed crystal in one transaction.
+   *
+   * Opening was per-crystal, so a wallet holding thirty paid thirty base fees to
+   * see what it already owned — measured at 39% cheaper batched. The contract
+   * caps a batch at 50 and `revealMany` chunks past that, so a holder never has
+   * to know the limit exists.
+   */
+  const doOpenAll = useCallback(async () => {
+    setErr("");
+    if (!collection) { setErr("No collection yet"); return; }
+    if (!pub) { setErr("No RPC client"); return; }
+    const ids = vault.filter((c) => !c.revealed).map((c) => c.tokenId);
+    if (ids.length === 0) return;
+
+    action.current = "open";
+    openingId.current = null;
+    setPhase("opening");
+    try {
+      const hashes = await revealMany(collection, ids);
+      // Wait on the LAST receipt: chunks are sent in order, so the final one
+      // landing means every earlier chunk already did.
+      const last = hashes[hashes.length - 1];
+      if (last) {
+        const rcpt = await pub.waitForTransactionReceipt({ hash: last, timeout: 120_000 });
+        if (rcpt.status === "reverted") {
+          setErr("Open reverted on-chain.");
+          setPhase("idle");
+          return;
+        }
+      }
+      setVault((v) => v.map((c) => (c.revealed ? c : { ...c, revealed: true })));
+      setPhase("opened");
+
+      // Pull each creature's real art. Failures are per-token and silent: one
+      // unreachable tokenURI must not blank the whole vault.
+      for (const id of ids) {
+        pub.readContract({ address: collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [id] })
+          .then((uri) => {
+            const { image, name } = imageFromTokenURI(uri as string);
+            setVault((v) => v.map((c) => (c.tokenId === id ? { ...c, image, name } : c)));
+          })
+          .catch(() => {});
+      }
+    } catch (e) {
+      setErr((e as Error)?.message?.slice(0, 120) ?? "Open failed");
+      setPhase("idle");
+    }
+  }, [collection, pub, vault, revealMany]);
 
   const doOpen = useCallback(async (id: bigint) => {
     setErr("");
@@ -440,7 +490,17 @@ const css = (col: string) => `
 
   .ccg-vault { margin: 14px 0 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; }
   .ccg-vault-head { display: flex; justify-content: space-between; align-items: baseline; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.cream}; margin-bottom: 9px; }
-  .ccg-vault-n { color: ${col}; }
+  .ccg-vault-n { color: ${col}; display: inline-flex; align-items: center; gap: 9px; }
+  /* Sits beside the sealed count, where the number that motivates it already is. */
+  .ccg-openall {
+    font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.04em;
+    padding: 4px 10px; border-radius: 999px; cursor: pointer;
+    color: ${col}; background: color-mix(in srgb, ${col} 14%, transparent);
+    border: 1px solid color-mix(in srgb, ${col} 34%, transparent);
+    transition: background 0.16s, transform 0.16s;
+  }
+  .ccg-openall:hover:not(:disabled) { background: color-mix(in srgb, ${col} 24%, transparent); transform: translateY(-1px); }
+  .ccg-openall:disabled { opacity: 0.4; cursor: not-allowed; }
   .ccg-vault-empty { font-family: "DM Sans", sans-serif; font-size: 11px; color: ${C.mute}; text-align: center; padding: 10px 0; opacity: 0.8; }
   .ccg-vault-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .ccg-cry { position: relative; border-radius: var(--r-sm); padding: 7px; background: rgba(8,6,15,0.45); border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; gap: 5px; }
