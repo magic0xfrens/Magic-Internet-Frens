@@ -102,8 +102,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         in the engine. NOTE: keep this NON-tax-exempt so perp swaps still
     ///         pay the hook fee into the OG dividend.
     address internal nftBeneficiary;
-    uint256 public openFeeBps = 690;
-    uint256 public ogDiscountBps = 5_000;
+    uint256 internal openFeeBps = 690;
+    uint256 internal ogDiscountBps = 5_000;
     uint256 public liqPenaltyBps = 690;
     uint256 public divShareBps = 6_000;
     // Liquidator's cut of the penalty. 145 bps × the 6.9% penalty ≈ 0.1% of the
@@ -204,7 +204,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         the PLV as LP yield (raises share price), and `insuranceBps` funds
     ///         the buffer. The remainder splits dividend/treasury as before.
     uint256 public vaultYieldBps = 3_000;     // 30% of routed fees → LP yield
-    uint256 public insuranceBps = 1_000;      // 10% of routed fees → insurance
+    uint256 internal insuranceBps = 1_000;      // 10% of routed fees → insurance
     /// @notice Max share of vault assets lent to traders (per side). The rest is
     ///         always instantly withdrawable — the LP liquidity buffer. (80%)
     uint256 public maxUtilBps = 8_000;
@@ -1394,6 +1394,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         shorts. Buys reward ETH stakers, sells reward token stakers — the hook
     ///         splits by direction. Pure accounting, safe to nest mid-swap.
     function creditPerpFeeToken() external payable { _creditPerp(false); }
+
+    /**
+     * @notice Pull a non-native perp fee the hook has approved to this engine.
+     * @dev PULL rather than push, because a balance cannot distinguish a fee
+     *      from a stray transfer — and a stray would silently inflate the PLV,
+     *      diluting every staker. The hook approves, then calls this.
+     */
+    function creditPerpFeeAsset(address asset, uint256 amount) external {
+        if (msg.sender != hookAddr) revert OnlyHook();
+        // Only the asset this book is denominated in; anything else cannot be
+        // credited to a plv/tokYield figure measured in the quote.
+        if (asset != quote || asset == address(0)) revert BadParam();
+        _pullQuote(msg.sender, amount);
+        plv += amount;
+        emit VaultFunded(true, amount);
+    }
 
     function _creditPerp(bool ethSide) private {
         if (msg.sender != hookAddr) revert OnlyHook();

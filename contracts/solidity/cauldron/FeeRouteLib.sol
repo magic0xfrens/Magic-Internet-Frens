@@ -28,6 +28,88 @@ pragma solidity ^0.8.26;
  *  in practice, leave the fee buffered and try again next swap.
  */
 library FeeRouteLib {
+    //  Declared here so they can be emitted from inside a delegatecall — logs
+    //  are attributed to the HOOK, so an indexer sees no difference.
+    event GuildFunded(address indexed guild, uint256 amount);
+    event FloorFunded(address indexed vault, uint256 amount);
+
+    /**
+     * @notice Route a fee's guild and floor shares in one call.
+     *
+     *  ONE ENTRY POINT RATHER THAN TWO SENDS, because the cost of this
+     *  refactor is the CALL SITES, not the logic. Converting five sites
+     *  individually measured 566 bytes over EIP-170 against 30 of headroom;
+     *  each site pays to encode arguments and decode a result. Collapsing the
+     *  sends that always happen together is what makes it fit.
+     *
+     * @return leftover the portion that could not be delivered, for the caller
+     *         to buffer. Nothing here reverts: this runs inside a swap.
+     */
+    function routeSplit(
+        address asset,
+        address guild,
+        address vault,
+        uint256 toGuild,
+        uint256 toFloor
+    ) external returns (uint256 leftover) {
+        if (toGuild > 0) {
+            if (guild != address(0) && _move(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
+            else leftover += toGuild;
+        }
+        if (toFloor > 0) {
+            if (vault != address(0) && _move(asset, vault, toFloor)) emit FloorFunded(vault, toFloor);
+            else leftover += toFloor;
+        }
+    }
+
+    /**
+     * @notice Route a perp fee: a share to the guild, the rest to the stakers
+     *         on the side whose trade produced it.
+     * @param nativeSel entrypoint when the fee is native (value-bearing).
+     * @param assetSel  pull entrypoint when it is an ERC20.
+     */
+    function routePerp(
+        address asset,
+        address guild,
+        address engine,
+        uint256 toGuild,
+        uint256 toStakers,
+        bytes4 nativeSel,
+        bytes4 assetSel
+    ) external returns (uint256 leftover) {
+        if (toGuild > 0) {
+            if (guild != address(0) && _move(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
+            else leftover += toGuild;
+        }
+        if (toStakers > 0 && !_deliver(asset, engine, toStakers, nativeSel, assetSel)) {
+            leftover += toStakers;
+        }
+    }
+
+    function _move(address asset, address to, uint256 amount) private returns (bool ok) {
+        if (asset == address(0)) { (ok, ) = to.call{value: amount}(""); return ok; }
+        (bool called, bytes memory ret) = asset.call(
+            abi.encodeWithSignature("transfer(address,uint256)", to, amount)
+        );
+        return called && (ret.length == 0 || abi.decode(ret, (bool)));
+    }
+
+    function _deliver(address asset, address to, uint256 amount, bytes4 nativeSel, bytes4 assetSel)
+        private
+        returns (bool ok)
+    {
+        if (asset == address(0)) {
+            (ok, ) = to.call{value: amount}(abi.encodeWithSelector(nativeSel));
+            return ok;
+        }
+        (bool approved, ) = asset.call(abi.encodeWithSignature("approve(address,uint256)", to, amount));
+        if (!approved) return false;
+        (ok, ) = to.call(abi.encodeWithSelector(assetSel, asset, amount));
+        // Leave no standing allowance: an approval that outlives its purpose is
+        // a permission nobody is tracking.
+        if (!ok) asset.call(abi.encodeWithSignature("approve(address,uint256)", to, uint256(0)));
+    }
+
     /**
      * @notice Send `amount` of `asset` to `to`.
      * @param asset `address(0)` for native.

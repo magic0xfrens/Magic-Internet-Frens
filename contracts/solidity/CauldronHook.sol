@@ -23,6 +23,7 @@ import {ICauldronCollection} from "./cauldron/ICauldron.sol";
 import {IDeathChecker} from "./cauldron/IDeathChecker.sol";
 import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/IPolicies.sol";
 import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
+import {FeeRouteLib} from "./cauldron/FeeRouteLib.sol";
 
 /// @notice The hook-native perp engine — auto-liquidated from afterSwap.
 /// @notice The registry's treasury-curated quote allowlist. The hook reads it to
@@ -63,6 +64,9 @@ interface IPerpForceClose {
 interface IPerpFeeCredit {
     function creditPerpFee() external payable;
     function creditPerpFeeToken() external payable;
+    /// Pull entrypoint for a non-native fee: the engine takes `amount` of
+    /// `asset` from this hook, which approved it first.
+    function creditPerpFeeAsset(address asset, uint256 amount) external;
 }
 
 /// @notice The progressive seeder's IN-SWAP nudge. `pokeInSwap` adds the streamed
@@ -587,6 +591,14 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  there: deriving it per call site is how a buy gets counted as a sell.
     mapping(PoolId => bool) internal quoteIsCurrency0;
 
+    /// @dev The asset the fee currently being routed was collected in.
+    ///
+    ///  Set by the fee take, read by the routing. A transient field rather than
+    ///  a parameter threaded through every helper: this hook is against the
+    ///  EIP-170 ceiling, and the extra argument at each site costs more than
+    ///  the slot.
+    address internal _feeAsset;
+
     /// @notice Prices volume in USD so every pool counts the same. Unset means
     ///         quote-side accounting, which is correct while a generation trades
     ///         in exactly one quote.
@@ -1052,19 +1064,13 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     function _routePerpFee(uint256 amount, bool isBuy) private {
         uint256 toGuild = (amount * 3000) / BPS;   // 30% → OGs
         uint256 toStakers = amount - toGuild;      // 70% → the side-attributed stakers
-        uint256 leftover;
-        if (toGuild > 0 && guild != address(0)) {
-            (bool okG, ) = guild.call{value: toGuild}("");
-            if (okG) emit GuildFunded(guild, toGuild); else leftover += toGuild;
-        } else { leftover += toGuild; }
-        if (toStakers > 0) {
-            // Buy (ETH→token, ~long activity) → ETH stakers; sell (token→ETH, ~short
-            // activity) → token stakers. Fee follows the side whose trade drove it.
-            bytes4 sel = isBuy ? IPerpFeeCredit.creditPerpFee.selector : IPerpFeeCredit.creditPerpFeeToken.selector;
-            (bool okS, ) = perpEngine.call{value: toStakers}(abi.encodeWithSelector(sel));
-            if (!okS) leftover += toStakers;
-        }
-        relaunchETH += leftover;
+        // Buy (quote→token, ~long activity) → quote stakers; sell → token
+        // stakers. The fee follows the side whose trade drove it.
+        relaunchETH += FeeRouteLib.routePerp(
+            _feeAsset, guild, perpEngine, toGuild, toStakers,
+            isBuy ? IPerpFeeCredit.creditPerpFee.selector : IPerpFeeCredit.creditPerpFeeToken.selector,
+            IPerpFeeCredit.creditPerpFeeAsset.selector
+        );
     }
 
     function _routeEthFee(uint256 feeAmount) private {
@@ -1127,26 +1133,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
         // Do the sends. A rejecting guild/floor sink is caught and its share rolls
         // into the relaunch reserve, so a swap can never brick on the fee routing.
-        uint256 leftover = 0;
-        if (wantGuild > 0 && guild != address(0)) {
-            (bool okG, ) = guild.call{value: wantGuild}("");
-            if (okG) emit GuildFunded(guild, wantGuild);
-            else leftover += wantGuild;
-        } else { leftover += wantGuild; }
-        if (wantFloor > 0) {
-            if (vault != address(0)) {
-                (bool okF, ) = vault.call{value: wantFloor}("");
-                if (okF) emit FloorFunded(vault, wantFloor);
-                else leftover += wantFloor;
-            } else if (legacyRegistry != address(0)) {
-                // FULL-UNIFY (no ETH vault): the floor share joins the legacy buffer
-                // → a market-buy of the token that backs the live collection's floor.
-                legacyBuffer += wantFloor;
-            } else {
-                leftover += wantFloor; // no vault + no buyback → fold into relaunch
-            }
+        //  FULL-UNIFY (no ETH vault): the floor share joins the legacy buffer
+        //  instead — a market-buy of the token that backs the live collection's
+        //  floor. Decided BEFORE routing, since in that case there is nothing to
+        //  send and the library must not be asked to send it.
+        uint256 toFloor = wantFloor;
+        if (wantFloor > 0 && vault == address(0)) {
+            toFloor = 0;
+            if (legacyRegistry != address(0)) legacyBuffer += wantFloor;
+            else wantRelaunch += wantFloor; // no vault + no buyback → fold into relaunch
         }
-        relaunchETH += wantRelaunch + leftover;
+        relaunchETH += wantRelaunch
+            + FeeRouteLib.routeSplit(_feeAsset, guild, vault, wantGuild, toFloor);
     }
 
     /// @notice Anti-sniper surtax (bps) for a pool at the CURRENT block. Peaks at
@@ -1232,7 +1230,13 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
         // Take the fee on the QUOTE side, whichever currency that is. `take`
         // is currency-agnostic; only the choice of side needed generalising.
-        poolManager.take(quoteIsCurrency0[id] ? key.currency0 : key.currency1, address(this), total);
+        //  RECORD WHAT WE JUST COLLECTED, before routing any of it. Every send
+        //  below reads this; leaving it stale would route a USDG fee as if it
+        //  were ETH, which on a native send means transferring value the hook
+        //  does not have and on an ERC20 send means moving the wrong token.
+        Currency feeCur = quoteIsCurrency0[id] ? key.currency0 : key.currency1;
+        _feeAsset = Currency.unwrap(feeCur);
+        poolManager.take(feeCur, address(this), total);
         // PERP-swap fees (sender == the engine) reward the OGs + the people funding
         // the perps (30% dividend / 70% ETH PLV) instead of the collection floor —
         // perp volume feeds the perp stakers. All other swaps route normally.
@@ -1242,7 +1246,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         }
         if (surtax > 0) {
             if (guild != address(0)) {
-                (bool ok, ) = guild.call{value: surtax}("");
+                bool ok = FeeRouteLib.routeSplit(_feeAsset, guild, address(0), surtax, 0) == 0;
                 if (ok) emit GuildFunded(guild, surtax);
                 else _routeEthFee(surtax); // fallback if guild rejects
             } else {

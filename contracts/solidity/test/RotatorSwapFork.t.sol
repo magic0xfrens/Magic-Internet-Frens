@@ -32,6 +32,17 @@ contract RegistryStub {
  *  to do with this contract, and would make a failure ambiguous.
  *
  *  Skips cleanly without FORK_RPC.
+ *
+ *  ── This suite depends on a pool WE DO NOT OWN ─────────────────────────────
+ *  It trades through a third-party Sepolia pool, so it can fail for reasons
+ *  that have nothing to do with this code: the pool has since been drained to
+ *  zero liquidity, and every swap here now reverts CurrencyNotSettled because
+ *  there is nothing to trade against.
+ *
+ *  Verified by stashing all local changes and re-running: identical failures.
+ *  Left as-is rather than silently repointed at another pool — the assertion
+ *  that the route is live and deep is doing its job, and a suite that quietly
+ *  hops venues to stay green is worse than one that tells you its fixture died.
  */
 contract RotatorSwapForkTest is Test {
     using PoolIdLibrary for PoolKey;
