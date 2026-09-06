@@ -35,14 +35,13 @@ contract RegistryStub {
  *
  *  ── This suite depends on a pool WE DO NOT OWN ─────────────────────────────
  *  It trades through a third-party Sepolia pool, so it can fail for reasons
- *  that have nothing to do with this code: the pool has since been drained to
- *  zero liquidity, and every swap here now reverts CurrencyNotSettled because
- *  there is nothing to trade against.
+ *  that have nothing to do with this code — the previous route drained to zero
+ *  and every swap began reverting CurrencyNotSettled.
  *
- *  Verified by stashing all local changes and re-running: identical failures.
- *  Left as-is rather than silently repointed at another pool — the assertion
- *  that the route is live and deep is doing its job, and a suite that quietly
- *  hops venues to stay green is worse than one that tells you its fixture died.
+ *  When that happens, `test_RouteIsLiveAndDeep` is the one to read first: it
+ *  fails with "has liquidity to trade against" and tells you the fixture died
+ *  rather than the code. Re-scan for a deep hookless ETH pool and repoint
+ *  TOKEN/FEE/SPACING.
  */
 contract RotatorSwapForkTest is Test {
     using PoolIdLibrary for PoolKey;
@@ -53,9 +52,17 @@ contract RotatorSwapForkTest is Test {
     QuoteRotator rot;
     RegistryStub reg;
 
-    /// ETH/C1WWH, fee 3000, spacing 60, hookless. ~688e18 liquidity.
-    address constant TOKEN = 0x92B637d3De3587394664d5036e69399d8060C9c2;
-    uint24 constant FEE = 3000;
+    //  ETH/LABRAT, fee 10000, spacing 60, hookless.
+    //
+    //  Repointed after the previous route (ETH/C1WWH) drained to zero and every
+    //  swap here began reverting CurrencyNotSettled. Chosen by scanning 120k
+    //  blocks of v4 Initialize events, filtering to ETH-paired and HOOKLESS —
+    //  a hooked route can reject a swap for reasons that have nothing to do
+    //  with this contract — and reading each pool's live liquidity out of
+    //  PoolManager storage. This one carries ~5.8e23, about 840x the pool it
+    //  replaces, so it should outlast the previous fixture by a wide margin.
+    address constant TOKEN = 0x2eB976cf86670643EC0A040DF7FDB32a4ab9BDDB;
+    uint24 constant FEE = 10000;
     int24 constant SPACING = 60;
 
     function setUp() public {
