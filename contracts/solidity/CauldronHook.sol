@@ -629,6 +629,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  after it and broke a test that writes `legacyOwedToReserve` by slot.
     mapping(PoolId => PoolId[]) private _volumeSiblings;
 
+    /// @dev Most pools one generation may trade across, beyond the primary.
+    ///      isDead loops this list and relaunch depends on isDead, so unbounded
+    ///      means a generation that can never be declared dead.
+    uint256 internal constant MAX_SIBLINGS = 9;
+
 
     /**
      * @dev afterSwap: record volume + take tiered fee via return delta.
@@ -1303,6 +1308,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     function linkVolume(PoolId primary, PoolId secondary) external {
         if (msg.sender != registry) revert OnlyRegistry();
         PoolId[] storage sib = _volumeSiblings[primary];
+        //  BOUNDED. isDead loops this list on every death check, and relaunch
+        //  depends on isDead — so an unbounded list is a gas ceiling that ends
+        //  with a generation that can never be declared dead and never
+        //  relaunched. Seven pools is already a wide treasury; the cap is
+        //  headroom above any allocation a guild would plausibly vote for.
+        if (sib.length >= MAX_SIBLINGS) revert OnlyRegistry();
         // Idempotent: re-linking must not double-count the same pool forever.
         for (uint256 i; i < sib.length; ++i) {
             if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return;

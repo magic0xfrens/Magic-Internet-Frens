@@ -243,6 +243,111 @@ contract QuoteRotator {
     }
 
     // -----------------------------------------------------------------------
+    // Arbitrage between the generation's own pools
+    // -----------------------------------------------------------------------
+
+    /// @notice Prices the two legs so profit can be judged in one unit.
+    address public quoteOracle;
+
+    /// @notice Share of arb profit paid to whoever called it, in bps.
+    ///         The rest stays with the treasury.
+    uint16 public arbKeeperBps = 1000; // 10%
+
+    /// @notice Smallest profit worth executing, in USD scaled 1e18. Without a
+    ///         floor a keeper can farm the reward on dust arbs that cost the
+    ///         treasury more in price impact than they capture.
+    uint256 public minArbProfitUsd = 5e18; // $5
+
+    event Arbed(uint256 spentIn, uint256 receivedOut, uint256 profitUsd, address keeper);
+
+    function setArbParams(address oracle, uint16 keeperBps, uint256 minProfitUsd) external onlyOwner {
+        if (keeperBps > 2000) revert BadConfig(); // keeper share capped at 20%
+        quoteOracle = oracle;
+        arbKeeperBps = keeperBps;
+        minArbProfitUsd = minProfitUsd;
+    }
+
+    /**
+     * @notice Capture the spread between two of the generation's own pools.
+     *
+     *  When GNOME/ETH and GNOME/USDG drift apart, an outside arbitrageur buys
+     *  cheap from one of OUR pools and sells dear into the other. The spread is
+     *  paid by our own LP positions. Today every cent of that leaves. This
+     *  captures it instead.
+     *
+     *  ── The shape is not a loop, and that matters ─────────────────────────
+     *  Buying the token in the ETH pool and selling it in the USDG pool leaves
+     *  us with less ETH, more USDG and the same token — it does NOT return to
+     *  the starting asset. So an arb also SHIFTS TREASURY ALLOCATION, which is a
+     *  governance question and not merely a mechanical one. Two consequences:
+     *
+     *    - profit is judged in USD, because the legs are different assets and
+     *      there is no other common unit;
+     *    - size is bounded per call, so repeated arbs cannot quietly re-allocate
+     *      the treasury behind governance's back.
+     *
+     *  ── Why Chainlink is right here ────────────────────────────────────────
+     *  The oracle only has to answer "was this trade profitable". A wrong answer
+     *  produces a bad trade bounded by `minProfitUsd` and the size cap —
+     *  recoverable and capped. That is a different blast radius from pricing
+     *  death, where a wrong answer is irreversible.
+     *
+     *  ── Capital ───────────────────────────────────────────────────────────
+     *  None needed. Both legs happen inside one v4 unlock, so only the net delta
+     *  settles: we owe the quote we spent and are owed the quote we received.
+     *  If there is no surplus the call reverts and nothing moved.
+     *
+     * @param cheap  pool to BUY the token in
+     * @param dear   pool to SELL it in
+     * @param amountIn  quote to spend on the cheap side
+     */
+    function arbStep(PoolKey calldata cheap, PoolKey calldata dear, uint256 amountIn)
+        external
+        returns (uint256 profitUsd)
+    {
+        if (amountIn == 0) revert BadConfig();
+        address inQuote = Currency.unwrap(cheap.currency0);
+        address outQuote = Currency.unwrap(dear.currency0);
+        // Both pools must trade the SAME token, or this is not an arb — it is
+        // an unrelated trade with treasury funds.
+        if (Currency.unwrap(cheap.currency1) != Currency.unwrap(dear.currency1)) revert NoRoute();
+        if (inQuote == outQuote) revert NoRoute();
+
+        (uint256 spent, uint256 received) =
+            abi.decode(poolManager.unlock(abi.encode(uint8(1), cheap, dear, amountIn)), (uint256, uint256));
+
+        //  Judge in USD, since the legs are different assets. Both must be
+        //  priceable — an unpriceable leg means we cannot tell profit from loss,
+        //  and guessing with treasury funds is not an option.
+        uint256 inUsd = _usd(inQuote, spent);
+        uint256 outUsd = _usd(outQuote, received);
+        if (inUsd == 0 || outUsd == 0) revert NoRoute();
+        if (outUsd <= inUsd) revert SlippageTooHigh();
+
+        profitUsd = outUsd - inUsd;
+        if (profitUsd < minArbProfitUsd) revert SlippageTooHigh();
+
+        // The keeper's cut is paid in the asset received, proportional to the
+        // profit rather than the notional — so a large, barely-profitable arb
+        // does not pay out more than it made.
+        uint256 keeperCut = (received * profitUsd * arbKeeperBps) / (outUsd * BPS);
+        if (keeperCut > 0) _send(outQuote, msg.sender, keeperCut);
+
+        emit Arbed(spent, received, profitUsd, msg.sender);
+    }
+
+    function _usd(address quote, uint256 raw) internal returns (uint256) {
+        address o = quoteOracle;
+        if (o == address(0)) return 0;
+        (bool ok, bytes memory ret) = o.call(
+            abi.encodeWithSignature("cachedUsdPerRawUnit(address)", quote)
+        );
+        if (!ok || ret.length < 32) return 0;
+        uint256 f = abi.decode(ret, (uint256));
+        return f == 0 ? 0 : (raw * f) / 1e18;
+    }
+
+    // -----------------------------------------------------------------------
     // Custody
     // -----------------------------------------------------------------------
 
@@ -268,14 +373,20 @@ contract QuoteRotator {
         returns (uint256 out)
     {
         bool zeroForOne = Currency.unwrap(route.currency0) == from;
-        bytes memory res = poolManager.unlock(abi.encode(route, zeroForOne, size, from, to));
+        bytes memory res = poolManager.unlock(abi.encode(uint8(0), route, zeroForOne, size, from, to));
         out = abi.decode(res, (uint256));
     }
 
     function unlockCallback(bytes calldata data) external returns (bytes memory) {
         if (msg.sender != address(poolManager)) revert NotOwner();
-        (PoolKey memory key, bool zeroForOne, uint256 size, address from, address to) =
-            abi.decode(data, (PoolKey, bool, uint256, address, address));
+        //  TWO PAYLOAD SHAPES share this entry point, so they are tagged. abi
+        //  decoding cannot tell them apart, and mis-decoding one as the other
+        //  would read a PoolKey out of an amount.
+        uint8 kind = abi.decode(data[:32], (uint8));
+        if (kind == 1) return _arbCallback(data);
+
+        (, PoolKey memory key, bool zeroForOne, uint256 size, address from, address to) =
+            abi.decode(data, (uint8, PoolKey, bool, uint256, address, address));
 
         BalanceDelta d = poolManager.swap(
             key,
@@ -291,6 +402,38 @@ contract QuoteRotator {
         _settle(from, size);
         poolManager.take(Currency.wrap(to), address(this), got);
         return abi.encode(got);
+    }
+
+    /**
+     * @dev Both arb legs inside ONE unlock, so no capital is required: the token
+     *      bought on the cheap side is sold on the dear side within the same
+     *      lock, and only the net quote deltas settle.
+     */
+    function _arbCallback(bytes calldata data) internal returns (bytes memory) {
+        (, PoolKey memory cheap, PoolKey memory dear, uint256 amountIn) =
+            abi.decode(data, (uint8, PoolKey, PoolKey, uint256));
+
+        // Leg 1: spend the quote, receive the token.
+        BalanceDelta d1 = poolManager.swap(
+            cheap,
+            SwapParams({ zeroForOne: true, amountSpecified: -int256(amountIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1 }),
+            ""
+        );
+        uint256 spent = uint256(uint128(-d1.amount0()));
+        uint256 got = uint256(uint128(d1.amount1()));
+
+        // Leg 2: sell EXACTLY what leg 1 produced, so the token nets to zero and
+        // the arb leaves no inventory behind.
+        BalanceDelta d2 = poolManager.swap(
+            dear,
+            SwapParams({ zeroForOne: false, amountSpecified: -int256(got), sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1 }),
+            ""
+        );
+        uint256 received = uint256(uint128(d2.amount0()));
+
+        _settle(Currency.unwrap(cheap.currency0), spent);
+        poolManager.take(dear.currency0, address(this), received);
+        return abi.encode(spent, received);
     }
 
     function _settle(address cur, uint256 amount) internal {

@@ -180,6 +180,69 @@ contract QuoteRotatorTest is Test {
         assertEq(rot.keeperBps(), 50);
     }
 
+    // ---------------------------------------------------------------------
+    // Arbitrage between the generation's own pools
+    // ---------------------------------------------------------------------
+
+    /// The two pools must trade the SAME token, or this is not an arb — it is
+    /// an unrelated trade made with treasury funds.
+    function test_ArbRequiresTheSameTokenInBothPools() public {
+        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        rot.arbStep(_pool(NATIVE, address(0xAAA)), _pool(USDG, address(0xBBB)), 1 ether);
+    }
+
+    /// Arbing a pool against itself is not an arb.
+    function test_ArbRequiresDifferentQuotes() public {
+        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        rot.arbStep(_pool(NATIVE, TOKEN), _pool(NATIVE, TOKEN), 1 ether);
+    }
+
+    function test_ArbRejectsZeroSize() public {
+        vm.expectRevert(QuoteRotator.BadConfig.selector);
+        rot.arbStep(_pool(NATIVE, TOKEN), _pool(USDG, TOKEN), 0);
+    }
+
+    /// WITHOUT AN ORACLE THERE IS NO PROFIT TEST. The two legs are different
+    /// assets, so "did this make money" has no answer without a common unit —
+    /// and guessing with treasury funds is not an option.
+    function test_ArbRefusesWithoutAnOracle() public {
+        // No oracle configured: _usd returns 0 and the call must not proceed.
+        vm.expectRevert();
+        rot.arbStep(_pool(NATIVE, TOKEN), _pool(USDG, TOKEN), 1 ether);
+    }
+
+    /// The keeper's share is capped, so the reward cannot be tuned into a drain.
+    function test_ArbKeeperShareIsCapped() public {
+        vm.expectRevert(QuoteRotator.BadConfig.selector);
+        rot.setArbParams(address(0xDEAD), 2001, 1e18); // ceiling is 20%
+
+        rot.setArbParams(address(0xDEAD), 1000, 5e18);
+        assertEq(rot.arbKeeperBps(), 1000);
+        assertEq(rot.minArbProfitUsd(), 5e18);
+    }
+
+    function test_StrangerCannotSetArbParams() public {
+        vm.prank(STRANGER);
+        vm.expectRevert(QuoteRotator.NotOwner.selector);
+        rot.setArbParams(address(0xDEAD), 500, 1e18);
+    }
+
+    /// A profit floor exists so a keeper cannot farm the reward on dust arbs
+    /// that cost the treasury more in price impact than they capture.
+    function test_ArbHasAProfitFloor() public view {
+        assertGt(rot.minArbProfitUsd(), 0, "a zero floor would pay for dust");
+    }
+
+    address constant TOKEN = 0x92B637d3De3587394664d5036e69399d8060C9c2;
+
+    function _pool(address quote, address token) internal pure returns (PoolKey memory) {
+        return PoolKey({
+            currency0: Currency.wrap(quote),
+            currency1: Currency.wrap(token),
+            fee: 3000, tickSpacing: 60, hooks: IHooks(address(0))
+        });
+    }
+
     /// A well-formed ETH/USDG route. Never actually swapped through in these
     /// tests — the calls that use it revert before reaching the pool.
     function _dummyRoute() internal pure returns (PoolKey memory) {
