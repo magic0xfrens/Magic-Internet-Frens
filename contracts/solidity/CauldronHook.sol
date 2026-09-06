@@ -29,7 +29,6 @@ import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 ///         work out which side of a pool is the quote.
 interface IRegistryQuotes {
     function allowedQuote(address quote) external view returns (bool);
-    function quoteScale(address quote) external view returns (uint256);
 }
 
 interface IPerpEngineLiq {
@@ -558,16 +557,6 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
         PoolId id = key.toId();
         quoteIsCurrency0[id] = q0;
-        //  Volume is counted in the QUOTE's own units, so a 6-decimal stable and
-        //  18-decimal ETH are not comparable — the same dollar figure reads ~1e9x
-        //  smaller on the stable. Summed across a generation's pools for death
-        //  detection, that would collapse measured volume the moment the guild
-        //  rotated and relaunch a perfectly live brew. Captured here so every
-        //  pool reports on one scale.
-        uint256 sc = IRegistryQuotes(registry).quoteScale(
-            Currency.unwrap(q0 ? key.currency0 : key.currency1)
-        );
-        volumeScale[id] = sc == 0 ? 1e18 : sc;
         trackedPools[id] = true;
         _lastUpdateTs[id] = block.timestamp;
         poolInitBlock[id] = block.number; // anchor the anti-sniper window
@@ -593,10 +582,6 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  there: deriving it per call site is how a buy gets counted as a sell.
     mapping(PoolId => bool) internal quoteIsCurrency0;
 
-    /// @dev ETH-equivalent wei per RAW unit of this pool's quote, scaled 1e18.
-    ///      Read ONCE at adoption rather than per swap — it is governance-set
-    ///      and cannot change under a live pool.
-    mapping(PoolId => uint256) internal volumeScale;
 
     /// @notice Pools whose volume counts toward the SAME generation.
     ///
@@ -652,11 +637,17 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             // Volume is measured in QUOTE terms. With an ERC20 quote that may be
             // currency1, so read the side adoption recorded rather than amount0.
             int128 quoteAmt = q0 ? delta.amount0() : delta.amount1();
-            uint256 rawVolume = quoteAmt >= 0
+            uint256 absVolume = quoteAmt >= 0
                 ? uint256(uint128(quoteAmt))
                 : uint256(uint128(-quoteAmt));
-            // Normalised so every pool in a generation counts on one scale.
-            uint256 absVolume = (rawVolume * volumeScale[id]) / 1e18;
+
+            //  NOTE: volume is QUOTE-denominated, which is correct while a
+            //  generation trades in exactly one quote and WRONG the moment it
+            //  trades in two — see docs/TREASURY_FUND_PLAN.md. Switching to the
+            //  token side is the fix, but deathThreshold is configured in ETH
+            //  (1 ether by default, and on the live deployment), so the switch
+            //  must re-denominate that threshold in the same move or pools stop
+            //  reading as dead. Not changed here for that reason.
             _recordVolume(id, absVolume);
             cumulativeVolume += absVolume;
 
