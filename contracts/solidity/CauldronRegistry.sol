@@ -224,12 +224,15 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///  Forwarded rather than implemented here: the registry sits against the
     ///  EIP-170 ceiling, and the facet already runs on this contract's storage
     ///  and custody under delegatecall.
-    function rotateSlice(address, uint16, uint256, PoolKey calldata) external returns (uint256, uint256) {
+    function rotateSlice(uint16, uint256, PoolKey calldata) external returns (uint256, uint256) {
         _forwardToExt();
     }
 
     /// @notice Point the registry at its rotator. See RedemptionExt.
     function setQuoteRotator(address) external { _forwardToExt(); }
+
+    /// @notice Point the registry at the treasury vote. See RedemptionExt.
+    function setTreasuryGovernor(address) external { _forwardToExt(); }
 
     function setAllowedQuote(address quote, bool allowed) external onlyOwner {
         if (quote == address(0) && !allowed) revert NativeQuoteRequired();

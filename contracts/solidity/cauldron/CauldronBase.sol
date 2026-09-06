@@ -338,6 +338,12 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  slot directly, including the registry/facet layout invariant.
     address internal quoteRotator;                        // slot 50
 
+    /// @notice Where rotation policy comes from — the MiFren vote. APPENDED, as
+    ///         all new storage must be: the registry and the RedemptionExt facet
+    ///         share this layout, so an inserted slot renumbers everything below
+    ///         and the facet starts reading the wrong variable.
+    address internal treasuryGovernor;                    // slot 51
+
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)
     // -----------------------------------------------------------------------

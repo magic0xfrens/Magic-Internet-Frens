@@ -38,6 +38,11 @@ import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
  *  Behaviour is byte-for-byte the pre-split monolith; only the location changed.
  */
 /// @notice The hook's generation-volume registration.
+interface ITreasuryGovernor {
+    function allowance() external view returns (address quote, uint16 remainingBps);
+    function consume(uint16 bps) external;
+}
+
 interface IQuoteRotator {
     function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut)
         external returns (uint256);
@@ -196,19 +201,35 @@ contract RedemptionExt is CauldronBase {
      *  there is no long-lived pending state to unwind if the guild changes its
      *  mind — it simply stops calling.
      *
-     * @param toQuote   destination asset; must be on the registry's allowlist
-     * @param sliceBps  share of CURRENT liquidity to move (capped below)
-     * @param minOut    floor on the swap, set from the market by the caller
+     * @param sliceBps  share of CURRENT liquidity to move (capped below). The
+     *        DESTINATION is not a parameter — it comes from the approved
+     *        envelope, so a caller cannot redirect the treasury.
+     * @param minOut    floor on the swap. A pumped route produces NO fill rather
+     *        than a bad one, which is what makes announcing the destination safe.
      * @param route     the pool to trade through
      */
     function rotateSlice(
-        address toQuote,
         uint16 sliceBps,
         uint256 minOut,
         PoolKey calldata route
-    ) external onlyOwner returns (uint256 moved, uint256 positionId) {
+    ) external returns (uint256 moved, uint256 positionId) {
         address rot = quoteRotator;
         if (rot == address(0)) revert NotConfigured();
+
+        //  PERMISSIONLESS, WITHIN WHAT THE GUILD APPROVED.
+        //
+        //  Not onlyOwner: an owner who can refuse to execute an approved
+        //  rotation holds the same veto as one who can execute an unapproved
+        //  one. The destination and the ceiling come from the vote, so a caller
+        //  chooses only the timing — and `minOut` bounds what timing can cost.
+        address gov = treasuryGovernor;
+        if (gov == address(0)) revert NotConfigured();
+        (address toQuote, uint16 remaining) = ITreasuryGovernor(gov).allowance();
+        if (toQuote == address(0)) revert NotConfigured();   // nothing approved, or expired
+        if (sliceBps > remaining) revert BadConfig();        // envelope exhausted
+
+        //  Re-checked even though the governor checked it twice: this is the
+        //  last point before liquidity actually moves.
         if (!allowedQuote[toQuote]) revert NotConfigured();
         //  A slice is a SLICE. Capped well below the 50% removal limit so no
         //  single call can take a meaningful bite out of live depth, and so the
@@ -255,6 +276,9 @@ contract RedemptionExt is CauldronBase {
         // Count the new pair toward this generation, or splitting liquidity
         // would read as the generation dying.
         IHookVolume(address(hook)).linkVolume(generationPoolId[gen], poolId);
+        // Booked AFTER the move succeeds, so a reverted slice does not burn
+        // envelope the treasury never actually spent.
+        ITreasuryGovernor(gov).consume(sliceBps);
         emit SliceRotated(gen, fromQuote, toQuote, quoteOut, moved, sliceBps);
     }
 
