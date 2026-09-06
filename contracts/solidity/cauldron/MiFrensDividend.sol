@@ -80,6 +80,36 @@ contract MiFrensDividend is ReentrancyGuard {
 
     /// @notice Per genesis tokenId: accPerShare already accounted (the "debt").
     mapping(uint256 => uint256) public debtOf;
+
+    //  ── THE FEE BASKET ──────────────────────────────────────────────────
+    //
+    //  A generation can trade in several quotes, so fees no longer arrive only
+    //  as ETH: a USDG-quoted pool pays USDG. The take was already
+    //  currency-agnostic; this is the distribution catching up.
+    //
+    //  ONE ACCUMULATOR PER ASSET, sharing the same `activeShares` base. A
+    //  holder is owed their share of exactly what was collected, in the assets
+    //  it was collected in.
+    //
+    //  I first proposed a single USD-denominated accumulator paid out in a
+    //  chosen asset, and it is wrong: if entitlement is USD but settlement is
+    //  in assets, whoever claims at a favourable moment takes more real value
+    //  than their share, and the last claimant eats the difference. That is a
+    //  first-mover advantage dressed as convenience. Per-asset accounting is
+    //  exact, needs no oracle, and carries no price risk between accrual and
+    //  claim — the only cost is one transfer per asset held.
+    mapping(address => uint256) public accPerShareOf;
+    mapping(uint256 => mapping(address => uint256)) public debtOfAsset;
+
+    /// @notice Every asset that has ever funded the pot. Bounded, because claim
+    ///         loops it — an unbounded list would eventually make claiming cost
+    ///         more gas than a block allows, which is a permanent lockout.
+    address[] public assets;
+    mapping(address => bool) public knownAsset;
+    uint256 internal constant MAX_ASSETS = 8;
+
+    event TokenDeposited(address indexed asset, uint256 amount);
+    event TokenClaimed(uint256 indexed tokenId, address indexed asset, uint256 amount);
     /// @notice tokenId => the address that cast the spell. A fren earns only while
     ///         `enchantedBy == its owner`; a transfer clears it (see hook below).
     mapping(uint256 => address) public enchantedBy;
@@ -153,6 +183,80 @@ contract MiFrensDividend is ReentrancyGuard {
         return (accPerShare - debtOf[tokenId]) / ACC;
     }
 
+    /**
+     * @notice Fund the pot in an ERC20 — a fee collected by a non-ETH pool.
+     * @dev Pull-based: the caller approves, this transfers. A push model would
+     *      have no way to tell a fee from a stray transfer, and stray tokens
+     *      would silently dilute every holder's share.
+     *
+     *      With nobody enchanted the deposit is REFUSED rather than swept: the
+     *      ETH path sweeps to the treasury, but sweeping an arbitrary token
+     *      needs a transfer that can fail, and a failure here would revert a
+     *      swap. The caller keeps the fee and can fund again once a fren is
+     *      enchanted.
+     */
+    function fundToken(address asset, uint256 amount) external {
+        if (asset == address(0) || amount == 0) revert NotShare();
+        if (activeShares == 0) revert NotEnchanted();
+        if (!knownAsset[asset]) {
+            if (assets.length >= MAX_ASSETS) revert NotShare();
+            knownAsset[asset] = true;
+            assets.push(asset);
+        }
+        _pull(asset, msg.sender, amount);
+        accPerShareOf[asset] += (amount * ACC) / activeShares;
+        emit TokenDeposited(asset, amount);
+    }
+
+    /// @notice What `tokenId` can claim of `asset` right now.
+    function pendingToken(uint256 tokenId, address asset) public view returns (uint256) {
+        if (tokenId == 0 || tokenId > MAX_TOKEN) return 0;
+        if (enchantedBy[tokenId] != mifrens.ownerOf(tokenId)) return 0;
+        return (accPerShareOf[asset] - debtOfAsset[tokenId][asset]) / ACC;
+    }
+
+    /// @notice Number of assets in the basket, so a UI can enumerate them.
+    function assetCount() external view returns (uint256) { return assets.length; }
+
+    /**
+     * @notice Claim every non-ETH asset owed to `tokenId`.
+     * @dev Separate from {claim} so the ETH path keeps its exact previous
+     *      behaviour and gas, and so a token that reverts on transfer cannot
+     *      block an ETH claim.
+     */
+    function claimTokens(uint256 tokenId) external nonReentrant {
+        if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner();
+        if (enchantedBy[tokenId] != msg.sender) revert NotEnchanted();
+
+        uint256 n = assets.length;
+        for (uint256 i; i < n; ++i) {
+            address a = assets[i];
+            uint256 owed = (accPerShareOf[a] - debtOfAsset[tokenId][a]) / ACC;
+            // Effects before interaction, per asset.
+            debtOfAsset[tokenId][a] = accPerShareOf[a];
+            if (owed > 0) {
+                _push(a, msg.sender, owed);
+                emit TokenClaimed(tokenId, a, owed);
+            }
+        }
+    }
+
+    /// @dev Return values checked: a token that returns false rather than
+    ///      reverting would otherwise credit a claim that never moved.
+    function _pull(address asset, address from, uint256 amount) private {
+        (bool ok, bytes memory ret) = asset.call(
+            abi.encodeWithSignature("transferFrom(address,address,uint256)", from, address(this), amount)
+        );
+        if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert TransferFailed();
+    }
+
+    function _push(address asset, address to, uint256 amount) private {
+        (bool ok, bytes memory ret) = asset.call(
+            abi.encodeWithSignature("transfer(address,uint256)", to, amount)
+        );
+        if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert TransferFailed();
+    }
+
     /// @notice Whether a fren is currently drawing fees (spell cast + still owned
     ///         by the caster).
     function isEnchanted(uint256 tokenId) external view returns (bool) {
@@ -194,6 +298,16 @@ contract MiFrensDividend is ReentrancyGuard {
             owed[cur] += (accPerShare - debtOf[tokenId]) / ACC;
         }
         debtOf[tokenId] = accPerShare;
+        //  THE SAME MARKER FOR EVERY BASKET ASSET. Without this a fren
+        //  enchanted after deposits would start with a zero debt marker and
+        //  claim the ENTIRE historical accumulator of every token — paying it
+        //  fees earned before it was ever enchanted, at every other holder's
+        //  expense. The ETH path has always set this; the basket has to match.
+        uint256 n = assets.length;
+        for (uint256 i; i < n; ++i) {
+            address a = assets[i];
+            debtOfAsset[tokenId][a] = accPerShareOf[a];
+        }
         enchantedBy[tokenId] = msg.sender;
         emit SpellCast(tokenId, msg.sender);
     }
