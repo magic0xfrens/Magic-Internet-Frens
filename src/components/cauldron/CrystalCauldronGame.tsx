@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { parseEther, parseEventLogs, type Address } from "viem";
 import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
+import { fetchOwnedNfts } from "@/lib/cauldronIndexer";
 import { CAULDRON, HOOK_ABI, COLLECTION_ABI } from "@/config/cauldron";
 
 /* ══════════════════════════════════════════════════════════════════
@@ -182,6 +183,41 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
    * caps a batch at 50 and `revealMany` chunks past that, so a holder never has
    * to know the limit exists.
    */
+  /**
+   * Load every crystal this wallet owns, not just the ones from this session.
+   *
+   * The vault started empty and only grew as you spun, so a refresh lost it and
+   * crystals earned earlier never appeared at all — "0 sealed" while holding
+   * dozens. The indexer already tracks ownership, so the vault is seeded from it
+   * and spins append on top.
+   *
+   * Only tokens in the CURRENT collection: each iteration mints its own, and
+   * this panel is about the live brew. Older ones live in Collectibles.
+   */
+  useEffect(() => {
+    if (!address || !collection) return;
+    let alive = true;
+    (async () => {
+      const rows = await fetchOwnedNfts(address);
+      if (!alive || rows === null) return;
+      const mine = rows
+        .filter((n) => n.collection.toLowerCase() === collection.toLowerCase())
+        .map((n): Crystal => ({
+          tokenId: BigInt(n.tokenId),
+          revealed: n.revealed,
+          rarity: n.revealed ? n.rarity : undefined,
+          image: n.revealed ? undefined : "/crystal.png",
+        }));
+      setVault((v) => {
+        // Anything already in state came from a spin THIS session and may hold
+        // freshly-resolved art the indexer has not caught up to, so it wins.
+        const known = new Set(v.map((c) => c.tokenId.toString()));
+        return [...v, ...mine.filter((c) => !known.has(c.tokenId.toString()))];
+      });
+    })();
+    return () => { alive = false; };
+  }, [address, collection]);
+
   const doOpenAll = useCallback(async () => {
     setErr("");
     if (!collection) { setErr("No collection yet"); return; }

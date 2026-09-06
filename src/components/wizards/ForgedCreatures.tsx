@@ -6,6 +6,7 @@ import { CAULDRON } from "@/config/cauldron";
 import { fetchNftsFromIndexer } from "@/lib/cauldronOnchain";
 import CreatureModal from "@/components/wizards/CreatureModal";
 import FrenSprite from "@/components/shared/FrenSprite";
+import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { frenFromSeed } from "@/data/frens";
 
 /**
@@ -153,6 +154,42 @@ export default function ForgedCreatures() {
 
   if (!isConnected) return null;
 
+  const { revealMany } = useCauldronSwap();
+  const [opening, setOpening] = useState<number | null>(null);
+
+  /**
+   * Open every sealed crystal in one iteration's group.
+   *
+   * Batched PER COLLECTION, not per group: each iteration is its own collection
+   * contract, so `revealBatch` has to be called on the address that owns the
+   * tokens. Grouping by generation almost always means one address, but deriving
+   * it from the tokens themselves is what makes that an observation rather than
+   * an assumption.
+   */
+  const openGroup = useCallback(async (gen: number, group: Creature[]) => {
+    const sealed = group.filter((c) => !c.revealed);
+    if (sealed.length === 0) return;
+    setOpening(gen);
+    try {
+      const byCollection = new Map<Address, bigint[]>();
+      for (const c of sealed) {
+        const list = byCollection.get(c.collection) ?? [];
+        list.push(BigInt(c.tokenId));
+        byCollection.set(c.collection, list);
+      }
+      for (const [collection, ids] of byCollection) {
+        await revealMany(collection, ids);
+      }
+      // Re-read rather than patching state: the reveal decides the rarity, and
+      // the art only exists once the chain has rolled it.
+      await load();
+    } catch {
+      // The wallet surfaces its own rejection; nothing useful to add here.
+    } finally {
+      setOpening(null);
+    }
+  }, [revealMany, load]);
+
   return (
     <section className="fc">
       <style>{`
@@ -168,6 +205,10 @@ export default function ForgedCreatures() {
           text-transform: uppercase; color: #8f83b8; }
         .fc__gen-count { font-family: "DM Mono", monospace; font-size: 10px; color: #d5fd51;
           background: rgba(213,253,81,0.12); border-radius: var(--r-chip); padding: 1px 6px; }
+        /* Batch-open, beside the count that motivates it. */
+        .fc__openall { font-family: "DM Mono", monospace; font-size: 9.5px; letter-spacing: 0.04em; margin-left: auto; padding: 4px 10px; border-radius: 999px; cursor: pointer; color: #d5fd51; background: rgba(213,253,81,0.12); border: 1px solid rgba(213,253,81,0.3); transition: background 0.16s, transform 0.16s; }
+        .fc__openall:hover:not(:disabled) { background: rgba(213,253,81,0.22); transform: translateY(-1px); }
+        .fc__openall:disabled { opacity: 0.4; cursor: not-allowed; }
         .fc__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
         .fc__card {
           display: block; width: 100%; padding: 0; text-align: left; cursor: pointer; font: inherit;
@@ -221,6 +262,19 @@ export default function ForgedCreatures() {
             <div className="fc__gen-head">
               <span className="fc__gen-label">{gen > 0 ? `Iteration #${gen}` : "Unassigned"}</span>
               <span className="fc__gen-count">{group.length}</span>
+              {/* Only when there is more than one to open — a single crystal is
+                  already one transaction, so a batch would save nothing. */}
+              {group.filter((c) => !c.revealed).length > 1 && (
+                <button
+                  className="fc__openall"
+                  disabled={opening !== null}
+                  onClick={() => openGroup(gen, group)}
+                >
+                  {opening === gen
+                    ? "Opening…"
+                    : `Open all ${group.filter((c) => !c.revealed).length}`}
+                </button>
+              )}
             </div>
             <div className="fc__grid">
           {group.map((c) => (
