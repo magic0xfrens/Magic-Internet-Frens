@@ -212,3 +212,39 @@ This is a prerequisite for a live non-ETH generation, not an enhancement. The
 perp engine already refuses non-ETH generations for exactly the same reason —
 its collateral and payouts are native — and the dividend needs the same honesty
 until it is fixed.
+
+
+---
+
+## Generalising the hook's fee routing — measured, not estimated
+
+`FeeRouteLib` is built and is the right primitive: `send` for a plain transfer
+and `deliver` for a recipient that must be told about a deposit (the dividend and
+the perp engine cannot infer one from their balance — a stray transfer would look
+identical to a fee and silently dilute everyone, which is why
+`MiFrensDividend.fundToken` is pull-based).
+
+Converting the hook's five routing sites to it was attempted and **measured at
+566 bytes over EIP-170**, against 30 bytes of headroom. Trimming unread getters
+recovered 11. So this needs a structural extraction, and getter-shaving will not
+reach it.
+
+**The extraction that does reach it:** move `_routeFee` and `_routePerpFee`
+wholesale into `FeeRouteLib`, passing their config (`guild`, `vault`,
+`perpEngine`, `guildBps`, `floorBps`) as arguments rather than reading hook
+storage. That is what makes it possible — a linked library is stateless, which
+is exactly why `LegacyBuyLib` and `PerpSwapLib` work: they take what they need
+and return a result. `_routeFee` qualifies, because everything it reads is
+config rather than per-swap state.
+
+### Which pool the perps trade — worth knowing
+
+`PerpEngine._key()` builds from `quote = generationQuote[gen]`, so perps trade
+the **primary** pool, not the deepest. With one pool those are the same thing.
+With several they are not, and the engine would be marking and liquidating
+against a pool that may be much thinner than a sibling.
+
+That is a correctness question, not a preference: `activeEthDepth()` bounds
+position size against the pool the engine thinks it is trading. Routing perps to
+the deepest pool — or bounding size against the sum — should land before a
+generation runs more than one pool with perps enabled.
