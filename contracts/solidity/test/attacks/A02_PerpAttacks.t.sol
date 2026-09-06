@@ -99,7 +99,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         IERC20Minimal(token).approve(address(perp), seed);
         perp.fundPlvToken(seed);
 
-        hook.setDeathThreshold(0);            // keep the brew "alive" for opens
+        hook.setDeathThreshold(0, address(0));            // keep the brew "alive" for opens
         vm.warp(block.timestamp + 25 hours);  // past the open warmup
         vm.roll(block.number + 40);           // past the anti-snipe surtax window
         perp.poke();
@@ -257,7 +257,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         _spamDustLongs(cap);
         assertEq(perp.openCount(), cap, "book filled to the cap");
 
-        hook.setDeathThreshold(type(uint256).max); // brew now reads DEAD
+        hook.setDeathThreshold(type(uint256).max, address(0)); // brew now reads DEAD
         assertTrue(hook.isDead(registry.generationPoolId(1)), "dead");
 
         // FIXED: one call drains the whole book, because MAX_OPEN_POSITIONS is
@@ -295,7 +295,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
 
         _spamDustLongs(perp.MAX_OPEN_POSITIONS());
 
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
         vm.warp(vm.getBlockTimestamp() + registry.minLifetime() + 1);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
 

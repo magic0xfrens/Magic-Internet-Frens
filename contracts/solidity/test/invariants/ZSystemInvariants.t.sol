@@ -101,7 +101,7 @@ contract ZSystemInvariants is Test {
         hook.setPerpEngine(address(engine));
         engine.fundPlv{value: 10 ether}(10 ether);
         engine.setRisk(60, 3, 1500, 500, 3000, 100);
-        hook.setDeathThreshold(0); // keep the pool tradable for the whole run
+        hook.setDeathThreshold(0, address(0)); // keep the pool tradable for the whole run
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
         vm.warp(block.timestamp + 3600);
 

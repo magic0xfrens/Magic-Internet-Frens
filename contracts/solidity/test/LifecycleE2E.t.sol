@@ -201,7 +201,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         deal(token3, address(this), seed);
         IERC20Minimal(token3).approve(address(perp), seed);
         perp.fundPlvToken(seed);                          // stake the token side (short inventory)
-        hook.setDeathThreshold(0);                         // keep alive for the perp ops
+        hook.setDeathThreshold(0, address(0));                         // keep alive for the perp ops
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 40);
         perp.poke();
@@ -273,7 +273,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         deal(tok, address(this), seed);
         IERC20Minimal(tok).approve(address(perp), seed);
         perp.fundPlvToken(seed);
-        hook.setDeathThreshold(0);
+        hook.setDeathThreshold(0, address(0));
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 40);
         perp.poke();

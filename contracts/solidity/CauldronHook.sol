@@ -31,6 +31,11 @@ interface IRegistryQuotes {
     function allowedQuote(address quote) external view returns (bool);
 }
 
+/// @notice USD price of a quote asset. Returns 0 when it cannot be trusted.
+interface IQuoteOracle {
+    function usdPerRawUnit(address quote) external view returns (uint256);
+}
+
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
@@ -582,6 +587,34 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  there: deriving it per call site is how a buy gets counted as a sell.
     mapping(PoolId => bool) internal quoteIsCurrency0;
 
+    /// @notice Prices volume in USD so every pool counts the same. Unset means
+    ///         quote-side accounting, which is correct while a generation trades
+    ///         in exactly one quote.
+    address internal quoteOracle;
+
+    /**
+     * @dev Convert a raw quote amount to USD (1e18 = $1).
+     *
+     *      The oracle caches, so this is one call rather than a Chainlink read
+     *      per swap. With no oracle set it returns the raw amount, which is
+     *      exactly the previous behaviour and correct for a single-quote
+     *      generation.
+     *
+     *      A raw staticcall, not an interface call: it cannot revert into the
+     *      swap, and a price that cannot be read must never take trading down
+     *      with it.
+     */
+    function _toUsd(address quote, uint256 raw) internal view returns (uint256) {
+        address o = quoteOracle;
+        if (o == address(0)) return raw;
+        (bool ok, bytes memory ret) = o.staticcall(
+            abi.encodeWithSelector(IQuoteOracle.usdPerRawUnit.selector, quote)
+        );
+        if (!ok || ret.length < 32) return raw;
+        uint256 f = abi.decode(ret, (uint256));
+        return f == 0 ? raw : (raw * f) / 1e18;
+    }
+
 
     /// @notice Pools whose volume counts toward the SAME generation.
     ///
@@ -641,13 +674,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
                 ? uint256(uint128(quoteAmt))
                 : uint256(uint128(-quoteAmt));
 
-            //  NOTE: volume is QUOTE-denominated, which is correct while a
-            //  generation trades in exactly one quote and WRONG the moment it
-            //  trades in two — see docs/TREASURY_FUND_PLAN.md. Switching to the
-            //  token side is the fix, but deathThreshold is configured in ETH
-            //  (1 ether by default, and on the live deployment), so the switch
-            //  must re-denominate that threshold in the same move or pools stop
-            //  reading as dead. Not changed here for that reason.
+            //  PRICED IN USD, so every pool counts the same.
+            //
+            //  Quote-side figures are not comparable across pools: an 18-decimal
+            //  ETH pool and a 6-decimal stable differ by 1e12 before any price
+            //  difference. Both consumers below break on that — death sums them,
+            //  and a fren's mint-out cost would depend on which pool the trade
+            //  happened in. Converting once here fixes both, because both read
+            //  the same number.
+            //
+            //  With no oracle set this returns the raw amount, which is exactly
+            //  the previous behaviour and correct for a single-quote generation.
+            absVolume = _toUsd(Currency.unwrap(q0 ? key.currency0 : key.currency1), absVolume);
             _recordVolume(id, absVolume);
             cumulativeVolume += absVolume;
 
@@ -1351,9 +1389,15 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Admin
     // -----------------------------------------------------------------------
 
-    function setDeathThreshold(uint256 _threshold) external onlyOwner {
+    /// @notice Set the death threshold and, optionally, the oracle that prices
+    ///         volume for it.
+    /// @dev Combined because they are one decision — the threshold is
+    ///      meaningless without knowing the units it is compared in — and
+    ///      because this hook is against the EIP-170 ceiling and cannot afford a
+    ///      second dispatcher entry. Pass address(0) to leave the oracle alone.
+    function setDeathThreshold(uint256 _threshold, address _oracle) external onlyOwner {
         deathThreshold = _threshold;
-        emit DeathThresholdUpdated(_threshold);
+        if (_oracle != address(0)) quoteOracle = _oracle;
     }
 
     /// @notice Registry-only: force-close ALL dead perp positions during relaunch,

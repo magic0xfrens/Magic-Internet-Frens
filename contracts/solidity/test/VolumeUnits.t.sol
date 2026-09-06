@@ -14,6 +14,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {CauldronHook} from "../CauldronHook.sol";
 import {PoolOps, IPositionManagerOps} from "../cauldron/PoolOps.sol";
+import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
 import {HookMiner} from "../vendor/HookMiner.sol";
 
 contract Stable6 is IERC20 {
@@ -87,6 +88,14 @@ contract Swapper {
  *  This is the test that was missing. The existing volume assertions are all
  *  `> 0`, so they passed either way and proved nothing about the units.
  */
+/// @dev A $1.00 feed, 8 decimals like a real Chainlink USD aggregator.
+contract MockUsdFeed {
+    function decimals() external pure returns (uint8) { return 8; }
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+        return (1, 1e8, block.timestamp, block.timestamp, 1);
+    }
+}
+
 contract VolumeUnitsTest is Test {
     using PoolIdLibrary for PoolKey;
 
@@ -142,11 +151,15 @@ contract VolumeUnitsTest is Test {
     }
 
     /**
-     * The property that matters: a swap moving N tokens registers the SAME
-     * volume whether the pool is quoted in a 6-decimal stable or in 18-decimal
-     * ETH. Measured on the quote side these would differ by ~1e12.
+     * THE PROPERTY THE WHOLE MULTI-POOL DESIGN RESTS ON: the same DOLLAR volume
+     * registers the same figure whichever pool it happened in.
+     *
+     * Without the oracle a 6-decimal quote records raw units — 10,000 USDG is
+     * 1e10 — while an 18-decimal ETH pool records 1e18-scale numbers. Death sums
+     * them and a fren's mint-out cost would depend on which pool you traded in.
+     * With the oracle wired, both become USD at 1e18.
      */
-    function test_VolumeIsTokenDenominated_OnFork() public {
+    function test_VolumeIsUsdDenominated_OnFork() public {
         if (!active) return;
         address positionManager = vm.envAddress("POSITION_MANAGER");
 
@@ -165,16 +178,30 @@ contract VolumeUnitsTest is Test {
             fee: 0, tickSpacing: 200, hooks: IHooks(address(hook))
         });
 
+        //  Price the stable at $1.00 so the hook can convert.
+        QuoteOracle oracle = new QuoteOracle(address(this));
+        MockUsdFeed feed = new MockUsdFeed();
+        oracle.setFeed(address(usdg), address(feed), 30 days, 6);
+        hook.setDeathThreshold(1 ether, address(oracle));
+
         usdg.mint(address(swapper), 100_000e6);
+        uint256 g = gasleft();
         swapper.swap(key, true, -10_000e6); // buy the token with 10,000 USDG
+        emit log_named_uint("swap through the hook (gas)", g - gasleft());
 
         uint256 vol = hook.getVolume24h(id);
         assertGt(vol, 0, "the swap registered");
 
-        //  THE ASSERTION. A 6-decimal quote leg of 10,000 USDG is 1e10 raw units.
-        //  If volume were still quote-side it would land near 1e10; token-side it
-        //  is the tokens that actually moved, which at this pool's price is
-        //  ~1e22. Anything below 1e15 means the quote side leaked back in.
-        assertGt(vol, 1e15, "volume must be token-denominated, not 6-decimal quote units");
+        //  ASSERT THE SCALE, NOT THE AMOUNT. The swap is bound by the pool's
+        //  price limit, so only part of the 10,000 USDG fills — hardcoding an
+        //  expected figure would be testing this pool's depth rather than the
+        //  conversion. My first attempt did exactly that and failed at 100x.
+        //
+        //  What is unambiguous: a 6-decimal quote can only reach 1e18 raw units
+        //  if a trillion USDG moved. So anything above 1e18 proves the USD
+        //  conversion ran; quote-side accounting measured 1e8 for this same
+        //  swap, which is the figure that makes two pools incomparable.
+        assertGt(vol, 1e18, "volume must be USD-denominated, not raw 6-decimal units");
+        emit log_named_uint("USD volume recorded (1e18 = $1)", vol);
     }
 }

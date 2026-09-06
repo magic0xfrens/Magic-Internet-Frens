@@ -168,7 +168,7 @@ contract Y01_ReserveCeilingBreach is YBase {
         uint256 bag = _buy(2 ether, victim);
         assertGt(bag, 0, "holder has gen-1 token");
 
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
         _warp(registry.minLifetime() + 1 days + 1);
         registry.relaunch();
         assertEq(registry.currentGeneration(), 2, "reborn");
@@ -233,7 +233,7 @@ contract Y01_ReserveCeilingBreach is YBase {
 
         _pumpThroughCeiling();
 
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
         _warp(registry.minLifetime() + 1 days + 1);
         registry.relaunch();
 

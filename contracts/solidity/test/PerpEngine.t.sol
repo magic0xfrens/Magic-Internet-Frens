@@ -97,7 +97,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // isDead() reads "dead" until real trading. That's correct on mainnet
         // (the 24h warmup + launch flow generate volume) but here it would block
         // opens, so zero the threshold to keep the token "alive" for the tests.
-        hook.setDeathThreshold(0);
+        hook.setDeathThreshold(0, address(0));
 
         vm.warp(block.timestamp + 25 hours);  // past the time warmup
         vm.roll(block.number + 40);           // past the 30-block anti-snipe surtax
@@ -344,7 +344,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         uint256 id = perp.openLong{value: 0.03 ether}(2, 0, 0, 0.03 ether); // opened while alive
 
         // kill the token (volume-based death): raise the threshold sky-high.
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
 
         // opens are now blocked…
         vm.deal(trader, 1 ether);
@@ -364,7 +364,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         assertGt(trader.balance, tBal, "residual returned to trader");
         assertGt(keeper.balance, kBal, "keeper rewarded for clearing");
 
-        hook.setDeathThreshold(0); // revive for any later assertions
+        hook.setDeathThreshold(0, address(0)); // revive for any later assertions
     }
 
     /* ── per-iteration sync (one engine, all generations) ────────────────── */
@@ -747,7 +747,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         assertEq(perp.syncedGeneration(), 1, "armed for gen-1");
 
         // Kill gen-1: raise the death threshold above its (zero) rolling volume.
-        hook.setDeathThreshold(1 ether);
+        hook.setDeathThreshold(1 ether, address(0));
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
@@ -771,7 +771,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         if (!active) return;
         // Engine NOT wired into the hook → hook.perpEngine() == 0.
         registry.setGovernor(address(new PerpMockGov()));
-        hook.setDeathThreshold(1 ether);
+        hook.setDeathThreshold(1 ether, address(0));
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         registry.relaunch();
         assertEq(registry.currentGeneration(), 2, "relaunch completed with no engine wired");

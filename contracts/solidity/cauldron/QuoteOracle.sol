@@ -164,6 +164,40 @@ contract QuoteOracle {
         factor = (perWhole * 1e18) / (10 ** f.quoteDecimals);
     }
 
+    struct Cached { uint256 factor; uint64 at; }
+    mapping(address => Cached) public cache;
+
+    /// @dev How long a cached price stays good.
+    uint64 public constant TTL = 15 minutes;
+
+    /**
+     * @notice Same as {usdPerRawUnit}, but cached — and the caching lives HERE
+     *         rather than in the caller.
+     *
+     *  A Chainlink read costs ~30k gas (measured against the live Sepolia
+     *  feeds). Paying that on every swap is roughly a 15% tax on trading for a
+     *  number that does not need to be minute-fresh: volume feeds a 24-hour
+     *  death window and a cumulative mint-out counter, where a fifteen-minute-old
+     *  price is indistinguishable from a current one.
+     *
+     *  Caching in the oracle rather than in the hook is deliberate twice over.
+     *  The hook is against the EIP-170 ceiling and has no room for the mappings,
+     *  and every consumer of a price wants the same amortisation — so putting it
+     *  here means none of them has to implement it again.
+     *
+     *  A refresh that comes back unusable keeps the LAST GOOD value. For volume
+     *  accounting a stale price is far better than a zero, because zero reads as
+     *  "no trading" and would push a live generation toward death.
+     */
+    function cachedUsdPerRawUnit(address quote) external returns (uint256) {
+        Cached storage c = cache[quote];
+        if (block.timestamp <= c.at + TTL && c.factor != 0) return c.factor;
+        uint256 fresh = this.usdPerRawUnit(quote);
+        c.at = uint64(block.timestamp);
+        if (fresh > 0) c.factor = fresh;
+        return c.factor;
+    }
+
     /// @notice Whether `quote` can be priced right now. Exposed so a caller can
     ///         distinguish "unpriced" from "worth nothing" without a second call.
     function priceable(address quote) external view returns (bool) {

@@ -146,7 +146,7 @@ abstract contract YBase is Test, IUnlockCallback {
         IERC20Minimal(token).approve(address(perp), plvToken);
         perp.fundPlvToken(plvToken);
 
-        hook.setDeathThreshold(0);            // keep the brew alive for opens
+        hook.setDeathThreshold(0, address(0));            // keep the brew alive for opens
         _warp(25 hours);                      // past the open warmup
         vm.roll(block.number + 40);           // past the anti-snipe surtax window
         perp.poke();

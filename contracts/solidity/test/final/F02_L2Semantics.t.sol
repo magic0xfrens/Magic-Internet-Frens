@@ -130,7 +130,7 @@ contract F02_L2Semantics is Test {
         // Give the pool real volume so it is unambiguously alive. The rig deploys
         // with a 1 ETH threshold; drop it so a modest buy clears it and the test is
         // about the CLOCK, not about the threshold's magnitude.
-        hook.setDeathThreshold(0.1 ether);
+        hook.setDeathThreshold(0.1 ether, address(0));
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
         _buy(0.5 ether);

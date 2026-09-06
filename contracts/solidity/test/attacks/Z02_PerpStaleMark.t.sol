@@ -60,7 +60,7 @@ contract Z02_PerpStaleMark is ZAuditBase {
         // warmup 60s (>= MIN_TWAP); everything else at defaults.
         engine.setRisk(60, 3, 1500, 500, 3000, 100);
         // Keep the pool "alive" for the whole test so opens are never gated on death.
-        hook.setDeathThreshold(0);
+        hook.setDeathThreshold(0, address(0));
 
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
         vm.warp(block.timestamp + 120); // clear the open warmup

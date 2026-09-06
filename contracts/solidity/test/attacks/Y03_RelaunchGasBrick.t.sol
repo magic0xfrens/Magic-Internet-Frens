@@ -68,7 +68,7 @@ contract Y03_RelaunchGasBrick is YBase {
         assertEq(perp.openCount(), cap, "book filled to the cap");
 
         // Make the pool dead + past the wall-clock death window (audit Z-05).
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
         _warp(registry.minLifetime() + 1 days + 1);
 
         // Run relaunch with a hard cap. 24M is plenty for the rebirth tail
@@ -105,7 +105,7 @@ contract Y03_RelaunchGasBrick is YBase {
             vm.prank(bot, bot);
             perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         }
-        hook.setDeathThreshold(type(uint256).max);
+        hook.setDeathThreshold(type(uint256).max, address(0));
         _warp(registry.minLifetime() + 1 days + 1);
 
         registry.relaunch(); // full gas

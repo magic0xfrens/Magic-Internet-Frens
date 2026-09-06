@@ -93,7 +93,7 @@ contract PoC_PoisonProposalBricksRelaunch is Test {
         registry.setGovernor(address(gov));
 
         // Kill gen-1 the normal way.
-        hook.setDeathThreshold(1 ether);
+        hook.setDeathThreshold(1 ether, address(0));
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 

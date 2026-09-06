@@ -118,7 +118,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         IERC20Minimal(token).approve(address(perp), seed);
         perp.fundPlvToken(seed);
 
-        hook.setDeathThreshold(0);
+        hook.setDeathThreshold(0, address(0));
         hook.setPerpEngine(address(perp));
         registry.setGovernor(address(new MockGov()));
 
@@ -140,7 +140,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         assertEq(perp.openCount(), 2, "two positions open");
 
         // Kill the generation.
-        hook.setDeathThreshold(1 ether);
+        hook.setDeathThreshold(1 ether, address(0));
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
@@ -180,7 +180,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         assertEq(perp.openCount(), 2, "two positions open");
 
-        hook.setDeathThreshold(1 ether);
+        hook.setDeathThreshold(1 ether, address(0));
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
 
         perp.forceCloseAllDead();
