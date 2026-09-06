@@ -33,6 +33,7 @@ const SPELL: Record<EventKind, { icon: string; label: string; tone: "good" | "ba
   "perp-close":   { icon: "🛡️", label: "position closed", tone: "neutral" },
   "liquidation":  { icon: "💀", label: "REKT",          tone: "bad" },
   "badge":        { icon: "🏆", label: "liquidatoor",   tone: "magic" },
+  "revealed":     { icon: "🧙", label: "fren revealed", tone: "magic" },
 };
 
 const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");

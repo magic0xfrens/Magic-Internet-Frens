@@ -45,11 +45,14 @@ const T = {
   PERP_CLOSE: "0x9bedef2f5157c2a58603b19345b17634f86cfcee701cffdb762a1b4d16ce5971",
   LIQUIDATED: "0xf4c6cbfcc96248be8ecbaf76de0fee34f71f2fadd9af537dd38c2657621930d6",
   BADGE:      "0xddd9ec74671af2df8ea4a7740b5c7fc4056acd0a803d23719360bea0c89d7e13",
+  // Revealed(uint256 indexed tokenId, uint8 rarity) — emitted by the COLLECTION,
+  // not the hook, so it needs the collection in the subscription below.
+  REVEALED:   "0x4105048da870d53e5d1897a04b28ff7adcb26454cb905eddf8756d2677d3a7b2",
 } as const;
 
 export type EventKind =
   | "buy" | "sell" | "gacha-commit" | "gacha-win" | "gacha-miss"
-  | "perp-open" | "perp-close" | "liquidation" | "badge";
+  | "perp-open" | "perp-close" | "liquidation" | "badge" | "revealed";
 
 /** A swap seen on the wire, decoded far enough to show instantly. */
 let nextId = 1;
@@ -123,7 +126,14 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           jsonrpc: "2.0", id: 1, method: "eth_subscribe",
           params: ["logs", { address: pm, topics: [T.SWAP] }],
         }));
-        const ours = [round.contracts.hook, round.contracts.perpEngine].filter(Boolean);
+        //  The live COLLECTION is included so opening a crystal announces
+        //  itself: Revealed is emitted by the collection, not the hook, so
+        //  without it a reveal was the one action that happened silently.
+        const ours = [
+          round.contracts.hook,
+          round.contracts.perpEngine,
+          round.contracts.collection,
+        ].filter(Boolean);
         if (ours.length > 0) {
           ws.send(JSON.stringify({
             jsonrpc: "2.0", id: 2, method: "eth_subscribe",
@@ -200,6 +210,10 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           } else if (topic0 === T.LIQUIDATED) {
             kind = "liquidation"; who = addrTopic(2);
             detail = `${eth(word(0))} penalty`;
+          } else if (topic0 === T.REVEALED) {
+            kind = "revealed";
+            // rarity is the only data word; the tier names live in the UI.
+            detail = `#${BigInt(String(log.topics[1] ?? "0x0"))}`;
           } else if (topic0 === T.BADGE) {
             kind = "badge"; who = addrTopic(2);
             detail = `badge #${word(0)}`;

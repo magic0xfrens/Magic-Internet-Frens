@@ -25,6 +25,7 @@ const SPELL: Record<EventKind, { icon: string; verb: string; flavour: string; to
   "perp-close":   { icon: "🛡️", verb: "Position closed", flavour: "lives to trade on", tone: "neutral" },
   "liquidation":  { icon: "💀", verb: "Liquidated",      flavour: "REKT",            tone: "bad" },
   "badge":        { icon: "🏆", verb: "Liquidatoor badge", flavour: "spoils of war", tone: "magic" },
+  "revealed":     { icon: "🧙", verb: "Fren revealed",     flavour: "the seal breaks", tone: "magic" },
 };
 
 const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");

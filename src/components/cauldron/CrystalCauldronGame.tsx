@@ -206,8 +206,14 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
           tokenId: BigInt(n.tokenId),
           revealed: n.revealed,
           rarity: n.revealed ? n.rarity : undefined,
+          // A revealed token's art is fetched lazily below; leaving it undefined
+          // here is what produced a broken-image icon, because the tile rendered
+          // an <img> with no src.
           image: n.revealed ? undefined : "/crystal.png",
-        }));
+        }))
+        // Sealed first: the vault shows twelve, and the ones you can act on are
+        // the ones worth showing.
+        .sort((a, b) => Number(a.revealed) - Number(b.revealed));
       setVault((v) => {
         // Anything already in state came from a spin THIS session and may hold
         // freshly-resolved art the indexer has not caught up to, so it wins.
@@ -217,6 +223,34 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
     })();
     return () => { alive = false; };
   }, [address, collection]);
+
+  /**
+   * Fetch art for revealed crystals that are actually VISIBLE.
+   *
+   * The backfill knows which tokens are revealed but not what they look like,
+   * and a tile with no image renders as a broken-image icon. Resolving all of
+   * them would be hundreds of tokenURI reads for twelve visible tiles, so this
+   * only covers what is on screen and skips anything already resolved.
+   */
+  useEffect(() => {
+    if (!collection || !pub) return;
+    const need = vault.slice(0, 12).filter((c) => c.revealed && !c.image);
+    if (need.length === 0) return;
+    let alive = true;
+    for (const c of need) {
+      pub.readContract({
+        address: collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [c.tokenId],
+      })
+        .then((uri) => {
+          if (!alive) return;
+          const { image, name } = imageFromTokenURI(uri as string);
+          setVault((v) => v.map((x) => (x.tokenId === c.tokenId ? { ...x, image, name } : x)));
+        })
+        // One unreadable tokenURI must not stall the rest of the grid.
+        .catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [vault, collection, pub]);
 
   const doOpenAll = useCallback(async () => {
     setErr("");
