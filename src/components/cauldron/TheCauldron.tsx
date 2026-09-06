@@ -1939,11 +1939,75 @@ function Styles() {
     .tr-field > span { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: ${C.mute}; }
     .tr-field > span b { color: #efeaff; }
     .tr-field em { font-style: normal; font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.mute}; opacity: 0.65; line-height: 1.45; }
-    .tr-field select, .tr-field input[type="number"] {
+    .tr-field input[type="number"] {
       background: rgba(8,6,15,0.7); border: 1px solid rgba(255,255,255,0.09); border-radius: var(--r-sm);
-      padding: 9px 11px; color: #f4f1ff; font-family: "DM Mono", monospace; font-size: 12.5px; width: 100%;
+      padding: 10px 11px; color: #f4f1ff; font-family: "DM Mono", monospace; font-size: 12.5px; width: 100%;
     }
-    .tr-field select { cursor: pointer; }
+    /* Themed focus, because the browser default is a blue ring that belongs to
+       the OS rather than to this app. */
+    .tr-field input:focus-visible, .tr-pick__trigger:focus-visible, .tr-pick__opt:focus-visible,
+    .tr-steps button:focus-visible {
+      outline: none; border-color: rgba(213,253,81,0.55);
+      box-shadow: 0 0 0 3px rgba(213,253,81,0.16);
+    }
+
+    /* ── ASSET PICKER ──────────────────────────────────────────────────────
+       A native <select> paints OS chrome straight through the theme: the popup
+       is drawn by the browser, not the page, so no CSS reaches it. This is a
+       listbox instead — themeable, and it scales past a handful of assets. */
+    .tr-pick { position: relative; }
+    .tr-pick--empty { font-family: "DM Sans", sans-serif; font-size: 11.5px; color: ${C.mute}; opacity: 0.6; padding: 12px 0; }
+    .tr-pick__trigger {
+      display: flex; align-items: center; gap: 11px; width: 100%;
+      /* 48px tall: comfortably over the 44px touch-target floor. */
+      padding: 9px 12px; min-height: 48px; cursor: pointer; text-align: left;
+      border-radius: 12px; color: #f4f1ff;
+      background: linear-gradient(135deg, rgba(30,22,58,0.7), rgba(12,9,22,0.7));
+      border: 1px solid rgba(168,140,255,0.18);
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+    .tr-pick__trigger:hover { border-color: rgba(168,140,255,0.4); }
+    .tr-pick__trigger.is-open { border-color: rgba(196,142,255,0.55); }
+    /* A monogram sigil rather than an emoji: it scales to any asset and stays
+       legible at 32px, which an emoji glyph does not. */
+    .tr-pick__sigil {
+      display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px;
+      font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+      color: #d9c4ff; background: rgba(196,142,255,0.14); border: 1px solid rgba(196,142,255,0.26);
+    }
+    .tr-pick__sigil--none { color: rgba(255,255,255,0.32); background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .tr-pick__pair, .tr-pick__opt-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .tr-pick__pair b, .tr-pick__opt-body b { font-family: "Cinzel", serif; font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+    .tr-pick__pair i, .tr-pick__opt-body i {
+      font-style: normal; font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.mute};
+      opacity: 0.62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tr-pick__chev { flex: none; opacity: 0.42; transition: transform 0.2s ease; }
+    .tr-pick__trigger.is-open .tr-pick__chev { transform: rotate(180deg); }
+
+    .tr-pick__list {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+      list-style: none; margin: 0; padding: 5px; max-height: 268px; overflow-y: auto;
+      border-radius: 13px; background: rgba(16,12,30,0.98);
+      border: 1px solid rgba(168,140,255,0.22);
+      box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+      backdrop-filter: blur(18px);
+      animation: trPickIn 0.16s ease;
+    }
+    @keyframes trPickIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+    .tr-pick__opt {
+      display: flex; align-items: center; gap: 11px; width: 100%; min-height: 48px;
+      padding: 8px 10px; border-radius: 9px; border: none; background: none; color: #f4f1ff;
+      cursor: pointer; text-align: left; transition: background 0.14s ease;
+    }
+    /* Hover tints rather than scales — a transform here would shift the rows
+       under the pointer. */
+    .tr-pick__opt.is-cursor { background: rgba(196,142,255,0.13); }
+    .tr-pick__opt.is-sel .tr-pick__sigil { background: rgba(213,253,81,0.16); border-color: rgba(213,253,81,0.4); color: ${C.lime}; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tr-pick__list, .tr-alloc__moved, .tr-pick__chev { animation: none !important; transition: none !important; }
+    }
     .tr-field input[type="range"] { accent-color: ${C.lime}; width: 100%; }
     .tr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .tr-suffix { position: relative; display: flex; align-items: center; }

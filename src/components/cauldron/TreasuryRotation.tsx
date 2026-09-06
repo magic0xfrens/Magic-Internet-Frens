@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWriteContract, usePublicClient } from "wagmi";
 import { formatEther, parseUnits, type Address } from "viem";
 import { CAULDRON } from "@/config/cauldron";
@@ -28,6 +28,116 @@ const ERC20_BAL = [{
   type: "function", name: "balanceOf", stateMutability: "view",
   inputs: [{ type: "address" }], outputs: [{ type: "uint256" }],
 }] as const;
+
+
+/**
+ * A themed asset picker.
+ *
+ * Replaces a native <select>, which paints OS chrome — a system focus ring and
+ * the platform's own dropdown — straight through the app's styling. No amount of
+ * CSS fixes that: the popup is drawn by the browser, not the page.
+ *
+ * Built as a listbox rather than a styled input so it scales past a handful of
+ * assets: rows carry a symbol, a name and the reason you would pick it, and the
+ * list scrolls. Keyboard support is the part a custom control usually loses, so
+ * arrows/Home/End/Escape/Enter are all handled explicitly.
+ */
+function AssetPicker({ options, value, onChange, fromSymbol }: {
+  options: { address: string; symbol: string; name: string; blurb: string }[];
+  value: string;
+  onChange: (a: string) => void;
+  fromSymbol: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const chosen = options.find((o) => o.address === value);
+
+  // Close on an outside click; a popover that traps you is worse than a select.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setOpen(false); return; }
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault(); setOpen(true); return;
+    }
+    if (!open) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(options.length - 1, c + 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
+    if (e.key === "Home") { e.preventDefault(); setCursor(0); }
+    if (e.key === "End") { e.preventDefault(); setCursor(options.length - 1); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const o = options[cursor];
+      if (o) { onChange(o.address); setOpen(false); }
+    }
+  };
+
+  if (options.length === 0) {
+    return <div className="tr-pick tr-pick--empty">No other quote asset is approved yet.</div>;
+  }
+
+  return (
+    <div className="tr-pick" ref={boxRef}>
+      <button
+        type="button"
+        className={`tr-pick__trigger ${open ? "is-open" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={keys}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {chosen ? (
+          <>
+            <span className="tr-pick__sigil">{chosen.symbol.slice(0, 2)}</span>
+            <span className="tr-pick__pair">
+              <b>{fromSymbol} → {chosen.symbol}</b>
+              <i>{chosen.name}</i>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="tr-pick__sigil tr-pick__sigil--none">?</span>
+            <span className="tr-pick__pair"><b>Choose a destination</b><i>{options.length} approved</i></span>
+          </>
+        )}
+        <svg className="tr-pick__chev" viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <ul className="tr-pick__list" role="listbox" onKeyDown={keys} tabIndex={-1}>
+          {options.map((o, i) => (
+            <li key={o.address}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.address === value}
+                className={`tr-pick__opt ${i === cursor ? "is-cursor" : ""} ${o.address === value ? "is-sel" : ""}`}
+                onMouseEnter={() => setCursor(i)}
+                onClick={() => { onChange(o.address); setOpen(false); }}
+              >
+                <span className="tr-pick__sigil">{o.symbol.slice(0, 2)}</span>
+                <span className="tr-pick__opt-body">
+                  <b>{fromSymbol} → {o.symbol}</b>
+                  <i>{o.blurb}</i>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** A donut showing what the LP is denominated in, and what a rotation would change it to. */
 function Allocation({ fromSym, toSym, pct, fromCol, toCol }: {
@@ -192,18 +302,15 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
         />
 
         <div className="tr-controls">
-          <label className="tr-field">
+          <div className="tr-field">
             <span>Rotate into</span>
-            <select value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="">Select an approved asset…</option>
-              {targets.map((q) => (
-                <option key={q.address} value={q.address}>
-                  {from.symbol} → {q.symbol} · {q.name}
-                </option>
-              ))}
-            </select>
-            {targets.length === 0 && <em>No other quote is approved yet.</em>}
-          </label>
+            <AssetPicker
+              options={targets.map((q) => ({ address: q.address, symbol: q.symbol, name: q.name, blurb: q.blurb }))}
+              value={target}
+              onChange={setTarget}
+              fromSymbol={from.symbol}
+            />
+          </div>
 
           <label className="tr-field">
             <span>Share of the LP to convert <b>{pullPct}%</b></span>
