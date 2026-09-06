@@ -97,7 +97,7 @@ contract RotationRoundTripTest is Test {
         registry.setFactory(address(new CauldronFactory()));
 
         usdg = new MockUSDG();
-        registry.setAllowedQuote(address(usdg), true);
+        registry.setAllowedQuote(address(usdg), true, 1e18);
         rotator = new QuoteRotator(address(registry), pm);
 
         vm.deal(address(this), 100 ether);

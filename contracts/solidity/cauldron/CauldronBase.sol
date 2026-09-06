@@ -181,7 +181,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     mapping(uint256 => address) public generationProposer;
     /// @notice V2 BRANCH SEAM (empty in V1). The parent generation each iteration
     ///         descended from.
-    mapping(uint256 => uint256) public generationParent;
+    mapping(uint256 => uint256) internal generationParent;
     /// @notice generation -> V4 pool ID
     mapping(uint256 => PoolId) public generationPoolId;
     /// @notice generation -> PoolKey (stored for LP removal)
@@ -229,7 +229,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     address internal genesisRenderer;
 
     /// @notice The MiFrens ERC721 whose holders may claim the genesis bonus.
-    address public mifrens;
+    address internal mifrens;
     /// @notice Bonus share of gen-1 supply reserved for MiFrens holders (bps).
     uint256 internal genesisBonusBps;
     /// @notice Number of equal shares the bonus pool is split into (MiFrens supply).
@@ -278,7 +278,7 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     CauldronHook public hook;                // slot 43 (was immutable)
     /// @notice The RedemptionExt facet the registry delegatecalls the OG-redemption
     ///         ops into. Set once at deploy via {CauldronRegistry.setRedemptionExt}.
-    address public redemptionExt;            // slot 44
+    address internal redemptionExt;            // slot 44
 
     // ── PROGRESSIVE SEED (opt-in; default off → the atomic green-candle path is
     //    unchanged). Carried in the base so the registry/facet layouts stay equal
@@ -343,6 +343,21 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///         share this layout, so an inserted slot renumbers everything below
     ///         and the facet starts reading the wrong variable.
     address internal treasuryGovernor;                    // slot 51
+
+    /// @notice How many wei of ETH-equivalent one RAW unit of a quote is worth,
+    ///         scaled by 1e18. Set by the timelock when an asset is allowlisted.
+    ///
+    ///  Volume is measured on the quote side, so a USDG pool counts in 6-decimal
+    ///  units and an ETH pool in wei — the SAME dollar volume reads ~1e9x
+    ///  smaller on USDG. Summed for death detection, that would collapse a
+    ///  generation's measured volume the moment the guild rotated, and relaunch
+    ///  a perfectly live brew.
+    ///
+    ///  Governance-set rather than oracle-derived on purpose: it only needs the
+    ///  right order of magnitude, it changes rarely, and an attacker cannot move
+    ///  it. A price feed here would be a manipulation surface on the one number
+    ///  that decides whether a generation dies.
+    mapping(address => uint256) public quoteScale;         // slot 52
 
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)

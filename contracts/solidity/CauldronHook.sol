@@ -29,6 +29,7 @@ import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 ///         work out which side of a pool is the quote.
 interface IRegistryQuotes {
     function allowedQuote(address quote) external view returns (bool);
+    function quoteScale(address quote) external view returns (uint256);
 }
 
 interface IPerpEngineLiq {
@@ -179,10 +180,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice Flat hook trading fee (bps) applied when no per-holder tiered NFT
     ///         contract is wired. Owner-tunable, capped at MAX_TAX_BPS (10%).
     ///         Default 300 = 3%. This is the fee charged in ETH on every swap.
-    uint256 public defaultTaxBps = 300;
+    uint256 internal defaultTaxBps = 300;
 
     /// @notice NFT contract for tiered tax lookup
-    address public nftContract;
+    address internal nftContract;
 
     /// @notice Treasury address for ERC20 fee withdrawals
     address public treasury;
@@ -334,7 +335,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     Batch[] public batches;             // FIFO queue of commit batches
     uint256 internal batchCursor;         // index of the batch being resolved
     uint256 public outstandingCrystals; // unresolved crystals across all players
-    mapping(address => uint256) public outstandingOf; // per-collection unresolved
+    mapping(address => uint256) internal outstandingOf; // per-collection unresolved
     mapping(address => uint256) public opened;      // creatures a player has won (lifetime)
     mapping(address => uint256) public committedOf; // crystals a player has opened
     mapping(address => uint256) public pendingOf;   // a player's unresolved crystals
@@ -362,7 +363,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     uint256 public oddsFullVolumeWei = 0.5 ether;
     uint256 public maxOddsBps = 9_000;                 // 90%
     uint256 public constant ODDS_HARD_CAP_BPS = 9_500; // setter ceiling
-    uint256 public pityThreshold = 8;                  // misses forcing a win
+    uint256 internal pityThreshold = 8;                  // misses forcing a win
 
     /// @notice Addresses allowed to open/commit crystals (the gacha router), so
     ///         odds always use the router's honest on-chain play size.
@@ -557,6 +558,16 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
         PoolId id = key.toId();
         quoteIsCurrency0[id] = q0;
+        //  Volume is counted in the QUOTE's own units, so a 6-decimal stable and
+        //  18-decimal ETH are not comparable — the same dollar figure reads ~1e9x
+        //  smaller on the stable. Summed across a generation's pools for death
+        //  detection, that would collapse measured volume the moment the guild
+        //  rotated and relaunch a perfectly live brew. Captured here so every
+        //  pool reports on one scale.
+        uint256 sc = IRegistryQuotes(registry).quoteScale(
+            Currency.unwrap(q0 ? key.currency0 : key.currency1)
+        );
+        volumeScale[id] = sc == 0 ? 1e18 : sc;
         trackedPools[id] = true;
         _lastUpdateTs[id] = block.timestamp;
         poolInitBlock[id] = block.number; // anchor the anti-sniper window
@@ -581,6 +592,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  so it lands on EITHER side. Recorded once at adoption and read from
     ///  there: deriving it per call site is how a buy gets counted as a sell.
     mapping(PoolId => bool) internal quoteIsCurrency0;
+
+    /// @dev ETH-equivalent wei per RAW unit of this pool's quote, scaled 1e18.
+    ///      Read ONCE at adoption rather than per swap — it is governance-set
+    ///      and cannot change under a live pool.
+    mapping(PoolId => uint256) internal volumeScale;
 
     /// @notice Pools whose volume counts toward the SAME generation.
     ///
@@ -636,9 +652,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             // Volume is measured in QUOTE terms. With an ERC20 quote that may be
             // currency1, so read the side adoption recorded rather than amount0.
             int128 quoteAmt = q0 ? delta.amount0() : delta.amount1();
-            uint256 absVolume = quoteAmt >= 0
+            uint256 rawVolume = quoteAmt >= 0
                 ? uint256(uint128(quoteAmt))
                 : uint256(uint128(-quoteAmt));
+            // Normalised so every pool in a generation counts on one scale.
+            uint256 absVolume = (rawVolume * volumeScale[id]) / 1e18;
             _recordVolume(id, absVolume);
             cumulativeVolume += absVolume;
 

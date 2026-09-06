@@ -161,6 +161,7 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         // Native ETH is allowed from construction, so a fresh deployment behaves
         // exactly as before and stays that way until governance widens the set.
         allowedQuote[address(0)] = true;
+        quoteScale[address(0)] = 1e18;   // wei per wei
         emit QuoteAllowed(address(0), true);
     }
 
@@ -228,13 +229,12 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         _forwardToExt();
     }
 
-    /// @notice Point the registry at its rotator. See RedemptionExt.
-    function setQuoteRotator(address) external { _forwardToExt(); }
+    /// @notice Wire the rotator and the treasury vote in one call. Combined
+    ///         because both are deploy-time wiring and this registry has no
+    ///         dispatcher budget for two entries. See RedemptionExt.
+    function setRotationWiring(address, address) external { _forwardToExt(); }
 
-    /// @notice Point the registry at the treasury vote. See RedemptionExt.
-    function setTreasuryGovernor(address) external { _forwardToExt(); }
-
-    function setAllowedQuote(address quote, bool allowed) external onlyOwner {
+    function setAllowedQuote(address quote, bool allowed, uint256 scale) external onlyOwner {
         if (quote == address(0) && !allowed) revert NativeQuoteRequired();
         //  CEILING. Every iteration token is mined ABOVE PoolOps.QUOTE_WATERMARK,
         //  so a quote at or above it could sort ABOVE the token — inverting the
@@ -248,6 +248,8 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         //  there (USDC 0xA0b8, DAI 0x6B17, USDT 0xdAC1).
         if (allowed && uint160(quote) >= uint160(QUOTE_WATERMARK)) revert QuoteAboveWatermark();
         allowedQuote[quote] = allowed;
+        // Identity for native ETH; a real value for anything measured in other units.
+        if (allowed) quoteScale[quote] = scale == 0 ? 1e18 : scale;
         emit QuoteAllowed(quote, allowed);
     }
 

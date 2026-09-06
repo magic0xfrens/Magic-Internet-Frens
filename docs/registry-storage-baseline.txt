@@ -112,6 +112,8 @@
 | allowedQuote                | mapping(address => bool)                     | 47   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
 | generationQuote             | mapping(uint256 => address)                  | 48   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
 | quoteRotator                | address                                      | 49   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+| treasuryGovernor            | address                                      | 50   | 0      | 20    | CauldronRegistry.sol:CauldronRegistry |
+| quoteScale                  | mapping(address => uint256)                  | 51   | 0      | 32    | CauldronRegistry.sol:CauldronRegistry |
 ╰-----------------------------+----------------------------------------------+------+--------+-------+---------------------------------------╯
 
 NOTE. New storage is APPENDED here, never inserted. CauldronRegistry and the

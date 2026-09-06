@@ -7,7 +7,7 @@ import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 import {MockQuoteToken} from "../cauldron/MockQuoteToken.sol";
 
 interface IRegistryQuoteAdmin {
-    function setAllowedQuote(address quote, bool allowed) external;
+    function setAllowedQuote(address quote, bool allowed, uint256 scale) external;
     function allowedQuote(address quote) external view returns (bool);
     function owner() external view returns (address);
 }
@@ -44,15 +44,15 @@ contract DeployQuoteAssets is Script {
         IRegistryQuoteAdmin reg = IRegistryQuoteAdmin(registry);
         address owner = reg.owner();
         if (owner == vm.addr(pk)) {
-            reg.setAllowedQuote(address(usdg), true);
-            reg.setAllowedQuote(address(xnvda), true);
+            reg.setAllowedQuote(address(usdg), true, 1e18);
+            reg.setAllowedQuote(address(xnvda), true, 1e18);
             console2.log("allowlisted directly (deployer owns the registry)");
         } else {
             // Ownership is already with the timelock, so allowlisting has to go
             // through governance. Print the calls rather than failing.
             console2.log("REGISTRY OWNED BY TIMELOCK - queue these via the timelock:");
-            console2.log("  setAllowedQuote(usdg,  true)");
-            console2.log("  setAllowedQuote(xnvda, true)");
+            console2.log("  setAllowedQuote(usdg,  true, 1e18)");
+            console2.log("  setAllowedQuote(xnvda, true, 1e18)");
         }
 
         vm.stopBroadcast();

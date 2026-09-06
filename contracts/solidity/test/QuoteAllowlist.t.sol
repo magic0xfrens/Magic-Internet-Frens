@@ -32,22 +32,22 @@ contract QuoteAllowlistTest is Test {
     /// into, so disallowing it would leave a generation with no valid quote.
     function test_NativeEthCannotBeRemoved() public {
         vm.expectRevert(CauldronBase.NativeQuoteRequired.selector);
-        registry.setAllowedQuote(address(0), false);
+        registry.setAllowedQuote(address(0), false, 1e18);
         assertTrue(registry.allowedQuote(address(0)), "ETH must survive the attempt");
     }
 
     /// Re-allowing ETH is a no-op rather than an error, so a script that sets the
     /// full desired set each run does not have to special-case it.
     function test_NativeEthCanBeReAllowed() public {
-        registry.setAllowedQuote(address(0), true);
+        registry.setAllowedQuote(address(0), true, 1e18);
         assertTrue(registry.allowedQuote(address(0)));
     }
 
     function test_OwnerCanCurate() public {
         assertFalse(registry.allowedQuote(USDG), "unknown quote starts disallowed");
-        registry.setAllowedQuote(USDG, true);
+        registry.setAllowedQuote(USDG, true, 1e18);
         assertTrue(registry.allowedQuote(USDG), "owner may add");
-        registry.setAllowedQuote(USDG, false);
+        registry.setAllowedQuote(USDG, false, 1e18);
         assertFalse(registry.allowedQuote(USDG), "owner may remove a non-native quote");
     }
 
@@ -56,19 +56,19 @@ contract QuoteAllowlistTest is Test {
     function test_StrangerCannotCurate() public {
         vm.prank(STRANGER);
         vm.expectRevert();
-        registry.setAllowedQuote(USDG, true);
+        registry.setAllowedQuote(USDG, true, 1e18);
         assertFalse(registry.allowedQuote(USDG), "a stranger must not widen the set");
     }
 
     function test_EmitsOnChange() public {
         vm.expectEmit(true, false, false, true);
         emit CauldronRegistry.QuoteAllowed(XNVDA, true);
-        registry.setAllowedQuote(XNVDA, true);
+        registry.setAllowedQuote(XNVDA, true, 1e18);
     }
 
     /// Quotes are independent: allowing one must not implicitly allow another.
     function test_QuotesAreIndependent() public {
-        registry.setAllowedQuote(USDG, true);
+        registry.setAllowedQuote(USDG, true, 1e18);
         assertTrue(registry.allowedQuote(USDG));
         assertFalse(registry.allowedQuote(XNVDA), "allowing one must not allow another");
     }
@@ -93,7 +93,7 @@ contract QuoteAllowlistTest is Test {
     /// treasury has not vetted must not be proposable in the first place.
     function test_AllowlistGatesWhatCanBeProposed() public {
         assertFalse(registry.allowedQuote(USDG), "not vetted yet");
-        registry.setAllowedQuote(USDG, true);
+        registry.setAllowedQuote(USDG, true, 1e18);
         assertTrue(registry.allowedQuote(USDG), "now proposable");
     }
 
@@ -109,10 +109,10 @@ contract QuoteAllowlistTest is Test {
     /// than a hope.
     function test_QuoteAtOrAboveWatermarkIsRefused() public {
         vm.expectRevert(CauldronBase.QuoteAboveWatermark.selector);
-        registry.setAllowedQuote(WATERMARK, true);
+        registry.setAllowedQuote(WATERMARK, true, 1e18);
 
         vm.expectRevert(CauldronBase.QuoteAboveWatermark.selector);
-        registry.setAllowedQuote(address(type(uint160).max), true);
+        registry.setAllowedQuote(address(type(uint160).max), true, 1e18);
 
         assertFalse(registry.allowedQuote(WATERMARK), "must not be allowed");
     }
@@ -126,7 +126,7 @@ contract QuoteAllowlistTest is Test {
             0xdAC17F958D2ee523a2206206994597C13D831ec7  // USDT
         ];
         for (uint256 i; i < real.length; ++i) {
-            registry.setAllowedQuote(real[i], true);
+            registry.setAllowedQuote(real[i], true, 1e18);
             assertTrue(registry.allowedQuote(real[i]), "a real quote must be allowlistable");
         }
     }
@@ -134,10 +134,10 @@ contract QuoteAllowlistTest is Test {
     /// DISALLOWING must never be blocked by the ceiling — otherwise a quote that
     /// somehow got in could never be removed.
     function test_CeilingNeverBlocksRemoval() public {
-        registry.setAllowedQuote(USDG, true);
-        registry.setAllowedQuote(USDG, false);
+        registry.setAllowedQuote(USDG, true, 1e18);
+        registry.setAllowedQuote(USDG, false, 1e18);
         assertFalse(registry.allowedQuote(USDG));
         // Removing something above the watermark is a no-op, not a revert.
-        registry.setAllowedQuote(WATERMARK, false);
+        registry.setAllowedQuote(WATERMARK, false, 1e18);
     }
 }
