@@ -179,7 +179,9 @@ contract MockEngine {
     function currentToken() external view returns (address) { return address(token); }
 
     // IPerpEngineVault
-    function fundFromVault() external payable { plv += msg.value; }
+    function fundFromVault(uint256 amount) external payable { plv += amount; }
+    /// Native book: the vault reads this to decide how to deliver the stake.
+    function quote() external pure returns (address) { return address(0); }
     function withdrawPlvTo(uint256 amount, address to) external {
         require(amount <= plv, "free");
         plv -= amount;

@@ -1397,18 +1397,31 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     function _creditPerp(bool ethSide) private {
         if (msg.sender != hookAddr) revert OnlyHook();
+        //  NOTE: still native. The hook routes every fee with `.call{value:}` —
+        //  five sites — so a USDG-quoted pool cannot deliver a perp fee at all.
+        //  Generalising this end alone would be a path to nowhere; the hook's
+        //  routing is the blocker and is tracked in docs/TREASURY_FUND_PLAN.md.
+        uint256 amount = msg.value;
         if (ethSide) {
-            plv += msg.value;
+            plv += amount;
         } else {
-            tokYieldEth += msg.value;
-            tokYieldCumulative += msg.value;
+            tokYieldEth += amount;
+            tokYieldCumulative += amount;
         }
-        emit VaultFunded(ethSide, msg.value);
+        emit VaultFunded(ethSide, amount);
     }
+
 
     // ── Community PLV: vault-only deposit/withdraw of working capital ────────
     /// @notice The PerpVault routes a depositor's ETH into the ETH PLV.
-    function fundFromVault() external payable onlyVault { plv += msg.value; emit VaultFunded(true, msg.value); }
+    /// @notice The vault routes a depositor's stake into the PLV. `amount` is
+    ///         explicit so a non-native quote can be pulled; for a native book
+    ///         it must equal msg.value.
+    function fundFromVault(uint256 amount) external payable onlyVault {
+        _pullQuote(msg.sender, amount);
+        plv += amount;
+        emit VaultFunded(true, amount);
+    }
     /// @notice The PerpVault pulls FREE ETH (≤ plv) back out to pay a withdrawal.
     ///         Lent-out ETH (longOiEth) can't be pulled — it returns as positions
     ///         close, which is what the vault's utilization cap + queue manage.

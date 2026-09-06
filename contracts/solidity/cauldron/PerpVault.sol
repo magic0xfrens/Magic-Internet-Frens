@@ -6,7 +6,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 
 interface IPerpEngineVault {
-    function fundFromVault() external payable;
+    function fundFromVault(uint256 amount) external payable;
+    function quote() external view returns (address);
     function withdrawPlvTo(uint256 amount, address to) external;
     function fundTokenFromVault(uint256 amount) external;
     function withdrawPlvTokenTo(uint256 amount, address to) external;
@@ -123,17 +124,68 @@ contract PerpVault is ReentrancyGuard {
 
     // ── ETH side: deposit / withdraw / claim ─────────────────────────────────
 
-    /// @notice Stake ETH to back longs and earn perp fees. Mints shares at the
-    ///         live assets-per-share (with a virtual offset for safety).
-    function depositEth() external payable nonReentrant returns (uint256 shares) {
-        if (msg.value == 0) revert ZeroAmount();
+    /**
+     * @notice Stake to back longs and earn perp fees. Mints shares at the live
+     *         assets-per-share (with a virtual offset for safety).
+     *
+     *  Staked in the GENERATION'S QUOTE, whatever that is. On an ETH-quoted brew
+     *  this is exactly as before; on a USDG-quoted one a staker deposits USDG and
+     *  takes exposure to that pair's volatility — which is the honest meaning of
+     *  backing a book denominated in it.
+     *
+     *  `amount` is explicit so a non-native quote can be pulled by transferFrom.
+     *  For a native book it must equal msg.value; for an ERC20 book no value may
+     *  be sent, because value alongside an ERC20 deposit would be stranded here.
+     */
+    function deposit(uint256 amount) public payable nonReentrant returns (uint256 shares) {
+        if (amount == 0) revert ZeroAmount();
+        //  Read defensively. An engine that predates multi-quote has no
+        //  `quote()`, and an interface call would revert the whole deposit
+        //  rather than fall back — turning a compatibility gap into an outage.
+        //  No answer means native, which is what such an engine is.
+        address q = _engineQuote();
+        if (q == address(0)) {
+            if (msg.value != amount) revert ZeroAmount();
+        } else {
+            if (msg.value != 0) revert ZeroAmount();
+            _pull(q, msg.sender, amount);
+            _approve(q, address(engine), amount);
+        }
         // Price BEFORE the engine receives the funds (assetsEth is pre-deposit).
-        shares = FullMath.mulDiv(msg.value, ethShares + OFFSET, assetsEth() + 1);
+        shares = FullMath.mulDiv(amount, ethShares + OFFSET, assetsEth() + 1);
         if (shares == 0) revert ZeroShares();
         ethShares += shares;
         ethShareOf[msg.sender] += shares;
-        engine.fundFromVault{value: msg.value}();
-        emit DepositEth(msg.sender, msg.value, shares);
+        engine.fundFromVault{value: q == address(0) ? amount : 0}(amount);
+        emit DepositEth(msg.sender, amount, shares);
+    }
+
+    /// @notice Native-only convenience, kept so existing callers and the
+    ///         frontend keep working unchanged on an ETH-quoted brew.
+    function depositEth() external payable returns (uint256) {
+        return deposit(msg.value);
+    }
+
+    function _engineQuote() private view returns (address) {
+        (bool ok, bytes memory ret) = address(engine).staticcall(
+            abi.encodeWithSignature("quote()")
+        );
+        if (!ok || ret.length < 32) return address(0);
+        return abi.decode(ret, (address));
+    }
+
+    /// @dev Return values checked: a token that returns false rather than
+    ///      reverting would otherwise mint shares for a deposit that never moved.
+    function _pull(address token, address from, uint256 amount) private {
+        (bool ok, bytes memory ret) = token.call(
+            abi.encodeWithSignature("transferFrom(address,address,uint256)", from, address(this), amount)
+        );
+        if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert ZeroAmount();
+    }
+
+    function _approve(address token, address spender, uint256 amount) private {
+        (bool ok, ) = token.call(abi.encodeWithSignature("approve(address,uint256)", spender, amount));
+        if (!ok) revert ZeroAmount();
     }
 
     /// @notice Redeem ETH shares. Pays instantly up to the engine's FREE ETH; any
@@ -311,16 +363,4 @@ contract PerpVault is ReentrancyGuard {
     }
 
     // ── internal ERC20 helpers ────────────────────────────────────────────────
-    function _pull(address token, address from, uint256 amount) private {
-        (bool ok, bytes memory data) = token.call(
-            abi.encodeWithSelector(IERC20.transferFrom.selector, from, address(this), amount)
-        );
-        if (!ok || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
-    }
-    function _approve(address token, address spender, uint256 amount) private {
-        (bool ok, bytes memory data) = token.call(
-            abi.encodeWithSelector(IERC20.approve.selector, spender, amount)
-        );
-        if (!ok || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
-    }
 }

@@ -423,7 +423,9 @@ contract MockPerpEngine {
     function freeEth() external view returns (uint256) { return plv; }
     function totalTokenAssets() external view returns (uint256) { return plvToken + shortOiToken; }
     function freeToken() external view returns (uint256) { return plvToken; }
-    function fundFromVault() external payable { plv += msg.value; }
+    function fundFromVault(uint256 amount) external payable { plv += amount; }
+    /// Native book: the vault reads this to decide how to deliver the stake.
+    function quote() external pure returns (address) { return address(0); }
     function withdrawPlvTo(uint256 a, address to) external { plv -= a; (bool ok,) = to.call{value: a}(""); require(ok); }
     function fundTokenFromVault(uint256 a) external { tok.transferFrom(msg.sender, address(this), a); plvToken += a; }
     function withdrawPlvTokenTo(uint256 a, address to) external { plvToken -= a; tok.transfer(to, a); }
