@@ -122,6 +122,10 @@ contract TreasuryGovernor {
     uint64 public constant VOTING_PERIOD = 3 days;
     uint64 public constant ENVELOPE_LIFETIME = 30 days;
     uint64 public constant COOLDOWN = 7 days;
+    /// @notice How long after its vote closes a winning proposal stays
+    ///         executable. Past this it is stale: the market it was voted about
+    ///         is not the market it would execute into.
+    uint64 public constant EXECUTION_WINDOW = 3 days;
     /// Most of the LP that any single envelope may move.
     uint16 public constant MAX_ENVELOPE_BPS = 4000; // 40%
     /// Share of total MiFren supply that must vote FOR for a proposal to pass.
@@ -158,10 +162,22 @@ contract TreasuryGovernor {
         // a proposal is out for vote, and the check that matters is the later one.
         if (!IRegistryQuotes(registry).allowedQuote(quote)) revert QuoteNotAllowed();
 
-        uint256 act = activeProposal;
-        if (act != 0 && !_settled(act)) revert ProposalActive();
+        //  PROPOSALS COMPETE; THEY DO NOT QUEUE.
+        //
+        //  An earlier version allowed one open proposal at a time, which read as
+        //  a safety property and was actually an attack: anyone holding the
+        //  5-MiFren threshold could file junk every three days and block
+        //  treasury governance permanently, for the price of gas. Serialising a
+        //  public queue hands a veto to whoever is fastest.
+        //
+        //  Concurrent proposals with a winner-takes-all close removes that. Junk
+        //  simply loses, and two genuine proposals for different assets resolve
+        //  the way a disagreement should — by vote, not by who filed first.
+        //  This mirrors CauldronGovernor, which already picks brews this way.
+        //
+        //  Only the ENVELOPE is exclusive: one rotation may be live at a time.
         if (envelope.active && block.timestamp < envelope.expiry) revert ProposalActive();
-        if (block.timestamp < lastEnvelopeAt + COOLDOWN) revert CooldownActive();
+        if (lastEnvelopeAt != 0 && block.timestamp < lastEnvelopeAt + COOLDOWN) revert CooldownActive();
 
         id = ++proposalCount;
         proposals[id] = Proposal({
@@ -177,7 +193,6 @@ contract TreasuryGovernor {
             executed: false,
             cancelled: false
         });
-        activeProposal = id;
         emit Proposed(id, msg.sender, quote, maxTotalBps);
     }
 
@@ -207,6 +222,14 @@ contract TreasuryGovernor {
         if (block.timestamp < p.votingEndsAt) revert VotingOpen();
         if (p.executed || p.cancelled) revert AlreadyExecuted();
         if (!_passed(p)) revert DidNotPass();
+        //  Only the LEADER may execute. Without this, several proposals passing
+        //  in the same window would let whoever executes first install their
+        //  envelope regardless of which the guild preferred — turning a vote
+        //  into a race.
+        if (id != winner()) revert DidNotPass();
+        //  And a stale winner cannot be installed months later into a market
+        //  nobody voted about.
+        if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) revert VotingClosed();
         // Re-checked, because the timelock may have de-listed the asset during
         // the vote and the allowlist is the guardrail that must not be stale.
         if (!IRegistryQuotes(registry).allowedQuote(p.quote)) revert QuoteNotAllowed();
@@ -236,6 +259,26 @@ contract TreasuryGovernor {
     function setGuardian(address g) external {
         if (msg.sender != guardian) revert NotGuardian();
         guardian = g;
+    }
+
+    /**
+     * @notice The proposal the guild actually chose: among those whose vote has
+     *         CLOSED, passed quorum, and remain executable, the one with the most
+     *         support. 0 when there is none.
+     *
+     *  Ties break to the LOWER id — the earlier proposal — so the result is
+     *  deterministic rather than dependent on iteration order.
+     */
+    function winner() public view returns (uint256 best) {
+        uint256 bestVotes;
+        for (uint256 i = 1; i <= proposalCount; ++i) {
+            Proposal storage p = proposals[i];
+            if (p.executed || p.cancelled) continue;
+            if (block.timestamp < p.votingEndsAt) continue;               // still open
+            if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) continue; // stale
+            if (!_passed(p)) continue;
+            if (p.forVotes > bestVotes) { bestVotes = p.forVotes; best = i; }
+        }
     }
 
     // -----------------------------------------------------------------------
