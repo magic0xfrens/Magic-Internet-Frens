@@ -771,43 +771,15 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
 
         // 3b. Close the dead brew's floor vault: NFT redemption stops and the
         //     remaining floor ETH sweeps here to seed the next launch.
-        //  BEST-EFFORT, same reasoning as the reserve pull below (red-team L-3).
-        //  `close()` ends in `registry.call{value: swept}("")` and reverts
-        //  `TransferFailed` if that send fails. It is safe TODAY only because the
-        //  unified floor leaves the vault empty and this registry has a
-        //  `receive()` — but anyone may donate ether to the vault, which re-arms
-        //  the send, and a future registry without a payable fallback would turn
-        //  a donation into a permanent freeze. The floor sweep is an
-        //  optimisation; the rebirth is the product. If it fails the ETH simply
-        //  stays in the (now closed) vault rather than seeding the newborn.
-        uint256 vaultSwept = 0;
-        address oldVault = generationVault[oldGen];
-        if (oldVault != address(0)) {
-            try IVaultClose(oldVault).close() returns (uint256 swept) { vaultSwept = swept; } catch {}
-        }
-
-        // 4. Pull accumulated ETH swap fees from hook.
-        //
-        //  BEST-EFFORT (red-team B-06). `releaseRelaunchETH` reverts `SendFailed`
-        //  whenever the hook's ether balance has fallen below its own
-        //  `relaunchETH` counter — the counter is tracked by variable, not by
-        //  balance, so any path that pays native ether out against a non-native
-        //  credit desynchronises the two. Called bare, that revert propagated
-        //  here, rolled back `markConsumed`, and froze the machine exactly like
-        //  B-05. The root cause is fixed in the hook (the proposer carve is now
-        //  native-only), but the rebirth must not depend on that fix holding:
-        //  a reserve we cannot pull is a smaller problem than a protocol that
-        //  cannot be reborn, so we seed with what we have and leave the reserve
-        //  for the next cycle. Mirrors the try/catch already used for the perp
-        //  force-close and the ticket drain (audit Z-07).
-        uint256 ethFromHook = 0;
-        if (hook.relaunchETH() > 0) {
-            try hook.releaseRelaunchETH() returns (uint256 got) { ethFromHook = got; } catch {}
-        }
-
-        // All ETH — recovered LP + hook fees + swept floor — seeds the new pool.
-        uint256 totalETH = ethFromLP + ethFromHook + vaultSwept;
-        if (totalETH == 0) revert NoLiquidityToSeed();
+        // 4. The dying generation's floor vault. It is CLOSED later, inside
+        //    `PoolOps.seedFunding`, together with the two hook reserve pulls —
+        //    none of them may happen until the quote the newborn will actually be
+        //    priced in is known, or native ether gets dragged out of the hook to
+        //    fund a pool denominated in something it cannot be spent on. (They
+        //    also live there because this registry could not afford three
+        //    try/catch blocks under EIP-170.) The solvency check that used to be
+        //    here now sits next to `markConsumed`, where it can read the real
+        //    funded figure instead of a proxy.
 
         // 5. New generation
         uint256 newGen = oldGen + 1;
@@ -822,54 +794,54 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         uint256 nftSupply = nftMaxSupply;
 
         (uint256 winId, BrewSpec memory spec) = governor.winner();
-        //  ── A RELAUNCH ALWAYS SEEDS NATIVE (red-team B-05 — Critical) ────────
+        //  ── THE QUOTE IS A REQUEST, NEVER AN INSTRUCTION (red-team B-05) ─────
         //
-        //  This used to carry `spec.quote` through, re-checking only that the
-        //  allowlist still contained it. That check was necessary and nowhere
-        //  near sufficient: the value this function seeds with is NATIVE WEI by
-        //  construction —
+        //  `spec.quote` is attacker-chosen: anyone may propose. It used to be
+        //  carried through with only an allowlist re-check, and handed to a seeder
+        //  that was written entirely for native ether. That combination was a
+        //  permanent, unrecoverable freeze of the whole protocol — FOUR unguarded
+        //  reverts in sequence, every one of them BEHIND `governor.markConsumed`
+        //  below, so the revert rolled the consumption back, the same proposal won
+        //  `_bestUnconsumed()` forever, and every later relaunch died identically:
         //
-        //      uint256 totalETH = ethFromLP + ethFromHook + vaultSwept;
+        //    1. the seed amount was `ethFromLP + ethFromHook + vaultSwept` —
+        //       native wei, every term, with nothing converting or rescaling it.
+        //       The registry held none of the named quote, so the PositionManager's
+        //       pull reverted: measured
+        //       ERC20InsufficientBalance(registry, 0, 19999999999999987150), i.e.
+        //       20 ETH requested verbatim as USDG (6 decimals in the live
+        //       manifest, so also off by 1e12 had it held any).
+        //    2. `PoolOps.removeAll` measured recovery as `address(this).balance`,
+        //       which does not move when currency0 arrives as an ERC20 — so a
+        //       non-native generation reported ZERO recovered and tripped
+        //       `NoLiquidityToSeed()`. Masked by the others; found while building
+        //       the fix.
+        //    3. the green-candle buy settled native ether into a pool whose
+        //       currency0 is an ERC20 → `CurrencyNotSettled()`.
+        //    4. `hook.setLiveKey` refused any non-native key.
         //
-        //  recovered ether from the dead LP, ether from the hook's reserve, and
-        //  ether swept from the floor vault. Nothing converts it into the named
-        //  quote (QuoteRotator exists for exactly that and is never called from
-        //  here), and nothing rescales it. Handing that wei figure to the seeder
-        //  as a QUOTE amount fails three ways in sequence, and every one of them
-        //  is an unguarded revert BEHIND `governor.markConsumed` below:
+        //  Reachable with no attacker at all: `indexer/deployments/round.json`
+        //  advertises USDG and xNVDA as selectable `quoteAssets`, so a proposer
+        //  choosing an offered option was enough to end the protocol.
         //
-        //    1. the registry holds none of the quote, so the PositionManager's
-        //       pull reverts — measured: ERC20InsufficientBalance(registry, 0,
-        //       19999999999999987150), i.e. 20 ETH requested verbatim as USDG.
-        //       (A 6-decimal quote would also be off by 1e12 if it DID hold it.)
-        //    2. fund it anyway and the green-candle buy settles native ether into
-        //       a pool whose currency0 is an ERC20 → CurrencyNotSettled().
-        //    3. clear that and `hook.setLiveKey` rejected the non-native key.
+        //  ALL FOUR ARE NOW FIXED, so a non-native rebirth is real rather than
+        //  aspirational. What keeps it safe is that the attacker-chosen field is
+        //  narrowed twice before it can move value, and neither narrowing can
+        //  revert:
         //
-        //  Because the revert rolls `markConsumed` back, the same proposal wins
-        //  `_bestUnconsumed()` forever and EVERY later relaunch dies at the same
-        //  line. That is a permanent, unrecoverable freeze of the whole protocol,
-        //  reachable with no attacker at all — `indexer/deployments/round.json`
-        //  ships USDG and xNVDA as live `quoteAssets`, so a proposer choosing an
-        //  offered option was enough.
+        //    HERE — the allowlist is re-checked, because it can change while a
+        //    proposal is out for vote and the check that matters is the one at the
+        //    moment liquidity moves. A de-listed quote degrades to native.
         //
-        //  Forcing native is the SAME failure discipline the rest of this
-        //  function already applies — clamp `nftSupply`, clamp `newActive`, fall
-        //  back to ETH when mining fails (PoolOps:493-496) — extended to the one
-        //  input that was carried through unclamped. A generation still MAY be
-        //  quoted in anything the guild approves: that is what `rotateSlice`
-        //  does, deliberately and reversibly, on a live generation. What it may
-        //  no longer do is stake the machine's ability to be reborn on a code
-        //  path that was never built.
-        //
-        //  Re-enabling a non-native REBIRTH means implementing all three legs
-        //  (convert `totalETH` through the rotator; give PoolOps a non-native
-        //  settle; keep `setLiveKey` general) and only then relaxing this line.
-        //  {CauldronGovernor.propose} refuses a non-native quote up front so a
-        //  proposer is told honestly rather than silently downgraded here; this
-        //  line is the belt to that braces, because the governor is swappable.
-        //  Asserted by test/attacks/B07_RelaunchTotality.t.sol.
-        address specQuote = address(0);
+        //    BELOW — `PoolOps.seedFunding`, once the token is mined, narrows the
+        //    request to what the protocol ACTUALLY HOLDS and pulls exactly the
+        //    reserve that funds it. A quote nobody can fund degrades to one we
+        //    can. That is the same clamp-never-revert discipline as `nftSupply`
+        //    (below), `newActive` (step 8) and the mining fallback
+        //    (PoolOps.deployTokenAbove), now extended to the last input that was
+        //    carried through unclamped.
+        address specQuote = spec.quote;
+        if (specQuote != address(0) && !allowedQuote[specQuote]) specQuote = address(0);
         string memory name = spec.name;
         string memory symbol = spec.symbol;
         mode = spec.mode;
@@ -883,7 +855,6 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
             nftSupply = spec.nftSupply > MAX_NFT_SUPPLY ? MAX_NFT_SUPPLY : spec.nftSupply;
         }
         uint256 volPerNFT = spec.volumePerNFT; // proposer's mint-out volume target
-        governor.markConsumed(winId);
 
         // Brand: "<name> by Magic Internet Frens" (hardcoded suffix on-chain).
         name = LaunchLib.displayName(name);
@@ -892,6 +863,54 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         (token, specQuote) = _deployToken(name, symbol, newGen, specQuote);
         currentToken = token;
         generationToken[newGen] = token;
+
+        //  7b. WHAT CAN WE ACTUALLY SEED WITH? (red-team B-05)
+        //
+        //  Mining runs FIRST because it is the step that can still downgrade the
+        //  quote on its own (no salt lands above a pathological asset → it returns
+        //  native, PoolOps.deployTokenAbove). Funding runs SECOND so it decides
+        //  against the quote that survived, and — critically — so the reserve it
+        //  pulls matches the pool that will exist. Pulling before this point drags
+        //  native ether out of the hook to fund a pool that may end up denominated
+        //  in USDG, where it cannot be spent.
+        //
+        //  Order also matters for correctness in the other direction: whatever
+        //  `seedFunding` returns, the token already sorts ABOVE it, because mining
+        //  targets QUOTE_WATERMARK rather than the specific quote and no
+        //  allowlistable quote sits at or above that watermark. So a downgrade here
+        //  can never invert the pool's currency order.
+        //
+        //  `totalETH` keeps its name for the native case it is usually carrying,
+        //  but it is now denominated in `specQuote`'s OWN units.
+        uint256 totalETH;
+        uint256 vaultSwept;
+        (specQuote, totalETH, vaultSwept) = PoolOps.seedFunding(
+            address(hook), specQuote, generationQuote[oldGen], ethFromLP, generationVault[oldGen]
+        );
+
+        //  ── THE SOLVENCY CHECK, AND THE CONSUMPTION, IN THAT ORDER ──────────
+        //  `markConsumed` used to sit ~50 lines above, immediately after
+        //  `governor.winner()`. That made every step between it and the seed a
+        //  potential PERMANENT freeze: a revert rolls the consumption back, the
+        //  same proposal keeps winning `_bestUnconsumed()`, and every later
+        //  relaunch dies identically. Four of the findings in this pass were
+        //  exactly that shape.
+        //
+        //  It is moved HERE, as late as the logic allows, for two reasons. It
+        //  shortens the fatal window to (collection deploy → seed), and it lets the
+        //  "is there anything to seed with?" question be asked about the REAL
+        //  funded amount rather than a three-source proxy that had to be evaluated
+        //  before the funding was known. Everything between the old position and
+        //  this one is now total by construction: `_deployToken` cannot revert
+        //  (plain CREATE, with a native fallback when mining fails) and
+        //  `seedFunding` catches both reserve pulls and the vault close.
+        //
+        //  Reverting on the LEFT of this line is safe and recoverable — the
+        //  proposal stays live and a later call can succeed once the machine has
+        //  value. Reverting on the RIGHT is what must never happen.
+        if (totalETH == 0) revert NoLiquidityToSeed();
+        governor.markConsumed(winId);
+
         // The quote is fixed for this generation's whole life: the engine, the
         // seeder and the floor all read it long after a later generation has
         // launched against something else.

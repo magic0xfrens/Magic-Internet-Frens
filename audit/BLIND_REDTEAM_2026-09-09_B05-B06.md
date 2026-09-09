@@ -25,7 +25,7 @@
 >
 > **Suite: 536 pass / 0 fail / 1 skip** (537 total). No pre-existing test was weakened or removed; none regressed. Every fix was verified **load-bearing** by reverting it individually and confirming the matching regression goes red with the original failure signature (`TRANSFER_FROM_FAILED`, `SendFailed()`, `vault: no`, `315000000000000000 > 300000000000000000`).
 >
-> **Scope, stated honestly:** this does **not** implement a non-ETH rebirth. It converts an unimplemented path from *bricking* to *degrading*. See §9 for exactly what remains unbuilt.
+> **Phase 2 (later in the same session): the non-ETH rebirth is now IMPLEMENTED.** Building it surfaced two further permanent-freeze bugs that the first three walls had masked — `removeAll` measuring recovery on the ether balance (wall 4), and a green-candle settlement buffer that was incidental rather than guaranteed (wall 5). `markConsumed` also moved ~50 lines later, shrinking the window in which any revert is fatal. Suite **547 pass / 0 fail / 1 skip**. See §9.
 
 **Scope correction, stated up front.** The engagement brief describes "roughly 50 modified files, 2 deleted contracts, and several untracked ones." The actual working tree is 3 modified `.sol` files, 1 dirty submodule pointer, and 4 untracked files. There are **no deleted contracts** — I searched for dangling references and found none. `test/attacks/` already contained `A0x`/`Y0x`/`Z0x`/`Q0x`/`B01`–`B04` suites plus a partial report. This is a **continuation** of a blind engagement, not a cold start. I treated B-01…B-04 as spent ground, audited the three uncommitted diffs as unreviewed code, and hunted from B-05 forward.
 
@@ -285,19 +285,51 @@ The prior pass's own closing line was that blind review "paid for itself on exac
 
 ---
 
-## 9. What the fix does NOT do
+## 9. Phase 2 — the non-ETH rebirth, implemented
 
-Stating this plainly, because a remediation section that overclaims is worse than none.
+The section below originally read "a non-ETH rebirth is still not implemented" and listed what remained. It has now been built. Recording both the work and the **fourth and fifth walls found while building it**, because they are the most interesting result of this phase: two additional permanent-freeze bugs that the first three walls had been hiding.
 
-**A non-ETH REBIRTH is still not implemented.** All three legs remain unbuilt: `relaunch()` still does not convert its recovered ether into a named quote, `PoolOps.createAndSeedWithBuy` still has no non-native settle branch, and the reserve/green-candle sizing is still written for one orientation. What changed is the *failure mode*: an unseedable quote is now refused at proposal time and clamped at consumption, instead of reverting behind `markConsumed` and freezing the protocol forever.
+### The two new walls
 
-**A generation can still be quoted in another asset** — that is `RedemptionExt.rotateSlice`, which is deliberate, governed, reversible, and untouched by this pass. What is no longer possible is staking the machine's ability to be *reborn* on a code path that was never written.
+**Wall 4 — `PoolOps.removeAll` measured recovery on the ether balance.** It computed `address(this).balance - ethBefore` for the quote side. `TAKE_PAIR` hands currency0 to the registry, and for an ERC20-quoted generation that arrives as a *token balance* and moves `address(this).balance` not at all. So a non-native generation reported **zero** recovered, `relaunch()` summed zero and reverted `NoLiquidityToSeed()` — behind `markConsumed`, i.e. the same permanent freeze. Invisible during the audit because walls 1–3 fired first. Fixed by measuring `_balance(key.currency0)`; `key.currency0` *is* the quote by the watermark invariant, so no signature changed and the registry paid no bytes.
 
-**To re-enable a non-native rebirth**, in order: build the conversion (route `totalETH` through `QuoteRotator` with slippage bounds and a native fallback on failure), give `PoolOps` a non-native settle, then relax the governor refusal and the registry clamp — in that order, with `B07_RelaunchTotality` green at every step. The clamp is one line and is deliberately the last thing to remove.
+**Wall 5 — the green candle's settlement buffer was incidental, not guaranteed.** `createAndSeedWithBuy` carried the comment *"E_active floored → the leftover E_buy carries a tiny buffer so the exact-output buy can never revert for want of a wei to settle."* That reasoning holds only when the division leaves a remainder. When `ethAmount * activeTokens` divides exactly by `totalTokens` the floor takes nothing, the buffer is zero, and the exact-output buy rounds **up** — so it asks for one unit more than the caller holds. Measured on a round-numbered 6-decimal seed: held `20000000000`, settle wanted `20000000001`.
 
-**Still unguarded on the relaunch path** (accepted, documented, not fixed): `_removeLiquidity` (`:751`), `PoolOps.crystallizeCollection` (`:881`), `_deployCollection`/`_continueMiFrens` (`:927-931`). Each calls a protocol-controlled component and I could not construct a hostile input that reverts them, so guarding them would have cost registry bytes for no demonstrated gain. They are named here so the next reviewer does not have to rediscover the list. `B07_RelaunchTotality` is the place to add a case if one is ever found.
+Natively this was masked by slack — `settle{value:}` draws on the registry's whole ether balance, which usually carries dust. An ERC20 quote has no slack: `seedFunding` hands over exactly what it pulled. **Generalising the quote is what turned a latent rounding bug into a reachable revert on the mandatory rebirth path.** Fixed with an explicit `BUY_SETTLE_BUFFER = 64` base units (dust in any decimals), which is self-consistent: a smaller `ethActive` lowers the launch price, making the same buy *cheaper* while leaving *more* to pay it with.
 
-**L-1, L-2, L-4, L-5 are untouched.** In particular L-1 — `releaseRelaunchAsset` still has no caller anywhere in the codebase — is now *more* relevant, not less: with the proposer carve skipped on non-native fees, more value accrues to `relaunchAsset[]`, and that reserve still has no reachable exit. That is the highest-value item remaining and it is a missing registry entry point, not a vulnerability.
+This is a textbook instance of the pattern the engagement brief named — a comment asserting a property, and code that stopped honouring it.
+
+### What shipped
+
+| Leg | Change | File |
+|---|---|---|
+| Funding decision | `PoolOps.seedFunding` picks the seed quote from what the protocol **actually holds**, pulls exactly the matching reserve, closes the dying vault — and never reverts | `PoolOps.sol` |
+| Quote-side recovery | `removeAll` measures `_balance(currency0)` (wall 4) | `PoolOps.sol` |
+| Non-native settle | `executeBuy` does sync → transfer → settle for an ERC20 quote (wall 3) | `PoolOps.sol` |
+| Settlement buffer | explicit `BUY_SETTLE_BUFFER` (wall 5) | `PoolOps.sol` |
+| Request narrowing | `spec.quote` honoured again, allowlist re-checked, then narrowed by `seedFunding` | `CauldronRegistry.sol` |
+| Consumption moved | `markConsumed` moved ~50 lines later, past `_deployToken` and `seedFunding`, and the solvency check now reads the **real funded amount** instead of a three-source proxy | `CauldronRegistry.sol` |
+| Boundary check | governor accepts a **vetted** non-native quote, refuses an unvetted one | `CauldronGovernor.sol` |
+
+`seedFunding`'s preference order is **want → native → old quote**. The third leg is what stops "proposal asks for ETH, we hold only USDG" from being a brick.
+
+**There is deliberately no swap.** Converting the recovered value needs a route, and a route on a permissionless entrypoint is either attacker-supplied — it would price the treasury's own trade — or new governed storage. The guild already redenominates a *live* generation through `RedemptionExt.rotateSlice`, and the rebirth inherits it via leg 1. Switching quote *at* the rebirth is the one thing this does not do, and leaving it out is the point.
+
+**Moving `markConsumed` later is the structural win.** The fatal window — the span where a revert is permanent — shrank from "everything after `governor.winner()`" to "collection deploy → seed". Everything now above it is total by construction.
+
+**Suite: 547 pass / 0 fail / 1 skip.** Walls 4 and 5 were each verified load-bearing by reverting them individually and confirming `B08_NonEthRebirth` goes red.
+
+### What is still NOT done
+
+**Switching quote at the rebirth.** Covered above — no swap, by design. A generation is reborn in the quote it held, or degrades. Changing denomination is `rotateSlice`'s job, on a live generation.
+
+**Still unguarded on the relaunch path** (accepted, documented, not fixed): `_removeLiquidity` (`:751`), `PoolOps.crystallizeCollection`, `_deployCollection`/`_continueMiFrens`. Each calls a protocol-controlled component and I could not construct a hostile input that reverts them, so guarding them would cost registry bytes for no demonstrated gain. Note these now sit **inside** the shortened fatal window, so they are the right place to look next. `B07_RelaunchTotality` is where a case belongs if one is found.
+
+**L-1 is now FIXED as a side effect** — `PoolOps._pullAsset` is the first caller `releaseRelaunchAsset` has ever had. A non-native generation's accrued fees now have a reachable exit and are folded into its successor's seed.
+
+**L-2, L-4, L-5 are untouched.** L-2 (the oracle's frozen last-good price inflating NFT mint credit after a real crash) is the highest-value item remaining.
+
+**The perp engine is unchanged and still under-reviewed by me.** `PerpEngine.quote` follows `generationQuote`, so a non-native rebirth now hands the engine a non-native book on a path no test of mine exercises. B-02 from the prior pass already flagged wei-denominated risk constants on that path as "fails safe / DoS, needs the fork PoC nobody built." That PoC is now materially more reachable, and it is the first thing I would commission next.
 
 ---
 
@@ -309,6 +341,10 @@ As a **trader or perp user on the current ETH-only generation**: yes, cautiously
 
 As a **holder relying on the machine to relaunch**: before this pass, no — the protocol shipped a three-asset quote menu it could only survive one of, and the failure was not a refund but a permanent freeze with every holder's value locked in a dead generation.
 
-**After the fix: yes, on that specific question.** The freeze is closed at three independent layers, the guarantee is now a named property with a suite that asserts it against hostile components, and every guard was verified load-bearing by reverting it. The machine relaunches when a vault refuses to close, when the reserve cannot be paid, when a swapped governor names an asset that cannot be seeded, and four times consecutively.
+**After both phases: yes, on that specific question.** The freeze is closed at every layer I could find, the guarantee is a named property with a suite asserting it against hostile components, and every guard was verified load-bearing by reverting it individually. The machine relaunches when a vault refuses to close, when the reserve cannot be paid, when a swapped governor names an unseedable asset, and repeatedly in succession. The window in which any revert is permanent is now a handful of lines rather than most of the function.
 
-I would still hold two reservations, and they are the honest ones: the multi-quote *product* is advertised but not built — it now degrades to ETH rather than bricking, which is safe but is not what the manifest promises — and the perp engine, the largest single value sink here, got a structural read from me rather than a full adversarial one. Those are features to finish and a review to commission, not landmines. The landmine is gone.
+The multi-quote product is no longer advertised-but-absent either: a USDG-quoted generation genuinely seeds, green-candles and recovers, proven against a 6-decimal quote on a live fork — which is where the 1e12 class of error would have surfaced.
+
+One reservation stands, and it is sharper than before: **the perp engine now inherits a non-native book on a path nothing tests.** `PerpEngine.quote` follows `generationQuote`, and the prior pass's B-02 already flagged wei-denominated risk constants there as "fails safe, needs a fork PoC nobody built." Implementing the rebirth made that PoC materially more reachable. That is the next thing to commission, and I would want it done before a non-native generation runs perps on mainnet.
+
+Five permanent-freeze bugs went into this engagement's findings; three were found by auditing and two by *building the fix*. That ratio is the argument for doing both.

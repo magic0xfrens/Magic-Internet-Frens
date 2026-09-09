@@ -57,6 +57,20 @@ interface IVaultRedeemedOps {
     function outstanding() external view returns (uint256);
 }
 
+/// @notice The hook's two relaunch reserves. Both are registry-gated and both are
+///         reached from {PoolOps.seedFunding}, which is delegatecalled BY the
+///         registry — so `msg.sender` at the hook is the registry and the released
+///         value lands there.
+interface IHookReserves {
+    function releaseRelaunchETH() external returns (uint256);
+    function releaseRelaunchAsset(address asset) external returns (uint256);
+}
+
+/// @notice The dying generation's floor vault, closed from {PoolOps.seedFunding}.
+interface IVaultCloseOps {
+    function close() external returns (uint256 swept);
+}
+
 interface ICollectionOps {
     function custodyTransfer(address from, address to, uint256 tokenId) external;
     function ownerOf(uint256 tokenId) external view returns (address);
@@ -331,9 +345,32 @@ library PoolOps {
 
         uint256 totalTokens = activeTokens + reserveTokens;
 
-        // E_active floored → the leftover E_buy carries a tiny buffer so the
-        // exact-output buy can never revert for want of a wei to settle.
+        //  ── THE SETTLEMENT BUFFER IS NOW EXPLICIT, NOT INCIDENTAL ────────────
+        //  This used to be a bare `mulDiv` with the comment "E_active floored →
+        //  the leftover E_buy carries a tiny buffer so the exact-output buy can
+        //  never revert for want of a wei to settle." The reasoning holds only
+        //  when the division leaves a remainder. When `ethAmount * activeTokens`
+        //  divides EXACTLY by `totalTokens` the floor takes nothing, the buffer is
+        //  zero — and the exact-output buy rounds UP, so it asks for one unit more
+        //  than the caller holds and reverts inside the unlock. Measured on a
+        //  round-numbered 6-decimal seed: held 20000000000, settle wanted
+        //  20000000001.
+        //
+        //  Natively that was masked by slack — `settle{value:}` draws on the
+        //  registry's whole ether balance, which usually carries dust from earlier
+        //  cycles. An ERC20 quote has no such slack: `seedFunding` hands over
+        //  exactly what it pulled. So generalising the quote is what turned a
+        //  latent rounding bug into a reachable revert on the mandatory rebirth
+        //  path — i.e. another permanent freeze.
+        //
+        //  Subtracting a fixed floor makes the buffer unconditional. It is
+        //  self-consistent: a smaller `ethActive` lowers the launch price, which
+        //  makes the same exact-output buy CHEAPER while simultaneously leaving
+        //  MORE to pay it with, so both sides of the inequality move the right way.
+        //  64 base units is dust in any decimals (64 wei; 0.000064 USDG) and
+        //  comfortably covers v4's round-up on a single-step full-range swap.
         uint256 ethActive = FullMath.mulDiv(ethAmount, activeTokens, totalTokens);
+        if (ethActive > BUY_SETTLE_BUFFER) ethActive -= BUY_SETTLE_BUFFER;
 
         // Deep-discount launch price = ALL tokens against only E_active ETH.
         uint160 sqrtPriceX96 = _sqrtPrice(totalTokens, ethActive);
@@ -388,10 +425,32 @@ library PoolOps {
             abi.encode(address(this))
         );
 
-        uint256 ethIn = uint256(uint128(-delta.amount0())); // ETH we owe the pool
+        uint256 ethIn = uint256(uint128(-delta.amount0())); // QUOTE we owe the pool
         uint256 got = uint256(uint128(delta.amount1()));    // token we're owed
 
-        poolManager.settle{value: ethIn}();          // pay ETH from the registry
+        //  SETTLE IN WHATEVER THE QUOTE IS (red-team B-05, wall 1b).
+        //
+        //  This was `settle{value: ethIn}()` unconditionally. Native settlement
+        //  against an ERC20-quoted pool pays nothing the pool asked for, so
+        //  currency0's delta stayed open and the unlock closed with
+        //  `CurrencyNotSettled()` — an unguarded revert behind `markConsumed`,
+        //  i.e. a permanent freeze. The hook documents the identical limitation
+        //  for its own buyback (CauldronHook `_maybeLegacyBuyback`, "ETH-LAYOUT
+        //  ONLY, for now") and guards it with an early return; here it was not
+        //  guarded at all because this path is mandatory.
+        //
+        //  ERC20 settlement in v4 is sync → transfer → settle: `sync` snapshots
+        //  the manager's balance, the transfer moves the tokens in, and `settle`
+        //  credits the difference. `address(this)` is the registry (this library
+        //  is delegatecalled), so the tokens paid are the registry's own.
+        address q = Currency.unwrap(key.currency0);
+        if (q == address(0)) {
+            poolManager.settle{value: ethIn}();      // pay ETH from the registry
+        } else {
+            poolManager.sync(key.currency0);
+            IERC20(q).transfer(address(poolManager), ethIn);
+            poolManager.settle();
+        }
         poolManager.take(key.currency1, recipient == address(0) ? address(this) : recipient, got);
         return abi.encode(got);
     }
@@ -445,6 +504,11 @@ library PoolOps {
     ///      for a pathologically high quote, where it caps the cost instead of
     ///      letting the loop spin.
     uint256 private constant SALT_TRIES = 1024;
+
+    /// @dev Quote units held back from the active seed so the green-candle
+    ///      exact-output buy always has enough to settle. See the long note in
+    ///      {createAndSeedWithBuy}; asserted by B08_NonEthRebirth.
+    uint256 private constant BUY_SETTLE_BUFFER = 64;
 
     /**
      * @notice Every iteration token is mined above THIS, not merely above the
@@ -754,6 +818,108 @@ library PoolOps {
 
     /// @notice Send native or ERC20, checking the ERC20 return value. Lives here
     ///         rather than in the registry, which has no bytecode budget left.
+    /**
+     * @notice Decide which asset the NEWBORN generation can actually be seeded in,
+     *         pull exactly the reserve that funds it, and report both.
+     *
+     *  ── WHY THIS EXISTS, AND WHY IT LIVES HERE ─────────────────────────────
+     *  `relaunch()` used to add three native-wei figures together and hand the sum
+     *  to the seeder as the quote amount, whatever quote the proposal named. That
+     *  is red-team B-05: no conversion, no rescaling, and three unguarded reverts
+     *  behind `markConsumed`. Choosing the quote from what the protocol ACTUALLY
+     *  HOLDS is what makes a non-native rebirth real rather than aspirational.
+     *
+     *  It lives in this library because {CauldronRegistry} has ~100 bytes of
+     *  EIP-170 headroom and this is ~600 bytes of branching. Delegatecalled, so
+     *  `address(this)` is the registry: the hook sees `msg.sender == registry` on
+     *  both release paths, and the released value lands in the registry.
+     *
+     *  ── THE PREFERENCE ORDER, AND WHY ──────────────────────────────────────
+     *    1. `wantQuote` — the proposal's choice. Fundable only from value ALREADY
+     *       denominated in it: the dead pool's recovery when the generation is
+     *       CONTINUING in that quote, plus whatever the hook accrued in it. This
+     *       is the case that makes "the guild rotates into USDG, the generation
+     *       dies, and its successor is reborn in USDG" work end to end.
+     *    2. NATIVE — the default, and the only denomination the floor vault and
+     *       the native fee reserve can ever hold.
+     *    3. `oldQuote` — last resort. A non-native generation whose native income
+     *       was zero can still be reborn IN ITS OWN QUOTE rather than frozen.
+     *       Without this leg, "proposal wants ETH, we hold only USDG" is a brick.
+     *
+     *  There is deliberately NO SWAP here. Converting the recovered value would
+     *  need a route, and a route on a permissionless entrypoint is either
+     *  attacker-supplied (it prices the treasury's own trade) or new governed
+     *  storage. Both are a larger surface than the feature earns: the guild
+     *  already changes a LIVE generation's denomination through
+     *  {RedemptionExt.rotateSlice}, deliberately and reversibly, and the rebirth
+     *  then inherits it via leg 1. Switching quote AT the rebirth is the one thing
+     *  this does not do, and it is the right thing to leave out.
+     *
+     *  NOTHING HERE REVERTS. Both releases are try/catch'd — `releaseRelaunchETH`
+     *  legitimately reverts `NoETHToRelease` at zero, and a reserve we cannot pull
+     *  must never be the reason the machine cannot be reborn (red-team B-06/L-3).
+     *
+     *  Closing the dying floor vault is folded in here rather than left at the call
+     *  site purely for EIP-170: the registry could not afford both this call and
+     *  its own try/catch block. The sweep is returned so the caller can still size
+     *  `crystallizeCollection` from it.
+     *
+     * @param hookAddr        the CauldronHook holding both reserves
+     * @param wantQuote       the quote the winning proposal asked for (0 = native)
+     * @param oldQuote        the DYING generation's quote — what `recovered` is in
+     * @param recovered       quote-side value recovered from the dead LP
+     * @param oldVault        the dying generation's floor vault (0 = none)
+     * @return quoteUsed      the asset the newborn pool will be priced in
+     * @return amount         how much of it there is, in ITS OWN units
+     * @return vaultSwept     native ether recovered from the dying floor vault
+     */
+    function seedFunding(
+        address hookAddr,
+        address wantQuote,
+        address oldQuote,
+        uint256 recovered,
+        address oldVault
+    ) external returns (address quoteUsed, uint256 amount, uint256 vaultSwept) {
+        //  BEST-EFFORT (red-team L-3). `close()` ends in
+        //  `registry.call{value: swept}("")` and reverts `TransferFailed` if that
+        //  send fails — reachable whenever the vault holds ether (anyone may donate
+        //  to its `receive()`) and the registry cannot accept it. The floor sweep is
+        //  an optimisation; the rebirth is the product.
+        if (oldVault != address(0)) {
+            try IVaultCloseOps(oldVault).close() returns (uint256 s) { vaultSwept = s; } catch {}
+        }
+
+        // 1. The proposal's choice, if value already exists in that denomination.
+        if (wantQuote != address(0)) {
+            uint256 p = (oldQuote == wantQuote ? recovered : 0) + _pullAsset(hookAddr, wantQuote);
+            if (p > 0) return (wantQuote, p, vaultSwept);
+        }
+        // 2. Native — recovery counts toward it only if the dead pool WAS native.
+        uint256 n = (oldQuote == address(0) ? recovered : 0) + vaultSwept + _pullEth(hookAddr);
+        if (n > 0) return (address(0), n, vaultSwept);
+        // 3. Last resort: the dying generation's own quote.
+        if (oldQuote != address(0) && recovered > 0) {
+            return (oldQuote, recovered + _pullAsset(hookAddr, oldQuote), vaultSwept);
+        }
+        return (address(0), 0, vaultSwept);
+    }
+
+    /// @dev Best-effort pull of the hook's per-asset relaunch reserve. This is also
+    ///      the FIRST caller `releaseRelaunchAsset` has ever had (red-team L-1): the
+    ///      function was registry-gated with no registry function reaching it, so a
+    ///      non-native generation's fees accrued behind a door only a contract
+    ///      without the key could open.
+    function _pullAsset(address hookAddr, address asset) private returns (uint256 got) {
+        try IHookReserves(hookAddr).releaseRelaunchAsset(asset) returns (uint256 g) { got = g; } catch {}
+    }
+
+    /// @dev Best-effort pull of the hook's NATIVE relaunch reserve. Reverts
+    ///      `NoETHToRelease` at zero and `SendFailed` if the counter has outrun the
+    ///      balance, so the guard replaces the caller's old `> 0` pre-check too.
+    function _pullEth(address hookAddr) private returns (uint256 got) {
+        try IHookReserves(hookAddr).releaseRelaunchETH() returns (uint256 g) { got = g; } catch {}
+    }
+
     function sendAsset(address asset, address to, uint256 amount) external {
         if (amount == 0) return;
         if (asset == address(0)) {
@@ -770,14 +936,30 @@ library PoolOps {
         return asset == address(0) ? address(this).balance : IERC20(asset).balanceOf(address(this));
     }
 
+    /// @dev RECOVERY IS MEASURED ON THE QUOTE SIDE, NOT ON THE ETHER BALANCE.
+    ///
+    ///  This used to read `address(this).balance` for the first return value. That
+    ///  is only the recovered quote when the quote IS native: `TAKE_PAIR` hands
+    ///  currency0 to the registry, and for an ERC20-quoted generation that arrives
+    ///  as a TOKEN BALANCE and moves `address(this).balance` not at all. So a
+    ///  non-native generation reported ZERO recovered quote, `relaunch()` summed
+    ///  `totalETH == 0` and reverted `NoLiquidityToSeed()` — rolling back
+    ///  `markConsumed` and bricking the machine permanently, the same class as
+    ///  B-05's three walls and hidden behind them (they fired first).
+    ///
+    ///  `key.currency0` IS the quote by the watermark invariant (`deployTokenAbove`
+    ///  mines the token above QUOTE_WATERMARK and no quote at or above it can be
+    ///  allowlisted), so the right asset is already in scope — no signature change,
+    ///  and therefore no bytecode cost at either registry call site.
     function removeAll(IPositionManagerOps pm, uint256 positionId, PoolKey memory key, address token)
         external
-        returns (uint256 ethRecovered, uint256 tokensRecovered)
+        returns (uint256 quoteRecovered, uint256 tokensRecovered)
     {
         uint128 liquidity = pm.getPositionLiquidity(positionId);
         if (liquidity == 0) return (0, 0);
 
-        uint256 ethBefore = address(this).balance;
+        address quote = Currency.unwrap(key.currency0);
+        uint256 ethBefore = _balance(quote);
         uint256 tokBefore = IERC20(token).balanceOf(address(this));
 
         bytes memory actions = abi.encodePacked(
@@ -790,7 +972,7 @@ library PoolOps {
 
         pm.modifyLiquidities(abi.encode(actions, params), block.timestamp + 120);
 
-        ethRecovered = address(this).balance - ethBefore;
+        quoteRecovered = _balance(quote) - ethBefore;
         tokensRecovered = IERC20(token).balanceOf(address(this)) - tokBefore;
     }
 

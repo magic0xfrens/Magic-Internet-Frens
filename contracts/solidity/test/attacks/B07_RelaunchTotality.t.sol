@@ -163,17 +163,26 @@ contract B07_RelaunchTotality is YBase {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  The real governor refuses an unseedable quote at the boundary.
+//  The governor validates the quote at the boundary, where refusing is free.
 //  No fork needed — this is pure proposal validation.
 // ═══════════════════════════════════════════════════════════════════════════
 
-contract B07_GovernorRefusesUnseedableQuote is Test {
+contract B07_GovernorQuoteBoundary is Test {
     CauldronGovernor internal governor;
-    VotesStub internal votes;
+    RegistryQuoteStub internal reg;
+
+    address internal constant VETTED   = address(0xeDFd2eA3f44821dA02fFF085e893e677479D622C); // USDG
+    address internal constant UNVETTED = address(0xDEAD);
 
     function setUp() public {
-        votes = new VotesStub();
-        governor = new CauldronGovernor(address(votes));
+        governor = new CauldronGovernor(address(new VotesStub()));
+        reg = new RegistryQuoteStub();
+        reg.allow(VETTED);
+        //  WIRE THE REGISTRY. Without this, `governor.registry` is address(0), the
+        //  allowlist staticcall returns empty, `ret.length < 32` trips, and EVERY
+        //  non-native quote reverts — so a test asserting refusal would pass for a
+        //  reason that has nothing to do with the allowlist. Found exactly that way.
+        governor.setRegistry(address(reg));
     }
 
     function _propose(address quote) internal returns (uint256) {
@@ -183,37 +192,35 @@ contract B07_GovernorRefusesUnseedableQuote is Test {
         );
     }
 
-    /// @notice A native proposal is accepted — the feature still works.
+    /// @notice Native is allowed by construction and needs no lookup.
     function test_NativeQuoteIsAccepted() public {
-        uint256 id = _propose(address(0));
-        assertEq(id, 1, "native proposal accepted");
+        assertEq(_propose(address(0)), 1, "native proposal accepted");
     }
 
-    /// @notice A non-native quote is REFUSED here, where refusing is free: it
-    ///         rejects one proposal and freezes nothing. Pre-fix this was accepted,
-    ///         could win a vote, and then bricked `relaunch()` forever because the
-    ///         revert happened after `markConsumed`.
-    ///
-    ///  This is the same discipline the `nftSupply` bound beside it already
-    ///  applies, and for the identical reason the code there states: "a revert
-    ///  deeper in `relaunch()` would roll back `markConsumed` and freeze the
-    ///  machine forever."
-    function test_NonNativeQuoteIsRefusedAtTheBoundary() public {
-        // Stand-in for USDG / xNVDA — the assets round.json advertises as
-        // selectable quotes, and the exact input that used to freeze the machine.
+    /// @notice A VETTED non-native quote is accepted — the non-ETH rebirth is a
+    ///         supported product, not a refused one. `relaunch()` narrows this a
+    ///         second time against real balances (PoolOps.seedFunding) and degrades
+    ///         rather than reverting, so accepting it here is safe.
+    function test_VettedNonNativeQuoteIsAccepted() public {
+        assertEq(_propose(VETTED), 1, "a treasury-vetted quote may be proposed");
+    }
+
+    /// @notice An UNVETTED quote is refused here, where refusing is free: it
+    ///         rejects one proposal and freezes nothing. The same asymmetry as the
+    ///         `nftSupply` bound beside it — a revert inside `relaunch()` would roll
+    ///         back `markConsumed` and end the protocol.
+    function test_UnvettedQuoteIsRefusedAtTheBoundary() public {
         vm.expectRevert(CauldronGovernor.QuoteNotAllowed.selector);
-        _propose(address(0xeDFd2eA3f44821dA02fFF085e893e677479D622C));
+        _propose(UNVETTED);
     }
 
-    /// @notice Refusal is on the QUOTE, not on the proposer — a second native
-    ///         proposal from the same account still works, so the guard cannot be
-    ///         used to grief an address out of proposing.
+    /// @notice Refusal is on the QUOTE, not the proposer — the guard cannot be used
+    ///         to grief an address out of proposing.
     function test_RefusalDoesNotPoisonTheProposer() public {
         vm.expectRevert(CauldronGovernor.QuoteNotAllowed.selector);
-        _propose(address(0xBEEF));
+        _propose(UNVETTED);
 
-        uint256 id = _propose(address(0));
-        assertEq(id, 1, "the proposer may still propose a native brew");
+        assertEq(_propose(address(0)), 1, "the proposer may still propose");
     }
 }
 
@@ -222,6 +229,12 @@ contract B07_GovernorRefusesUnseedableQuote is Test {
 contract VotesStub {
     function getVotes(address) external pure returns (uint256) { return 1; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1; }
+}
+
+/// @dev The registry surface the governor consults for the quote allowlist.
+contract RegistryQuoteStub {
+    mapping(address => bool) public allowedQuote;
+    function allow(address q) external { allowedQuote[q] = true; }
 }
 
 /// @dev A governor whose winner is always a fresh native brew, counting

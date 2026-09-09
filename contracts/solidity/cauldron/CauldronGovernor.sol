@@ -180,31 +180,33 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         // here at the boundary — a revert deeper in `relaunch()` would roll back
         // `markConsumed` and freeze the machine forever. (Audit C-02.)
         if (nftSupply > MAX_NFT_SUPPLY) revert SupplyOutOfRange();
-        //  ── A REBIRTH CAN ONLY BE SEEDED NATIVE (red-team B-05) ─────────────
-        //  The paragraph above is the right principle applied one field short.
-        //  `relaunch()` seeds with `ethFromLP + ethFromHook + vaultSwept` — native
-        //  wei, every term — and there is no conversion step anywhere on that
-        //  path. A proposal naming an ERC20 quote therefore could not be seeded
-        //  at all, and each of the three ways it failed was an unguarded revert
-        //  BEHIND `markConsumed`: the proposal stayed unconsumed, kept winning
-        //  `_bestUnconsumed()`, and every subsequent relaunch died at the same
-        //  line. Permanent, unrecoverable, and reachable with no attacker — the
-        //  live manifest advertises USDG and xNVDA as selectable quotes.
+        // The quote must be one the treasury has vetted. Checked HERE so a pool
+        // nobody would want can never reach a vote; re-checked at consumption
+        // because the allowlist can change in between.
+        //  Native ETH needs no lookup: it is allowed by construction and can
+        //  never be removed, so the common case costs nothing and a registry
+        //  that predates the allowlist keeps working unchanged.
         //
-        //  So it is refused HERE, at the boundary, for exactly the reason the
-        //  `nftSupply` bound above is: this is the last place a bad brew spec can
-        //  be rejected while rejection is still free. The registry ALSO forces
-        //  native at consumption — this governor is swappable, so it cannot be
-        //  the only line of defence — but a proposer deserves an honest revert
-        //  now rather than a silent downgrade to ETH after the vote.
+        //  ── WHAT THIS CHECK IS, AND IS NOT (red-team B-05) ──────────────────
+        //  A vetted quote is a quote the treasury considers SAFE TO TRADE. It is
+        //  NOT a promise that the next rebirth can be FUNDED in it — that depends
+        //  on what the dying generation actually returns, which is unknowable when
+        //  a proposal is written. `relaunch()` therefore narrows this request a
+        //  second time, against real balances, in `PoolOps.seedFunding`, and
+        //  degrades to a fundable quote rather than reverting.
         //
-        //  This does NOT stop a generation from being quoted in another asset.
-        //  `RedemptionExt.rotateSlice` moves live liquidity into an approved
-        //  quote deliberately and reversibly, within a governed envelope. What is
-        //  refused is staking the machine's ability to be REBORN on a code path
-        //  that has not been built. Lift this only once `relaunch()` converts the
-        //  recovered ether into the named quote and `PoolOps` can seed it.
-        if (quote != address(0)) revert QuoteNotAllowed();
+        //  Keeping the allowlist check here is still worth its bytes: it stops a
+        //  proposal naming an unvetted asset from ever reaching a vote, and
+        //  rejection at this boundary is free — it refuses one proposal and
+        //  freezes nothing, unlike a revert inside `relaunch()`, which would roll
+        //  back `markConsumed` and end the protocol. That asymmetry is the reason
+        //  the `nftSupply` bound above lives here too.
+        if (quote != address(0)) {
+            (bool ok, bytes memory ret) = registry.staticcall(
+                abi.encodeWithSelector(IRegistryQuotes.allowedQuote.selector, quote)
+            );
+            if (!ok || ret.length < 32 || !abi.decode(ret, (bool))) revert QuoteNotAllowed();
+        }
 
         id = ++proposalCount;
         _proposals[id] = Proposal({
