@@ -107,7 +107,8 @@ contract RotationRoundTripTest is Test {
     /// iteration token must sort ABOVE an arbitrary ERC20 quote, so "quote =
     /// currency0" holds and none of the liquidity math has to mirror.
     function test_MinedTokenOutranksAnArbitraryQuote_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         (address token, address quoteUsed) =
             PoolOps.deployTokenAbove("Gnomeland", "GNOME", 2, 777_000_000e18, address(usdg));
@@ -119,7 +120,8 @@ contract RotationRoundTripTest is Test {
     /// A pair can be OPENED against a non-ETH quote and then TOPPED UP, because
     /// the guild must be able to rotate back later without a second code path.
     function test_OpenThenTopUpTheSamePair_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         address positionManager = vm.envAddress("POSITION_MANAGER");
         (address token, ) =
@@ -155,7 +157,8 @@ contract RotationRoundTripTest is Test {
     /// everything is the DEATH path; a rotation is a reallocation and the pair
     /// has to keep trading while the conversion runs over hours.
     function test_PartialRemovalLeavesThePairTradeable_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         address positionManager = vm.envAddress("POSITION_MANAGER");
         (address token, ) =
@@ -195,7 +198,8 @@ contract RotationRoundTripTest is Test {
 
     /// A rotation must never be able to empty the pair it is rotating out of.
     function test_RemovalIsCappedAtHalf_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         address positionManager = vm.envAddress("POSITION_MANAGER");
         (address token, ) =

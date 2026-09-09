@@ -16,6 +16,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The contracts hold the value, and until now nothing in CI compiled them.
+  #
+  # Two things made that worse than it sounds. The fork-gated suites used to
+  # `return` early without FORK_RPC, so they PASSED vacuously rather than
+  # skipping — 154 of them, including both system-invariant suites and the whole
+  # perp engine. And the invariant that catches a mis-denominated relaunch
+  # reserve is one of those. So the suite could be green while asserting almost
+  # nothing about the paths that move money.
+  #
+  # `vm.skip` now makes the gap visible in the run output, and this job makes it
+  # visible in CI. Without FORK_RPC the skipped count IS the signal: if it grows,
+  # coverage moved behind the gate.
+  contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/solidity
+    env:
+      FOUNDRY_PROFILE: cauldron
+      FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+      # Set this repo secret to also run the ~154 fork-gated tests. Without it
+      # they report as SKIPPED, never as passing.
+      FORK_RPC: ${{ secrets.FORK_RPC }}
+      POOL_MANAGER: ${{ vars.POOL_MANAGER }}
+      POSITION_MANAGER: ${{ vars.POSITION_MANAGER }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Build
+        run: forge build --sizes
+      - name: Test
+        run: forge test -vv
+
   # Nothing deploys unless the manifest is coherent. This is the same guard that
   # runs on prebuild, hoisted so a bad manifest fails BEFORE anything ships
   # rather than after one service has already moved.
@@ -47,7 +81,7 @@ jobs:
   # this only reports whether that link is actually live — a silent missing link
   # is the same failure mode as the Railway one.
   frontend:
-    needs: verify
+    needs: [verify, contracts]
     runs-on: ubuntu-latest
     steps:
       - name: Confirm Vercel is wired to this repo

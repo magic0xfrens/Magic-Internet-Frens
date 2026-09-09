@@ -29,6 +29,89 @@ app.use("*", async (c, next) => {
     c.res.headers.set("Cache-Control", READ_CACHE);
   }
 });
+/**
+ * GraphQL is public, and this indexer is the frontend's ENTIRE read layer — if
+ * it stops answering, the UI has nothing to fall back to on most routes. An
+ * unbounded query language in front of that is a cheap way to take the whole
+ * site down: GraphQL lets one small request ask for arbitrarily deep nesting,
+ * and the cost is paid by Postgres, not the caller. The in-process watchdog
+ * would then restart the container into the same load, turning a slow query into
+ * a restart loop.
+ *
+ * A byte cap is the bluntest useful bound and the one that cannot be reasoned
+ * around: depth, breadth and alias-multiplication all have to be spelled out in
+ * the document to be requested. Real queries from the app are a few hundred
+ * bytes; this leaves two orders of magnitude of headroom.
+ *
+ * A missing `Content-Length` is rejected rather than waved through. Every real
+ * GraphQL client sets it; omitting it means chunked transfer-encoding, which is
+ * exactly how you would sidestep a header-based cap. The alternative — reading
+ * the body here to measure it — risks consuming the stream before Ponder's
+ * middleware parses it, and this is the frontend's whole read layer to break.
+ */
+const MAX_GRAPHQL_BYTES = Number(process.env.MAX_GRAPHQL_BYTES ?? 8_000);
+
+/**
+ * The cap must guard EVERY mount that serves GraphQL (audit Q-05).
+ *
+ * Ponder mounts the same resolver at `/graphql` AND at `/`. The cap was
+ * registered only on `/graphql`, so `POST /` reached the identical unbounded
+ * resolver with no limit at all — the bound existed and could be walked around
+ * by dropping six characters from the path.
+ *
+ * The header is still only a header: a client that lies about `content-length`
+ * is not stopped by this, which is why the 411 on a missing one matters (chunked
+ * encoding is the other way around it). Measuring the body here was rejected
+ * upstream because consuming the stream before Ponder parses it risks breaking
+ * the frontend's whole read layer — so this is a bound on the honest majority
+ * and a speed bump on the rest, applied consistently rather than on one path.
+ */
+const graphqlBodyCap = async (c: any, next: any) => {
+  if (c.req.method === "POST") {
+    const raw = c.req.header("content-length");
+    if (raw === undefined) {
+      return c.json({ errors: [{ message: "content-length required" }] }, 411);
+    }
+    if (Number(raw) > MAX_GRAPHQL_BYTES) {
+      return c.json({ errors: [{ message: "query too large" }] }, 413);
+    }
+    //  ...AND VERIFY IT (audit Q-05). The header above is set by the client, so
+    //  on its own it bounds only honest callers: `Content-Length: 100` with a
+    //  multi-megabyte body sailed straight through. Measure the real thing.
+    //
+    //  Read a CLONE, never `c.req`. Cloning a Fetch Request tees the stream, so
+    //  the original is left untouched for Ponder's parser — which is the concern
+    //  that stopped this being measured before, and it is solved by the clone
+    //  rather than by not measuring.
+    //
+    //  Counted incrementally with an early exit, so an attacker streaming a huge
+    //  body cannot make the CHECK the memory exhaustion: we abort at the cap
+    //  instead of buffering the whole thing to find out how big it was.
+    try {
+      const body = c.req.raw.clone().body;
+      if (body) {
+        const reader = body.getReader();
+        let seen = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          seen += value?.byteLength ?? 0;
+          if (seen > MAX_GRAPHQL_BYTES) {
+            await reader.cancel();
+            return c.json({ errors: [{ message: "query too large" }] }, 413);
+          }
+        }
+      }
+    } catch {
+      //  A body we cannot measure is not a body we should forward blind, but
+      //  neither is a clone failure the caller's fault — fall through to the
+      //  header bound, which already rejected anything declaring itself oversized.
+    }
+  }
+  await next();
+};
+app.use("/graphql", graphqlBodyCap);
+app.use("/", graphqlBodyCap);
 app.use("/graphql", graphql({ db, schema }));
 app.use("/", graphql({ db, schema }));
 

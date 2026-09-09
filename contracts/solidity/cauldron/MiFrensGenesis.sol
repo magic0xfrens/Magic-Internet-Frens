@@ -75,8 +75,27 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
 
     /// @dev Gas the dividend hook is forwarded, and the floor the caller must leave
     ///      before {_update} will attempt it. See {_update} (audit F-09).
-    uint256 private constant GAS_DIVIDEND_FWD = 60_000;
-    uint256 private constant GAS_DIVIDEND_MIN = 80_000;
+    ///
+    ///  RAISED FOR THE FEE BASKET (audit D-3). The hook no longer settles only
+    ///  ETH: it also walks the basket, banking the leaver's ERC20 entitlement
+    ///  before the fren drops out of the active set — after that point the share
+    ///  belongs to the remaining holders and can no longer be computed, which is
+    ///  what makes the walk unavoidable rather than merely convenient.
+    ///
+    ///  Sized from MEASUREMENT, not estimate: each asset carrying a balance costs
+    ///  ~33k (a cold `owedAsset` write plus a `debtOfAsset` update and three
+    ///  SLOADs), on top of ~39k for the ETH leg. `MiFrensDividend.MAX_ASSETS` is
+    ///  3, so the worst case is ~140k and 180k carries it with margin.
+    ///
+    ///  The floor must cover the WORST case even though the common one is far
+    ///  cheaper (an empty basket still costs only the ETH leg), because it is
+    ///  checked before the walk begins. That cost is the reason MAX_ASSETS is
+    ///  small: every slot is gas every genesis transfer must reserve forever.
+    ///  At the previous 60k the basket settlement would simply have failed inside
+    ///  the try/catch — silently, which is the failure mode this whole path
+    ///  exists to avoid.
+    uint256 private constant GAS_DIVIDEND_FWD = 180_000;
+    uint256 private constant GAS_DIVIDEND_MIN = 240_000;
 
     // -----------------------------------------------------------------------
     // Config

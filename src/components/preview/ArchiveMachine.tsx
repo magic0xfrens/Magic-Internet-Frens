@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BODIES, FACES, GNOME_FACES, ELF_FACES, ITEMS, CLASS_ORDER } from "@/data/frens";
 import { liquidatoorBadgeSVG, sampleLiquidatoorStats } from "@/lib/liquidatoorBadgeArt";
+import { safeSvg } from "@/lib/safeSvg";
 
 const FRENS_PATH = "/frens/";
 
@@ -261,7 +262,7 @@ export default function ArchiveMachine() {
                               <img src={`${FRENS_PATH}${p.fren!.item}`} alt="" />
                             </div>
                           ) : (
-                            <div className="mifm-emit-badge" dangerouslySetInnerHTML={{ __html: p.svg! }} />
+                            <div className="mifm-emit-badge" dangerouslySetInnerHTML={{ __html: safeSvg(p.svg) }} />
                           )}
                         </div>
                       ))}

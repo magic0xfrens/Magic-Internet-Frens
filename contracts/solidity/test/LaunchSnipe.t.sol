@@ -93,7 +93,8 @@ contract LaunchSnipeForkTest is Test {
     /// — measured from INDEPENDENT post-summon states (snapshot/revert) so the two
     /// buys don't compound. This is the structural anti-snipe: size is punished early.
     function test_Progressive_PunishesEarlySnipe_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setSeeder(address(seeder));
         registry.setSeedWindow(WINDOW);
         registry.summon{value: 1 ether}();
@@ -133,7 +134,8 @@ contract LaunchSnipeForkTest is Test {
     /// the SAME low impact as a later buy — no structural anti-snipe (the edge the
     /// progressive book removes). Same measurement, for contrast.
     function test_Atomic_NoStructuralAntiSnipe_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setSeedWindow(0); // atomic green candle (no streaming)
         registry.summon{value: 1 ether}();
         PoolId pid = registry.generationPoolId(1);

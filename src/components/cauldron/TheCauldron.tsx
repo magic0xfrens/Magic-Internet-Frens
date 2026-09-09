@@ -21,7 +21,6 @@ import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
-import { useIndexerHealth } from "@/hooks/useIndexerHealth";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
@@ -431,7 +430,6 @@ export default function TheCauldron() {
   const live_ = useLiveSwaps();
   // Says out loud when the data behind the page is not trustworthy, rather than
   // letting an empty indexer render as a confident, wrong, empty page.
-  const health = useIndexerHealth();
   // Indexed history + live socket, merged. The drawer survives a refresh; the
   // toasts stay purely live because they only ever announce what just happened.
   const activity = useActivityFeed(m.gen, live_.recent);
@@ -650,16 +648,6 @@ export default function TheCauldron() {
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
       <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} ticker={m.ticker} />
-      {health.degraded && (
-        <div className={`tc-health is-${health.state}`} role="status">
-          <span className="tc-health__dot" />
-          <span className="tc-mono">
-            {health.state === "down" ? "indexer unreachable" : health.reason}
-            {" · "}
-            <b>live prices still on-chain</b>
-          </span>
-        </div>
-      )}
       <div className="tc-embers" aria-hidden>
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>

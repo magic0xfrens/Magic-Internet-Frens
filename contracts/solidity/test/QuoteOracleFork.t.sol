@@ -35,8 +35,9 @@ contract QuoteOracleForkTest is Test {
     }
 
     /// A real ETH/USD feed must produce a sane dollar figure for 1 ETH.
-    function test_RealEthFeedPricesOneEther_OnFork() public view {
-        if (!active) return;
+    function test_RealEthFeedPricesOneEther_OnFork() public {
+        
+        vm.skip(!active);
         uint256 factor = oracle.usdPerRawUnit(NATIVE);
         assertGt(factor, 0, "ETH must be priceable");
 
@@ -50,8 +51,9 @@ contract QuoteOracleForkTest is Test {
     /// THE PROPERTY THE WHOLE DESIGN RESTS ON: the same dollar amount of volume
     /// must read the same whether it happened in an 18-decimal or a 6-decimal
     /// pool. Quote-side these differ by 1e12.
-    function test_EthAndStableAgreeOnDollars_OnFork() public view {
-        if (!active) return;
+    function test_EthAndStableAgreeOnDollars_OnFork() public {
+        
+        vm.skip(!active);
         uint256 ethFactor = oracle.usdPerRawUnit(NATIVE);
         uint256 usdcFactor = oracle.usdPerRawUnit(USDC_LIKE);
         assertGt(usdcFactor, 0, "the stable must be priceable");
@@ -66,14 +68,16 @@ contract QuoteOracleForkTest is Test {
     }
 
     /// A feed nobody configured must be unusable rather than zero-and-trusted.
-    function test_UnconfiguredIsUnusable_OnFork() public view {
-        if (!active) return;
+    function test_UnconfiguredIsUnusable_OnFork() public {
+        
+        vm.skip(!active);
         assertEq(oracle.usdPerRawUnit(address(0xBEEF)), 0, "no feed -> cannot judge");
     }
 
     /// What a real read costs, since it lands on the swap hot path.
-    function test_ReadGas_OnFork() public view {
-        if (!active) return;
+    function test_ReadGas_OnFork() public {
+        
+        vm.skip(!active);
         uint256 g = gasleft();
         oracle.usdPerRawUnit(NATIVE);
         console_gas(g - gasleft());

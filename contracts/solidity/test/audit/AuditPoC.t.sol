@@ -93,7 +93,8 @@ contract PoC_SeederSecondCampaign is Test, IUnlockCallback {
     }
 
     function test_Fixed_SecondCampaignStreamsToCompletion() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // ── Campaign 1 (generation 1) ───────────────────────────────────────
         tokA.approve(address(seeder), ACTIVE_TOK);
@@ -240,7 +241,8 @@ contract PoC_HookRoguePool is Test, IUnlockCallback {
 
     /// 2a REGRESSION: a pool with NO ether leg can no longer mint relaunchETH.
     function test_Fixed_NoPhantomRelaunchEth() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         rogueKey = PoolKey({
             currency0: Currency.wrap(address(evilA)),
@@ -274,7 +276,8 @@ contract PoC_HookRoguePool is Test, IUnlockCallback {
     /// 2b REGRESSION: the legacy buyback can no longer be steered into an
     ///     attacker-priced pool. It spends ONLY into the registry's `_liveKey`.
     function test_Fixed_LegacyBufferCannotBeStolen() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Production wiring: the live buyback is ON (DeployLaunchpad does exactly
         // this — 40% of the post-guild fee, 0.02 ETH trigger). Owner may configure.

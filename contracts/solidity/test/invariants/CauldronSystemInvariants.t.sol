@@ -595,7 +595,8 @@ contract CauldronSystemInvariants is StdInvariant, Test, IUnlockCallback {
     /// path the fuzzer has to discover (summon -> stream -> trade -> death ->
     /// relaunch -> 1:1 migration) and re-asserts every invariant at each stage.
     function test_LifecycleWalk_InvariantsHoldAtEveryStage() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _assertAll();
 
@@ -654,7 +655,8 @@ contract CauldronSystemInvariants is StdInvariant, Test, IUnlockCallback {
     /// yields, without comparing the two. Here we pin the observed behaviour so a
     /// future fix (a `require(claimed == amount)`) turns this test red on purpose.
     function test_KnownDeviation_MigrationIsNotExactlyOneToOne() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // walk to generation 2 with a bag to migrate
         vm.prank(address(handler));
         handler.buy(0.2 ether);
@@ -681,7 +683,8 @@ contract CauldronSystemInvariants is StdInvariant, Test, IUnlockCallback {
 
     // ── Non-invariant sanity: the facet really does run on registry storage ──
     function test_FacetDelegatecallMutatesRegistryStorage() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address t = registry.currentToken();
         deal(t, address(this), 1_000e18);
         uint256 before = registry.genesisReserveOutstanding();

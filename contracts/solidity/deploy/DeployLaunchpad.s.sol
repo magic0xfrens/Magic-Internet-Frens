@@ -223,6 +223,16 @@ contract DeployLaunchpad is Script {
         hook.setRegistry(address(registry));
         hook.setGuild(address(dividend)); // stream 1% of fees to genesis holders
         hook.setOpener(address(gacha), true); // only the gacha router opens crystals
+        //  THE ROUTER NEEDS THE SAME ORACLE THE HOOK PRICES VOLUME WITH (audit
+        //  Q-02). The hook's odds curve is restated from ether into USD the moment
+        //  an oracle is wired (audit U-1, `setDeathThreshold`), and this router
+        //  measures its play size as an ETH notional — so without the oracle it
+        //  would hand a wei numerator to a USD denominator and collapse its own
+        //  players' odds by roughly the ETH price. Unset is safe (curve is in
+        //  ether terms, sizes pass through); WIRE IT IN THE SAME OPERATION THAT
+        //  CALLS `setDeathThreshold` with an oracle, or the two drift apart.
+        address quoteOracle = vm.envOr("QUOTE_ORACLE", address(0));
+        if (quoteOracle != address(0)) gacha.setOracle(quoteOracle);
         // The registry funds each new iteration's migration reserve with a REAL
         // first-block market buy (green candle). That buy MUST skip the base tax +
         // anti-sniper surtax, else its ETH is taxed away mid-buy and relaunch
@@ -241,6 +251,11 @@ contract DeployLaunchpad is Script {
         // priced + routed into the reserve (grows the genesis floor). Original
         // never-moved OGs stay free. treasury (= deployer here) gates this.
         dividend.setRegistry(address(registry));
+        // The hook is the ONLY address permitted to fund the fee basket (audit
+        // D-1). Without this the ERC20 side of the dividend stays closed, which
+        // is the safe default — an un-fundable basket loses nothing, an openly
+        // fundable one can be poisoned permanently.
+        dividend.setFunder(address(hook));
         registry.setFactory(address(factory));
         registry.setGovernor(address(governor));
         // PROGRESSIVE SEED (opt-in): deploy the persistent streamer + set the launch

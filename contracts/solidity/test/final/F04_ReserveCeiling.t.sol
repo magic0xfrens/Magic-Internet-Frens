@@ -98,7 +98,8 @@ contract F04_ReserveCeiling is Test {
     ///         exactly 1:1, the OG floor is redeemable, and the registry's own
     ///         `floorClaimableNow` view agrees.
     function test_F18_MigrationWorksBelowTheCeiling() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 got = _buy(0.25 ether);
         assertGt(got, 0, "acquired circulating supply");
 
@@ -131,7 +132,8 @@ contract F04_ReserveCeiling is Test {
     ///         remedy. This test pins the behaviour down so a future fix has a
     ///         reference point.
     function test_F18_MigrationBreaksAboveTheCeiling() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Acquire circulating supply FIRST, while migration still works --- this is
         // the holder whose exit we are about to strand.
@@ -184,7 +186,8 @@ contract F04_ReserveCeiling is Test {
     ///         that expects more than 69x of appreciation MUST raise it before the
     ///         summon, because it cannot be changed for a live generation.
     function test_F18_CeilingIsSetBeforeTheSummonOnly() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         int24 before = registry.reserveTickUpper(1);
 
         registry.setReserveCeiling(138_000); // the maximum the setter allows

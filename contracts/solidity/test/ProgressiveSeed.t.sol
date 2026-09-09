@@ -91,7 +91,8 @@ contract ProgressiveSeedForkTest is Test {
     // Full lifecycle: summon(progressive) → stream to 100% → teardown → relaunch
     // ---------------------------------------------------------------------------
     function test_Summon_Stream_Teardown_Relaunch_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         SeedGov gov = new SeedGov();
         registry.setGovernor(address(gov));
@@ -163,7 +164,8 @@ contract ProgressiveSeedForkTest is Test {
     // must recover EVERYTHING at relaunch — nothing stranded.
     // ---------------------------------------------------------------------------
     function test_PartialStream_Death_FullRecovery_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         SeedGov gov = new SeedGov();
         registry.setGovernor(address(gov));
@@ -209,7 +211,8 @@ contract ProgressiveSeedForkTest is Test {
     // path unchanged (feature is strictly opt-in).
     // ---------------------------------------------------------------------------
     function test_WindowZero_IsAtomicGreenCandle_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         registry.setSeedWindow(0); // seeder set, but window 0 → atomic
         registry.summon{value: 1 ether}();
@@ -225,7 +228,8 @@ contract ProgressiveSeedForkTest is Test {
     // advances the stream via afterSwap → seeder.pokeInSwap — NO explicit poke().
     // ---------------------------------------------------------------------------
     function test_InSwap_AutoStreams_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setGovernor(address(new SeedGov()));
         registry.summon{value: 1 ether}();
         assertEq(seeder.deployedWad(), 0.1e18, "floor at t0");
@@ -249,7 +253,8 @@ contract ProgressiveSeedForkTest is Test {
     // get depth) + is continuous (no teleport). Nothing is ever removed mid-life.
     // ---------------------------------------------------------------------------
     function test_Base_GivesSpotDepth_FromSummon_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setGovernor(address(new SeedGov()));
         registry.summon{value: 1 ether}();
         PoolId pid = registry.generationPoolId(1);
@@ -283,7 +288,8 @@ contract ProgressiveSeedForkTest is Test {
     // Toggle: clearing the hook's seeder pointer disables the in-swap nudge, but the
     // permissionless poke() fallback still streams (the "can be turned off" path).
     function test_InSwap_ToggleOff_PermissionlessStillWorks_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setGovernor(address(new SeedGov()));
         registry.summon{value: 1 ether}();
 

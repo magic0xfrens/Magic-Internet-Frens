@@ -52,7 +52,8 @@ contract PoC_ReserveUnderDelivery is Test {
     }
 
     function test_PoC_ClaimFromReserveCapsInsteadOfReverting() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         tok = new CauldronToken("R", "R", 1, address(this), 1_000_000 ether);
 
@@ -267,7 +268,8 @@ contract PoC_RegistryOverrideDrain is Test {
     }
 
     function test_Fixed_RegistryOverrideIsTimelocked() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // setRegistry is still one-shot ...
         vm.expectRevert(CauldronHook.RegistryAlreadySet.selector);
@@ -352,7 +354,8 @@ contract PoC_SeederBandCap is Test, IUnlockCallback {
     }
 
     function test_PoC_RangeSetFillsAndStreamHalts() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 startTs = block.timestamp;
         bool halted;

@@ -34,6 +34,14 @@ interface IPerpRegistry {
     function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256);
 }
 
+/// @notice The liquidity-weighted mark across a generation's pools. Zero-argument
+///         because the engine calls it from a `view` on the hot path and cannot
+///         spare the bytecode to encode arguments — the source knows its own pool
+///         set. See {PerpMarkSource} and {PerpEngine._currentTick}.
+interface IMarkSource {
+    function weightedTick() external view returns (int24);
+}
+
 interface IPerpHook {
     function isDead(PoolId id) external view returns (bool);
     /// @notice The active brew's NFT collection — where Liquidatoor badges mint.
@@ -321,16 +329,27 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256 public syncedGeneration; // the gen this engine's token-side is armed for
     address public syncedToken;      // that gen's token (what plvToken is denominated in)
 
-    /// @dev This engine denominates collateral, principal, funding, payouts and
-    ///      the insurance buffer in NATIVE ETH — `openLong`/`openShort` are
-    ///      payable and every payout is a `call{value:}`. A generation quoted in
-    ///      an ERC20 cannot be served correctly until that is converted, and
-    ///      serving it anyway would mis-denominate real user funds: collateral
-    ///      posted in ETH against a book priced in USDG.
-    ///
-    ///      Refused explicitly rather than left to misbehave, so the frontend can
-    ///      say "perps are ETH-only for this brew" instead of failing opaquely.
-    error QuoteNotSupported();
+    //  ── THIS ENGINE IS QUOTE-AGNOSTIC. THE `*Eth` NAMES ARE VESTIGIAL. ──────
+    //
+    //  A comment here used to say the opposite — that collateral, principal,
+    //  funding and payouts were NATIVE ETH, that an ERC20-quoted generation
+    //  "cannot be served correctly", and that it was refused via a
+    //  `QuoteNotSupported` error. That predates the quote-agnostic conversion
+    //  and every part of it is now wrong. The error it named was never thrown,
+    //  which made the whole thing read like an unwired safety guard (audit Q-03).
+    //
+    //  What is actually true: `plv`, `collateral`, `principal`, `residual` and
+    //  every payout are denominated in the GENERATION'S QUOTE. `_pullQuote` /
+    //  `_pushQuote` move it, `_settle` swaps into it, and the price helpers work
+    //  off the pool's Q96 `sqrtPrice`, which already encodes the decimal ratio
+    //  between quote and token — so there is no 18-vs-6 decimal correction to
+    //  make and none is missing. Identifiers like `longOiEth`, `activeEthDepth`
+    //  and `buyEth` mean "in quote units"; they were named when the only quote
+    //  was ether and renaming them all does not fit the EIP-170 budget.
+    //
+    //  The error and its comment are removed rather than left as a trap: the
+    //  next reader who "fixes" the missing revert breaks multi-quote perps, and
+    //  it costs 18 bytes the engine does not have.
     error NotWarm();
     error BadLeverage();
     error PlvInsufficient();
@@ -435,7 +454,69 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             fee: POOL_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(hookAddr)});
     }
     function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_key().toId()); }
-    function _currentTick() internal view returns (int24 t) { (, t,,) = poolManager.getSlot0(_key().toId()); }
+
+    /// @notice Optional liquidity-weighted mark across the generation's pools.
+    ///         Zero = read the primary pool's tick (the original behaviour).
+    ///         Set through {setRouting}. See {PerpMarkSource}.
+    ///
+    ///  INTERNAL, not public: the auto-getter costs ~40 bytes and this contract
+    ///  is at the EIP-170 ceiling. It is a cold config value — read it from
+    ///  storage off-chain, or observe it the way the tests do, through the mark
+    ///  it produces. Behaviour is the thing worth asserting anyway.
+    address internal markSource;
+
+    /**
+     * @dev The tick the whole mark is built from.
+     *
+     *  ── WHY THE WEIGHTING GOES *HERE* (audit P-1 / Q-07) ───────────────────
+     *  Every downstream consumer already funnels through this one function:
+     *  `_writeObs` samples it into the TWAP ring, `twapTick()` integrates the
+     *  ring, `markSqrtPriceX96()` converts that to a price, and `_quoteMark` →
+     *  `_underwater` decides liquidations off it. So replacing this single read
+     *  makes the entire stack multi-pool aware without touching the observation
+     *  machinery, the binary search, or any settlement path — and the sample
+     *  still goes through the TWAP, so a flash move in any one pool is averaged
+     *  away exactly as before.
+     *
+     *  ── FAIL-SOFT, DELIBERATELY ────────────────────────────────────────────
+     *  `staticcall` and not an interface call: this runs inside every swap's
+     *  `afterSwap` and inside every liquidation check, so a mark source that
+     *  reverts, self-destructs, returns garbage or is simply unset must degrade
+     *  to the primary pool's tick rather than take trading and liquidation down
+     *  with it. Wiring a mark source can therefore never be worse than not
+     *  wiring one, which is what makes it safe to roll out on a live generation.
+     *
+     *  It is `staticcall` rather than `call` for a second reason: this is reached
+     *  from `view` functions the vault and the frontend depend on, and a mark
+     *  source must never be able to write to anything or re-enter the engine
+     *  mid-liquidation.
+     */
+    ///  ── WHY ASSEMBLY ───────────────────────────────────────────────────────
+    ///  The equivalent `m.staticcall(abi.encodeWithSelector(...))` plus
+    ///  `abi.decode` costs ~90 bytes more, because it allocates a `bytes memory`
+    ///  for a four-byte call and a thirty-two byte answer. This contract has
+    ///  single-digit bytes of EIP-170 headroom; the hand-rolled version is what
+    ///  makes the feature fit at all. It uses only the 0x00 scratch slot, so it
+    ///  is memory-safe, and it rejects any answer that is not exactly one word.
+    function _currentTick() internal view returns (int24 t) {
+        address m = markSource;
+        if (m != address(0)) {
+            bytes4 sel = IMarkSource.weightedTick.selector;
+            bool ok;
+            int256 v;
+            assembly ("memory-safe") {
+                mstore(0x00, sel)
+                ok := staticcall(gas(), m, 0x00, 0x04, 0x00, 0x20)
+                //  A short or empty return would leave the scratch slot holding
+                //  our own selector and read as a nonsense tick, so demand a full
+                //  word before trusting it.
+                ok := and(ok, eq(returndatasize(), 0x20))
+                v := mload(0x00)
+            }
+            if (ok) return int24(v);
+        }
+        (, t,,) = poolManager.getSlot0(_key().toId());
+    }
 
     // ── TWAP oracle ──────────────────────────────────────────────────────
     /// @notice Keep the engine's time-based state fresh between trades: records a
@@ -1400,6 +1481,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      * @dev PULL rather than push, because a balance cannot distinguish a fee
      *      from a stray transfer — and a stray would silently inflate the PLV,
      *      diluting every staker. The hook approves, then calls this.
+     *
+     *  ── ETH-SIDE ONLY, DELIBERATELY (audit B-03) ──────────────────────────
+     *  The NATIVE path splits perp fees by side — buys reward the ETH stakers
+     *  (`plv`), sells reward the token stakers (`tokYieldEth`) — via two
+     *  selectors ({creditPerpFee}/{creditPerpFeeToken}). This ERC20 path credits
+     *  `plv` for BOTH sides: a non-native generation's token stakers do not yet
+     *  earn their sell-side share. That is a REDISTRIBUTION between two protocol
+     *  staker classes, not a loss — the fee is fully pulled and accounted, and
+     *  solvency is unaffected. Splitting it needs a second asset entrypoint the
+     *  engine has no EIP-170 headroom for (single-digit bytes spare), so it is
+     *  deferred with the rest of the non-native perp work rather than shipped
+     *  half-fitting. Fixing it means a `creditPerpFeeAssetToken` twin (or a side
+     *  flag threaded through {FeeRouteLib.routePerp}) once the byte budget exists.
      */
     function creditPerpFeeAsset(address asset, uint256 amount) external {
         if (msg.sender != hookAddr) revert OnlyHook();
@@ -1413,10 +1507,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     function _creditPerp(bool ethSide) private {
         if (msg.sender != hookAddr) revert OnlyHook();
-        //  NOTE: still native. The hook routes every fee with `.call{value:}` —
-        //  five sites — so a USDG-quoted pool cannot deliver a perp fee at all.
-        //  Generalising this end alone would be a path to nowhere; the hook's
-        //  routing is the blocker and is tracked in docs/TREASURY_FUND_PLAN.md.
+        //  NATIVE path. A non-native quote delivers its perp fee through
+        //  {creditPerpFeeAsset} instead (the hook's {FeeRouteLib.routePerp}
+        //  approves + pulls), so a USDG/xNVDA pool CAN now fund the engine — see
+        //  the B-03 note there for the one behavioural gap (asset sells credit
+        //  the ETH side rather than the token side).
         uint256 amount = msg.value;
         if (ethSide) {
             plv += amount;
@@ -1502,16 +1597,33 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         to flash-manipulate; longer = more manipulation-resistant but laggier.
     ///         On a sub-second-block L2 even 1s spans many blocks, so it's a usable
     ///         floor — tune live via the timelock to whatever the pool can defend.
-    function setTwapWindow(uint32 _window) external onlyOwner {
-        if (_window < MIN_TWAP) revert BadParam();
-        twapWindow = _window;
-    }
+    //  `setTwapWindow` was removed to pay for the mark source. {setGuards} below
+    //  already sets `twapWindow` under a strictly stronger validation (the same
+    //  MIN_TWAP floor plus a 2-hour ceiling), so nothing became unreachable —
+    //  pass the current `maxLiqBps` / `maxFundingBps` alongside the new window.
     function setTiers(uint256[] calldata depths, uint8[] calldata levs) external onlyOwner {
         if (levs.length != depths.length + 1) revert BadParam(); tierDepthWei = depths; tierLeverage = levs;
     }
-    function setRouting(address _dividend, address _treasury) external onlyOwner { dividend = _dividend; treasury = _treasury; }
-    /// @notice Where perp-volume gacha creatures accrue (keep NON-tax-exempt).
-    function setNftBeneficiary(address _who) external onlyOwner { nftBeneficiary = _who; }
+    /// @notice The engine's outbound addresses, set together.
+    ///
+    ///  `_nftBeneficiary` is where perp-volume gacha creatures accrue (keep it
+    ///  NON-tax-exempt). `_markSource` is the liquidity-weighted mark — see
+    ///  {_currentTick} and {PerpMarkSource}; zero leaves the mark reading the
+    ///  primary pool's tick, which is the pre-existing behaviour.
+    ///
+    ///  ONE SETTER RATHER THAN THREE. This contract has single-digit bytes of
+    ///  EIP-170 headroom, and each additional external function costs a dispatch
+    ///  entry plus a prologue for a cold path nobody calls in a normal month.
+    ///  Folding them together is what paid for the mark source.
+    function setRouting(address _dividend, address _treasury, address _nftBeneficiary, address _markSource)
+        external
+        onlyOwner
+    {
+        dividend = _dividend;
+        treasury = _treasury;
+        nftBeneficiary = _nftBeneficiary;
+        markSource = _markSource;
+    }
     /// @notice Phase-3 hardening params: TWAP window, per-block liq cap, funding cap.
     function setGuards(uint32 _twapWindow, uint256 _maxLiqBps, uint256 _maxFundingBps) external onlyOwner {
         if (!(_twapWindow >= MIN_TWAP && _twapWindow <= 2 hours && _maxLiqBps <= BPS && _maxFundingBps <= BPS)) revert BadParam();

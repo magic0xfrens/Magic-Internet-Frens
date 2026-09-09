@@ -23,6 +23,14 @@ interface IRegistryCurrent {
     function currentToken() external view returns (address);
 }
 
+/// @notice The quote oracle's uncached view, used to convert a play's ETH
+///         notional into the same USD unit the hook's odds curve uses (audit
+///         Q-02). Returns the USD value of one raw unit of `quote` scaled by
+///         1e18, or 0 when the price is unusable.
+interface IQuoteOracleView {
+    function usdPerRawUnit(address quote) external view returns (uint256);
+}
+
 /**
  * @title CauldronGachaRouter
  * @notice One-click entry to the Cauldron crystal gacha. The player sends ETH
@@ -55,6 +63,68 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     uint256 public constant MAX_LOOPS = 10;
 
     uint256 private _locked = 1;
+
+    /**
+     * @notice The same {QuoteOracle} the hook prices volume with — used ONLY to
+     *         express this router's play size in the hook's odds-curve unit.
+     *
+     *  ── WHY THIS LIVES HERE (audit Q-02) ──────────────────────────────────
+     *  The hook's odds curve (`oddsFullVolumeWei`) is denominated in ether while
+     *  no oracle is wired, and restated into USD the moment one is (audit U-1,
+     *  {CauldronHook.setDeathThreshold}). The hook's NATIVE in-swap gacha already
+     *  feeds a USD figure, but this router measures an honest ETH notional from
+     *  the swap deltas — so once an oracle is wired the router's play size was a
+     *  wei numerator over a USD denominator, collapsing its odds by roughly the
+     *  ETH price (measured: 9000 bps native vs 4 bps router for the same $1,500
+     *  buy). The conversion belongs on whichever side can afford the bytes, and
+     *  {CauldronHook} is against the EIP-170 ceiling with tens of bytes spare
+     *  while this router has kilobytes.
+     *
+     *  UNSET = today's behaviour exactly: the play size passes through unchanged,
+     *  which is correct for the ether-denominated curve. Wire this in the same
+     *  step that wires the hook's oracle, or the router keeps under-pricing its
+     *  own odds — it fails SAFE (players win less, never more), never unsafe.
+     */
+    address public oracle;
+
+    event OracleSet(address oracle);
+
+    /// @notice Point the router at the hook's quote oracle (see {oracle}).
+    function setOracle(address _oracle) external onlyOwner {
+        oracle = _oracle;
+        emit OracleSet(_oracle);
+    }
+
+    /**
+     * @dev Express an ETH-notional play size in the hook's odds-curve unit.
+     *
+     *  With no oracle wired (or a price the oracle refuses) the value passes
+     *  through untouched — the curve is in ether terms then, so that is exactly
+     *  right, and a refusal must never zero a player's odds. Otherwise convert
+     *  ETH wei → USD at 1e18, matching what the hook's `_toUsd` produces for the
+     *  native path.
+     *
+     *  `staticcall` via try/catch so a broken oracle degrades to the raw size
+     *  rather than reverting a player's whole gacha spin.
+     */
+    /// @notice The play size this router would hand the hook for a given ETH
+    ///         notional, in the hook's odds-curve unit. Exposed so a UI can show
+    ///         the same odds the chain will roll (and so the conversion is
+    ///         directly testable).
+    function playInCurveUnits(uint256 playWei) external view returns (uint256) {
+        return _playInCurveUnits(playWei);
+    }
+
+    function _playInCurveUnits(uint256 playWei) internal view returns (uint256) {
+        address o = oracle;
+        if (o == address(0)) return playWei;
+        try IQuoteOracleView(o).usdPerRawUnit(address(0)) returns (uint256 f) {
+            if (f == 0) return playWei; // "cannot judge" → leave the size alone
+            return (playWei * f) / 1e18;
+        } catch {
+            return playWei;
+        }
+    }
 
     struct PlayData {
         address player;
@@ -168,7 +238,9 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         // (audit L3 — external ETH/token sends happen last, after all state).
         uint256 playWei = ethConsumed + sellEthGross; // ETH notional traded
         uint256 want = openMax == 0 ? type(uint256).max : openMax;
-        opened = hook.commitCrystals(msg.sender, want, playWei);
+        //  Expressed in the hook's odds-curve unit (audit Q-02) — see {oracle}.
+        //  The EVENT below still reports the honest ETH notional actually traded.
+        opened = hook.commitCrystals(msg.sender, want, _playInCurveUnits(playWei));
         hook.resolveTickets(MAX_MINTS_PER_CALL);
 
         // INTERACTIONS: refund unused sell input, pay sell proceeds + ETH refund.
@@ -196,6 +268,11 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         uint256 bw = hook.buyWeightBps();
         uint256 playWei = bw > 0 ? (creditToOpen * 10_000) / bw : creditToOpen;
 
+        //  DELIBERATELY NOT converted through {_playInCurveUnits} (audit Q-02).
+        //  Unlike the two swap paths, this size is derived from `costOfNextCrystals`
+        //  — the hook's own curve — so it is ALREADY in curve units. Running it
+        //  through the oracle would convert a USD figure a second time and inflate
+        //  the odds by the ETH price. The unit follows where the number came from.
         opened = hook.commitCrystals(msg.sender, ready, playWei);
         hook.resolveTickets(MAX_MINTS_PER_CALL);
         emit Played(msg.sender, playWei, opened);
@@ -219,7 +296,9 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         (uint256 playWei, uint256 ethLeftover) = abi.decode(ret, (uint256, uint256));
 
         uint256 want = openMax == 0 ? type(uint256).max : openMax;
-        opened = hook.commitCrystals(msg.sender, want, playWei);
+        //  Churn's play size is also an ETH notional summed from the swap deltas,
+        //  so it needs the same curve-unit conversion (audit Q-02) — see {oracle}.
+        opened = hook.commitCrystals(msg.sender, want, _playInCurveUnits(playWei));
         hook.resolveTickets(MAX_MINTS_PER_CALL);
 
         if (ethLeftover > 0) {

@@ -43,6 +43,11 @@ contract DividendBasketTest is Test {
         mifrens = new MiFrensGenesis("MiFrens", "MIF", 3, 6, 0.01 ether, 3, "ipfs://mf/");
         div = new MiFrensDividend(address(mifrens), treasury);
         mifrens.setDividend(address(div));
+        //  This contract stands in as the hook — the only address permitted to
+        //  fund the basket (audit D-1). `treasury` gates the wiring, and this
+        //  test deployed the dividend, so it holds that role.
+        vm.prank(treasury);
+        div.setFunder(address(this));
         usdg = new Stable();
         vm.deal(alice, 1 ether);
         vm.deal(bob, 1 ether);
@@ -112,26 +117,45 @@ contract DividendBasketTest is Test {
         assertApproxEqAbs(div.pending(1), 1 ether, 1, "the ETH claim is untouched");
     }
 
-    /// The asset list is looped on claim, so it must be bounded — an unbounded
-    /// list eventually costs more gas than a block allows, which is a permanent
-    /// lockout rather than an inconvenience.
+    /// The asset list is looped on claim AND on every NFT transfer, so it must be
+    /// bounded — an unbounded list eventually costs more gas than a block allows,
+    /// which is a permanent lockout rather than an inconvenience. Three, because
+    /// the transfer-side walk runs under the collection's forwarded gas budget.
     function test_AssetListIsBounded() public {
         _mintTo(alice, 1);
         vm.prank(alice); div.castSpell(1);
 
-        for (uint256 i; i < 8; ++i) {
+        for (uint256 i; i < 3; ++i) {
             Stable t = new Stable();
             t.mint(address(this), 1000e6);
             t.approve(address(div), type(uint256).max);
             div.fundToken(address(t), 100e6);
         }
-        assertEq(div.assetCount(), 8, "eight assets tracked");
+        assertEq(div.assetCount(), 3, "three assets tracked");
 
         Stable extra = new Stable();
         extra.mint(address(this), 1000e6);
         extra.approve(address(div), type(uint256).max);
         vm.expectRevert(MiFrensDividend.NotShare.selector);
         div.fundToken(address(extra), 100e6);
+    }
+
+    /// The bound is only safe because the list is not open to strangers: a
+    /// permissionless funder could fill every slot with worthless tokens and
+    /// lock every real quote asset out forever (audit D-1).
+    function test_OnlyTheFunderCanFundTheBasket() public {
+        _mintTo(alice, 1);
+        vm.prank(alice); div.castSpell(1);
+
+        Stable junk = new Stable();
+        junk.mint(bob, 1000e6);
+        vm.startPrank(bob);
+        junk.approve(address(div), type(uint256).max);
+        vm.expectRevert(MiFrensDividend.NotOwner.selector);
+        div.fundToken(address(junk), 100e6);
+        vm.stopPrank();
+
+        assertEq(div.assetCount(), 0, "a stranger cannot occupy a slot");
     }
 
     /// With nobody enchanted an ERC20 deposit is refused rather than swept: a

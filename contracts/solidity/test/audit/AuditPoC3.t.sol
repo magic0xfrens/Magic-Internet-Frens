@@ -118,7 +118,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         IERC20Minimal(token).approve(address(perp), seed);
         perp.fundPlvToken(seed);
 
-        hook.setDeathThreshold(0, address(0));
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);
         hook.setPerpEngine(address(perp));
         registry.setGovernor(address(new MockGov()));
 
@@ -128,7 +128,8 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
     }
 
     function test_Fixed_RejectingTraderCannotFreezeTheEngine() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         RejectEthTrader griefer = new RejectEthTrader(perp);
         vm.deal(address(griefer), 1 ether);
@@ -140,7 +141,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         assertEq(perp.openCount(), 2, "two positions open");
 
         // Kill the generation.
-        hook.setDeathThreshold(1 ether, address(0));
+        hook.setDeathThreshold(1 ether, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
@@ -172,7 +173,8 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
     /// The batch path the registry drives at relaunch must also survive a hostile
     /// trader: `forceCloseAllDead` closes EVERY position, hostile ones included.
     function test_Fixed_ForceCloseAllDeadSurvivesHostileTrader() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         RejectEthTrader griefer = new RejectEthTrader(perp);
         vm.deal(address(griefer), 1 ether);
@@ -180,7 +182,7 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
         assertEq(perp.openCount(), 2, "two positions open");
 
-        hook.setDeathThreshold(1 ether, address(0));
+        hook.setDeathThreshold(1 ether, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
 
         perp.forceCloseAllDead();

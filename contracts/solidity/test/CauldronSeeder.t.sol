@@ -93,7 +93,8 @@ contract CauldronSeederForkTest is Test {
     /// the "price already moved" confound), and poke to full in between so the ask
     /// side below spot is much deeper for the second buy.
     function test_DepthGrows_ImpactShrinks_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 startTs = block.timestamp;
 
         // thin book (seed floor): a 3 ETH buy → measure its tick impact
@@ -119,7 +120,8 @@ contract CauldronSeederForkTest is Test {
     }
 
     function test_PokeMidway_PartialDeploy_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 startTs = block.timestamp;
         vm.warp(startTs + 1800); // halfway
         seeder.poke();
@@ -129,7 +131,8 @@ contract CauldronSeederForkTest is Test {
     }
 
     function test_PokeIdempotentWhenNoTimePassed_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 before = seeder.deployedWad();
         seeder.poke(); // no time passed → target == placed → no-op
         assertEq(seeder.deployedWad(), before, "poke is a no-op when target hasn't advanced");
@@ -139,7 +142,8 @@ contract CauldronSeederForkTest is Test {
     /// some positions to the other asset) → withdrawAll → ALL funds recovered to
     /// the registry, nothing stranded in the seeder or its positions.
     function test_WithdrawAll_RecoversEverything_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 startTs = block.timestamp;
 
         // stream partway + do a buy so positions hold a mix of ETH/token
@@ -171,7 +175,8 @@ contract CauldronSeederForkTest is Test {
     /// Teardown right after the floor seed (no poke, no trade) still recovers ~all
     /// of ledger A (nothing lost to the thin seed).
     function test_WithdrawAll_AtFloor_NoStrand_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address sink = address(0xBEEF);
         (uint256 ethOut, uint256 tokOut) = seeder.withdrawAll(sink);
         assertEq(token.balanceOf(address(seeder)), 0, "no token stranded");

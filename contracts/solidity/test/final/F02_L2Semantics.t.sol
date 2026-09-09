@@ -101,7 +101,8 @@ contract F02_L2Semantics is Test {
     ///         `BLOCKS_PER_DAY = 7200` the window's wall-clock meaning was a property
     ///         of the settlement layer, not of the protocol.
     function test_L2A_DeathClockIsWallClockNotBlockCount() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PoolId id = registry.generationPoolId(1);
 
         // Advance BLOCKS hard while time stands still: on Orbit, many child blocks
@@ -124,13 +125,14 @@ contract F02_L2Semantics is Test {
     ///         NOT retire a live pool. On the pre-fix block-denominated clock this
     ///         was the permanent-retirement bug; assert it cannot recur.
     function test_L2A_BlockStormAloneCannotRetireALivePool() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PoolId id = registry.generationPoolId(1);
 
         // Give the pool real volume so it is unambiguously alive. The rig deploys
         // with a 1 ETH threshold; drop it so a modest buy clears it and the test is
         // about the CLOCK, not about the threshold's magnitude.
-        hook.setDeathThreshold(0.1 ether, address(0));
+        hook.setDeathThreshold(0.1 ether, address(0), 0, 0, 0);
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
         _buy(0.5 ether);
@@ -160,7 +162,8 @@ contract F02_L2Semantics is Test {
     ///         therefore faces a step function, not a smooth ramp, and can place a
     ///         buy anywhere inside a step at identical cost.
     function test_L2B_SurtaxIsQuantisedToParentBlocks() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PoolId id = registry.generationPoolId(1);
 
         uint256 atStart = hook.snipeSurtaxBps(id);
@@ -185,7 +188,8 @@ contract F02_L2Semantics is Test {
     ///         must never be able to push the total fee to 100% (which would make a
     ///         swap return zero and revert), nor above the declared ceiling.
     function testFuzz_L2B_SurtaxStaysWithinItsCeiling(uint16 blockJump, uint32 timeJump) public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PoolId id = registry.generationPoolId(1);
         vm.roll(block.number + blockJump);
         vm.warp(block.timestamp + timeJump);
@@ -203,7 +207,8 @@ contract F02_L2Semantics is Test {
     ///         Both halves matter: the first is a liveness property, the second is
     ///         what stops a same-parent-block commit-and-resolve.
     function test_L2C_TicketMaturityFollowsBlockNumberNotTime() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         hook.setOpener(address(this), true);
         // A collection is wired by `summon`; give ourselves credit to commit with.
         _buy(1 ether);
@@ -240,7 +245,8 @@ contract F02_L2Semantics is Test {
     ///         influence `blockhash` on the target chain — including the single
     ///         sequencer — predetermines every crystal's result. See finding F-01.
     function test_L2C_RollIsFullyDeterminedByBlockhash() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         hook.setOpener(address(this), true);
         _buy(1 ether);
 
@@ -283,7 +289,8 @@ contract F02_L2Semantics is Test {
     ///
     ///         Assert the bound now rejects both shapes.
     function test_L2D_FundingRateIsBounded() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PerpEngine perp = new PerpEngine(
             pm, address(hook), address(registry), address(new NoFrensStub()),
             address(0xD1D1), address(0x7E7E), address(this)
@@ -314,7 +321,8 @@ contract F02_L2Semantics is Test {
     ///         production is sporadic ("block production only occurs when there are
     ///         transactions to sequence").
     function testFuzz_L2D_PokeSurvivesAnyAcceptedRate(uint256 rate, uint32 dt) public {
-        if (!active) return;
+        
+        vm.skip(!active);
         rate = bound(rate, 0, 10_000);
         dt = uint32(bound(dt, 0, 365 days)); // a year of quiet is more than enough
         PerpEngine perp = new PerpEngine(
@@ -349,7 +357,8 @@ contract F02_L2Semantics is Test {
     ///         Assert the oracle now survives the rollover and still produces a
     ///         usable mark.
     function test_L2E_OracleSurvivesTheUint32EpochRollover() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         PerpEngine perp = new PerpEngine(
             pm, address(hook), address(registry), address(new NoFrensStub()),
             address(0xD1D1), address(0x7E7E), address(this)

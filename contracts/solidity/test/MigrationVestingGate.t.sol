@@ -114,7 +114,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 1. access control on the gate setter ─────────────────────────────────
     function test_SetClaimGate_OnlyEmergencyAdmin_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.prank(address(0xBAD));
         vm.expectRevert(CauldronBase.NotAdmin.selector);
         registry.setClaimGate(address(vesting));
@@ -128,7 +129,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 2. THE CORE: gated → direct claim blocked, escrow vests instead ──────
     function test_Gated_DirectClaimBlocked_EscrowVests_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         (address token1, address token2, uint256 circ) = _summonAndRelaunch();
         registry.armEmergency(); // F-19: custody actions must be armed
         registry.setClaimGate(address(vesting)); // ENFORCE
@@ -168,7 +170,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 2b. instant tier (staker) skips the drip ─────────────────────────────
     function test_Gated_StakerClaimsInstant_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         (address token1, address token2, uint256 circ) = _summonAndRelaunch();
         registry.armEmergency(); // F-19: custody actions must be armed
         registry.setClaimGate(address(vesting));
@@ -183,7 +186,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 3. gated → the instant keeper bypass is closed ───────────────────────
     function test_Gated_AutoMigrateBatch_Reverts_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _summonAndRelaunch();
         registry.armEmergency(); // F-19: custody actions must be armed
         registry.setClaimGate(address(vesting));
@@ -196,7 +200,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 4. autoMigrate STILL WORKS when the gate is OFF (unchanged path) ─────
     function test_Ungated_AutoMigrate_StillWorks_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         (, address token2, uint256 circ) = _summonAndRelaunch();
         // gate stays OFF (claimGate == 0)
 
@@ -219,7 +224,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 5. gated → the PERP ENGINE is EXEMPT (its migration is not blocked) ──
     function test_Gated_PerpEngineExempt_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         (address token1, address token2, uint256 circ) = _summonAndRelaunch();
 
         // Stand a mock engine in via the hook (setPerpEngine try/catches its collection
@@ -242,7 +248,8 @@ contract MigrationVestingGateForkTest is Test {
 
     // ── 6. gated → a RELAUNCH still succeeds (no internal migration dependency) ─
     function test_Gated_RelaunchStillWorks_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _summonAndRelaunch(); // now at gen 2
         registry.armEmergency(); // F-19: custody actions must be armed
         registry.setClaimGate(address(vesting)); // gate ON

@@ -60,7 +60,7 @@ contract Z02_PerpStaleMark is ZAuditBase {
         // warmup 60s (>= MIN_TWAP); everything else at defaults.
         engine.setRisk(60, 3, 1500, 500, 3000, 100);
         // Keep the pool "alive" for the whole test so opens are never gated on death.
-        hook.setDeathThreshold(0, address(0));
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);
 
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
         vm.warp(block.timestamp + 120); // clear the open warmup
@@ -69,7 +69,8 @@ contract Z02_PerpStaleMark is ZAuditBase {
     /// REGRESSION: with an empty book the oracle is still sampled by the swap itself,
     /// so a ~2x spot move is reflected in the mark with no keeper involved.
     function test_FIXED_MarkTracksSpotWithAnEmptyBook() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint160 markBefore = engine.markSqrtPriceX96();
         uint160 spotBefore = _spotSqrt(pid);
@@ -100,7 +101,8 @@ contract Z02_PerpStaleMark is ZAuditBase {
     /// REGRESSION: a fully-collateralised long opened after the same quiet period used
     /// to be liquidated inside its OWN opening transaction. It now survives.
     function test_FIXED_PositionSurvivesOpenAfterQuietPeriod() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _buyExactIn(8 ether);
         vm.roll(block.number + 300);
@@ -119,7 +121,8 @@ contract Z02_PerpStaleMark is ZAuditBase {
     /// defect is precisely the missing oracle write on the empty-book path and
     /// that the design is not in fact keeperless.
     function test_SAFE_WithKeeperPoke_PositionSurvives() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _buyExactIn(8 ether);
         // A keeper samples the oracle across the quiet window.

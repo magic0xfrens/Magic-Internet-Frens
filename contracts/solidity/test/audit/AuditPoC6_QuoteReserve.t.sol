@@ -12,15 +12,14 @@ import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {CauldronHook} from "../CauldronHook.sol";
-import {PoolOps, IPositionManagerOps} from "../cauldron/PoolOps.sol";
-import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
-import {HookMiner} from "../vendor/HookMiner.sol";
+import {CauldronHook} from "../../CauldronHook.sol";
+import {PoolOps, IPositionManagerOps} from "../../cauldron/PoolOps.sol";
+import {HookMiner} from "../../vendor/HookMiner.sol";
 
 contract Stable6 is IERC20 {
     string public constant name = "Stable";
     string public constant symbol = "USDG";
-    uint8 public constant decimals = 6; // the trap
+    uint8 public constant decimals = 6;
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -33,15 +32,12 @@ contract Stable6 is IERC20 {
     }
 }
 
-/// @dev Minimal router so a test can actually put a swap through the hook.
 contract Swapper {
     IPoolManager public immutable pm;
     constructor(IPoolManager _pm) { pm = _pm; }
-
     function swap(PoolKey memory key, bool zeroForOne, int256 amount) external payable {
         pm.unlock(abi.encode(key, zeroForOne, amount));
     }
-
     function unlockCallback(bytes calldata data) external returns (bytes memory) {
         (PoolKey memory key, bool zeroForOne, int256 amount) =
             abi.decode(data, (PoolKey, bool, int256));
@@ -54,7 +50,6 @@ contract Swapper {
             }),
             ""
         );
-        // Settle whichever side we owe; take the other.
         int128 a0 = d.amount0();
         int128 a1 = d.amount1();
         if (a0 < 0) _pay(key.currency0, uint256(uint128(-a0)));
@@ -63,40 +58,41 @@ contract Swapper {
         if (a1 > 0) pm.take(key.currency1, address(this), uint256(uint128(a1)));
         return "";
     }
-
     function _pay(Currency c, uint256 amt) private {
-        if (Currency.unwrap(c) == address(0)) {
-            pm.settle{value: amt}();
-        } else {
-            pm.sync(c);
-            IERC20(Currency.unwrap(c)).transfer(address(pm), amt);
-            pm.settle();
-        }
+        if (Currency.unwrap(c) == address(0)) { pm.settle{value: amt}(); }
+        else { pm.sync(c); IERC20(Currency.unwrap(c)).transfer(address(pm), amt); pm.settle(); }
     }
     receive() external payable {}
 }
 
 /**
- * @dev Volume must be comparable across a generation's pools.
+ * @dev REGRESSION test for R-1 — a non-ETH generation must not mint PHANTOM
+ *      `relaunchETH`, and the fees it collects must have an exit.
  *
- *  Death is judged on 24h volume SUMMED across every pool a generation trades
- *  in. Measured on the quote side those figures are not comparable: a 6-decimal
- *  stable and 18-decimal ETH differ by 1e12 before any price difference. A
- *  generation that rotated into a stable would see its measured volume collapse
- *  and get relaunched while perfectly healthy.
+ *  `_takeEthFee` was generalised to collect on whichever side is the quote
+ *  (CauldronHook.sol), so a USDG-quoted pool pays its fee in USDG, and
+ *  `FeeRouteLib` moves the right asset. The RESIDUAL was not generalised: it was
+ *  booked straight into `relaunchETH`, a wei counter paid out as NATIVE ether by
+ *  `registry.call{value:}`. Nothing converted, and nothing checked the asset.
  *
- *  This is the test that was missing. The existing volume assertions are all
- *  `> 0`, so they passed either way and proved nothing about the units.
+ *  Two consequences, both permanent:
+ *    1. Once the phantom exceeded the hook's real ETH balance,
+ *       `releaseRelaunchETH` reverted. The counter is only zeroed INSIDE the
+ *       call that reverts, so nothing self-corrected and the generation could
+ *       never fund its successor — which is the whole protocol.
+ *    2. The USDG actually collected had no exit at all: no release path, and
+ *       `sweepLegacyReserve` is gated to a different counter.
+ *
+ *  The hook's own adoption-gate comment named this failure, and the
+ *  `currency0 != address(0)` line that prevented it was removed when quotes were
+ *  generalised. The fix splits the reserve by denomination (`relaunchETH` vs
+ *  `relaunchAsset`) so that line can stay removed safely.
+ *
+ *  Run:
+ *    export FORK_RPC=<sepolia> POOL_MANAGER=0x.. POSITION_MANAGER=0x..
+ *    FOUNDRY_PROFILE=cauldron forge test --match-contract AuditPoC6 -vv
  */
-/// @dev A $1.00 feed, 8 decimals like a real Chainlink USD aggregator.
-contract MockUsdFeed {
-    function decimals() external pure returns (uint8) { return 8; }
-    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
-        return (1, 1e8, block.timestamp, block.timestamp, 1);
-    }
-}
-
-contract VolumeUnitsTest is Test {
+contract AuditPoC6_QuoteReserve is Test {
     using PoolIdLibrary for PoolKey;
 
     bool active;
@@ -105,7 +101,8 @@ contract VolumeUnitsTest is Test {
     Stable6 usdg;
     Swapper swapper;
 
-    /// @dev The hook reads this off its registry at pool adoption.
+    /// @dev The hook reads this off its registry at adoption. This contract IS
+    ///      the registry for the purposes of the test.
     function allowedQuote(address q) external view returns (bool) {
         return q == address(usdg) || q == address(0);
     }
@@ -117,7 +114,6 @@ contract VolumeUnitsTest is Test {
         vm.createSelectFork(rpc);
 
         address poolManager = vm.envAddress("POOL_MANAGER");
-        address positionManager = vm.envAddress("POSITION_MANAGER");
         pm = IPoolManager(poolManager);
 
         uint160 flags = uint160(
@@ -128,38 +124,22 @@ contract VolumeUnitsTest is Test {
         bytes memory ctorArgs = abi.encode(
             IPoolManager(poolManager), uint256(1 ether), address(0), address(this), address(this)
         );
-        (address hookAddr, bytes32 salt) =
+        (, bytes32 salt) =
             HookMiner.find(address(this), flags, type(CauldronHook).creationCode, ctorArgs);
         hook = new CauldronHook{salt: salt}(
             IPoolManager(poolManager), 1 ether, address(0), address(this), address(this)
         );
 
-        //  THIS CONTRACT stands in as the registry. The hook adopts a pool only
-        //  when the initializer is its registry (audit C-01), and PoolOps is a
-        //  library — called from here it runs as THIS contract, so the test must
-        //  be the registry for the pool to be tracked at all. The first attempt
-        //  wired a real CauldronRegistry, the pool went unadopted, and the test
-        //  read zero volume for a swap that genuinely happened.
         hook.setRegistry(address(this));
         hook.setOpener(address(this), true);
-        hook.setTaxExempt(address(this), true);
+        hook.setTaxExempt(address(this), true); // the LP-adder, not the swapper
 
         usdg = new Stable6();
         swapper = new Swapper(pm);
         vm.deal(address(this), 200 ether);
-        vm.deal(address(swapper), 100 ether);
     }
 
-    /**
-     * THE PROPERTY THE WHOLE MULTI-POOL DESIGN RESTS ON: the same DOLLAR volume
-     * registers the same figure whichever pool it happened in.
-     *
-     * Without the oracle a 6-decimal quote records raw units — 10,000 USDG is
-     * 1e10 — while an 18-decimal ETH pool records 1e18-scale numbers. Death sums
-     * them and a fren's mint-out cost would depend on which pool you traded in.
-     * With the oracle wired, both become USD at 1e18.
-     */
-    function test_VolumeIsUsdDenominated_OnFork() public {
+    function test_R1_NonEthFeeCreditsItsOwnAssetNotEth_OnFork() public {
         
         vm.skip(!active);
         address positionManager = vm.envAddress("POSITION_MANAGER");
@@ -168,7 +148,7 @@ contract VolumeUnitsTest is Test {
             PoolOps.deployTokenAbove("Gnome", "GNOME", 2, 777_000_000e18, address(usdg));
         usdg.mint(address(this), 5_000_000e6);
 
-        (PoolId id, ) = PoolOps.openOrAddPair(
+        PoolOps.openOrAddPair(
             pm, IPositionManagerOps(positionManager), address(hook),
             token, address(usdg), 1_000_000e6, 1_000_000e18, 200, 0
         );
@@ -179,33 +159,43 @@ contract VolumeUnitsTest is Test {
             fee: 0, tickSpacing: 200, hooks: IHooks(address(hook))
         });
 
-        //  Price the stable at $1.00 so the hook can convert.
-        QuoteOracle oracle = new QuoteOracle(address(this));
-        MockUsdFeed feed = new MockUsdFeed();
-        oracle.setFeed(address(usdg), address(feed), 30 days, 6);
-        // Wiring an oracle re-denominates every volume figure to USD-1e18, so the
-        // crystal ladder and the odds curve must be restated in the same units
-        // (audit U-1). $50 a fren, $1,000 for the top of the odds curve.
-        hook.setDeathThreshold(1 ether, address(oracle), 50e18, 0, 1000e18);
+        // Precondition: a pure USDG generation. No ether, no reserve.
+        assertEq(address(hook).balance, 0, "hook starts with no ETH");
+        assertEq(hook.relaunchETH(), 0, "and no native reserve");
 
+        // A single ordinary, taxable swap. The swapper is NOT tax-exempt, so it
+        // pays the default 3% — in USDG, because USDG is the quote.
         usdg.mint(address(swapper), 100_000e6);
-        uint256 g = gasleft();
-        swapper.swap(key, true, -10_000e6); // buy the token with 10,000 USDG
-        emit log_named_uint("swap through the hook (gas)", g - gasleft());
+        swapper.swap(key, true, -10_000e6);
 
-        uint256 vol = hook.getVolume24h(id);
-        assertGt(vol, 0, "the swap registered");
+        uint256 held = usdg.balanceOf(address(hook));
+        emit log_named_uint("relaunchETH (native)      ", hook.relaunchETH());
+        emit log_named_uint("relaunchAsset[USDG]       ", hook.relaunchAsset(address(usdg)));
+        emit log_named_uint("hook USDG actually held   ", held);
 
-        //  ASSERT THE SCALE, NOT THE AMOUNT. The swap is bound by the pool's
-        //  price limit, so only part of the 10,000 USDG fills — hardcoding an
-        //  expected figure would be testing this pool's depth rather than the
-        //  conversion. My first attempt did exactly that and failed at 100x.
-        //
-        //  What is unambiguous: a 6-decimal quote can only reach 1e18 raw units
-        //  if a trillion USDG moved. So anything above 1e18 proves the USD
-        //  conversion ran; quote-side accounting measured 1e8 for this same
-        //  swap, which is the figure that makes two pools incomparable.
-        assertGt(vol, 1e18, "volume must be USD-denominated, not raw 6-decimal units");
-        emit log_named_uint("USD volume recorded (1e18 = $1)", vol);
+        // THE FIX: the reserve is booked in the asset it is denominated in, and
+        // the native counter is untouched by a non-native fee.
+        assertEq(hook.relaunchETH(), 0, "a USDG fee must not credit the ETH reserve");
+        assertGt(held, 0, "the fee was collected");
+        assertEq(
+            hook.relaunchAsset(address(usdg)), held,
+            "and booked 1:1 against the USDG the hook actually holds"
+        );
+
+        // The native release is no longer bricked — there is simply nothing
+        // native to release, which is the honest answer for this generation.
+        vm.expectRevert(CauldronHook.NoETHToRelease.selector);
+        hook.releaseRelaunchETH();
+
+        // And the value has an exit. `registry` is this contract (see setUp).
+        uint256 before = usdg.balanceOf(address(this));
+        uint256 got = hook.releaseRelaunchAsset(address(usdg));
+        assertEq(got, held, "released the full reserve");
+        assertEq(usdg.balanceOf(address(this)) - before, held, "the registry received it");
+        assertEq(hook.relaunchAsset(address(usdg)), 0, "counter cleared");
+
+        // Draining twice is refused, exactly like the native path.
+        vm.expectRevert(CauldronHook.NoETHToRelease.selector);
+        hook.releaseRelaunchAsset(address(usdg));
     }
 }

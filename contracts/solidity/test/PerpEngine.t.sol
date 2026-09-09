@@ -97,22 +97,24 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         // isDead() reads "dead" until real trading. That's correct on mainnet
         // (the 24h warmup + launch flow generate volume) but here it would block
         // opens, so zero the threshold to keep the token "alive" for the tests.
-        hook.setDeathThreshold(0, address(0));
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);
 
         vm.warp(block.timestamp + 25 hours);  // past the time warmup
         vm.roll(block.number + 40);           // past the 30-block anti-snipe surtax
         perp.poke();                           // seed a TWAP observation post-warp
     }
 
-    function test_MaxLeverage_ByDepth() public view {
-        if (!active) return;
+    function test_MaxLeverage_ByDepth() public {
+        
+        vm.skip(!active);
         assertEq(perp.maxLeverage(), 2, "thin pool caps at 2x");
     }
 
     // ── H-01 setVault drain guard: can't repoint the vault while the PLV holds
     //    depositor funds (blocks the owner→setVault(attacker)→drain path). ──
     function test_SetVault_Guard_BlocksRepointWhileFunded() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // setUp seeded plv (5 ETH) via fundPlv but wired NO vault (vault()==0), so
         // the FIRST set is allowed even when funded (owner bootstrapping the vault).
         assertGt(perp.plv(), 0, "plv funded in setUp");
@@ -130,20 +132,27 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// The liquidation-mark TWAP window is owner-tunable down to a 1s floor (so the
     /// mark can hug spot closer on a fast L2) — but never below MIN_TWAP (1s).
     function test_SetTwapWindow_Bounds() public {
-        if (!active) return;
-        perp.setTwapWindow(60);
+        
+        vm.skip(!active);
+        //  Set through {setGuards} — `setTwapWindow` was folded into it to pay
+        //  for the mark source. The bounds asserted here are unchanged: same
+        //  MIN_TWAP floor, same rejection below it.
+        uint256 liq = perp.maxLiqBps();
+        uint256 fund = perp.maxFundingBps();
+        perp.setGuards(60, liq, fund);
         assertEq(perp.twapWindow(), 60, "window set to 60s");
-        perp.setTwapWindow(1); // MIN_TWAP floor
+        perp.setGuards(1, liq, fund); // MIN_TWAP floor
         assertEq(perp.twapWindow(), 1, "window set to the 1s floor");
         vm.expectRevert(); // below MIN_TWAP
-        perp.setTwapWindow(0);
+        perp.setGuards(0, liq, fund);
     }
 
     // ── Governance: after transferring ownership to a TimelockController, a direct
     //    owner-only call from a random EOA must revert; a scheduled+executed call
     //    through the timelock (after the delay) must succeed. ──
     function test_Timelock_OwnsEngine_ScheduleExecute() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address[] memory roles = new address[](1);
         roles[0] = address(this);
         TimelockController tl = new TimelockController(180, roles, roles, address(this));
@@ -168,7 +177,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     //    the whole fee; a reverting or bad-sum router → the swap still succeeds
     //    (fallback to the built-in split, never bricks). ──
     function test_FeeRouter_RoutesAndFallsBack() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // 1. Route 100% → relaunch. A buy's ETH fee should land entirely there.
         hook.setFeeRouter(address(new AllToRelaunchRouter()));
         uint256 r0 = hook.relaunchETH();
@@ -194,7 +204,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     }
 
     function test_OpenLong_MovesPriceUp_AndCloses() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 pBefore = _sqrtP();
         uint256 plvBefore = perp.plv();
@@ -229,7 +240,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     }
 
     function test_OpenShort_MovesPriceDown_AndCloses() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 pBefore = _sqrtP();
         uint256 tokBefore = perp.plvToken();
@@ -263,7 +275,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     }
 
     function test_Liquidate_RevertsOnHealthy() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
@@ -272,7 +285,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     }
 
     function test_OpenLong_RejectsOverCap() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         vm.expectRevert(PerpEngine.BadLeverage.selector);
@@ -285,7 +299,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// over one block, so the position still reads healthy. This is the core
     /// anti-manipulation guarantee (can't farm liquidations by wicking the pool).
     function test_Liquidate_IgnoresFlashCrash() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
@@ -304,7 +319,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// is made whole + the keeper is paid from the penalty. This is the real
     /// crash→liquidate→solvency path.
     function test_Liquidate_OnSustainedCrash_PlvSolvent() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         uint256 plvBefore = perp.plv();
 
         // Liquidate EARLY (wide maintenance margin) — the slippage-aware invariant:
@@ -338,13 +354,14 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /* ── Phase 3: death force-close + open gate ──────────────────────────── */
 
     function test_DeathBlocksOpen_AndForceClose() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.03 ether}(2, 0, 0, 0.03 ether); // opened while alive
 
         // kill the token (volume-based death): raise the threshold sky-high.
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
 
         // opens are now blocked…
         vm.deal(trader, 1 ether);
@@ -364,13 +381,14 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         assertGt(trader.balance, tBal, "residual returned to trader");
         assertGt(keeper.balance, kBal, "keeper rewarded for clearing");
 
-        hook.setDeathThreshold(0, address(0)); // revive for any later assertions
+        hook.setDeathThreshold(0, address(0), 0, 0, 0); // revive for any later assertions
     }
 
     /* ── per-iteration sync (one engine, all generations) ────────────────── */
 
     function test_Sync_GuardsAndOpenCount() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // armed for gen-1 at deploy; syncing the same gen is a no-op → reverts.
         vm.expectRevert(PerpEngine.AlreadySynced.selector);
         perp.syncGeneration();
@@ -392,7 +410,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /* ── Phase 3: per-block liquidation cap ──────────────────────────────── */
 
     function test_PerBlockLiqCap_Throttles() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // Tighten the cap so a single liquidation's notional exceeds it.
         perp.setGuards(30 minutes, 1, 5000); // maxLiqBps = 1 (0.01% of depth)
 
@@ -412,7 +431,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// (pays) and a SHORT is credited (receives). Proves funding flips sign by
     /// side — a real long↔short transfer — and stays bounded/solvent.
     function test_Funding_TransfersCrowdedToUnderweight() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // Amplify the rate so the effect is measurable over the test horizon.
         perp.setRisk(24 hours, 3, 1500, 500, 3000, 5000); // fundingBpsPerDay = 5000
 
@@ -444,7 +464,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// across many blocks to push observations forward, then flash-crashes spot in
     /// one block, the mark stays a multi-minute average → NOT liquidatable.
     function test_Twap_ResistsRingFlood() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
@@ -469,7 +490,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// hook has only ever called the hint-free `sweepLiquidations`, so they were
     /// dead code carrying their own `_inLocked` reentrancy surface. Audit I-08.)
     function test_SweepLiquidations_OnlyHook() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
@@ -483,7 +505,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// Liquidatoor badge into the live collection — without ever reverting the
     /// swap. Also proves the badge id is in the dedicated range (art untouched).
     function test_AutoLiquidateOnSwap_MintsBadge() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
         perp.setRisk(24 hours, 3, 4_000, 500, 3_000, 100); // wide maintenance
 
@@ -525,7 +548,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// position survives and no badge is minted. This is the in-swap analogue of
     /// test_Liquidate_IgnoresFlashCrash, proving the new path is NOT exploitable.
     function test_AutoLiquidate_FlashCrash_CannotFarm() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
 
         vm.deal(trader, 5 ether);
@@ -551,7 +575,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// underwater position at once (both longs here), badging the swapper for
     /// each. Proves a single trade can clear several walls.
     function test_AutoLiquidate_Many_RektsAll() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
         perp.setRisk(300, 3, 4_000, 500, 3_000, 100); // wide maintenance
 
@@ -581,7 +606,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// Dust filter: an open below `minCollateral` reverts, so bots can't spam
     /// millions of dust positions.
     function test_DustFilter_RejectsTinyOpen() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         perp.setMinCollateral(0.01 ether);
         vm.deal(trader, 1 ether);
         vm.prank(trader);
@@ -592,7 +618,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// A HEALTHY hint is a silent no-op: the swap still succeeds, nothing is
     /// liquidated, and no badge is minted.
     function test_AutoLiquidate_HealthyHint_NoOp() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
 
         vm.deal(trader, 5 ether);
@@ -614,7 +641,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// — the hook skips when sender == perpEngine. Opening a position while the
     /// engine is wired must succeed (no reentrancy revert).
     function test_EngineSwap_DoesNotReenter() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _wireBadges();
         vm.deal(trader, 5 ether);
         vm.prank(trader);
@@ -633,7 +661,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// keeper swallows it), so the liquidation still completes cleanly AND the
     /// re-entry was provably blocked.
     function test_AutoLiquidate_ReentrantKeeper_Blocked() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
         perp.setRisk(24 hours, 3, 4_000, 500, 3_000, 100);
 
@@ -660,7 +689,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// liquidates it and mints the OPENER a Liquidatoor badge (+ keeper reward),
     /// while their own new long is booked normally.
     function test_OpenLong_WithLiqHint_RektsAndBadges() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = _wireBadges();
         perp.setRisk(24 hours, 3, 4_000, 500, 3_000, 100); // wide maintenance
 
@@ -693,7 +723,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// (30% dividend / 70% PLV) instead of the collection floor. Open a long/short →
     /// the ETH PLV grows by the redirected 70% + the engine's own open fees.
     function test_PerpSwapFee_RoutesToStakers_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         hook.setPerpEngine(address(perp));
         // Wire a guild so the 30% OG cut has somewhere to land + observe it.
         hook.setGuild(dividend);
@@ -728,7 +759,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// (oldest-first) while the old pool is alive, then re-arms the engine on the new
     /// token — and must NEVER brick. Proves the "stake & chill" set-and-forget path.
     function test_Relaunch_AutoMigratesPerps_WithOpenPositions_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Wire the engine into the hook (so the registry finds it via hook.perpEngine).
         // NOTE: the engine is NOT tax-exempt — perp swaps pay the hook fee normally
@@ -747,7 +779,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         assertEq(perp.syncedGeneration(), 1, "armed for gen-1");
 
         // Kill gen-1: raise the death threshold above its (zero) rolling volume.
-        hook.setDeathThreshold(1 ether, address(0));
+        hook.setDeathThreshold(1 ether, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
@@ -768,10 +800,11 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     /// Best-effort guarantee: relaunch still completes if the engine is UNSET
     /// (hook.perpEngine == 0) — the try/catch never blocks the rebirth.
     function test_Relaunch_NoEngine_StillCompletes_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         // Engine NOT wired into the hook → hook.perpEngine() == 0.
         registry.setGovernor(address(new PerpMockGov()));
-        hook.setDeathThreshold(1 ether, address(0));
+        hook.setDeathThreshold(1 ether, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         registry.relaunch();
         assertEq(registry.currentGeneration(), 2, "relaunch completed with no engine wired");
@@ -800,7 +833,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 
     // ── NATIVE (Uniswap-native) gacha: raw swaps forge crystals with NO router ──
     function test_NativeGacha_DirectBuyForgesCrystals() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address buyer = address(0xB0B);
         // A direct buy (empty hookData) must credit tx.origin (the buyer) — the
         // Uniswap-native path — even though it never touched our router.
@@ -823,7 +857,8 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
     }
 
     function test_NativeGacha_PostMintout_TradingStillWorks() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address col = hook.collection();
         require(col != address(0), "no collection");
         uint256 max = CauldronCollection(col).maxSupply();

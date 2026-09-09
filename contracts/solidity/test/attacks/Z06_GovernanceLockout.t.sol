@@ -62,7 +62,8 @@ contract Z06_GovernanceLockout is ZAuditBase {
     /// REGRESSION: ownership stays with governance while the presale keeps exactly the
     /// right it needs, so every economic setter survives ignition.
     function test_FIXED_IgniterRoleKeepsOwnershipWithGovernance() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // A fresh registry wired exactly as DeployLaunchpad wires the real one.
         address timelock = address(0x71E0);
@@ -101,7 +102,8 @@ contract Z06_GovernanceLockout is ZAuditBase {
     /// The emergency admin retains its own (separate) powers, so safety survives even
     /// though economic tuning does not. Recorded as the mitigating boundary.
     function test_SAFE_EmergencyAdminPowersSurviveTheHandoff() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         address timelock = address(0x71E0);
         CauldronRegistry reg = new CauldronRegistry(address(pm), posm, address(hook), timelock, 48 hours);
         reg.transferOwnership(address(0xDEAD));
@@ -122,7 +124,8 @@ contract Z06_GovernanceLockout is ZAuditBase {
     /// REGRESSION: restricting migration is now an ANNOUNCED, delayed, vetoable action;
     /// restoring it stays instant. Uses a registry with a real (48h) emergency delay.
     function test_FIXED_ClaimGateRequiresArmedTimelock() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         CauldronRegistry reg = new CauldronRegistry(address(pm), posm, address(hook), address(this), 48 hours);
 
         // Un-announced restriction is refused.
@@ -161,7 +164,8 @@ contract Z06_GovernanceLockout is ZAuditBase {
     /// so a dead pool an attacker re-provisions and prices themselves cannot farm the
     /// newborn collection.
     function test_FIXED_RetiredPoolEarnsNoCrystalCredit() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
         _buyExactIn(2 ether);

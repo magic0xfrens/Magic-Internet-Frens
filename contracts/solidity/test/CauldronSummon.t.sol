@@ -97,7 +97,8 @@ contract CauldronSummonForkTest is Test {
     }
 
     function test_Summon_CreatesGen1_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         (address token, ) = registry.summon{value: 1 ether}();
 
@@ -124,7 +125,8 @@ contract CauldronSummonForkTest is Test {
     /// the treasury (airdropWallet). NET demand (green candle) + ZERO dilution: the
     /// supply is unchanged and the treasury accumulates GNOME to airdrop OGs later.
     function test_Genesis_PrimeBuy_SendsGnomeToTreasury_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         address treasury = address(0xBEEF);
         registry.setPrimeFunder(address(this));
@@ -152,7 +154,8 @@ contract CauldronSummonForkTest is Test {
 
     /// Prime buy is gated: a non-funder can neither fund nor sweep.
     function test_PrimeBuy_OnlyFunder() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setPrimeFunder(address(this));
         vm.deal(address(0xCAFE), 1 ether);
         vm.prank(address(0xCAFE));
@@ -175,7 +178,8 @@ contract CauldronSummonForkTest is Test {
     /// Circulating supply is unchanged (a location move), and the recycled fren is
     /// now owned by the registry, ready for resale.
     function test_RedeemFren_RecyclesToTreasury_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -207,7 +211,8 @@ contract CauldronSummonForkTest is Test {
     /// payment to the reserve → floorPerFren strictly increases and the buyer gets
     /// the (un-enchanted) NFT. Net of the redeem+buy cycle, the reserve grows.
     function test_BuyTreasuryFren_GrowsFloor_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -237,7 +242,8 @@ contract CauldronSummonForkTest is Test {
     /// Floor RATCHETS across repeated recycle→buy cycles: each cycle nets the
     /// reserve up (buy adds 2F, redeem removed F), so floorPerFren only grows.
     function test_Floor_RatchetsUp_OverCycles_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -261,7 +267,8 @@ contract CauldronSummonForkTest is Test {
     /// PROTECTION: the emergencyAdmin can pause redemption — redeemFren reverts
     /// while paused, works once cleared. It only disables a flow, never moves funds.
     function test_RedeemFren_PauseGuard_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -283,7 +290,8 @@ contract CauldronSummonForkTest is Test {
     /// A volume-minted fren (id > genesisShares) can never redeem a founder's
     /// reserve share, and only the owner may redeem their fren.
     function test_RedeemFren_Guards_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -321,7 +329,8 @@ contract CauldronSummonForkTest is Test {
     ///   - the newborn pool registered REAL volume from the candle (not a seed), and
     ///   - the reserve is funded (its position exists) so migration is covered.
     function test_Relaunch_GreenCandleBuy_FundsReserve_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Governor is mandatory for relaunch — wire a mock winner.
         MockGovernor gov = new MockGovernor();
@@ -378,7 +387,8 @@ contract CauldronSummonForkTest is Test {
     /// active proposer (whoever kicked the machine). Proves the carve pays out and
     /// is bounded (a fraction of the fee, not the swap).
     function test_ProposerIncentive_PaysProposer_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         registry.summon{value: 1 ether}();
         address proposer = address(0xC0FFEE);
@@ -410,7 +420,8 @@ contract CauldronSummonForkTest is Test {
     /// Relaunch records the winning author + repoints the hook's proposer slice at
     /// them, so each iteration's volume rewards ITS proposer.
     function test_Relaunch_RecordsProposer_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockGovernor gov = new MockGovernor();
         registry.setGovernor(address(gov));
@@ -434,7 +445,8 @@ contract CauldronSummonForkTest is Test {
     /// overridden — holders can always exit at floor before a custody move lands.
     /// A guardian veto re-closes it. (setUp uses emergencyAdmin = this, delay 0.)
     function test_ExitForcedOpenWhileArmed_AndGuardianVeto_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockMiFrens mifrens = new MockMiFrens();
         mifrens.setRegistry(address(registry));
@@ -473,7 +485,8 @@ contract CauldronSummonForkTest is Test {
     /// liquidity are byte-for-byte unchanged (no teardown, no candle). This is what
     /// makes a V2 controller a drop-in swap, not an emergency-withdraw + redeploy.
     function test_MigrateToSuccessor_MovesOwnership_NoTeardown_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         registry.summon{value: 1 ether}();
         PoolId pid = registry.generationPoolId(1);
@@ -515,7 +528,8 @@ contract CauldronSummonForkTest is Test {
     /// gen-1 holder still migrates 1:1 out of the freshly-bought reserve despite
     /// the extra legacy carve. Proves crystallize + reserve-sizing on live V4.
     function test_LegacyFloor_CrystallizeAndSolvency_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockGovernor gov = new MockGovernor();
         registry.setGovernor(address(gov));
@@ -558,7 +572,8 @@ contract CauldronSummonForkTest is Test {
     /// which then folds into its floor at death. Proves the in-hook buyback + the
     /// recursion guard on live V4 (the parent swap must NOT brick).
     function test_LegacyBuyback_FiresAndCredits_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         MockGovernor gov = new MockGovernor();
         registry.setGovernor(address(gov));

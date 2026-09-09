@@ -87,13 +87,14 @@ contract PoC_PoisonProposalBricksRelaunch is Test {
     }
 
     function test_Fixed_OversizedNftSupplyCannotBrickRelaunch() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         PoisonGov gov = new PoisonGov(1_000_000); // == LIQUIDATOR_ID_BASE
         registry.setGovernor(address(gov));
 
         // Kill gen-1 the normal way.
-        hook.setDeathThreshold(1 ether, address(0));
+        hook.setDeathThreshold(1 ether, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
@@ -118,7 +119,8 @@ contract PoC_PoisonProposalBricksRelaunch is Test {
     /// proposal at all, so the clamp is a second line of defence rather than the
     /// only one.
     function test_Fixed_GovernorRejectsOversizedProposal() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         MiniVotes votes = new MiniVotes();
         CauldronGovernor real = new CauldronGovernor(address(votes));
         vm.expectRevert(CauldronGovernor.SupplyOutOfRange.selector);

@@ -33,8 +33,20 @@ interface IRegistryQuotes {
 }
 
 /// @notice USD price of a quote asset. Returns 0 when it cannot be trusted.
+///
+///  The CACHED entrypoint is the one the hot path wants: it amortises the ~30k
+///  Chainlink read over a 15-minute TTL, and — decisively — a refresh that comes
+///  back unusable keeps the LAST GOOD factor instead of collapsing to 0. It is
+///  non-view because it writes that cache.
 interface IQuoteOracle {
-    function usdPerRawUnit(address quote) external view returns (uint256);
+    function cachedUsdPerRawUnit(address quote) external returns (uint256);
+}
+
+/// @notice Live open positions on the perp engine. Used as an interlock: perps
+///         mark against the PRIMARY pool, so a generation must not gain a second
+///         one while anyone is exposed (audit P-1).
+interface IPerpOpenCount {
+    function openCount() external view returns (uint256);
 }
 
 interface IPerpEngineLiq {
@@ -110,6 +122,19 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     error ZeroAddress();
     error OnlyRegistry();
     error NoETHToRelease();
+    /// @dev A value transfer out of the hook did not land. Shared by every
+    ///      release path — one 4-byte selector in place of four copies of the
+    ///      same revert string, which is what bought the room for the per-asset
+    ///      reserve (audit R-1) under EIP-170.
+    error SendFailed();
+    /// @dev An owner-supplied parameter failed its bound check. Shared by every
+    ///      admin setter: the caller is the timelock and already knows which
+    ///      function it called, so a distinct string per bound bought nothing and
+    ///      cost bytecode this hook does not have.
+    error BadParam();
+    /// @dev A second pool cannot join a generation while perp positions are
+    ///      open against its primary. See {linkVolume} (audit P-1).
+    error PerpsOpen();
     error NotOpener();
     error RegistryAlreadySet();
     error OnlySelf();
@@ -221,7 +246,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     mapping(PoolId => bool) public trackedPools;
 
     // --- Fee accounting ---
-    /// @notice Accumulated ETH reserved for relaunches (self-funding)
+    /// @notice Accumulated ETH reserved for relaunches (self-funding).
+    ///
+    ///  STRICTLY NATIVE WEI. Everything that spends this sends it with
+    ///  `.call{value:}`, so a figure booked here must be ether the hook actually
+    ///  holds — see {relaunchAsset} for the non-native side and {_creditReserve}
+    ///  for the split.
     uint256 public relaunchETH;
 
     // NOTE (audit I-01): the `accumulatedTokenFees` mapping and its
@@ -605,26 +635,51 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     address internal quoteOracle;
 
     /**
-     * @dev Convert a raw quote amount to USD (1e18 = $1).
+     * @dev Convert a raw quote amount to USD (1e18 = $1). Returns 0 for
+     *      "CANNOT JUDGE" — never a raw figure.
      *
-     *      The oracle caches, so this is one call rather than a Chainlink read
-     *      per swap. With no oracle set it returns the raw amount, which is
-     *      exactly the previous behaviour and correct for a single-quote
-     *      generation.
+     *      With no oracle set it returns the raw amount, which is exactly the
+     *      previous behaviour and correct for a single-quote generation.
      *
-     *      A raw staticcall, not an interface call: it cannot revert into the
-     *      swap, and a price that cannot be read must never take trading down
-     *      with it.
+     *      ── 0 IS NOT "NO VOLUME", AND IT IS NOT `raw` EITHER (audit V-1) ────
+     *      This used to fall back to `raw` when the oracle refused to price. That
+     *      reads like graceful degradation and is the opposite: it silently
+     *      switches the UNIT of the volume ledger mid-stream, and
+     *      `_volumeBuckets` then holds a mixture of two incompatible scales that
+     *      `getVolume24h` sums without discrimination. Raw quote units and
+     *      USD-at-1e18 differ by the quote's decimals AND its price — 1e12x for a
+     *      6-decimal stable, 3000x for ETH — and the fallback under-counts in
+     *      EVERY case, so a lapsed feed pushed a perfectly healthy generation
+     *      toward a permissionless, irreversible relaunch. {QuoteOracle} is
+     *      explicit that callers must treat 0 as "cannot judge"; this now does.
+     *
+     *      A raw call, not an interface call: it cannot revert into the swap, and
+     *      a price that cannot be read must never take trading down with it. It
+     *      is a `call` rather than a `staticcall` because the CACHED entrypoint
+     *      writes — which is the point. The uncached view was costing a full
+     *      Chainlink read on every single swap (audit G-1), and worse, it
+     *      collapsed to 0 the moment a feed missed its heartbeat. The cache keeps
+     *      the last good factor, so an ordinary heartbeat lapse no longer
+     *      changes what a recorded number means.
+     *
+     *      TRUST DELTA, stated plainly: `staticcall` could not re-enter, and
+     *      `call` can. `quoteOracle` is therefore a trusted component — it sits
+     *      at the same tier as `feeRouter`, `deathChecker` and `surtaxPolicy`,
+     *      all of which this callback already reaches with plain calls, and all
+     *      of which are timelock-set. This does not widen the hook's exposure
+     *      class; it does mean a compromised oracle is a compromised hook, so
+     *      the oracle must never be pointed at anything the timelock does not
+     *      control.
      */
-    function _toUsd(address quote, uint256 raw) internal view returns (uint256) {
+    function _toUsd(address quote, uint256 raw) internal returns (uint256) {
         address o = quoteOracle;
         if (o == address(0)) return raw;
-        (bool ok, bytes memory ret) = o.staticcall(
-            abi.encodeWithSelector(IQuoteOracle.usdPerRawUnit.selector, quote)
+        (bool ok, bytes memory ret) = o.call(
+            abi.encodeWithSelector(IQuoteOracle.cachedUsdPerRawUnit.selector, quote)
         );
-        if (!ok || ret.length < 32) return raw;
+        if (!ok || ret.length < 32) return 0;
         uint256 f = abi.decode(ret, (uint256));
-        return f == 0 ? raw : (raw * f) / 1e18;
+        return f == 0 ? 0 : (raw * f) / 1e18;
     }
 
 
@@ -702,9 +757,19 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             //
             //  With no oracle set this returns the raw amount, which is exactly
             //  the previous behaviour and correct for a single-quote generation.
+            //
+            //  0 MEANS "CANNOT JUDGE" (audit V-1), so nothing is written: no
+            //  bucket, no cumulative total, and — via the `absVolume > 0` gate
+            //  below — no crystal credit. Recording a raw figure here is what
+            //  made a lapsed feed look like a dead generation. Leaving
+            //  `_lastUpdateTs` untouched is deliberate too: the existing 24h
+            //  window becomes the grace period, so a brief outage costs nothing
+            //  and a day-long one is the operational emergency it actually is.
             absVolume = _toUsd(Currency.unwrap(q0 ? key.currency0 : key.currency1), absVolume);
-            _recordVolume(id, absVolume);
-            cumulativeVolume += absVolume;
+            if (absVolume > 0) {
+                _recordVolume(id, absVolume);
+                cumulativeVolume += absVolume;
+            }
 
             // Accrue crystal credit to the buyer. Router swaps carry the player in
             // hookData; a swap with NO router hookData (direct Uniswap / aggregator)
@@ -1066,11 +1131,23 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         uint256 toStakers = amount - toGuild;      // 70% → the side-attributed stakers
         // Buy (quote→token, ~long activity) → quote stakers; sell → token
         // stakers. The fee follows the side whose trade drove it.
-        relaunchETH += FeeRouteLib.routePerp(
+        _creditReserve(FeeRouteLib.routePerp(
             _feeAsset, guild, perpEngine, toGuild, toStakers,
             isBuy ? IPerpFeeCredit.creditPerpFee.selector : IPerpFeeCredit.creditPerpFeeToken.selector,
             IPerpFeeCredit.creditPerpFeeAsset.selector
-        );
+        ));
+    }
+
+    /// @dev Book a residual into the reserve for the asset it is actually
+    ///      denominated in (audit R-1). One helper rather than a branch at each
+    ///      site: this hook is against the EIP-170 ceiling, and the sites that
+    ///      credit the reserve are exactly the sites where getting the
+    ///      denomination wrong is unrecoverable.
+    function _creditReserve(uint256 amount) private {
+        if (amount == 0) return;
+        address a = _feeAsset;
+        if (a == address(0)) relaunchETH += amount;
+        else relaunchAsset[a] += amount;
     }
 
     function _routeEthFee(uint256 feeAmount) private {
@@ -1121,7 +1198,14 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // LEGACY LIVE BUYBACK: carve legacyBps of the post-guild remainder into the
         // buyback buffer (funds a market-buy that backs the live collection's floor
         // — see legacyBuyStep). Taken from the floor share first, then relaunch.
-        if (legacyRegistry != address(0) && legacyBps > 0) {
+        //
+        //  NATIVE ONLY (audit R-1). `legacyBuffer` is spent by `legacyBuyStep`,
+        //  which settles NATIVE ether into the live pool via {LegacyBuyLib}. A
+        //  USDG fee booked here would be spent as ETH the hook does not have, so
+        //  a non-native fee skips the buyback entirely and its share stays with
+        //  the floor/relaunch split below, where `_creditReserve` denominates it
+        //  correctly.
+        if (_feeAsset == address(0) && legacyRegistry != address(0) && legacyBps > 0) {
             uint256 want = ((feeAmount - wantGuild) * legacyBps) / BPS;
             uint256 fromFloor = want > wantFloor ? wantFloor : want;
             wantFloor -= fromFloor;
@@ -1138,13 +1222,27 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  floor. Decided BEFORE routing, since in that case there is nothing to
         //  send and the library must not be asked to send it.
         uint256 toFloor = wantFloor;
-        if (wantFloor > 0 && vault == address(0)) {
-            toFloor = 0;
-            if (legacyRegistry != address(0)) legacyBuffer += wantFloor;
-            else wantRelaunch += wantFloor; // no vault + no buyback → fold into relaunch
+        if (wantFloor > 0) {
+            if (vault == address(0)) {
+                toFloor = 0;
+                //  Same native-only rule as the buyback carve above: the buffer is
+                //  spent as ether, so only ether may be booked into it.
+                if (_feeAsset == address(0) && legacyRegistry != address(0)) legacyBuffer += wantFloor;
+                else wantRelaunch += wantFloor; // no vault + no buyback → fold into relaunch
+            } else if (_feeAsset != address(0)) {
+                //  NON-NATIVE FLOOR (audit Q-01 floor corollary). CauldronVault
+                //  redeems in ETH only (floorPerNFT counts address(this).balance),
+                //  so a USDG/xNVDA floor share `transfer`ed into it would strand
+                //  unredeemable. Fold it into the per-asset reserve, which HAS an
+                //  exit (releaseRelaunchAsset) and still backs the generation. The
+                //  native floor still funds the vault exactly as before.
+                toFloor = 0;
+                wantRelaunch += wantFloor;
+            }
         }
-        relaunchETH += wantRelaunch
-            + FeeRouteLib.routeSplit(_feeAsset, guild, vault, wantGuild, toFloor);
+        _creditReserve(
+            wantRelaunch + FeeRouteLib.routeSplit(_feeAsset, guild, vault, wantGuild, toFloor)
+        );
     }
 
     /// @notice Anti-sniper surtax (bps) for a pool at the CURRENT block. Peaks at
@@ -1245,12 +1343,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             else _routeEthFee(baseFee);
         }
         if (surtax > 0) {
-            if (guild != address(0)) {
-                bool ok = FeeRouteLib.routeSplit(_feeAsset, guild, address(0), surtax, 0) == 0;
-                if (ok) emit GuildFunded(guild, surtax);
-                else _routeEthFee(surtax); // fallback if guild rejects
-            } else {
-                _routeEthFee(surtax);
+            //  {FeeRouteLib.routeSplit} already emits GuildFunded on success —
+            //  from inside a delegatecall, so the log is attributed to this hook
+            //  and an indexer cannot tell the difference. Emitting it again here
+            //  double-counted every surtax in the guild-funding feed.
+            if (guild == address(0) || FeeRouteLib.routeSplit(_feeAsset, guild, address(0), surtax, 0) != 0) {
+                _routeEthFee(surtax); // no guild, or the guild rejected it
             }
         }
         emit FeeTaken(id, sender, total, totalBps);
@@ -1258,7 +1356,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Owner-tunable anti-sniper window (blocks) + peak surtax (bps).
     function setSnipeParams(uint256 windowBlocks, uint256 maxBps) external onlyOwner {
-        require(maxBps <= MAX_SNIPE_BPS, "snipe bps too high");
+        if (maxBps > MAX_SNIPE_BPS) revert BadParam();
         snipeWindowBlocks = windowBlocks;
         snipeMaxBps = maxBps;
     }
@@ -1309,8 +1407,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Link a secondary pool's volume to a generation's primary pool.
     ///         Only the registry, which is what creates the pools, may do this.
+    ///
+    ///  ── INTERLOCK: NOT WHILE PERPS ARE OPEN (audit P-1) ────────────────────
+    ///  `PerpEngine._key()` is built from `generationQuote[gen]`, so the engine
+    ///  marks, sizes and liquidates against the PRIMARY pool only. With one pool
+    ///  that is the same thing as "the market". With two it is not, and the
+    ///  dangerous direction is not the one it looks like: `activeEthDepth()`
+    ///  bounding size against a thinning primary fails SAFE (positions get
+    ///  smaller), but the MARK does not. `_sqrtP()` reads the primary's slot0,
+    ///  and a pool that has lost its liquidity to a sibling is precisely the
+    ///  cheap one to push — while the deep sibling sets the price everyone else
+    ///  trades at. Liquidations then fire from inside `afterSwap` against a mark
+    ///  the market does not agree with.
+    ///
+    ///  The real fix is a liquidity-weighted mark across the generation's pools,
+    ///  which is a larger change than this interlock. Until it lands, the two
+    ///  features are mutually exclusive rather than silently unsound: a
+    ///  generation may run several pools, OR it may run perps, and the ordering
+    ///  is enforced here instead of living in a migration doc. Close the
+    ///  positions (or unset the engine) before diversifying the quote.
     function linkVolume(PoolId primary, PoolId secondary) external {
         if (msg.sender != registry) revert OnlyRegistry();
+        if (perpEngine != address(0) && IPerpOpenCount(perpEngine).openCount() > 0) {
+            revert PerpsOpen();
+        }
         PoolId[] storage sib = _volumeSiblings[primary];
         //  BOUNDED. isDead loops this list on every death check, and relaunch
         //  depends on isDead — so an unbounded list is a gas ceiling that ends
@@ -1371,7 +1491,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice Owner-tunable flat trading fee (bps), used when no tiered NFT
     ///         contract is wired. Capped at MAX_TAX_BPS (10%).
     function setDefaultTaxBps(uint256 _bps) external onlyOwner {
-        require(_bps <= MAX_TAX_BPS, "tax too high");
+        if (_bps > MAX_TAX_BPS) revert BadParam();
         defaultTaxBps = _bps;
         emit DefaultTaxUpdated(_bps);
     }
@@ -1394,7 +1514,33 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         relaunchETH = 0;
 
         (bool ok, ) = registry.call{value: amount}("");
-        require(ok, "ETH transfer failed");
+        if (!ok) revert SendFailed();
+
+        emit RelaunchETHReleased(registry, amount);
+    }
+
+    /**
+     * @notice Release a NON-NATIVE relaunch reserve to the registry (audit R-1).
+     *
+     *  The native counterpart above is the self-funding path for an ETH
+     *  generation; this is the same path for one quoted in USDG, xNVDA or any
+     *  other permitted asset. Without it the fees such a generation collects have
+     *  no exit from this contract at all — they are neither claimable nor
+     *  spendable, which is a permanent loss dressed up as a reserve.
+     *
+     *  Registry-gated exactly like the native release, and it moves the asset
+     *  with {FeeRouteLib.send}, whose return value is CHECKED — a token that
+     *  returns false rather than reverting would otherwise zero the counter while
+     *  the tokens never left.
+     */
+    function releaseRelaunchAsset(address asset) external returns (uint256 amount) {
+        if (msg.sender != registry) revert OnlyRegistry();
+
+        amount = relaunchAsset[asset];
+        if (amount == 0) revert NoETHToRelease();
+
+        relaunchAsset[asset] = 0;
+        if (!FeeRouteLib.send(asset, registry, amount, 0)) revert SendFailed();
 
         emit RelaunchETHReleased(registry, amount);
     }
@@ -1404,15 +1550,62 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Admin
     // -----------------------------------------------------------------------
 
-    /// @notice Set the death threshold and, optionally, the oracle that prices
-    ///         volume for it.
-    /// @dev Combined because they are one decision — the threshold is
-    ///      meaningless without knowing the units it is compared in — and
-    ///      because this hook is against the EIP-170 ceiling and cannot afford a
-    ///      second dispatcher entry. Pass address(0) to leave the oracle alone.
-    function setDeathThreshold(uint256 _threshold, address _oracle) external onlyOwner {
+    /**
+     * @notice Set the death threshold and, optionally, the oracle that prices
+     *         volume for it — together with every other constant denominated in
+     *         the same units.
+     *
+     * @dev Combined because they are ONE DECISION: the threshold is meaningless
+     *      without knowing the units it is compared in, and this hook is against
+     *      the EIP-170 ceiling and cannot afford a second dispatcher entry.
+     *
+     *      ── WHY THE CURVE MOVED IN HERE (audit U-1) ───────────────────────
+     *      That rationale was right and did not go far enough. Wiring an oracle
+     *      re-denominates EVERY volume-derived figure the hook records, because
+     *      `_toUsd` changes what a recorded number means: quote-raw wei become
+     *      USD at 1e18. `deathThreshold` was migrated with it. Three other
+     *      constants were not, and each is compared directly against that
+     *      changed number:
+     *
+     *        `volumePerNFT` / `nftPriceStep` — the crystal ladder, compared
+     *            against `nftCredit` in {_commitCrystals}
+     *        `oddsFullVolumeWei`             — compared against the play size in
+     *            {oddsForPlay}
+     *
+     *      Left in ether terms against USD-scaled credit, a $3,000 ETH inflates
+     *      every trader's mint credit ~3000x against a ladder priced in wei. The
+     *      collection over-issues by that factor and the odds curve saturates at
+     *      max for any trade — silently, the moment the oracle is wired, with
+     *      nothing reverting. An NFT that earns perpetual dividends is not a
+     *      figure to get wrong by three orders of magnitude.
+     *
+     *      The contract cannot detect the mismatch — both sides are just
+     *      1e18-scaled integers — so it forces the restatement instead: you
+     *      cannot wire an oracle without saying what a fren now costs.
+     *
+     * @param _oracle Pass address(0) to leave the oracle (and the curve) alone.
+     * @param _volumePerNFT Base credit cost of a fren, in the NEW units.
+     *        Required non-zero when wiring an oracle.
+     * @param _nftPriceStep Per-position increase, in the new units. May be 0 —
+     *        a flat ladder is legitimate ({setNftCurveFrom} sets exactly that).
+     * @param _oddsFullVolume Play size that reaches `maxOddsBps`, in the new
+     *        units. Required non-zero when wiring an oracle.
+     */
+    function setDeathThreshold(
+        uint256 _threshold,
+        address _oracle,
+        uint256 _volumePerNFT,
+        uint256 _nftPriceStep,
+        uint256 _oddsFullVolume
+    ) external onlyOwner {
         deathThreshold = _threshold;
-        if (_oracle != address(0)) quoteOracle = _oracle;
+        if (_oracle != address(0)) {
+            if (_volumePerNFT == 0 || _oddsFullVolume == 0) revert BadParam();
+            quoteOracle = _oracle;
+            volumePerNFT = _volumePerNFT;
+            nftPriceStep = _nftPriceStep;
+            oddsFullVolumeWei = _oddsFullVolume;
+        }
     }
 
     /// @notice Registry-only: force-close ALL dead perp positions during relaunch,
@@ -1449,7 +1642,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         funds buybacks, `threshold` = buffer size that triggers a buy.
     function setLegacyBuyback(address registry_, uint256 bps, uint256 threshold) external {
         if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry();
-        require(bps <= BPS, "bps");
+        if (bps > BPS) revert BadParam();
         legacyRegistry = registry_;
         legacyBps = bps;
         if (threshold > 0) legacyThreshold = threshold;
@@ -1547,7 +1740,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             uint256 amount = relaunchETH;
             relaunchETH = 0;
             (bool ok, ) = registry.call{value: amount}("");
-            require(ok, "ETH transfer failed");
+            if (!ok) revert SendFailed();
             emit RelaunchETHReleased(registry, amount);
         }
         registry = next;
@@ -1632,7 +1825,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Owner-tunable share of ETH fees routed to the NFT floor (bps).
     function setFloorBps(uint256 _bps) external onlyOwner {
-        require(_bps <= BPS, "bps");
+        if (_bps > BPS) revert BadParam();
         floorBps = _bps;
     }
 
@@ -1651,7 +1844,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      once called, the guild share could never be returned to the value the
     ///      protocol actually shipped with.
     function setGuildBps(uint256 _bps) external onlyOwner {
-        require(_bps <= 1500, "guild bps too high");
+        if (_bps > 1500) revert BadParam();
         guildBps = _bps;
     }
 
@@ -1666,7 +1859,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Tune the proposer incentive (bps of the fee). Owner/timelock, capped.
     function setProposerBps(uint256 _bps) external onlyOwner {
-        require(_bps <= MAX_PROPOSER_BPS, "proposer bps too high");
+        if (_bps > MAX_PROPOSER_BPS) revert BadParam();
         proposerBps = _bps;
     }
 
@@ -1678,13 +1871,13 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         if (amount == 0) revert NoETHToRelease();
         proposerOwed[msg.sender] = 0;
         (bool ok, ) = msg.sender.call{value: amount}("");
-        require(ok, "ETH transfer failed");
+        if (!ok) revert SendFailed();
         emit ProposerFunded(msg.sender, 0); // 0 amount = a claim marker
     }
 
     /// @notice Owner-tunable rising-curve params.
     function setNftCurve(uint256 _base, uint256 _step) external onlyOwner {
-        require(_base > 0, "zero");
+        if (_base == 0) revert BadParam();
         volumePerNFT = _base;
         nftPriceStep = _step;
     }
@@ -1815,6 +2008,14 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         returns (uint256 n)
     {
         if (!isOpener[msg.sender]) revert NotOpener();
+        //  `playWei` MUST arrive in the odds curve's unit (audit Q-02): when an
+        //  oracle is wired, U-1 restates `oddsFullVolumeWei` into USD, so an
+        //  ETH-notional play has to be converted to USD before it reaches
+        //  {oddsForPlay} or the odds collapse ~(ETH price)x. The opener (the gacha
+        //  router) performs that conversion against the same oracle before it
+        //  calls this — this lean, EIP-170-bound hook cannot afford the oracle
+        //  read on a second path. The native in-swap route feeds USD directly
+        //  (`weighted`, from the USD-converted volume in afterSwap).
         return _commitCrystals(player, maxCount, playWei);
     }
 
@@ -2012,16 +2213,41 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice Max win chance from bet size (bps), capped so size alone never
     ///         guarantees a creature — only pity does.
     function setMaxOdds(uint256 bps) external onlyOwner {
-        require(bps <= ODDS_HARD_CAP_BPS, "odds cap");
+        if (bps > ODDS_HARD_CAP_BPS) revert BadParam();
         maxOddsBps = bps;
     }
 
     /// @notice Owner-tunable buy/sell credit weighting.
     function setWeights(uint256 buyBps, uint256 sellBps) external onlyOwner {
-        require(buyBps <= MAX_WEIGHT_BPS && sellBps <= MAX_WEIGHT_BPS, "weight");
+        if (buyBps > MAX_WEIGHT_BPS || sellBps > MAX_WEIGHT_BPS) revert BadParam();
         buyWeightBps = buyBps;
         sellWeightBps = sellBps;
     }
+
+    // ── APPEND-ONLY STORAGE ────────────────────────────────────────────────
+    //  New state goes HERE, at the end, never in the middle. The final-audit
+    //  suites pin `legacyOwedToReserve` to a literal slot (`SLOT_LEGACY_OWED`)
+    //  and probe it before every write, so an insertion higher up silently
+    //  re-points those writes at a neighbouring variable. This block exists so
+    //  the next person does not have to rediscover that.
+
+    /// @notice Relaunch reserve accrued in a NON-NATIVE quote, per asset.
+    ///
+    ///  ── WHY THIS EXISTS (audit R-1) ────────────────────────────────────────
+    ///  The fee take was generalised to collect on whichever side is the quote,
+    ///  and the routing was generalised with it, but the RESIDUAL was not: a
+    ///  USDG fee's relaunch share was added straight to `relaunchETH`, a wei
+    ///  counter that is paid out as native ether. The hook then believed it held
+    ///  ETH it had never received, `releaseRelaunchETH` failed its send, and
+    ///  because that counter is only zeroed INSIDE the call that reverts, nothing
+    ///  self-corrected — the generation could never fund its successor. Worse,
+    ///  the tokens it HAD collected had no exit from this contract at all.
+    ///
+    ///  The adoption gate's own comment warned about exactly this failure, and
+    ///  the `currency0 != address(0)` line that used to prevent it was removed
+    ///  when quotes were generalised. Splitting the two denominations is what
+    ///  lets that line stay removed safely.
+    mapping(address => uint256) public relaunchAsset;
 
     receive() external payable {}
 }

@@ -89,8 +89,9 @@ contract RotatorSwapForkTest is Test {
     }
 
     /// The route must actually be live before anything else here means much.
-    function test_RouteIsLiveAndDeep_OnFork() public view {
-        if (!active) return;
+    function test_RouteIsLiveAndDeep_OnFork() public {
+        
+        vm.skip(!active);
         PoolId id = _route().toId();
         (uint160 sqrtPriceX96,,,) = pm.getSlot0(id);
         assertGt(sqrtPriceX96, 0, "pool is initialized");
@@ -105,7 +106,8 @@ contract RotatorSwapForkTest is Test {
      * than what was projected.
      */
     function test_RotateStepActuallySwaps_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.deal(address(rot), 10 ether);
 
@@ -133,7 +135,8 @@ contract RotatorSwapForkTest is Test {
     /// The governed floor is the whole price protection. A floor the market
     /// cannot meet must abort the step, not fill into a bad price.
     function test_StepBelowTheGovernedFloorReverts_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.deal(address(rot), 10 ether);
         // Demand an absurd rate: 1e30 token per ETH. No real pool clears this.
@@ -146,7 +149,8 @@ contract RotatorSwapForkTest is Test {
     /// Slicing is the execution strategy. A second step in the same block would
     /// collapse the plan into one large, front-runnable print.
     function test_SecondStepInTheSameBlockIsRefused_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.deal(address(rot), 10 ether);
         rot.setPlan(address(0), TOKEN, 1 ether, 0.25 ether, 1, 1 hours);
@@ -163,7 +167,8 @@ contract RotatorSwapForkTest is Test {
     /// A route that is not the plan's pair must be refused, or a keeper could
     /// point the rotation at a pool of their choosing.
     function test_MismatchedRouteIsRefused_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.deal(address(rot), 10 ether);
         rot.setPlan(address(0), TOKEN, 1 ether, 0.25 ether, 1, 1 hours);
@@ -182,7 +187,8 @@ contract RotatorSwapForkTest is Test {
 
     /// The whole plan must be able to run to completion and then stop.
     function test_PlanRunsToCompletionThenStops_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.deal(address(rot), 10 ether);
         rot.setPlan(address(0), TOKEN, 0.5 ether, 0.25 ether, 1, 1 hours);

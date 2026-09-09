@@ -99,7 +99,7 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         IERC20Minimal(token).approve(address(perp), seed);
         perp.fundPlvToken(seed);
 
-        hook.setDeathThreshold(0, address(0));            // keep the brew "alive" for opens
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);            // keep the brew "alive" for opens
         vm.warp(block.timestamp + 25 hours);  // past the open warmup
         vm.roll(block.number + 40);           // past the anti-snipe surtax window
         perp.poke();
@@ -142,7 +142,8 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
     ///         round-trip that leaves spot exactly where it started.
     ///         (This test FAILING is the finding.)
     function test_Invariant_A02_HealthyPositionSurvivesAtomicRoundTrip() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         console2.log("activeEthDepth:", perp.activeEthDepth());
         console2.log("maxLeverage:", perp.maxLeverage());
 
@@ -176,7 +177,8 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
     ///         is genuinely in force rather than a frozen, manipulated one.
     ///         (Audit A-02.)
     function test_Fixed_A02_PoisonedMarkCannotLiquidateASolventPosition() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.1 ether}(2, 0, 0, 0.1 ether);
@@ -250,14 +252,15 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
     /// @notice INVARIANT: the relaunch force-close must leave NOTHING open.
     ///         (This test FAILING is the finding.)
     function test_Invariant_A03_ForceCloseAllDeadClearsEveryPosition() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // FILL THE BOOK COMPLETELY — the worst case the force-close must survive.
         uint256 cap = perp.MAX_OPEN_POSITIONS();
         _spamDustLongs(cap);
         assertEq(perp.openCount(), cap, "book filled to the cap");
 
-        hook.setDeathThreshold(type(uint256).max, address(0)); // brew now reads DEAD
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0); // brew now reads DEAD
         assertTrue(hook.isDead(registry.generationPoolId(1)), "dead");
 
         // FIXED: one call drains the whole book, because MAX_OPEN_POSITIONS is
@@ -270,7 +273,8 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
     ///         clears, so the leftovers that used to strand the engine forever
     ///         cannot exist. (Audit A-03.)
     function test_Fixed_A03_BookCannotExceedForceCloseBound() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 cap = perp.MAX_OPEN_POSITIONS();
         _spamDustLongs(cap);
@@ -291,11 +295,12 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
     ///         afterwards either, since `_settle` would swap their old-generation
     ///         sizes against the NEW pool. (Audit A-03.)
     function test_Fixed_A03_DustSpamSurvivesRelaunch() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _spamDustLongs(perp.MAX_OPEN_POSITIONS());
 
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         vm.warp(vm.getBlockTimestamp() + registry.minLifetime() + 1);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
 
@@ -333,10 +338,9 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
 
     /// @notice INVARIANT: with no bad debt, a full open->close round-trip must
     ///         never leave the ETH PLV below where it started (fees only ever add).
-    function testFuzz_Invariant_A04_PlvNeverShrinksOnSolventRoundTrip(uint96 rawCollateral, uint8 rawLev)
-        public
-    {
-        if (!active) return;
+    function testFuzz_Invariant_A04_PlvNeverShrinksOnSolventRoundTrip(uint96 rawCollateral, uint8 rawLev) public {
+        
+        vm.skip(!active);
         // Notional (collateral*leverage) must stay under maxNotionalBps (5%) of the
         // ~20 ETH fork depth, i.e. <= ~1 ETH — keep collateral small.
         uint256 collateral = bound(uint256(rawCollateral), 0.01 ether, 0.3 ether);

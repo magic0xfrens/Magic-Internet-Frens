@@ -102,7 +102,8 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
     //  twice.
     // =====================================================================
     function test_Invariant_A05_MigrationIsExactlyOneToOne() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         (address oldTok, address newTok, uint256 bag) = _summonBuyRelaunch(attacker, 6 ether);
 
@@ -124,7 +125,8 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
 
     /// @notice You cannot migrate the same balance twice — the burn destroys it.
     function test_Invariant_A05_NoDoubleMigration() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         (address oldTok,, uint256 bag) = _summonBuyRelaunch(attacker, 4 ether);
 
         vm.prank(attacker);
@@ -141,7 +143,8 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
     // A-06 — SEEDER LEDGER-A IS UNREACHABLE BY OUTSIDERS
     // =====================================================================
     function test_Invariant_A06_SeederFundsUnreachable() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _summonProgressive();
 
         assertTrue(seeder.seeding(), "campaign live");
@@ -169,7 +172,8 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
     // A-07 — THE SEEDER CAN NEVER TOUCH THE 69x REDEMPTION RESERVE
     // =====================================================================
     function test_Invariant_A07_ReserveBacksRedemptionFromBlockZero() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _summonProgressive();
 
         assertGt(registry.generationReservePositionId(1), 0, "reserve placed by registry");
@@ -184,7 +188,8 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
     // A-08 — DELEGATECALL FACET: one-shot wiring, layout-safe, no repoint
     // =====================================================================
     function test_Invariant_A08_RedemptionExtIsFrozenAfterSet() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Pre-build targets BEFORE arming expectRevert (a `new` mid-arg would
         // otherwise be the call expectRevert latches onto).

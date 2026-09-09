@@ -47,7 +47,8 @@ contract Z01_ExactOutSellFeeBypass is ZAuditBase {
 
     /// REGRESSION: the exploit route is now refused instead of served fee-free.
     function test_FIXED_ExactOutputSell_IsRejected() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Acquire inventory with a normal (taxed) buy.
         uint256 bought = _buyExactIn(1 ether);
@@ -75,7 +76,8 @@ contract Z01_ExactOutSellFeeBypass is ZAuditBase {
     /// because the credit accrual in `_afterSwap` runs BEFORE the fee branch returns.
     /// The whole route is now rejected, so no credit can be farmed through it.
     function test_FIXED_ExactOutputSell_MintsNoFreeCredit() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         _buyExactIn(1 ether);
 
         uint256 creditBefore = hook.creditOf(address(this));
@@ -91,7 +93,8 @@ contract Z01_ExactOutSellFeeBypass is ZAuditBase {
     /// The three other quadrants ARE charged — this pins the bug to exactly one
     /// branch and proves the finding is not a harness artefact.
     function test_SAFE_OtherThreeQuadrantsAreCharged() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 b0 = hook.relaunchETH();
         _buyExactIn(0.5 ether);

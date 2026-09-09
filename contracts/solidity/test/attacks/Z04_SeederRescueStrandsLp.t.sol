@@ -76,7 +76,8 @@ contract Z04_SeederRescueStrandsLp is ZAuditBase {
     /// REGRESSION: the break-glass returns the loose funds but keeps the recovery path
     /// armed, so the already-placed book is no longer orphaned.
     function test_FIXED_RescueLeavesTheRecoveryPathOpen() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         assertTrue(seeder.seeding(), "campaign live");
         (uint256 liqBefore, uint256 n) = _seederLiquidity();
@@ -106,7 +107,8 @@ contract Z04_SeederRescueStrandsLp is ZAuditBase {
     /// `NoLiquidityToSeed` — the machine could never be reborn. It now rebirths and
     /// recovers the book.
     function test_FIXED_RelaunchStillRecoversAfterRescue() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         (uint256 liqBefore,) = _seederLiquidity();
         assertGt(liqBefore, 0, "book funded");
@@ -138,7 +140,8 @@ contract Z04_SeederRescueStrandsLp is ZAuditBase {
     /// REGRESSION (secondary): `startSeed` now resets `ranges`, so a rebirth's campaign
     /// starts from a clean per-campaign range set instead of inheriting the dead pool's.
     function test_FIXED_RangesResetPerCampaign() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         vm.roll(block.number + hook.snipeWindowBlocks() + 1);
         _buyExactIn(2 ether); // fee accrues to hook.relaunchETH so relaunch can proceed
@@ -160,7 +163,8 @@ contract Z04_SeederRescueStrandsLp is ZAuditBase {
     /// CONTROL: without the rescue, the normal relaunch teardown DOES unwind the
     /// seeder's book — proving the loss is caused by `rescue`, not by the design.
     function test_SAFE_NormalRelaunchRecoversTheBook() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 n = seeder.rangeCount();
         int24[] memory los = new int24[](n);

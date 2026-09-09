@@ -86,7 +86,8 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///         `redeemOgFren` reverts for every remaining OG while
     ///         `floorPerFren()` still advertises the full, unchanged floor.
     function test_PoC_Y01_CeilingBreachKillsTheGenesisFloor() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         int24 ceiling = registry.reserveTickUpper(1);
         console2.log("reserve tickUpper (the 69x ceiling):");
@@ -135,7 +136,8 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///         reverts once spot is inside the band, because `addToReserve`
     ///         declares `amount0Max = 0` and an in-range increase needs ETH.
     function test_PoC_Y01_CeilingBreachDisablesTheFloorRatchet() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Acquire some token honestly so we can donate it.
         uint256 bag = _buy(1 ether, address(this));
@@ -162,13 +164,14 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///         holder's `claimByBurn` reverts "reserve short" — the migration
     ///         promise that the whole rebirth model rests on.
     function test_PoC_Y01_CeilingBreachRefusesOneToOneMigration() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // A gen-1 holder buys in, then the machine is reborn.
         uint256 bag = _buy(2 ether, victim);
         assertGt(bag, 0, "holder has gen-1 token");
 
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         _warp(registry.minLifetime() + 1 days + 1);
         registry.relaunch();
         assertEq(registry.currentGeneration(), 2, "reborn");
@@ -201,7 +204,8 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///         temporarily out of range during a pump" instead of a bare revert,
     ///         and its signal exactly matches whether `redeemOgFren` would succeed.
     function test_FIX_Y01_FloorClaimableNowTracksReachability() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         (bool claimable0, uint256 perFren0) = registry.floorClaimableNow();
         assertTrue(claimable0, "claimable before the pump");
@@ -229,11 +233,12 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///         under-collateralisation. This is the load-bearing mitigation and
     ///         it is worth pinning.
     function test_SAFE_Y01_RelaunchSelfHealsAfterACeilingBreach() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _pumpThroughCeiling();
 
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         _warp(registry.minLifetime() + 1 days + 1);
         registry.relaunch();
 
@@ -258,7 +263,8 @@ contract Y01_ReserveCeilingBreach is YBase {
     ///  eleven orders above the 1e12 CLAIM_DUST tolerance. The guard fires long
     ///  before the ETH leg is worth anything.
     function test_REFUTED_Y01_NoFreeEthLegAtTheBandEdge() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         int24 ceiling = registry.reserveTickUpper(1);
         _pumpTo(ceiling - 1); // the shallowest possible breach

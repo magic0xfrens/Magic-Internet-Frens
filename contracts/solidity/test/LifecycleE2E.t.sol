@@ -107,7 +107,8 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
     }
 
     function test_FullLifecycle_ToRound3_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // ================= ROUND 1 : summon (progressive) =================
         console2.log("=== ROUND 1: summon (progressive) ===");
@@ -201,7 +202,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         deal(token3, address(this), seed);
         IERC20Minimal(token3).approve(address(perp), seed);
         perp.fundPlvToken(seed);                          // stake the token side (short inventory)
-        hook.setDeathThreshold(0, address(0));                         // keep alive for the perp ops
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);                         // keep alive for the perp ops
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 40);
         perp.poke();
@@ -252,7 +253,8 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
     // perps stake/long/short/LIQUIDATE work on the progressive gen once streamed.
     // ---------------------------------------------------------------------------
     function test_Perps_On_Progressive_ViaBase_OnFork() public {
-        if (!active) return;
+        
+        vm.skip(!active);
         registry.setGovernor(address(new E2EGov()));
         (address tok,) = registry.summon{value: 2 ether}();
         assertEq(registry.generationPositionId(1), 0, "progressive gen");
@@ -273,7 +275,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         deal(tok, address(this), seed);
         IERC20Minimal(tok).approve(address(perp), seed);
         perp.fundPlvToken(seed);
-        hook.setDeathThreshold(0, address(0));
+        hook.setDeathThreshold(0, address(0), 0, 0, 0);
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 40);
         perp.poke();
@@ -300,7 +302,9 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
 
         // LIQUIDATE: open a long, sustained crash, liquidate. (On the thin base book,
         // keep the position small so the open itself isn't already underwater.)
-        perp.setTwapWindow(60); // mark hugs spot so the crash crosses maintenance
+        // mark hugs spot so the crash crosses maintenance (setTwapWindow was
+        // folded into setGuards; the other two guards are passed through unchanged)
+        perp.setGuards(60, perp.maxLiqBps(), perp.maxFundingBps());
         vm.deal(trader, 5 ether);
         vm.prank(trader);
         uint256 liqId = perp.openLong{value: col}(2, 0, 0, col);

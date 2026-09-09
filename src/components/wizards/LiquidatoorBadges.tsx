@@ -6,6 +6,7 @@ import { fetchNftsFromIndexer } from "@/lib/cauldronOnchain";
 import { liquidatoorBadgeSVG, type LiquidatoorStats } from "@/lib/liquidatoorBadgeArt";
 import { PERP, PERP_ABI } from "@/config/perp";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
+import { safeSvg } from "@/lib/safeSvg";
 
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
@@ -246,7 +247,7 @@ export default function LiquidatoorBadges() {
             <div key={`${b.collection}-${b.tokenId}`} className="lqb__card">
               <button className="lqb__art" onClick={() => b.image && setBig(b)} title="View full size" aria-label={`Enlarge ${b.name}`}>
                 {b.image
-                  ? <div className="lqb__svg" dangerouslySetInnerHTML={{ __html: b.image }} />
+                  ? <div className="lqb__svg" dangerouslySetInnerHTML={{ __html: safeSvg(b.image) }} />
                   : <span className="lqb__ph">☠</span>}
                 <span className="lqb__flag">LIQUIDATOOR</span>
               </button>
@@ -263,7 +264,7 @@ export default function LiquidatoorBadges() {
       {big && (
         <div className="lqb__lightbox" onClick={() => setBig(null)} role="dialog" aria-modal="true">
           <button className="lqb__lb-close" onClick={() => setBig(null)} aria-label="Close">×</button>
-          <div className="lqb__lb-art" onClick={(e) => e.stopPropagation()} dangerouslySetInnerHTML={{ __html: big.image ?? "" }} />
+          <div className="lqb__lb-art" onClick={(e) => e.stopPropagation()} dangerouslySetInnerHTML={{ __html: safeSvg(big.image) }} />
           <div className="lqb__lb-cap">{big.name} · Iteration {big.gen === 0 ? "MiFrens" : `#${big.gen}`}</div>
         </div>
       )}

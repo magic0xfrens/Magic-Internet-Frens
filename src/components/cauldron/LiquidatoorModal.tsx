@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { LiquidatoorHit } from "@/hooks/useLiquidatoorWatch";
 import { liquidatoorBadgeSVG } from "@/lib/liquidatoorBadgeArt";
+import { safeSvg } from "@/lib/safeSvg";
 
 /** Deterministic badge art (the sniper-scope kill-log, with the pepe scope image),
  *  rendered INLINE so it shows everywhere — no API/Vercel-function dependency (which
@@ -61,7 +62,7 @@ export default function LiquidatoorModal({ hit, onClose }: { hit: LiquidatoorHit
         {gotBadge && (
           <div className="lqm__badge">
             <div className="lqm__badge-art">
-              <div className="lqm__badge-svg" dangerouslySetInnerHTML={{ __html: art }} />
+              <div className="lqm__badge-svg" dangerouslySetInnerHTML={{ __html: safeSvg(art) }} />
               <span className="lqm__badge-flag">LIQUIDATOOR</span>
             </div>
             <span className="lqm__badge-id">Badge #{hit.badgeId}</span>

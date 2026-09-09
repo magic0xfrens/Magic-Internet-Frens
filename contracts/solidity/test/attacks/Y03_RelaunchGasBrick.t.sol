@@ -55,7 +55,8 @@ contract Y03_RelaunchGasBrick is YBase {
     ///         cap, the rebirth completes; any un-closed positions are then cleared
     ///         permissionlessly and the engine re-arms.
     function test_FIXED_Z07_FullBookRelaunchSurvivesAGasCap() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // Fill the book to the hard cap with leverage-1 dust longs (zero OI).
         uint256 cap = perp.MAX_OPEN_POSITIONS();
@@ -68,7 +69,7 @@ contract Y03_RelaunchGasBrick is YBase {
         assertEq(perp.openCount(), cap, "book filled to the cap");
 
         // Make the pool dead + past the wall-clock death window (audit Z-05).
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         _warp(registry.minLifetime() + 1 days + 1);
 
         // Run relaunch with a hard cap. 24M is plenty for the rebirth tail
@@ -96,7 +97,8 @@ contract Y03_RelaunchGasBrick is YBase {
     ///         engine re-arms automatically — the cap never makes the good path
     ///         worse.
     function test_SAFE_Z07_FullBookRelaunchDrainsWithAmpleGas() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 cap = perp.MAX_OPEN_POSITIONS();
         for (uint256 i; i < cap; i++) {
@@ -105,7 +107,7 @@ contract Y03_RelaunchGasBrick is YBase {
             vm.prank(bot, bot);
             perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         }
-        hook.setDeathThreshold(type(uint256).max, address(0));
+        hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         _warp(registry.minLifetime() + 1 days + 1);
 
         registry.relaunch(); // full gas

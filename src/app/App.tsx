@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { wagmiConfig } from "@/config/chains";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { WagmiClientGate } from "@/components/shared/WagmiClientGate";
+import { IndexerHealthBanner } from "@/components/shared/IndexerHealthBanner";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,11 @@ export function App() {
             <AppLayout>
               <AppRoutes />
             </AppLayout>
+            {/* App-wide staleness signal. Most of the page reads the indexer
+                with no chain fallback, so when it diverges the honest thing is
+                to say so on EVERY route, not just the one that happened to
+                check. See {IndexerHealthBanner} (audit A-3). */}
+            <IndexerHealthBanner />
             <Toaster
               position="bottom-right"
               toastOptions={{

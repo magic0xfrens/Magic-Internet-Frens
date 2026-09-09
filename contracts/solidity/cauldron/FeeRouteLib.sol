@@ -53,7 +53,15 @@ library FeeRouteLib {
         uint256 toFloor
     ) external returns (uint256 leftover) {
         if (toGuild > 0) {
-            if (guild != address(0) && _move(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
+            //  ACCOUNTED, not a bare transfer (audit Q-01). The guild is the
+            //  genesis dividend, which only CREDITS a deposit made through
+            //  {MiFrensDividend.fundToken}; a plain ERC20 `transfer` lands there
+            //  unaccounted and unclaimable with no exit. `_fundGuild` uses the
+            //  native `receive()` for ETH and `approve`+`fundToken` for an ERC20,
+            //  so a non-ETH generation's dividend is distributed rather than
+            //  stranded. A failure (nobody enchanted, basket full) reports false
+            //  and the share is buffered to the reserve by the caller.
+            if (guild != address(0) && _fundGuild(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
             else leftover += toGuild;
         }
         if (toFloor > 0) {
@@ -78,7 +86,15 @@ library FeeRouteLib {
         bytes4 assetSel
     ) external returns (uint256 leftover) {
         if (toGuild > 0) {
-            if (guild != address(0) && _move(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
+            //  ACCOUNTED, not a bare transfer (audit Q-01). Identical to
+            //  {routeSplit}: the guild is {MiFrensDividend}, which only CREDITS a
+            //  deposit made through `fundToken` (ETH via `receive()`), so a plain
+            //  ERC20 `transfer` would land unaccounted and unclaimable with no
+            //  exit — stranding the OG-holders' share of every non-ETH PERP fee.
+            //  `_fundGuild` uses the native path for ETH and `approve`+`fundToken`
+            //  for an ERC20; a failure (nobody enchanted, basket full) reports
+            //  false and the share is buffered to the reserve by the caller.
+            if (guild != address(0) && _fundGuild(asset, guild, toGuild)) emit GuildFunded(guild, toGuild);
             else leftover += toGuild;
         }
         if (toStakers > 0 && !_deliver(asset, engine, toStakers, nativeSel, assetSel)) {
@@ -92,6 +108,30 @@ library FeeRouteLib {
             abi.encodeWithSignature("transfer(address,uint256)", to, amount)
         );
         return called && (ret.length == 0 || abi.decode(ret, (bool)));
+    }
+
+    /**
+     * @dev Fund the genesis dividend (the "guild") in a way it will ACCOUNT for
+     *      (audit Q-01).
+     *
+     *  ETH uses the bare `receive()` — the dividend credits `msg.value` there.
+     *  An ERC20 must go through {MiFrensDividend.fundToken}, which is pull-based:
+     *  a raw `transfer` would sit in the contract unaccounted, uncredited to any
+     *  holder and with no exit path. So approve, then call `fundToken`; clear any
+     *  standing allowance if the pull did not happen.
+     *
+     *  NEVER reverts. `fundToken` legitimately reverts when nobody is enchanted
+     *  (no claimants) or the basket is full — the low-level call swallows that and
+     *  reports false, so the caller buffers the share to the relaunch reserve
+     *  rather than bricking the swap that produced the fee.
+     */
+    function _fundGuild(address asset, address guild, uint256 amount) private returns (bool ok) {
+        if (asset == address(0)) { (ok, ) = guild.call{value: amount}(""); return ok; }
+        (bool approved, ) = asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, amount));
+        if (!approved) return false;
+        (ok, ) = guild.call(abi.encodeWithSignature("fundToken(address,uint256)", asset, amount));
+        // Leave no standing allowance behind if the pull did not occur.
+        if (!ok) asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, uint256(0)));
     }
 
     function _deliver(address asset, address to, uint256 amount, bytes4 nativeSel, bytes4 assetSel)

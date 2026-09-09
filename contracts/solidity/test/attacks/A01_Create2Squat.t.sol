@@ -127,7 +127,8 @@ contract A01_Create2SquatTest is Test {
     //    address an outsider can compute from the public CREATE2 inputs.
     // ---------------------------------------------------------------------
     function test_Fixed_A01_TokenAddressIsNotPredictable() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         address predicted =
             _predictToken(address(registry), 1, "Gnomeland by Magic Internet Frens", "GNOME");
@@ -144,7 +145,8 @@ contract A01_Create2SquatTest is Test {
     //    NOT be able to stop genesis. (Was the finding; now holds.)
     // ---------------------------------------------------------------------
     function test_Invariant_A01_SummonSurvivesTokenAddressSquat() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         // The attacker computes the OLD CREATE2 target and occupies it.
         address predicted =
@@ -166,7 +168,8 @@ contract A01_Create2SquatTest is Test {
     //    (This test FAILING is the finding.)
     // ---------------------------------------------------------------------
     function test_Invariant_A01_RelaunchSurvivesTokenAddressSquat() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         SquatGov gov = new SquatGov();
         registry.setGovernor(address(gov));

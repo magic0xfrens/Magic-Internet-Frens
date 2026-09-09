@@ -76,7 +76,8 @@ contract Z05_L2BlockClock is ZAuditBase {
     /// parent blocks pass — 30 minutes of wall clock at an Arbitrum-One cadence — and
     /// the token stays alive because the window is measured in seconds.
     function test_FIXED_L2_BlockAdvanceDoesNotKillAHealthyToken() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _roll(hook.snipeWindowBlocks() + 1);
         _warp(60);
@@ -96,7 +97,8 @@ contract Z05_L2BlockClock is ZAuditBase {
 
     /// REGRESSION: and the permissionless kill is gone with it.
     function test_FIXED_L2_HealthyTokenIsNotRelaunchable() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _roll(hook.snipeWindowBlocks() + 1);
         _warp(60);
@@ -115,7 +117,8 @@ contract Z05_L2BlockClock is ZAuditBase {
     /// The window still WORKS: a genuine 24 hours of silence still retires the token,
     /// on any chain, because the clock is now wall-clock.
     function test_FIXED_L2_RealDayOfSilenceStillKills() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _roll(hook.snipeWindowBlocks() + 1);
         _warp(60);
@@ -134,7 +137,8 @@ contract Z05_L2BlockClock is ZAuditBase {
     /// is ~6 minutes on an Orbit L2 but only ~7.5 SECONDS on an Orbit L3. It is
     /// owner-tunable via `setSnipeParams`, so this is a deployment-configuration item.
     function test_RESIDUAL_L2_AntiSnipeWindowIsStillBlockBased() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 atLaunch = hook.snipeSurtaxBps(pid);
         assertGt(atLaunch, 5000, "launch block is heavily surtaxed");
@@ -153,7 +157,8 @@ contract Z05_L2BlockClock is ZAuditBase {
     /// batches expire routinely — and an expired batch RE-ANCHORS and `break`s, which
     /// head-of-line blocks the FIFO queue and hands its owner a fresh roll.
     function test_RESIDUAL_L2_TicketSeedExpiryReAnchorsAndStallsTheQueue() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _roll(hook.snipeWindowBlocks() + 1);
         _warp(60);
@@ -180,7 +185,8 @@ contract Z05_L2BlockClock is ZAuditBase {
     /// CONTROL: inside the 256-block window the same batch resolves normally, pinning
     /// the behaviour above to seed EXPIRY rather than to the commit itself.
     function test_SAFE_TicketResolvesInsideTheSeedWindow() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         _roll(hook.snipeWindowBlocks() + 1);
         _warp(60);

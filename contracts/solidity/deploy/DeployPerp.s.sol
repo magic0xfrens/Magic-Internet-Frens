@@ -125,6 +125,29 @@ contract DeployPerp is Script {
         );
         console2.log("twapWindow (s) :", vm.envOr("TWAP_WINDOW", uint256(300)));
 
+        //  LIQUIDITY-WEIGHTED MARK (audit P-1 / Q-07). Optional and OFF by
+        //  default: with no mark source the engine reads the primary pool's tick,
+        //  which is exactly the behaviour that shipped before this existed.
+        //
+        //  Wire it when a generation is going to run MORE THAN ONE POOL. It is
+        //  the thing that makes "several pools" and "perps" compatible: the mark
+        //  becomes liquidity-weighted across the generation's pools, so the thin
+        //  pool an attacker can cheaply push carries proportionally little weight
+        //  instead of being solely authoritative over liquidations.
+        //
+        //  Sequencing, and it matters — the mark must aggregate BEFORE a second
+        //  pool carries real depth:
+        //    1. deploy PerpMarkSource, `setPrimary(<the generation's pool key>)`
+        //    2. `engine.setRouting(dividend, treasury, nftBeneficiary, markSource)`
+        //    3. only then add siblings via `markSource.addPool(...)`
+        //  On every relaunch, call `setPrimary` again — it re-points the mark and
+        //  clears the previous generation's siblings.
+        address markSource = vm.envOr("PERP_MARK_SOURCE", address(0));
+        if (markSource != address(0)) {
+            engine.setRouting(dividend, treasury, treasury, markSource);
+            console2.log("markSource     :", markSource);
+        }
+
         // Optional: seed the ETH PLV through the vault (deployer gets LP shares)
         // so longs can open immediately without waiting for community deposits.
         if (seed > 0) {

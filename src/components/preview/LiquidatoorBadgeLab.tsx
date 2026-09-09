@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { liquidatoorBadgeSVG, sampleLiquidatoorStats } from "@/lib/liquidatoorBadgeArt";
+import { safeSvg } from "@/lib/safeSvg";
 
 /**
  * LiquidatoorBadgeLab — a design sandbox for the on-chain Liquidatoor trophy
@@ -30,11 +31,11 @@ export default function LiquidatoorBadgeLab() {
       </div>
       <div style={styles.grid}>
         <figure style={styles.fig}>
-          <div className="badgelab-card" style={styles.card} dangerouslySetInnerHTML={{ __html: shortSvg }} />
+          <div className="badgelab-card" style={styles.card} dangerouslySetInnerHTML={{ __html: safeSvg(shortSvg) }} />
           <figcaption style={styles.cap}>SHORT liquidation</figcaption>
         </figure>
         <figure style={styles.fig}>
-          <div className="badgelab-card" style={styles.card} dangerouslySetInnerHTML={{ __html: longSvg }} />
+          <div className="badgelab-card" style={styles.card} dangerouslySetInnerHTML={{ __html: safeSvg(longSvg) }} />
           <figcaption style={styles.cap}>LONG liquidation</figcaption>
         </figure>
       </div>

@@ -104,12 +104,51 @@ contract MiFrensDividend is ReentrancyGuard {
     /// @notice Every asset that has ever funded the pot. Bounded, because claim
     ///         loops it — an unbounded list would eventually make claiming cost
     ///         more gas than a block allows, which is a permanent lockout.
+    ///
+    ///  THREE, NOT EIGHT (audit D-3). This list is also walked by
+    ///  {onMiFrenTransfer}, which runs inside the collection's `_update` under a
+    ///  FIXED forwarded gas budget — and that budget has to be sized for the
+    ///  worst case, because the caller is checked against it before the walk
+    ///  begins. Every slot is therefore gas that every genesis NFT transfer must
+    ///  reserve forever, whether or not the basket is full. Measured, a settle
+    ///  costs ~33k per asset carrying a balance; eight slots put a transfer over
+    ///  half a million gas.
+    ///
+    ///  So the bound comes from what the protocol actually runs, not from what
+    ///  felt roomy: the live manifest has TWO non-ETH quotes (USDG, xNVDA), and
+    ///  native ETH is not in this list at all — it has its own accumulator. Three
+    ///  leaves one slot of headroom. There is no removal path — see the note
+    ///  below {setFunder} for why that is deliberate rather than an omission.
     address[] public assets;
     mapping(address => bool) public knownAsset;
-    uint256 internal constant MAX_ASSETS = 8;
+    uint256 internal constant MAX_ASSETS = 3;
+
+    /// @notice Settled-but-unclaimed ERC20, pull-withdrawn. The basket's
+    ///         counterpart to {owed} (audit D-2, D-3).
+    ///
+    ///  Credited from two places, both of which used to lose value silently:
+    ///  a transfer that ends a fren's earning window, and a claim whose transfer
+    ///  failed. Holding it here rather than paying inline is what makes both
+    ///  paths total — neither can revert, and neither can forget.
+    mapping(address => mapping(address => uint256)) public owedAsset;
+
+    /// @notice The only address allowed to fund the basket — the hook.
+    ///
+    ///  ── WHY THIS IS GATED (audit D-1, D-2) ────────────────────────────────
+    ///  {fundToken} used to be callable by anyone with any ERC20. The asset list
+    ///  is bounded and has no removal path, so eight junk tokens and eight wei
+    ///  closed the basket permanently and every real quote asset was refused
+    ///  forever. Worse, one token that stops transferring bricked {claimTokens}
+    ///  for every holder and every asset at once. Both are the same mistake:
+    ///  letting an untrusted party choose what the protocol must iterate over.
+    ///  The ETH path stays open to anyone — a bare `receive()` cannot be poisoned
+    ///  because there is nothing to enumerate.
+    address public funder;
 
     event TokenDeposited(address indexed asset, uint256 amount);
     event TokenClaimed(uint256 indexed tokenId, address indexed asset, uint256 amount);
+    event FunderSet(address funder);
+    event TokenWithdrawn(address indexed to, address indexed asset, uint256 amount);
     /// @notice tokenId => the address that cast the spell. A fren earns only while
     ///         `enchantedBy == its owner`; a transfer clears it (see hook below).
     mapping(uint256 => address) public enchantedBy;
@@ -154,6 +193,42 @@ contract MiFrensDividend is ReentrancyGuard {
         emit RegistrySet(_registry);
     }
 
+    /// @notice Wire the hook as the sole basket funder (one-time, `treasury`).
+    ///         Until set, {fundToken} is closed — which is the safe default: an
+    ///         un-fundable basket loses nothing, an open one is unrecoverable.
+    function setFunder(address _funder) external {
+        if (msg.sender != treasury) revert NotOwner();
+        if (funder != address(0)) revert NotOwner(); // one-time
+        funder = _funder;
+        emit FunderSet(_funder);
+    }
+
+    //  ── THERE IS DELIBERATELY NO `removeAsset` ─────────────────────────────
+    //
+    //  Retiring an asset to reclaim the loop's gas looks obviously useful, and
+    //  it re-opens the exact hole `test_LateJoinerCannotClaimHistoricalFees`
+    //  exists to close.
+    //
+    //  A debt marker of 0 means "entitled from this asset's inception", which is
+    //  CORRECT for an asset first funded while you were already enchanted —
+    //  `fundToken` divided that deposit by an `activeShares` that included you.
+    //  But `_castSpell` can only set markers for assets currently in the list.
+    //  Remove USDG, let a new holder cast (marker stays 0 because USDG is not
+    //  iterated), then re-add USDG and its accumulator resumes from its old
+    //  high-water mark — and that holder is suddenly owed the entire history
+    //  they were never part of. Measured on a probe: a fren owed 1005 USDG from
+    //  a pot holding 10.
+    //
+    //  Every safe version needs more machinery than the feature earns: a second
+    //  retired-list for `_castSpell` to walk, or a sentinel encoding to tell
+    //  "uninitialised" apart from "joined at zero". Both add branching to the
+    //  accounting that is hardest to reason about and cheapest to get wrong.
+    //
+    //  So the basket is capped at MAX_ASSETS for the lifetime of this contract.
+    //  A fourth quote is a dividend MIGRATION — a deliberate, reviewed operation
+    //  — rather than a live mutation of a list that per-holder debt markers are
+    //  keyed against.
+
     /// @notice Fees flow in from the hook (and anyone topping up the pot). Split
     ///         among the enchanted; if NONE are, the pot sweeps to the treasury
     ///         (no claimants) rather than banking up for the first caster.
@@ -196,6 +271,11 @@ contract MiFrensDividend is ReentrancyGuard {
      *      enchanted.
      */
     function fundToken(address asset, uint256 amount) external {
+        //  HOOK ONLY (audit D-1). The asset list is bounded, iterated and has no
+        //  removal path a stranger can reach, so whoever may append to it decides
+        //  what every holder pays gas to walk — and, before the try/catch below,
+        //  whether they could claim at all.
+        if (msg.sender != funder) revert NotOwner();
         if (asset == address(0) || amount == 0) revert NotShare();
         if (activeShares == 0) revert NotEnchanted();
         if (!knownAsset[asset]) {
@@ -228,16 +308,37 @@ contract MiFrensDividend is ReentrancyGuard {
         if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner();
         if (enchantedBy[tokenId] != msg.sender) revert NotEnchanted();
 
+        //  ONE BAD ASSET MUST NOT TAKE THE OTHERS DOWN (audit D-2). This loop
+        //  used to push with a reverting helper, so a single token that stopped
+        //  transferring — a pause, a blacklist, an owner who turned hostile —
+        //  reverted the WHOLE claim for every holder and every asset, with no
+        //  removal path to recover. A failed leg is now banked to `owedAsset` and
+        //  retried later through {withdrawOwedToken}; the debt marker still
+        //  advances, so nothing is double-counted and nothing is lost.
         uint256 n = assets.length;
         for (uint256 i; i < n; ++i) {
             address a = assets[i];
-            uint256 owed = (accPerShareOf[a] - debtOfAsset[tokenId][a]) / ACC;
+            uint256 amt = (accPerShareOf[a] - debtOfAsset[tokenId][a]) / ACC;
             // Effects before interaction, per asset.
             debtOfAsset[tokenId][a] = accPerShareOf[a];
-            if (owed > 0) {
-                _push(a, msg.sender, owed);
-                emit TokenClaimed(tokenId, a, owed);
+            if (amt > 0) {
+                if (_tryPush(a, msg.sender, amt)) emit TokenClaimed(tokenId, a, amt);
+                else owedAsset[msg.sender][a] += amt;
             }
+        }
+    }
+
+    /// @notice Withdraw ERC20 banked for you — settled when a fren left the
+    ///         active set, or when a claim's transfer could not be delivered.
+    function withdrawOwedToken(address asset) external nonReentrant returns (uint256 amount) {
+        amount = owedAsset[msg.sender][asset];
+        if (amount > 0) {
+            owedAsset[msg.sender][asset] = 0;
+            //  Reverting here is correct where it was wrong in `claimTokens`:
+            //  this call settles exactly ONE asset the caller chose, so a failure
+            //  blocks nothing else and the balance stays banked for a retry.
+            if (!_tryPush(asset, msg.sender, amount)) revert TransferFailed();
+            emit TokenWithdrawn(msg.sender, asset, amount);
         }
     }
 
@@ -250,11 +351,13 @@ contract MiFrensDividend is ReentrancyGuard {
         if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert TransferFailed();
     }
 
-    function _push(address asset, address to, uint256 amount) private {
+    /// @dev Push that reports failure instead of throwing, so a caller iterating
+    ///      several assets can decide what to do about one of them.
+    function _tryPush(address asset, address to, uint256 amount) private returns (bool) {
         (bool ok, bytes memory ret) = asset.call(
             abi.encodeWithSignature("transfer(address,uint256)", to, amount)
         );
-        if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert TransferFailed();
+        return ok && (ret.length == 0 || abi.decode(ret, (bool)));
     }
 
     /// @notice Whether a fren is currently drawing fees (spell cast + still owned
@@ -340,6 +443,30 @@ contract MiFrensDividend is ReentrancyGuard {
         address cur = enchantedBy[tokenId];
         if (cur == address(0)) return; // wasn't enchanted → nothing to do
         owed[cur] += (accPerShare - debtOf[tokenId]) / ACC; // settle up to the move
+
+        //  SETTLE THE BASKET TOO (audit D-3). The ETH line above was written to
+        //  make a transfer lossless, and the basket was not brought along: the
+        //  leaver's ERC20 entitlement was left in `debtOfAsset` for the NEXT
+        //  caster's `_castSpell` to overwrite, so it was not paid, not credited
+        //  and not reclaimable by anyone.
+        //
+        //  It has to happen HERE and not later. The moment this returns, the
+        //  token is out of `activeShares`, so every subsequent deposit is divided
+        //  among the remaining holders — computing the leaver's share at any
+        //  later point would pay them out of value that is no longer theirs.
+        //  That is what makes this loop unavoidable, and why MAX_ASSETS is 4:
+        //  this runs under the collection's forwarded gas budget.
+        uint256 n = assets.length;
+        for (uint256 i; i < n; ++i) {
+            address a = assets[i];
+            uint256 acc = accPerShareOf[a];
+            uint256 d = debtOfAsset[tokenId][a];
+            if (acc > d) {
+                owedAsset[cur][a] += (acc - d) / ACC;
+                debtOfAsset[tokenId][a] = acc;
+            }
+        }
+
         unchecked { activeShares -= 1; }
         enchantedBy[tokenId] = address(0);
         debtOf[tokenId] = 0;

@@ -25,6 +25,13 @@ contract FixedCurve is ICurvePolicy {
     function priceAt(uint256, uint256, uint256) external view returns (uint256){return v;}
 }
 
+/// Stands in for the perp engine's open-interest counter. The hook reads only
+/// this one number to decide whether a generation may gain a second pool.
+contract MockOpenCount {
+    uint256 public openCount;
+    function set(uint256 v) external { openCount = v; }
+}
+
 /// Always-dead checker (for testing the module override).
 contract AlwaysDeadChecker is IDeathChecker {
     function isDead(PoolId, uint256, uint256) external pure returns (bool) { return true; }
@@ -278,5 +285,93 @@ contract CauldronHookAccessTest is Test {
         //  a stranger stapling a busy pool onto a dying generation.
         assertFalse(hook.isDead(primary), "untracked short-circuits before the rule");
         assertFalse(hook.isDead(sibling), "and so does its sibling");
+    }
+
+    /**
+     * INTERLOCK (audit P-1). `PerpEngine._key()` is derived from the
+     * generation's quote, so the engine marks, sizes and liquidates against the
+     * PRIMARY pool alone. Once a generation runs two pools that stops being a
+     * description of the market: the mark is read from the primary's `slot0`,
+     * and a primary that has lost its depth to a sibling is the CHEAP one to
+     * push while the sibling sets the price everyone actually trades at.
+     *
+     * Until the mark is liquidity-weighted across the generation's pools, the
+     * two features are mutually exclusive — and that ordering is enforced here
+     * rather than written down in a migration doc and hoped for.
+     */
+    function test_P1_CannotAddASecondPoolWhilePerpsAreOpen() public {
+        hook.setRegistry(address(this));
+        MockOpenCount engine = new MockOpenCount();
+        hook.setPerpEngine(address(engine));
+
+        PoolId primary = PoolId.wrap(bytes32(uint256(0xA1)));
+        PoolId sibling = PoolId.wrap(bytes32(uint256(0xB2)));
+
+        // Someone is levered against the primary pool.
+        engine.set(1);
+        vm.expectRevert(CauldronHook.PerpsOpen.selector);
+        hook.linkVolume(primary, sibling);
+
+        // Once every position is closed, diversifying is allowed again.
+        engine.set(0);
+        hook.linkVolume(primary, sibling);
+    }
+
+    /// The interlock must not fire when there is no engine at all — an ETH-only
+    /// generation with perps unwired should still be free to add a pool.
+    function test_P1_NoEngineMeansNoInterlock() public {
+        hook.setRegistry(address(this));
+        hook.linkVolume(PoolId.wrap(bytes32(uint256(1))), PoolId.wrap(bytes32(uint256(2))));
+    }
+
+    /**
+     * U-1. Wiring the oracle changes what every recorded volume figure MEANS —
+     * quote-raw wei become USD at 1e18. `deathThreshold` was migrated when the
+     * oracle landed; the crystal ladder and the odds curve were not, and both
+     * are compared directly against that changed number.
+     *
+     * Left in ether terms against USD-scaled credit, a $3,000 ETH inflates every
+     * trader's mint credit ~3000x against a ladder priced in wei — the
+     * collection over-issues by that factor and the odds curve pins to max for
+     * any trade. Nothing reverts; both sides are just 1e18 integers, which is
+     * precisely why the contract cannot catch it and has to force the
+     * restatement instead.
+     */
+    function test_U1_WiringAnOracleForcesTheUnitsToBeRestated() public {
+        address oracle = address(0xFEED);
+
+        // The old two-argument shape is gone. Wiring an oracle without saying
+        // what a fren now costs is refused.
+        vm.expectRevert(CauldronHook.BadParam.selector);
+        hook.setDeathThreshold(1e18, oracle, 0, 0, 1000e18);   // no ladder
+
+        vm.expectRevert(CauldronHook.BadParam.selector);
+        hook.setDeathThreshold(1e18, oracle, 50e18, 0, 0);     // no odds curve
+
+        // Restated together, it takes — and the curve really moved.
+        hook.setDeathThreshold(1e18, oracle, 50e18, 1e18, 1000e18);
+        assertEq(hook.volumePerNFT(), 50e18, "ladder restated in USD");
+        assertEq(hook.nftPriceStep(), 1e18, "step restated in USD");
+        assertEq(hook.oddsFullVolumeWei(), 1000e18, "odds curve restated in USD");
+        assertEq(hook.nftPriceAt(0), 50e18, "a fren costs $50 of volume");
+        assertEq(hook.nftPriceAt(2), 52e18, "and the ladder climbs in dollars");
+
+        // A flat ladder stays legitimate — `setNftCurveFrom` sets exactly that.
+        hook.setDeathThreshold(1e18, oracle, 50e18, 0, 1000e18);
+        assertEq(hook.nftPriceStep(), 0, "a zero step is allowed");
+    }
+
+    /// The no-oracle path is unchanged: quote-raw units, curve left alone.
+    function test_U1_WithoutAnOracleTheCurveIsUntouched() public {
+        uint256 base = hook.volumePerNFT();
+        uint256 step = hook.nftPriceStep();
+        uint256 odds = hook.oddsFullVolumeWei();
+
+        hook.setDeathThreshold(5 ether, address(0), 0, 0, 0);
+
+        assertEq(hook.deathThreshold(), 5 ether, "threshold set");
+        assertEq(hook.volumePerNFT(), base, "curve untouched");
+        assertEq(hook.nftPriceStep(), step, "step untouched");
+        assertEq(hook.oddsFullVolumeWei(), odds, "odds untouched");
     }
 }

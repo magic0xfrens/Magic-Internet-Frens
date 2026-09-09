@@ -70,7 +70,8 @@ contract Y02_DepthManip is YBase {
     ///         carries a position the real book cannot liquidate within its own
     ///         per-position sizing rules.
     function test_PoC_Y02a_InflatedDepthBypassesTheNotionalCap() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 trueDepth = perp.activeEthDepth();
         uint256 trueNotionalCap = (trueDepth * perp.maxNotionalBps()) / 10_000;
@@ -128,7 +129,8 @@ contract Y02_DepthManip is YBase {
     ///         than the audit's "not directly profitable": the bad-debt escalation
     ///         is not reachable with realistic capital at all.
     function test_SAFE_Y02b_CapBypassCannotDrainThePlv() public {
-        if (!active) return;
+        
+        vm.skip(!active);
 
         uint256 pot0 = perp.plv() + perp.insuranceEth();
 
