@@ -55,6 +55,7 @@ contract QuoteRotator {
     error SlippageTooHigh();
     error NoRoute();
     error TransferFailed();
+    error ArbTooLarge();
 
     /// @notice A scheduled conversion. Amounts are in the assets' OWN units, so
     ///         nothing here needs a common numeraire.
@@ -258,6 +259,19 @@ contract QuoteRotator {
     ///         treasury more in price impact than they capture.
     uint256 public minArbProfitUsd = 5e18; // $5
 
+    /// @notice LARGEST notional a single {arbStep} may spend, in USD scaled 1e18.
+    ///
+    ///  The per-call bound this contract's own header promised ("size is bounded
+    ///  per call, so repeated arbs cannot quietly re-allocate the treasury behind
+    ///  governance's back") but never enforced (red-team lead). `arbStep` is
+    ///  permissionless, so without this a keeper could shift an unbounded slice of
+    ///  the treasury from one quote to another in one call whenever a profitable
+    ///  spread exists — value-positive at the oracle, but an ungoverned
+    ///  re-allocation all the same. Denominated in USD (decimals-agnostic across
+    ///  quotes) and owner-tunable. 0 = unbounded (explicit opt-out, not the
+    ///  default). Defaulted low; governance raises it deliberately.
+    uint256 public maxArbNotionalUsd = 25_000e18; // $25k / call
+
     event Arbed(uint256 spentIn, uint256 receivedOut, uint256 profitUsd, address keeper);
 
     function setArbParams(address oracle, uint16 keeperBps, uint256 minProfitUsd) external onlyOwner {
@@ -265,6 +279,13 @@ contract QuoteRotator {
         quoteOracle = oracle;
         arbKeeperBps = keeperBps;
         minArbProfitUsd = minProfitUsd;
+    }
+
+    /// @notice Tune the per-call notional cap (USD, 1e18). 0 disables the bound.
+    ///         Separate setter so the existing {setArbParams} signature — and its
+    ///         callers — are untouched.
+    function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner {
+        maxArbNotionalUsd = maxNotionalUsd;
     }
 
     /**
@@ -322,6 +343,10 @@ contract QuoteRotator {
         uint256 inUsd = _usd(inQuote, spent);
         uint256 outUsd = _usd(outQuote, received);
         if (inUsd == 0 || outUsd == 0) revert NoRoute();
+        // Per-call notional bound (0 = off). Checked here rather than before the
+        // unlock so it reuses the USD figure already computed; an over-cap arb
+        // reverts and the swap unwinds atomically.
+        if (maxArbNotionalUsd != 0 && inUsd > maxArbNotionalUsd) revert ArbTooLarge();
         if (outUsd <= inUsd) revert SlippageTooHigh();
 
         profitUsd = outUsd - inUsd;

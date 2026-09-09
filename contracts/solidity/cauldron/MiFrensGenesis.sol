@@ -82,20 +82,33 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///  belongs to the remaining holders and can no longer be computed, which is
     ///  what makes the walk unavoidable rather than merely convenient.
     ///
-    ///  Sized from MEASUREMENT, not estimate: each asset carrying a balance costs
-    ///  ~33k (a cold `owedAsset` write plus a `debtOfAsset` update and three
-    ///  SLOADs), on top of ~39k for the ETH leg. `MiFrensDividend.MAX_ASSETS` is
-    ///  3, so the worst case is ~140k and 180k carries it with margin.
+    ///  Sized from MEASUREMENT, not estimate — and RE-sized after the first
+    ///  estimate proved too low (red-team B-02). The earlier note put each basket
+    ///  asset at ~33k and the whole worst case at ~140k, carried by 180k "with
+    ///  margin". That undercounted: in the ordinary lifecycle a fren is enchanted
+    ///  BEFORE fees accrue, so at transfer every basket leg takes the EXPENSIVE
+    ///  branch — a cold zero→nonzero `owedAsset` SSTORE (22.1k) AND a cold
+    ///  zero→nonzero `debtOfAsset` SSTORE (20k) — i.e. ~44k per asset, not 33k.
+    ///  Measured cold (the real `transferFrom` condition), `onMiFrenTransfer` costs
+    ///  ~54k for the ETH leg alone and ~202k at `MiFrensDividend.MAX_ASSETS` = 3.
+    ///  180k therefore did NOT carry the 3-asset case: the child OOG'd inside the
+    ///  try/catch on an ORDINARY full-gas transfer, silently leaving the sold fren
+    ///  in `activeShares` (the exact M-06/F-09 state this path exists to prevent).
     ///
-    ///  The floor must cover the WORST case even though the common one is far
-    ///  cheaper (an empty basket still costs only the ETH leg), because it is
-    ///  checked before the walk begins. That cost is the reason MAX_ASSETS is
-    ///  small: every slot is gas every genesis transfer must reserve forever.
-    ///  At the previous 60k the basket settlement would simply have failed inside
-    ///  the try/catch — silently, which is the failure mode this whole path
-    ///  exists to avoid.
-    uint256 private constant GAS_DIVIDEND_FWD = 180_000;
-    uint256 private constant GAS_DIVIDEND_MIN = 240_000;
+    ///  FWD now covers the measured 3-asset worst case with margin, and MIN keeps
+    ///  the same ~60k the parent reserves for its own completion after the call
+    ///  (the `everMoved` SSTORE + return), so the F-09 property is unchanged: a
+    ///  caller still cannot supply so little gas that the child is starved while
+    ///  the transfer settles — it now reverts cleanly with {InsufficientGas}
+    ///  instead. The one visible cost is that transferring an ENCHANTED genesis
+    ///  fren needs ~320k gas; wallets estimate this correctly, and a clean revert
+    ///  is categorically better than a silent, unrecoverable strand.
+    ///
+    ///  This budget is keyed to MAX_ASSETS = 3. RAISING MAX_ASSETS without raising
+    ///  these two constants re-opens B-02 — the coupling is asserted by
+    ///  test/attacks/B02_DividendGasBudgetOverrun.t.sol.
+    uint256 private constant GAS_DIVIDEND_FWD = 260_000;
+    uint256 private constant GAS_DIVIDEND_MIN = 320_000;
 
     // -----------------------------------------------------------------------
     // Config

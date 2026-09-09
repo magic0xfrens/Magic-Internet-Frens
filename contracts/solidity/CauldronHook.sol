@@ -1159,7 +1159,36 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // is attacker-controlled (anyone can propose), so a push here would be an
         // untrusted external call in the swap hot path; accrual keeps the swap path
         // call-free and re-entrancy-proof. Claimed later via `claimProposerFees`.
-        address prop = activeProposer;
+        //
+        //  ── NATIVE ONLY (red-team B-06 — High) ─────────────────────────────
+        //  `proposerOwed` is paid out by `claimProposerFees` with
+        //  `call{value: amount}` — WEI, unconditionally. This carve sat above
+        //  every `_feeAsset` branch in this function, so a fee collected in USDG
+        //  or xNVDA credited the proposer in that asset's BASE UNITS and the
+        //  claim then paid the same integer in real ether. Measured: 1.65e16
+        //  xNVDA units credited → 1.65e16 wei paid out.
+        //
+        //  Two harms, and the second is the serious one. It overpays (or, for a
+        //  6-decimal quote, underpays ~1e12x) by the price ratio; and because
+        //  `relaunchETH` is tracked by COUNTER rather than balance, the ether it
+        //  pays out is ether that was backing the reserve. Drain enough and
+        //  `releaseRelaunchETH` fails its send — which `relaunch()` used to call
+        //  bare, rolling back `markConsumed` and freezing the machine exactly
+        //  like B-05.
+        //
+        //  Every OTHER sink here was already generalised for this same reason —
+        //  the guild through `FeeRouteLib.routeSplit`, the floor folded into the
+        //  per-asset reserve (audit Q-01), the residual through `_creditReserve`
+        //  (audit R-1). This one carve was above all of them and got missed.
+        //
+        //  Skipping (rather than adding a second per-asset mapping) is deliberate:
+        //  this hook has tens of bytes of EIP-170 headroom, and the skipped slice
+        //  is not lost — it stays in `feeAmount` and lands in `relaunchAsset[]`
+        //  via `_creditReserve` below, still backing the generation. The proposer
+        //  earns on native volume, which after B-05 is every primary pool. A
+        //  proposer under-earning on a rotated sibling pool is a fairness
+        //  rounding; paying them out of the reserve's backing is a brick.
+        address prop = _feeAsset == address(0) ? activeProposer : address(0);
         if (prop != address(0) && proposerBps > 0) {
             uint256 wantProp = (feeAmount * proposerBps) / BPS;
             if (wantProp > 0) {
@@ -1283,14 +1312,27 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // everyone during block N, so a sniper submitting into N could compute the
         // exact surtax and skip expensive blocks. We therefore also fold in the
         // pool's LIVE tick, which moves with the very trade being priced and is not
-        // knowable at submission time. Effect is bounded either way: the decay term
-        // dominates early and the jitter can only ever RAISE the rate (max below).
+        // knowable at submission time.
+        //
+        // JITTER MUST *ADD*, NOT `max` (red-team B-03). The previous form returned
+        // `max(decayed, jitter)`, but `rnd ∈ [0, maxBps]` and both terms carry the
+        // identical `remaining/window` factor under the same floor division, so
+        // `jitter <= decayed` for ALL inputs and the `max` was ALWAYS `decayed` —
+        // the tick term was dead code and the surtax was fully predictable from the
+        // block number alone, defeating the entire point of this branch. Adding the
+        // jitter on TOP of the decay makes it genuinely raise the rate (as the
+        // comment always claimed), so a "cheap" late-window block can still spike by
+        // an amount unknowable at submission. Clamped to `maxBps` so the surtax can
+        // never exceed its configured peak; `snipeSurtaxBps` clamps again to
+        // MAX_SNIPE_BPS, and `_takeEthFee` clamps the COMBINED rate so a trade always
+        // leaves >=1% to execute.
         (, int24 tick,,) = poolManager.getSlot0(id);
         uint256 rnd = uint256(
             keccak256(abi.encodePacked(blockhash(block.number - 1), PoolId.unwrap(id), block.number, tick))
         ) % (maxBps + 1);
         uint256 jitter = (rnd * remaining) / window;
-        return decayed > jitter ? decayed : jitter;
+        uint256 total = decayed + jitter;
+        return total > maxBps ? maxBps : total;
     }
 
     /**
@@ -1626,9 +1668,33 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice Registry-only: record the LIVE generation's PoolKey. Pushed at every
     ///         summon/relaunch. The legacy buyback spends only into this key, and
     ///         `liveKey()` lets integrators read the canonical pool (audit C-01b).
+    ///
+    ///  ── THE NATIVE ASSERTION WAS A LANDMINE, NOT A GUARD (red-team B-05) ──
+    ///  This used to `revert ZeroAddress()` unless `currency0 == address(0)`.
+    ///  Read as an invariant that holds, that looks protective. Read as code on
+    ///  the mandatory rebirth path, it was a permanent brick: the registry calls
+    ///  this UNCONDITIONALLY from `_recordSeed`, so any generation seeded against
+    ///  an ERC20 quote — which is exactly what `PoolOps` builds, quote at
+    ///  currency0 by construction — reverted here, rolled back `markConsumed`,
+    ///  and froze the protocol forever. A check whose failure mode is "the
+    ///  machine can never be reborn" is not enforcing an invariant; it is a
+    ///  landmine on the one function that must always complete.
+    ///
+    ///  The invariant it was trying to state is real and is now enforced where a
+    ///  violation is CHEAP instead of fatal: the registry forces a native quote
+    ///  at consumption and the governor refuses a non-native one at proposal
+    ///  time. This function is a plain storage write again, so it cannot be the
+    ///  thing that ends the protocol.
+    ///
+    ///  It is also safe to generalise on its own terms. The `_afterSwap` credit
+    ///  gate compares `key.currency1` against `_liveKey.currency1`, and the
+    ///  iteration token is at currency1 in every pool `PoolOps` constructs —
+    ///  `deployTokenAbove` mines it above `QUOTE_WATERMARK` and no quote at or
+    ///  above that watermark can be allowlisted. So the gate keeps comparing the
+    ///  UNIQUE per-generation token, never a shared quote, whatever the key's
+    ///  quote side is. Pinned by test/attacks/B07_RelaunchTotality.t.sol.
     function setLiveKey(PoolKey calldata k) external {
         if (msg.sender != registry) revert OnlyRegistry();
-        if (Currency.unwrap(k.currency0) != address(0)) revert ZeroAddress();
         _liveKey = k;
     }
 

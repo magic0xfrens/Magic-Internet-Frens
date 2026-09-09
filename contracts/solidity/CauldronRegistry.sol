@@ -771,16 +771,38 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
 
         // 3b. Close the dead brew's floor vault: NFT redemption stops and the
         //     remaining floor ETH sweeps here to seed the next launch.
+        //  BEST-EFFORT, same reasoning as the reserve pull below (red-team L-3).
+        //  `close()` ends in `registry.call{value: swept}("")` and reverts
+        //  `TransferFailed` if that send fails. It is safe TODAY only because the
+        //  unified floor leaves the vault empty and this registry has a
+        //  `receive()` — but anyone may donate ether to the vault, which re-arms
+        //  the send, and a future registry without a payable fallback would turn
+        //  a donation into a permanent freeze. The floor sweep is an
+        //  optimisation; the rebirth is the product. If it fails the ETH simply
+        //  stays in the (now closed) vault rather than seeding the newborn.
         uint256 vaultSwept = 0;
         address oldVault = generationVault[oldGen];
         if (oldVault != address(0)) {
-            vaultSwept = IVaultClose(oldVault).close();
+            try IVaultClose(oldVault).close() returns (uint256 swept) { vaultSwept = swept; } catch {}
         }
 
-        // 4. Pull accumulated ETH swap fees from hook
+        // 4. Pull accumulated ETH swap fees from hook.
+        //
+        //  BEST-EFFORT (red-team B-06). `releaseRelaunchETH` reverts `SendFailed`
+        //  whenever the hook's ether balance has fallen below its own
+        //  `relaunchETH` counter — the counter is tracked by variable, not by
+        //  balance, so any path that pays native ether out against a non-native
+        //  credit desynchronises the two. Called bare, that revert propagated
+        //  here, rolled back `markConsumed`, and froze the machine exactly like
+        //  B-05. The root cause is fixed in the hook (the proposer carve is now
+        //  native-only), but the rebirth must not depend on that fix holding:
+        //  a reserve we cannot pull is a smaller problem than a protocol that
+        //  cannot be reborn, so we seed with what we have and leave the reserve
+        //  for the next cycle. Mirrors the try/catch already used for the perp
+        //  force-close and the ticket drain (audit Z-07).
         uint256 ethFromHook = 0;
         if (hook.relaunchETH() > 0) {
-            ethFromHook = hook.releaseRelaunchETH();
+            try hook.releaseRelaunchETH() returns (uint256 got) { ethFromHook = got; } catch {}
         }
 
         // All ETH — recovered LP + hook fees + swept floor — seeds the new pool.
@@ -800,15 +822,54 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         uint256 nftSupply = nftMaxSupply;
 
         (uint256 winId, BrewSpec memory spec) = governor.winner();
-        //  RE-CHECK THE QUOTE AT CONSUMPTION. The allowlist can change while a
-        //  proposal is out for vote, and the check that matters is the one at
-        //  the moment liquidity actually moves. A de-listed quote falls back to
-        //  native ETH rather than reverting: reverting here would roll back
-        //  markConsumed and freeze the machine on a proposal it can never
-        //  consume (audit C-02, same class). Native needs no lookup — it is
-        //  allowed by construction and cannot be removed.
-        address specQuote = spec.quote;
-        if (specQuote != address(0) && !allowedQuote[specQuote]) specQuote = address(0);
+        //  ── A RELAUNCH ALWAYS SEEDS NATIVE (red-team B-05 — Critical) ────────
+        //
+        //  This used to carry `spec.quote` through, re-checking only that the
+        //  allowlist still contained it. That check was necessary and nowhere
+        //  near sufficient: the value this function seeds with is NATIVE WEI by
+        //  construction —
+        //
+        //      uint256 totalETH = ethFromLP + ethFromHook + vaultSwept;
+        //
+        //  recovered ether from the dead LP, ether from the hook's reserve, and
+        //  ether swept from the floor vault. Nothing converts it into the named
+        //  quote (QuoteRotator exists for exactly that and is never called from
+        //  here), and nothing rescales it. Handing that wei figure to the seeder
+        //  as a QUOTE amount fails three ways in sequence, and every one of them
+        //  is an unguarded revert BEHIND `governor.markConsumed` below:
+        //
+        //    1. the registry holds none of the quote, so the PositionManager's
+        //       pull reverts — measured: ERC20InsufficientBalance(registry, 0,
+        //       19999999999999987150), i.e. 20 ETH requested verbatim as USDG.
+        //       (A 6-decimal quote would also be off by 1e12 if it DID hold it.)
+        //    2. fund it anyway and the green-candle buy settles native ether into
+        //       a pool whose currency0 is an ERC20 → CurrencyNotSettled().
+        //    3. clear that and `hook.setLiveKey` rejected the non-native key.
+        //
+        //  Because the revert rolls `markConsumed` back, the same proposal wins
+        //  `_bestUnconsumed()` forever and EVERY later relaunch dies at the same
+        //  line. That is a permanent, unrecoverable freeze of the whole protocol,
+        //  reachable with no attacker at all — `indexer/deployments/round.json`
+        //  ships USDG and xNVDA as live `quoteAssets`, so a proposer choosing an
+        //  offered option was enough.
+        //
+        //  Forcing native is the SAME failure discipline the rest of this
+        //  function already applies — clamp `nftSupply`, clamp `newActive`, fall
+        //  back to ETH when mining fails (PoolOps:493-496) — extended to the one
+        //  input that was carried through unclamped. A generation still MAY be
+        //  quoted in anything the guild approves: that is what `rotateSlice`
+        //  does, deliberately and reversibly, on a live generation. What it may
+        //  no longer do is stake the machine's ability to be reborn on a code
+        //  path that was never built.
+        //
+        //  Re-enabling a non-native REBIRTH means implementing all three legs
+        //  (convert `totalETH` through the rotator; give PoolOps a non-native
+        //  settle; keep `setLiveKey` general) and only then relaxing this line.
+        //  {CauldronGovernor.propose} refuses a non-native quote up front so a
+        //  proposer is told honestly rather than silently downgraded here; this
+        //  line is the belt to that braces, because the governor is swappable.
+        //  Asserted by test/attacks/B07_RelaunchTotality.t.sol.
+        address specQuote = address(0);
         string memory name = spec.name;
         string memory symbol = spec.symbol;
         mode = spec.mode;
