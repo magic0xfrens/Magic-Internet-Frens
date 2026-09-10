@@ -119,11 +119,18 @@ for (const [k, v] of Object.entries(updates)) {
   }
 }
 
-//  The quote mocks, if the rotation stack ran. USDG is the first MockQuoteToken
-//  CREATE; a second would be a synthetic equity (not deployed by default).
-if (rotation.found) {
-  const usdg = pickNth("MockQuoteToken", 0, rotation);
-  const xnvda = pickNth("MockQuoteToken", 1, rotation);
+//  The quote mocks. DeployLaunchpad now deploys these itself (the rotation stack
+//  was folded into it so the venue cannot end up curated on the wrong rotator),
+//  so look there FIRST and fall back to a standalone DeployRotationStack run.
+//  Missing this is why an earlier version left `quoteAssets[].address` pointing
+//  at the previous round's USDG while every other address moved — the frontend
+//  would then offer a quote the new registry has never allowlisted.
+const quoteSrc = launchpad.creates.some((t) => t.contractName === "MockQuoteToken")
+  ? launchpad
+  : rotation;
+if (quoteSrc.found) {
+  const usdg = pickNth("MockQuoteToken", 0, quoteSrc);
+  const xnvda = pickNth("MockQuoteToken", 1, quoteSrc);
   for (const q of m.quoteAssets ?? []) {
     if (q.symbol === "USDG" && usdg && !same(q.address, usdg)) {
       applied.push(["quoteAssets.USDG", q.address, usdg]);
@@ -133,6 +140,85 @@ if (rotation.found) {
       applied.push(["quoteAssets.xNVDA", q.address, xnvda]);
       q.address = xnvda;
     }
+  }
+}
+
+//  ── THE START BLOCK MUST MOVE WITH THE ADDRESSES ────────────────────────
+//  `ponder.config.ts` uses `blocks.indexer` as its startBlock. Leaving it at the
+//  PREVIOUS round's block makes the indexer rescan every block since the old
+//  deployment — slow, and it indexes events from contracts that are no longer
+//  the live ones. Take it from the earliest block this deployment actually
+//  touched, minus a small margin so nothing at the boundary is missed.
+let firstBlock = null;
+for (const src of [launchpad, rotation, perp]) {
+  if (!src.found) continue;
+  const p = src.path.replace("run-latest.json", "run-latest.json");
+  try {
+    const run = JSON.parse(readFileSync(p, "utf8"));
+    for (const r of run.receipts ?? []) {
+      const b = Number(r.blockNumber);
+      if (Number.isFinite(b) && b > 0 && (firstBlock === null || b < firstBlock)) firstBlock = b;
+    }
+  } catch { /* no receipts yet */ }
+}
+if (firstBlock !== null && applied.length > 0) {
+  const start = Math.max(0, firstBlock - 10);
+  const before = m.blocks?.indexer;
+  m.blocks = { deploy: start, perp: start, indexer: start };
+  applied.push(["blocks.indexer", before ?? "(new)", start]);
+}
+
+//  ── THE POOL ID, READ FROM THE CHAIN ────────────────────────────────────
+//  `poolIds` is what stops the indexer from watching EVERY Uniswap v4 swap on
+//  the chain, so a stale one means the indexer watches the PREVIOUS round's pool
+//  and reports no activity at all for the new one — a failure that looks like a
+//  dead protocol rather than a misconfiguration.
+//
+//  It cannot come from the broadcast: the pool does not exist until `finalize()`
+//  summons it, which is a later transaction than the deploy. So it is read from
+//  the registry, and this step is skipped (with a warning) when no RPC is
+//  reachable — a manifest with old addresses and a new poolId would be worse
+//  than one this script left alone.
+async function readPoolId(registry) {
+  const rpc = process.env.RPC_URL || process.env.SEPOLIA_RPC ||
+    "https://ethereum-sepolia-rpc.publicnode.com";
+  const call = async (data) => {
+    const r = await fetch(rpc, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call",
+        params: [{ to: registry, data }, "latest"] }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message);
+    return j.result;
+  };
+  //  Selectors verified with `cast sig`, not derived by hand — an invented
+  //  selector reverts, and a reverting read here would silently leave `poolIds`
+  //  pointing at the previous round.
+  //    currentGeneration()        0x8ddb428a
+  //    generationPoolId(uint256)  0xcb648bed
+  const gen = BigInt(await call("0x8ddb428a"));
+  const arg = gen.toString(16).padStart(64, "0");
+  const id = await call("0xcb648bed" + arg);
+  return { gen: Number(gen), poolId: id };
+}
+
+if (applied.length > 0 && m.contracts.registry) {
+  try {
+    const { gen, poolId } = await readPoolId(m.contracts.registry);
+    if (poolId && !/^0x0{64}$/.test(poolId)) {
+      if (!same(m.poolIds?.[0], poolId)) {
+        applied.push(["poolIds[0]", m.poolIds?.[0] ?? "(new)", poolId]);
+        m.poolIds = [poolId];
+      }
+    } else {
+      console.log(`\n  NOTE: generation ${gen} has no pool yet — run finalize() to summon,`);
+      console.log("        then re-run this script so `poolIds` is updated.");
+    }
+  } catch (e) {
+    console.log(`\n  WARNING: could not read the pool id (${e.message}).`);
+    console.log("           `poolIds` is UNCHANGED and may point at the previous round.");
   }
 }
 
