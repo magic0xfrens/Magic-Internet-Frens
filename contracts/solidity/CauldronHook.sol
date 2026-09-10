@@ -1265,7 +1265,21 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  a non-native fee skips the buyback entirely and its share stays with
         //  the floor/relaunch split below, where `_creditReserve` denominates it
         //  correctly.
-        if (_feeAsset == address(0) && legacyRegistry != address(0) && legacyBps > 0) {
+        //  BUFFER ANY QUOTE, BUT NEVER MIX TWO. Was `_feeAsset == address(0)`,
+        //  which skipped the buyback entirely on a non-native fee and stopped the
+        //  collection floor accruing the moment a generation rotated off ether.
+        //  `LegacyBuyLib.buyStep` now settles in whatever the pool is quoted in,
+        //  so the native restriction is gone.
+        //
+        //  It is replaced by a MATCH, not by nothing. `legacyBuffer` is a single
+        //  balance spent into the LIVE pool, and mid-rotation a generation can
+        //  take fees from a sibling pool on the old quote — buffering both would
+        //  have the library try to pay USDG amounts as ether. A fee in anything
+        //  other than the live quote keeps its old route: it stays in the
+        //  floor/relaunch split below, where `_creditReserve` denominates it
+        //  correctly.
+        if (_feeAsset == Currency.unwrap(_liveKey.currency0)
+            && legacyRegistry != address(0) && legacyBps > 0) {
             uint256 want = ((feeAmount - wantGuild) * legacyBps) / BPS;
             uint256 fromFloor = want > wantFloor ? wantFloor : want;
             wantFloor -= fromFloor;

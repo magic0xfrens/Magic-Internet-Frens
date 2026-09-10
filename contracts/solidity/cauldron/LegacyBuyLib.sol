@@ -5,6 +5,8 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title LegacyBuyLib
@@ -66,7 +68,30 @@ library LegacyBuyLib {
         // taken — and since deltas must net to zero at unlock close, that would
         // revert the USER's parent swap.
         spent = uint256(uint128(-d.amount0()));
-        poolManager.settle{value: spent}();
+
+        //  SETTLE IN WHATEVER THE QUOTE IS, not always ether.
+        //
+        //  This was `settle{value: spent}()` unconditionally, which is why the
+        //  hook refused to buffer a non-native fee at all: paying ether into an
+        //  ERC20-quoted pool settles nothing the pool asked for, currency0's
+        //  delta stays open, and the unlock closes with `CurrencyNotSettled()` —
+        //  reverting the USER'S parent swap, since this runs nested inside it.
+        //  Skipping the buyback was the safe workaround; generalising the
+        //  settlement removes the reason for it, so the collection floor keeps
+        //  accruing on a rotated generation instead of silently stopping.
+        //
+        //  ERC20 settlement in v4 is sync -> transfer -> settle: `sync` snapshots
+        //  the manager's balance, the transfer moves the tokens in, and `settle`
+        //  credits the difference. This library is delegatecalled by the hook, so
+        //  `address(this)` is the hook and the tokens paid are its own.
+        address q = Currency.unwrap(key.currency0);
+        if (q == address(0)) {
+            poolManager.settle{value: spent}();
+        } else {
+            poolManager.sync(key.currency0);
+            IERC20(q).transfer(address(poolManager), spent);
+            poolManager.settle();
+        }
 
         got = uint256(uint128(d.amount1()));
         poolManager.take(key.currency1, address(this), got); // hold it on the hook
