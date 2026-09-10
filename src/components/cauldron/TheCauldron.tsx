@@ -19,6 +19,7 @@ import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
 import BrewNotes, { useBrewNotes } from "@/components/cauldron/BrewNotes";
+import LiquidityDial, { useLiquidity } from "@/components/cauldron/LiquidityDial";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
@@ -466,6 +467,9 @@ export default function TheCauldron() {
   // Fed by the live-swap socket: the green candle and every prime-buy tranche are
   // swaps, so the seeding feed refreshes on the block rather than on the poll.
   const seed = useSeedProgress(live_.nonce);
+  // Real, quote-side liquidity and its split by asset — see LiquidityDial for
+  // why the brew's own token is deliberately not in the number.
+  const liq = useLiquidity();
   const liveQuote = quoteMeta(liveQuoteAddr);
   const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
@@ -792,10 +796,14 @@ export default function TheCauldron() {
                       onPropose={() => setTab("governance")}
                     />
                   ) : (
-                    <div className="tc-reserve" title="LP liquidity + hook fee reserve + floor vault — all of it seeds the next iteration's pool on relaunch">
-                      <span className="tc-mono tc-dim">AVAILABLE FOR NEXT LAUNCH</span>
-                      <span className="tc-reserve__eth">{fmt(m.availableEth, 4)} <em>Ξ</em></span>
-                    </div>
+                    /*  The old panel showed one number and called it "available
+                        for next launch". It was wrong twice over: the tooltip
+                        claimed it included LP liquidity when the value was only
+                        the fee reserve plus the floor vault, and a single figure
+                        cannot express COMPOSITION — which is the whole question
+                        once the guild rotates its basis and the position is part
+                        ETH, part stable. */
+                    <LiquidityDial liq={liq} glyph={liveQuote.glyph || liveQuote.symbol} />
                   )}
                 </section>
 
@@ -819,8 +827,12 @@ export default function TheCauldron() {
                               </span>
                               <span className="tc-mono tc-dim">
                                 {seed.pokes} step{seed.pokes === 1 ? "" : "s"}
+                                {/*  "treasury 0.100Ξ" read as the treasury HOLDING that much.
+                                     It is the opposite: the budget it has already
+                                     SPENT buying the brew off its own market. The
+                                     seeder holds nothing once a tranche settles. */}
                                 {seed.primeSpentEth > 0 &&
-                                  ` · treasury ${seed.primeSpentEth.toFixed(3)}Ξ`}
+                                  ` · treasury bought ${seed.primeSpentEth.toFixed(3)}Ξ`}
                                 {seed.remaining > 0 && ` · ${Math.ceil(seed.remaining / 60)}m left`}
                               </span>
                             </div>

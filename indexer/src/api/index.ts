@@ -268,6 +268,9 @@ const POSLIQ = [{ type: "function", name: "getPositionLiquidity", stateMutabilit
 // seeder's own core positions, so it has no PositionManager position id.
 const SEEDER_READ = [
   { type: "function", name: "ethTotal", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "seeding", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "primeBudget", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "primeSpent", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 const REG_SEEDER = [
   { type: "function", name: "seeder", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
@@ -285,21 +288,30 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
     const sqrtP = BigInt(raw) & ((1n << 160n) - 1n);
     if (sqrtP === 0n) return 0;
 
-    // ATOMIC launch: one PositionManager position holds ledger A.
+    //  ── THE TWO SOURCES ARE ADDITIVE, NOT ALTERNATIVES ──────────────────
+    //  This used to `return` from the position branch, on the reasoning that a
+    //  position id meant an ATOMIC launch and no seeder. The hybrid seed broke
+    //  that: the registry now lays the BASE tranche as a PositionManager
+    //  position AND hands the remainder to the seeder, so both exist at once.
+    //  Returning early therefore reported only the base — about 15% of ledger A
+    //  — and "available for next launch" read 0.09 against a pool holding 0.55.
+    let quoteWei = 0n;
+
+    // 1. The registry's own position (full range: the base, or ledger A whole on
+    //    an atomic launch). amount0 is the QUOTE side by construction — the
+    //    token is mined to sort above it — so the brew's own token is excluded,
+    //    which is the only honest way to state liquidity.
     if (posId !== 0n) {
       const L = await perpClient.readContract({ address: POSITION_MGR, abi: POSLIQ, functionName: "getPositionLiquidity", args: [posId] }) as bigint;
-      if (L === 0n) return 0;
-      const amount0 = (L * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
-      return Number(formatEther(amount0));
+      if (L > 0n) quoteWei += (L * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
     }
 
-    // PROGRESSIVE launch: the seeder streams ledger A as its own core positions,
-    // so there is no position id to read and the branch above would report 0 —
-    // which is what made "available for next launch" show nothing while several
-    // ETH of recoverable liquidity sat in the pool. Fall back to the seeder's
-    // deployed ETH budget, which is what relaunch() recovers via withdrawAll.
+    // 2. The seeder's streamed bands. It holds these as CORE positions, which
+    //    carry no PositionManager id, so they are invisible to the read above.
     const seeder = await perpClient.readContract({ address: REGISTRY, abi: REG_SEEDER, functionName: "seeder" }) as `0x${string}`;
-    if (!seeder || seeder === "0x0000000000000000000000000000000000000000") return 0;
+    if (!seeder || seeder === "0x0000000000000000000000000000000000000000") {
+      return Number(formatEther(quoteWei));
+    }
     // ethTotal is the exact ETH the seeder was funded with at start — the
     // contract enforces `msg.value == cfg.ethTotal` — and the seeder holds no
     // ETH of its own once streaming has run, so this is the ETH now sitting in
@@ -310,10 +322,20 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
     // pool and is recovered, so the real figure is this or higher. Streaming
     // progress does not change it — unplaced budget is still held by the seeder
     // and recovered the same way.
-    const ethTotalWei = await perpClient.readContract({
-      address: seeder, abi: SEEDER_READ, functionName: "ethTotal",
-    }) as bigint;
-    return Number(formatEther(ethTotalWei));
+    //  Only counts while a campaign is live: `withdrawAll` clears `seeding` and
+    //  returns everything to the registry, and `ethTotal` keeps its last value —
+    //  so counting it unconditionally would double-report a dead generation's
+    //  liquidity against the new one.
+    const seeding = await perpClient.readContract({
+      address: seeder, abi: SEEDER_READ, functionName: "seeding",
+    }).catch(() => false) as boolean;
+    if (seeding) {
+      const ethTotalWei = await perpClient.readContract({
+        address: seeder, abi: SEEDER_READ, functionName: "ethTotal",
+      }) as bigint;
+      quoteWei += ethTotalWei;
+    }
+    return Number(formatEther(quoteWei));
   } catch (e) { console.error("lpEthOf failed:", String(e).slice(0,200)); return 0; }
 }
 type BrewChain = { deathThresholdEth: number; relaunchEth: number; nftMax: number; vaultEth: number; relaunchAt: number };
@@ -1067,6 +1089,98 @@ app.get("/gacha/:player", async (c) => {
 });
 
 /* ── dividend + "cast the spell" enchant ───────────────────────────────── */
+/* ── REAL LIQUIDITY COMPOSITION ─────────────────────────────────────────────
+ * What actually backs the brew, split by the asset it is denominated in.
+ *
+ * ONLY THE QUOTE SIDE COUNTS. A pool holds two assets, and one of them is the
+ * brew's own token — counting that is how a project claims a "$2M pool" that is
+ * half its own paper. Every Cauldron pair is opened with the quote as currency0
+ * (PoolOps mines the token to sort ABOVE it), so `amount0` IS the real side and
+ * the token is excluded by construction rather than by a subtraction someone has
+ * to remember to make.
+ *
+ * The split exists because rotation is SLICED: a generation part-way through a
+ * move from ETH to USDG genuinely holds both, and that is the composition worth
+ * drawing. Today's single-quote generation reports one slice at 100%, which is
+ * the same shape rather than a special case.
+ *
+ * Reserves are reported SEPARATELY and never folded into the pool figure: the
+ * hook's fee reserve and the floor vault are real value that seeds the next
+ * launch, but they are not liquidity anyone can trade against right now. */
+let realLiqCache: { at: number; v: unknown } = { at: 0, v: null };
+app.get("/liquidity", async (c) => {
+  if (realLiqCache.v && Date.now() - realLiqCache.at < 8000) return c.json(realLiqCache.v);
+  try {
+    const gen = await perpClient.readContract({
+      address: REGISTRY, abi: REG_POOLID, functionName: "currentGeneration",
+    }) as bigint;
+    if (gen === 0n) return c.json({ generation: 0, assets: [], totalUsd: null, pool: 0 });
+
+    const key = await perpClient.readContract({
+      address: REGISTRY, abi: REG_LP, functionName: "generationPoolKey", args: [gen],
+    }).catch(() => null) as readonly [string, string, number, number, string] | null;
+    const poolId = await perpClient.readContract({
+      address: REGISTRY, abi: REG_POOLID, functionName: "generationPoolId", args: [gen],
+    }).catch(() => null) as `0x${string}` | null;
+
+    const quoteAddr = (key?.[0] ?? NATIVE).toLowerCase();
+    const meta = QUOTES.find((q) => q.address.toLowerCase() === quoteAddr)
+      ?? { address: quoteAddr, symbol: quoteAddr === NATIVE ? "ETH" : "?", decimals: 18 };
+
+    // The pool's real depth, in the quote asset. Same measurement the relaunch
+    // recovers, so the number on screen is the number the next launch gets.
+    const poolAmount = poolId ? await lpEthOf(poolId, gen) : 0;
+
+    // Reserves, alongside but never inside the pool figure.
+    const [relaunchWei, vault] = await Promise.all([
+      perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }).catch(() => 0n) as Promise<bigint>,
+      perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "generationVault", args: [gen] }).catch(() => NATIVE) as Promise<`0x${string}`>,
+    ]);
+    const vaultWei = vault && vault !== NATIVE
+      ? await perpClient.getBalance({ address: vault }).catch(() => 0n) : 0n;
+
+    // USD, when an oracle can price it. 0 from the oracle means CANNOT JUDGE,
+    // never "worthless" — it stays null and the UI omits the figure rather than
+    // drawing a confident zero.
+    let usd: number | null = null;
+    const oracle = ROTATOR
+      ? await perpClient.readContract({ address: ROTATOR, abi: ROTATOR_READ, functionName: "quoteOracle" }).catch(() => null) as string | null
+      : null;
+    if (oracle && oracle !== NATIVE) {
+      const f = await perpClient.readContract({
+        address: oracle as `0x${string}`, abi: ORACLE_READ,
+        functionName: "usdPerRawUnit", args: [meta.address as `0x${string}`],
+      }).catch(() => 0n) as bigint;
+      if (f > 0n) usd = poolAmount * (Number(f) / 1e18);
+    }
+
+    const assets = [{
+      address: meta.address,
+      symbol: meta.symbol,
+      amount: poolAmount,
+      usd,
+      share: 1,          // one quote today; the shape is already the split
+      isBasis: true,
+    }];
+
+    const v = {
+      generation: Number(gen),
+      pool: poolAmount,                       // real, quote-side, token excluded
+      assets,
+      totalUsd: usd,
+      reserves: {
+        hookReserve: Number(formatEther(relaunchWei)),
+        floorVault: Number(formatEther(vaultWei)),
+      },
+      nextLaunch: poolAmount + Number(formatEther(relaunchWei)) + Number(formatEther(vaultWei)),
+    };
+    realLiqCache = { at: Date.now(), v };
+    return c.json(v);
+  } catch (e) {
+    return c.json({ generation: 0, assets: [], pool: 0, totalUsd: null, error: String(e).slice(0, 120) });
+  }
+});
+
 /* ── LAUNCH SEEDING FEED ────────────────────────────────────────────────────
  * Live progress of the progressive stream + the tranched prime buy, plus the
  * recent tape so the page can announce each step as it lands.
