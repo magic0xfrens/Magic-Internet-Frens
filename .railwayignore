@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Railway upload filter — THIS FILE MUST LIVE AT THE GIT ROOT.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#  `railway up` does not upload the directory you run it from. It walks up to
+#  the git root and uploads from there, which means a `.railwayignore` sitting
+#  next to the service (indexer/.railwayignore) is never read — it just gets
+#  archived along with everything else. That cost us three 413s from Cloudflare
+#  at ~250MB before the upload root was identified: the giveaway was that
+#  emptying indexer/ made the payload BIGGER, because the stashed node_modules
+#  had been moved to the repo root where nothing excluded it.
+#
+#  The service builds with rootDirectory=/indexer, so nothing outside indexer/
+#  is needed to build or run the indexer. Everything heavy is dropped here.
+#
+#  EVERY DIRECTORY PATTERN BELOW IS ANCHORED WITH A LEADING SLASH, AND THAT IS
+#  LOAD-BEARING. These are gitignore semantics: an unanchored `src` matches a
+#  directory named `src` at ANY depth, so it silently took `indexer/src` with
+#  it. The build still succeeded — package.json and the ABIs were present, npm
+#  install ran fine — and the container then crash-looped on
+#
+#      Event selector 'Swap' is used in a filter but does not have a
+#      corresponding indexing function
+#
+#  which reads like a ponder.config.ts bug and is really "index.ts was never
+#  uploaded, so no indexing functions were registered at all". A leading slash
+#  anchors the pattern to this file's directory (the git root) only.
+#
+#  `node_modules` is deliberately left unanchored: we want it gone at any depth.
+
+# Dependencies — Railway installs these itself during the Nixpacks build.
+node_modules/
+
+# Frontend: sources, static media and build output. The indexer serves an API
+# and never reads any of it. These three are the bulk of the archive (~300MB).
+/src/
+/public/
+/dist/
+
+# Foundry: lib/ (submodules), out/ (artifacts) and cache/ are rebuilt on demand
+# and are ~180MB. The indexer reads ABIs from indexer/abis, not from here.
+/contracts/
+
+# Audit sources, PDFs and the archived previous frontend.
+/audit/
+/archive/
+
+# Local Ponder sync state + codegen: rebuilt on deploy, and the sync cache is
+# specific to whatever database it was built against. Unanchored on purpose —
+# these are junk wherever they appear.
+.ponder/
+generated/
+
+# Secrets — Railway holds the real values as service variables. contracts/.env
+# has held a plaintext deploy key; it must never reach a build log.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Noise.
+/.git/
+*.log
+.DS_Store
+/.vercel/
