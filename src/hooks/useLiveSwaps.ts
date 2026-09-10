@@ -50,6 +50,28 @@ const T = {
   REVEALED:   "0x4105048da870d53e5d1897a04b28ff7adcb26454cb905eddf8756d2677d3a7b2",
 } as const;
 
+/**
+ * The LAUNCH SEEDER's steps.
+ *
+ * These are announced from the indexer (useSeedProgress), not decoded here — the
+ * point of listing them is only to bump the nonce so that feed refetches on the
+ * block instead of waiting out its interval.
+ *
+ * They need their own set because most of them are NOT swaps. A poke that places
+ * liquidity emits `ModifyLiquidity`, and `BasePlaced`/`SeedComplete` emit nothing
+ * tradeable at all — so without this, exactly the steps the launch page exists to
+ * show were the ones that arrived late. A poke that ALSO runs a prime-buy tranche
+ * does emit a Swap, which is why prime tranches already felt instant and plain
+ * liquidity adds did not.
+ */
+const SEED_TOPICS: ReadonlySet<string> = new Set([
+  "0x9b9d34c9805ae2709c69a9ccaf8ff13fe3b2167bdd9ce45d9f5ced93b6ac4196", // SeedStarted(uint256,uint256,uint256,uint64)
+  "0x86466ded471dd23c877d652a7154dee80b1c736c369a5a813f2a13883c3b1cfb", // BasePlaced(uint256,uint128)
+  "0x17720a756e6231101c16b3521fafc972de5b997ec65d082c5fc8f48ca84517f6", // Poked(uint256,uint256,int24)
+  "0x08ef350cfdfd206357bb28d42ee3a5f807329713f0c4ac1d415b576cf86dc0d1", // SeedComplete(uint256)
+  "0xec39f70e32c16a30591b6a3afbd12571aa7aa9d393f240eea0f05f551256b8b1", // PrimeBought(uint256,uint256,uint256,uint256,uint256)
+]);
+
 export type EventKind =
   | "buy" | "sell" | "gacha-commit" | "gacha-win" | "gacha-miss"
   | "perp-open" | "perp-close" | "liquidation" | "badge" | "revealed";
@@ -133,6 +155,8 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           round.contracts.hook,
           round.contracts.perpEngine,
           round.contracts.collection,
+          // The launch seeder, so liquidity steps ping as fast as trades do.
+          (round.contracts as Record<string, string>).seeder,
         ].filter(Boolean);
         if (ours.length > 0) {
           ws.send(JSON.stringify({
@@ -218,6 +242,11 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
             kind = "badge"; who = addrTopic(2);
             detail = `badge #${word(0)}`;
           }
+          // Seeding steps: no toast from here (useSeedProgress writes the copy
+          // from indexed data), just wake the page so it refetches immediately.
+          // Must come BEFORE the `kind` gate, which drops everything it cannot
+          // decode into an EventKind.
+          if (SEED_TOPICS.has(topic0)) { setNonce((n) => n + 1); return; }
           if (!kind) return;
 
           const hash = String(log.transactionHash ?? "");
