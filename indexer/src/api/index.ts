@@ -1131,13 +1131,27 @@ app.get("/liquidity", async (c) => {
     // recovers, so the number on screen is the number the next launch gets.
     const poolAmount = poolId ? await lpEthOf(poolId, gen) : 0;
 
-    // Reserves, alongside but never inside the pool figure.
-    const [relaunchWei, vault] = await Promise.all([
-      perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }).catch(() => 0n) as Promise<bigint>,
-      perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "generationVault", args: [gen] }).catch(() => NATIVE) as Promise<`0x${string}`>,
-    ]);
-    const vaultWei = vault && vault !== NATIVE
-      ? await perpClient.getBalance({ address: vault }).catch(() => 0n) : 0n;
+    //  ── THE FLOORS ARE TOKEN-DENOMINATED, SO THEY ARE NOT REPORTED HERE ──
+    //  An earlier cut of this reported `generationVault`'s ether balance as a
+    //  "floor vault", which is a measurement of something designed to be
+    //  permanently zero. The registry says so at the point it deploys the vault:
+    //
+    //      // UNIFIED FLOOR: no ETH vault - route the fee floor-share into the
+    //      // token buyback buffer (setVault(0)); the vault stays deployed only
+    //      // as a supply counter for crystallize.
+    //      hook.setVault(address(0));
+    //
+    //  Both floors this protocol has are backed in TOKEN, not ether: the genesis
+    //  redemption floor is the out-of-range reserve (claimed 1:1 by burn, see
+    //  /floor), and each collection's floor is a token entitlement in
+    //  CollectionLedger. Reporting an ether figure for either would invite the
+    //  reader to add it to the pool, which is exactly the wrong sum.
+    //
+    //  The hook's fee reserve IS ether and IS additive to the next launch, so it
+    //  stays.
+    const relaunchWei = await perpClient.readContract({
+      address: HOOK, abi: HOOK_READ, functionName: "relaunchETH",
+    }).catch(() => 0n) as bigint;
 
     // USD, when an oracle can price it. 0 from the oracle means CANNOT JUDGE,
     // never "worthless" — it stays null and the UI omits the figure rather than
@@ -1170,9 +1184,8 @@ app.get("/liquidity", async (c) => {
       totalUsd: usd,
       reserves: {
         hookReserve: Number(formatEther(relaunchWei)),
-        floorVault: Number(formatEther(vaultWei)),
       },
-      nextLaunch: poolAmount + Number(formatEther(relaunchWei)) + Number(formatEther(vaultWei)),
+      nextLaunch: poolAmount + Number(formatEther(relaunchWei)),
     };
     realLiqCache = { at: Date.now(), v };
     return c.json(v);

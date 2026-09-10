@@ -856,7 +856,20 @@ export default function TheCauldron() {
                       <div className="tc-chart-mcap">
                         <span className="tc-mono tc-dim">MARKET CAP</span>
                         <span className="tc-chart-mcap__v">{m.mcapUsd > 0 ? usdCompact(m.mcapUsd) : (m.mcap > 0 ? `${fmt(m.mcap, 2)} Ξ` : "—")}</span>
-                        <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>{m.fdv > 0 ? `${fmt(m.fdv, 2)} Ξ FDV` : ""}</span>
+                        {/*  SAME UNIT AS THE HEADLINE, ALWAYS. This printed the
+                             market cap in DOLLARS and the FDV in ETHER right
+                             beneath it, so "$1.8K" over "0.84 Ξ FDV" read as a
+                             fully-diluted value SMALLER than the circulating one
+                             — an impossibility that was really just two scales
+                             stacked. FDV now follows whichever unit the headline
+                             is using. */}
+                        <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>
+                          {m.fdv > 0
+                            ? (m.mcapUsd > 0 && m.fdvUsd > 0
+                                ? `${usdCompact(m.fdvUsd)} FDV`
+                                : `${fmt(m.fdv, 2)} Ξ FDV`)
+                            : ""}
+                        </span>
                       </div>
                     </div>
                     {/* The Brew keeps a clean, simple price line — OI + the

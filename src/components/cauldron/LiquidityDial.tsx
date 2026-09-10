@@ -20,13 +20,16 @@ export interface Liquidity {
   pool: number;
   assets: LiqAsset[];
   totalUsd: number | null;
-  reserves: { hookReserve: number; floorVault: number };
+  reserves: { hookReserve: number };
+  /** Genesis redemption floor, in TOKENS per fren. The floors are not ether. */
+  floorPerFren?: number;
+  floorTicker?: string;
   nextLaunch: number;
 }
 
 const EMPTY: Liquidity = {
   generation: 0, pool: 0, assets: [], totalUsd: null,
-  reserves: { hookReserve: 0, floorVault: 0 }, nextLaunch: 0,
+  reserves: { hookReserve: 0 }, nextLaunch: 0,
 };
 
 /** Per-asset colours. Keyed by symbol so a new quote lands somewhere sensible. */
@@ -49,7 +52,21 @@ export function useLiquidity(refreshKey?: string | number): Liquidity {
       const r = await fetch(`${INDEXER}/liquidity`, { signal: AbortSignal.timeout(10000) });
       if (!r.ok) return;
       const d = await r.json();
-      if (d && typeof d.pool === "number") setV({ ...EMPTY, ...d });
+      if (!d || typeof d.pool !== "number") return;
+      //  The genesis floor comes from /floor, which already computes it. Fetched
+      //  here rather than duplicated into /liquidity so there is one definition
+      //  of the floor in the system.
+      let floorPerFren: number | undefined;
+      let floorTicker: string | undefined;
+      try {
+        const fr = await fetch(`${INDEXER}/floor`, { signal: AbortSignal.timeout(8000) });
+        if (fr.ok) {
+          const fj = await fr.json();
+          floorPerFren = typeof fj.floorPerFren === "number" ? fj.floorPerFren : undefined;
+          floorTicker = fj.ticker || undefined;
+        }
+      } catch { /* the ring is still correct without it */ }
+      setV({ ...EMPTY, ...d, floorPerFren, floorTicker });
     } catch { /* keep the last good reading */ }
   }, []);
   usePoll(load, 12_000);
@@ -82,21 +99,24 @@ export default function LiquidityDial({ liq, glyph = "Ξ" }: { liq: Liquidity; g
 
   // Geometry. One ring, drawn as arcs on a circle via stroke-dasharray, which
   // stays crisp at any size and needs no chart library for what is a few arcs.
-  const R = 52, C = 2 * Math.PI * R, GAP = assets.length > 1 ? 3 : 0;
+  const R = 50, C = 2 * Math.PI * R, GAP = assets.length > 1 ? 4 : 0;
   let offset = 0;
 
   return (
-    <div className="ld">
-      <div className="ld__ring">
+    <div className="lqd">
+      <div className="lqd__ring">
         <svg viewBox="0 0 128 128" role="img" aria-label="Liquidity composition">
-          <circle className="ld__track" cx="64" cy="64" r={R} />
+          <circle className="lqd__track" cx="64" cy="64" r={R} />
+          {/* Engraved tick ring — instrument texture, struck into the panel
+              rather than floating on it. */}
+          <circle className="lqd__ticks" cx="64" cy="64" r={R} />
           {assets.map((a, i) => {
             const len = Math.max(0, a.share) * C;
             const dash = Math.max(0, len - GAP);
             const el = (
               <circle
                 key={a.address || a.symbol}
-                className="ld__arc"
+                className="lqd__arc"
                 cx="64" cy="64" r={R}
                 stroke={hueFor(a.symbol, i)}
                 strokeDasharray={`${dash} ${C - dash}`}
@@ -108,18 +128,18 @@ export default function LiquidityDial({ liq, glyph = "Ξ" }: { liq: Liquidity; g
             return el;
           })}
         </svg>
-        <div className="ld__centre">
-          <span className="ld__value">{fmt(liq.pool)}</span>
-          <span className="ld__unit">{assets.length === 1 ? assets[0].symbol : "in LP"}</span>
+        <div className="lqd__centre">
+          <span className="lqd__value">{fmt(liq.pool)}</span>
+          <span className="lqd__unit">{assets.length === 1 ? assets[0].symbol : "in LP"}</span>
           {liq.totalUsd != null && (
-            <span className="ld__usd">${fmt(liq.totalUsd, 0)}</span>
+            <span className="lqd__usd">${fmt(liq.totalUsd, 0)}</span>
           )}
         </div>
       </div>
 
-      <div className="ld__side">
-        <span className="ld__label">REAL LIQUIDITY · QUOTE SIDE</span>
-        <ul className="ld__legend">
+      <div className="lqd__side">
+        <span className="lqd__label">REAL LIQUIDITY · QUOTE SIDE</span>
+        <ul className="lqd__legend">
           {assets.map((a, i) => (
             <li key={a.address || a.symbol}>
               <i style={{ background: hueFor(a.symbol, i) }} />
@@ -129,66 +149,108 @@ export default function LiquidityDial({ liq, glyph = "Ξ" }: { liq: Liquidity; g
             </li>
           ))}
         </ul>
-        <div className="ld__reserves">
-          <span title="Hook fee reserve — seeds the next iteration, not tradeable depth">
-            fee reserve <em>{fmt(liq.reserves.hookReserve)}</em>
+        <div className="lqd__reserves">
+          <span title="Swap fees held by the hook. Real ether, added to the pool at the next relaunch — but not depth anyone can trade against today.">
+            fee reserve <em>{fmt(liq.reserves.hookReserve)} {glyph}</em>
           </span>
-          <span title="Collection floor vault — backs redemptions, not tradeable depth">
-            floor vault <em>{fmt(liq.reserves.floorVault)}</em>
-          </span>
+          {/*  The floors are TOKEN-denominated and deliberately not shown in
+               ether. The registry deploys the collection vault with
+               `hook.setVault(0)` and the comment "UNIFIED FLOOR: no ETH vault",
+               so an ether figure there is always zero — printing it invited the
+               reader to add a floor to the pool, which is the wrong sum. What
+               actually backs redemption is the out-of-range token reserve. */}
+          {liq.floorPerFren ? (
+            <span title="Genesis redemption floor: the out-of-range token reserve, claimed 1:1 by burning a fren. Denominated in the brew's own token, not ether.">
+              genesis floor <em>{fmt(liq.floorPerFren, 0)} {liq.floorTicker || "tok"}/fren</em>
+            </span>
+          ) : null}
         </div>
       </div>
 
       <style>{`
-        .ld { display: flex; align-items: center; gap: 18px; padding: 4px 2px; }
-        .ld__ring { position: relative; flex: 0 0 128px; width: 128px; height: 128px; }
-        .ld__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .ld__track { fill: none; stroke: rgba(245,240,232,.07); stroke-width: 11; }
-        .ld__arc {
-          fill: none; stroke-width: 11; stroke-linecap: butt;
-          filter: drop-shadow(0 0 6px currentColor);
-          animation: ld-sweep .9s cubic-bezier(.16,1,.3,1) both;
-          transition: stroke-dasharray .7s cubic-bezier(.16,1,.3,1);
+        /*  Wears the SAME shell as the panel it replaced (.tc-reserve): a faint
+            lime wash under a lime hairline. The dial should read as part of the
+            page's furniture, not a widget dropped onto it. */
+        .lqd {
+          width: 100%; display: flex; align-items: center; gap: 16px;
+          padding: 14px; border-radius: var(--r-sm);
+          background:
+            radial-gradient(120% 140% at 0% 0%, rgba(213,253,81,0.07), transparent 58%),
+            rgba(213,253,81,0.05);
+          border: 1px solid rgba(213,253,81,0.12);
         }
-        @keyframes ld-sweep { from { opacity: 0; stroke-width: 3; } }
 
-        .ld__centre {
+        .lqd__ring { position: relative; flex: 0 0 116px; width: 116px; height: 116px; }
+        .lqd__ring::before {
+          /* Soft bloom under the ring — the brew glowing through the glass. */
+          content: ""; position: absolute; inset: 12%;
+          border-radius: 50%; background: radial-gradient(circle, rgba(213,253,81,.10), transparent 70%);
+          filter: blur(6px);
+        }
+        .lqd__ring svg { position: relative; width: 100%; height: 100%; transform: rotate(-90deg); }
+
+        .lqd__track { fill: none; stroke: rgba(245,240,232,.06); stroke-width: 8; }
+        .lqd__ticks {
+          fill: none; stroke: rgba(213,253,81,.14); stroke-width: 8;
+          stroke-dasharray: 0.9 7.2;            /* fine engraved graduations */
+        }
+        .lqd__arc {
+          fill: none; stroke-width: 8; stroke-linecap: round;
+          filter: drop-shadow(0 0 5px currentColor);
+          animation: ld-sweep 1.05s cubic-bezier(.16,1,.3,1) both;
+          transition: stroke-dasharray .8s cubic-bezier(.16,1,.3,1),
+                      stroke-dashoffset .8s cubic-bezier(.16,1,.3,1);
+        }
+        @keyframes ld-sweep { from { stroke-dasharray: 0 999; opacity: .25; } }
+
+        .lqd__centre {
           position: absolute; inset: 0; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 1px; pointer-events: none;
         }
-        .ld__value { font: 600 21px/1 "DM Mono", ui-monospace, monospace; color: #f5f0e8; }
-        .ld__unit  { font: 400 9px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
-                     text-transform: uppercase; letter-spacing: .14em; }
-        .ld__usd   { font: 400 10px/1 "DM Mono", ui-monospace, monospace; color: #3ddc84; margin-top: 3px; }
+        /*  THE HERO NUMERAL, in the wordmark's own face. Every headline figure on
+            this page is Cinzel Decorative 900 — the price, the brew name, and the
+            "available for next launch" value this dial replaced. Setting it in
+            mono made the dial read as a foreign component. */
+        .lqd__value {
+          font-family: "Cinzel Decorative", serif; font-weight: 900;
+          font-size: 21px; line-height: 1; color: #d5fd51;
+          text-shadow: 0 0 16px rgba(213,253,81,.35);
+        }
+        .lqd__unit {
+          font: 400 8.5px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
+          text-transform: uppercase; letter-spacing: .16em; margin-top: 3px;
+        }
+        .lqd__usd { font: 400 10px/1 "DM Mono", ui-monospace, monospace; color: #3ddc84; margin-top: 2px; }
 
-        .ld__side { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
-        .ld__label { font: 400 9px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
-                     text-transform: uppercase; letter-spacing: .14em; }
+        .lqd__side { display: flex; flex-direction: column; gap: 7px; min-width: 0; flex: 1; }
+        .lqd__label {
+          font: 400 8.5px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
+          text-transform: uppercase; letter-spacing: .16em;
+        }
 
-        .ld__legend { list-style: none; margin: 0; padding: 0; display: flex;
+        .lqd__legend { list-style: none; margin: 0; padding: 0; display: flex;
                       flex-direction: column; gap: 5px; }
-        .ld__legend li { display: flex; align-items: center; gap: 8px;
-                         font: 400 11.5px/1 "DM Sans", sans-serif; color: #b8adcc; }
-        .ld__legend i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 8px;
-                        box-shadow: 0 0 8px currentColor; }
-        .ld__legend b { color: #f5f0e8; font-weight: 600; min-width: 42px; }
-        .ld__legend em { font-style: normal; font-family: "DM Mono", ui-monospace, monospace;
-                         color: #b8adcc; }
-        .ld__legend span { margin-left: auto; font-family: "DM Mono", ui-monospace, monospace;
-                           color: #8f83b8; font-size: 10.5px; }
+        .lqd__legend li { display: flex; align-items: center; gap: 8px;
+                         font: 400 11px/1 "DM Mono", ui-monospace, monospace; color: #b8adcc; }
+        .lqd__legend i { width: 7px; height: 7px; border-radius: 2px; flex: 0 0 7px; }
+        .lqd__legend b { color: #f5f0e8; font-weight: 500; min-width: 40px; }
+        .lqd__legend em { font-style: normal; color: #b8adcc; }
+        .lqd__legend span { margin-left: auto; color: #8f83b8; font-size: 10px; }
 
-        .ld__reserves { display: flex; flex-direction: column; gap: 3px; margin-top: 3px;
-                        padding-top: 8px; border-top: 1px solid rgba(245,240,232,.08); }
-        .ld__reserves span { display: flex; justify-content: space-between;
-                             font: 400 10px/1.3 "DM Mono", ui-monospace, monospace; color: #8f83b8; }
-        .ld__reserves em { font-style: normal; color: #b8adcc; }
+        .lqd__reserves { display: flex; flex-direction: column; gap: 3px; margin-top: 2px;
+                        padding-top: 7px; border-top: 1px solid rgba(213,253,81,.10); }
+        .lqd__reserves span { display: flex; justify-content: space-between; gap: 10px;
+                             font: 400 9.5px/1.4 "DM Mono", ui-monospace, monospace;
+                             color: #8f83b8; text-transform: uppercase; letter-spacing: .08em; }
+        .lqd__reserves em { font-style: normal; color: #b8adcc; text-transform: none; letter-spacing: 0; }
 
         @media (max-width: 560px) {
-          .ld { flex-direction: column; align-items: stretch; gap: 12px; }
-          .ld__ring { align-self: center; }
+          .lqd { flex-direction: column; gap: 14px; }
+          .lqd__ring { align-self: center; }
+          .lqd__side { width: 100%; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .ld__arc { animation: none; transition: none; }
+          .lqd__arc { animation: none; transition: none; }
         }
       `}</style>
     </div>
