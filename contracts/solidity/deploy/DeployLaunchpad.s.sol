@@ -4,6 +4,10 @@ pragma solidity ^0.8.26;
 import {Script, console2} from "forge-std/Script.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {IPositionManagerOps} from "../cauldron/PoolOps.sol";
 import {HookMiner} from "../vendor/HookMiner.sol";
 
 import {CauldronHook} from "../CauldronHook.sol";
@@ -20,6 +24,9 @@ import {LiquidatoorRenderer} from "../render/LiquidatoorRenderer.sol";
 import {BadgeArtLib} from "./BadgeArtLib.sol";
 import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../cauldron/TreasuryGovernor.sol";
+import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
+import {MockQuoteToken} from "../cauldron/MockQuoteToken.sol";
+import {VenueSeeder} from "./DeployRotationStack.s.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
@@ -351,6 +358,20 @@ contract DeployLaunchpad is Script {
         registry.setRotationWiring(address(rotator), address(treasuryGov));
         console2.log("TreasuryGovernor:", address(treasuryGov));
 
+        //  4e. THE ROTATION STACK — quote asset, price feeds, and the VENUE.
+        //
+        //  Folded in here rather than left to a follow-up script. Two scripts
+        //  each deploying a QuoteRotator meant the venue could end up curated on
+        //  the rotator the registry was NOT pointing at, and the failure mode is
+        //  silent: every rotation reverts `NoRoute` while both contracts look
+        //  perfectly deployed. One script cannot get that ordering wrong.
+        //
+        //  Skipped entirely when DEPLOY_QUOTES=false, for a deployment that only
+        //  wants the ETH-quoted core.
+        if (vm.envOr("DEPLOY_QUOTES", true)) {
+            _deployRotationStack(registry, rotator, poolManager, positionManager, deployer);
+        }
+
         registry.setGenesisBonus(address(presale), bonusBps, supply);
         // OG-holder airdrop: DEFAULT is the "snipe" model (no reserve → no
         // presaler dilution). The deployer is flagged fee-EXEMPT so it can buy
@@ -406,5 +427,83 @@ contract DeployLaunchpad is Script {
         console2.log("genesis bonus bps:", bonusBps);
         console2.log("presale price wei:", price);
         console2.log("presale supply  :", supply);
+    }
+
+    /// @notice Chainlink ETH/USD on Sepolia. Verified live: $2481.38, 113s old.
+    address internal constant FEED_ETH_USD = 0x694AA1769357215DE4FAC081bf1f309aDC325306;
+    /// @notice Chainlink USDC/USD on Sepolia. Verified live: $0.9999, 3.1h old.
+    ///         USDG is a mock USD stable, so this is the honest model for it.
+    address internal constant FEED_USDC_USD = 0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E;
+    /// @dev Heartbeats sized to what testnet feeds ACTUALLY do: USDC lagged 3.1h
+    ///      when measured and DAI/USD was 13h stale, so a mainnet-cadence
+    ///      heartbeat would reject feeds that are working as well as testnet
+    ///      feeds ever work, and every price would read "cannot judge".
+    uint32 internal constant HB_ETH = 4 hours;
+    uint32 internal constant HB_USDC = 12 hours;
+    uint24 internal constant VENUE_FEE = 3000;
+    int24 internal constant VENUE_SPACING = 60;
+
+    /**
+     * @dev Quote asset, oracle feeds, and the curated venue the rotation swaps
+     *      through. Separate function purely to keep `run()` under the stack
+     *      limit; it is part of the same broadcast.
+     *
+     *  THE VENUE IS THE PART THAT IS EASY TO FORGET. `QuoteRotator`'s allowlist
+     *  FAILS CLOSED, so a rotation through an uncurated pool reverts `NoRoute`
+     *  however deep that pool is. And USDG here is a fresh mock, so no ETH/USDG
+     *  pool exists to curate — it has to be CREATED and given depth first. A
+     *  curated venue with no liquidity is a rotation that reverts on `minOut`.
+     */
+    function _deployRotationStack(
+        CauldronRegistry registry,
+        QuoteRotator rotator,
+        address poolManager,
+        address positionManager,
+        address deployer
+    ) internal {
+        MockQuoteToken usdg = new MockQuoteToken("Magic USD", "USDG", 6);
+        QuoteOracle oracle = new QuoteOracle(deployer);
+
+        //  Real Chainlink where it exists. USDG is a mock USD stablecoin, so
+        //  pricing it off the real USDC/USD feed is the accurate model rather
+        //  than a fabrication — and it means the oracle path under test is the
+        //  same code mainnet runs. `quoteDecimals` is the TOKEN's (18 native,
+        //  6 USDG), passed explicitly so a mock with a wrong `decimals()` cannot
+        //  misprice by orders of magnitude.
+        oracle.setFeed(address(0), FEED_ETH_USD, HB_ETH, 18);
+        oracle.setFeed(address(usdg), FEED_USDC_USD, HB_USDC, 6);
+        rotator.setArbParams(address(oracle), 1000, 5e18);
+        registry.setAllowedQuote(address(usdg), true, 1e18);
+
+        //  Create and seed the venue pool, then curate it. `openOrAddPair`
+        //  asserts `token > quote`; USDG sorts above native, so currency0 is ETH
+        //  and currency1 is USDG, with hook = 0 (a vanilla v4 pool, not a
+        //  Cauldron pool).
+        uint256 venueEth = vm.envOr("VENUE_ETH", uint256(0.02 ether));
+        uint256 venueUsdg = vm.envOr("VENUE_USDG", uint256(60e6));
+        //  Mint STRAIGHT to the seeder. Foundry refuses `address(this)` inside a
+        //  script — script contracts are ephemeral, so an address derived from
+        //  one is meaningless once the broadcast ends — and the mint-then-
+        //  transfer round trip was only ever there to stage the tokens.
+        VenueSeeder vs = new VenueSeeder();
+        usdg.mint(address(vs), venueUsdg);
+        vs.seed{value: venueEth}(
+            IPoolManager(poolManager), IPositionManagerOps(positionManager),
+            address(usdg), venueEth, venueUsdg, VENUE_SPACING, VENUE_FEE
+        );
+        rotator.setVenue(
+            PoolKey({
+                currency0: Currency.wrap(address(0)),
+                currency1: Currency.wrap(address(usdg)),
+                fee: VENUE_FEE,
+                tickSpacing: VENUE_SPACING,
+                hooks: IHooks(address(0))
+            }),
+            true
+        );
+
+        console2.log("USDG           :", address(usdg));
+        console2.log("QuoteOracle    :", address(oracle));
+        console2.log("venue LP holder:", address(vs));
     }
 }

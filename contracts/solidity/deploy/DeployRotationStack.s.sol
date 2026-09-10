@@ -126,21 +126,46 @@ contract DeployRotationStack is Script {
         // deploy), matching its own header: choosing which assets exist and
         // choosing how they are priced are the same decision.
         QuoteOracle oracle = new QuoteOracle(me);
-        QuoteRotator rotator = new QuoteRotator(registry, IPoolManager(poolManager));
-        // The guardian can cancel a passed proposal but cannot pass one; the
-        // deployer holds it until governance is handed over.
-        //  Same deploy-time timing choice as DeployLaunchpad; see the comment
-        //  there. Unset env => mainnet durations.
-        bool testnetGov = vm.envOr("TESTNET_GOV", false);
-        TreasuryGovernor governor = new TreasuryGovernor(
-            IVotes721(mifrens), registry, me,
-            uint64(vm.envOr("GOV_VOTING_PERIOD", uint256(0))),
-            uint64(vm.envOr("GOV_ENVELOPE_LIFETIME", uint256(0))),
-            uint64(vm.envOr("GOV_COOLDOWN", uint256(0))),
-            uint64(vm.envOr("GOV_EXECUTION_WINDOW", uint256(0))),
-            testnetGov
-        );
-        if (testnetGov) console2.log("!! TESTNET GOVERNANCE TIMING - not for mainnet");
+        //  ── COMPOSE WITH DeployLaunchpad, DO NOT DUPLICATE IT ──────────────
+        //  DeployLaunchpad already deploys a QuoteRotator AND a TreasuryGovernor
+        //  and calls `setRotationWiring`. This script used to deploy its own pair
+        //  and re-wire, which left the Launchpad pair orphaned — wasted gas, two
+        //  live rotators, and a venue curated on whichever one happened to win
+        //  the last `setRotationWiring`. Getting that ordering wrong silently
+        //  produces a deployment where every rotation reverts `NoRoute`, because
+        //  the curated venue is on the rotator the registry is NOT pointing at.
+        //
+        //  `quoteRotator`/`treasuryGovernor` are `internal` on CauldronBase with
+        //  no getter (the registry has ~60 bytes of EIP-170 margin), so this
+        //  cannot read what is already wired — pass them in. Both are printed by
+        //  DeployLaunchpad for exactly this purpose.
+        //
+        //  Unset => deploy a fresh pair and wire it, which is the standalone path
+        //  for a deployment that never ran DeployLaunchpad.
+        address existingRotator = vm.envOr("ROTATOR", address(0));
+        address existingGov = vm.envOr("TREASURY_GOVERNOR", address(0));
+
+        QuoteRotator rotator;
+        TreasuryGovernor governor;
+        bool reused = existingRotator != address(0) && existingGov != address(0);
+
+        if (reused) {
+            rotator = QuoteRotator(payable(existingRotator));
+            governor = TreasuryGovernor(existingGov);
+            console2.log("reusing the rotator + governor from DeployLaunchpad");
+        } else {
+            bool testnetGov = vm.envOr("TESTNET_GOV", false);
+            rotator = new QuoteRotator(registry, IPoolManager(poolManager));
+            governor = new TreasuryGovernor(
+                IVotes721(mifrens), registry, me,
+                uint64(vm.envOr("GOV_VOTING_PERIOD", uint256(0))),
+                uint64(vm.envOr("GOV_ENVELOPE_LIFETIME", uint256(0))),
+                uint64(vm.envOr("GOV_COOLDOWN", uint256(0))),
+                uint64(vm.envOr("GOV_EXECUTION_WINDOW", uint256(0))),
+                testnetGov
+            );
+            if (testnetGov) console2.log("!! TESTNET GOVERNANCE TIMING - not for mainnet");
+        }
         rotator.setArbParams(address(oracle), 1000, 5e18);
 
         // ── 2b. Price feeds. Real Chainlink for ETH and USDG; mock for xNVDA.
@@ -183,7 +208,10 @@ contract DeployRotationStack is Script {
         // ── 5. Wire it all into the registry ───────────────────────────────
         if (owner == me) {
             reg.setAllowedQuote(address(usdg), true, 1e18);
-            reg.setRotationWiring(address(rotator), address(governor));
+            //  Only when this script deployed the pair. Re-wiring a reused pair
+            //  is a no-op at best and, if the addresses were mistyped, silently
+            //  points the registry at a rotator with no curated venue.
+            if (!reused) reg.setRotationWiring(address(rotator), address(governor));
             console2.log("wired directly (deployer owns the registry)");
         } else {
             console2.log("REGISTRY OWNED BY TIMELOCK - queue these:");
