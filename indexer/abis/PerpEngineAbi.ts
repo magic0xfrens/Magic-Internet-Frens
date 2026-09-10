@@ -51,4 +51,8 @@ export const PerpEngineAbi = [
 export const RegistryGenReadAbi = [
   { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "generationPoolId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bytes32" }] },
+  // The asset a generation's token is PRICED IN (0 = native ETH). Recorded at
+  // rebirth and fixed for that generation's whole life, so one read per pool
+  // registration is enough.
+  { type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
 ] as const;

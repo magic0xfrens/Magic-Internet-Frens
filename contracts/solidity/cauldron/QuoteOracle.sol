@@ -141,13 +141,49 @@ contract QuoteOracle {
         if (address(f.aggregator) == address(0)) return 0;
         if (!_sequencerOk()) return 0;
 
-        (, int256 answer,, uint256 updatedAt,) = f.aggregator.latestRoundData();
+        //  ── A FEED CAN REVERT, NOT ONLY GO STALE ────────────────────────────
+        //  The three unusable conditions above are all cases where the feed
+        //  ANSWERS and the answer is no good. A feed can also fail by not
+        //  answering at all: a retired or migrated aggregator, an
+        //  access-controlled one, or simply an address with no code behind it
+        //  (a high-level call to a codeless address reverts on the extcodesize
+        //  check). None of those returned 0 — they threw, straight through this
+        //  function and out of {cachedUsdPerRawUnit}, which is a `view` called
+        //  via `this.` and so propagates.
+        //
+        //  That mattered because it bypassed the cache. A STALE feed degrades
+        //  to 0, and the cache below keeps the last good factor; a REVERTING
+        //  feed never reached that line, so the caller saw a failure instead of
+        //  a price. `CauldronHook._toUsd` turns that failure into a 0 volume
+        //  contribution, and volume is what `isDead` judges — so a feed that
+        //  broke by reverting pushed a live generation toward a permissionless,
+        //  irreversible relaunch, while the identical feed going stale did not.
+        //  Same real-world condition, opposite outcomes.
+        int256 answer;
+        uint256 updatedAt;
+        try f.aggregator.latestRoundData() returns (
+            uint80, int256 a, uint256, uint256 u, uint80
+        ) {
+            answer = a;
+            updatedAt = u;
+        } catch {
+            return 0;
+        }
         if (answer <= 0) return 0;
         // A feed that has stopped updating still answers, and its answer looks
         // perfectly valid — which is what makes staleness worth checking.
-        if (updatedAt == 0 || block.timestamp - updatedAt > f.heartbeat) return 0;
+        // `updatedAt` in the FUTURE is also refused rather than subtracted:
+        // `block.timestamp - updatedAt` is checked arithmetic, so a feed with a
+        // skewed clock would have reverted here too.
+        if (updatedAt == 0 || updatedAt > block.timestamp) return 0;
+        if (block.timestamp - updatedAt > f.heartbeat) return 0;
 
-        uint8 feedDec = f.aggregator.decimals();
+        uint8 feedDec;
+        try f.aggregator.decimals() returns (uint8 d) {
+            feedDec = d;
+        } catch {
+            return 0;
+        }
         // The feed reports USD per WHOLE token at its own decimals. Normalise
         // that to 1e18 first...
         uint256 perWhole = feedDec <= 18
@@ -207,12 +243,25 @@ contract QuoteOracle {
     function _sequencerOk() internal view returns (bool) {
         IAggregatorV3 s = sequencerUptime;
         if (address(s) == address(0)) return true; // L1: not applicable
-        (, int256 up, uint256 startedAt,,) = s.latestRoundData();
-        // 0 = up, 1 = down.
-        if (up != 0) return false;
-        // Just back up: prices are still catching up, and the backlog of
-        // stale-priced transactions clears in this window.
-        return startedAt != 0 && block.timestamp - startedAt > gracePeriod;
+        // The uptime feed is a feed like any other and can refuse to answer.
+        // Treat that as "cannot confirm the sequencer is healthy" — which makes
+        // the price unusable, which keeps the cached factor, which keeps volume
+        // recording. Failing toward ALIVE, the same direction as everything else
+        // here, because death cannot be undone.
+        try s.latestRoundData() returns (
+            uint80, int256 up, uint256 startedAt, uint256, uint80
+        ) {
+            // 0 = up, 1 = down.
+            if (up != 0) return false;
+            // A startedAt in the future would underflow the subtraction below,
+            // which is checked arithmetic — refuse rather than revert.
+            if (startedAt == 0 || startedAt > block.timestamp) return false;
+            // Just back up: prices are still catching up, and the backlog of
+            // stale-priced transactions clears in this window.
+            return block.timestamp - startedAt > gracePeriod;
+        } catch {
+            return false;
+        }
     }
 
 }

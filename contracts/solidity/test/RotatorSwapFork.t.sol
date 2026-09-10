@@ -76,6 +76,12 @@ contract RotatorSwapForkTest is Test {
         reg = new RegistryStub();
         reg.set(TOKEN, true);
         rot = new QuoteRotator(address(reg), pm);
+        // CURATE THE VENUE. `rotateStep` fails closed: the treasury lists the
+        // pools a rotation may execute through, because the governed `minRate`
+        // is a floor and an uncurated venue turns that floor into the price.
+        // This mirrors what a deployment must do before a plan is useful, and
+        // is why `test_UnvettedVenueIsRefused` below is the honest control.
+        rot.setVenue(_route(), true);
     }
 
     function _route() internal pure returns (PoolKey memory) {
@@ -86,6 +92,21 @@ contract RotatorSwapForkTest is Test {
             tickSpacing: SPACING,
             hooks: IHooks(address(0))
         });
+    }
+
+    /// @notice The allowlist is load-bearing on a REAL pool, not just in the unit
+    ///         tests: the very same live, deep venue is refused once de-listed.
+    ///         Without this, `setUp` curating the route would silently make every
+    ///         other test in this file pass for a reason unrelated to curation.
+    function test_UnvettedVenueIsRefused_OnFork() public {
+        vm.skip(!active);
+
+        rot.setVenue(_route(), false); // de-list the very pool the others use
+        vm.deal(address(rot), 10 ether);
+        rot.setPlan(address(0), TOKEN, 1 ether, 0.25 ether, 1, 1 hours);
+
+        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        rot.rotateStep(_route());
     }
 
     /// The route must actually be live before anything else here means much.

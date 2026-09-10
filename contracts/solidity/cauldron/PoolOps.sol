@@ -287,6 +287,32 @@ library PoolOps {
         // separate transfer here would double-spend), then startSeed with the active
         // ETH as value. Both are drawn from the registry (= address(this) under the
         // delegatecall), and `sp.seeder`'s onlyRegistry sees msg.sender = registry.
+        //  ── NATIVE-ONLY: DEGRADE TO AN ATOMIC SEED, NEVER REVERT ───────────
+        //  `CauldronSeeder.startSeed` is `payable` and asserts
+        //  `msg.value == cfg.ethTotal` (:133). It pulls only the TOKEN side by
+        //  `transferFrom` (:169) and has NO ERC20 path for the quote. So the
+        //  `{value: ethAmount}` below cannot fund a USDG-denominated generation:
+        //  the registry holds no ether to send and the assert fails.
+        //
+        //  That revert would land inside `CauldronRegistry._seedGeneration`,
+        //  called at :1000 — AFTER `governor.markConsumed(winId)` at :912. It
+        //  would roll the consumption back, the same proposal would keep winning
+        //  `_bestUnconsumed()`, and every later rebirth would die identically.
+        //  Both preconditions are ordinary: the seeder is owner-armed and a
+        //  non-native quote is a normal governance choice from the allowlist.
+        //
+        //  A non-native brew therefore takes the ATOMIC path — the full active
+        //  tranche placed at once, exactly as {createAndSeed} does, which already
+        //  handles any quote (asserted by B08_NonEthRebirth). The brew launches;
+        //  it just does not stream. Same clamp-don't-revert discipline as the
+        //  quote re-check, the `nftSupply` bound and the mining fallback.
+        if (quote != address(0)) {
+            r.activePositionId = _seedActive(
+                quote, pm, r.key, sqrtPriceX96, ethAmount, activeTokens, token, tickSpacing
+            );
+            return r;
+        }
+
         IERC20(token).approve(sp.seeder, activeTokens);
         ISeeder(sp.seeder).startSeed{value: ethAmount}(SeederConfig({
             key: r.key, token: token, gen: sp.gen,
@@ -448,7 +474,30 @@ library PoolOps {
             poolManager.settle{value: ethIn}();      // pay ETH from the registry
         } else {
             poolManager.sync(key.currency0);
-            IERC20(q).transfer(address(poolManager), ethIn);
+            //  RETURN VALUE CHECKED — this settle sits BEHIND `markConsumed`.
+            //
+            //  This was a bare `IERC20(q).transfer(...)`. A quote that returns
+            //  false instead of reverting (USDT-shaped, and most tokenized
+            //  equities) would move nothing, `settle()` would credit nothing, and
+            //  the unlock would end `CurrencyNotSettled()`. That revert unwinds
+            //  the whole of `relaunch()` — including `governor.markConsumed`
+            //  (CauldronRegistry.sol:912, which runs BEFORE `_seedGeneration` at
+            //  :1000) — so the same proposal wins `_bestUnconsumed()` again and
+            //  every later rebirth dies at the identical line. Permanent, with no
+            //  keeper or retry that recovers it.
+            //
+            //  That is the exact failure class the B-05 work removed, and this
+            //  line was introduced by the fix for B-05's own bug #3. Every
+            //  sibling settle in the repo already checks (see {sendAsset} below,
+            //  FeeRouteLib.send, QuoteRotator._safeTransfer); this was the outlier.
+            //
+            //  Reverting HERE is not a regression: a quote that cannot settle
+            //  cannot seed a pool either, so failing loudly at the transfer is
+            //  strictly better than failing opaquely at `settle`. The real
+            //  defence remains the owner-curated `allowedQuote` list.
+            (bool ok, bytes memory ret) =
+                q.call(abi.encodeWithSelector(IERC20.transfer.selector, address(poolManager), ethIn));
+            require(ok && (ret.length == 0 || abi.decode(ret, (bool))), "settle");
             poolManager.settle();
         }
         poolManager.take(key.currency1, recipient == address(0) ? address(this) : recipient, got);
@@ -889,14 +938,52 @@ library PoolOps {
             try IVaultCloseOps(oldVault).close() returns (uint256 s) { vaultSwept = s; } catch {}
         }
 
+        //  ── "CAN FUND" MUST NOT MEAN "HOLDS ONE WEI" (red-team) ─────────────
+        //  Each branch below used to be taken on a bare `> 0`, and the `return`
+        //  is unconditional — so the FIRST denomination holding any dust won,
+        //  and the later branches were never consulted.
+        //
+        //  `relaunchAsset` is keyed per asset and credited from whatever asset a
+        //  fee arrived in (CauldronHook._creditReserve:1150, keyed on `_feeAsset`
+        //  set per swap at :1378), and every registry-opened pool is tracked and
+        //  charges fees (:599). So any guild that has ever diversified into a
+        //  second quote carries a balance in it from ordinary trading — and one
+        //  wei of it outranked a 25 ETH position. Measured: `seedFunding` chose
+        //  (USDG, 1) over 20 ETH recovered plus a 5 ETH reserve, and `relaunch()`
+        //  passes that straight to `_seedGeneration` as the newborn's entire
+        //  book, since `totalETH == 1` clears the `NoLiquidityToSeed` guard.
+        //
+        //  The value abandoned this way does not come back. `recovered` is
+        //  already sitting in the registry and nothing in the normal cycle spends
+        //  a loose registry balance — only `migrateToSuccessor` and the
+        //  timelocked `emergencySweep` do, both break-glass.
+        //
+        //  RANKING ACROSS ASSETS WOULD NEED A PRICE, and putting an oracle in the
+        //  one function that must never be the reason the machine cannot be
+        //  reborn is a bad trade. So the rule is not "pick the biggest" but the
+        //  weaker, price-free one: NEVER STRAND `recovered`. It is value already
+        //  in hand that cannot change denomination without a swap, so a request
+        //  in a different asset is honoured only when there is nothing to
+        //  abandon. Rotating the quote at a rebirth therefore requires the
+        //  treasury to have been rotated first (QuoteRotator), which is the
+        //  supported order anyway.
+        //
+        //  This cannot brick: when `recovered > 0` exactly one of branches 2 and
+        //  3 is reachable and both include `recovered`, so a state that returned
+        //  a funded answer before still returns one. When `recovered == 0` every
+        //  branch behaves exactly as it did.
+        //
         // 1. The proposal's choice, if value already exists in that denomination.
-        if (wantQuote != address(0)) {
+        if (wantQuote != address(0) && (recovered == 0 || oldQuote == wantQuote)) {
             uint256 p = (oldQuote == wantQuote ? recovered : 0) + _pullAsset(hookAddr, wantQuote);
             if (p > 0) return (wantQuote, p, vaultSwept);
         }
-        // 2. Native — recovery counts toward it only if the dead pool WAS native.
-        uint256 n = (oldQuote == address(0) ? recovered : 0) + vaultSwept + _pullEth(hookAddr);
-        if (n > 0) return (address(0), n, vaultSwept);
+        // 2. Native — recovery counts toward it only if the dead pool WAS native,
+        //    so this branch is skipped when it would abandon a non-native one.
+        if (recovered == 0 || oldQuote == address(0)) {
+            uint256 n = (oldQuote == address(0) ? recovered : 0) + vaultSwept + _pullEth(hookAddr);
+            if (n > 0) return (address(0), n, vaultSwept);
+        }
         // 3. Last resort: the dying generation's own quote.
         if (oldQuote != address(0) && recovered > 0) {
             return (oldQuote, recovered + _pullAsset(hookAddr, oldQuote), vaultSwept);

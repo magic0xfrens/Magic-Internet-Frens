@@ -406,10 +406,33 @@ contract MiFrensDividend is ReentrancyGuard {
         //  claim the ENTIRE historical accumulator of every token — paying it
         //  fees earned before it was ever enchanted, at every other holder's
         //  expense. The ETH path has always set this; the basket has to match.
+        //
+        //  ── SETTLE THE PRIOR CASTER'S BASKET, NOT JUST THEIR ETH (audit) ───
+        //  On the STALE branch above, the prior caster's ETH entitlement is
+        //  settled into `owed[cur]` — but this loop then advanced
+        //  `debtOfAsset[tokenId][a]` to the current accumulator with no matching
+        //  credit into `owedAsset[cur][a]`. Their accrued USDG/xNVDA was
+        //  silently forfeited: the marker moved, the value did not, and no sweep
+        //  exists to recover it.
+        //
+        //  `onMiFrenTransfer` (the other way a fren changes hands) has always
+        //  settled BOTH sides — this path simply never mirrored it. The result
+        //  was a dividend that behaved correctly in ETH and lost value in every
+        //  other basket asset, which is exactly the shape the multi-quote work
+        //  exists to eliminate.
+        //
+        //  `cur == address(0)` is the fresh-join case and must NOT settle: a
+        //  newly enchanted fren has no prior claim, which is what the paragraph
+        //  above is about.
         uint256 n = assets.length;
         for (uint256 i; i < n; ++i) {
             address a = assets[i];
-            debtOfAsset[tokenId][a] = accPerShareOf[a];
+            uint256 acc = accPerShareOf[a];
+            if (cur != address(0)) {
+                uint256 d = debtOfAsset[tokenId][a];
+                if (acc > d) owedAsset[cur][a] += (acc - d) / ACC;
+            }
+            debtOfAsset[tokenId][a] = acc;
         }
         enchantedBy[tokenId] = msg.sender;
         emit SpellCast(tokenId, msg.sender);

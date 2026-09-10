@@ -106,9 +106,33 @@ const RL_WINDOW_MS = 30_000;
 const RL_MAX = 10; // requests per IP per window
 const rlHits = new Map<string, number[]>();
 
-function rateLimited(req: VercelRequest): boolean {
+/**
+ * The throttle bucket for this request.
+ *
+ *  DO NOT trust the LEFTMOST `x-forwarded-for` value. A client sets its own
+ *  request headers and platform proxies APPEND their observation rather than
+ *  replace it, so `x-forwarded-for.split(",")[0]` is attacker-chosen — rotating
+ *  it per request hands every call a fresh bucket and defeats the rate limit
+ *  entirely with a single extra header. That is not a theoretical bypass: it is
+ *  one line of curl.
+ *
+ *  Prefer the platform-set `x-real-ip`, which the edge overwrites and a client
+ *  cannot forge; otherwise take the RIGHTMOST hop (the one our own proxy
+ *  appended), never the leftmost.
+ *
+ *  `api/fren-teach.ts` already did exactly this and documents the same
+ *  reasoning; this route simply never received the fix.
+ */
+function clientIp(req: VercelRequest): string {
+  const real = (req.headers["x-real-ip"] as string) || "";
+  if (real.trim()) return real.trim();
   const fwd = (req.headers["x-forwarded-for"] as string) || "";
-  const ip = fwd.split(",")[0].trim() || (req.socket?.remoteAddress ?? "unknown");
+  const hops = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+  return hops[hops.length - 1] || (req.socket?.remoteAddress ?? "unknown");
+}
+
+function rateLimited(req: VercelRequest): boolean {
+  const ip = clientIp(req);
   const now = Date.now();
   const hits = (rlHits.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS);
   hits.push(now);

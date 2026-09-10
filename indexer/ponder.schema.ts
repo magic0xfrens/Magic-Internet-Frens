@@ -14,6 +14,16 @@ export const pool = onchainTable("pool", (t) => ({
   swapCount: t.integer().notNull().default(0),
   volumeEth: t.doublePrecision().notNull().default(0),
   updatedAt: t.bigint().notNull(),
+  /** The asset this pool is PRICED IN (`address(0)` = native ETH).
+   *
+   *  A generation can run several pools against different quotes, so "what is
+   *  the LP denominated in" is a per-pool fact, not a per-generation one. Read
+   *  from `registry.generationQuote(gen)` at registration.  */
+  quote: t.hex().notNull().default("0x0000000000000000000000000000000000000000"),
+  /** False for a pool linked to a generation as a SIBLING via
+   *  `CauldronHook.linkVolume` — the guild's LP split across a second quote.
+   *  The primary is the pool the generation was summoned/reborn into.  */
+  isPrimary: t.boolean().notNull().default(true),
 }), (table) => ({ genIdx: index().on(table.generation) }));
 
 export const candle = onchainTable("candle", (t) => ({

@@ -150,10 +150,23 @@ contract TreasuryGovernorTest is Test {
     }
 
     /// However the vote goes, no envelope may exceed the hard ceiling.
+    ///
+    /// Asserted against the CONSTANT rather than a literal. This test used to
+    /// hardcode 4001 against a then-4000 ceiling, so raising the ceiling made it
+    /// fail for a reason unrelated to the property it guards. Reading the
+    /// constant means it keeps guarding "the ceiling is not votable" whatever
+    /// the ceiling is.
     function test_EnvelopeCeilingIsNotVotable() public {
+        uint16 cap = gov.MAX_ENVELOPE_BPS();
+
         vm.prank(ALICE);
         vm.expectRevert(TreasuryGovernor.BadParam.selector);
-        gov.propose(USDG, 4001); // MAX_ENVELOPE_BPS is 4000
+        gov.propose(USDG, cap + 1);
+
+        // And the ceiling itself must remain proposable — an off-by-one here
+        // would silently cost the treasury its largest legal rotation.
+        vm.prank(ALICE);
+        gov.propose(USDG, cap);
     }
 
     /// A vote can only choose among assets the timelock already vetted. This is

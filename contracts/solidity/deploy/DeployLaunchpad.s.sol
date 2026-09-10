@@ -19,6 +19,7 @@ import {CollectionLedger} from "../cauldron/CollectionLedger.sol";
 import {LiquidatoorRenderer} from "../render/LiquidatoorRenderer.sol";
 import {BadgeArtLib} from "./BadgeArtLib.sol";
 import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
+import {TreasuryGovernor, IVotes721} from "../cauldron/TreasuryGovernor.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
@@ -304,11 +305,32 @@ contract DeployLaunchpad is Script {
         //     slice of the LP from one approved quote into another, so the LP is
         //     not permanently long whatever it launched against.
         //
-        //     Deployed HERE rather than as a follow-up script: `beginRotation`
+        //     Deployed HERE rather than as a follow-up script: `rotateSlice`
         //     reverts NotConfigured without it, and a launch that silently omits
         //     it looks complete right up until governance tries to use it.
         QuoteRotator rotator = new QuoteRotator(address(registry), IPoolManager(poolManager));
         console2.log("QuoteRotator    :", address(rotator));
+
+        //  4d. THE TREASURY GOVERNOR, AND THE WIRING THAT MAKES ROTATION EXIST.
+        //
+        //  `RedemptionExt.rotateSlice` reads BOTH `quoteRotator` and
+        //  `treasuryGovernor` off the registry and reverts `NotConfigured` if
+        //  either is zero. This script deployed the rotator and stopped, and no
+        //  script anywhere deployed a governor or called `setRotationWiring` —
+        //  so `quoteRotator`/`treasuryGovernor` were written by nothing and every
+        //  rotation reverted on every deployment that has ever existed. (The
+        //  setter itself was also a forwarder into a facet that never implemented
+        //  it; that is fixed in RedemptionExt.)
+        //
+        //  The guardian may CANCEL a passed proposal but cannot pass one. It goes
+        //  to the timelock where one exists, else the deployer.
+        TreasuryGovernor treasuryGov = new TreasuryGovernor(
+            IVotes721(address(presale)),
+            address(registry),
+            address(timelock) != address(0) ? address(timelock) : deployer
+        );
+        registry.setRotationWiring(address(rotator), address(treasuryGov));
+        console2.log("TreasuryGovernor:", address(treasuryGov));
 
         registry.setGenesisBonus(address(presale), bonusBps, supply);
         // OG-holder airdrop: DEFAULT is the "snipe" model (no reserve → no

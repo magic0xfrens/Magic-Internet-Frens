@@ -80,3 +80,46 @@ export function formatQuote(
   const v = Number(raw) / 10 ** meta.decimals;
   return `${v.toFixed(dp)}${meta.glyph ? ` ${meta.glyph}` : ` ${meta.symbol}`}`;
 }
+
+/**
+ * Per-field byte caps on a proposal's free text, MIRRORING the on-chain bounds
+ * in `CauldronGovernor` (MAX_NAME_BYTES / MAX_SYMBOL_BYTES / MAX_URI_BYTES /
+ * MAX_LINK_BYTES).
+ *
+ * The contract is the source of truth and refuses anything longer with
+ * `FieldTooLong`. These exist so the form stops you at the input rather than at
+ * the wallet confirmation — a revert at the end of a long proposal form is the
+ * worst place to learn about a limit.
+ *
+ * Why the contract bounds them at all: `relaunch()` replays every one of these
+ * fields on every rebirth, and an unbounded payload put the rebirth permanently
+ * out of gas. Keep these in sync if the contract's constants ever change.
+ *
+ * NOTE: these are BYTE caps on-chain and `maxLength` counts UTF-16 code units,
+ * so a multi-byte character (an emoji in a brew name) can still be refused by
+ * the contract while passing the input. {proposalFieldError} is the check that
+ * measures bytes properly; the maxLength is only the cheap first line.
+ */
+export const PROPOSAL_LIMITS = {
+  name: 64,
+  symbol: 16,
+  uri: 256,
+  link: 128,
+} as const;
+
+/** Byte length of a string as the contract will measure it (UTF-8). */
+export const byteLength = (s: string) => new TextEncoder().encode(s).length;
+
+/**
+ * The reason a proposal field would be refused on-chain, or null if it is fine.
+ * Checks BYTES, not characters, so an emoji-laden name is caught here rather
+ * than by a reverted transaction.
+ */
+export function proposalFieldError(
+  field: keyof typeof PROPOSAL_LIMITS,
+  value: string,
+): string | null {
+  const max = PROPOSAL_LIMITS[field];
+  const n = byteLength(value);
+  return n > max ? `${n} bytes — the chain accepts at most ${max}` : null;
+}

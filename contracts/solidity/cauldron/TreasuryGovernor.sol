@@ -117,6 +117,19 @@ contract TreasuryGovernor {
     Envelope public envelope;
     uint64 public lastEnvelopeAt;
 
+    /// @dev Highest-voted proposal seen by {vote}, so {winner} does not have to
+    ///      scan in the common case. Appended after `lastEnvelopeAt`, so no
+    ///      existing slot moves.
+    ///
+    ///  This is the O(1) half of the fix described on {winner}: maintained
+    ///  incrementally where the votes actually change, and only VALIDATED on
+    ///  read. It is a hint, never authority — {winner} re-checks executability
+    ///  before trusting it, and falls back to the time-bounded scan when the hint
+    ///  is stale. A wrong hint can therefore cost a scan; it can never elect the
+    ///  wrong proposal.
+    uint256 private _leadId;
+    uint256 private _leadVotes;
+
     // ── Guardrails. Constants rather than settable: a governor that can vote to
     //    weaken its own limits does not have limits.
     uint64 public constant VOTING_PERIOD = 3 days;
@@ -126,8 +139,52 @@ contract TreasuryGovernor {
     ///         executable. Past this it is stale: the market it was voted about
     ///         is not the market it would execute into.
     uint64 public constant EXECUTION_WINDOW = 3 days;
-    /// Most of the LP that any single envelope may move.
-    uint16 public constant MAX_ENVELOPE_BPS = 4000; // 40%
+    /// @notice Cumulative SLICE BUDGET a single envelope may spend.
+    ///
+    ///  ── THIS IS A SPEND COUNTER, NOT A POSITION FRACTION ────────────────
+    ///  {consume} books the NOMINAL `sliceBps` of each rotation, while
+    ///  `PoolOps.removePartial` takes that share of the CURRENT position. The
+    ///  position therefore decays geometrically and the nominal spend needed to
+    ///  convert most of it exceeds 100%: reaching 5% of the original costs
+    ///  about 27,500 bps of budget at a 25% slice, and about 29,500 at 5%.
+    ///
+    ///  The old value of 4000 (40%) read as "40% of the LP" and was neither. It
+    ///  bought 8 slices of 5%, which moved 1 - 0.95^8 = 33.66% of the position,
+    ///  and a full de-risking rotation needed roughly eight consecutive
+    ///  envelopes — about 80 days with the vote and cooldown counted. A guild
+    ///  that votes to move into a stable at a suspected top cannot act on that
+    ///  decision a quarter later.
+    ///
+    ///  30,000 lets ONE approved envelope carry a rotation to ~95% conversion.
+    ///  It is a budget, so read it with {conversionFor}, which converts a spend
+    ///  into the share of the position it actually moves.
+    ///
+    ///  The safety of a rotation does not rest on this number. It rests on the
+    ///  destination being owner-allowlisted (`allowedQuote`, which a vote cannot
+    ///  widen), on the 3-day vote and 10% quorum, on each slice's own `minOut`,
+    ///  on the venue allowlist in {QuoteRotator}, and on
+    ///  {PoolOps.MAX_ROTATION_BPS} capping any single call at 50% of the live
+    ///  position. This constant governs how FAST an approved policy executes,
+    ///  not what may be approved.
+    uint16 public constant MAX_ENVELOPE_BPS = 30_000;
+
+    /// @notice The share of the position a `spendBps` budget actually converts,
+    ///         in bps, at slice size `sliceBps`.
+    ///
+    ///  Exposed because the budget's units are not the units a voter reasons in:
+    ///  "30,000" is not 300% of anything, it is enough slices to convert ~95%.
+    ///  A UI that showed the raw number would mislead, and a voter who has to do
+    ///  a geometric-series calculation by hand will not do it.
+    function conversionFor(uint16 spendBps, uint16 sliceBps) external pure returns (uint16) {
+        if (sliceBps == 0 || spendBps == 0) return 0;
+        uint256 n = uint256(spendBps) / sliceBps;          // whole slices affordable
+        // remaining = (1 - sliceBps/1e4)^n, carried in 1e4 fixed point.
+        uint256 rem = 10_000;
+        for (uint256 i; i < n && rem > 0; ++i) {
+            rem = (rem * (10_000 - sliceBps)) / 10_000;
+        }
+        return uint16(10_000 - rem);
+    }
     /// Share of total MiFren supply that must vote FOR for a proposal to pass.
     uint16 public constant QUORUM_BPS = 1000; // 10%
     /// MiFrens required to open a treasury proposal. Higher than the brew
@@ -207,6 +264,13 @@ contract TreasuryGovernor {
 
         hasVoted[id][msg.sender] = true;
         if (support) p.forVotes += w; else p.againstVotes += w;
+        //  Track the front-runner here, where the vote count actually moves, so
+        //  {winner} is O(1) unless the hint has gone stale. Ties keep the earlier
+        //  proposal, matching the strict `>` the scan uses.
+        if (support && p.forVotes > _leadVotes) {
+            _leadVotes = p.forVotes;
+            _leadId = id;
+        }
         emit Voted(id, msg.sender, support, w);
     }
 
@@ -269,16 +333,82 @@ contract TreasuryGovernor {
      *  Ties break to the LOWER id — the earlier proposal — so the result is
      *  deterministic rather than dependent on iteration order.
      */
+    ///  ── BOUNDED SCAN (audit: the Z-03 shape, never applied here) ────────
+    ///  This looped `i = 1; i <= proposalCount` — every proposal ever filed —
+    ///  and {execute} gates on `id != winner()` (:273), so the scan sits on the
+    ///  ONLY path that installs an envelope. `propose` needs
+    ///  {PROPOSAL_THRESHOLD} MiFrens and nothing else: {COOLDOWN} and the
+    ///  `envelope.active` check gate ENVELOPES, not proposals, so one holder can
+    ///  file indefinitely. Each filing permanently lengthens the loop until
+    ///  `execute` cannot fit in a block — and then no rotation can ever be
+    ///  installed again, for the price of gas.
+    ///
+    ///  `CauldronGovernor` already carries exactly this fix
+    ///  ({MAX_LEADER_SCAN}, 64) for exactly this reason; it was simply never
+    ///  mirrored onto the treasury side.
+    ///
+    ///  Bounding to the most recent {MAX_WINNER_SCAN} makes `execute` O(1) in the
+    ///  proposal count. It cannot orphan a live proposal: a winner must be
+    ///  executed inside {EXECUTION_WINDOW} (3 days) of its vote closing, so an
+    ///  executable proposal is always among the most recent — anything older is
+    ///  already stale and skipped by the `EXECUTION_WINDOW` test below.
+    //  MAX_WINNER_SCAN removed: a positional bound was the wrong shape entirely.
+    //  See {winner} for why the scan is bounded by TIME instead.
+
     function winner() public view returns (uint256 best) {
+        //  FAST PATH. The hint from {vote} is trusted only after the same
+        //  executability tests the scan applies, so a stale or beaten hint costs
+        //  a scan rather than electing the wrong brew.
+        uint256 hint = _leadId;
+        if (hint != 0 && _executable(proposals[hint])) return hint;
+
         uint256 bestVotes;
-        for (uint256 i = 1; i <= proposalCount; ++i) {
+        uint256 n = proposalCount;
+        //  BOUNDED BY TIME, NOT BY POSITION — and the difference is a bug I put
+        //  here and took back out.
+        //
+        //  The first version of this scanned `1..proposalCount`: unbounded, so
+        //  filing enough proposals made `execute` un-runnable forever, since it
+        //  gates on `id != winner()`.
+        //
+        //  The first FIX was a positional window (the newest 64), copied from
+        //  `CauldronGovernor.MAX_LEADER_SCAN`. That reintroduced this repo's own
+        //  B-10: a window over a list anyone may grow is a window anyone may
+        //  flood. Measured — a genuine proposal, voted and still inside its
+        //  execution window, was pushed out by 64 later filings and `winner()`
+        //  returned 0. The guild's mandate was erased by spam that cost gas.
+        //
+        //  Walking BACKWARDS and stopping at the first proposal too old to
+        //  execute is bounded without being positional. `votingEndsAt` is
+        //  `block.timestamp + VOTING_PERIOD` fixed at creation and ids are
+        //  chronological, so it is monotonic non-decreasing in `i` — once one is
+        //  stale, every older one is too, and the loop can stop rather than
+        //  `continue`.
+        //
+        //  What that buys: the scan spans only proposals from the last
+        //  VOTING_PERIOD + EXECUTION_WINDOW (6 days). Spam still costs gas to
+        //  read, but it is paid for per proposal AND it ages out — where the
+        //  original was a permanent brick and the positional fix silently
+        //  discarded live mandates.
+        for (uint256 i = n; i >= 1; --i) {
             Proposal storage p = proposals[i];
+            //  Everything at or before this point closed too long ago to be
+            //  executable, so nothing older can win.
+            if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) break;
             if (p.executed || p.cancelled) continue;
             if (block.timestamp < p.votingEndsAt) continue;               // still open
-            if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) continue; // stale
             if (!_passed(p)) continue;
             if (p.forVotes > bestVotes) { bestVotes = p.forVotes; best = i; }
         }
+    }
+
+    /// @dev Can this proposal be executed right now? One definition, used by both
+    ///      the cached-hint fast path and the scan, so the two can never disagree.
+    function _executable(Proposal storage p) private view returns (bool) {
+        if (p.votingEndsAt == 0 || p.executed || p.cancelled) return false;
+        if (block.timestamp < p.votingEndsAt) return false;                  // still open
+        if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) return false; // stale
+        return _passed(p);
     }
 
     // -----------------------------------------------------------------------

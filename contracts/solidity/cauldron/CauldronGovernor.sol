@@ -45,6 +45,7 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     error SnapshotNotReady();
     error SupplyOutOfRange();
     error VotingClosed();
+    error FieldTooLong();
 
     /// @notice Hard bound on a proposal's collection size. MUST stay well below the
     ///         collections' `LIQUIDATOR_ID_BASE` (1e6), because the collection
@@ -58,6 +59,45 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     ///         result in the same block as the permissionless `relaunch()`.
     ///         (Audit M-02.)
     uint256 public constant VOTING_PERIOD = 3 days;
+
+    /// @notice Per-field byte caps on a proposal's free-text. Enforced in
+    ///         {propose}, beside the `nftSupply` and `quote` bounds and for the
+    ///         same reason: these fields are UNTRUSTED input that `relaunch()`
+    ///         must replay, so their size is a cost the protocol pays forever.
+    ///
+    ///  ── WHY A BOUND IS LOAD-BEARING, NOT COSMETIC (red-team) ────────────
+    ///  These five strings were the only proposal fields left unbounded, and they
+    ///  are the expensive ones. `relaunch()` reads all five back through
+    ///  {winner} and RE-STORES three of them in the newborn collection
+    ///  (CauldronRegistry._deployCollection -> CauldronFactory.deployBrew).
+    ///
+    ///  A zero-filled payload is the cheapest thing to store and the dearest to
+    ///  read: writing a zero word to a fresh slot is a 100-gas no-op SSTORE,
+    ///  reading it back is a full 2100-gas COLD SLOAD. Measured, the author paid
+    ///  72 gas/byte ONCE and the protocol paid 83 gas/byte on EVERY rebirth —
+    ///  and that asymmetry is what makes the block limit irrelevant, because one
+    ///  block of authoring always buys more than one block of replay.
+    ///
+    ///  Measured on the Sepolia fork against a 30M block: an honest rebirth costs
+    ///  5,297,638 gas; one 24,007,131-gas `propose()` carrying 320KB in `baseURI`
+    ///  pushed the next rebirth to 29,288,732 and out of gas. Because the revert
+    ///  rolls back the `markConsumed` inside it, {_bestUnconsumed} kept returning
+    ///  the same poisoned proposal and every later rebirth died identically —
+    ///  holders stranded in a dead generation with no migration path.
+    ///
+    ///  Bounding cannot be done at consumption instead. By the time `relaunch()`
+    ///  could truncate anything the cold SLOADs are already paid, and the registry
+    ///  has 62 bytes of EIP-170 margin to spend. It has to happen here, at the
+    ///  boundary, where refusing costs one proposal and freezes nothing — the same
+    ///  asymmetry that puts the `nftSupply` and `quote` checks here.
+    ///
+    ///  The caps are sized for real use: an ERC-721 name, a ticker, an IPFS or
+    ///  HTTPS metadata root, and two links. Worst case all five sum to 592 bytes,
+    ///  ≈49k gas to replay.
+    uint256 public constant MAX_NAME_BYTES = 64;
+    uint256 public constant MAX_SYMBOL_BYTES = 16;
+    uint256 public constant MAX_URI_BYTES = 256;
+    uint256 public constant MAX_LINK_BYTES = 128;
 
     // -----------------------------------------------------------------------
     // Types
@@ -107,6 +147,36 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     // Live leader tracking (avoids O(n) scans on winner()).
     uint256 private _leaderId;
     uint256 private _leaderVotes;
+
+    /// @dev The best mandate BEHIND the leader, maintained incrementally by
+    ///      {vote} and promoted by {markConsumed}. Appended after `_leaderVotes`,
+    ///      so no existing storage slot moves.
+    ///
+    ///  ── WHY A SECOND SLOT, AND NOT A BIGGER SCAN (red-team) ─────────────
+    ///  {_recomputeLeader} is bounded to the newest {MAX_LEADER_SCAN} proposals,
+    ///  which is what keeps rebirth gas O(1) in the proposal count. But the window
+    ///  is POSITIONAL: it selects on proposal id, not on whether anyone voted. So
+    ///  a settled mandate the guild had already voted for could be pushed out of
+    ///  the window by proposals created after it, and `propose()` is permissionless
+    ///  for one MiFren with no cooldown and no deposit.
+    ///
+    ///  Measured: with two voted mandates queued, 64 spam proposals costing
+    ///  15,596,982 gas in total (one block, cents on an L2) made the second
+    ///  mandate unreachable the moment a normal rebirth consumed the first —
+    ///  `hasProposals()` went false, so `relaunch()` reverted `NoProposal()` and
+    ///  the machine could not be reborn until the guild authored a replacement and
+    ///  waited out the full {VOTING_PERIOD} again. Repeatable at every generation
+    ///  boundary, indefinitely.
+    ///
+    ///  Enlarging the scan does not fix that — any positional window can be
+    ///  flooded, and an unbounded one is the gas brick {MAX_LEADER_SCAN} exists to
+    ///  prevent. The fix has to stop consumption from DEPENDING on a scan, so the
+    ///  runner-up is carried forward explicitly. Spam cannot displace it: both
+    ///  slots require votes, and a proposal nobody voted for can never enter
+    ///  either. Displacing a mandate now costs actual voting power, which is
+    ///  governance working as intended rather than a griefing vector.
+    uint256 private _runnerId;
+    uint256 private _runnerVotes;
 
     // -----------------------------------------------------------------------
     // Events
@@ -169,6 +239,16 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         // (auto-delegated on mint, so voting power is live without a delegate tx).
         if (mifrens.getVotes(msg.sender) == 0) revert NoVotingPower();
         if (bytes(name).length == 0 || bytes(symbol).length == 0) revert EmptyField();
+        // SIZE IS A COST THE PROTOCOL REPLAYS FOREVER. Unbounded here, one
+        // proposal could put `relaunch()` permanently out of gas. See the
+        // {MAX_NAME_BYTES} block for the measurement and why the bound cannot live
+        // at consumption instead.
+        if (
+            bytes(name).length > MAX_NAME_BYTES || bytes(symbol).length > MAX_SYMBOL_BYTES
+                || bytes(baseURI).length > MAX_URI_BYTES
+                || bytes(website).length > MAX_LINK_BYTES
+                || bytes(socials).length > MAX_LINK_BYTES
+        ) revert FieldTooLong();
         if (mode == MetadataMode.BaseURI) {
             if (bytes(baseURI).length == 0) revert EmptyField();
         } else {
@@ -267,10 +347,21 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         hasVoted[proposalId][msg.sender] = true;
         p.votes += weight;
 
-        // Update live leader (ties keep the earlier leader).
+        // Update live leader (ties keep the earlier leader), carrying the
+        // displaced mandate into the runner-up slot so {markConsumed} has
+        // somewhere to promote from that spam cannot reach. See {_runnerId}.
         if (p.votes > _leaderVotes) {
+            // Only demote a DIFFERENT proposal: the leader gaining more votes
+            // must not become its own runner-up.
+            if (proposalId != _leaderId) {
+                _runnerId = _leaderId;
+                _runnerVotes = _leaderVotes;
+            }
             _leaderVotes = p.votes;
             _leaderId = proposalId;
+        } else if (proposalId != _leaderId && p.votes > _runnerVotes) {
+            _runnerVotes = p.votes;
+            _runnerId = proposalId;
         }
 
         emit Voted(proposalId, msg.sender, weight, p.votes);
@@ -314,7 +405,26 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
 
         // If the consumed one was the cached leader, recompute lazily.
         if (proposalId == _leaderId) {
-            (_leaderId, _leaderVotes) = _recomputeLeader();
+            // PROMOTE, don't rescan. The scan is a positional window and can be
+            // flooded out from under a mandate the guild already voted for; the
+            // runner-up is carried explicitly and spam can never occupy it.
+            // See {_runnerId} for the measurement.
+            Proposal storage r = _proposals[_runnerId];
+            if (_runnerId != proposalId && _runnerVotes > 0 && r.exists && !r.consumed) {
+                _leaderId = _runnerId;
+                _leaderVotes = _runnerVotes;
+            } else {
+                // Nothing queued behind it — fall back to the bounded scan, which
+                // is correct whenever no runner-up was ever established.
+                (_leaderId, _leaderVotes) = _recomputeLeader();
+            }
+            _runnerId = 0;
+            _runnerVotes = 0;
+        } else if (proposalId == _runnerId) {
+            // The runner-up itself was consumed out of band; drop the stale slot
+            // rather than leaving a consumed id promotable.
+            _runnerId = 0;
+            _runnerVotes = 0;
         }
         emit Consumed(proposalId);
     }

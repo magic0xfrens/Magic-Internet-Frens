@@ -36,9 +36,22 @@ const holderId = (col: string, addr: string) => `${lc(col)}-${lc(addr)}`;
 /* ── registry: pools + collections ─────────────────────────────────────── */
 async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token: `0x${string}`, name: string, symbol: string, ts: bigint, block: bigint) {
   const clean = name.replace(/\s*by Magic Internet Frens\s*$/i, "").trim();
+  //  WHAT IS THIS POOL PRICED IN? Read once, at registration. The quote is
+  //  fixed for a generation's whole life (`generationQuote[gen]` is written at
+  //  rebirth and never revised), so there is nothing to keep in sync. A
+  //  registry that predates the multi-quote work has no such function; treat
+  //  that as native, which is what those generations actually are.
+  let quote = ZERO as `0x${string}`;
+  try {
+    quote = lc(await ctx.client.readContract({
+      abi: RegistryGenReadAbi, address: REGISTRY_ADDR,
+      functionName: "generationQuote", args: [BigInt(gen)],
+    }) as string);
+  } catch { /* pre-quote registry, or an RPC blip: native is the right answer */ }
   await ctx.db.insert(pool).values({
     id: poolId, generation: gen, token: lc(token), name: clean, symbol,
     createdAt: ts, createdBlock: block, dead: false, lastPrice: 0, swapCount: 0, volumeEth: 0, updatedAt: ts,
+    quote, isPrimary: true,
   }).onConflictDoNothing();
   await ctx.db.insert(iteration).values({ id: gen, token: lc(token), symbol, createdAt: ts })
     .onConflictDoUpdate(() => ({ token: lc(token), symbol }));

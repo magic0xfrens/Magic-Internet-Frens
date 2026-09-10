@@ -974,7 +974,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         The ETH vault (plv) carries over untouched.
     function syncGeneration() external nonReentrant notNested {
         uint256 gen = registry.currentGeneration();
-        if (gen == syncedGeneration) revert AlreadySynced();
+        //  A ROTATION CHANGES THE QUOTE WITHOUT CHANGING THE GENERATION.
+        //  This used to refuse on `gen == syncedGeneration` alone, which made a
+        //  live quote rotation unfollowable: `quote` is assigned only below, so
+        //  the engine kept marking, funding and liquidating against the asset
+        //  the generation launched with — the pool the rotation had drained —
+        //  with no reachable call able to correct it until the next relaunch.
+        //  Re-syncing on a quote change closes that, and costs nothing when the
+        //  quote has not moved (the common case still reverts `AlreadySynced`).
+        address newQuote = registry.generationQuote(gen);
+        if (gen == syncedGeneration && newQuote == quote) revert AlreadySynced();
         if (openCount != 0) revert PositionsOpen(); // force-close everything first
 
         uint256 fromGen = syncedGeneration;
@@ -1012,7 +1021,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  switching underneath them would re-denominate live user funds. The
         //  caller already requires openCount == 0 to sync, so this is a belt on
         //  that brace rather than a new restriction.
-        address newQuote = registry.generationQuote(gen);
+        //  `newQuote` was read at the top of this function (the guard needs it),
+        //  so it is reused here rather than fetched twice.
         if (newQuote != quote && openCount != 0) revert PositionsOpen();
         quote = newQuote;
 

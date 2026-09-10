@@ -351,6 +351,153 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
 // homepage hero never depends on the browser's flaky public Sepolia RPC.
 app.get("/presale", async (c) => c.json((await presaleState()) ?? { minted: 0, soldOut: false, finalized: false, supply: 0 }));
 
+/* ── TREASURY COMPOSITION — what the LP is denominated in, and what the guild
+      actually holds across every allowed quote.
+
+      SERVER-SIDE, like everything else here. The first cut of this read the
+      balances from the BROWSER, one `balanceOf` per quote per holder plus an
+      oracle call each, polling every 30s per open tab. That is the pattern this
+      file exists to avoid: it multiplies by viewers, it hits the same public
+      nodes the Ponder sync is already using, and it earns a 429 exactly when the
+      app is busiest. One cached server-side read serves every viewer instead.
+      ───────────────────────────────────────────────────────────────────────── */
+const ROTATOR = (round.contracts as Record<string, string>).quoteRotator as `0x${string}` | undefined;
+const QUOTES = (round.quoteAssets ?? []) as { address: string; symbol: string; decimals: number }[];
+const ERC20_BAL = [{
+  type: "function", name: "balanceOf", stateMutability: "view",
+  inputs: [{ type: "address" }], outputs: [{ type: "uint256" }],
+}] as const;
+const ORACLE_READ = [{
+  type: "function", name: "usdPerRawUnit", stateMutability: "view",
+  inputs: [{ type: "address" }], outputs: [{ type: "uint256" }],
+}] as const;
+const ROTATOR_READ = [{
+  type: "function", name: "quoteOracle", stateMutability: "view",
+  inputs: [], outputs: [{ type: "address" }],
+}] as const;
+const REG_QUOTE = [{
+  type: "function", name: "generationQuote", stateMutability: "view",
+  inputs: [{ type: "uint256" }], outputs: [{ type: "address" }],
+}] as const;
+const REG_LP = [
+  { type: "function", name: "generationPositionId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "generationPoolKey", stateMutability: "view", inputs: [{ type: "uint256" }],
+    outputs: [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }] },
+] as const;
+const POSM = round.contracts.positionManager as `0x${string}`;
+const POSM_READ = [{
+  type: "function", name: "getPositionLiquidity", stateMutability: "view",
+  inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }],
+}] as const;
+const NATIVE = "0x0000000000000000000000000000000000000000";
+
+let treasuryCache: { at: number; v: unknown } = { at: 0, v: null };
+app.get("/treasury", async (c) => {
+  // 30s: balances move with trading, and nothing downstream is second-sensitive.
+  if (Date.now() - treasuryCache.at < 30_000 && treasuryCache.v) return c.json(treasuryCache.v);
+
+  // The live generation, from the indexed table rather than a chain read.
+  const genRows = await db.select().from(schema.pool).orderBy(desc(schema.pool.generation)).limit(1);
+  const gen = genRows[0]?.generation ?? 0;
+
+  const basis = gen
+    ? await perpClient.readContract({
+        address: REGISTRY, abi: REG_QUOTE, functionName: "generationQuote", args: [BigInt(gen)],
+      }).catch(() => NATIVE) as string
+    : NATIVE;
+
+  // The oracle handle is public on the rotator; `CauldronHook.quoteOracle` is
+  // internal and the hook has no bytecode budget for a getter.
+  const oracle = ROTATOR
+    ? await perpClient.readContract({ address: ROTATOR, abi: ROTATOR_READ, functionName: "quoteOracle" })
+        .catch(() => null) as string | null
+    : null;
+
+  //  ── MEASURE THE LP POSITIONS, NOT IDLE BALANCES ─────────────────────────
+  //  The first cut of this measured `balanceOf(registry)` per quote, which is
+  //  the wrong question. `RedemptionExt.rotateSlice` removes a slice, swaps it
+  //  and REDEPLOYS it as liquidity in ONE transaction (:243-266) — so a working
+  //  treasury holds essentially nothing idle, and a balance-based panel would
+  //  read ~0 forever while the guild's actual position sat in the pools.
+  //
+  //  What a generation is worth is therefore its LIVE POSITIONS. A generation
+  //  can run several pairs at once: rotation is sliced (MAX_SLICE_BPS = 5% per
+  //  call), so mid-rotation the LP is genuinely split between the old quote and
+  //  the new one, and `linkVolume` ties the siblings together. That split IS the
+  //  composition this panel exists to show.
+  //
+  //  Idle balances are still reported, separately and additively, because value
+  //  DOES rest there between a rebirth's recovery and its reseed.
+  const positions = await Promise.all(genRows.map(async (row) => {
+    const g = row.generation;
+    const [posId, key] = await Promise.all([
+      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPositionId", args: [BigInt(g)] }).catch(() => 0n) as Promise<bigint>,
+      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPoolKey", args: [BigInt(g)] }).catch(() => null) as Promise<readonly [string, string, number, number, string] | null>,
+    ]);
+    if (!posId || !key) return null;
+    const liq = await perpClient.readContract({
+      address: POSM, abi: POSM_READ, functionName: "getPositionLiquidity", args: [posId],
+    }).catch(() => 0n) as bigint;
+    // currency0 is the quote in every Cauldron pair the registry opens; the
+    // token is currency1 (PoolOps mines the token to sort ABOVE the quote).
+    return { generation: g, positionId: posId.toString(), quote: key[0], liquidity: liq.toString() };
+  }));
+
+  // Idle balances on the REGISTRY — what a rebirth recovered but has not yet
+  // reseeded, plus anything a rotation left behind.
+  const holdings = await Promise.all(QUOTES.map(async (q) => {
+    const raw = q.address === NATIVE
+      ? await perpClient.getBalance({ address: REGISTRY }).catch(() => 0n)
+      : await perpClient.readContract({
+          address: q.address as `0x${string}`, abi: ERC20_BAL,
+          functionName: "balanceOf", args: [REGISTRY],
+        }).catch(() => 0n) as bigint;
+
+    // 0 from the oracle means CANNOT JUDGE, never "worthless" — it stays null so
+    // the UI omits the asset from the split instead of drawing it at zero.
+    let usd: number | null = null;
+    if (oracle && oracle !== NATIVE) {
+      const f = await perpClient.readContract({
+        address: oracle as `0x${string}`, abi: ORACLE_READ,
+        functionName: "usdPerRawUnit", args: [q.address as `0x${string}`],
+      }).catch(() => 0n) as bigint;
+      if (f > 0n) usd = (Number(raw) * Number(f)) / 1e18 / 1e18;
+    }
+
+    // Liquidity this quote currently backs, summed across the generation's live
+    // positions. Raw L units — comparable BETWEEN pools only via a price, which
+    // is why it is reported rather than folded into the share below.
+    const liq = positions
+      .filter((p) => p && p.quote.toLowerCase() === q.address.toLowerCase())
+      .reduce((a, p) => a + BigInt(p!.liquidity), 0n);
+
+    return {
+      address: q.address,
+      raw: raw.toString(),                     // string: JSON has no bigint
+      amount: Number(raw) / 10 ** q.decimals,
+      usd,
+      liquidity: liq.toString(),
+      isBasis: q.address.toLowerCase() === (basis ?? NATIVE).toLowerCase(),
+    };
+  }));
+
+  const totalUsd = holdings.reduce((a, h) => a + (h.usd ?? 0), 0);
+  const v = {
+    generation: gen,
+    basis: basis ?? NATIVE,
+    oracle,
+    positions: positions.filter(Boolean),
+    holdings: holdings.map((h) => ({
+      ...h,
+      share: h.usd !== null && totalUsd > 0 ? h.usd / totalUsd : null,
+    })),
+    totalUsd,
+    partial: holdings.some((h) => h.usd === null && h.raw !== "0"),
+  };
+  treasuryCache = { at: Date.now(), v };
+  return c.json(v);
+});
+
 // GENESIS REDEMPTION FLOOR (v2, ratcheting) — the RISING stat. floorPerFren is
 // DYNAMIC (reserve / genesisShares) and only goes up as buybacks + re-enchant fees
 // grow the reserve. We surface the token floor, its ETH value, the % of the live

@@ -219,7 +219,20 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     address internal nftContract;
 
     /// @notice Treasury address for ERC20 fee withdrawals
-    address public treasury;
+    ///  DEAD SLOT, kept for storage-layout stability.
+    ///
+    ///  Set by the constructor and by a `setTreasury` that no longer exists, and
+    ///  read by NOTHING — grepped across the contract, the tests, the indexer and
+    ///  the frontend. It was `public`, so the auto-getter advertised a treasury
+    ///  fee route that does not exist: an integrator reading `hook.treasury()`
+    ///  would get a plausible address and draw the wrong conclusion.
+    ///
+    ///  Made `internal` rather than deleted because this contract has 31 bytes of
+    ///  EIP-170 margin and every slot after it would renumber — a test pins
+    ///  `legacyOwedToReserve` by literal slot (see the APPEND-ONLY banner at the
+    ///  end of this file). The constructor parameter is kept so the CREATE2 salt
+    ///  mining in every deploy script and test stays valid.
+    address internal treasury;
 
     /// @notice Registry address — only it can pull relaunch ETH
     address public registry;
@@ -627,7 +640,25 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  a parameter threaded through every helper: this hook is against the
     ///  EIP-170 ceiling, and the extra argument at each site costs more than
     ///  the slot.
-    address internal _feeAsset;
+    ///  TRANSIENT, matching what this comment always claimed.
+    ///
+    ///  It was plain storage, so the value SURVIVED the transaction. Nothing
+    ///  reads it stale today — `_takeEthFee` is the only caller of
+    ///  `_routeEthFee`/`_routePerpFee`, and its write at the top dominates every
+    ///  read below — but that is an argument about the current call graph, not a
+    ///  property of the field. Any future reader added outside `_takeEthFee`
+    ///  would silently inherit the PREVIOUS swap's quote and misroute a fee.
+    ///  `transient` makes that structurally impossible and replaces an SSTORE
+    ///  per swap with a TSTORE.
+    ///
+    ///  What this does NOT fix: transient storage persists for the whole
+    ///  transaction, so a NESTED swap on a different-quote pool would still
+    ///  overwrite it mid-routing. Reaching that needs the timelock-set
+    ///  `feeRouter` (:1223) to re-enter, which is the trusted tier described at
+    ///  :680 — a compromised router is already a compromised hook. Threading the
+    ///  asset as a parameter instead would close it, and is rejected here for the
+    ///  same EIP-170 reason the field exists at all.
+    address internal transient _feeAsset;
 
     /// @notice Prices volume in USD so every pool counts the same. Unset means
     ///         quote-side accounting, which is correct while a generation trades
@@ -1490,6 +1521,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     event VolumeLinked(PoolId indexed primary, PoolId indexed secondary);
 
+
     function isDead(PoolId id) external view returns (bool) {
         if (!trackedPools[id]) return false;
         //  A GENERATION's volume, not one pool's. Liquidity can be split across
@@ -1752,10 +1784,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         nftContract = _nft;
     }
 
-    function setTreasury(address _treasury) external onlyOwner {
-        if (_treasury == address(0)) revert ZeroAddress();
-        treasury = _treasury;
-    }
+    //  `setTreasury` removed: it wrote a slot nothing reads (see {treasury}), so
+    //  it could only ever have created the impression of a configurable fee
+    //  route. Its bytes are better spent on a contract with 31 bytes of margin.
 
     /// @notice One-time wiring of the registry allowed to pull the relaunch ETH
     ///         reserve. IMMUTABLE after the first set: a mutable setter would let

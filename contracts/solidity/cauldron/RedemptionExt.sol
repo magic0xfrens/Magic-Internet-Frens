@@ -208,13 +208,62 @@ contract RedemptionExt is CauldronBase {
      *        than a bad one, which is what makes announcing the destination safe.
      * @param route     the pool to trade through
      */
+    /**
+     * @notice Point the registry at its rotator and its treasury governor.
+     *
+     *  ── THE FORWARDER EXISTED; THIS DID NOT (red-team) ──────────────────
+     *  `CauldronRegistry.setRotationWiring` has always been present as a thin
+     *  `_forwardToExt()` stub, but this facet never implemented the function it
+     *  forwards to, and the facet has no fallback. Every call therefore
+     *  delegatecalled into a missing selector and reverted.
+     *
+     *  `quoteRotator` (CauldronBase slot 50) and `treasuryGovernor` (slot 51)
+     *  were consequently written by NOTHING, anywhere in the codebase — declared
+     *  and read, never assigned. Since {rotateSlice} reverts `NotConfigured`
+     *  when either is zero, the entire treasury-rotation feature was unreachable
+     *  on every deployment that has ever existed: the envelope vote, the
+     *  slicing, the venue allowlist and the whole rotation UI sat behind a
+     *  setter that could not be called. No deploy script could have fixed it.
+     *
+     *  Implemented HERE rather than in the registry because that is where the
+     *  forwarder already points, and because the registry has 62 bytes of
+     *  EIP-170 margin — the reason these ops live in a facet at all. Running
+     *  under delegatecall, `address(this)` is the registry, so this writes the
+     *  registry's own slots.
+     *
+     *  Owner-gated, and deliberately NOT one-shot: a rotator or governor that
+     *  turns out to be broken must be replaceable, and the alternative — a
+     *  frozen pointer to a contract nobody can fix — is the failure this whole
+     *  finding is an instance of. Zero is rejected on both because a zero here
+     *  silently disables rotation rather than announcing it.
+     */
+    /// @notice The registry has no rotator/governor wired: a DEPLOYMENT problem.
+    error RotationNotWired();
+    /// @notice Wired, but no live governance envelope: a GOVERNANCE state.
+    error NoRotationApproved();
+
+    function setRotationWiring(address rotator, address governor) external onlyOwner {
+        if (rotator == address(0) || governor == address(0)) revert NotConfigured();
+        quoteRotator = rotator;
+        treasuryGovernor = governor;
+        emit RotationWired(rotator, governor);
+    }
+
+    event RotationWired(address indexed rotator, address indexed governor);
+
     function rotateSlice(
         uint16 sliceBps,
         uint256 minOut,
         PoolKey calldata route
     ) external returns (uint256 moved, uint256 positionId) {
+        //  ── "NOT WIRED" AND "NOT APPROVED" ARE DIFFERENT PROBLEMS ──────────
+        //  Both used to revert `NotConfigured`, which is how B-15 stayed hidden:
+        //  a deployment whose rotation wiring was never set looked exactly like
+        //  one simply waiting on a governance vote. The first needs a deploy fix
+        //  and the second needs a vote, so an operator reading the revert has to
+        //  be able to tell them apart.
         address rot = quoteRotator;
-        if (rot == address(0)) revert NotConfigured();
+        if (rot == address(0)) revert RotationNotWired();
 
         //  PERMISSIONLESS, WITHIN WHAT THE GUILD APPROVED.
         //
@@ -223,9 +272,12 @@ contract RedemptionExt is CauldronBase {
         //  one. The destination and the ceiling come from the vote, so a caller
         //  chooses only the timing — and `minOut` bounds what timing can cost.
         address gov = treasuryGovernor;
-        if (gov == address(0)) revert NotConfigured();
+        if (gov == address(0)) revert RotationNotWired();
         (address toQuote, uint16 remaining) = ITreasuryGovernor(gov).allowance();
-        if (toQuote == address(0)) revert NotConfigured();   // nothing approved, or expired
+        //  Wired, but the guild has approved nothing (or the envelope expired /
+        //  is spent). Distinct from `RotationNotWired` above: this one is fixed
+        //  by a vote, not by a deployment.
+        if (toQuote == address(0)) revert NoRotationApproved();
         if (sliceBps > remaining) revert BadConfig();        // envelope exhausted
 
         //  Re-checked even though the governor checked it twice: this is the
@@ -279,12 +331,65 @@ contract RedemptionExt is CauldronBase {
         // Booked AFTER the move succeeds, so a reverted slice does not burn
         // envelope the treasury never actually spent.
         ITreasuryGovernor(gov).consume(sliceBps);
+
+        //  ── WHEN THE ROTATION FINISHES, THE GENERATION'S QUOTE MUST FOLLOW ──
+        //  `generationQuote[gen]` was written in exactly ONE place in the whole
+        //  tree — `CauldronRegistry.relaunch` (:917) — so a LIVE rotation moved
+        //  the liquidity and left the recorded denomination pointing at the
+        //  asset the pool no longer principally trades. Every downstream reader
+        //  inherited that staleness; the perp engine is the one that matters,
+        //  because `PerpEngine.quote` is adopted only in `syncGeneration`
+        //  (:1017) and that refuses without a generation change (:977) — so
+        //  nothing, privileged or not, could re-point it for the rest of the
+        //  generation. It would have kept marking, funding and liquidating
+        //  against the pool this rotation had been draining.
+        //
+        //  FLIPPED AT COMPLETION, NOT PER SLICE, for two reasons. A rotation is
+        //  sliced, so mid-rotation the pool is genuinely SPLIT and neither asset
+        //  is the honest answer. And `fromQuote` above is read from this same
+        //  slot: flipping it early would make the next slice try to rotate the
+        //  destination into itself.
+        //
+        //  `allowance()` returns address(0) once the envelope is exhausted (or
+        //  expired), which is exactly "there are no more slices coming". A
+        //  partial rotation that simply stops therefore leaves the quote alone,
+        //  which is correct — 30% moved does not redenominate a generation.
+        (address stillRotating,) = ITreasuryGovernor(gov).allowance();
+        if (stillRotating == address(0)) {
+            generationQuote[gen] = toQuote;
+            emit GenerationRequoted(gen, fromQuote, toQuote);
+        }
+
         emit SliceRotated(gen, fromQuote, toQuote, quoteOut, moved, sliceBps);
     }
 
-    /// @dev Ceiling on a single slice. Small on purpose: the point of slicing is
-    ///      that no one call meaningfully thins the pool or moves the route.
-    uint16 internal constant MAX_SLICE_BPS = 500; // 5%
+    /// @notice The generation's recorded denomination changed because a live
+    ///         rotation completed. Downstream readers (notably the perp engine,
+    ///         via {PerpEngine.syncGeneration}) re-adopt from this.
+    event GenerationRequoted(uint256 indexed gen, address indexed from, address indexed to);
+
+    /// @dev Ceiling on a single slice.
+    ///
+    ///  ── SIZED SO A FULL ROTATION FITS INSIDE ONE VOTE ───────────────────
+    ///  This was 500 (5%), which made a complete de-risking rotation
+    ///  impossible in any useful timeframe. Each slice removes its share of
+    ///  what REMAINS, so the position decays geometrically: at 5% a slice, 59
+    ///  calls are needed to get the source quote under 5% of where it started,
+    ///  and at 8 slices per envelope that is 8 envelopes — roughly 80 days once
+    ///  the 3-day vote and 7-day cooldown are counted. A treasury that votes to
+    ///  move into a stable because it thinks the market is topping cannot wait
+    ///  a quarter to act on it; by then the decision is about a different
+    ///  market.
+    ///
+    ///  At 25% a slice the same 95% conversion is 11 calls, which fits in a
+    ///  single envelope and completes within about a day of the vote clearing.
+    ///
+    ///  What did NOT change is the guard that actually protects holders:
+    ///  {PoolOps.MAX_ROTATION_BPS} still caps any ONE call at 50% of the live
+    ///  position, so no single transaction can empty the pair, and every slice
+    ///  still carries its own `minOut`. This raises the CADENCE a governance
+    ///  vote can achieve; it does not weaken the per-call floor.
+    uint16 internal constant MAX_SLICE_BPS = 2500; // 25%
 
     event SliceRotated(
         uint256 indexed gen, address indexed from, address indexed to,

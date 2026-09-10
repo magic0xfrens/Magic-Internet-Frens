@@ -16,12 +16,13 @@ import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
+import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
-import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
+import { NATIVE_QUOTE, quoteMeta, isNativeQuote, PROPOSAL_LIMITS, proposalFieldError } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
@@ -932,6 +933,10 @@ export default function TheCauldron() {
         {/* ══ GOVERNANCE ══ */}
         {tab === "governance" && (
           <>
+          {/* WHAT THE LP IS MADE OF, measured — above the desk that changes it.
+              The desk's own donut projects a PLANNED rotation; this reports the
+              treasury's actual holdings across every allowed quote. */}
+          <LpBasisPanel gen={m.gen} />
           <TreasuryRotation gen={m.gen} col={col} />
           <section className="tc-card tc-gov">
             <div className="tc-gov__head">
@@ -1263,18 +1268,31 @@ function ProposeForm({ busy, onSubmit }: {
   const nMintOut = Math.max(0, Number(mintOut) || 0);
   const perNft = nSupply > 0 ? nMintOut / nSupply : 0;
   const rendererOk = artMode === "uri" || /^0x[0-9a-fA-F]{40}$/.test(renderer.trim());
-  const valid = name.trim() && symbol.trim() && nSupply > 0 && nMintOut > 0 && rendererOk;
+  //  BYTES, NOT CHARACTERS. The maxLength on each input counts UTF-16 code
+  //  units; `CauldronGovernor` counts BYTES and reverts `FieldTooLong`. A brew
+  //  named with emoji passes the input and fails the transaction, so the real
+  //  check runs here and the offending field says why.
+  const fieldErrors = {
+    name: proposalFieldError("name", name.trim()),
+    symbol: proposalFieldError("symbol", symbol.trim()),
+    uri: artMode === "uri" ? proposalFieldError("uri", baseURI.trim()) : null,
+    website: proposalFieldError("link", website.trim()),
+    socials: proposalFieldError("link", socials.trim()),
+  };
+  const overLimit = Object.values(fieldErrors).some(Boolean);
+  const valid = name.trim() && symbol.trim() && nSupply > 0 && nMintOut > 0 && rendererOk && !overLimit;
 
   return (
     <div className="tc-propose">
       <div className="tc-propose__grid">
         <label className="tc-propose__field">
           <span className="tc-mono tc-dim">Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Frog Nation" maxLength={32} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Frog Nation" maxLength={PROPOSAL_LIMITS.name} />
+          {fieldErrors.name && <span className="tc-propose__err">{fieldErrors.name}</span>}
         </label>
         <label className="tc-propose__field">
           <span className="tc-mono tc-dim">Ticker</span>
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="FROG" maxLength={10} />
+          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="FROG" maxLength={PROPOSAL_LIMITS.symbol} />
         </label>
         <label className="tc-propose__field">
           <span className="tc-mono tc-dim"># NFTs (volume-forged)</span>
@@ -1328,7 +1346,8 @@ function ProposeForm({ busy, onSubmit }: {
         {artMode === "uri" ? (
           <label className="tc-propose__field">
             <span className="tc-mono tc-dim">Base URI (tokenURI = baseURI + id)</span>
-            <input value={baseURI} onChange={(e) => setBaseURI(e.target.value)} placeholder="https://frognation.xyz/api/meta/ (blank = default)" />
+            <input value={baseURI} onChange={(e) => setBaseURI(e.target.value)} placeholder="https://frognation.xyz/api/meta/ (blank = default)" maxLength={PROPOSAL_LIMITS.uri} />
+            {fieldErrors.uri && <span className="tc-propose__err">{fieldErrors.uri}</span>}
           </label>
         ) : (
           <label className="tc-propose__field">
@@ -1342,11 +1361,11 @@ function ProposeForm({ busy, onSubmit }: {
       <div className="tc-propose__grid">
         <label className="tc-propose__field">
           <span className="tc-mono tc-dim">Website (optional)</span>
-          <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="frognation.xyz" />
+          <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="frognation.xyz" maxLength={PROPOSAL_LIMITS.link} />
         </label>
         <label className="tc-propose__field">
           <span className="tc-mono tc-dim">X / socials (optional)</span>
-          <input value={socials} onChange={(e) => setSocials(e.target.value)} placeholder="@frognation" />
+          <input value={socials} onChange={(e) => setSocials(e.target.value)} placeholder="@frognation" maxLength={PROPOSAL_LIMITS.link} />
         </label>
       </div>
 
@@ -1905,6 +1924,33 @@ function Styles() {
     /* TREASURY DESK. A donut for what backs the pool, a dropdown that scales
        past two assets, and steps that say WHY they are unavailable rather than
        failing on click. */
+    /* Treasury desk: the govern/execute surfaces that replaced the old wizard. */
+    .tr-note { font-family: "DM Sans", sans-serif; font-size: 12px; line-height: 1.55; color: ${C.mute}; margin: 0 0 14px; }
+    .tr-note strong { color: ${C.cream}; font-weight: 500; }
+    .tr-note code, .tr-warn code { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.cream}; }
+    .tr-label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 8px; }
+    .tr-projection { margin: 16px 0; padding: 14px 16px; border-radius: var(--r-sm);
+      background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
+    .tr-proj__row { display: flex; justify-content: space-between; align-items: baseline;
+      font-family: "DM Mono", monospace; font-size: 12px; padding: 3px 0; }
+    .tr-proj__row b { color: ${C.cream}; }
+    .tr-proj__note { font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; margin: 10px 0 0; }
+    .tr-envelope { margin: 4px 0 18px; padding: 14px 16px; border-radius: var(--r-sm);
+      background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.06); }
+    .tr-env__head { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; margin-bottom: 10px; }
+    .tr-env__pair { color: ${C.cream}; font-size: 13px; }
+    .tr-env__bar { height: 8px; border-radius: var(--r-full); background: rgba(255,255,255,0.06); overflow: hidden; }
+    .tr-env__fill { height: 100%; transition: width 300ms ease; }
+    .tr-env__stats { display: flex; justify-content: space-between; font-size: 11px; margin-top: 8px; }
+    .tr-env__stats span:first-child { color: ${C.cream}; }
+    .tr-slip { width: 64px; margin: 0 6px; padding: 4px 8px; border-radius: var(--r-sm);
+      background: rgba(8,6,15,0.6); border: 1px solid rgba(255,255,255,0.1); color: ${C.cream};
+      font-family: "DM Mono", monospace; font-size: 12px; }
+    .tr-warn { font-family: "DM Mono", monospace; font-size: 11px; line-height: 1.55; color: #f0b429;
+      margin: 12px 0; padding: 10px 12px; border-radius: var(--r-sm);
+      background: rgba(240,180,41,0.06); border: 1px solid rgba(240,180,41,0.2); }
+    .tr-log { list-style: none; margin: 14px 0 0; padding: 0; font-size: 11px; color: ${C.mute}; }
+    .tr-log li { padding: 3px 0; border-top: 1px solid rgba(255,255,255,0.04); }
     .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 22px; margin-bottom: 18px; }
     .tr-head { margin-bottom: 16px; }
     .tr-title { font-family: "Cinzel", serif; font-size: 21px; margin: 4px 0 0; color: #f4f1ff; }

@@ -1555,6 +1555,10 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         uint256 reserveTokens,
         uint256 gen
     ) private returns (PoolId poolId) {
+        //  A non-native generation is handled INSIDE
+        //  `PoolOps.createAndSeedProgressive`, which already receives the quote —
+        //  the check lives there because this contract has single-digit bytes of
+        //  EIP-170 margin. See that function for why it must degrade, not revert.
         if (seeder != address(0) && nextSeedWindow > 0) {
             SeedResult memory r = PoolOps.createAndSeedProgressive(
                 poolManager, IPositionManagerOps(address(positionManager)), address(hook),

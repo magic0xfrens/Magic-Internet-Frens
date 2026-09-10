@@ -7,6 +7,7 @@ const Token = lazy(() => import("@/components/token/Token"));
 const Cauldrons = lazy(() => import("@/components/cauldron/TheCauldron"));
 const XCallback = lazy(() => import("@/components/x-callback/XCallback"));
 const LiquidatoorBadgeLab = lazy(() => import("@/components/preview/LiquidatoorBadgeLab"));
+const LpBasisLab = lazy(() => import("@/components/preview/LpBasisLab"));
 const Docs = lazy(() => import("@/components/docs/Docs"));
 
 function PageLoader() {
@@ -31,6 +32,9 @@ export function AppRoutes() {
         <Route path="/docs" element={<Docs />} />
         <Route path="/x-callback" element={<XCallback />} />
         <Route path="/badge-lab" element={<LiquidatoorBadgeLab />} />
+        {/* Every state of the LP basis panel — the live treasury holds one asset,
+            so the multi-asset renders are only reachable here. */}
+        <Route path="/lp-lab" element={<LpBasisLab />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

@@ -20,6 +20,10 @@ export const CAULDRON = {
   // Treasury rotation. Optional: a deployment predating the rotator omits it,
   // and the UI hides the panel rather than rendering a dead button.
   quoteRotator: (round.contracts as Record<string, string>).quoteRotator as Address | undefined,
+  // `CauldronBase.treasuryGovernor` is `internal` (:345) and the registry has 62
+  // bytes of EIP-170 margin, so it cannot be given a getter — the manifest is
+  // the handle, same as every other contract here.
+  treasuryGovernor: ((round.contracts as Record<string, string>).treasuryGovernor || undefined) as Address | undefined,
   timelock: round.contracts.timelock as Address, // owns hook+engine; registry emergencyAdmin
   collectionLedger: round.contracts.collectionLedger as Address, // legacy-floor cap table
   poolManager: round.contracts.poolManager as Address, // V4 (Sepolia)

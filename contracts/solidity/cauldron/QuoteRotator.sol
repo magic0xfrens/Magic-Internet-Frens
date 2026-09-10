@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
@@ -97,12 +98,101 @@ contract QuoteRotator {
         owner = msg.sender;
     }
 
+    /// @dev The REGISTRY's own authority, distinct from the treasury's.
+    ///
+    ///  ── WHY TWO AUTHORITIES AND NOT ONE (functional audit) ──────────────
+    ///  `swapOnce` and `withdraw` are called by `RedemptionExt.rotateSlice`
+    ///  (:296-297), which runs under delegatecall as the REGISTRY. Both were
+    ///  `onlyOwner`, and `swapOnce`'s own comment asserts "The owner is the
+    ///  registry" — but `setVenue`, `setPlan`, `setKeeperBps` and `setArbParams`
+    ///  are `onlyOwner` too, and no registry function calls any of them. So the
+    ///  single owner slot had to be two things at once:
+    ///
+    ///    owner = registry  -> rotations execute, but the venue allowlist and
+    ///                         every plan parameter become unreachable forever;
+    ///    owner = treasury  -> configuration works, and every `rotateSlice`
+    ///                         reverts `NotOwner` on the first swap.
+    ///
+    ///  Neither is a working deployment, which is why a live rotation had never
+    ///  actually run. Splitting it gives each function the authority it needs:
+    ///  execution is the registry's (it derives size and floor from governed
+    ///  limits, which is what the comment was reaching for), configuration stays
+    ///  the treasury's.
+    modifier onlyRegistry() {
+        if (msg.sender != registry) revert NotOwner();
+        _;
+    }
+
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
         _;
     }
 
     function transferOwnership(address to) external onlyOwner { owner = to; }
+
+    // -----------------------------------------------------------------------
+    // Venue allowlist
+    // -----------------------------------------------------------------------
+
+    /// @notice Pools this contract may route a rotation through, by PoolId.
+    ///
+    ///  ── WHY THE VENUE IS CURATED AND NOT JUST SHAPE-CHECKED (red-team) ──
+    ///  `rotateStep` is permissionless on purpose — anyone may advance a
+    ///  rotation the guild already voted for. `_routeMatches` checks that the
+    ///  venue trades the right PAIR, and for a while that was the whole check:
+    ///  two of a PoolKey's five fields, leaving `fee`, `tickSpacing` and `hooks`
+    ///  free. Pool creation is permissionless in v4, so that admitted any pool
+    ///  on the pair, including one the caller had just created.
+    ///
+    ///  Two things followed, and a shape check only fixed one of them.
+    ///
+    ///  TRUST: an attacker-chosen `hooks` address was invoked by the PoolManager
+    ///  inside this contract's own `unlock`. v4's delta accounting stops the
+    ///  direct theft, but arbitrary code ran while the manager was unlocked.
+    ///
+    ///  EXECUTION QUALITY, which is the one that actually costs money and which
+    ///  no shape check can reach: the governed `minRate` is a FLOOR, and the
+    ///  incentive made it the PRICE. An honest keeper routing to the deepest
+    ///  venue earns `keeperBps` (0.1%). A keeper routing to a pool they seeded
+    ///  earns that 0.1% AND the entire spread, by returning exactly `minOut` and
+    ///  keeping the difference as inventory in their own pool. Self-dealing
+    ///  strictly dominated, so every slice executed at the floor rather than at
+    ///  the market — and `minRate` is stored verbatim from the vote and never
+    ///  revised, so the spread widened with drift as a plan aged.
+    ///
+    ///  Ranking venues on-chain would need a price per venue, which is the
+    ///  oracle dependency this contract's header spends four paragraphs
+    ///  explaining it does not want. Curating them off-chain does not: the
+    ///  treasury lists a small number of deep, real pools, and the keeper's only
+    ///  remaining freedom is WHICH vetted venue to use — where routing to the
+    ///  best one is now the profit-maximising choice, because the bad ones are
+    ///  not reachable.
+    ///
+    ///  FAILS CLOSED. An unset allowlist rotates nothing. That is deliberate: a
+    ///  rotation that cannot execute is a paused treasury operation, whereas a
+    ///  rotation that executes into an unvetted venue is a realised loss.
+    ///  Deployment must call {setVenue} before {setPlan} is useful.
+    ///
+    ///  VETTING A VENUE VETS ITS HOOK. A hooked pool may be listed, and doing so
+    ///  grants that hook execution inside this contract's `unlock`. List only
+    ///  hooks the treasury would trust with that.
+    mapping(PoolId => bool) public allowedVenue;
+
+    event VenueSet(PoolId indexed id, bool allowed);
+
+    /// @notice Curate the set of pools a rotation may execute through.
+    /// @dev Keyed by PoolId, so `fee`, `tickSpacing` and `hooks` are all pinned
+    ///      by the hash — listing a pair does not list every pool on that pair.
+    function setVenue(PoolKey calldata route, bool allowed) external onlyOwner {
+        PoolId id = PoolIdLibrary.toId(route);
+        allowedVenue[id] = allowed;
+        emit VenueSet(id, allowed);
+    }
+
+    /// @notice Whether `route` is a venue `rotateStep` will execute through.
+    function isVenueAllowed(PoolKey calldata route) external view returns (bool) {
+        return allowedVenue[PoolIdLibrary.toId(route)];
+    }
 
     // -----------------------------------------------------------------------
     // Governance
@@ -195,6 +285,14 @@ contract QuoteRotator {
         if (size == 0) revert TooSoon();
         if (!_allowed(p.to)) revert NotAllowedQuote();
         if (!_routeMatches(route, p.from, p.to)) revert NoRoute();
+        //  THE VENUE MUST BE CURATED, not merely the right shape. The pair check
+        //  above leaves `fee`, `tickSpacing` and `hooks` free, and a
+        //  permissionless caller who supplies their own pool executes every
+        //  slice at the governed floor instead of the market. See {allowedVenue}
+        //  for why a shape check cannot fix that and curation can. `swapOnce` is
+        //  deliberately not gated this way — it is owner-only, so the caller
+        //  choosing the venue is the same party that curates the list.
+        if (!allowedVenue[PoolIdLibrary.toId(route)]) revert NoRoute();
 
         // Effects BEFORE the external call: the swap re-enters this contract via
         // unlockCallback and pays an arbitrary keeper at the end, so the step
@@ -224,9 +322,11 @@ contract QuoteRotator {
      *      transaction, so liquidity is removed and redeployed without ever
      *      sitting idle between the two.
      *
-     *      Owner-only because the caller decides the size and the floor — those
-     *      are exactly the two things a permissionless caller must not choose.
-     *      The owner is the registry, which derives both from governed limits.
+     *      REGISTRY-only because the caller decides the size and the floor —
+     *      exactly the two things a permissionless caller must not choose. The
+     *      registry derives both from governed limits (the envelope's ceiling
+     *      and the slice's `minOut`), which is the property this gate is really
+     *      protecting. See {onlyRegistry} for why this is not `onlyOwner`.
      */
     function swapOnce(
         PoolKey calldata route,
@@ -234,7 +334,7 @@ contract QuoteRotator {
         address to,
         uint256 amountIn,
         uint256 minOut
-    ) external onlyOwner returns (uint256 out) {
+    ) external onlyRegistry returns (uint256 out) {
         if (amountIn == 0) revert BadConfig();
         if (!_allowed(to)) revert NotAllowedQuote();
         if (!_routeMatches(route, from, to)) revert NoRoute();
@@ -383,7 +483,11 @@ contract QuoteRotator {
      *      assets and then hold them forever with no way to put them back to
      *      work, which is what an earlier version did.
      */
-    function withdraw(address asset, address to, uint256 amount) external onlyOwner {
+    /// @dev Registry OR owner: `rotateSlice` pulls the converted proceeds back
+    ///      (RedemptionExt:297), and the treasury still needs a sweep for dust a
+    ///      cancelled plan leaves behind.
+    function withdraw(address asset, address to, uint256 amount) external {
+        if (msg.sender != registry && msg.sender != owner) revert NotOwner();
         if (to == address(0)) revert BadConfig();
         _send(asset, to, amount);
         emit Withdrawn(asset, to, amount);
