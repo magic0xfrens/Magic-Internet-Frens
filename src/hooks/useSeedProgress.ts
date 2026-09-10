@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { usePoll } from "@/hooks/usePoll";
 
@@ -68,7 +68,7 @@ const EMPTY: SeedProgress = {
  * progress bar, i.e. it looks like the launch stalled. One cached `/seeding`
  * request serves the same data plus the event tape the notifications need.
  */
-export function useSeedProgress(): SeedProgress {
+export function useSeedProgress(refreshKey?: string | number): SeedProgress {
   const [s, setS] = useState<SeedProgress>(EMPTY);
   // Ids already announced. Kept in a ref so re-renders never re-fire a toast,
   // and seeded on the FIRST response so opening the page mid-launch does not
@@ -110,8 +110,20 @@ export function useSeedProgress(): SeedProgress {
     }
   }, []);
 
-  // 6s: pokes land on the keeper's cadence (~20s) and on swaps, so this is
-  // comfortably ahead of the data without hammering a cached endpoint.
+  // PUSH FIRST, POLL AS THE FLOOR.
+  //
+  // `refreshKey` is the live-swap websocket nonce, which ticks the moment a swap
+  // in our pool is seen on ANY machine. That matters here more than anywhere
+  // else on the page: the ignition green candle and every treasury prime-buy
+  // tranche ARE swaps, and the keeper's poke deploys liquidity and buys in the
+  // same transaction — so the socket fires at exactly the instants this feed has
+  // something new to announce. Refetching on it turns a "within 6 seconds"
+  // notification into a "within a block" one.
+  //
+  // The interval stays as the fallback for the steps that are NOT swaps (a poke
+  // that only places liquidity, `BasePlaced`, `SeedComplete`) and for whenever
+  // the socket is down.
+  useEffect(() => { void load(); }, [refreshKey, load]);
   usePoll(load, 6_000);
   return s;
 }

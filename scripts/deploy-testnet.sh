@@ -34,9 +34,35 @@ export EMERGENCY_DELAY=600           # 10 min (mainnet 48 h)
 # cheaply is not a saving — it launches a pool too thin to open a perp against or
 # rotate, and the test then measures nothing.
 #
-# 1110 x 0.0008 = 0.888 ETH of seed, ~0.52 ETH left over for actually trading.
-export PRESALE_PRICE=800000000000000 # 0.0008 ETH (mainnet 0.0062)
+# 1110 x 0.0002 = 0.222 ETH of seed. Priced DOWN from 0.0008 for this round
+# purely because the deployer has 0.507 ETH left and still has to fund the
+# treasury prime buy — the round-35 LP does not unlock until 2026-09-12 09:05.
+# This costs the test nothing: the OG allocation ratio is set by the supply
+# split, not the mint price (bonusBps x TOTAL/ACTIVE), so 17.5% holds at any
+# price. Raise this once the old LP is recovered.
+export PRESALE_PRICE=200000000000000 # 0.0002 ETH (mainnet 0.0062)
 export PRESALE_MAXWALLET=1111        # (mainnet 100)
+
+# OG allocation = 17.5% of the mint price. bonusBps = target x 8000; see the
+# derivation in DeployLaunchpad.s.sol and the live-fork assertion in F12.
+export GENESIS_BONUS_BPS=1400
+
+# LEDGER C — the treasury's prime buy, spent by poke() in tranches across the
+# seed window. Impact is (1 + e/E)^2 against deployed depth, so 0.05 into a
+# 0.2222 ETH book lands at ~1.50x by completion. A lump sum at t0 would instead
+# meet the thinnest book of the whole launch.
+export PRIME_BUY_ETH=40000000000000000  # 0.04 ETH -> ~1.39x at full depth
+export SEED_WINDOW=900                  # 15 min stream
+
+# BADGE ART IS SKIPPED ON THIS ROUND, DELIBERATELY.
+# Uploading the Liquidatoor badge art is ~167KB across 8 SSTORE2 writes - about
+# 33M of the deploy's 114M gas, i.e. ~0.064 ETH at current Sepolia prices. The
+# deployer has 0.507 ETH and still has to pay for 1110 mints (0.222) and the
+# prime buy (0.04), which does not fit with the art included. Nothing else
+# depends on it: run deploy/DeployBadgeRenderer.s.sol once the round-35 LP is
+# recovered (2026-09-12 09:05) and the badges render from then on. Until then
+# they fall back to the URI base.
+export BADGE_ART=false
 
 # Venue LP depth for the ETH/USDG rotation route.
 export VENUE_ETH=5000000000000000    # 0.005 ETH

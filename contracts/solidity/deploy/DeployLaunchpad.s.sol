@@ -436,6 +436,12 @@ contract DeployLaunchpad is Script {
         registry.setGuardian(vm.envOr("GUARDIAN", deployer));
         governor.setRegistry(address(registry));
         presale.setRegistry(address(registry));
+        // WHO GETS TO LIGHT IT. `finalizer == 0` means the sold-out presale can be
+        // ignited by anyone, so a watching bot can take the moment (and pick the
+        // block the green candle lands in). Naming a finalizer makes ignition
+        // deliberate. Defaults to the deployer; FINALIZER=0x0 restores the
+        // permissionless behaviour if that is what a round actually wants.
+        presale.setFinalizer(vm.envOr("FINALIZER", deployer));
 
         // 6. IGNITION vs OWNERSHIP (audit Z-06). This used to `transferOwnership` the
         //    registry to the PRESALE, purely so `finalize()` could reach `summon()`.

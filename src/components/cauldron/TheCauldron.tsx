@@ -454,7 +454,9 @@ export default function TheCauldron() {
   const liveQuoteAddr = useCurrentQuote(m.gen);
   // Progressive launch: depth streams in over a window rather than landing at
   // once, so the page shows it filling instead of just looking thin.
-  const seed = useSeedProgress();
+  // Fed by the live-swap socket: the green candle and every prime-buy tranche are
+  // swaps, so the seeding feed refreshes on the block rather than on the poll.
+  const seed = useSeedProgress(live_.nonce);
   const liveQuote = quoteMeta(liveQuoteAddr);
   const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
