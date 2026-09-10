@@ -20,6 +20,7 @@ import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
 import BrewNotes, { useBrewNotes } from "@/components/cauldron/BrewNotes";
 import LiquidityDial, { useLiquidity } from "@/components/cauldron/LiquidityDial";
+import { useCollectionFloor } from "@/hooks/useCollectionFloor";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
@@ -470,12 +471,23 @@ export default function TheCauldron() {
   // Real, quote-side liquidity and its split by asset — see LiquidityDial for
   // why the brew's own token is deliberately not in the number.
   const liq = useLiquidity();
+  //  The LIVE collection's floor, which is a TOKEN entitlement in
+  //  CollectionLedger — not the ether vault the stat used to read.
+  const colFloor = useCollectionFloor();
   const liveQuote = quoteMeta(liveQuoteAddr);
   const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
   // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
   const livePerpPrice = tradeTape.length ? tradeTape[tradeTape.length - 1].price : m.spotPrice;
+  //  Tokens-per-NFT marked to spot, then to dollars. Null (not zero) when the
+  //  price is unavailable: "$0.00" asserts the floor is worthless, which is not
+  //  the same claim as "cannot price it".
+  const nftFloorUsd = useMemo(() => {
+    const tokens = Number(colFloor.liveFloorPerNFT ?? 0n) / 1e18;
+    const px = m.spotPrice * m.ethUsd;
+    return px > 0 ? tokens * px : null;
+  }, [colFloor.liveFloorPerNFT, m.spotPrice, m.ethUsd]);
 
   // The brew EKG plots the SAME tape the trading chart does. Deriving both from
   // one source is what keeps them consistent; the tape is already fetched above
@@ -803,7 +815,7 @@ export default function TheCauldron() {
                         cannot express COMPOSITION — which is the whole question
                         once the guild rotates its basis and the position is part
                         ETH, part stable. */
-                    <LiquidityDial liq={liq} glyph={liveQuote.glyph || liveQuote.symbol} />
+                    <LiquidityDial liq={liq} glyph={liveQuote.glyph || liveQuote.symbol} ticker={m.ticker} ethUsd={m.ethUsd} />
                   )}
                 </section>
 
@@ -885,7 +897,23 @@ export default function TheCauldron() {
                     <div className="tc-tele">
                       <Tele label="NFTs forged" value={`${m.nftMinted}${m.nftMax ? ` / ${m.nftMax}` : ""}`} />
                       <Tele label="24h Volume" value={`${fmt(m.vol24hEth, 3)} Ξ`} />
-                      <Tele label="Floor / vault" value={`${fmt(m.vaultEth, 3)} Ξ`} accent />
+                      {/*  WAS `m.vaultEth`, WHICH IS STRUCTURALLY ALWAYS ZERO.
+                           The registry deploys the collection vault and
+                           immediately calls `hook.setVault(0)` under the comment
+                           "UNIFIED FLOOR: no ETH vault" — the vault survives only
+                           as a supply counter for crystallize. So this stat was
+                           reading an address designed never to hold ether and
+                           labelling it the floor.
+                           The real floor is the collection's TOKEN entitlement,
+                           shown in dollars because tokens-per-NFT means nothing
+                           without a price in your head. */}
+                      <Tele
+                        label="NFT floor"
+                        value={nftFloorUsd != null
+                          ? `$${nftFloorUsd < 0.01 ? nftFloorUsd.toPrecision(2) : nftFloorUsd.toFixed(2)}`
+                          : "—"}
+                        accent
+                      />
                       <Tele label="Death floor" value={`${fmt(m.deathThresholdEth, 0)} Ξ`} />
                     </div>
                   </section>
