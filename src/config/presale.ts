@@ -16,7 +16,14 @@ import round from "../../indexer/deployments/round.json";
 export const PRESALE = {
   chainId: CAULDRON.chainId,
   address: CAULDRON.mifrens as Address,
-  /** Display default only — the mint reads PRICE() on-chain before sending. */
+  //  DISPLAY FALLBACK ONLY, and it is the LAST resort.
+  //
+  //  This said "the mint reads PRICE() on-chain before sending" and the mint did
+  //  not: it multiplied a hardcoded `priceWei`. When a round redeployed at a
+  //  different price, every mint sent the old value and reverted `WrongPrice` —
+  //  with the UI still cheerfully quoting the old number. The hook now reads
+  //  PRICE() from the contract at send time AND for display; this constant is
+  //  only what renders before that first read resolves.
   priceEth: 0.0062,
   /** EXACT wei, so value = priceWei * quantity cannot drift into WrongPrice. */
   priceWei: 6200000000000000n,
@@ -47,4 +54,17 @@ export const PRESALE_ABI = [
   { type: "function", name: "cancelPresale", stateMutability: "nonpayable", inputs: [], outputs: [] },
   { type: "function", name: "refund", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "paid", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  //  THE CUSTOM ERRORS. Without these in the ABI a revert decodes to nothing but
+  //  a bare selector (`0xf7760f25`), which is what a user was shown when a stale
+  //  hardcoded price made every mint revert with WrongPrice. With them, viem
+  //  resolves `errorName` and the UI can say what actually went wrong.
+  { type: "error", name: "WrongPrice", inputs: [] },
+  { type: "error", name: "PerWalletCap", inputs: [] },
+  { type: "error", name: "ExceedsSupply", inputs: [] },
+  { type: "error", name: "PresaleOver", inputs: [] },
+  { type: "error", name: "AlreadyCancelled", inputs: [] },
+  { type: "error", name: "NotSoldOut", inputs: [] },
+  { type: "error", name: "NotAuthorized", inputs: [] },
+  { type: "error", name: "RegistryNotSet", inputs: [] },
+  { type: "error", name: "AlreadyFinalized", inputs: [] },
 ] as const;

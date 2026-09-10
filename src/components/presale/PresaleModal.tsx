@@ -122,11 +122,15 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
     return spriteFor(((preview * 137 + 7) % 1111) + 1);
   }, [mintedId, preview]);
 
+  //  The rejection is already turned into `p.txError` by the hook (and a user
+  //  cancelling their own signature sets it to null, which is correct - nothing
+  //  went wrong). Swallowing here used to mean a doomed mint produced no signal
+  //  anywhere: no toast, no message, no console line.
   const doMint = useCallback(() => { p.mint(amount).catch(() => {}); }, [p, amount]);
 
   // Reset when reopened; clamp amount to what's mintable.
   useEffect(() => {
-    if (isOpen) { setAmount(Math.min(initialAmount, maxMint)); setAutoFired(false); p.reset(); }
+    if (isOpen) { setAmount(Math.min(initialAmount, maxMint)); setAutoFired(false); p.reset(); p.clearTxError(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -199,6 +203,13 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
           {busy && <div className="pm__art-scan" aria-hidden />}
           {mintedId != null && <div className="pm__art-burst" aria-hidden />}
         </div>
+        )}
+
+        {p.txError && (
+          <div className="pm__error" role="alert">
+            <span className="pm__error-icon" aria-hidden>!</span>
+            <span>{p.txError}</span>
+          </div>
         )}
 
         {p.confirmed ? (
@@ -344,6 +355,15 @@ const css = `
   .pm__btn--ghost:hover { background: rgba(213,253,81,0.12); }
   .pm__btn:disabled { opacity: 0.6; cursor: default; box-shadow: 0 6px 0 #6f8420; }
   .pm__done-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+  /* ── failure banner ────────────────────────────────────────────────────── */
+  .pm__error { display: flex; align-items: flex-start; gap: 9px; width: 100%;
+    margin: 2px 0 10px; padding: 10px 12px; border-radius: var(--r-sm);
+    background: rgba(214,84,84,.12); border: 1px solid rgba(214,84,84,.34);
+    color: #f0a3a3; font-size: 12.5px; line-height: 1.35; text-align: left; }
+  .pm__error-icon { flex: 0 0 16px; width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    background: rgba(214,84,84,.3); color: #ffd9d9; }
 
   /* ── ignition sequence ─────────────────────────────────────────────────── */
   .pm__ignite { display: flex; flex-direction: column; gap: 2px; width: 100%; margin: 4px 0 10px;

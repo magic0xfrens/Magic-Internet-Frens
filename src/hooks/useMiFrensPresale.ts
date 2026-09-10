@@ -6,6 +6,7 @@ import {
   useSwitchChain,
   useWriteContract,
   useWaitForTransactionReceipt,
+  usePublicClient,
 } from "wagmi";
 import { PRESALE, PRESALE_ABI } from "@/config/presale";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
@@ -18,12 +19,58 @@ const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
  *  Handles chain-switch to Sepolia, exact payment (quantity * PRICE), and
  *  surfaces the on-chain minted/remaining counts so the UI reflects reality.
  */
+/**
+ * Turn a viem/wagmi failure into something a person can act on.
+ *
+ *  A raw revert surfaces as a wall of text ending in a bare selector, and a
+ *  rejected signature surfaces as an error too - so treating every throw the
+ *  same way either shouts at someone who simply changed their mind, or says
+ *  nothing at all when a transaction was genuinely doomed. Returns null for a
+ *  user rejection (nothing went wrong) and a sentence otherwise.
+ */
+function readableTxError(e: unknown): string | null {
+  const err = e as { name?: string; shortMessage?: string; message?: string; cause?: unknown; walk?: (fn: (x: unknown) => boolean) => unknown };
+  const text = `${err?.name ?? ""} ${err?.shortMessage ?? ""} ${err?.message ?? ""}`;
+  if (/User rejected|User denied|rejected the request/i.test(text)) return null;
+
+  // viem nests the decoded custom error; `walk` finds it wherever it sits.
+  let name: string | undefined;
+  try {
+    const found = err?.walk?.((x) => (x as { name?: string })?.name === "ContractFunctionRevertedError");
+    name = (found as { data?: { errorName?: string } })?.data?.errorName;
+  } catch { /* fall through to text matching */ }
+  if (!name) name = /custom error '?(\w+)/i.exec(text)?.[1];
+
+  switch (name) {
+    case "WrongPrice":       return "Price changed on-chain — reload the page and try again.";
+    case "PerWalletCap":     return "That would exceed the per-wallet cap for this wallet.";
+    case "ExceedsSupply":    return "Not enough left in the genesis tranche for that quantity.";
+    case "PresaleOver":      return "The presale is already ignited.";
+    case "AlreadyCancelled": return "The presale was cancelled.";
+    case "NotSoldOut":       return "The tranche has to mint out before the Cauldron can be ignited.";
+    case "NotAuthorized":    return "This wallet is not the designated igniter.";
+    case "AlreadyFinalized": return "The Cauldron is already lit.";
+    case "RegistryNotSet":   return "The presale is not wired to a registry yet.";
+  }
+  if (/insufficient funds/i.test(text)) return "Not enough ETH for the mint plus gas.";
+  return err?.shortMessage || "Transaction failed. Nothing was spent.";
+}
+
 export function useMiFrensPresale() {
   const { address, chainId } = useAccount();
+  const publicClient = usePublicClient({ chainId: PRESALE.chainId });
+  const [txError, setTxError] = useState<string | null>(null);
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
-  const { isLoading: confirming, isSuccess: confirmed, data: receipt } =
+  const { isLoading: confirming, isSuccess: gotReceipt, data: receipt } =
     useWaitForTransactionReceipt({ hash: txHash, chainId: PRESALE.chainId });
+  //  A RECEIPT IS NOT A SUCCESS. `isSuccess` here means "the receipt was
+  //  fetched", which is equally true of a transaction that reverted - so the UI
+  //  congratulated people on mints that had failed, and showed "Your MiFren #—"
+  //  with no id because there was no Transfer log to read one from. The status
+  //  field is the actual verdict.
+  const reverted = gotReceipt && receipt?.status === "reverted";
+  const confirmed = gotReceipt && receipt?.status === "success";
 
   // Separate write flow for finalize() — the summon that launches iteration #1
   // once the guild mints out. Kept independent so its status doesn't clobber
@@ -34,10 +81,22 @@ export function useMiFrensPresale() {
     isPending: finalizePending,
     reset: resetFinalize,
   } = useWriteContract();
-  const { isLoading: finalizing, isSuccess: finalized } =
+  const { isLoading: finalizing, isSuccess: gotIgniteReceipt, data: igniteReceipt } =
     useWaitForTransactionReceipt({ hash: finalizeHash, chainId: PRESALE.chainId });
+  const igniteReverted = gotIgniteReceipt && igniteReceipt?.status === "reverted";
+  const finalized = gotIgniteReceipt && igniteReceipt?.status === "success";
 
   const common = { address: PRESALE.address, abi: PRESALE_ABI, chainId: PRESALE.chainId } as const;
+
+  //  A transaction can pass simulation and still revert on-chain - the state it
+  //  was simulated against moves. Reverting silently is the worst outcome: the
+  //  wallet shows a spent transaction and the page shows nothing at all.
+  useEffect(() => {
+    if (reverted) setTxError("The mint reverted on-chain. Nothing was minted; gas was spent.");
+  }, [reverted]);
+  useEffect(() => {
+    if (igniteReverted) setTxError("Ignition reverted on-chain. The Cauldron was not lit.");
+  }, [igniteReverted]);
 
   // PRIMARY: read minted/soldOut/finalized from PONDER (server-side reads with
   // rotated keys) so the homepage hero NEVER depends on the browser's flaky
@@ -65,6 +124,11 @@ export function useMiFrensPresale() {
   });
   const { data: soldOutRpc, refetch: refetchSoldOut } = useReadContract({
     ...common, functionName: "soldOut", query: { refetchInterval: INDEXER ? 20000 : 5000 },
+  });
+  //  The live unit price, for DISPLAY and as the mint's starting point. Read from
+  //  the contract rather than trusted from config, which is what went stale.
+  const { data: priceWeiLive } = useReadContract({
+    ...common, functionName: "PRICE", query: { staleTime: 60_000 },
   });
   const { data: finalizedRpc, refetch: refetchFinalized } = useReadContract({
     ...common, functionName: "finalized", query: { refetchInterval: INDEXER ? 20000 : 5000 },
@@ -106,8 +170,29 @@ export function useMiFrensPresale() {
     if (chainId !== PRESALE.chainId) {
       await switchChainAsync({ chainId: PRESALE.chainId });
     }
-    return finalizeAsync({ ...common, functionName: "igniteCauldron", args: [] });
-  }, [chainId, switchChainAsync, finalizeAsync, common]);
+    setTxError(null);
+    //  Same pre-flight as the mint. Ignition is one shot and gated (sold out,
+    //  and the designated finalizer if one is set), so a doomed attempt is very
+    //  possible - and finding out by burning gas on the launch transaction is
+    //  the worst moment for it.
+    if (publicClient) {
+      try {
+        await publicClient.simulateContract({
+          ...common, functionName: "igniteCauldron", args: [], account: address,
+        });
+      } catch (e) {
+        const msg = readableTxError(e);
+        setTxError(msg);
+        throw new Error(msg ?? "Ignition would fail");
+      }
+    }
+    try {
+      return await finalizeAsync({ ...common, functionName: "igniteCauldron", args: [] });
+    } catch (e) {
+      setTxError(readableTxError(e));
+      throw e;
+    }
+  }, [chainId, switchChainAsync, finalizeAsync, common, publicClient, address]);
 
   /** Mint `quantity` MiFrens with exact ETH payment. Returns the tx hash. */
   const mint = useCallback(
@@ -116,18 +201,50 @@ export function useMiFrensPresale() {
       if (chainId !== PRESALE.chainId) {
         await switchChainAsync({ chainId: PRESALE.chainId });
       }
-      // EXACT bigint payment — the contract requires msg.value == PRICE * quantity
-      // to the wei, so float math (parseEther(priceEth*qty)) can drift a few wei
-      // and revert WrongPrice. Multiply the exact wei price by the quantity.
-      const value = PRESALE.priceWei * BigInt(quantity);
-      return writeContractAsync({
-        ...common,
-        functionName: "mint",
-        args: [BigInt(quantity)],
-        value,
-      });
+      setTxError(null);
+
+      //  READ THE PRICE FROM THE CONTRACT, EVERY TIME.
+      //
+      //  This used to multiply the hardcoded `PRESALE.priceWei`. A round that
+      //  redeployed at a different price then made EVERY mint revert
+      //  `WrongPrice` (msg.value must equal PRICE * quantity to the wei) while
+      //  the UI still quoted the old figure - the failure looked like a wallet
+      //  or network problem rather than a stale constant. The contract is the
+      //  only authority on its own price.
+      let unit = priceWeiLive ?? PRESALE.priceWei;
+      if (publicClient) {
+        try {
+          unit = await publicClient.readContract({ ...common, functionName: "PRICE" }) as bigint;
+        } catch { /* keep the last known price; the simulation below still guards */ }
+      }
+      const value = unit * BigInt(quantity);
+
+      //  SIMULATE BEFORE ASKING FOR A SIGNATURE. Without this the first thing a
+      //  user learns about a doomed transaction is a failed one on Etherscan -
+      //  they have signed, waited, and paid gas to be told nothing. eth_call
+      //  costs nothing and fails in the same way the real send would.
+      if (publicClient) {
+        try {
+          await publicClient.simulateContract({
+            ...common, functionName: "mint", args: [BigInt(quantity)], value, account: address,
+          });
+        } catch (e) {
+          const msg = readableTxError(e);
+          setTxError(msg);
+          throw new Error(msg ?? "Mint would fail");
+        }
+      }
+
+      try {
+        return await writeContractAsync({
+          ...common, functionName: "mint", args: [BigInt(quantity)], value,
+        });
+      } catch (e) {
+        setTxError(readableTxError(e));
+        throw e;
+      }
     },
-    [address, chainId, switchChainAsync, writeContractAsync, common]
+    [address, chainId, switchChainAsync, writeContractAsync, common, publicClient, priceWeiLive]
   );
 
   return {
@@ -146,12 +263,20 @@ export function useMiFrensPresale() {
     finalizing,      // waiting for summon confirmation
     // launched: either our summon tx confirmed, or the chain already reports it
     finalized: finalized || Boolean(finalizedOnchain),
+    /** Human-readable failure for the last mint/ignite attempt (null = fine). */
+    txError,
+    clearTxError: () => setTxError(null),
+    reverted,
+    igniteReverted,
     resetFinalize,
     minted: minted != null ? Number(minted) : undefined,
     soldOut: Boolean(soldOut),
     myBalance: myBalance != null ? Number(myBalance) : 0,
     maxSupply: PRESALE.maxSupply,
-    priceEth: PRESALE.priceEth,
+    //  Live from the contract, falling back to the config constant only until the
+    //  first read resolves. The constant going stale is what made the page quote
+    //  0.0062 at a contract charging 0.0005.
+    priceEth: priceWeiLive != null ? Number(priceWeiLive) / 1e18 : PRESALE.priceEth,
     // genesis token airdrop per fren + the iteration-#1 ticker (from Ponder) — the
     // REAL gift each MiFren claims (e.g. 69,937 $GNOME), not a hardcoded "1000 $MIF".
     airdropPerFren: ponder.airdropPerFren ?? 0,
