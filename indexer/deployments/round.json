@@ -57,5 +57,7 @@
       "glyph": "",
       "blurb": "Equity pair. The brew trades against a stock instead of a currency."
     }
-  ]
+  ],
+  "legacyThresholdEth": 0.02,
+  "legacyBps": 4000
 }

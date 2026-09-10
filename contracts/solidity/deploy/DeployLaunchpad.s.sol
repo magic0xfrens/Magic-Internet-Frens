@@ -248,6 +248,38 @@ contract DeployLaunchpad is Script {
         //  CALLS `setDeathThreshold` with an oracle, or the two drift apart.
         address quoteOracle = vm.envOr("QUOTE_ORACLE", address(0));
         if (quoteOracle != address(0)) gacha.setOracle(quoteOracle);
+
+        //  ── MAKE VOLUME CURRENCY-AGNOSTIC ────────────────────────────────
+        //  The hook measures a generation's life in VOLUME, and volume decides
+        //  three things: whether the brew is dying, how much crystal credit a
+        //  trade earns, and the odds of a spin. Without an oracle `_toUsd`
+        //  returns the raw quote amount, so all three are denominated in
+        //  whatever the pool happens to be paired against.
+        //
+        //  That is survivable while every generation is ETH-quoted and wrong the
+        //  moment one is not. USDG is 6-decimal: the same dollar of volume
+        //  arrives as 1e6 instead of 1e18, a trillion-fold difference against a
+        //  threshold that did not move. A rotated generation would read as dead
+        //  on arrival and mint nothing, with nothing reverting to say so.
+        //
+        //  Wiring the oracle restates volume in USD at 1e18. The curve constants
+        //  are compared directly against that number, so they MUST be restated
+        //  in the same breath — the setter refuses an oracle without them
+        //  (see CauldronHook.setDeathThreshold, which documents the ~3000x
+        //  over-issuance this prevents). Defaults below are the previous ETH
+        //  values converted at ~$2.4k/ETH, so the economics are unchanged:
+        //      0.02 Ξ/NFT -> $50    0.00002 Ξ step -> $0.05
+        //      0.5 Ξ odds -> $1200  1 Ξ death      -> $2500
+        if (quoteOracle != address(0)) {
+            hook.setDeathThreshold(
+                vm.envOr("DEATH_THRESHOLD_USD", uint256(2500e18)),
+                quoteOracle,
+                vm.envOr("VOLUME_PER_NFT_USD", uint256(50e18)),
+                vm.envOr("NFT_PRICE_STEP_USD", uint256(0.05e18)),
+                vm.envOr("ODDS_FULL_VOLUME_USD", uint256(1200e18))
+            );
+            console2.log("volume denominated in USD via oracle:", quoteOracle);
+        }
         // The registry funds each new iteration's migration reserve with a REAL
         // first-block market buy (green candle). That buy MUST skip the base tax +
         // anti-sniper surtax, else its ETH is taxed away mid-buy and relaunch

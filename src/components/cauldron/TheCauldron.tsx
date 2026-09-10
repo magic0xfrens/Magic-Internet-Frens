@@ -907,11 +907,18 @@ export default function TheCauldron() {
                            The real floor is the collection's TOKEN entitlement,
                            shown in dollars because tokens-per-NFT means nothing
                            without a price in your head. */}
+                      {/*  A BARE "$0.0" LOOKS BROKEN. The floor is genuinely zero
+                           until the FIRST buyback fires: fees accrue into
+                           `legacyBuffer` and only convert to a token entitlement
+                           once the buffer crosses `legacyThreshold`. Showing the
+                           progress to that moment says "filling", which is the
+                           truth, instead of "nothing here". */}
                       <Tele
                         label="NFT floor"
-                        value={nftFloorUsd != null
+                        value={nftFloorUsd != null && nftFloorUsd > 0
                           ? `$${nftFloorUsd < 0.01 ? nftFloorUsd.toPrecision(2) : nftFloorUsd.toFixed(2)}`
-                          : "—"}
+                          : (colFloor.bufferPct > 0 ? `${Math.round(colFloor.bufferPct)}%` : "—")}
+                        sub={nftFloorUsd != null && nftFloorUsd > 0 ? undefined : "to first buyback"}
                         accent
                       />
                       <Tele label="Death floor" value={`${fmt(m.deathThresholdEth, 0)} Ξ`} />
@@ -1155,11 +1162,14 @@ function SummoningState({ summoning }: { summoning: boolean }) {
     </div>
   );
 }
-function Tele({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Tele({ label, value, accent, sub }: { label: string; value: string; accent?: boolean; sub?: string }) {
   return (
     <div className="tc-teleitem">
       <span className="tc-mono tc-dim">{label}</span>
       <span className="tc-teleitem__v" style={{ color: accent ? C.lime : C.cream }}>{value}</span>
+      {/* Optional caption — says what a number MEANS when the bare figure would
+          read as an error (a 0 floor that is really a floor still filling). */}
+      {sub && <span className="tc-mono tc-dim tc-teleitem__sub">{sub}</span>}
     </div>
   );
 }
@@ -1972,6 +1982,7 @@ function Styles() {
     .tc-linkbtn:focus-visible { outline: 2px solid ${C.lime}; outline-offset: 2px; border-radius: var(--r-xs); }
 
     .tc-tele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: stretch; }
+    .tc-teleitem__sub { font-size: 8.5px; letter-spacing: .06em; opacity: .7; margin-top: 1px; }
     @media (max-width: 560px) { .tc-tele { grid-template-columns: repeat(2, 1fr); } }
     .tc-teleitem { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
     .tc-teleitem .tc-dim { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }

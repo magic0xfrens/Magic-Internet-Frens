@@ -412,6 +412,11 @@ const POSM_READ = [{
   inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }],
 }] as const;
 const NATIVE = "0x0000000000000000000000000000000000000000";
+//  Deploy-time config the hook does not expose publicly (both fields are
+//  `internal`). Sourced from the manifest so it travels with the deployment
+//  rather than being guessed, and defaulted to the contract's own initialiser.
+const LEGACY_THRESHOLD_ETH = Number((round as Record<string, unknown>).legacyThresholdEth ?? 0.02);
+const LEGACY_BPS = Number((round as Record<string, unknown>).legacyBps ?? 4000);
 
 let treasuryCache: { at: number; v: unknown } = { at: 0, v: null };
 app.get("/treasury", async (c) => {
@@ -637,9 +642,18 @@ app.get("/collection-floors", async (c) => {
       liveFloorPerNFT,   // token redeemable per LIVE creature NFT right now
       liveOutstanding,   // entitled (redeemable) live NFTs
       bufferEth: Number(buffer) / 1e18,
-      thresholdEth: Number(threshold) / 1e18,
-      bufferPct: threshold > 0n ? Math.min(100, (Number(buffer) / Number(threshold)) * 100) : 0,
-      legacyBps: Number(bps),
+      //  `legacyThreshold` and `legacyBps` are INTERNAL on the hook, so these
+      //  reads revert and `rd` yields 0 — which made the panel report a 0 ETH
+      //  threshold and 0% progress while ETH was visibly accumulating in the
+      //  buffer. The values are deploy-time configuration, so they come from the
+      //  manifest exactly like `deathThresholdEth` does, and the chain read is
+      //  kept as the preferred source for the day those getters become public.
+      thresholdEth: threshold > 0n ? Number(threshold) / 1e18 : LEGACY_THRESHOLD_ETH,
+      bufferPct: (() => {
+        const t = threshold > 0n ? Number(threshold) / 1e18 : LEGACY_THRESHOLD_ETH;
+        return t > 0 ? Math.min(100, (Number(buffer) / 1e18 / t) * 100) : 0;
+      })(),
+      legacyBps: bps > 0n ? Number(bps) : LEGACY_BPS,
       past,
     };
     colFloorCache = { at: Date.now(), v };
