@@ -37,8 +37,13 @@ function loadBroadcast(script) {
   const p = join(root, `contracts/solidity/broadcast/${script}/${chain}/run-latest.json`);
   if (!existsSync(p)) return { found: false, creates: [], path: p };
   const run = JSON.parse(readFileSync(p, "utf8"));
+  //  CREATE **AND** CREATE2. Filtering to CREATE alone made every CREATE2
+  //  deployment invisible to `pick()`, which is why the hook — mined to a salt
+  //  and therefore always CREATE2 — could never be found by name and fell
+  //  through to the "ask the chain" path. Foundry does record its contractName,
+  //  so there was never a reason to guess.
   const creates = (run.transactions ?? []).filter(
-    (t) => t.transactionType === "CREATE" && t.contractAddress,
+    (t) => (t.transactionType === "CREATE" || t.transactionType === "CREATE2") && t.contractAddress,
   );
   return { found: true, creates, path: p };
 }
@@ -71,16 +76,18 @@ function pickNth(name, n, src) {
   return all[n]?.contractAddress ?? null;
 }
 
-//  CauldronHook is CREATE2-deployed via a mined salt, so Foundry records it
-//  without a `contractName`.
+//  CauldronHook is CREATE2-deployed via a mined salt.
 //
 //  Taking "the first CREATE2" is WRONG and shipped a broken manifest once:
 //  linked libraries (FeeRouteLib, PoolOps) are CREATE2-deployed too and come
 //  first, so `hook` ended up pointing at FeeRouteLib — an address with real code
 //  that answers no hook call, which fails at runtime rather than at deploy.
 //
-//  The registry stores its own hook, so ask it. That is the address the protocol
-//  actually uses, which is the only definition that matters.
+//  Foundry DOES record the name on a CREATE2, so the fix is simply to look it up
+//  like any other contract; `loadBroadcast` was dropping CREATE2 entirely, which
+//  is what made it look nameless. The registry lookup below stays as the
+//  fallback for a broadcast that genuinely lacks it — that is the address the
+//  protocol actually uses, which is the only definition that matters.
 function hookFromRegistry(registry) {
   const tx = launchpad.creates.find((t) => t.contractName === "CauldronHook");
   if (tx?.contractAddress) return tx.contractAddress;   // named CREATE, if present

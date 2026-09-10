@@ -66,7 +66,23 @@ export VENUE_USDG=15000000           # 15 USDG (6dp)
 #  PRIVATE_KEY (exported by go-testnet.sh from the gitignored .env) wins when
 #  set; otherwise fall back to the encrypted keystore, which is what a mainnet
 #  deploy should always use.
-if [ -n "${PRIVATE_KEY:-}" ]; then
+#  A keystore PASSWORD FILE is preferred over a plaintext PRIVATE_KEY: the key
+#  stays encrypted at rest and never exists in the clear on disk. --password is
+#  not used because a flag value shows up in `ps` for every process on the box.
+#  READ THE .env DIRECTLY. This used to rely on go-testnet.sh exporting
+#  PRIVATE_KEY, so running THIS script on its own silently fell through to the
+#  keystore branch and died on `Device not configured (os error 6)` — forge
+#  asking for a password with no TTY to ask on. Loading it here means the script
+#  works standalone, which is how it actually gets run.
+PASSFILE="${KEYSTORE_PASSWORD_FILE:-/tmp/mif-keystore-pass}"
+#  Relative to contracts/solidity, which this script cd'd into at the top.
+ENVFILE=".env"
+if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
+  PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
+fi
+if [ -s "$PASSFILE" ]; then
+  SIGNER=(--account deployer --sender "$DEPLOYER" --password-file "$PASSFILE")
+elif [ -n "${PRIVATE_KEY:-}" ]; then
   SIGNER=(--private-key "$PRIVATE_KEY")
 else
   SIGNER=(--account deployer --sender "$DEPLOYER")

@@ -40,8 +40,31 @@ bal() { cast balance "$1" --rpc-url "$R" | tail -1 | awk '{print $1}'; }
 
 echo "deployer before: $(cast from-wei "$(bal "$DEP")") ETH"
 
-read -rsp "keystore password for 'deployer': " PW; echo
-W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PW")
+#  SIGNER, in order of preference. The whole sequence is ~20 minutes of sleeps,
+#  so it has to run unattended — an interactive password prompt needs a TTY that
+#  an agent session does not have.
+#
+#    1. A keystore PASSWORD FILE. Best option: the key stays encrypted at rest in
+#       ~/.foundry/keystores/deployer and never exists on disk in the clear,
+#       which a pasted PRIVATE_KEY does. `--password-file` rather than
+#       `--password` on purpose — a flag VALUE is visible in `ps` to every
+#       process on the box, a file path is not.
+#    2. A gitignored plaintext testnet key, for when the passphrase is not to
+#       hand. Delete it when the run finishes.
+#    3. An interactive prompt, for a human at a terminal.
+PASSFILE="${KEYSTORE_PASSWORD_FILE:-/tmp/mif-keystore-pass}"
+ENVFILE="contracts/solidity/.env"
+if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
+  PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
+fi
+if [ -s "$PASSFILE" ]; then
+  W=(--rpc-url "$R" --account deployer --from "$DEP" --password-file "$PASSFILE")
+elif [ -n "${PRIVATE_KEY:-}" ]; then
+  W=(--rpc-url "$R" --private-key "$PRIVATE_KEY")
+else
+  read -rsp "keystore password for 'deployer': " PW; echo
+  W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PW")
+fi
 
 READY=$(cast call "$REG" "emergencyReadyAt()(uint256)" --rpc-url "$R" | tail -1 | awk '{print $1}')
 
