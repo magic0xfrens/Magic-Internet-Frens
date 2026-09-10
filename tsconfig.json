@@ -6,6 +6,16 @@
   ],
   "compilerOptions": {
     "allowJs": true,
+    // The serverless functions in api/ are type-checked by Vercel against THIS
+    // config (they sit outside tsconfig.app.json's include), and several of them
+    // import indexer/deployments/round.json - the manifest is the single source
+    // of truth for addresses, so an API route that hardcoded them instead would
+    // be the very drift this project keeps eliminating. Without
+    // resolveJsonModule that import is a hard build error (TS2732) and the
+    // production deploy fails while `npm run build` passes locally, because the
+    // local build is `vite build` and never runs tsc over api/.
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "paths": {
       "@/*": ["./src/*"]
     }
