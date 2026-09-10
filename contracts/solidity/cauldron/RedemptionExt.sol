@@ -6,6 +6,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {PoolOps, IPositionManagerOps, ReserveRef} from "./PoolOps.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
 
@@ -256,6 +257,18 @@ contract RedemptionExt is CauldronBase {
         uint256 minOut,
         PoolKey calldata route
     ) external returns (uint256 moved, uint256 positionId) {
+        return rotateSliceFrom(0, sliceBps, minOut, route);
+    }
+
+    /// @notice Rotate a slice out of a CHOSEN leg. `fromLeg` 0 is the primary
+    ///         pool; 1..legCount are the rotated legs. See the note inside on why
+    ///         this exists and how merging falls out of it.
+    function rotateSliceFrom(
+        uint8 fromLeg,
+        uint16 sliceBps,
+        uint256 minOut,
+        PoolKey calldata route
+    ) public returns (uint256 moved, uint256 positionId) {
         //  ── "NOT WIRED" AND "NOT APPROVED" ARE DIFFERENT PROBLEMS ──────────
         //  Both used to revert `NotConfigured`, which is how B-15 stayed hidden:
         //  a deployment whose rotation wiring was never set looked exactly like
@@ -289,15 +302,44 @@ contract RedemptionExt is CauldronBase {
         if (sliceBps == 0 || sliceBps > MAX_SLICE_BPS) revert BadConfig();
 
         uint256 gen = currentGeneration;
-        address fromQuote = generationQuote[gen];
         address token = generationToken[gen];
 
-        // 1. Take the slice out of the live pair. The position survives — this
+        //  ── WHICH LEG DOES THIS SLICE COME FROM? ───────────────────────────
+        //  It was always the primary. That made the treasury one-directional:
+        //  every rotation drained the ORIGINAL quote, so a guild could go
+        //  ETH -> USDG but never USDG -> anything, never rebalance between two
+        //  destinations, and never merge a split back together. Reaching
+        //  50/30/20 meant successive bites of the original asset and nothing
+        //  else was expressible.
+        //
+        //  `fromLeg` names the source: 0 is the primary (the previous, and still
+        //  default, behaviour), and 1..n are the rotated legs in
+        //  `generationLegs`. Merging needs no new verb — it is rotating one leg
+        //  entirely into another leg's pair.
+        address fromQuote;
+        uint256 srcPositionId;
+        PoolKey memory srcKey;
+        if (fromLeg == 0) {
+            fromQuote = generationQuote[gen];
+            srcPositionId = generationPositionId[gen];
+            srcKey = generationPoolKey[gen];
+        } else {
+            TreasuryLeg storage l = generationLegs[gen][fromLeg - 1];
+            fromQuote = l.quote;
+            srcPositionId = l.positionId;
+            srcKey = l.key;
+        }
+        //  A leg cannot rotate into itself: it would remove liquidity, swap the
+        //  pair against itself and put it back, burning the envelope and fees
+        //  for no movement.
+        if (fromQuote == toQuote) revert BadConfig();
+
+        // 1. Take the slice out of the chosen pair. The position survives — this
         //    is a reallocation, not an exit.
         (uint256 quoteOut, uint256 tokenOut) = PoolOps.removePartial(
             IPositionManagerOps(address(positionManager)),
-            generationPositionId[gen],
-            generationPoolKey[gen],
+            srcPositionId,
+            srcKey,
             token,
             fromQuote,
             sliceBps
@@ -328,6 +370,18 @@ contract RedemptionExt is CauldronBase {
         // Count the new pair toward this generation, or splitting liquidity
         // would read as the generation dying.
         IHookVolume(address(hook)).linkVolume(generationPoolId[gen], poolId);
+
+        //  ── RECORD THE LEG, OR RELAUNCH CANNOT GIVE IT BACK ────────────────
+        //  `positionId` used to be returned and dropped. Nothing stored it, so
+        //  nothing could unwind it: `_removeLiquidity` recovers the primary, the
+        //  reserve and the seeder's bands, and a rotated leg is none of those.
+        //  A guild that voted half its treasury into a stable would have found
+        //  that half still in the old pool after the rebirth, funding nothing.
+        //
+        //  Upsert by QUOTE rather than append: `openOrAddPair` tops up the same
+        //  position on every later slice into the same pair, so appending would
+        //  record the same id N times and unwind it N times at teardown.
+        _recordLeg(gen, toQuote, positionId, route);
         // Booked AFTER the move succeeds, so a reverted slice does not burn
         // envelope the treasury never actually spent.
         ITreasuryGovernor(gov).consume(sliceBps);
@@ -366,6 +420,8 @@ contract RedemptionExt is CauldronBase {
     /// @notice The generation's recorded denomination changed because a live
     ///         rotation completed. Downstream readers (notably the perp engine,
     ///         via {PerpEngine.syncGeneration}) re-adopt from this.
+    event LegOpened(uint256 indexed gen, address indexed quote, uint256 positionId);
+    event LegRecovered(uint256 indexed gen, address indexed quote, uint256 quoteOut, uint256 tokenOut);
     event GenerationRequoted(uint256 indexed gen, address indexed from, address indexed to);
 
     /// @dev Ceiling on a single slice.
@@ -449,4 +505,88 @@ contract RedemptionExt is CauldronBase {
     event RotationCompleted(
         uint256 indexed gen, address indexed quote, PoolId poolId, uint256 quoteAmount, uint256 tokenAmount
     );
+    /// @notice Whether the genesis redemption floor is claimable at spot RIGHT NOW,
+    ///         and the current per-fren floor. The reserve is a single-sided token
+    ///         band placed BELOW the launch tick; it only pays pure token while spot
+    ///         stays ABOVE the band's upper tick. If the token appreciates past its
+    ///         ~69x ceiling (spot trades INTO the band), claims temporarily
+    ///         short-deliver and revert (audit Y-01) — so the frontend should read
+    ///         this and show "floor temporarily out of range during a pump" instead
+    ///         of a bare revert. `floorPerFren()` keeps returning the advertised
+    ///         value regardless; this is the reachability signal that pairs with it.
+    ///
+    ///  Lives on the FACET, reached through the registry's fallback, purely to
+    ///  keep the registry under EIP-170. Callers see no difference.
+    function floorClaimableNow() external view returns (bool claimable, uint256 perFren) {
+        perFren = floorPerFren();
+        uint256 g = currentGeneration;
+        if (!summoned || perFren == 0) return (false, perFren);
+        (, int24 tick,,) = StateLibrary.getSlot0(poolManager, generationPoolId[g]);
+        claimable = tick > reserveTickUpper[g];
+    }
+
+    // -----------------------------------------------------------------------
+    // TREASURY LEGS -- readers (see {CauldronBase.TreasuryLeg})
+    // -----------------------------------------------------------------------
+
+    /// @notice How many rotated legs a generation holds beyond its primary pool.
+    function legCount(uint256 gen) external view returns (uint256) {
+        return generationLegs[gen].length;
+    }
+
+    /// @notice Read one leg: its quote, its position id, and the pool it sits in.
+    function legAt(uint256 gen, uint256 i)
+        external
+        view
+        returns (address quote, uint256 positionId, PoolKey memory key)
+    {
+        TreasuryLeg storage l = generationLegs[gen][i];
+        return (l.quote, l.positionId, l.key);
+    }
+
+    /// @dev Upsert a leg by quote. See the call site for why it is not an append.
+    function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private {
+        TreasuryLeg[] storage legs = generationLegs[gen];
+        uint256 n = legs.length;
+        for (uint256 i; i < n; ++i) {
+            if (legs[i].quote == quote) { legs[i].positionId = positionId; return; }
+        }
+        legs.push(TreasuryLeg({quote: quote, positionId: positionId, key: key}));
+        emit LegOpened(gen, quote, positionId);
+    }
+
+    /**
+     * @notice Unwind every rotated leg of `gen` back to the registry.
+     *
+     *  Called by `CauldronRegistry._removeLiquidity` during relaunch, and safe to
+     *  call directly afterwards for a generation whose rebirth predates this.
+     *  Idempotent: legs are deleted as they are taken, so a second call recovers
+     *  nothing rather than reverting.
+     *
+     *  BEST-EFFORT PER LEG, deliberately. One pair that cannot be unwound — a
+     *  pool someone broke, a token that started reverting on transfer — must not
+     *  block the rebirth and strand every OTHER leg with it. A failed leg stays
+     *  recorded, so it can be retried once whatever broke is fixed.
+     */
+    function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut) {
+        TreasuryLeg[] storage legs = generationLegs[gen];
+        address token = generationToken[gen];
+        IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
+
+        uint256 i = legs.length;
+        while (i > 0) {
+            --i;
+            TreasuryLeg memory l = legs[i];
+            try PoolOps.removeAll(pm, l.positionId, l.key, token) returns (uint256 q, uint256 t) {
+                quoteOut += q;
+                tokenOut += t;
+                legs[i] = legs[legs.length - 1];
+                legs.pop();
+                emit LegRecovered(gen, l.quote, q, t);
+            } catch {
+                // Left in place on purpose — see the note above.
+            }
+        }
+    }
+
 }

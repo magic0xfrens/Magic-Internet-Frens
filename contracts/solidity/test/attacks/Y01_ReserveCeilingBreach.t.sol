@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {console2} from "forge-std/console2.sol";
+import {RedemptionExt} from "../../cauldron/RedemptionExt.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
@@ -207,13 +208,13 @@ contract Y01_ReserveCeilingBreach is YBase {
         
         vm.skip(!active);
 
-        (bool claimable0, uint256 perFren0) = registry.floorClaimableNow();
+        (bool claimable0, uint256 perFren0) = RedemptionExt(payable(address(registry))).floorClaimableNow();
         assertTrue(claimable0, "claimable before the pump");
         assertGt(perFren0, 0, "floor advertised");
 
         _pumpThroughCeiling();
 
-        (bool claimable1, uint256 perFren1) = registry.floorClaimableNow();
+        (bool claimable1, uint256 perFren1) = RedemptionExt(payable(address(registry))).floorClaimableNow();
         assertFalse(claimable1, "signal flips to NOT-claimable inside the band");
         assertEq(perFren1, registry.floorPerFren(), "perFren still mirrors floorPerFren()");
 

@@ -380,4 +380,50 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     }
 
     constructor() Ownable(msg.sender) {}
+    // -----------------------------------------------------------------------
+    // TREASURY LEGS -- a generation's liquidity, wherever it now sits
+    // -----------------------------------------------------------------------
+
+    /**
+     * @notice One pool a generation holds liquidity in.
+     *
+     *  A generation used to BE one pool: `generationPositionId` and
+     *  `generationPoolKey`, singular. Rotation broke that assumption without
+     *  recording the fact — `RedemptionExt.rotateSlice` opens a position in the
+     *  destination pair, links it for volume, and then DISCARDS the position id
+     *  it got back. Nothing stored it, so nothing could unwind it: relaunch's
+     *  `_removeLiquidity` recovers the primary, the reserve and the seeder's
+     *  bands, and a rotated leg is none of the three. A guild that voted to move
+     *  half its treasury into a stable would have found that half still sitting
+     *  in the old pool after the rebirth, funding nothing.
+     *
+     *  Tracking legs explicitly fixes that and buys the flexibility that was
+     *  missing anyway: with the set known, a rotation can name WHICH leg it
+     *  draws from instead of always draining the original, and merging is just
+     *  rotating one leg entirely into another's pair.
+     *
+     *  DECLARED LAST, deliberately — appending keeps every existing slot number,
+     *  which inserting mid-layout would silently renumber.
+     */
+    struct TreasuryLeg {
+        /// The pool's quote asset (currency0 by construction).
+        address quote;
+        /// PositionManager token id for this leg's full-range position.
+        uint256 positionId;
+        /// The pair itself, kept so recovery needs no reconstruction.
+        PoolKey key;
+    }
+
+    /// @notice generation -> every pool it holds liquidity in BEYOND the primary.
+    ///         The primary stays in `generationPositionId`/`generationPoolKey` so
+    ///         no existing reader changes.
+    mapping(uint256 => TreasuryLeg[]) internal generationLegs;
+
+    //  READERS LIVE ON THE FACET, NOT HERE. A function on CauldronBase is
+    //  inherited by the REGISTRY as well, and the registry has ~130 bytes of
+    //  EIP-170 margin — these two views alone cost it 250. The mapping stays
+    //  (storage declarations carry no bytecode); `legCount` and `legAt` are on
+    //  {RedemptionExt}, reached through the registry's fallback, so callers see
+    //  no difference.
+
 }

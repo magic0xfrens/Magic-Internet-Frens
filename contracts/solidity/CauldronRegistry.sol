@@ -52,6 +52,13 @@ import {
  *    Gen 7+: Cycle repeats
  */
 contract CauldronRegistry is CauldronBase, IUnlockCallback {
+    /// @dev `RedemptionExt.recoverLegs(uint256)`. Declared `constant` so solc
+    ///      folds the hash at COMPILE time — the same expression written inline
+    ///      hashes on every call and cost this contract 156 bytes of its EIP-170
+    ///      margin. Never hand-written: a wrong selector fails silently here,
+    ///      leaving every rotated leg stranded with nothing to show for it.
+    bytes4 private constant RECOVER_LEGS = bytes4(keccak256("recoverLegs(uint256)"));
+
     // Errors + the shared redemption events/views/storage now live in
     // {CauldronBase} (shared with the RedemptionExt delegatecall facet).
 
@@ -1459,6 +1466,34 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
             ethRecovered += e3;
             tokensRecovered += t3;
         }
+
+        //  ROTATED LEGS. A generation that rotated holds liquidity in pools the
+        //  three recoveries above know nothing about: the primary, the reserve
+        //  and the seeder's bands are all this function ever unwound, and a leg
+        //  opened by `RedemptionExt.rotateSlice` is none of them. Half a treasury
+        //  voted into a stable would have stayed in that pool through the
+        //  rebirth, funding nothing.
+        //
+        //  Delegatecalled into the facet because the loop does not fit here —
+        //  this contract has ~380 bytes of EIP-170 margin against the facet's
+        //  ~14KB. Failure is swallowed for the same reason the facet swallows a
+        //  single bad leg: recovery is worth attempting, and a rebirth that
+        //  cannot happen is worse than one that recovers less than everything.
+        address ext = redemptionExt;
+        if (ext != address(0)) {
+            //  Selector computed by the compiler, never written by hand. My
+            //  first attempt hardcoded 0x9b0f6ef7 for this; the real one is
+            //  0x03ebe66e, and a wrong selector here fails SILENTLY — the
+            //  delegatecall returns false, the `if (ok)` skips, and every leg
+            //  stays stranded exactly as before with nothing to show for it.
+            (bool ok, bytes memory ret) =
+                ext.delegatecall(abi.encodeWithSelector(RECOVER_LEGS, gen));
+            if (ok && ret.length >= 64) {
+                (uint256 e4, uint256 t4) = abi.decode(ret, (uint256, uint256));
+                ethRecovered += e4;
+                tokensRecovered += t4;
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1617,22 +1652,11 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         return claimed[generation_][holder];
     }
 
-    /// @notice Whether the genesis redemption floor is claimable at spot RIGHT NOW,
-    ///         and the current per-fren floor. The reserve is a single-sided token
-    ///         band placed BELOW the launch tick; it only pays pure token while spot
-    ///         stays ABOVE the band's upper tick. If the token appreciates past its
-    ///         ~69x ceiling (spot trades INTO the band), claims temporarily
-    ///         short-deliver and revert (audit Y-01) — so the frontend should read
-    ///         this and show "floor temporarily out of range during a pump" instead
-    ///         of a bare revert. `floorPerFren()` keeps returning the advertised
-    ///         value regardless; this is the reachability signal that pairs with it.
-    function floorClaimableNow() external view returns (bool claimable, uint256 perFren) {
-        perFren = floorPerFren();
-        uint256 g = currentGeneration;
-        if (!summoned || perFren == 0) return (false, perFren);
-        (, int24 tick,,) = StateLibrary.getSlot0(poolManager, generationPoolId[g]);
-        claimable = tick > reserveTickUpper[g];
-    }
+    // NOTE: `floorClaimableNow` moved to {RedemptionExt} to reclaim EIP-170
+    // bytecode for the rotation-leg recovery. The ABI is UNCHANGED: the fallback
+    // delegatecalls any unknown selector to the facet, so `registry.
+    // floorClaimableNow()` still answers exactly as before. It reads only
+    // CauldronBase state, which the facet shares.
 
     // NOTE: `getCreatureForGeneration` moved fully into the linked PoolOps library
     // (`PoolOps.creatureFor`) to save registry EIP-170 bytecode — summon calls it
