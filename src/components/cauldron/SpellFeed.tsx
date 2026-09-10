@@ -26,6 +26,7 @@ import type { LiveSwap, EventKind } from "@/hooks/useLiveSwaps";
 const SPELL: Record<EventKind, { icon: string; label: string; tone: "good" | "bad" | "magic" | "neutral" }> = {
   "buy":          { icon: "🐸", label: "gib tendies",   tone: "good" },
   "sell":         { icon: "📉", label: "paper hands",   tone: "bad" },
+  "gacha-volume": { icon: "🎰", label: "spin volume",   tone: "magic" },
   "gacha-commit": { icon: "🔮", label: "crystals cast", tone: "magic" },
   "gacha-win":    { icon: "✨", label: "fren forged",   tone: "magic" },
   "gacha-miss":   { icon: "💨", label: "spell fizzled", tone: "neutral" },

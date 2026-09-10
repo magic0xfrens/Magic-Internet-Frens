@@ -475,7 +475,6 @@ export default function TheCauldron() {
   //  CollectionLedger — not the ether vault the stat used to read.
   const colFloor = useCollectionFloor();
   const liveQuote = quoteMeta(liveQuoteAddr);
-  const perpsAvailable = isNativeQuote(liveQuoteAddr);
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
   // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
@@ -723,7 +722,7 @@ export default function TheCauldron() {
           document.body, so no card's backdrop-filter can capture its
           position:fixed. */}
       <SpellFeed events={live_.recent} glyph={liveQuote.glyph || liveQuote.symbol} />
-      <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} ticker={m.ticker} />
+      <ActivityDrawer events={activity} glyph={liveQuote.glyph || liveQuote.symbol} ticker={m.ticker} usdPerQuote={m.ethUsd ?? 0} />
       <div className="tc-embers" aria-hidden>
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>
@@ -970,22 +969,16 @@ export default function TheCauldron() {
               Long or short the brew with real price impact — every position moves the chart, and the liquidation walls light up the heatmap below. Overcollateralized, TWAP-marked, no external oracle.
             </p>
 
-            {/* The ENGINE refuses a non-ETH generation (PerpEngine.QuoteNotSupported),
-                so say why here rather than letting an open fail at signing. Its
-                collateral, funding and insurance buffer are still ETH-denominated. */}
-            {!perpsAvailable && (
-              <div className="tc-perp-gate">
-                <div className="tc-mono" style={{ color: "#f6c86a", marginBottom: 6 }}>
-                  ⚠ Leverage is ETH-only for now
-                </div>
-                <p style={{ margin: 0, fontFamily: '"DM Sans", sans-serif', fontSize: 12, lineHeight: 1.55, color: C.mute }}>
-                  This brew is priced in <b>{liveQuote.symbol}</b>. Spot trading, the
-                  gacha and the collection floor all work normally — but the perp
-                  engine denominates collateral and its insurance buffer in ETH, so
-                  it declines this pair rather than mis-pricing your position.
-                </p>
-              </div>
-            )}
+            {/*  THE ETH-ONLY GATE IS GONE, because the claim behind it is no
+                 longer true. It said the engine "refuses a non-ETH generation
+                 (PerpEngine.QuoteNotSupported)" — an error the engine does not
+                 have. Audit Q-03 found that comment survived the quote-agnostic
+                 conversion and named a guard that was never thrown; the engine
+                 denominates collateral, principal, funding and every payout in
+                 the GENERATION'S QUOTE, moves it with _pullQuote/_pushQuote, and
+                 prices off the pool's Q96 sqrtPrice, which already encodes the
+                 decimal ratio. So this banner was blocking the UI on a limitation
+                 that had been removed from the contracts. */}
 
             {/* live chart WITH the liquidation heatmap — trade against your walls */}
             <div className="tc-perp-chart">
@@ -1039,7 +1032,7 @@ export default function TheCauldron() {
             <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
               Stake ETH or ${m.ticker} into the perp liquidity vault that fronts every trader’s leverage — and earn 30% of all perp fees as your share price grows. This is the community-funded sink that powers the whole engine.
             </p>
-            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} />
+            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} quote={liveQuoteAddr} quoteSymbol={liveQuote.symbol} />
           </section>
         )}
 

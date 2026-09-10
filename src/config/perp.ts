@@ -117,6 +117,12 @@ export const PERP_ABI = [
 /** Community PLV vault (staking) — deposit/withdraw ETH + token for perp-fee yield. */
 export const PERP_VAULT_ABI = [
   { type: "function", name: "depositEth", stateMutability: "payable", inputs: [], outputs: [{ type: "uint256" }] },
+  //  THE QUOTE-AGNOSTIC DEPOSIT. `depositEth()` is a native-only convenience
+  //  wrapper; `deposit(amount)` is what PerpVault actually implements — it reads
+  //  the engine's quote and either takes msg.value (native) or pulls the ERC20.
+  //  The frontend only ever called the wrapper, which is why staking looked
+  //  ETH-only even though the vault has handled any quote for some time.
+  { type: "function", name: "deposit", stateMutability: "payable", inputs: [{ name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "withdrawEth", stateMutability: "nonpayable", inputs: [{ name: "shares", type: "uint256" }], outputs: [{ type: "uint256" }, { type: "uint256" }] },
   { type: "function", name: "claimPendingEth", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "depositToken", stateMutability: "nonpayable", inputs: [{ name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] },

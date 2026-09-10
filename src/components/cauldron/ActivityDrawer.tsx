@@ -18,6 +18,7 @@ import type { LiveSwap, EventKind } from "@/hooks/useLiveSwaps";
 const SPELL: Record<EventKind, { icon: string; verb: string; flavour: string; tone: string }> = {
   "buy":          { icon: "🐸", verb: "Bought",          flavour: "gib tendies",     tone: "good" },
   "sell":         { icon: "📉", verb: "Sold",            flavour: "paper hands",     tone: "bad" },
+  "gacha-volume": { icon: "🎰", verb: "Crystal spins",   flavour: "volume from rolls", tone: "magic" },
   "gacha-commit": { icon: "🔮", verb: "Crystals cast",   flavour: "the wheel spins", tone: "magic" },
   "gacha-win":    { icon: "✨", verb: "Fren forged",     flavour: "a wizard appears", tone: "magic" },
   "gacha-miss":   { icon: "💨", verb: "Spell fizzled",   flavour: "no fren this time", tone: "neutral" },
@@ -38,7 +39,9 @@ function ago(ts: number, now: number): string {
   return `${Math.floor(s / 3600)}h`;
 }
 
-export function ActivityDrawer({ events, glyph, ticker }: {
+export function ActivityDrawer({ events, glyph, ticker, usdPerQuote = 0 }: {
+  /** USD per 1 unit of the quote asset, so spin volume can be shown in $. */
+  usdPerQuote?: number;
   events: LiveSwap[];
   glyph: string;
   ticker: string;
@@ -96,10 +99,17 @@ export function ActivityDrawer({ events, glyph, ticker }: {
           )}
           {events.map((e) => {
             const s = SPELL[e.kind] ?? SPELL["gacha-miss"];
-            const q = Number(formatEther(e.quoteWei));
+            const isRollup = e.kind === "gacha-volume";
+            //  A roll-up shows the volume of ALL its spins, not the last one's.
+            const q = Number(formatEther(isRollup ? (e.rollupWei ?? e.quoteWei) : e.quoteWei));
             const isTrade = e.kind === "buy" || e.kind === "sell";
+            const usd = usdPerQuote > 0 ? q * usdPerQuote : 0;
+            const floorQ = isRollup ? Number(formatEther(e.floorWei ?? 0n)) : 0;
+            const floorUsd = usdPerQuote > 0 ? floorQ * usdPerQuote : 0;
             const amount = q > 0
-              ? `${q < 0.0001 ? "<0.0001" : q.toFixed(4)} ${glyph}`
+              ? (isRollup && usd > 0
+                  ? `$${usd < 0.01 ? usd.toPrecision(2) : usd.toFixed(2)}`
+                  : `${q < 0.0001 ? "<0.0001" : q.toFixed(4)} ${glyph}`)
               : undefined;
             const isOpen = expanded === e.id;
 
@@ -115,8 +125,15 @@ export function ActivityDrawer({ events, glyph, ticker }: {
                     <span className="tc-grim__verb">
                       {s.verb}
                       {isTrade && <em> ${ticker}</em>}
+                      {isRollup && <em> ×{e.spins ?? 1}</em>}
                     </span>
-                    <span className="tc-grim__flavour">{s.flavour}</span>
+                    {/*  The roll-up's caption carries what the row is FOR: how
+                         much of that spin volume reached the NFT floor. */}
+                    <span className="tc-grim__flavour">
+                      {isRollup && floorUsd > 0
+                        ? `${e.spins ?? 1} spin${(e.spins ?? 1) === 1 ? "" : "s"} · ~$${floorUsd < 0.01 ? floorUsd.toPrecision(2) : floorUsd.toFixed(2)} to NFT floor`
+                        : s.flavour}
+                    </span>
                   </span>
                   <span className="tc-grim__right">
                     {amount && <span className="tc-grim__amt tc-mono">{amount}</span>}

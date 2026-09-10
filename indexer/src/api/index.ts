@@ -732,7 +732,18 @@ app.get("/recent/:generation", async (c) => {
   const rows = await db.select().from(schema.swap).where(eq(schema.swap.poolId, p.id)).orderBy(desc(schema.swap.orderKey)).limit(limit);
   // `o` = execution order key. The client MUST sort by this (not timestamp) —
   // same-block swaps share `t`, so a t-sort scrambles the liquidation buy-backs.
-  return c.json({ swaps: rows.map((r) => ({ price: r.price, amountEth: r.amountEth, isBuy: r.isBuy, t: Number(r.timestamp), o: Number(r.orderKey), tx: r.txHash })) });
+  //  `s` (the swap's sender) is what lets the feed tell a CRYSTAL SPIN from an
+  //  organic trade: a spin is routed through CauldronGachaRouter, so the router
+  //  is the sender on-chain. Without it every roll rendered as its own
+  //  "Bought $TOKEN" line and buried real trades under them.
+  return c.json({
+    gachaRouter: (round.contracts as Record<string, string>).gachaRouter ?? null,
+    legacyBps: LEGACY_BPS,
+    swaps: rows.map((r) => ({
+      price: r.price, amountEth: r.amountEth, isBuy: r.isBuy,
+      t: Number(r.timestamp), o: Number(r.orderKey), tx: r.txHash, s: r.sender,
+    })),
+  });
 });
 
 /* ── perps: liquidation heatmap + a trader's positions ─────────────────── */

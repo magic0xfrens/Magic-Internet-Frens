@@ -73,7 +73,11 @@ const SEED_TOPICS: ReadonlySet<string> = new Set([
 ]);
 
 export type EventKind =
-  | "buy" | "sell" | "gacha-commit" | "gacha-win" | "gacha-miss"
+  //  `gacha-volume` is a ROLL-UP, not a chain event: N crystal spins collapsed
+  //  into one row. Individual spin swaps are real buys, but rendering each one
+  //  as "Bought $TOKEN" buried every organic trade under a wall of identical
+  //  lines (see the feed before this: nine consecutive 0.0072 Ξ rows).
+  | "buy" | "sell" | "gacha-volume" | "gacha-commit" | "gacha-win" | "gacha-miss"
   | "perp-open" | "perp-close" | "liquidation" | "badge" | "revealed";
 
 /** A swap seen on the wire, decoded far enough to show instantly. */
@@ -99,6 +103,15 @@ export interface LiveSwap {
    *  the chart can move on the tick the block lands, before the indexer has
    *  built the candle. */
   price: number;
+  /** The swap's on-chain sender. A crystal spin is routed through the gacha
+   *  router, so this is what distinguishes a roll from an organic trade. */
+  sender?: string;
+  /** Roll-up only: how many spins this row represents. */
+  spins?: number;
+  /** Roll-up only: quote-side volume those spins generated, in wei. */
+  rollupWei?: bigint;
+  /** Roll-up only: the share of it routed to the NFT floor, in wei. */
+  floorWei?: bigint;
   /** Wall-clock ms the log was seen. */
   ts: number;
   txHash: string;

@@ -8,6 +8,10 @@ import { explainPerpError, PERP } from "@/config/perp";
 import { wagmiConfig } from "@/config/chains";
 
 interface StakePanelProps {
+  /** The generation's QUOTE asset. Omit / 0x0 for a native (ETH) brew. */
+  quote?: `0x${string}`;
+  /** Display symbol for that quote — "ETH", "USDG", … */
+  quoteSymbol?: string;
   ticker: string;
   token?: Address;   // the current iteration token (for the token side)
   spotPrice: number; // ETH per token
@@ -31,10 +35,10 @@ function compact(n: number): string {
  * rises as yield accrues). Withdraw any time (instant up to free liquidity, the
  * rest queued until traders close). Reads via Ponder; writes via the wallet.
  */
-export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: StakePanelProps) {
+export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quote, quoteSymbol = "ETH" }: StakePanelProps) {
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const v = usePerpVault(token);
+  const v = usePerpVault(token, quote);
   const [side, setSide] = useState<"eth" | "token">("eth");
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [amt, setAmt] = useState("");
@@ -47,6 +51,12 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: St
   }, [toast]);
 
   const isEth = side === "eth";
+  //  EVERY "ETH" LABEL ON THIS PANEL IS REALLY "THE QUOTE". Hardcoding them
+  //  meant a USDG-quoted brew told you to stake ETH into a vault holding none.
+  //  `qSym` is the symbol, `qGlyph` its mark — Ξ only when the quote actually is
+  //  ether.
+  const qSym = quoteSymbol;
+  const qGlyph = v.quoteIsErc20 ? "" : "Ξ";
   const pos = isEth ? v.ethPos : v.tokPos;
   const sharePrice = isEth ? v.vault.ethSharePrice : v.vault.tokSharePrice;
   const tvlEth = v.vault.assetsEth + v.vault.assetsTok * spotPrice; // token valued in ETH
@@ -65,7 +75,24 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: St
         if (amount <= 0) { setToast({ kind: "err", msg: "Enter an amount" }); return; }
         let hash: `0x${string}`;
         if (isEth) {
-          hash = await v.depositEth(amount);
+          //  THE "ETH SIDE" IS REALLY THE QUOTE SIDE. It called `depositEth()`
+          //  unconditionally — a native-only wrapper — so staking looked
+          //  ETH-only even though PerpVault has taken any quote for some time.
+          //  `deposit(amount)` reads the engine's quote and does the right
+          //  transport; an ERC20 quote needs an allowance first, exactly like
+          //  the token side below.
+          let raw = parseEther(amount.toFixed(18));
+          if (v.quoteIsErc20) {
+            if (raw > v.quoteBalance) raw = v.quoteBalance;
+            if (raw <= 0n) { setToast({ kind: "err", msg: `No ${quoteSymbol} to stake` }); return; }
+            if (v.needsQuoteApproval(raw)) {
+              setToast({ kind: "ok", msg: `Approving ${quoteSymbol}…` });
+              const ah = await v.approveQuote();
+              await waitForTransactionReceipt(wagmiConfig, { hash: ah as `0x${string}`, chainId: PERP.chainId });
+              v.refetchQuote();
+            }
+          }
+          hash = await v.depositQuote(raw);
         } else {
           // Clamp to your EXACT on-chain balance — entering the full amount can
           // round a hair OVER the real balance → transferFrom reverts. Never over.
@@ -176,7 +203,7 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: St
           <button className={mode === "withdraw" ? "on" : ""} onClick={() => setMode("withdraw")}>Withdraw</button>
         </div>
         <div className="sp-seg">
-          <button className={isEth ? "on" : ""} onClick={() => setSide("eth")}>ETH side</button>
+          <button className={isEth ? "on" : ""} onClick={() => setSide("eth")}>{qSym} side</button>
           <button className={!isEth ? "on" : ""} onClick={() => setSide("token")}>${ticker} side</button>
         </div>
 
@@ -189,14 +216,14 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: St
           </div>
           <div className="sp-row">
             <input className="sp-input" inputMode="decimal" placeholder="0.0" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
-            <span className="sp-coin">{isEth ? "Ξ ETH" : `◆ ${ticker}`}</span>
+            <span className="sp-coin">{isEth ? `${qGlyph} ${qSym}`.trim() : `◆ ${ticker}`}</span>
           </div>
         </div>
 
         <button className="sp-cta" onClick={onAction} disabled={busy}>{btnLabel}</button>
         <p className="sp-note">
           {isEth
-            ? <>Staking ETH backs <b>longs</b>. You earn the <b>long-side</b> fees (open fee + funding + liquidations) — your share price rises as they accrue. Withdraw anytime: instant up to free liquidity, the rest queued until positions close.</>
+            ? <>Staking {qSym} backs <b>longs</b>. You earn the <b>long-side</b> fees (open fee + funding + liquidations) — your share price rises as they accrue. Withdraw anytime: instant up to free liquidity, the rest queued until positions close.</>
             : <>Staking ${ticker} backs <b>shorts</b> — your token principal is <b>100% protected</b> (buy-backs always return it in full). On top, you earn <b>ETH from short-side</b> fees, claimable separately below.</>}
         </p>
       </div>
@@ -206,8 +233,8 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col }: St
         <div className="sp-eyebrow"><span>The vault</span><span>{apyHint}</span></div>
         <div className="sp-stats">
           <div className="sp-stat"><div className="k">Total value locked</div><div className="val">{compact(tvlEth)} Ξ</div><div className="sub">{ethUsd > 0 ? `$${compact(tvlEth * ethUsd)}` : ""}</div></div>
-          <div className="sp-stat"><div className="k">Share price</div><div className="val">{sharePrice.toFixed(4)}</div><div className="sub">{isEth ? "ETH" : ticker} / share</div></div>
-          <div className="sp-stat"><div className="k">Vault ETH</div><div className="val">{compact(v.vault.assetsEth)} Ξ</div></div>
+          <div className="sp-stat"><div className="k">Share price</div><div className="val">{sharePrice.toFixed(4)}</div><div className="sub">{isEth ? qSym : ticker} / share</div></div>
+          <div className="sp-stat"><div className="k">Vault {qSym}</div><div className="val">{compact(v.vault.assetsEth)} {qGlyph}</div></div>
           <div className="sp-stat"><div className="k">Vault ${ticker}</div><div className="val">{compact(v.vault.assetsTok)}</div></div>
         </div>
 

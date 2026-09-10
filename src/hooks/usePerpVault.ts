@@ -24,7 +24,11 @@ const EMPTY_POS: VaultPosition = { redeemable: 0, instant: 0, pending: 0, shares
  * Writes (deposit/withdraw/claim) go straight to the wallet. Your token balance +
  * allowance are the only light on-chain reads (needed for the approve flow).
  */
-export function usePerpVault(token?: Address) {
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
+
+/** @param token   the brew token (the $GNOME side)
+ *  @param quoteToken the generation's QUOTE — omit or pass 0x0 for a native brew. */
+export function usePerpVault(token?: Address, quoteToken?: Address) {
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
@@ -97,6 +101,37 @@ export function usePerpVault(token?: Address) {
     return writeContractAsync({ address: PERP.vault, abi: PERP_VAULT_ABI, functionName: "withdrawEth", args: [shares] });
   }, [ensureChain, writeContractAsync]);
 
+  //  ── THE QUOTE SIDE, WHEN THE QUOTE IS NOT ETHER ────────────────────────
+  //  Same approve-then-deposit shape as the token side. Only read when the brew
+  //  is actually ERC20-quoted; a native generation skips both calls entirely.
+  const quoteIsErc20 = !!quoteToken && quoteToken !== ZERO_ADDR;
+  const { data: quoteBal, refetch: refetchQuoteBal } = useReadContract({
+    address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "balanceOf",
+    args: address ? [address] : undefined, chainId: CAULDRON.chainId,
+    query: { enabled: !!address && quoteIsErc20 },
+  });
+  const { data: quoteAllow, refetch: refetchQuoteAllow } = useReadContract({
+    address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "allowance",
+    args: address ? [address, PERP.vault] : undefined, chainId: CAULDRON.chainId,
+    query: { enabled: !!address && quoteIsErc20 },
+  });
+  const needsQuoteApproval = (amount: bigint) =>
+    quoteIsErc20 && (quoteAllow == null || (quoteAllow as bigint) < amount);
+  const approveQuote = useCallback(async () => {
+    if (!quoteToken) throw new Error("No quote token");
+    await ensureChain(); setPendingAction("approve-quote");
+    return writeContractAsync({ address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.vault, maxUint256] });
+  }, [quoteToken, ensureChain, writeContractAsync]);
+
+  /** Stake the QUOTE asset, whatever it is. Native sends value; ERC20 sends 0. */
+  const depositQuote = useCallback(async (raw: bigint) => {
+    await ensureChain(); setPendingAction("deposit-eth");
+    return writeContractAsync({
+      address: PERP.vault, abi: PERP_VAULT_ABI, functionName: "deposit",
+      args: [raw], value: quoteIsErc20 ? 0n : raw,
+    });
+  }, [ensureChain, writeContractAsync, quoteIsErc20]);
+
   const needsTokenApproval = (amount: bigint) => (allowance == null || (allowance as bigint) < amount);
   const approveToken = useCallback(async () => {
     if (!token) throw new Error("No token");
@@ -138,6 +173,11 @@ export function usePerpVault(token?: Address) {
   }, [pendingAction, txHash, refetchBal, refetchAllow]);
 
   return {
+    // Quote-side staking, for a brew that is not ETH-quoted.
+    depositQuote, approveQuote, needsQuoteApproval,
+    quoteBalance: (quoteBal as bigint) ?? 0n,
+    quoteIsErc20,
+    refetchQuote: () => { void refetchQuoteBal(); void refetchQuoteAllow(); },
     vault, ethPos, tokPos, pendingAction, isPending, txHash,
     tokenBalance: (tokBal as bigint) ?? 0n, needsTokenApproval,
     depositEth, withdrawEthShares, approveToken, depositToken, withdrawTokenShares, claimEth, claimToken, claimTokYield,
