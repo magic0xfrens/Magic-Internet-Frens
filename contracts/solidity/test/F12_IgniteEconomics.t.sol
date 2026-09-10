@@ -155,6 +155,28 @@ contract F12_IgniteEconomicsForkTest is Test {
         assertGt(registry.generationPositionId(1), 0, "base position placed by the registry");
         assertGt(registry.generationReservePositionId(1), 0, "reserve re-parked out of range");
         assertTrue(seeder.seeding(), "stream armed for the remainder");
+
+        //  ── THE FIRST CANDLE MUST BE ATTRIBUTABLE ────────────────────────
+        //  Emitting a swap is not enough for it to reach the chart. The indexer
+        //  no longer pins to a build-time pool id (it changes at every summon
+        //  and relaunch), so it decides whether a Swap is OURS by asking the
+        //  registry for the live generation's pool id and comparing. This
+        //  asserts the contract side of exactly that predicate for the ignition
+        //  candle: the swap's own topic must equal `generationPoolId(1)`.
+        //
+        //  The ordering is the subtle part. `generationPoolId` is written by
+        //  `_recordSeed` AFTER PoolOps returns, so it is NOT yet set at the
+        //  instant the swap is emitted. It is set by the end of the
+        //  transaction, which is what the indexer reads (Ponder pins contract
+        //  reads to the event's BLOCK, not its transaction).
+        bytes32 livePool = PoolId.unwrap(registry.generationPoolId(1));
+        assertTrue(livePool != bytes32(0), "the pool id must be recorded by end of tx");
+
+        bytes32 candlePool;
+        for (uint256 i; i < logs.length; i++) {
+            if (logs[i].topics[0] == SWAP) { candlePool = logs[i].topics[1]; break; }
+        }
+        assertEq(candlePool, livePool, "the ignition candle must carry the LIVE pool id");
     }
 
     /// @notice The candle must not disturb where the pool ENDS UP. Whatever the

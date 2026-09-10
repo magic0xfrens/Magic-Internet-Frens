@@ -428,7 +428,7 @@ export default function TheCauldron() {
   // Websocket ping on every swap in our pool: a trade made on ANY machine
   // refreshes the chart and tape the moment its block is seen, instead of
   // waiting out the poll interval. The polls stay as the fallback.
-  const live_ = useLiveSwaps();
+  const live_ = useLiveSwaps(m.poolId);
   // Says out loud when the data behind the page is not trustworthy, rather than
   // letting an empty indexer render as a confident, wrong, empty page.
   // Indexed history + live socket, merged. The drawer survives a refresh; the

@@ -102,10 +102,35 @@ export default createConfig({
     // the proposer-flywheel payout on the hook.
     RegistryFloor: { chain: "cauldron", abi: RegistryFloorAbi, address: REGISTRY, startBlock },
     HookFloor: { chain: "cauldron", abi: HookFloorAbi, address: HOOK, startBlock },
-    PoolManager: {
-      chain: "cauldron", abi: PoolManagerAbi, address: POOL_MANAGER, startBlock,
-      filter: { event: "Swap", args: { id: POOL_IDS } }, // only OUR pool's swaps
-    },
+    PoolManager: (() => {
+      //  ── WHY THIS IS NOT PINNED TO A POOL ID ──────────────────────────────
+      //  The filter used to be `{ event: "Swap", args: { id: POOL_IDS } }`,
+      //  reading the pool ids out of the manifest. That CANNOT work for this
+      //  protocol: a pool id is derived from the generation's TOKEN address,
+      //  the token is deployed fresh at every summon and every relaunch, and
+      //  the manifest is baked into the container at build time. So the id was
+      //  always one deploy stale - the indexer would filter Swaps to the
+      //  PREVIOUS generation's dead pool and index nothing at all, until
+      //  somebody hand-edited round.json and redeployed. That is a manual step
+      //  on the protocol's core loop (eternal relaunch), i.e. it would break on
+      //  every single rebirth, forever.
+      //
+      //  Measured before removing it: 88 Swap logs in 2000 Sepolia blocks
+      //  across EVERY v4 pool on the chain - 0.04 logs/block, ~13/hour. The
+      //  "huge load" the filter was protecting against is not real here. Swaps
+      //  that are not ours are discarded by `ensurePool`, which asks the
+      //  registry whether the pool id is actually the live generation's before
+      //  registering anything (and negative-caches the answer).
+      //
+      //  STRICT_POOL_FILTER restores the old behaviour for a chain where v4
+      //  volume genuinely is heavy; it then pins to the manifest's ids and the
+      //  hand-edit-per-relaunch returns with it.
+      const strict = process.env.STRICT_POOL_FILTER === "true" && POOL_IDS.length > 0;
+      return {
+        chain: "cauldron" as const, abi: PoolManagerAbi, address: POOL_MANAGER, startBlock,
+        ...(strict ? { filter: { event: "Swap" as const, args: { id: POOL_IDS } } } : {}),
+      };
+    })(),
     Governor: { chain: "cauldron", abi: GovernorAbi, address: GOVERNOR, startBlock },
     // Launch seeding feed: stream progress + prime-buy tranches, so the frontend
     // reads them from Ponder instead of polling the seeder over public RPC.

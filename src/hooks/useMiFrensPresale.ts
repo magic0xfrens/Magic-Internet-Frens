@@ -106,7 +106,7 @@ export function useMiFrensPresale() {
     if (chainId !== PRESALE.chainId) {
       await switchChainAsync({ chainId: PRESALE.chainId });
     }
-    return finalizeAsync({ ...common, functionName: "finalize", args: [] });
+    return finalizeAsync({ ...common, functionName: "igniteCauldron", args: [] });
   }, [chainId, switchChainAsync, finalizeAsync, common]);
 
   /** Mint `quantity` MiFrens with exact ETH payment. Returns the tx hash. */

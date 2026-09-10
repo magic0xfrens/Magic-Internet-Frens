@@ -1,7 +1,7 @@
 {
   "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
   "round": 37,
-  "schema": "cauldron_r37",
+  "schema": "cauldron_r37b",
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
@@ -29,9 +29,7 @@
     "quoteOracle": "0x3872d275cd1734a6441cc98e216a080c3e5a9130",
     "seeder": "0xa949c4a40101d777c021a81cdcb8193f6a7eb1bb"
   },
-  "poolIds": [
-    "0x17b2fc9fa8b6336bc33f3d80e24c3a1cfb31f7aebce1e164fb2e0443b048755f"
-  ],
+  "poolIds": [],
   "genesisSupply": 1111,
   "deathThresholdEth": 0,
   "quoteAssets": [
@@ -40,7 +38,7 @@
       "symbol": "ETH",
       "name": "Ether",
       "decimals": 18,
-      "glyph": "Ξ",
+      "glyph": "\u039e",
       "blurb": "The default. Deepest liquidity, and the only pair perps support today."
     },
     {

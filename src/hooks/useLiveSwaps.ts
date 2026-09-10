@@ -104,7 +104,7 @@ export interface LiveSwap {
   txHash: string;
 }
 
-export function useLiveSwaps(): { nonce: number; connected: boolean; recent: LiveSwap[] } {
+export function useLiveSwaps(livePoolId?: string): { nonce: number; connected: boolean; recent: LiveSwap[] } {
   const [nonce, setNonce] = useState(0);
   //  A ROLLING LIST, not a single `latest`. Exposing one value dropped events:
   //  React batches state updates, so several swaps arriving in the same tick
@@ -116,12 +116,25 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
   const [recent, setRecent] = useState<LiveSwap[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  //  Held in a ref on purpose: the subscription effect runs once with [] deps,
+  //  and re-running it on every pool-id change would drop and rebuild the socket
+  //  mid-launch - exactly when the tape matters most.
+  const livePoolRef = useRef<string | undefined>(livePoolId);
+  livePoolRef.current = livePoolId;
 
   useEffect(() => {
     const urls = WS_URLS[round.chainId] ?? [];
     if (urls.length === 0) return;
 
-    const poolIds = (round.poolIds ?? []).map((p: string) => p.toLowerCase());
+    //  Read the CURRENT pool id at message time, not at subscribe time. The
+    //  manifest's `poolIds` is baked in at build, and a pool id changes at every
+    //  summon and every relaunch - so pinning to it meant the live tape filtered
+    //  against the PREVIOUS generation's dead pool and silently showed nothing
+    //  until the app was rebuilt. `livePoolId` comes from the indexer, which
+    //  reads it off the registry, so it follows a rebirth on its own.
+    const poolIds = livePoolRef.current
+      ? [livePoolRef.current.toLowerCase()]
+      : (round.poolIds ?? []).map((p: string) => p.toLowerCase());
     const pm = round.contracts.poolManager;
     let closed = false;
     let attempt = 0;
@@ -198,7 +211,12 @@ export function useLiveSwaps(): { nonce: number; connected: boolean; recent: Liv
           if (topic0 === T.SWAP) {
             // Only OUR pool: v4 emits every pool's swaps from one address.
             const pid = String(log.topics[1] ?? "").toLowerCase();
-            if (poolIds.length > 0 && !poolIds.includes(pid)) return;
+            //  NO KNOWN POOL = DROP. This used to be `poolIds.length > 0 &&
+            //  ...`, so an empty list accepted EVERY v4 swap on the chain as if
+            //  it were ours. That was unreachable while the manifest always
+            //  carried an id; now that the id is empty until ignition, it would
+            //  have filled the launch tape with strangers' trades.
+            if (poolIds.length === 0 || !poolIds.includes(pid)) return;
 
             //  The event carries the SWAPPER's balance delta (PoolManager emits
             //  the same delta it accounts to msg.sender), so a NEGATIVE quote

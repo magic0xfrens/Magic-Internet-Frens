@@ -34,7 +34,7 @@ const nftId = (col: string, id: bigint) => `${lc(col)}-${id}`;
 const holderId = (col: string, addr: string) => `${lc(col)}-${lc(addr)}`;
 
 /* ── registry: pools + collections ─────────────────────────────────────── */
-async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token: `0x${string}`, name: string, symbol: string, ts: bigint, block: bigint) {
+async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token: `0x${string}`, name: string, symbol: string, ts: bigint, block: bigint, authoritative = true) {
   const clean = name.replace(/\s*by Magic Internet Frens\s*$/i, "").trim();
   //  WHAT IS THIS POOL PRICED IN? Read once, at registration. The quote is
   //  fixed for a generation's whole life (`generationQuote[gen]` is written at
@@ -52,7 +52,15 @@ async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token:
     id: poolId, generation: gen, token: lc(token), name: clean, symbol,
     createdAt: ts, createdBlock: block, dead: false, lastPrice: 0, swapCount: 0, volumeEth: 0, updatedAt: ts,
     quote, isPrimary: true,
-  }).onConflictDoNothing();
+    //  A lazily-registered row (see `ensurePool`) is a GUESS about the name:
+    //  the swaps inside a summon/rebirth transaction are emitted BEFORE the
+    //  CauldronSummoned/Reborn event that carries the real one. With
+    //  `onConflictDoNothing` on every path, that guess won - a relaunched
+    //  generation kept gen 1's creature name forever while pointing at the new
+    //  token. So the event path, which is authoritative, corrects it.
+  }).onConflictDoUpdate((row: any) => (authoritative
+    ? { generation: gen, token: lc(token), name: clean, symbol, quote }
+    : {}));
   await ctx.db.insert(iteration).values({ id: gen, token: lc(token), symbol, createdAt: ts })
     .onConflictDoUpdate(() => ({ token: lc(token), symbol }));
 }
@@ -210,15 +218,48 @@ const REG_LAZY_ABI = [
   { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "currentToken", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "getCreatureForGeneration", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "string" }, { type: "string" }] },
+  { type: "function", name: "generationPoolId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bytes32" }] },
 ] as const;
+
+//  Pool ids proven NOT to be ours. Without the topic filter every v4 swap on the
+//  chain reaches this handler, and re-asking the registry about the same foreign
+//  pool on every one of its trades would be a pointless RPC per log.
+const foreignPools = new Set<string>();
 async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bigint) {
+  if (foreignPools.has(poolId)) return null;
   try {
-    const [gen, token, creature] = await Promise.all([
-      ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentGeneration" }),
+    //  TIMING, BECAUSE IT IS LOAD-BEARING. The green-candle swap is emitted
+    //  INSIDE the summon/rebirth transaction, BEFORE `generationPoolId[gen]` is
+    //  written (the registry records the seed after PoolOps returns). A
+    //  mid-transaction read would therefore see 0x0 and reject our own first
+    //  candle. It does not: Ponder pins `ctx.client` reads to
+    //  `event.block.number` (indexing/client.js), i.e. END of block, and the
+    //  whole summon is one transaction inside that block - so the mapping is
+    //  populated by the time this resolves.
+    //
+    //  PROVE IT IS OURS FIRST. This used to register whatever pool id it was
+    //  handed, which was safe only because the Ponder-level topic filter meant
+    //  nothing else could arrive. That filter is gone (it pinned the indexer to
+    //  a pool id that changes at every relaunch), so the check has to be here:
+    //  ask the registry for the LIVE generation's pool id and compare. Anything
+    //  else is somebody else's v4 pool and must not become our chart.
+    const gen = await ctx.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentGeneration",
+    });
+    const ours = await ctx.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "generationPoolId", args: [gen],
+    });
+    if (String(ours).toLowerCase() !== poolId.toLowerCase()) {
+      foreignPools.add(poolId);
+      return null;
+    }
+    const [token, creature] = await Promise.all([
       ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentToken" }),
-      ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "getCreatureForGeneration", args: [1n] }).catch(() => ["Gnomeland", "GNOME"]),
+      ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "getCreatureForGeneration", args: [gen] }).catch(() => ["Gnomeland", "GNOME"]),
     ]);
-    await registerPool(ctx, poolId, Number(gen), token as `0x${string}`, (creature as string[])[0], (creature as string[])[1], ts, block);
+    //  Provisional: the real name arrives moments later on CauldronSummoned /
+    //  CauldronReborn, which overwrites this (see registerPool).
+    await registerPool(ctx, poolId, Number(gen), token as `0x${string}`, (creature as string[])[0], (creature as string[])[1], ts, block, false);
     return await ctx.db.find(pool, { id: poolId });
   } catch { return null; }
 }

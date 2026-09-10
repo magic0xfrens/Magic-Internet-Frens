@@ -78,9 +78,20 @@ if (Number.isInteger(m.blocks?.indexer) && Number.isInteger(m.blocks?.deploy)
   );
 }
 
-if (!Array.isArray(m.poolIds) || m.poolIds.length === 0)
-  errors.push("`poolIds` must be non-empty — without it the indexer would index EVERY V4 swap on the chain");
-else m.poolIds.forEach((p, i) => {
+//  `poolIds` MAY NOW BE EMPTY, and that is not a fault.
+//
+//  This used to be a hard error, on the grounds that an empty list made the
+//  indexer index every v4 swap on the chain. That is no longer how it works: the
+//  Ponder-level topic filter is gone (a pool id changes at every summon and
+//  every relaunch, so pinning to a build-time value indexed the PREVIOUS
+//  generation's dead pool), and swaps are now matched by asking the registry
+//  which pool is live. Between a deploy and its ignition there is genuinely no
+//  pool yet, and demanding one here just forced a placeholder that was wrong.
+//
+//  The entries still have to be well-formed when present.
+if (!Array.isArray(m.poolIds)) {
+  errors.push("`poolIds` must be an array (empty is fine before ignition)");
+} else m.poolIds.forEach((p, i) => {
   if (!isHash32(p)) errors.push(`poolIds[${i}] is not a 32-byte pool id: ${p}`);
 });
 

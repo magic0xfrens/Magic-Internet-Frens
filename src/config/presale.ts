@@ -35,7 +35,12 @@ export const PRESALE_ABI = [
   { type: "function", name: "soldOut", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   { type: "function", name: "remaining", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "finalize", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "address" }] },
+  //  RENAMED ON-CHAIN: `finalize` -> `igniteCauldron`. The storage flag and the
+  //  `Finalized` event deliberately KEPT their old names (the indexer and
+  //  /presale read them), so only the call changes. An ABI left on `finalize`
+  //  does not fail loudly - the selector simply does not exist on the contract
+  //  and the ignition button reverts.
+  { type: "function", name: "igniteCauldron", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "finalized", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   // Stalled-presale safety valve: deployer cancels, minters reclaim their ETH.
   { type: "function", name: "cancelled", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },

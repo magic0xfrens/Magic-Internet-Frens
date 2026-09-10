@@ -85,7 +85,22 @@ export function useSeedProgress(refreshKey?: string | number): SeedProgress {
 
       let fresh: SeedFeedItem[] = [];
       if (seen.current === null) {
-        seen.current = new Set(feed.map((f) => f.id)); // first load: catch up silently
+        //  FIRST LOAD IS NOT ALWAYS A COLD OPEN.
+        //
+        //  Swallowing the whole backlog is right for someone arriving at a
+        //  launch that is already underway — they should not be hit with a
+        //  replay of everything that happened before they got here. But the app
+        //  hands you to this page AUTOMATICALLY seconds after you ignite, and
+        //  that is a first load too. Swallowing there means the one moment the
+        //  feed exists for — your own launch — is the one moment it says
+        //  nothing.
+        //
+        //  So the cutoff is time, not ordinal: anything from the last couple of
+        //  minutes is still news and gets announced; older entries are history
+        //  and are marked as seen without a toast.
+        const cutoff = Date.now() / 1000 - 120;
+        seen.current = new Set(feed.map((f) => f.id));
+        fresh = feed.filter((f) => f.ts >= cutoff);
       } else {
         fresh = feed.filter((f) => !seen.current!.has(f.id));
         for (const f of fresh) seen.current.add(f.id);
