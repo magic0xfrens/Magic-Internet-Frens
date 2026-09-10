@@ -324,11 +324,30 @@ contract DeployLaunchpad is Script {
         //
         //  The guardian may CANCEL a passed proposal but cannot pass one. It goes
         //  to the timelock where one exists, else the deployer.
+        //  GOVERNANCE TIMING IS A DEPLOY-TIME CHOICE, fixed immutably at
+        //  construction — no setter, so nothing can shorten it afterwards.
+        //
+        //  Mainnet wants a 3-day vote and a 7-day cooldown. A testnet that
+        //  inherits those cannot be exercised at all: a full rotation would need
+        //  more than a week of real waiting before anyone could see whether it
+        //  works. So the durations come from env, defaulting to the MAINNET
+        //  values when unset — a deploy that specifies nothing is a safe deploy.
+        //
+        //  `TESTNET_GOV=true` waives the contract's own floors (1 day minimum on
+        //  the vote, cooldown and execution window). Setting it on a mainnet
+        //  deploy would be the mistake; leaving it unset is the default.
+        bool testnetGov = vm.envOr("TESTNET_GOV", false);
         TreasuryGovernor treasuryGov = new TreasuryGovernor(
             IVotes721(address(presale)),
             address(registry),
-            address(timelock) != address(0) ? address(timelock) : deployer
+            address(timelock) != address(0) ? address(timelock) : deployer,
+            uint64(vm.envOr("GOV_VOTING_PERIOD", uint256(0))),
+            uint64(vm.envOr("GOV_ENVELOPE_LIFETIME", uint256(0))),
+            uint64(vm.envOr("GOV_COOLDOWN", uint256(0))),
+            uint64(vm.envOr("GOV_EXECUTION_WINDOW", uint256(0))),
+            testnetGov
         );
+        if (testnetGov) console2.log("!! TESTNET GOVERNANCE TIMING - do not use these values on mainnet");
         registry.setRotationWiring(address(rotator), address(treasuryGov));
         console2.log("TreasuryGovernor:", address(treasuryGov));
 

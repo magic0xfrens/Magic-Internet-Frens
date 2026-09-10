@@ -52,7 +52,7 @@ contract TreasuryGovernorTest is Test {
         reg.set(USDG, true);
         reg.set(XNVDA, true);
         votes.setSupply(1000);
-        gov = new TreasuryGovernor(votes, address(reg), GUARDIAN);
+        gov = new TreasuryGovernor(votes, address(reg), GUARDIAN, 0, 0, 0, 0, false);
 
         // Everyone clears the proposal threshold.
         votes.set(ALICE, 100);

@@ -39,7 +39,7 @@ contract B14_FastFullRotation is Test {
     uint16 internal constant ROTATION_CAP_BPS = 5000;
 
     function setUp() public {
-        gov = new TreasuryGovernor(IVotes721(address(new Votes14())), address(this), address(this));
+        gov = new TreasuryGovernor(IVotes721(address(new Votes14())), address(this), address(this), 0, 0, 0, 0, false);
     }
 
     /// @notice THE REQUIREMENT, asserted directly: one envelope must convert the

@@ -61,7 +61,7 @@ contract F10_QuoteRotationTotality is YBase {
         usdg = new MockQuoteToken("Magic USD", "USDG", 6);
         registry.setAllowedQuote(address(usdg), true, 1e18);
         rotator = new QuoteRotator(address(registry), pm);
-        governor = new TreasuryGovernor(IVotes721(address(new FVotes())), address(registry), address(this));
+        governor = new TreasuryGovernor(IVotes721(address(new FVotes())), address(registry), address(this), 0, 0, 0, 0, false);
         registry.setRotationWiring(address(rotator), address(governor));
     }
 

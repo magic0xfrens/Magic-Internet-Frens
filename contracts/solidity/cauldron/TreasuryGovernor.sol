@@ -132,13 +132,26 @@ contract TreasuryGovernor {
 
     // ── Guardrails. Constants rather than settable: a governor that can vote to
     //    weaken its own limits does not have limits.
-    uint64 public constant VOTING_PERIOD = 3 days;
-    uint64 public constant ENVELOPE_LIFETIME = 30 days;
-    uint64 public constant COOLDOWN = 7 days;
+    //  ── TIMING IS IMMUTABLE PER DEPLOYMENT, NOT CONSTANT ────────────────
+    //  These were `constant`, on the correct principle that a governor able to
+    //  vote its own limits down has no limits. That principle is about what
+    //  GOVERNANCE can change after deployment, not about what a deployment may
+    //  be configured with — and hardcoding mainnet durations made the contract
+    //  untestable on a testnet, where a full rotation would take 80+ days of
+    //  real waiting.
+    //
+    //  So they are `immutable`: fixed at construction, unchangeable afterwards
+    //  by anyone including the guardian and the vote, and floored below so a
+    //  mainnet deploy cannot be talked into testnet numbers by a careless
+    //  argument. `TESTNET_MODE` opens the floors and is a DEPLOY-TIME flag, so
+    //  the mainnet script simply never passes it.
+    uint64 public immutable VOTING_PERIOD;
+    uint64 public immutable ENVELOPE_LIFETIME;
+    uint64 public immutable COOLDOWN;
     /// @notice How long after its vote closes a winning proposal stays
     ///         executable. Past this it is stale: the market it was voted about
     ///         is not the market it would execute into.
-    uint64 public constant EXECUTION_WINDOW = 3 days;
+    uint64 public immutable EXECUTION_WINDOW;
     /// @notice Cumulative SLICE BUDGET a single envelope may spend.
     ///
     ///  ── THIS IS A SPEND COUNTER, NOT A POSITION FRACTION ────────────────
@@ -197,11 +210,72 @@ contract TreasuryGovernor {
     event Cancelled(uint256 indexed id, address by);
     event EnvelopeConsumed(uint16 bps, uint16 movedTotal);
 
-    constructor(IVotes721 _mifrens, address _registry, address _guardian) {
+    /// @notice Mainnet defaults. The zero-argument constructor is the one a
+    ///         production deploy uses, so shipping safe timing takes no thought.
+    uint64 internal constant MAINNET_VOTING = 3 days;
+    uint64 internal constant MAINNET_LIFETIME = 30 days;
+    uint64 internal constant MAINNET_COOLDOWN = 7 days;
+    uint64 internal constant MAINNET_EXEC_WINDOW = 3 days;
+
+    /// @notice Floors that apply unless `testnet` is set. A deploy may lengthen
+    ///         these but never shorten them, so a fat-fingered argument cannot
+    ///         quietly ship a 60-second vote to mainnet.
+    uint64 internal constant MIN_VOTING = 1 days;
+    uint64 internal constant MIN_COOLDOWN = 1 days;
+    uint64 internal constant MIN_EXEC_WINDOW = 1 days;
+
+    error BadTiming();
+
+    /// @param votingPeriod    how long a proposal accepts votes
+    /// @param envelopeLifetime how long an executed envelope stays live
+    /// @param cooldown        gap between envelopes
+    /// @param executionWindow how long a passed proposal stays executable
+    /// @param testnet         waive the floors. TESTNET ONLY — a mainnet deploy
+    ///        must pass false (or use the zero-arg constructor), because the
+    ///        floors are the only thing standing between a typo and a treasury
+    ///        that can be rotated out from under holders in a minute.
+    constructor(
+        IVotes721 _mifrens,
+        address _registry,
+        address _guardian,
+        uint64 votingPeriod,
+        uint64 envelopeLifetime,
+        uint64 cooldown,
+        uint64 executionWindow,
+        bool testnet
+    ) {
         mifrens = _mifrens;
         registry = _registry;
         guardian = _guardian;
+
+        //  Zero means "use the mainnet default", so a caller that only wants to
+        //  change one duration does not have to restate the others correctly.
+        votingPeriod = votingPeriod == 0 ? MAINNET_VOTING : votingPeriod;
+        envelopeLifetime = envelopeLifetime == 0 ? MAINNET_LIFETIME : envelopeLifetime;
+        cooldown = cooldown == 0 ? MAINNET_COOLDOWN : cooldown;
+        executionWindow = executionWindow == 0 ? MAINNET_EXEC_WINDOW : executionWindow;
+
+        if (!testnet) {
+            if (votingPeriod < MIN_VOTING) revert BadTiming();
+            if (cooldown < MIN_COOLDOWN) revert BadTiming();
+            if (executionWindow < MIN_EXEC_WINDOW) revert BadTiming();
+        }
+        //  An envelope that expires before its own execution window closes would
+        //  be un-executable on arrival. Checked in BOTH modes: it is an
+        //  incoherence, not a policy choice.
+        if (envelopeLifetime < executionWindow) revert BadTiming();
+
+        VOTING_PERIOD = votingPeriod;
+        ENVELOPE_LIFETIME = envelopeLifetime;
+        COOLDOWN = cooldown;
+        EXECUTION_WINDOW = executionWindow;
+        emit TimingSet(votingPeriod, envelopeLifetime, cooldown, executionWindow, testnet);
     }
+
+    event TimingSet(
+        uint64 votingPeriod, uint64 envelopeLifetime, uint64 cooldown,
+        uint64 executionWindow, bool testnet
+    );
 
     // -----------------------------------------------------------------------
     // Proposing + voting

@@ -96,8 +96,13 @@ contract DeployRotationStack is Script {
     int24 internal constant VENUE_SPACING = 60;
 
     function run() external {
-        uint256 pk = vm.envUint("PRIVATE_KEY");
-        address me = vm.addr(pk);
+        //  KEYSTORE OR ENV, matching DeployLaunchpad. `--account <name>` keeps
+        //  the key encrypted on disk and never puts it in the environment, which
+        //  is the shape a deployer key should have. `PRIVATE_KEY` stays supported
+        //  for CI. When neither is set `msg.sender` is Foundry's default sender,
+        //  which is what `--sender` overrides.
+        uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
+        address me = pk != 0 ? vm.addr(pk) : msg.sender;
         address registry = vm.envAddress("REGISTRY");
         address poolManager = vm.envAddress("POOL_MANAGER");
         address positionManager = vm.envAddress("POSITION_MANAGER");
@@ -108,7 +113,8 @@ contract DeployRotationStack is Script {
         address owner = reg.owner();
         address mifrens = reg.mifrens();
 
-        vm.startBroadcast(pk);
+        if (pk != 0) vm.startBroadcast(pk);
+        else vm.startBroadcast();   // signer supplied by --account / --private-key
 
         // ── 1. Quote assets ────────────────────────────────────────────────
         // 6 decimals like real USDC/USDG — the decimals trap `formatQuote` exists
@@ -123,7 +129,18 @@ contract DeployRotationStack is Script {
         QuoteRotator rotator = new QuoteRotator(registry, IPoolManager(poolManager));
         // The guardian can cancel a passed proposal but cannot pass one; the
         // deployer holds it until governance is handed over.
-        TreasuryGovernor governor = new TreasuryGovernor(IVotes721(mifrens), registry, me);
+        //  Same deploy-time timing choice as DeployLaunchpad; see the comment
+        //  there. Unset env => mainnet durations.
+        bool testnetGov = vm.envOr("TESTNET_GOV", false);
+        TreasuryGovernor governor = new TreasuryGovernor(
+            IVotes721(mifrens), registry, me,
+            uint64(vm.envOr("GOV_VOTING_PERIOD", uint256(0))),
+            uint64(vm.envOr("GOV_ENVELOPE_LIFETIME", uint256(0))),
+            uint64(vm.envOr("GOV_COOLDOWN", uint256(0))),
+            uint64(vm.envOr("GOV_EXECUTION_WINDOW", uint256(0))),
+            testnetGov
+        );
+        if (testnetGov) console2.log("!! TESTNET GOVERNANCE TIMING - not for mainnet");
         rotator.setArbParams(address(oracle), 1000, 5e18);
 
         // ── 2b. Price feeds. Real Chainlink for ETH and USDG; mock for xNVDA.

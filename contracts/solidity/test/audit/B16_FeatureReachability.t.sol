@@ -247,7 +247,7 @@ contract B16_FeatureReachability is Test {
         oracle = new QuoteOracle(address(this));
         rotator = new QuoteRotator(address(registry), pm);
         RFrens frens = new RFrens();
-        governor = new TreasuryGovernor(IVotes721(address(frens)), address(registry), address(this));
+        governor = new TreasuryGovernor(IVotes721(address(frens)), address(registry), address(this), 0, 0, 0, 0, false);
 
         registry.setAllowedQuote(address(usdg), true, 1e18);
 

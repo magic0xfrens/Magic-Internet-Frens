@@ -32,7 +32,7 @@ contract B17_TreasuryScanBound is Test {
     function setUp() public {
         reg = new RegStub();
         reg.allow(USDG);
-        gov = new TreasuryGovernor(IVotes721(address(new V17())), address(reg), address(this));
+        gov = new TreasuryGovernor(IVotes721(address(new V17())), address(reg), address(this), 0, 0, 0, 0, false);
     }
 
     /// @notice INVARIANT: spam must not make a LEGITIMATELY VOTED proposal
