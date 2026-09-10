@@ -200,7 +200,27 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     return () => { live = false; };
   }, [route, checkVenue]);
 
-  const conversion = 1 - remainingAfter(SLICES_PER_ENVELOPE);
+  //  HOW MUCH TO CONVERT. The contract has always taken any `maxTotalBps` up to
+  //  MAX_ENVELOPE_BPS; the UI hardcoded the maximum, so every proposal was a
+  //  near-total rotation and "move 30% into stables" was simply not expressible.
+  //
+  //  The presets are stated as CONVERSION targets, not envelope sizes, because
+  //  those are different numbers and only one of them is a thing a voter wants.
+  //  A slice takes its share of what REMAINS, so the position decays
+  //  geometrically: an envelope of E bps at S bps a slice converts
+  //  1 - (1-S)^(E/S), which is why 30000 bps of envelope converts 96.8% rather
+  //  than 300%.
+  const PRESETS = [
+    { label: "30%", bps: 3_000 },
+    { label: "50%", bps: 5_000 },
+    { label: "75%", bps: 10_000 },
+    { label: "Max", bps: ENVELOPE_BPS },
+  ] as const;
+  const [envBps, setEnvBps] = useState<number>(ENVELOPE_BPS);
+  const slicesFor = (bps: number) => Math.floor(bps / SLICE_BPS);
+  const conversionFor = (bps: number) => 1 - remainingAfter(slicesFor(bps));
+
+  const conversion = conversionFor(envBps);
   const slicesDone = Math.floor(env.movedBps / SLICE_BPS);
   const convertedSoFar = 1 - remainingAfter(slicesDone);
 
@@ -208,7 +228,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     if (!target) { say("Pick a destination first."); return; }
     setBusy("govern");
     try {
-      await proposeEnvelope(target as Address, ENVELOPE_BPS);
+      await proposeEnvelope(target as Address, envBps);
       say(`Proposed a rotation into ${to.symbol}. Voting runs 3 days.`);
       await refresh();
     } catch (e) { say(`Proposal failed: ${(e as Error).message.slice(0, 90)}`); }
@@ -266,6 +286,21 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             fromSymbol={from.symbol}
           />
 
+          <label className="tc-mono tc-dim tr-label">How much of the LP</label>
+          <div className="tr-sizes">
+            {PRESETS.map((pr) => (
+              <button
+                key={pr.bps}
+                className={`tr-size ${envBps === pr.bps ? "on" : ""}`}
+                onClick={() => setEnvBps(pr.bps)}
+                title={`Converts ~${(conversionFor(pr.bps) * 100).toFixed(1)}% over ${slicesFor(pr.bps)} slices`}
+              >
+                {pr.label}
+                <em>{(conversionFor(pr.bps) * 100).toFixed(0)}%</em>
+              </button>
+            ))}
+          </div>
+
           <div className="tr-projection">
             <div className="tr-proj__row">
               <span className="tc-dim">One envelope converts</span>
@@ -273,7 +308,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             </div>
             <div className="tr-proj__row">
               <span className="tc-dim">Slices to get there</span>
-              <b>{SLICES_PER_ENVELOPE} × {(SLICE_BPS / 100).toFixed(0)}%</b>
+              <b>{slicesFor(envBps)} × {(SLICE_BPS / 100).toFixed(0)}%</b>
             </div>
             <div className="tr-proj__row">
               <span className="tc-dim">Earliest completion</span>

@@ -2041,6 +2041,21 @@ function Styles() {
     .tr-note strong { color: ${C.cream}; font-weight: 500; }
     .tr-note code, .tr-warn code { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.cream}; }
     .tr-label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 8px; }
+    /*  Envelope SIZE presets. The contract has always accepted any maxTotalBps;
+        the panel hardcoded the maximum, so "move 30% into stables" could not be
+        expressed at all. Labels are CONVERSION targets rather than envelope
+        sizes - slices take a share of what remains, so 30000 bps of envelope
+        converts 96.8%, and showing the raw bps would just be confusing. */
+    .tr-sizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+    .tr-size { display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 4px; border-radius: var(--r-sm); cursor: pointer;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(245,240,232,0.09);
+      color: ${C.dim}; font: 500 12px/1 "DM Sans", sans-serif; transition: all .15s ease; }
+    .tr-size em { font-style: normal; font-size: 9px; opacity: .6;
+      font-family: "DM Mono", ui-monospace, monospace; }
+    .tr-size:hover { border-color: rgba(213,253,81,0.30); color: ${C.cream}; }
+    .tr-size.on { background: rgba(213,253,81,0.10); border-color: rgba(213,253,81,0.45); color: ${C.lime}; }
+    .tr-note--sub { font-size: 10.5px; opacity: .65; margin-top: -6px; }
     .tr-projection { margin: 16px 0; padding: 14px 16px; border-radius: var(--r-sm);
       background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
     .tr-proj__row { display: flex; justify-content: space-between; align-items: baseline;
