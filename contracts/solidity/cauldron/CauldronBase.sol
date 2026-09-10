@@ -380,6 +380,38 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     }
 
     constructor() Ownable(msg.sender) {}
+
+    /// @notice Ownership can be TRANSFERRED but never RENOUNCED.
+    ///
+    ///  ── RENOUNCING IS INDISTINGUISHABLE FROM BRICKING (functional audit) ───
+    ///  `Ownable.renounceOwnership` was inherited and live, with no caller
+    ///  anywhere in the tree — no test, no deploy script, no frontend. Calling it
+    ///  zeroes the owner and so permanently disables EVERY `onlyOwner` lever this
+    ///  machine steers with: `setRotationWiring`, `setAllowedQuote`, `setGovernor`,
+    ///  `setFactory`, `setSeeder`, `setSeedWindow`, `setReserveCeiling`,
+    ///  `setCollectionLedger`.
+    ///
+    ///  This contract already carries the scar of exactly that failure: the note
+    ///  on `igniter` (:296-304) records a deploy that handed registry ownership to
+    ///  the presale and "BURNED every `onlyOwner` setter ... permanently". The
+    ///  ignition role exists solely so ownership can STAY with the timelock.
+    ///  Leaving a one-call version of the same accident reachable defeats it.
+    ///
+    ///  It also contradicts a stated invariant: the rotation wiring is
+    ///  "deliberately NOT one-shot: a rotator or governor that turns out to be
+    ///  broken must be replaceable" (RedemptionExt.sol:235-239). After a renounce
+    ///  it is not replaceable, and the treasury rotation — already unreachable
+    ///  twice for wiring reasons — could never be repaired.
+    ///
+    ///  Decentralisation here is handing ownership to the governance timelock,
+    ///  which `transferOwnership` still does. This only removes the door that
+    ///  leads nowhere.
+    function renounceOwnership() public view override onlyOwner {
+        revert RenounceDisabled();
+    }
+
+    /// @notice Ownership is transferable, not renounceable. See {renounceOwnership}.
+    error RenounceDisabled();
     // -----------------------------------------------------------------------
     // TREASURY LEGS -- a generation's liquidity, wherever it now sits
     // -----------------------------------------------------------------------

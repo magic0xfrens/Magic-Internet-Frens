@@ -208,13 +208,13 @@ contract Y01_ReserveCeilingBreach is YBase {
         
         vm.skip(!active);
 
-        (bool claimable0, uint256 perFren0) = RedemptionExt(payable(address(registry))).floorClaimableNow();
+        (bool claimable0, uint256 perFren0) = registry.floorClaimableNow();
         assertTrue(claimable0, "claimable before the pump");
         assertGt(perFren0, 0, "floor advertised");
 
         _pumpThroughCeiling();
 
-        (bool claimable1, uint256 perFren1) = RedemptionExt(payable(address(registry))).floorClaimableNow();
+        (bool claimable1, uint256 perFren1) = registry.floorClaimableNow();
         assertFalse(claimable1, "signal flips to NOT-claimable inside the band");
         assertEq(perFren1, registry.floorPerFren(), "perFren still mirrors floorPerFren()");
 

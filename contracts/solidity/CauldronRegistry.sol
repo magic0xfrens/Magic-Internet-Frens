@@ -236,6 +236,33 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         _forwardToExt();
     }
 
+    /// @notice Rotate a slice out of a CHOSEN leg — `fromLeg` 0 is the primary
+    ///         pool, 1..legCount are the rotated legs. See RedemptionExt.
+    ///
+    ///  ── THE FACET HAD THIS; THE DISPATCHER DID NOT (functional audit F-20) ──
+    ///  `rotateSlice` above forwards only the 3-arg form, which hard-codes
+    ///  `fromLeg = 0` (RedemptionExt.sol:260). The 4-arg form was added to the
+    ///  facet with no stub here, and there is no catch-all fallback — so the
+    ///  multi-leg rotation that RedemptionExt.sol:307-318 describes as the whole
+    ///  point of `fromLeg` (merging two legs, rebalancing between them, moving
+    ///  USDG -> anything rather than only ever draining the original quote) had
+    ///  no reachable path from any caller.
+    ///
+    ///  It is also the ONLY write the treasury UI issues for a rotation —
+    ///  `src/hooks/useTreasuryRotation.ts:290` calls `rotateSliceFrom` at the
+    ///  registry for EVERY slice, including the default `fromLeg = 0` — so the
+    ///  rotate button reverted on every press, not merely on the multi-leg path.
+    ///
+    ///  Third instance of this defect class in this contract pair, after
+    ///  `setRotationWiring` (RedemptionExt.sol:215-227) and the three views at
+    ///  :1344 below. A facet function is only real once BOTH halves exist.
+    function rotateSliceFrom(uint8, uint16, uint256, PoolKey calldata)
+        external
+        returns (uint256, uint256)
+    {
+        _forwardToExt();
+    }
+
     /// @notice Wire the rotator and the treasury vote in one call. Combined
     ///         because both are deploy-time wiring and this registry has no
     ///         dispatcher budget for two entries. See RedemptionExt.
@@ -1325,6 +1352,46 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     /// @notice Permissionless: deposit the hook's held live-buyback tokens into the
     ///         shared reserve LP + credit the collection ledger. See RedemptionExt.
     function materializeLegacyReserve() external returns (uint256) {
+        _forwardToExt();
+    }
+
+    //  ── THERE IS NO CATCH-ALL FALLBACK, SO FACET CALLS NEED A STUB ─────────
+    //  I moved these three to {RedemptionExt} for EIP-170 headroom on the
+    //  assumption that "the fallback delegates unknown selectors". It does not:
+    //  this contract declares `receive()` and no `fallback()`, and every
+    //  forwarded function above is an EXPLICIT stub. Without one, the call dies
+    //  as "unrecognized function selector ... which has no fallback function" —
+    //  which is exactly how F04 caught it, and would otherwise have shipped as a
+    //  view the frontend calls on every treasury poll.
+    //
+    //  Stubs are cheap (a selector and a jump); the BODIES are what did not fit.
+
+    /// @notice Whether the genesis redemption floor is claimable at spot right now,
+    ///         and the current per-fren floor. See RedemptionExt.
+    function floorClaimableNow() external returns (bool, uint256) {
+        _forwardToExtView();
+    }
+
+    /// @notice How many rotated legs a generation holds beyond its primary pool.
+    function legCount(uint256) external returns (uint256) {
+        _forwardToExtView();
+    }
+
+    /// @notice Read one leg: quote, position id, and the pool it sits in.
+    function legAt(uint256, uint256) external returns (address, uint256, PoolKey memory) {
+        _forwardToExtView();
+    }
+
+    /// @dev View-side forwarder.
+    ///
+    ///  Solidity refuses `delegatecall` inside a `view` body, in assembly too —
+    ///  so the stubs above are NOT `view`. They are `nonpayable` reads, which an
+    ///  eth_call serves exactly as before: `registry.floorClaimableNow()` from
+    ///  ethers/viem/cast is a call, not a transaction, and the node discards any
+    ///  state change. The only cost is that a SOLIDITY caller must not expect a
+    ///  `view` in an interface, which is why every internal reader uses
+    ///  `floorPerFren()` (genuinely view, on CauldronBase) instead.
+    function _forwardToExtView() private {
         _forwardToExt();
     }
 

@@ -105,7 +105,7 @@ contract F04_ReserveCeiling is Test {
 
         (, int24 tick,,) = pm.getSlot0(registry.generationPoolId(1));
         assertGt(tick, registry.reserveTickUpper(1), "spot is above the reserve band");
-        (bool claimable, uint256 perFren) = RedemptionExt(payable(address(registry))).floorClaimableNow();
+        (bool claimable, uint256 perFren) = registry.floorClaimableNow();
         assertTrue(claimable, "registry reports the floor as claimable");
         assertGt(perFren, 0, "floor is non-zero");
 
@@ -159,7 +159,7 @@ contract F04_ReserveCeiling is Test {
         }
 
         // The ceiling has been breached. The registry's own view now says so.
-        (bool claimable,) = RedemptionExt(payable(address(registry))).floorClaimableNow();
+        (bool claimable,) = registry.floorClaimableNow();
         assertFalse(claimable, "registry reports the floor as NOT claimable");
 
         // 1:1 migration is closed. The burn would otherwise destroy the holder's
