@@ -1856,6 +1856,13 @@ function Styles() {
     .tc-card__eyebrow { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px; }
 
     .tc-reactor { display: grid; grid-template-columns: 0.8fr 1.2fr 300px; gap: 18px; align-items: start; }
+    /*  A grid track sized in fr still floors at its content's MIN-CONTENT
+        width, so any child with a wide unbreakable row silently overrides the
+        0.8fr and steals space from the chart beside it. min-width:0 is what
+        makes the ratio actually mean the ratio. Added when the liquidity dial's
+        nowrap rows widened the whole left column.
+        (No backticks in this block - it is a template literal.) */
+    .tc-reactor > * { min-width: 0; }
     .tc-rail { display: flex; flex-direction: column; gap: 14px; }
     .tc-chart-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     @media (max-width: 1180px) { .tc-reactor { grid-template-columns: 1fr 1fr; } }

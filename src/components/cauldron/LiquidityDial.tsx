@@ -182,7 +182,7 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
                  wrap onto its own line, which is how "GENESIS / FLOOR /
                  tok/fren" happened. */}
             {!!liq.floorPerFren && (
-              <span title="Genesis redemption floor: the out-of-range token reserve, claimed 1:1 by burning a fren. Backed in the brew's own token; the dollar figure marks that token to spot.">
+              <span title={`Genesis redemption floor: ${fmt(liq.floorPerFren, 0)}${floorUnit ? " " + floorUnit : " tokens"} per fren, claimed 1:1 by burning it. Backed in the brew's own token; the dollar figure marks that token to spot.`}>
                 <b>Genesis floor</b>
                 {/*  DOLLARS LEAD. "97,912 GNOME/fren" is only meaningful to
                      someone already carrying the token price in their head. The
@@ -190,7 +190,7 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
                      secondary reading. */}
                 <em>
                   {floorUsd != null ? `$${floorUsd < 0.01 ? floorUsd.toFixed(4) : floorUsd.toFixed(2)}` : "—"}
-                  <i> /fren · {fmt(liq.floorPerFren, 0)}{floorUnit ? ` ${floorUnit}` : ""}</i>
+                  <i> /fren</i>
                 </em>
               </span>
             )}
@@ -203,15 +203,15 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
             lime wash under a lime hairline, so the dial reads as part of the
             page's furniture rather than a widget dropped onto it. */
         .lqd {
-          width: 100%; display: flex; align-items: center; gap: 18px;
-          padding: 15px 16px; border-radius: var(--r-sm);
+          width: 100%; display: flex; align-items: center; gap: 13px;
+          padding: 13px; border-radius: var(--r-sm);
           background:
             radial-gradient(130% 150% at 0% 0%, rgba(213,253,81,0.06), transparent 60%),
             rgba(213,253,81,0.04);
           border: 1px solid rgba(213,253,81,0.12);
         }
 
-        .lqd__ring { position: relative; flex: 0 0 118px; width: 118px; height: 118px; }
+        .lqd__ring { position: relative; flex: 0 0 94px; width: 94px; height: 94px; }
         .lqd__ring svg { position: relative; width: 100%; height: 100%; transform: rotate(-90deg); }
 
         /*  THIN. The ring is an indicator; the numeral is the subject. At 8px
@@ -237,12 +237,12 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
             "available for next launch" value this dial replaced. */
         .lqd__value {
           font-family: "Cinzel Decorative", serif; font-weight: 900;
-          font-size: 22px; line-height: 1.05; color: #f5f0e8;
+          font-size: 18px; line-height: 1.05; color: #f5f0e8;
           letter-spacing: -.01em;
         }
         .lqd__unit {
-          font: 400 8px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
-          text-transform: uppercase; letter-spacing: .18em; margin-top: 5px;
+          font: 400 7.5px/1 "DM Mono", ui-monospace, monospace; color: #8f83b8;
+          text-transform: uppercase; letter-spacing: .16em; margin-top: 4px;
         }
 
         .lqd__side { display: flex; flex-direction: column; gap: 9px; min-width: 0; flex: 1; }
@@ -253,13 +253,13 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
         }
         .lqd__usd {
           font-family: "Cinzel Decorative", serif; font-weight: 900;
-          font-size: 13px; color: #d5fd51; white-space: nowrap;
+          font-size: 12px; color: #d5fd51; white-space: nowrap;
         }
 
         .lqd__legend { list-style: none; margin: 0; padding: 0; display: flex;
                        flex-direction: column; gap: 6px; }
         .lqd__legend li { display: flex; align-items: center; gap: 9px;
-                          font: 400 11px/1 "DM Mono", ui-monospace, monospace; color: #b8adcc; }
+                          font: 400 10.5px/1 "DM Mono", ui-monospace, monospace; color: #b8adcc; }
         .lqd__legend i { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 6px; }
         .lqd__legend b { color: #f5f0e8; font-weight: 500; letter-spacing: .02em; }
         .lqd__legend em { font-style: normal; margin-left: auto; color: #f5f0e8; }
@@ -271,7 +271,7 @@ export default function LiquidityDial({ liq, glyph = "Ξ", ticker, ethUsd = 0 }:
             can never break onto its own line — which is how "GENESIS / FLOOR /
             tok/fren" ended up stacked three deep. */
         .lqd__reserves span { display: flex; align-items: baseline; justify-content: space-between;
-                              gap: 12px; font: 400 10px/1.35 "DM Mono", ui-monospace, monospace; }
+                              gap: 10px; font: 400 9.5px/1.35 "DM Mono", ui-monospace, monospace; }
         .lqd__reserves b { font-weight: 400; color: #8f83b8; text-transform: uppercase;
                            letter-spacing: .1em; white-space: nowrap; }
         .lqd__reserves em { font-style: normal; color: #b8adcc; white-space: nowrap; }
