@@ -71,6 +71,10 @@ const GOVERNOR_ABI = [
 ] as const;
 
 /** `rotateSlice` takes the venue as a full PoolKey, so the tuple must match. */
+const REGISTRY_GEN_ABI = [
+  { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
+
 export const REGISTRY_ROTATE_ABI = [
   { type: "function", name: "rotateSlice", stateMutability: "nonpayable",
     inputs: [
@@ -83,6 +87,36 @@ export const REGISTRY_ROTATE_ABI = [
       ] },
     ],
     outputs: [{ type: "uint256" }, { type: "uint256" }] },
+  //  ROTATE FROM A CHOSEN LEG. `rotateSlice` is the fromLeg=0 shorthand; the
+  //  treasury used to be one-directional because that was the only entry point,
+  //  so it could go ETH -> USDG but never USDG -> anything, and could not
+  //  rebalance between destinations or merge a split back together.
+  { type: "function", name: "rotateSliceFrom", stateMutability: "nonpayable",
+    inputs: [
+      { name: "fromLeg", type: "uint8" },
+      { name: "sliceBps", type: "uint16" },
+      { name: "minOut", type: "uint256" },
+      { name: "route", type: "tuple", components: [
+        { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+        { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+        { name: "hooks", type: "address" },
+      ] },
+    ],
+    outputs: [{ type: "uint256" }, { type: "uint256" }] },
+  //  The legs themselves. Both live on RedemptionExt and are reached through the
+  //  registry's fallback, so they are called at the REGISTRY's address.
+  { type: "function", name: "legCount", stateMutability: "view",
+    inputs: [{ name: "gen", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "legAt", stateMutability: "view",
+    inputs: [{ name: "gen", type: "uint256" }, { name: "i", type: "uint256" }],
+    outputs: [
+      { name: "quote", type: "address" }, { name: "positionId", type: "uint256" },
+      { name: "key", type: "tuple", components: [
+        { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+        { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+        { name: "hooks", type: "address" },
+      ] },
+    ] },
 ] as const;
 
 const ROTATOR_VENUE_ABI = [
@@ -112,6 +146,24 @@ export interface EnvelopeState {
   cooldownLeft: number;
   governor: Address | null;
   loading: boolean;
+  /**
+   * Every pool this generation holds liquidity in. Index 0 is the PRIMARY
+   * (the original quote); the rest are legs opened by rotation.
+   *
+   * The panel could not previously show this because the contract did not
+   * record it — rotation opened a destination position and discarded the id.
+   * Now that the legs are tracked, the UI can show the treasury as the several
+   * pools it actually is, and let a rotation pick which one to draw from.
+   */
+  legs: TreasuryLeg[];
+}
+
+export interface TreasuryLeg {
+  /** Index to pass as `fromLeg`. 0 = primary. */
+  index: number;
+  quote: Address;
+  positionId: bigint;
+  isPrimary: boolean;
 }
 
 /** MAX_SLICE_BPS in RedemptionExt. Mirrored so the UI can size a slice. */
@@ -145,7 +197,7 @@ export function useTreasuryRotation() {
   const { writeContractAsync } = useWriteContract();
   const [env, setEnv] = useState<EnvelopeState>({
     idle: true, quote: NATIVE_QUOTE, maxTotalBps: 0, movedBps: 0, slicesLeft: 0,
-    expiry: 0, cooldownLeft: 0, governor: null, loading: true,
+    expiry: 0, cooldownLeft: 0, governor: null, loading: true, legs: [],
   });
 
   const load = useCallback(async () => {
@@ -168,6 +220,32 @@ export function useTreasuryRotation() {
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "COOLDOWN" }).catch(() => 0n) as Promise<bigint>,
       ]);
 
+      //  ── READ THE LEGS ──────────────────────────────────────────────────
+      //  `legCount`/`legAt` live on RedemptionExt and are reached through the
+      //  registry's fallback, so they are called at the REGISTRY's address. A
+      //  deployment predating leg tracking simply reverts, which is caught here
+      //  and reported as "primary only" — the truth for such a deployment.
+      const gen = await pc.readContract({
+        address: CAULDRON.registry, abi: REGISTRY_GEN_ABI, functionName: "currentGeneration",
+      }).catch(() => 0n) as bigint;
+
+      const legs: TreasuryLeg[] = [
+        { index: 0, quote: envelope[0], positionId: 0n, isPrimary: true },
+      ];
+      try {
+        const n = await pc.readContract({
+          address: CAULDRON.registry, abi: REGISTRY_ROTATE_ABI,
+          functionName: "legCount", args: [gen],
+        }) as bigint;
+        for (let i = 0n; i < n; i++) {
+          const [q, pid] = await pc.readContract({
+            address: CAULDRON.registry, abi: REGISTRY_ROTATE_ABI,
+            functionName: "legAt", args: [gen, i],
+          }) as readonly [Address, bigint, unknown];
+          legs.push({ index: Number(i) + 1, quote: q, positionId: pid, isPrimary: false });
+        }
+      } catch { /* pre-leg deployment: the primary is the whole treasury */ }
+
       const now = Math.floor(Date.now() / 1000);
       const readyAt = Number(lastAt) + Number(cooldown);
       setEnv({
@@ -179,6 +257,7 @@ export function useTreasuryRotation() {
         slicesLeft: Math.floor(allow[1] / SLICE_BPS),
         expiry: Number(envelope[3]),
         cooldownLeft: Math.max(0, readyAt - now),
+        legs,
         governor,
         loading: false,
       });
@@ -204,10 +283,12 @@ export function useTreasuryRotation() {
    * destination and the ceiling come from the vote, so the caller chooses only
    * the timing, and `minOut` bounds what bad timing can cost.
    */
-  const rotateSlice = useCallback(async (sliceBps: number, minOut: bigint, route: RouteKey) => {
+  const rotateSlice = useCallback(async (sliceBps: number, minOut: bigint, route: RouteKey, fromLeg = 0) => {
+    //  fromLeg 0 is the primary pool and is the historical behaviour, so the
+    //  default call is byte-for-byte what it always was.
     return writeContractAsync({
-      address: CAULDRON.registry, abi: REGISTRY_ROTATE_ABI, functionName: "rotateSlice",
-      args: [sliceBps, minOut, route],
+      address: CAULDRON.registry, abi: REGISTRY_ROTATE_ABI, functionName: "rotateSliceFrom",
+      args: [fromLeg, sliceBps, minOut, route],
     });
   }, [writeContractAsync]);
 

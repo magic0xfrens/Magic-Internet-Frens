@@ -2046,6 +2046,19 @@ function Styles() {
         expressed at all. Labels are CONVERSION targets rather than envelope
         sizes - slices take a share of what remains, so 30000 bps of envelope
         converts 96.8%, and showing the raw bps would just be confusing. */
+    /*  Leg picker. Mirrors rotateSliceFrom: the treasury is several pools once it
+        has rotated, and a slice may be drawn from any of them - which is what
+        makes rebalancing and merging-back possible at all. */
+    .tr-legs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tr-leg { display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 7px 12px; border-radius: var(--r-sm); cursor: pointer;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(245,240,232,0.09);
+      color: ${C.dim}; font: 500 12px/1 "DM Sans", sans-serif; transition: all .15s ease; }
+    .tr-leg em { font-style: normal; font-size: 8.5px; opacity: .55; text-transform: uppercase;
+      letter-spacing: .1em; font-family: "DM Mono", ui-monospace, monospace; }
+    .tr-leg:hover:not(:disabled) { border-color: rgba(213,253,81,0.30); color: ${C.cream}; }
+    .tr-leg.on { background: rgba(213,253,81,0.10); border-color: rgba(213,253,81,0.45); color: ${C.lime}; }
+    .tr-leg:disabled { opacity: .3; cursor: not-allowed; }
     .tr-sizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
     .tr-size { display: flex; flex-direction: column; align-items: center; gap: 2px;
       padding: 8px 4px; border-radius: var(--r-sm); cursor: pointer;

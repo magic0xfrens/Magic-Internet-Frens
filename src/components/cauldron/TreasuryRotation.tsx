@@ -217,6 +217,13 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     { label: "Max", bps: ENVELOPE_BPS },
   ] as const;
   const [envBps, setEnvBps] = useState<number>(ENVELOPE_BPS);
+  //  WHICH LEG THE SLICE COMES FROM. 0 is the primary pool; the rest are legs
+  //  opened by earlier rotations. Until the contract tracked legs this could not
+  //  be offered at all — every rotation drained the original quote, so the
+  //  treasury could split but never rebalance or merge back.
+  const [fromLeg, setFromLeg] = useState(0);
+  const legs = env.legs ?? [];
+  const srcMeta = quoteMeta(legs[fromLeg]?.quote ?? from.address);
   const slicesFor = (bps: number) => Math.floor(bps / SLICE_BPS);
   const conversionFor = (bps: number) => 1 - remainingAfter(slicesFor(bps));
 
@@ -247,8 +254,8 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
       //  0 would execute at any price. That is never the right default on a
       //  permissionless entrypoint, so the field has no "off".
       const minOut = parseUnits(String(Math.max(0, 1 - maxSlip / 100)), destMeta.decimals);
-      await rotateSlice(SLICE_BPS, minOut, route);
-      say(`Moved one ${(SLICE_BPS / 100).toFixed(0)}% slice into ${destMeta.symbol}.`);
+      await rotateSlice(SLICE_BPS, minOut, route, fromLeg);
+      say(`Moved one ${(SLICE_BPS / 100).toFixed(0)}% slice from ${srcMeta.symbol} into ${destMeta.symbol}.`);
       await refresh();
     } catch (e) { say(`Slice failed: ${(e as Error).message.slice(0, 90)}`); }
     finally { setBusy(null); }
@@ -370,6 +377,35 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
               calls <code>setVenue</code> — the allowlist fails closed on purpose,
               so an uncurated pool cannot be used to fill at the floor price.
             </p>
+          )}
+
+          {/*  SOURCE PICKER. Only shown once a rotation has actually split the
+               treasury — with one pool there is nothing to choose, and an
+               always-visible control with a single option is noise. */}
+          {legs.length > 1 && (
+            <>
+              <label className="tc-mono tc-dim tr-label">Take the slice from</label>
+              <div className="tr-legs">
+                {legs.map((l) => {
+                  const m = quoteMeta(l.quote);
+                  const disabled = l.quote.toLowerCase() === dest?.toLowerCase();
+                  return (
+                    <button
+                      key={l.index}
+                      className={`tr-leg ${fromLeg === l.index ? "on" : ""}`}
+                      disabled={disabled}
+                      onClick={() => setFromLeg(l.index)}
+                      title={disabled
+                        ? "A leg cannot rotate into itself"
+                        : l.isPrimary ? "The generation's original pool" : "Opened by an earlier rotation"}
+                    >
+                      {m.symbol}
+                      <em>{l.isPrimary ? "primary" : "leg"}</em>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           <button
