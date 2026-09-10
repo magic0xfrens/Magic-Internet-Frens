@@ -29,8 +29,13 @@ export GOV_ENVELOPE_LIFETIME=7200    # 2 h    (mainnet 30 days)
 # Zero is refused at deploy, deliberately.
 export EMERGENCY_DELAY=600           # 10 min (mainnet 48 h)
 
-# Presale sized so a mint-out is affordable and one wallet can do it.
-export PRESALE_PRICE=10000000000000  # 0.00001 ETH (mainnet 0.0062)
+# Presale price, which is ALSO the pool's seed liquidity: `finalize()` summons
+# with the presale's whole balance (MiFrensGenesis.sol:576). Pricing this too
+# cheaply is not a saving — it launches a pool too thin to open a perp against or
+# rotate, and the test then measures nothing.
+#
+# 1110 x 0.0008 = 0.888 ETH of seed, ~0.52 ETH left over for actually trading.
+export PRESALE_PRICE=800000000000000 # 0.0008 ETH (mainnet 0.0062)
 export PRESALE_MAXWALLET=1111        # (mainnet 100)
 
 # Venue LP depth for the ETH/USDG rotation route.
