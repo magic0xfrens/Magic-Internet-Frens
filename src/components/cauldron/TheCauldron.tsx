@@ -17,7 +17,7 @@ import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
-import { useSeedProgress } from "@/hooks/useSeedProgress";
+import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
@@ -527,6 +527,19 @@ export default function TheCauldron() {
     (notify as unknown as { _t?: number })._t = window.setTimeout(() => setFlash(null), 6500);
   }, []);
 
+  // LIVE SEEDING NOTIFICATIONS. Every step of the launch — ignition, the base
+  // going down, each liquidity poke, each treasury prime-buy tranche, and the
+  // final completion — announces itself as it lands. The hook hands back only
+  // what arrived since the last poll (and stays silent about the backlog on
+  // first load), so opening the page mid-launch does not replay the whole tape.
+  useEffect(() => {
+    if (!seed.fresh.length) return;
+    for (const f of seed.fresh) {
+      const msg = seedFeedMessage(f);
+      if (msg) notify("ok", msg);
+    }
+  }, [seed.fresh, notify]);
+
   // Publish the live counters the left rail shows next to its sub-items. The
   // rail sits outside this component, so it reads them from the store rather
   // than re-querying the chain.
@@ -767,7 +780,9 @@ export default function TheCauldron() {
                                   : `Liquidity deploying · ${(seed.placed * 100).toFixed(0)}%`}
                               </span>
                               <span className="tc-mono tc-dim">
-                                {seed.ranges} band{seed.ranges === 1 ? "" : "s"}
+                                {seed.pokes} step{seed.pokes === 1 ? "" : "s"}
+                                {seed.primeSpentEth > 0 &&
+                                  ` · treasury ${seed.primeSpentEth.toFixed(3)}Ξ`}
                                 {seed.remaining > 0 && ` · ${Math.ceil(seed.remaining / 60)}m left`}
                               </span>
                             </div>

@@ -1067,6 +1067,68 @@ app.get("/gacha/:player", async (c) => {
 });
 
 /* ── dividend + "cast the spell" enchant ───────────────────────────────── */
+/* ── LAUNCH SEEDING FEED ────────────────────────────────────────────────────
+ * Live progress of the progressive stream + the tranched prime buy, plus the
+ * recent tape so the page can announce each step as it lands.
+ *
+ * `target` is computed HERE rather than stored, because it is a pure function of
+ * wall-clock time (SeedLib.deployedTargetWad) and would otherwise need a write
+ * every second. The gap between `target` and `placed` is exactly what a poke
+ * would deploy, so the UI can show "catching up" honestly. */
+app.get("/seeding", async (c) => {
+  const rows = await db.select().from(schema.seedState).where(eq(schema.seedState.id, "live")).limit(1);
+  const s = rows[0];
+  const feed = await db
+    .select().from(schema.seedEvent)
+    .orderBy(desc(schema.seedEvent.block))
+    .limit(Number(c.req.query("limit") ?? 25));
+
+  const WAD = 10n ** 18n;
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const start = s?.startTs ?? 0n;
+  const win = s?.window ?? 0n;
+  let target = 0n;
+  if (s) {
+    if (win === 0n || now >= start + win) target = WAD;
+    else if (now <= start) target = 0n;
+    else target = ((WAD) * (now - start)) / win;
+  }
+  const placed = s?.placedWad ?? 0n;
+  const remaining = s && win > 0n && now < start + win ? Number(start + win - now) : 0;
+
+  return c.json({
+    active: !!s && !s.complete && start > 0n,
+    complete: s?.complete ?? false,
+    generation: s?.generation ?? 0,
+    placedWad: placed.toString(),
+    targetWad: target.toString(),
+    placed: Number(placed) / 1e18,
+    target: Number(target) / 1e18,
+    basePlaced: s?.basePlaced ?? false,
+    pokes: s?.pokes ?? 0,
+    startTs: Number(start),
+    window: Number(win),
+    remaining,
+    ethTotal: (s?.ethTotal ?? 0n).toString(),
+    tokenTotal: (s?.tokenTotal ?? 0n).toString(),
+    prime: {
+      budget: (s?.primeBudget ?? 0n).toString(),
+      spent: (s?.primeSpent ?? 0n).toString(),
+      tokenOut: (s?.primeTokenOut ?? 0n).toString(),
+      budgetEth: Number(s?.primeBudget ?? 0n) / 1e18,
+      spentEth: Number(s?.primeSpent ?? 0n) / 1e18,
+    },
+    feed: feed.map((e) => ({
+      id: e.id, kind: e.kind, generation: e.generation,
+      fromWad: e.fromWad.toString(), toWad: e.toWad.toString(),
+      from: Number(e.fromWad) / 1e18, to: Number(e.toWad) / 1e18,
+      ethIn: e.ethIn.toString(), ethInEth: Number(e.ethIn) / 1e18,
+      tokenOut: e.tokenOut.toString(),
+      tick: e.tick, ts: Number(e.ts), block: Number(e.block), txHash: e.txHash,
+    })),
+  });
+});
+
 app.get("/dividend", async (c) => {
   const rows = await db.select().from(schema.dividendStat).where(eq(schema.dividendStat.id, "dividend")).limit(1);
   const s = rows[0];

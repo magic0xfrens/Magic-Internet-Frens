@@ -7,6 +7,7 @@ import { HookGachaAbi, RegistryCollAbi, GovernorAbi } from "./abis/GachaGovAbi";
 import { DividendAbi } from "./abis/DividendAbi";
 import { PerpEngineAbi } from "./abis/PerpEngineAbi";
 import { RegistryFloorAbi, HookFloorAbi } from "./abis/FloorAbi";
+import { SeederAbi } from "./abis/SeederAbi";
 
 // ── SINGLE SOURCE OF TRUTH ──────────────────────────────────────────────────
 // All addresses/blocks/poolIds come from ./deployments/round.json — the SAME
@@ -34,6 +35,11 @@ const PERP_START = round.blocks.indexer;
 // (huge load → timeouts/crashes). The Swap event's `id` is the poolId (indexed),
 // so we filter getLogs to just our generation pool(s). Append per gen at relaunch.
 const POOL_IDS = round.poolIds as `0x${string}`[];
+// The progressive seeder. Absent on an atomic (SEED_WINDOW=0) deployment and on
+// any manifest written before the launch feed existed, so it degrades to the zero
+// address — registered either way so its event types resolve, yielding no logs.
+const SEEDER = ((round.contracts as Record<string, string>).seeder ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
 export default createConfig({
   database: process.env.DATABASE_URL
@@ -101,6 +107,9 @@ export default createConfig({
       filter: { event: "Swap", args: { id: POOL_IDS } }, // only OUR pool's swaps
     },
     Governor: { chain: "cauldron", abi: GovernorAbi, address: GOVERNOR, startBlock },
+    // Launch seeding feed: stream progress + prime-buy tranches, so the frontend
+    // reads them from Ponder instead of polling the seeder over public RPC.
+    Seeder: { chain: "cauldron", abi: SeederAbi, address: SEEDER, startBlock },
     Hook: { chain: "cauldron", abi: HookGachaAbi, address: HOOK, startBlock },
     Dividend: { chain: "cauldron", abi: DividendAbi, address: DIVIDEND, startBlock },
     // Perp engine — always registered so its event types resolve; the 0x0 default

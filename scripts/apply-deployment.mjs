@@ -102,6 +102,9 @@ const updates = {
   gachaRouter: pick("CauldronGachaRouter", launchpad),
   collectionLedger: pick("CollectionLedger", launchpad),
   factory: pick("CauldronFactory", launchpad),
+  // The launch poke keeper reads this to know what to poke; without it the
+  // keeper is inert and the stream depends entirely on organic trades.
+  seeder: pick("CauldronSeeder", launchpad),
   quoteRotator: pick("QuoteRotator", rotation, launchpad),
   treasuryGovernor: pick("TreasuryGovernor", rotation, launchpad),
   quoteOracle: pick("QuoteOracle", rotation, launchpad),
@@ -269,7 +272,7 @@ for (const [k, from, to] of applied) {
 //  feature that silently does nothing.
 const required = [
   "registry", "hook", "governor", "dividend", "presale",
-  "gachaRouter", "collectionLedger", "poolManager", "positionManager",
+  "gachaRouter", "collectionLedger", "poolManager", "positionManager", "seeder",
 ];
 const missing = required.filter((k) => !m.contracts[k] || /^0x0{40}$/.test(m.contracts[k]));
 if (missing.length) {

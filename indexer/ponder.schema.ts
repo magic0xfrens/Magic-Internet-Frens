@@ -255,3 +255,43 @@ export const proposerEarning = onchainTable("proposer_earning", (t) => ({
   payoutCount: t.integer().notNull().default(0),
   updatedAt: t.bigint().notNull().default(0n),
 }));
+
+/* ── LAUNCH SEEDING FEED ────────────────────────────────────────────────────
+ * The progressive stream + the tranched prime buy, as a live tape. The frontend
+ * used to read this straight off the seeder over public RPC, which is exactly
+ * the polling that earns 429s; indexing it means the page reads Ponder like
+ * everything else and can announce each step as it lands. */
+export const seedEvent = onchainTable("seed_event", (t) => ({
+  id: t.text().primaryKey(),                    // txHash-logIndex
+  kind: t.text().notNull(),                     // started|base|poked|prime|complete|funded
+  generation: t.integer().notNull(),
+  fromWad: t.bigint().notNull().default(0n),    // stream progress before (poked)
+  toWad: t.bigint().notNull().default(0n),      // stream progress after  (poked)
+  ethIn: t.bigint().notNull().default(0n),      // prime tranche size     (prime)
+  tokenOut: t.bigint().notNull().default(0n),   // token bought           (prime)
+  spent: t.bigint().notNull().default(0n),      // cumulative prime spend (prime)
+  budget: t.bigint().notNull().default(0n),     // prime budget           (prime/funded)
+  tick: t.integer(),                            // pool tick at the poke
+  ts: t.bigint().notNull(),
+  block: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}), (table) => ({ genIdx: index().on(table.generation), kindIdx: index().on(table.kind) }));
+
+/* Live singleton: the current campaign, so the page renders progress without
+ * replaying the whole tape. */
+export const seedState = onchainTable("seed_state", (t) => ({
+  id: t.text().primaryKey(),                    // always "live"
+  generation: t.integer().notNull().default(0),
+  ethTotal: t.bigint().notNull().default(0n),
+  tokenTotal: t.bigint().notNull().default(0n),
+  window: t.bigint().notNull().default(0n),
+  startTs: t.bigint().notNull().default(0n),
+  placedWad: t.bigint().notNull().default(0n),
+  basePlaced: t.boolean().notNull().default(false),
+  complete: t.boolean().notNull().default(false),
+  primeBudget: t.bigint().notNull().default(0n),
+  primeSpent: t.bigint().notNull().default(0n),
+  primeTokenOut: t.bigint().notNull().default(0n),
+  pokes: t.integer().notNull().default(0),
+  updatedAt: t.bigint().notNull().default(0n),
+}));

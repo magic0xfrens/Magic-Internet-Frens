@@ -6,6 +6,7 @@
 // reindexes cleanly; keep it the same → Ponder resumes (crash recovery, no wipe).
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { startSeedKeeper } from "./seed-keeper.mjs";
 
 const manifest = JSON.parse(
   readFileSync(new URL("./deployments/round.json", import.meta.url), "utf8"),
@@ -16,6 +17,12 @@ if (!schema || !/^[a-z0-9_]+$/.test(schema)) {
   process.exit(1);
 }
 console.log(`[start] round ${manifest.round} → ponder start --schema ${schema}`);
+
+// Launch poke keeper — advances the seeder's liquidity stream + prime-buy
+// tranches when the pool is quiet. Inert unless SEED_KEEPER_PK is set, and it
+// runs in THIS process so it ships with the already-wired indexer deploy rather
+// than needing a second Railway service.
+startSeedKeeper();
 
 const child = spawn("npx", ["ponder", "start", "--schema", schema], {
   stdio: "inherit",

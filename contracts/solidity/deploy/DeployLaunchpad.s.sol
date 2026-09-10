@@ -71,7 +71,8 @@ interface IOwnable {
  *    PRESALE_SUPPLY     MiFrens count (default 1111)
  *    PRESALE_PRICE      wei per MiFren (default 0.01 ether)
  *    PRESALE_MAXWALLET  per-wallet cap (default 100)
- *    GENESIS_BONUS_BPS  bonus share of gen-1 supply, bps (default 1000 = 10%)
+ *    GENESIS_BONUS_BPS  bonus share of gen-1 supply, bps (default 1400 -> OG
+ *                       allocation = 17.5% of the mint price; see the note inline)
  *    DEATH_THRESHOLD    24h volume floor, wei (default 1 ether)
  *
  *  Run (from contracts/solidity):
@@ -102,10 +103,16 @@ contract DeployLaunchpad is Script {
         uint256 artCap = vm.envOr("MIFRENS_ART_CAP", uint256(2222));  // total incl. volume
         uint256 price = vm.envOr("PRESALE_PRICE", uint256(0.0062 ether)); // 1111 → ~6.9 Ξ thin LP
         uint256 maxWallet = vm.envOr("PRESALE_MAXWALLET", uint256(100));
-        // 20% OG airdrop = the ENTIRE genesis reserve (active band is 80%). So the
-        // OG gift equals the reserve and there is no leftover migration reserve on
-        // gen 1 — matches GEN1_ACTIVE_TOKENS = 80%. (OG marks ~-75% at launch.)
-        uint256 bonusBps = vm.envOr("GENESIS_BONUS_BPS", uint256(2000)); // 20%
+        // GENESIS BONUS = THE OG ALLOCATION DIAL. Every wei of presale ETH becomes
+        // LP, so an OG's allocation is worth a FIXED fraction of what they paid:
+        //
+        //     allocationValue/nftSpend = (bonusBps/10000) * TOTAL_SUPPLY/GEN1_ACTIVE
+        //
+        // which is bonusBps x 1.25 at an 80% active tranche. The old default of 2000
+        // therefore paid 25% of the mint price - above the intended 15-20% ceiling.
+        // Inverting: bonusBps = targetRatio * 8000. 1400 -> 17.5% (mid of the band);
+        // 1200 -> 15%, 1600 -> 20%. Asserted on a live fork by F12.
+        uint256 bonusBps = vm.envOr("GENESIS_BONUS_BPS", uint256(1400)); // 17.5% of mint
         uint256 deathThreshold = vm.envOr("DEATH_THRESHOLD", uint256(1 ether));
         // Governance timelock: minDelay seconds (testnet 180 = 3min; mainnet e.g.
         // 172800 = 48h). Proposer/executor/canceller = deployer EOA now; on mainnet
@@ -278,8 +285,39 @@ contract DeployLaunchpad is Script {
                     new CauldronSeeder(address(registry), positionManager, poolManager);
                 registry.setSeeder(address(seeder));       // also wires hook.setSeeder
                 registry.setSeedWindow(seedWindow);
+
+                // The seeder BUYS on the treasury's behalf (the tranched prime buy).
+                // The hook waives the base fee + launch surtax only when BOTH flags
+                // are set — see CauldronHook._isExemptPlayer, which deliberately
+                // requires isOpener AND taxExempt so a direct swapper cannot forge
+                // an exemption through hookData (audit F-13).
+                hook.setOpener(address(seeder), true);
+                hook.setTaxExempt(address(seeder), true);
+
+                // ALIGN THE ANTI-SNIPE WINDOW WITH THE LIQUIDITY SCHEDULE.
+                // These are independently configured and were pulling opposite ways:
+                // snipeWindowBlocks defaulted to 30 (~6 min) while the seed window is
+                // 900s (~75 blocks), so the surtax decayed to ZERO with only ~54% of
+                // ledger A placed. The remaining 46% then streamed into a book with no
+                // sniper protection at all — precisely the window a sniper wants. Tie
+                // the surtax to the same clock so protection fades as depth arrives.
+                uint256 snipeBlocks = vm.envOr(
+                    "SNIPE_WINDOW_BLOCKS", uint256(seedWindow) / vm.envOr("BLOCK_TIME", uint256(12))
+                );
+                hook.setSnipeParams(snipeBlocks, vm.envOr("SNIPE_MAX_BPS", uint256(9600)));
+
+                // LEDGER C: the treasury's own ETH, spent by poke() in tranches that
+                // ride the same schedule (see CauldronSeeder.primePending). Optional —
+                // PRIME_BUY_ETH=0 simply skips it.
+                uint256 primeEth = vm.envOr("PRIME_BUY_ETH", uint256(0));
+                if (primeEth > 0) {
+                    seeder.fundPrime{value: primeEth}(vm.envOr("PRIME_TO", deployer));
+                    console2.log("prime budget (wei):", primeEth);
+                }
+
                 console2.log("CauldronSeeder  :", address(seeder));
                 console2.log("seed window (s) :", seedWindow);
+                console2.log("snipe window (b):", snipeBlocks);
             }
         }
         // Wire the legacy-floor cap table + enable the in-hook LIVE buyback:

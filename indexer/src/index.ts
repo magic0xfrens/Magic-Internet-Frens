@@ -1,5 +1,5 @@
 import { ponder } from "ponder:registry";
-import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning } from "ponder:schema";
+import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/round.json";
 
@@ -504,4 +504,94 @@ ponder.on("HookFloor:ProposerFunded", async ({ event, context }) => {
     payoutCount: (c.payoutCount ?? 0) + 1,
     updatedAt: event.block.timestamp,
   }));
+});
+
+
+/* ══════════════════════ LAUNCH SEEDING FEED ══════════════════════════════
+ * Progressive stream + tranched prime buy, indexed so the frontend can show the
+ * launch filling in real time instead of polling the seeder over public RPC.
+ *
+ * `seedState` is a singleton keyed "live" — upserted rather than inserted so a
+ * replay is idempotent, and so a poke that arrives before SeedStarted (possible
+ * only on a partial reindex) still creates the row instead of throwing. */
+const SEED_ID = "live";
+
+async function bumpSeed(context: any, patch: Record<string, unknown>, ts: bigint) {
+  await context.db
+    .insert(seedState)
+    .values({ id: SEED_ID, updatedAt: ts, ...patch })
+    .onConflictDoUpdate(() => ({ updatedAt: ts, ...patch }));
+}
+
+async function logSeed(context: any, event: any, kind: string, gen: number, extra: Record<string, unknown> = {}) {
+  await context.db.insert(seedEvent).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    kind, generation: gen,
+    ts: event.block.timestamp, block: event.block.number, txHash: event.transaction.hash,
+    ...extra,
+  }).onConflictDoNothing();
+}
+
+ponder.on("Seeder:SeedStarted", async ({ event, context }) => {
+  const gen = Number(event.args.gen);
+  await logSeed(context, event, "started", gen);
+  await bumpSeed(context, {
+    generation: gen,
+    ethTotal: event.args.ethTotal as bigint,
+    tokenTotal: event.args.tokenTotal as bigint,
+    window: BigInt(event.args.window as bigint),
+    startTs: event.block.timestamp,
+    // A fresh campaign resets progress: `withdrawAll` clears the contract's
+    // counters too, so carrying the previous generation's numbers forward would
+    // render a brand-new launch as already finished.
+    placedWad: 0n, basePlaced: false, complete: false,
+    primeSpent: 0n, primeTokenOut: 0n, pokes: 0,
+  }, event.block.timestamp);
+});
+
+ponder.on("Seeder:BasePlaced", async ({ event, context }) => {
+  const gen = Number(event.args.gen);
+  await logSeed(context, event, "base", gen);
+  await bumpSeed(context, { basePlaced: true }, event.block.timestamp);
+});
+
+ponder.on("Seeder:Poked", async ({ event, context }) => {
+  const to = event.args.toWad as bigint;
+  const cur = await context.db.find(seedState, { id: SEED_ID });
+  await logSeed(context, event, "poked", cur?.generation ?? 0, {
+    fromWad: event.args.fromWad as bigint,
+    toWad: to,
+    tick: Number(event.args.tick),
+  });
+  await bumpSeed(context, { placedWad: to, pokes: (cur?.pokes ?? 0) + 1 }, event.block.timestamp);
+});
+
+ponder.on("Seeder:SeedComplete", async ({ event, context }) => {
+  const gen = Number(event.args.gen);
+  await logSeed(context, event, "complete", gen);
+  await bumpSeed(context, { complete: true, placedWad: 10n ** 18n }, event.block.timestamp);
+});
+
+ponder.on("Seeder:PrimeFunded", async ({ event, context }) => {
+  const cur = await context.db.find(seedState, { id: SEED_ID });
+  await logSeed(context, event, "funded", cur?.generation ?? 0, {
+    budget: event.args.budget as bigint,
+  });
+  await bumpSeed(context, { primeBudget: event.args.budget as bigint }, event.block.timestamp);
+});
+
+ponder.on("Seeder:PrimeBought", async ({ event, context }) => {
+  const gen = Number(event.args.gen);
+  const cur = await context.db.find(seedState, { id: SEED_ID });
+  await logSeed(context, event, "prime", gen, {
+    ethIn: event.args.ethIn as bigint,
+    tokenOut: event.args.tokenOut as bigint,
+    spent: event.args.spent as bigint,
+    budget: event.args.budget as bigint,
+  });
+  await bumpSeed(context, {
+    primeSpent: event.args.spent as bigint,
+    primeBudget: event.args.budget as bigint,
+    primeTokenOut: (cur?.primeTokenOut ?? 0n) + (event.args.tokenOut as bigint),
+  }, event.block.timestamp);
 });

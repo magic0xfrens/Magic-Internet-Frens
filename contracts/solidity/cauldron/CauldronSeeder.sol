@@ -15,9 +15,10 @@ import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol"
 import {SeedLib} from "./SeedLib.sol";
 import {ISeeder, SeederConfig} from "./ISeeder.sol";
 
-/// @dev The registry is Ownable; the prime budget borrows its owner rather than
-///      introducing a second admin key (or a constructor arg, which would break
-///      the deploy script's and the fork tests' existing 3-arg signature).
+/// @dev The registry is Ownable; the prime budget accepts its owner as one of two
+///      admins (the other being this contract's deployer), rather than taking a
+///      constructor arg — which would break the deploy script's and the fork
+///      tests' existing 3-arg signature.
 interface IRegistryOwner {
     function owner() external view returns (address);
 }
@@ -68,6 +69,14 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     error BandCap();
 
     address public immutable registry;
+    /// @notice Whoever deployed this seeder. A SECOND admin for the prime budget,
+    ///         and not a redundant one: the launchpad hands registry ownership to
+    ///         the presale so `igniteCauldron()` can reach `summon()`, after which
+    ///         `registry.owner()` is a CONTRACT with no way to call {fundPrime}.
+    ///         Gating solely on it would make the prime buy fundable only during the
+    ///         deploy transaction itself. Cannot be set by an outsider — it is
+    ///         `msg.sender` at construction.
+    address public immutable deployer;
     IPoolManager public immutable poolManager;
     /// @dev Kept for constructor/ABI compatibility with the deploy script + tests;
     ///      unused now that placement is core-level (no periphery PositionManager).
@@ -149,6 +158,7 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
 
     constructor(address _registry, address _positionManager, address _poolManager) {
         registry = _registry;
+        deployer = msg.sender;
         positionManager = _positionManager; // unused (core placement); kept for ABI compat
         poolManager = IPoolManager(_poolManager);
     }
@@ -239,7 +249,7 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     ///  a gift to the campaign — {withdrawAll} returns any unspent remainder to the
     ///  registry at relaunch, so nothing here can be stranded.
     function fundPrime(address to) external payable {
-        if (msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry();
+        if (msg.sender != deployer && msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry();
         if (to == address(0)) revert BadConfig();
         primeTo = to;
         primeBudget += msg.value;

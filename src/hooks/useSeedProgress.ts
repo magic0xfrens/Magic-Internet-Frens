@@ -1,17 +1,26 @@
-import { useCallback, useState } from "react";
-import { usePublicClient } from "wagmi";
-import type { Address } from "viem";
-import { CAULDRON } from "@/config/cauldron";
+import { useCallback, useRef, useState } from "react";
+import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { usePoll } from "@/hooks/usePoll";
 
-const SEEDER_ABI = [
-  { type: "function", name: "deployedWad", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "isComplete", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
-  { type: "function", name: "seeding", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
-  { type: "function", name: "rangeCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "window", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
-  { type: "function", name: "startTs", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
-] as const;
+const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
+
+/** One step of the launch, as it lands. */
+export interface SeedFeedItem {
+  id: string;
+  /** started | base | poked | prime | complete | funded */
+  kind: string;
+  generation: number;
+  /** Stream progress before/after this poke, 0..1. */
+  from: number;
+  to: number;
+  /** Prime-buy tranche size, ETH. */
+  ethInEth: number;
+  tokenOut: string;
+  tick: number | null;
+  ts: number;
+  block: number;
+  txHash: string;
+}
 
 export interface SeedProgress {
   /** Fraction of the stream budget actually placed, 0..1. */
@@ -20,68 +29,110 @@ export interface SeedProgress {
   target: number;
   active: boolean;
   complete: boolean;
-  /** Mini-positions minted so far. */
-  ranges: number;
+  /** The two-sided full-range base is down (perps have spot depth). */
+  basePlaced: boolean;
+  /** Pokes so far this campaign. */
+  pokes: number;
   /** Seconds until the window closes, or 0. */
   remaining: number;
+  /** Treasury prime buy, in ETH. */
+  primeBudgetEth: number;
+  primeSpentEth: number;
+  /** Newest first. */
+  feed: SeedFeedItem[];
+  /** Items that arrived since the previous poll — what to announce. */
+  fresh: SeedFeedItem[];
 }
 
+const EMPTY: SeedProgress = {
+  placed: 0, target: 0, active: false, complete: false, basePlaced: false,
+  pokes: 0, remaining: 0, primeBudgetEth: 0, primeSpentEth: 0, feed: [], fresh: [],
+};
+
 /**
- * Live progress of the progressive liquidity seed.
+ * Live progress of the progressive liquidity seed, READ FROM PONDER.
  *
  * A generation does not launch with all its depth at once: the seeder streams it
- * in over a window, in slivers placed by real swaps. Nothing on the page showed
- * that, so a fresh brew looked thin and broken rather than filling.
+ * in over a window. Nothing on the page showed that, so a fresh brew looked thin
+ * and broken rather than filling.
  *
  * `placed` and `target` are deliberately separate. The stream only advances when
- * someone POKES it, and the poke rides inside a swap — so on a quiet pool the
- * schedule runs ahead of what is actually deployed. Showing only one number
- * would hide that the pool is waiting on trade flow, which is the single most
- * useful thing to know while staring at a new launch.
+ * someone POKES it — either the keeper, or a swap through the hook's in-swap
+ * nudge — so on a quiet pool the schedule runs ahead of what is actually
+ * deployed. Showing one number would hide that the pool is waiting on flow,
+ * which is the single most useful thing to know while staring at a new launch.
+ *
+ * THIS READS THE INDEXER, NOT THE CHAIN. It used to issue six `readContract`
+ * calls against the seeder every 8 seconds from every open tab, which is exactly
+ * the pattern that earns public-RPC 429s — and the 429 arrives as an empty
+ * progress bar, i.e. it looks like the launch stalled. One cached `/seeding`
+ * request serves the same data plus the event tape the notifications need.
  */
 export function useSeedProgress(): SeedProgress {
-  const pc = usePublicClient({ chainId: CAULDRON.chainId });
-  const [s, setS] = useState<SeedProgress>({
-    placed: 0, target: 0, active: false, complete: false, ranges: 0, remaining: 0,
-  });
+  const [s, setS] = useState<SeedProgress>(EMPTY);
+  // Ids already announced. Kept in a ref so re-renders never re-fire a toast,
+  // and seeded on the FIRST response so opening the page mid-launch does not
+  // replay the whole backlog as notifications.
+  const seen = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
-    const seeder = (CAULDRON as Record<string, unknown>).seeder as Address | undefined;
-    if (!pc || !seeder) return;
+    if (!INDEXER) return;
     try {
-      const base = { address: seeder, abi: SEEDER_ABI } as const;
-      const [placedWad, complete, active, ranges, win, start] = await Promise.all([
-        pc.readContract({ ...base, functionName: "deployedWad" }),
-        pc.readContract({ ...base, functionName: "isComplete" }),
-        pc.readContract({ ...base, functionName: "seeding" }),
-        pc.readContract({ ...base, functionName: "rangeCount" }),
-        pc.readContract({ ...base, functionName: "window" }),
-        pc.readContract({ ...base, functionName: "startTs" }),
-      ]);
+      const res = await fetch(`${INDEXER}/seeding`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return;
+      const d = await res.json();
+      const feed: SeedFeedItem[] = Array.isArray(d.feed) ? d.feed : [];
 
-      // The contract's own schedule: elapsed/window, clamped. Recomputed here
-      // rather than read, because it changes every second and polling it would
-      // be a request per tick for a number the client can derive.
-      const now = Math.floor(Date.now() / 1000);
-      const elapsed = Number(start) > 0 ? now - Number(start) : 0;
-      const w = Number(win) || 1;
-      const target = Math.min(1, Math.max(0, elapsed / w));
+      let fresh: SeedFeedItem[] = [];
+      if (seen.current === null) {
+        seen.current = new Set(feed.map((f) => f.id)); // first load: catch up silently
+      } else {
+        fresh = feed.filter((f) => !seen.current!.has(f.id));
+        for (const f of fresh) seen.current.add(f.id);
+      }
 
       setS({
-        placed: Number(placedWad) / 1e18,
-        target,
-        active: active && !complete,
-        complete,
-        ranges: Number(ranges),
-        remaining: Math.max(0, w - elapsed),
+        placed: Number(d.placed) || 0,
+        target: Number(d.target) || 0,
+        active: !!d.active,
+        complete: !!d.complete,
+        basePlaced: !!d.basePlaced,
+        pokes: Number(d.pokes) || 0,
+        remaining: Number(d.remaining) || 0,
+        primeBudgetEth: Number(d.prime?.budgetEth) || 0,
+        primeSpentEth: Number(d.prime?.spentEth) || 0,
+        feed,
+        // Oldest first, so a burst announces in the order it happened.
+        fresh: fresh.slice().reverse(),
       });
     } catch {
       // A deployment without a seeder (atomic launch) simply has no progress.
     }
-  }, [pc]);
+  }, []);
 
-  // 8s: slivers land on swaps, not on a timer, so faster polling would mostly
-  // re-read an unchanged number.
-  usePoll(load, 8_000);
+  // 6s: pokes land on the keeper's cadence (~20s) and on swaps, so this is
+  // comfortably ahead of the data without hammering a cached endpoint.
+  usePoll(load, 6_000);
   return s;
+}
+
+/** Human sentence for a seeding step — used by the live notifications. */
+export function seedFeedMessage(f: SeedFeedItem): string | null {
+  switch (f.kind) {
+    case "started":
+      return "Cauldron ignited — liquidity is streaming in";
+    case "base":
+      return "Base liquidity placed — perps are live";
+    case "poked": {
+      const pct = Math.round(f.to * 100);
+      const add = Math.round((f.to - f.from) * 100);
+      return add > 0 ? `Liquidity +${add}% → ${pct}% deployed` : null;
+    }
+    case "prime":
+      return `Treasury bought ${f.ethInEth.toFixed(4)} Ξ of the brew`;
+    case "complete":
+      return "Seeding complete — full depth deployed";
+    default:
+      return null;
+  }
 }
