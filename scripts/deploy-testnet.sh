@@ -43,7 +43,16 @@ export VENUE_ETH=5000000000000000    # 0.005 ETH
 export VENUE_USDG=15000000           # 15 USDG (6dp)
 # ── end TESTNET block ───────────────────────────────────────────────────────
 
+#  PRIVATE_KEY (exported by go-testnet.sh from the gitignored .env) wins when
+#  set; otherwise fall back to the encrypted keystore, which is what a mainnet
+#  deploy should always use.
+if [ -n "${PRIVATE_KEY:-}" ]; then
+  SIGNER=(--private-key "$PRIVATE_KEY")
+else
+  SIGNER=(--account deployer --sender "$DEPLOYER")
+fi
+
 forge script deploy/DeployLaunchpad.s.sol --tc DeployLaunchpad \
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
-  --account deployer --sender $DEPLOYER \
+  "${SIGNER[@]}" \
   --broadcast

@@ -71,26 +71,31 @@ function pickNth(name, n, src) {
   return all[n]?.contractAddress ?? null;
 }
 
-//  CauldronHook is CREATE2-deployed via a mined salt, and Foundry records those
-//  without a `contractName`. Recover it from the deploy log instead of guessing.
-function hookFromLog() {
-  const p = join(root, `contracts/solidity/broadcast/DeployLaunchpad.s.sol/${chain}/run-latest.json`);
-  if (!existsSync(p)) return null;
-  const run = JSON.parse(readFileSync(p, "utf8"));
-  const c2 = (run.transactions ?? []).find(
-    (t) => t.transactionType === "CREATE2" && t.contractAddress,
-  );
-  return c2?.contractAddress ?? null;
+//  CauldronHook is CREATE2-deployed via a mined salt, so Foundry records it
+//  without a `contractName`.
+//
+//  Taking "the first CREATE2" is WRONG and shipped a broken manifest once:
+//  linked libraries (FeeRouteLib, PoolOps) are CREATE2-deployed too and come
+//  first, so `hook` ended up pointing at FeeRouteLib — an address with real code
+//  that answers no hook call, which fails at runtime rather than at deploy.
+//
+//  The registry stores its own hook, so ask it. That is the address the protocol
+//  actually uses, which is the only definition that matters.
+function hookFromRegistry(registry) {
+  const tx = launchpad.creates.find((t) => t.contractName === "CauldronHook");
+  if (tx?.contractAddress) return tx.contractAddress;   // named CREATE, if present
+  return registry ? "__ASK_CHAIN__" : null;
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+const m0 = m;
 const prevRound = Number(m.round ?? 0);
 
 //  Only overwrite what was actually redeployed. A partial redeploy must not
 //  blank the addresses it did not touch.
 const updates = {
   registry: pick("CauldronRegistry", launchpad),
-  hook: hookFromLog(),
+  hook: hookFromRegistry(m0.contracts?.registry),
   governor: pick("CauldronGovernor", launchpad),
   dividend: pick("MiFrensDividend", launchpad),
   presale: pick("MiFrensGenesis", launchpad),
@@ -202,6 +207,18 @@ async function readPoolId(registry) {
   const arg = gen.toString(16).padStart(64, "0");
   const id = await call("0xcb648bed" + arg);
   return { gen: Number(gen), poolId: id };
+}
+
+//  Resolve the hook from the registry when the broadcast could not name it.
+if (m.contracts.hook === "__ASK_CHAIN__") {
+  try {
+    const rpc = process.env.RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+    const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call",
+        params: [{ to: m.contracts.registry, data: "0x7f5a7c7b" }, "latest"] }) });
+    const j = await r.json();
+    m.contracts.hook = "0x" + String(j.result).slice(-40);
+  } catch { m.contracts.hook = m0.contracts.hook; }
 }
 
 if (applied.length > 0 && m.contracts.registry) {

@@ -19,8 +19,40 @@ OLD_TL=0x06705E8c819D962bEf3a3d7d0fF5a91E404e23B3
 OLD_REG=0x3FD7649FcF3aF0CB511E625e7d868d98bb85D7D4
 Z=0x0000000000000000000000000000000000000000000000000000000000000000
 
-read -rsp "keystore password for 'deployer': " PW; echo
-W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PW")
+#  SIGNER. Prefer the encrypted keystore; fall back to a gitignored .env holding
+#  a plaintext testnet key. The .env path exists because an interactive password
+#  prompt cannot be driven from an automated session — it is NOT the shape a
+#  mainnet key should ever be in.
+ENVFILE="contracts/solidity/.env"
+PK=""
+if [ -f "$ENVFILE" ]; then
+  PK=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
+fi
+
+if [ -n "$PK" ]; then
+  echo "signing with the key from $ENVFILE"
+  W=(--rpc-url "$R" --private-key "$PK")
+  export PRIVATE_KEY="$PK"
+  #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on
+  #  disk after the job that needed it is just a liability with no upside.
+  cleanup() {
+    if [ -f "$ENVFILE" ]; then
+      rm -f "$ENVFILE"
+      echo "removed $ENVFILE"
+    fi
+  }
+  trap cleanup EXIT INT TERM
+else
+  read -rsp "keystore password for 'deployer': " PWD_IN; echo
+  W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PWD_IN")
+fi
+
+#  Refuse to start unless the signer is actually the expected deployer. Sending
+#  the arm/deploy from the wrong account would produce a deployment nobody owns.
+ACTUAL=$(cast wallet address "${W[@]}" 2>/dev/null | tail -1 || true)
+if [ -n "$ACTUAL" ] && [ "${ACTUAL,,}" != "${DEP,,}" ]; then
+  echo "signer mismatch: got $ACTUAL, expected $DEP"; exit 1
+fi
 
 say() { printf "\n\033[1m== %s\033[0m\n" "$*"; }
 
@@ -43,7 +75,7 @@ fi
 
 # ── 2. DEPLOY ───────────────────────────────────────────────────────────────
 say "2/5  deploying the new stack"
-ETH_PASSWORD="$PW" ./scripts/deploy-testnet.sh 2>&1 | tee /tmp/deploy-out.txt | grep -E "^  [A-Za-z]+ *:|SUCCESSFUL|TESTNET"
+./scripts/deploy-testnet.sh 2>&1 | tee /tmp/deploy-out.txt | grep -E "^  [A-Za-z]+ *:|SUCCESSFUL|TESTNET"
 
 PRESALE=$(grep -oE "MiFrensGenesis : 0x[0-9a-fA-F]{40}" /tmp/deploy-out.txt | tail -1 | grep -oE "0x[0-9a-fA-F]{40}")
 [ -n "$PRESALE" ] || { echo "could not read the presale address from the deploy output"; exit 1; }
