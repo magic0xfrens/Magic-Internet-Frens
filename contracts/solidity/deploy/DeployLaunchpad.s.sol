@@ -26,6 +26,7 @@ import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../cauldron/TreasuryGovernor.sol";
 import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
 import {MockQuoteToken} from "../cauldron/MockQuoteToken.sol";
+import {MintCurvePolicy} from "../cauldron/MintCurvePolicy.sol";
 import {VenueSeeder} from "./DeployRotationStack.s.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
@@ -279,6 +280,48 @@ contract DeployLaunchpad is Script {
                 vm.envOr("ODDS_FULL_VOLUME_USD", uint256(1200e18))
             );
             console2.log("volume denominated in USD via oracle:", quoteOracle);
+
+            //  ── THE MINT LADDER ──────────────────────────────────────────
+            //  Only wired ALONGSIDE the oracle, and that pairing is not
+            //  cosmetic. The ladder is compared directly against accumulated
+            //  crystal credit, so the two must share a denomination: a USD
+            //  ladder against wei-denominated credit is a ~1000x mismatch and
+            //  nothing would ever mint. Same hazard `setDeathThreshold` guards
+            //  for base/step; the policy sits outside that check, so it is
+            //  enforced here by construction instead.
+            //
+            //  cost(k) = base + spread*k^2/(k+knee): quadratic below the knee,
+            //  linear above it, so the price always rises while the rate it
+            //  rises at decays. Calibrated EXACTLY rather than by search -
+            //  summing the ladder gives
+            //      total = N*base + spread * SUM(k^2/(k+knee))
+            //  so `spread` is one division once the sum is known.
+            {
+                uint256 mintOut = vm.envOr("MINT_OUT_TARGET_USD", uint256(20_000e18));
+                uint256 knee = vm.envOr("MINT_CURVE_KNEE", uint256(300));
+                uint256 n = artCap;
+
+                //  `base` IS DERIVED FROM THE TARGET, not configured beside it.
+                //  Fixing base independently is how a sane-looking pair becomes
+                //  unreachable: a $20k target with a $50 base over 3333 frens
+                //  needs $166,650 just to pay the base, so the ladder clamps
+                //  flat — the one shape that dilutes the floor. Taking base as a
+                //  FRACTION of the mean makes every target reachable and keeps
+                //  the shape constant: 8% of the mean gives a ~25x span from
+                //  first fren to last, whatever the total.
+                uint256 baseBps = vm.envOr("MINT_CURVE_BASE_BPS", uint256(800)); // 8%
+                uint256 curveBase = (mintOut / n) * baseBps / 10_000;
+                uint256 sum;
+                for (uint256 k; k < n; ++k) sum += (k * k * 1e18) / (k + knee);
+                uint256 spread = ((mintOut - n * curveBase) * 1e18) / sum;
+                MintCurvePolicy curve = new MintCurvePolicy(curveBase, spread, knee, n);
+                hook.setPolicies(address(0), address(0), address(curve));
+                console2.log("MintCurvePolicy :", address(curve));
+                console2.log("  mint-out target (usd):", mintOut / 1e18);
+                console2.log("  actual ladder total  :", curve.totalToMintOut() / 1e18);
+                console2.log("  first / last fren    :",
+                    curve.priceAt(0, 0, 0) / 1e18, curve.priceAt(n - 1, 0, 0) / 1e18);
+            }
         }
         // The registry funds each new iteration's migration reserve with a REAL
         // first-block market buy (green candle). That buy MUST skip the base tax +

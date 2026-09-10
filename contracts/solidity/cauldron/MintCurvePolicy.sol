@@ -73,6 +73,13 @@ contract MintCurvePolicy is ICurvePolicy {
         //  non-zero or the hook's own guard (`c > 0`) rejects every answer and
         //  silently falls back to the linear default.
         if (_base == 0 || _knee == 0 || _supply == 0) revert BadParam();
+        //  A FLAT LADDER IS THE ONE SHAPE THAT BREAKS THE GUARANTEE. With
+        //  spread = 0 every fren costs the same, `cost(n) > mean(cost[0..n-1])`
+        //  fails, and each mint DILUTES the floor instead of raising it — the
+        //  exact counter-example F13 asserts must fail. It is refused here
+        //  rather than deployed, because a calibration that under-shoots
+        //  (target below supply x base) silently produces exactly this.
+        if (_spread == 0) revert BadParam();
         base = _base;
         spread = _spread;
         knee = _knee;

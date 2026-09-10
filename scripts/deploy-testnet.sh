@@ -62,6 +62,13 @@ export SEED_WINDOW=300                  # 5 min stream
 # set false and run deploy/DeployBadgeRenderer.s.sol later if gas spikes.
 export BADGE_ART=true
 
+# MINT LADDER. The collection mints out after this much VOLUME (USD, because the
+# oracle denominates it). $2M is a mainnet figure - on a testnet you would forge
+# a dozen frens and the counter would look stuck, so this is sized so the mint
+# counter visibly moves while trading during a demo. `base` is derived as 8% of
+# the mean, which keeps the ~25x first-to-last span at any target.
+export MINT_OUT_TARGET_USD=8000000000000000000000   # $8k to mint out 3333
+
 # Venue LP depth for the ETH/USDG rotation route.
 export VENUE_ETH=5000000000000000    # 0.005 ETH
 export VENUE_USDG=15000000           # 15 USDG (6dp)

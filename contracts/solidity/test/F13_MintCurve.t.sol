@@ -117,6 +117,34 @@ contract F13_MintCurveTest is Test {
         new MintCurvePolicy(BASE, SPREAD, KNEE, 0);
     }
 
+    /// @notice The constructor REFUSES a flat ladder, so the diluting shape
+    ///         cannot be deployed by a calibration that under-shot its target.
+    function test_F13_FlatLadderIsRefused() public {
+        vm.expectRevert(MintCurvePolicy.BadParam.selector);
+        new MintCurvePolicy(BASE, 0, KNEE, SUPPLY);
+    }
+
+    /// @notice CALIBRATION IS SELF-SCALING. `base` is a fraction of the mean, so
+    ///         any mint-out target is reachable and the SHAPE is unchanged —
+    ///         fixing `base` independently is what made a $20k target clamp flat.
+    function test_F13_AnyTargetIsReachableAndKeepsItsShape() public {
+        uint256 n = 3333;
+        uint256[3] memory targets = [uint256(5_000e18), 200_000e18, 2_000_000e18];
+        for (uint256 i; i < targets.length; ++i) {
+            uint256 target = targets[i];
+            uint256 b = (target / n) * 800 / 10_000;      // the deploy's formula
+            uint256 sum;
+            for (uint256 k; k < n; ++k) sum += (k * k * 1e18) / (k + KNEE);
+            uint256 sp = ((target - n * b) * 1e18) / sum;
+
+            MintCurvePolicy c = new MintCurvePolicy(b, sp, KNEE, n);
+            assertApproxEqRel(c.totalToMintOut(), target, 0.01e18, "target must be hit");
+            uint256 span = c.priceAt(n - 1, 0, 0) / c.priceAt(0, 0, 0);
+            assertGe(span, 20, "shape must survive rescaling");
+            assertLe(span, 32, "shape must survive rescaling");
+        }
+    }
+
     /// @notice A FLAT ladder is what the invariant actually rules out. Asserted so
     ///         the test above cannot pass vacuously.
     function test_F13_AFlatLadderWouldDiluteTheFloor() public pure {
