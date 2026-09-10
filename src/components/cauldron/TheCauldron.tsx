@@ -535,11 +535,27 @@ export default function TheCauldron() {
   //  it on every call, so a burst — which is precisely what seeding produces —
   //  collapsed into a single flicker. `notify` keeps its signature so every
   //  existing call site (vote, relaunch, propose) is unchanged.
+  //  DESTRUCTURE `push`, DO NOT DEPEND ON THE HOOK'S OBJECT.
+  //
+  //  This is the whole reason the notifications flickered. `useBrewNotes`
+  //  returns an object; depending on it made `notify` — and, worse, the seeding
+  //  effect below — a new identity on every render. The effect then re-ran on
+  //  every render, re-pushed the same events, called setState, forced another
+  //  render, and did it again: a self-sustaining loop that spat duplicate cards
+  //  in and out as fast as React could schedule them.
+  //
+  //  It is the same trap PresaleModal already documents for `onSummoned`. `push`
+  //  is stable for the component's lifetime, so depending on it is safe.
   const brew = useBrewNotes();
+  const pushNote = brew.push;
   const notify = useCallback(
-    (kind: "ok" | "err", msg: string) => brew.push(kind, msg),
-    [brew],
+    (kind: "ok" | "err", msg: string) => pushNote(kind, msg),
+    [pushNote],
   );
+  //  Belt and braces: even if something upstream hands us the same feed entry
+  //  twice, it is announced once. The ids are the indexer's txHash-logIndex, so
+  //  they are stable across polls and across a reconnect.
+  const announced = useRef<Set<string>>(new Set());
 
   // LIVE SEEDING NOTIFICATIONS. Every step of the launch — ignition, the base
   // going down, each liquidity poke, each treasury prime-buy tranche, and the
@@ -549,24 +565,26 @@ export default function TheCauldron() {
   useEffect(() => {
     if (!seed.fresh.length) return;
     for (const f of seed.fresh) {
+      if (announced.current.has(f.id)) continue;
+      announced.current.add(f.id);
       const msg = seedFeedMessage(f);
       if (!msg) continue;
       //  Each stage gets its own colour and caption rather than all arriving as
       //  a generic success: the liquidity steps carry their own progress rail,
       //  so the stack doubles as a live readout of how full the book is.
       if (f.kind === "poked") {
-        brew.push("liquidity", msg, `${Math.round(f.to * 100)}% deployed`, f.to);
+        pushNote("liquidity", msg, `${Math.round(f.to * 100)}% deployed`, f.to);
       } else if (f.kind === "prime") {
-        brew.push("treasury", msg, `${f.ethInEth.toFixed(4)} eth · treasury buy`);
+        pushNote("treasury", msg, `${f.ethInEth.toFixed(4)} eth · treasury buy`);
       } else if (f.kind === "started") {
-        brew.push("ignite", msg, `generation ${f.generation}`);
+        pushNote("ignite", msg, `generation ${f.generation}`);
       } else if (f.kind === "complete") {
-        brew.push("done", msg, "full depth");
+        pushNote("done", msg, "full depth");
       } else {
-        brew.push("ok", msg);
+        pushNote("ok", msg);
       }
     }
-  }, [seed.fresh, brew]);
+  }, [seed.fresh, pushNote]);
 
   // Publish the live counters the left rail shows next to its sub-items. The
   // rail sits outside this component, so it reads them from the store rather

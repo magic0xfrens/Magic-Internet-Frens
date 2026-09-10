@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -61,6 +61,8 @@ const TTL: Record<BrewKind, number> = {
 };
 
 const MAX_VISIBLE = 4;
+/** Minimum gap between two cards leaving, so a burst drains instead of blinking out. */
+const STAGGER_MS = 850;
 
 let nextNoteId = 1;
 
@@ -71,7 +73,15 @@ let nextNoteId = 1;
 export function useBrewNotes() {
   const [notes, setNotes] = useState<BrewNote[]>([]);
   const timers = useRef<number[]>([]);
+  //  Wall-clock time the last card is scheduled to leave. A burst pushed in one
+  //  tick would otherwise be given identical lifetimes and vanish together,
+  //  which reads as a glitch rather than a queue draining.
+  const lastExpiry = useRef(0);
 
+  //  STABLE FOR THE LIFETIME OF THE COMPONENT. This is load-bearing, not tidiness:
+  //  callers put it in effect dependency arrays, and anything that changes
+  //  identity per render turns such an effect into an infinite push -> setState
+  //  -> render -> push loop.
   const push = useCallback((kind: BrewKind, title: string, sub?: string, progress?: number) => {
     const id = nextNoteId++;
     setNotes((prev) => {
@@ -79,19 +89,28 @@ export function useBrewNotes() {
       // Trim from the FRONT: the oldest is the one that has had its time.
       return next.length > MAX_VISIBLE ? next.slice(next.length - MAX_VISIBLE) : next;
     });
+
+    // Stagger: never let a card leave within STAGGER_MS of the previous one.
+    const now = Date.now();
+    const at = Math.max(now + TTL[kind], lastExpiry.current + STAGGER_MS);
+    lastExpiry.current = at;
     const t = window.setTimeout(() => {
       setNotes((prev) => prev.filter((n) => n.id !== id));
-    }, TTL[kind]);
+    }, at - now);
     timers.current.push(t);
   }, []);
 
   const clear = useCallback(() => {
     timers.current.forEach(window.clearTimeout);
     timers.current = [];
+    lastExpiry.current = 0;
     setNotes([]);
   }, []);
 
-  return { notes, push, clear };
+  //  Memoised so the returned object is only a new reference when `notes`
+  //  actually changes. Consumers should still depend on `push` rather than the
+  //  whole object - see the note on `push`.
+  return useMemo(() => ({ notes, push, clear }), [notes, push, clear]);
 }
 
 export default function BrewNotes({ notes }: { notes: BrewNote[] }) {

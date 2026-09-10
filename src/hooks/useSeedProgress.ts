@@ -138,7 +138,15 @@ export function useSeedProgress(refreshKey?: string | number): SeedProgress {
   // The interval stays as the fallback for the steps that are NOT swaps (a poke
   // that only places liquidity, `BasePlaced`, `SeedComplete`) and for whenever
   // the socket is down.
-  useEffect(() => { void load(); }, [refreshKey, load]);
+  //  Debounced, because the key is a per-LOG counter. The ignition transaction
+  //  alone emits the swap plus several seeder events, so an undebounced refetch
+  //  fires a handful of identical requests inside one block — and the last one
+  //  is the only one whose answer differs. 250ms coalesces a busy block into a
+  //  single fetch while still feeling immediate.
+  useEffect(() => {
+    const t = window.setTimeout(() => { void load(); }, 250);
+    return () => window.clearTimeout(t);
+  }, [refreshKey, load]);
   usePoll(load, 6_000);
   return s;
 }
