@@ -468,6 +468,11 @@ contract DeployLaunchpad is Script {
             testnetGov
         );
         if (testnetGov) console2.log("!! TESTNET GOVERNANCE TIMING - do not use these values on mainnet");
+        //  Join the ALLOWLIST to PRICING. They were independent: an asset could be
+        //  approved and voted in as a generation's base while the oracle had no feed
+        //  for it, and the failure is silent - _toUsd returns 0, no volume records,
+        //  and the brew reads as dying while trading normally.
+        treasuryGov.setQuoteOracle(quoteOracle);
         registry.setRotationWiring(address(rotator), address(treasuryGov));
         console2.log("TreasuryGovernor:", address(treasuryGov));
 

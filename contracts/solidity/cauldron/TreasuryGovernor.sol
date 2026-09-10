@@ -11,6 +11,11 @@ interface IRegistryQuotes {
     function allowedQuote(address quote) external view returns (bool);
 }
 
+/// @dev Just enough of QuoteOracle to ask "can this asset be valued at all?".
+interface IQuotePrice {
+    function usdPerRawUnit(address quote) external view returns (uint256);
+}
+
 /**
  * @title TreasuryGovernor
  * @notice The guild votes on what backs its own liquidity.
@@ -72,6 +77,12 @@ contract TreasuryGovernor {
     error NoVotingPower();
     error BelowProposalThreshold();
     error QuoteNotAllowed();
+    error QuoteNotPriceable();
+
+    /// @notice Oracle consulted to confirm a rotation target can be valued at
+    ///         all. Unset skips the check — see {_requirePriceable}.
+    address public quoteOracle;
+    event QuoteOracleSet(address indexed oracle);
     error ProposalActive();
     error CooldownActive();
     error BadParam();
@@ -292,6 +303,7 @@ contract TreasuryGovernor {
         // Checked here AND at execution: the timelock can de-list an asset while
         // a proposal is out for vote, and the check that matters is the later one.
         if (!IRegistryQuotes(registry).allowedQuote(quote)) revert QuoteNotAllowed();
+        _requirePriceable(quote);
 
         //  PROPOSALS COMPETE; THEY DO NOT QUEUE.
         //
@@ -371,6 +383,10 @@ contract TreasuryGovernor {
         // Re-checked, because the timelock may have de-listed the asset during
         // the vote and the allowlist is the guardrail that must not be stale.
         if (!IRegistryQuotes(registry).allowedQuote(p.quote)) revert QuoteNotAllowed();
+        //  Re-checked at execution for the same reason the allowlist is: a feed
+        //  can be de-configured, or simply go stale, between the vote and the
+        //  moment the rotation would actually move the treasury.
+        _requirePriceable(p.quote);
 
         p.executed = true;
         envelope = Envelope({
@@ -530,4 +546,53 @@ contract TreasuryGovernor {
     function passing(uint256 id) external view returns (bool) {
         return _passed(proposals[id]);
     }
+    /**
+     * @notice Refuse a quote the oracle cannot value.
+     *
+     *  ── WHY A ROTATION TARGET MUST BE PRICEABLE ────────────────────────────
+     *  Allowlisting and pricing were independent, and nothing joined them. The
+     *  registry's `setQuoteAllowed` validates that a quote sorts below the token
+     *  (so `quote == currency0` holds) and nothing else — so an asset could be
+     *  approved, voted in, and become a generation's base while the oracle had
+     *  no feed for it.
+     *
+     *  The result is not a revert. `CauldronHook._toUsd` returns 0 for an
+     *  unpriceable asset, and 0 means CANNOT JUDGE: `_recordVolume` writes
+     *  nothing, no bucket, no cumulative total, no crystal credit. A generation
+     *  rotated onto that quote therefore trades normally while recording NO
+     *  volume, and after the 24h grace window built into that path it reads as
+     *  dying — a silent, slow failure with no error anywhere to explain it.
+     *
+     *  Checking it HERE is the cheapest honest place: it is the moment an asset
+     *  is first named as a rotation target, the caller is a human at a UI who
+     *  can be told why, and this contract has the room (the hook has ~68 bytes
+     *  of EIP-170 margin and the registry ~81).
+     *
+     *  NATIVE IS EXEMPT. address(0) is the fallback quote every generation can
+     *  always launch against, and refusing it because a feed lapsed would strand
+     *  the treasury with nowhere to rotate BACK to — turning a price outage into
+     *  a governance deadlock. Volume for a native generation is what the
+     *  unwired-oracle case already measures, so it degrades to the old behaviour
+     *  rather than to nothing.
+     *
+     *  UNSET ORACLE IS ALSO EXEMPT, for the same don't-brick reason: a
+     *  deployment that never wires one is measuring volume in raw quote units
+     *  throughout, which is self-consistent. The check binds only where there IS
+     *  an oracle and it declines to price the asset.
+     */
+    function _requirePriceable(address quote) internal view {
+        if (quote == address(0)) return;
+        address o = quoteOracle;
+        if (o == address(0)) return;
+        if (IQuotePrice(o).usdPerRawUnit(quote) == 0) revert QuoteNotPriceable();
+    }
+
+    /// @notice Oracle used to check a rotation target can be valued. Timelock-set,
+    ///         and unset means the check is skipped (see {_requirePriceable}).
+    function setQuoteOracle(address o) external {
+        if (msg.sender != guardian) revert NotGuardian();
+        quoteOracle = o;
+        emit QuoteOracleSet(o);
+    }
+
 }
