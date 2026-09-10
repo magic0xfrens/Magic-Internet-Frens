@@ -18,6 +18,7 @@ import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
+import BrewNotes, { useBrewNotes } from "@/components/cauldron/BrewNotes";
 import { useLiveSwaps } from "@/hooks/useLiveSwaps";
 import { SpellFeed } from "@/components/cauldron/SpellFeed";
 import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
@@ -302,7 +303,15 @@ function EKG({ series, color, dead, liq }: { series: number[]; color: string; de
           <span><i style={{ background: LIQ_LONG }} />long liqs</span>
         </div>
       )}
-      {series.length < 2 && <div className="tc-ekg__empty">awaiting first swaps…</div>}
+      {/*  ONE TRADE IS NOT ZERO TRADES. The EKG needs two points to draw a
+           segment, so a freshly-ignited pool — which has exactly one, the green
+           candle from its own summon — rendered as "awaiting first swaps" and
+           read as a launch that had not happened. */}
+      {series.length < 2 && (
+        <div className="tc-ekg__empty">
+          {series.length === 1 ? "green candle in — awaiting the next trade" : "awaiting first swaps…"}
+        </div>
+      )}
     </div>
   );
 }
@@ -522,12 +531,15 @@ export default function TheCauldron() {
   const [busyRelaunch, setBusyRelaunch] = useState(false);
   const [showPropose, setShowPropose] = useState(false);
   const [busyPropose, setBusyPropose] = useState(false);
-  const [flash, setFlash] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
-  const notify = useCallback((kind: "ok" | "err", msg: string) => {
-    setFlash({ kind, msg });
-    window.clearTimeout((notify as unknown as { _t?: number })._t);
-    (notify as unknown as { _t?: number })._t = window.setTimeout(() => setFlash(null), 6500);
-  }, []);
+  //  A QUEUE, NOT A SLOT. The old notice held exactly one message and replaced
+  //  it on every call, so a burst — which is precisely what seeding produces —
+  //  collapsed into a single flicker. `notify` keeps its signature so every
+  //  existing call site (vote, relaunch, propose) is unchanged.
+  const brew = useBrewNotes();
+  const notify = useCallback(
+    (kind: "ok" | "err", msg: string) => brew.push(kind, msg),
+    [brew],
+  );
 
   // LIVE SEEDING NOTIFICATIONS. Every step of the launch — ignition, the base
   // going down, each liquidity poke, each treasury prime-buy tranche, and the
@@ -538,9 +550,23 @@ export default function TheCauldron() {
     if (!seed.fresh.length) return;
     for (const f of seed.fresh) {
       const msg = seedFeedMessage(f);
-      if (msg) notify("ok", msg);
+      if (!msg) continue;
+      //  Each stage gets its own colour and caption rather than all arriving as
+      //  a generic success: the liquidity steps carry their own progress rail,
+      //  so the stack doubles as a live readout of how full the book is.
+      if (f.kind === "poked") {
+        brew.push("liquidity", msg, `${Math.round(f.to * 100)}% deployed`, f.to);
+      } else if (f.kind === "prime") {
+        brew.push("treasury", msg, `${f.ethInEth.toFixed(4)} eth · treasury buy`);
+      } else if (f.kind === "started") {
+        brew.push("ignite", msg, `generation ${f.generation}`);
+      } else if (f.kind === "complete") {
+        brew.push("done", msg, "full depth");
+      } else {
+        brew.push("ok", msg);
+      }
     }
-  }, [seed.fresh, notify]);
+  }, [seed.fresh, brew]);
 
   // Publish the live counters the left rail shows next to its sub-items. The
   // rail sits outside this component, so it reads them from the store rather
@@ -668,15 +694,7 @@ export default function TheCauldron() {
         {Array.from({ length: 14 }).map((_, i) => <span key={i} className="tc-ember" style={{ left: `${(i * 7 + 4) % 100}%`, animationDelay: `${(i * 0.9) % 8}s`, animationDuration: `${7 + (i % 5)}s` }} />)}
       </div>
 
-      {flash && (
-        <div className="tc-toast" role="status" style={{
-          borderColor: flash.kind === "ok" ? C.green : C.red,
-          color: flash.kind === "ok" ? C.green : C.red,
-        }}>
-          <span className="tc-toast__dot" style={{ background: flash.kind === "ok" ? C.green : C.red }} />
-          {flash.msg}
-        </div>
-      )}
+            <BrewNotes notes={brew.notes} />
 
       {/* ── masthead ── */}
       <header className="tc-top">
@@ -1680,17 +1698,6 @@ function Styles() {
 
     .tc > *:not(.tc-embers) { position: relative; z-index: 2; max-width: 1240px; margin-left: auto; margin-right: auto; }
 
-    /* action toast (vote / relaunch / propose feedback) */
-    .tc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
-      z-index: 50; display: flex; align-items: center; gap: 10px;
-      padding: 12px 18px; border-radius: var(--r-sm); border: 1px solid;
-      background: rgba(14, 10, 26, 0.92); backdrop-filter: blur(10px);
-      font: 500 13.5px/1.35 'DM Sans', sans-serif; letter-spacing: 0.01em;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5); max-width: min(92vw, 460px);
-      animation: tc-toast-in 0.28s cubic-bezier(0.2,0.9,0.3,1); }
-    .tc-toast__dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
-      box-shadow: 0 0 10px currentColor; }
-    @keyframes tc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
     /* migrate previous-iteration balances forward */
     /* collapsed genesis-airdrop pill — slim, unobtrusive */
@@ -1710,7 +1717,13 @@ function Styles() {
         radial-gradient(120% 140% at 0% 0%, rgba(213,253,81,0.10), transparent 55%),
         ${C.panel};
       backdrop-filter: blur(8px);
-      animation: tc-toast-in 0.4s cubic-bezier(0.2,0.9,0.3,1); }
+      animation: tc-migrate-in 0.4s cubic-bezier(0.2,0.9,0.3,1); }
+    /*  Its own keyframe now. It used to borrow the toast's, which carried a
+        translate(-50%, ...) meant to centre a fixed-position notice - on this
+        block element that shoved the banner half its own width to the left for
+        the duration of the animation. (No backticks in here: this whole style
+        block is a template literal, and one would close it early.) */
+    @keyframes tc-migrate-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
     .tc-migrate__head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
     .tc-migrate__spark { flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--r-sm);
       display: grid; place-items: center; color: ${C.void};
