@@ -557,6 +557,18 @@ contract DeployLaunchpad is Script {
     ///      when measured and DAI/USD was 13h stale, so a mainnet-cadence
     ///      heartbeat would reject feeds that are working as well as testnet
     ///      feeds ever work, and every price would read "cannot judge".
+    //  ── HEARTBEATS ARE CHAIN-SPECIFIC, SO THEY ARE NOT CONSTANTS ─────────
+    //  A heartbeat tighter than the feed actually publishes makes QuoteOracle
+    //  return 0 — "cannot judge" — for that asset forever. The hook then records
+    //  no volume for a pool quoted in it, and the generation reads as dying.
+    //
+    //  Measured on Sepolia: the USDC/USD feed had last updated 23.7 HOURS ago
+    //  against the 12h heartbeat below, so USDG already priced at 0 on the live
+    //  deployment. Mainnet publishes that pair far more often; testnet feeds are
+    //  maintained loosely and drift for a day at a time. Hardcoding one number
+    //  for both is what turns a rotation to USDG into a brew that looks dead.
+    //
+    //  Defaults here are MAINNET values. deploy-testnet.sh widens them.
     uint32 internal constant HB_ETH = 4 hours;
     uint32 internal constant HB_USDC = 12 hours;
     uint24 internal constant VENUE_FEE = 3000;
@@ -589,8 +601,8 @@ contract DeployLaunchpad is Script {
         //  same code mainnet runs. `quoteDecimals` is the TOKEN's (18 native,
         //  6 USDG), passed explicitly so a mock with a wrong `decimals()` cannot
         //  misprice by orders of magnitude.
-        oracle.setFeed(address(0), FEED_ETH_USD, HB_ETH, 18);
-        oracle.setFeed(address(usdg), FEED_USDC_USD, HB_USDC, 6);
+        oracle.setFeed(address(0), FEED_ETH_USD, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
+        oracle.setFeed(address(usdg), FEED_USDC_USD, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
         rotator.setArbParams(address(oracle), 1000, 5e18);
         registry.setAllowedQuote(address(usdg), true, 1e18);
 

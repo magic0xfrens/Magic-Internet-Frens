@@ -69,6 +69,14 @@ export BADGE_ART=true
 # the mean, which keeps the ~25x first-to-last span at any target.
 export MINT_OUT_TARGET_USD=8000000000000000000000   # $8k to mint out 3333
 
+# ORACLE HEARTBEATS. Sepolia's Chainlink feeds are maintained loosely - the
+# USDC/USD pair was measured 23.7h stale against the 12h mainnet heartbeat, which
+# made QuoteOracle report 0 ("cannot judge") for USDG and would have made a
+# USDG-quoted generation record no volume at all. Widened here only; the script's
+# own defaults stay at the mainnet values.
+export HEARTBEAT_ETH=21600      # 6h  (mainnet 4h)
+export HEARTBEAT_USDC=172800    # 48h (mainnet 12h)
+
 # Venue LP depth for the ETH/USDG rotation route.
 export VENUE_ETH=5000000000000000    # 0.005 ETH
 export VENUE_USDG=15000000           # 15 USDG (6dp)
