@@ -51,7 +51,11 @@ export GENESIS_BONUS_BPS=1400
 # 0.2222 ETH book lands at ~1.50x by completion. A lump sum at t0 would instead
 # meet the thinnest book of the whole launch.
 export PRIME_BUY_ETH=100000000000000000 # 0.10 ETH -> ~1.39x at full depth
-export SEED_WINDOW=900                  # 15 min stream
+# 300s, tuned for a live demo rather than a realistic launch. With the keeper
+# poking every 20s that is ~15 placements of ~6% each - a visible notification
+# roughly every 20 seconds for five minutes, instead of the same 15 steps spread
+# thin over a quarter of an hour. Raise to 900+ for anything real.
+export SEED_WINDOW=300                  # 5 min stream
 
 # Liquidatoor badge art: ~167KB across 8 SSTORE2 writes, about 33M of the
 # deploy's ~114M gas (~0.064 ETH here). Affordable once round 35 is recovered;
