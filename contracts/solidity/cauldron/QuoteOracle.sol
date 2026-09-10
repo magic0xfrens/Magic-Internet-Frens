@@ -67,6 +67,30 @@ contract QuoteOracle {
         /// most stables. Stored rather than read per call, since a token cannot
         /// change its decimals and the read would be pure overhead.
         uint8 quoteDecimals;
+        /// @notice PEGGED: price this asset at exactly $1 and consult no feed.
+        ///
+        ///  For a dollar stablecoin the feed answers ~1.0000 and the only thing
+        ///  it can realistically contribute is a way to FAIL. Sepolia proved it:
+        ///  the USDC/USD feed drifted 23.7h against a 12h heartbeat, the oracle
+        ///  correctly reported "cannot judge", and a USDG generation would have
+        ///  recorded no volume at all — a live outage caused entirely by asking
+        ///  a question whose answer was never in doubt.
+        ///
+        ///  What genuinely needs an oracle is ETH/USD, which moves. A peg cannot
+        ///  go stale, cannot be manipulated and cannot revert.
+        ///
+        ///  THE TRADE, STATED: a depeg is not tracked. That is acceptable here
+        ///  and would not be for collateral — this factor denominates VOLUME
+        ///  (death, crystal credit, spin odds), so a 2% depeg mis-measures
+        ///  volume by 2%. It cannot make the protocol insolvent, and it is
+        ///  strictly better than the alternative that was live: a stale feed
+        ///  measuring volume as ZERO.
+        bool pegged;
+        /// @notice Sanity band on the feed's answer, in whole USD 1e18. An
+        ///         answer outside it is treated as unusable rather than
+        ///         believed. Zero on either side disables that side.
+        uint128 minUsd;
+        uint128 maxUsd;
     }
 
     address public owner;
@@ -81,6 +105,7 @@ contract QuoteOracle {
 
     event FeedSet(address indexed quote, address aggregator, uint32 heartbeat, uint8 quoteDecimals);
     event SequencerSet(address feed, uint32 gracePeriod);
+    event BoundsSet(address indexed quote, uint128 minUsd, uint128 maxUsd);
 
     constructor(address _owner) {
         owner = _owner;
@@ -112,8 +137,46 @@ contract QuoteOracle {
         if (dec == 0) {
             dec = quote == address(0) ? 18 : IERC20Decimals(quote).decimals();
         }
-        feeds[quote] = Feed(IAggregatorV3(aggregator), heartbeat, dec);
+        Feed storage ex = feeds[quote];
+        feeds[quote] = Feed(IAggregatorV3(aggregator), heartbeat, dec, false, ex.minUsd, ex.maxUsd);
         emit FeedSet(quote, aggregator, heartbeat, dec);
+    }
+
+    /**
+     * @notice Price `quote` at exactly $1, consulting no feed.
+     *
+     *  For a dollar stablecoin this removes the only thing the feed could
+     *  contribute, which is a failure mode. See {Feed.pegged} for the trade.
+     *
+     * @param dec decimals of the token; pass 0 to read them from the contract.
+     */
+    function setPegged(address quote, uint8 dec) external onlyOwner {
+        uint8 d = dec;
+        if (d == 0) d = quote == address(0) ? 18 : IERC20Decimals(quote).decimals();
+        //  heartbeat 1 is a non-zero placeholder: nothing reads it on the pegged
+        //  path, and zero is the struct's "unconfigured" sentinel elsewhere.
+        feeds[quote] = Feed(IAggregatorV3(address(0)), 1, d, true, 0, 0);
+        emit FeedSet(quote, address(0), 1, d);
+    }
+
+    /**
+     * @notice Refuse a feed answer outside [minUsd, maxUsd], in whole USD 1e18.
+     *
+     *  A stale feed is caught by the heartbeat and a dead one by the try/catch,
+     *  but a feed that is fresh, responsive and WRONG passes both. That is the
+     *  case with teeth here: this factor scales recorded volume, and volume mints
+     *  NFTs that earn a perpetual dividend — so an answer of $10m/ETH would issue
+     *  the collection against trades that never happened. The band turns a
+     *  mispriced feed into "cannot judge", which the hook already handles by
+     *  recording nothing rather than recording a fiction.
+     *
+     *  Zero on either side leaves that side open.
+     */
+    function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner {
+        if (maxUsd != 0 && minUsd > maxUsd) revert BadConfig();
+        feeds[quote].minUsd = minUsd;
+        feeds[quote].maxUsd = maxUsd;
+        emit BoundsSet(quote, minUsd, maxUsd);
     }
 
     function setSequencer(address feed, uint32 grace) external onlyOwner {
@@ -138,6 +201,10 @@ contract QuoteOracle {
      */
     function usdPerRawUnit(address quote) external view returns (uint256 factor) {
         Feed memory f = feeds[quote];
+        //  PEGGED: $1 per whole token, converted to per raw unit at the token's
+        //  own decimals. No aggregator, so nothing here can go stale, revert or
+        //  be manipulated — the failure modes below simply do not exist for it.
+        if (f.pegged) return 1e18 * 1e18 / (10 ** f.quoteDecimals);
         if (address(f.aggregator) == address(0)) return 0;
         if (!_sequencerOk()) return 0;
 
@@ -189,6 +256,16 @@ contract QuoteOracle {
         uint256 perWhole = feedDec <= 18
             ? uint256(answer) * (10 ** (18 - feedDec))
             : uint256(answer) / (10 ** (feedDec - 18));
+
+        //  A FRESH, RESPONSIVE, WRONG ANSWER passes every check above. The
+        //  heartbeat catches a stale feed and the try/catch catches a dead one,
+        //  but neither notices an aggregator reporting ETH at $10m. This factor
+        //  scales recorded volume, and volume mints NFTs that earn a perpetual
+        //  dividend — so believing that answer issues the collection against
+        //  trades that never happened. Out of band becomes "cannot judge", which
+        //  the hook already handles by recording nothing rather than a fiction.
+        if (f.minUsd != 0 && perWhole < f.minUsd) return 0;
+        if (f.maxUsd != 0 && perWhole > f.maxUsd) return 0;
 
         //  ...then convert to per RAW unit, keeping the 1e18 scale.
         //

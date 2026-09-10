@@ -601,8 +601,34 @@ contract DeployLaunchpad is Script {
         //  same code mainnet runs. `quoteDecimals` is the TOKEN's (18 native,
         //  6 USDG), passed explicitly so a mock with a wrong `decimals()` cannot
         //  misprice by orders of magnitude.
+        //  ETH IS THE ONLY PRICE THAT ACTUALLY NEEDS A FEED, because it is the
+        //  only one that moves. It gets one, plus a sanity band: staleness and
+        //  try/catch catch a feed that is old or dead, but a feed that is fresh,
+        //  responsive and WRONG passes both — and this factor scales volume,
+        //  which mints NFTs that earn a perpetual dividend.
         oracle.setFeed(address(0), FEED_ETH_USD, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
-        oracle.setFeed(address(usdg), FEED_USDC_USD, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
+        oracle.setBounds(
+            address(0),
+            uint128(vm.envOr("ETH_MIN_USD", uint256(100e18))),
+            uint128(vm.envOr("ETH_MAX_USD", uint256(100_000e18)))
+        );
+
+        //  THE DOLLAR STABLE IS PEGGED, NOT FED. Its feed answers ~1.0000 and
+        //  the only thing it can realistically contribute is a way to FAIL —
+        //  which it already did: Sepolia's USDC/USD pair was measured 23.7h
+        //  stale against a 12h heartbeat, so USDG priced at 0 and a USDG-quoted
+        //  generation would have recorded no volume at all.
+        //
+        //  The trade is that a depeg goes untracked. Acceptable here and not for
+        //  collateral: this denominates VOLUME, so a 2% depeg mis-measures
+        //  volume by 2% and cannot make anything insolvent — strictly better
+        //  than the stale-feed behaviour it replaces, which measured volume as
+        //  ZERO. Set PEG_STABLES=false to use the feed instead.
+        if (vm.envOr("PEG_STABLES", true)) {
+            oracle.setPegged(address(usdg), 6);
+        } else {
+            oracle.setFeed(address(usdg), FEED_USDC_USD, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
+        }
         rotator.setArbParams(address(oracle), 1000, 5e18);
         registry.setAllowedQuote(address(usdg), true, 1e18);
 
