@@ -269,30 +269,12 @@ library PoolOps {
         });
         r.poolId = r.key.toId();
 
-        uint160 sqrtPriceX96 = _sqrtPrice(activeTokens, ethAmount);
-        poolManager.initialize(r.key, sqrtPriceX96);
-        int24 launchTick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
-
-        // Reserve (ledger B) — placed in full, single-sided, out of range. Untouched
-        // by the seeder; backs redemption. Identical to createAndSeed.
-        if (reserveTokens > 0) {
-            (r.reserveTickLower, r.reserveTickUpper) =
-                ReserveLib.reserveTicks(launchTick, tickSpacing, ceilingOffset);
-            r.reservePositionId =
-                _seedReserve(quote, pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token);
-        }
-
-        // Ledger A → the seeder. APPROVE the active tokens (the seeder pulls them
-        // itself via transferFrom inside startSeed — the single funding path; a
-        // separate transfer here would double-spend), then startSeed with the active
-        // ETH as value. Both are drawn from the registry (= address(this) under the
-        // delegatecall), and `sp.seeder`'s onlyRegistry sees msg.sender = registry.
-        //  ── NATIVE-ONLY: DEGRADE TO AN ATOMIC SEED, NEVER REVERT ───────────
+        //  ── NON-NATIVE: DEGRADE TO AN ATOMIC SEED, NEVER REVERT ────────────
         //  `CauldronSeeder.startSeed` is `payable` and asserts
         //  `msg.value == cfg.ethTotal` (:133). It pulls only the TOKEN side by
         //  `transferFrom` (:169) and has NO ERC20 path for the quote. So the
-        //  `{value: ethAmount}` below cannot fund a USDG-denominated generation:
-        //  the registry holds no ether to send and the assert fails.
+        //  `{value:}` below cannot fund a USDG-denominated generation: the
+        //  registry holds no ether to send and the assert fails.
         //
         //  That revert would land inside `CauldronRegistry._seedGeneration`,
         //  called at :1000 — AFTER `governor.markConsumed(winId)` at :912. It
@@ -307,19 +289,59 @@ library PoolOps {
         //  it just does not stream. Same clamp-don't-revert discipline as the
         //  quote re-check, the `nftSupply` bound and the mining fallback.
         if (quote != address(0)) {
+            uint160 sp0 = _sqrtPrice(activeTokens, ethAmount);
+            poolManager.initialize(r.key, sp0);
+            if (reserveTokens > 0) {
+                (r.reserveTickLower, r.reserveTickUpper) = ReserveLib.reserveTicks(
+                    TickMath.getTickAtSqrtPrice(sp0), tickSpacing, ceilingOffset
+                );
+                r.reservePositionId = _seedReserve(
+                    quote, pm, r.key, r.reserveTickLower, r.reserveTickUpper, reserveTokens, token
+                );
+            }
             r.activePositionId = _seedActive(
-                quote, pm, r.key, sqrtPriceX96, ethAmount, activeTokens, token, tickSpacing
+                quote, pm, r.key, sp0, ethAmount, activeTokens, token, tickSpacing
             );
             return r;
         }
 
-        IERC20(token).approve(sp.seeder, activeTokens);
-        ISeeder(sp.seeder).startSeed{value: ethAmount}(SeederConfig({
+        //  ── HYBRID: GREEN CANDLE ON THE BASE, STREAM THE REST ──────────────
+        //
+        //  The progressive path used to place the reserve SILENTLY and hand the
+        //  whole active tranche to the seeder, which meant a launch opened with no
+        //  trade at all: the chart stayed empty until an outside buyer arrived, and
+        //  because the seeder only streams on `poke`/`pokeInSwap`, no buyer meant no
+        //  poke meant the stream never moved. Measured on round 35 — 76.5% of ledger
+        //  A was still sitting in the seeder after the window had closed.
+        //
+        //  Folding the reserve into the BASE tranche fixes both. The base is placed
+        //  and the reserve is BOUGHT out of it in the ignition transaction, so the
+        //  pool has a real trade in its first block, and the seeder receives only the
+        //  remainder (`baseWad: 0` — the base already exists, it must not lay another
+        //  one). The launch price is unchanged: the base keeps ledger A's exact
+        //  ETH:token ratio, so `baseEth/baseTok == ethAmount/activeTokens`.
+        //
+        //  Ledger A -> the seeder. APPROVE the streamed tokens (the seeder pulls them
+        //  itself via transferFrom inside startSeed — the single funding path; a
+        //  separate transfer here would double-spend), then startSeed with the
+        //  streamed ETH as value. Both are drawn from the registry (= address(this)
+        //  under the delegatecall), and `sp.seeder`'s onlyRegistry sees msg.sender =
+        //  registry.
+        uint256 baseTok = (activeTokens * SEED_BASE_WAD) / 1e18;
+        uint256 baseEth = (ethAmount * SEED_BASE_WAD) / 1e18;
+
+        _greenCandle(
+            poolManager, pm, r, token, baseTok, baseEth, reserveTokens,
+            tickSpacing, ceilingOffset, quote
+        );
+
+        IERC20(token).approve(sp.seeder, activeTokens - baseTok);
+        ISeeder(sp.seeder).startSeed{value: ethAmount - baseEth}(SeederConfig({
             key: r.key, token: token, gen: sp.gen,
             spacing: tickSpacing, bandWidth: SEED_BANDWIDTH,
             window: sp.window, seedFloorWad: SEED_FLOOR_WAD, minStepWad: SEED_MINSTEP_WAD,
-            baseWad: SEED_BASE_WAD,
-            ethTotal: ethAmount, tokenTotal: activeTokens
+            baseWad: 0,
+            ethTotal: ethAmount - baseEth, tokenTotal: activeTokens - baseTok
         }));
     }
 
@@ -369,47 +391,85 @@ library PoolOps {
         });
         r.poolId = r.key.toId();
 
-        uint256 totalTokens = activeTokens + reserveTokens;
+        _greenCandle(
+            poolManager, pm, r, token, activeTokens, ethAmount, reserveTokens,
+            tickSpacing, ceilingOffset, quote
+        );
+    }
 
-        //  ── THE SETTLEMENT BUFFER IS NOW EXPLICIT, NOT INCIDENTAL ────────────
-        //  This used to be a bare `mulDiv` with the comment "E_active floored →
-        //  the leftover E_buy carries a tiny buffer so the exact-output buy can
-        //  never revert for want of a wei to settle." The reasoning holds only
-        //  when the division leaves a remainder. When `ethAmount * activeTokens`
-        //  divides EXACTLY by `totalTokens` the floor takes nothing, the buffer is
-        //  zero — and the exact-output buy rounds UP, so it asks for one unit more
-        //  than the caller holds and reverts inside the unlock. Measured on a
-        //  round-numbered 6-decimal seed: held 20000000000, settle wanted
-        //  20000000001.
-        //
-        //  Natively that was masked by slack — `settle{value:}` draws on the
-        //  registry's whole ether balance, which usually carries dust from earlier
-        //  cycles. An ERC20 quote has no such slack: `seedFunding` hands over
-        //  exactly what it pulled. So generalising the quote is what turned a
-        //  latent rounding bug into a reachable revert on the mandatory rebirth
-        //  path — i.e. another permanent freeze.
-        //
-        //  Subtracting a fixed floor makes the buffer unconditional. It is
-        //  self-consistent: a smaller `ethActive` lowers the launch price, which
-        //  makes the same exact-output buy CHEAPER while simultaneously leaving
-        //  MORE to pay it with, so both sides of the inequality move the right way.
-        //  64 base units is dust in any decimals (64 wei; 0.000064 USDG) and
-        //  comfortably covers v4's round-up on a single-step full-range swap.
-        uint256 ethActive = FullMath.mulDiv(ethAmount, activeTokens, totalTokens);
+    /**
+     * @dev THE GREEN CANDLE, shared by the atomic and the hybrid seed paths.
+     *
+     *  Seeds `activeTok + reserveTok` into a full-range position at a DEEP-DISCOUNT
+     *  price funded with only `E_active = ethAmt * activeTok / total`, then spends the
+     *  remainder buying EXACTLY `reserveTok` back out and re-parks it out of range.
+     *  The constant-product identity `E_active * total == ethAmt * activeTok` lands the
+     *  active LP at exactly `(activeTok, ethAmt)` — the same end state a silent seed
+     *  produces, but the reserve arrives as a real market buy.
+     *
+     *  IT IS SELF-FUNDING. No ETH beyond `ethAmt` is consumed: the buy spends the
+     *  slice of `ethAmt` attributable to the reserve, and that ETH lands back in the
+     *  LP as the buy settles. Scoping it to a SMALLER `activeTok` (the hybrid passes
+     *  only the base tranche) therefore does not cost anything — it just opens the
+     *  pool further below the launch price, so the candle is bigger:
+     *
+     *      candle multiplier = (1 + reserveTok / activeTok)^2
+     *
+     *  and the post-buy price is identical for every choice of `activeTok`.
+     *
+     *  ── THE SETTLEMENT BUFFER IS EXPLICIT, NOT INCIDENTAL ────────────────
+     *  This used to be a bare `mulDiv` with the comment "E_active floored -> the
+     *  leftover E_buy carries a tiny buffer so the exact-output buy can never revert
+     *  for want of a wei to settle." The reasoning holds only when the division leaves
+     *  a remainder. When `ethAmt * activeTok` divides EXACTLY by `total` the floor
+     *  takes nothing, the buffer is zero — and the exact-output buy rounds UP, so it
+     *  asks for one unit more than the caller holds and reverts inside the unlock.
+     *  Measured on a round-numbered 6-decimal seed: held 20000000000, settle wanted
+     *  20000000001.
+     *
+     *  Natively that was masked by slack — `settle{value:}` draws on the registry's
+     *  whole ether balance, which usually carries dust from earlier cycles. An ERC20
+     *  quote has no such slack: `seedFunding` hands over exactly what it pulled. So
+     *  generalising the quote is what turned a latent rounding bug into a reachable
+     *  revert on the mandatory rebirth path — i.e. another permanent freeze.
+     *
+     *  Subtracting a fixed floor makes the buffer unconditional. It is
+     *  self-consistent: a smaller `ethActive` lowers the launch price, which makes the
+     *  same exact-output buy CHEAPER while simultaneously leaving MORE to pay it with,
+     *  so both sides of the inequality move the right way. 64 base units is dust in any
+     *  decimals (64 wei; 0.000064 USDG) and comfortably covers v4's round-up on a
+     *  single-step full-range swap.
+     */
+    function _greenCandle(
+        IPoolManager poolManager,
+        IPositionManagerOps pm,
+        SeedResult memory r,
+        address token,
+        uint256 activeTok,
+        uint256 ethAmt,
+        uint256 reserveTok,
+        int24 tickSpacing,
+        int24 ceilingOffset,
+        address quote
+    ) private {
+        uint256 totalTokens = activeTok + reserveTok;
+
+        uint256 ethActive = FullMath.mulDiv(ethAmt, activeTok, totalTokens);
         if (ethActive > BUY_SETTLE_BUFFER) ethActive -= BUY_SETTLE_BUFFER;
 
-        // Deep-discount launch price = ALL tokens against only E_active ETH.
+        // Deep-discount launch price = ALL tokens against only E_active.
         uint160 sqrtPriceX96 = _sqrtPrice(totalTokens, ethActive);
         poolManager.initialize(r.key, sqrtPriceX96);
 
-        // 1. Seed 100% of supply into the active full-range position.
-        r.activePositionId = _seedActive(quote, pm, r.key, sqrtPriceX96, ethActive, totalTokens, token, tickSpacing);
+        // 1. Seed the whole tranche into the active full-range position.
+        r.activePositionId =
+            _seedActive(quote, pm, r.key, sqrtPriceX96, ethActive, totalTokens, token, tickSpacing);
 
         // 2 + 3. Buy the reserve out of the fresh pool, then re-park it out of range.
-        if (reserveTokens > 0) {
+        if (reserveTok > 0) {
             // Reserve reseed = EXACT OUTPUT (amtSpecified > 0), kept in the registry
             // (recipient = 0). The leftover ethBuy buffer covers settlement.
-            bytes memory ret = poolManager.unlock(abi.encode(r.key, int256(reserveTokens), address(0)));
+            bytes memory ret = poolManager.unlock(abi.encode(r.key, int256(reserveTok), address(0)));
             uint256 bought = abi.decode(ret, (uint256));
 
             // Reserve band sits BELOW the POST-BUY spot (pure token1 until a ~69x

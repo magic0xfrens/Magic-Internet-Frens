@@ -113,7 +113,10 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         // ================= ROUND 1 : summon (progressive) =================
         console2.log("=== ROUND 1: summon (progressive) ===");
         (address token1,) = registry.summon{value: 2 ether}();
-        assertEq(registry.generationPositionId(1), 0, "progressive: no single active position");
+        // HYBRID: the registry owns the BASE position (green candle at ignition),
+        // the seeder owns the streamed minis. Was `== 0` under the old design where
+        // the progressive path handed the entire active tranche to the seeder.
+        assertGt(registry.generationPositionId(1), 0, "hybrid: registry owns the base position");
         assertTrue(seeder.seeding(), "seeder armed");
         console2.log("gen1 token:", token1);
         console2.log("seed floor deployedWad:", seeder.deployedWad());
@@ -144,7 +147,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         _relaunch(1);
         address token2 = registry.currentToken();
         assertEq(registry.currentGeneration(), 2, "gen 2 born");
-        assertEq(registry.generationPositionId(2), 0, "gen2 progressive (streamed)");
+        assertGt(registry.generationPositionId(2), 0, "gen2 hybrid: base position owned by registry");
         assertTrue(seeder.seeding(), "seeder re-armed for gen2");
         assertEq(CauldronToken(token1).balanceOf(address(seeder)), 0, "gen1 seeder drained (teardown)");
         console2.log("gen2 token:", token2);
@@ -257,7 +260,7 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         vm.skip(!active);
         registry.setGovernor(address(new E2EGov()));
         (address tok,) = registry.summon{value: 2 ether}();
-        assertEq(registry.generationPositionId(1), 0, "progressive gen");
+        assertGt(registry.generationPositionId(1), 0, "hybrid gen: base position owned by registry");
 
         // Just stream to 100% — the base is already there from summon (NO finalize).
         vm.warp(block.timestamp + WINDOW + 1);

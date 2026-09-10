@@ -77,7 +77,7 @@ contract MockRenderer is ICollectionRenderer {
     }
 }
 
-/* A registry that summons via a mocked presale, to test presale.finalize(). */
+/* A registry that summons via a mocked presale, to test presale.igniteCauldron(). */
 contract MockRegistry {
     bool public summoned;
     uint256 public received;
@@ -319,16 +319,16 @@ contract PresaleTest is Test {
         vm.prank(buyer);
         presale.mint{value: 0.02 ether}(2);
         vm.expectRevert(MiFrensGenesis.NotSoldOut.selector);
-        presale.finalize();
+        presale.igniteCauldron();
 
         // sell the last one from a different wallet
         vm.prank(address(0xC222));
         presale.mint{value: 0.01 ether}(1);
         assertTrue(presale.soldOut());
 
-        // anyone can finalize; funds forwarded to registry.summon
+        // anyone can ignite; funds forwarded to registry.summon
         uint256 bal = address(presale).balance;
-        presale.finalize();
+        presale.igniteCauldron();
         assertTrue(registry.summoned());
         assertEq(registry.received(), bal);
         assertTrue(presale.finalized());
@@ -337,7 +337,7 @@ contract PresaleTest is Test {
     function test_NoMintAfterFinalize() public {
         vm.prank(buyer); presale.mint{value: 0.02 ether}(2);
         vm.prank(address(0xC222)); presale.mint{value: 0.01 ether}(1);
-        presale.finalize();
+        presale.igniteCauldron();
         vm.prank(buyer);
         vm.expectRevert(MiFrensGenesis.PresaleOver.selector);
         presale.mint{value: 0.01 ether}(1);
@@ -353,14 +353,14 @@ contract PresaleTest is Test {
         address sniper = address(0x5117E5);
         presale.setFinalizer(sniper); // deployer only
 
-        // a random bot cannot finalize now
+        // a random bot cannot ignite now
         vm.prank(address(0xB07));
         vm.expectRevert(MiFrensGenesis.NotAuthorized.selector);
-        presale.finalize();
+        presale.igniteCauldron();
 
         // the designated finalizer can
         vm.prank(sniper);
-        presale.finalize();
+        presale.igniteCauldron();
         assertTrue(presale.finalized());
 
         // setFinalizer is deployer-gated

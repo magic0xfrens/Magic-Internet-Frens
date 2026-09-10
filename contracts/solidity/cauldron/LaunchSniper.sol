@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IMiFrensGenesisFinalize {
-    function finalize() external returns (address token);
+    function igniteCauldron() external returns (address token);
     function soldOut() external view returns (bool);
 }
 
@@ -23,7 +23,7 @@ interface IGachaPlay {
  * @notice Atomic, MEV-proof launch of iteration #1 + the deployer's funding buy.
  *
  *  In ONE transaction it:
- *    1. `finalize()`s the sold-out presale → the registry summons gen-1, deploys
+ *    1. `igniteCauldron()`s the sold-out presale → the registry summons gen-1, deploys
  *       the token, and seeds the V4 LP pool.
  *    2. immediately buys $GNOME from that pool with the ETH sent to this call
  *       (routed through the gacha router, tagged as THIS contract's play), and
@@ -67,7 +67,7 @@ contract LaunchSniper is Ownable {
         if (!IMiFrensGenesisFinalize(presale).soldOut()) revert NotSoldOut();
 
         // 1. Ignite: summons gen-1 + seeds the LP pool (atomic with the buy below).
-        IMiFrensGenesisFinalize(presale).finalize();
+        IMiFrensGenesisFinalize(presale).igniteCauldron();
         token = IRegistryCurrent(registry).currentToken();
 
         // 2. Snipe the fresh pool tax-free (this contract is hook-exempt). The

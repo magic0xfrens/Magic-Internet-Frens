@@ -1524,14 +1524,14 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         uint256 gen
     ) private returns (PoolId poolId) {
         // Per-iteration ceiling: use the configured `next` value (default = 69×).
-        _seedBuyUnlocked = true;
+        // `_seedBuyUnlocked` is armed by the caller (`_seedGeneration`) for both
+        // seed branches — see the note there.
         SeedResult memory r = PoolOps.createAndSeedWithBuy(
             poolManager, IPositionManagerOps(address(positionManager)), address(hook),
             token, activeTokens, ethAmount, reserveTokens,
             TICK_SPACING, POOL_FEE, nextReserveCeilingOffset,
             generationQuote[gen]
         );
-        _seedBuyUnlocked = false;
         poolId = _recordSeed(r, gen);
     }
 
@@ -1559,6 +1559,14 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         //  `PoolOps.createAndSeedProgressive`, which already receives the quote —
         //  the check lives there because this contract has single-digit bytes of
         //  EIP-170 margin. See that function for why it must degrade, not revert.
+        // ARM THE BUY FOR BOTH BRANCHES. The progressive path now also drives a
+        // green candle (PoolOps folds the reserve into the base tranche and buys it
+        // out), so it re-enters `unlockCallback` exactly as the atomic path does.
+        // Hoisting the flag here rather than adding a second pair of writes inside
+        // the branch keeps this contract's bytecode flat — it has ~60 bytes of
+        // EIP-170 margin, so `_createPoolAndSeedWithBuy` drops its own arming and
+        // relies on this one.
+        _seedBuyUnlocked = true;
         if (seeder != address(0) && nextSeedWindow > 0) {
             SeedResult memory r = PoolOps.createAndSeedProgressive(
                 poolManager, IPositionManagerOps(address(positionManager)), address(hook),
@@ -1571,6 +1579,7 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         } else {
             poolId = _createPoolAndSeedWithBuy(token, activeTokens, ethAmount, reserveTokens, gen);
         }
+        _seedBuyUnlocked = false;
     }
 
     /// @dev Persist a freshly-seeded pool's positions/ticks under `gen`, and push the

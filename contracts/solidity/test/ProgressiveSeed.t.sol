@@ -101,9 +101,15 @@ contract ProgressiveSeedForkTest is Test {
         (address token1,) = registry.summon{value: 1 ether}();
         uint256 supply = registry.TOTAL_SUPPLY();
 
-        // Progressive markers: NO single active position (the seeder owns N minis),
-        // reserve IS placed, and the campaign is live for gen 1 at its seed floor.
-        assertEq(registry.generationPositionId(1), 0, "progressive: no single active position");
+        // HYBRID markers. The registry owns the BASE position (laid and then bought
+        // through in the ignition tx by the green candle); the seeder owns the N
+        // streamed minis. This assertion used to read `generationPositionId == 0`,
+        // encoding the old design where the progressive path placed the reserve
+        // silently and handed the WHOLE active tranche to the seeder. That launch
+        // opened with no trade at all, which is what left round 35 stalled at 23.5%.
+        // Both owners must now be non-empty, and teardown must still recover from
+        // both (asserted at the end of this test).
+        assertGt(registry.generationPositionId(1), 0, "hybrid: registry owns the base position");
         assertGt(registry.generationReservePositionId(1), 0, "reserve (ledger B) placed at summon");
         assertTrue(seeder.seeding(), "seeder armed");
         assertEq(seeder.gen(), 1, "campaign is gen 1");

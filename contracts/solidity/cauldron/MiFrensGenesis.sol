@@ -563,7 +563,16 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
      * @notice Once minted out, forward the whole treasury to summon the first
      *         eternal token. Callable by anyone; funds have no other exit.
      */
-    function finalize() external nonReentrant returns (address token) {
+    /// @notice IGNITE THE CAULDRON. Sold-out presale -> the registry summons
+    ///         generation 1: token, pool, seed, the genesis green candle and the
+    ///         streaming schedule all land in THIS transaction. Nothing else has to
+    ///         be called afterwards; the chart has trades in the same block.
+    ///
+    ///  Named `igniteCauldron` (was `finalize`) because that is what it does. The
+    ///  storage flag and the `Finalized` event keep their old names on purpose:
+    ///  the indexer and the `/presale` endpoint read them, and churning an event
+    ///  name would silently blank the frontend's "sold out" state for no gain.
+    function igniteCauldron() external nonReentrant returns (address token) {
         if (address(registry) == address(0)) revert RegistryNotSet();
         if (finalized) revert AlreadyFinalized();
         if (minted < GENESIS_SUPPLY) revert NotSoldOut();

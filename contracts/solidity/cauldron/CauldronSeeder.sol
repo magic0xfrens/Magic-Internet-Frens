@@ -7,13 +7,20 @@ import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.s
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
-import {ModifyLiquidityParams} from "v4-core/src/types/PoolOperation.sol";
+import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
 import {SeedLib} from "./SeedLib.sol";
 import {ISeeder, SeederConfig} from "./ISeeder.sol";
+
+/// @dev The registry is Ownable; the prime budget borrows its owner rather than
+///      introducing a second admin key (or a constructor arg, which would break
+///      the deploy script's and the fork tests' existing 3-arg signature).
+interface IRegistryOwner {
+    function owner() external view returns (address);
+}
 
 /**
  * @title CauldronSeeder
@@ -98,6 +105,32 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     ///      positions + the un-streamed loose balance.
     uint256 internal constant MAX_RANGES = 64;
 
+    // ── PRIME BUY (ledger C: EXTERNAL ETH, never ledger A) ──────────────────
+    //
+    //  The treasury's own ETH, spent buying the brew token off the open market in
+    //  tranches that ride the SAME schedule as the liquidity stream. Two reasons it
+    //  is tranched rather than a single shot:
+    //
+    //    1. PRICE IMPACT IS RELATIVE TO DEPTH. A constant-product buy of `e` into a
+    //       book holding `E` moves price by `(1 + e/E)^2`. At t0 only `baseWad` of
+    //       ledger A is placed, so a lump-sum prime buy lands against the THINNEST
+    //       book of the whole launch — the single worst moment to spend it. Paying
+    //       out in step with `placedWad` means every tranche meets a deeper book
+    //       than the one before, and total impact is bounded by the final depth
+    //       instead of the initial depth.
+    //    2. IT KEEPS THE TAPE ALIVE. Each tranche is a real swap, so the chart
+    //       prints continuously across the seeding window instead of showing one
+    //       candle at ignition and then nothing until an outside buyer arrives.
+    //
+    //  This is ledger C and is accounted separately from ledger A: `withdrawAll`
+    //  returns any unspent remainder to the registry and clears the accounting, so
+    //  a stale budget can never authorise a swap the contract cannot settle.
+    uint256 public primeBudget;   // ETH committed to the prime buy
+    uint256 public primeSpent;    // ETH already spent (monotone within a campaign)
+    address public primeTo;       // recipient of the bought token (treasury/airdrop)
+    /// @dev Dust throttle: skip a tranche smaller than this unless it is the last.
+    uint256 public constant PRIME_MIN_WEI = 0.001 ether;
+
     uint256 private _locked;
     modifier lock() { if (_locked == 1) revert Reentrancy(); _locked = 1; _; _locked = 0; }
     modifier onlyRegistry() { if (msg.sender != registry) revert OnlyRegistry(); _; }
@@ -105,11 +138,14 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     // unlockCallback action tags
     uint8 private constant ACT_PLACE = 1;
     uint8 private constant ACT_WITHDRAW = 2;
+    uint8 private constant ACT_PRIME = 3;
 
     event SeedStarted(uint256 indexed gen, uint256 ethTotal, uint256 tokenTotal, uint64 window);
     event Poked(uint256 fromWad, uint256 toWad, int24 tick);
     event SeedComplete(uint256 indexed gen);
     event BasePlaced(uint256 indexed gen, uint128 fullRangeLiquidity);
+    event PrimeFunded(address indexed to, uint256 amount, uint256 budget);
+    event PrimeBought(uint256 indexed gen, uint256 ethIn, uint256 tokenOut, uint256 spent, uint256 budget);
 
     constructor(address _registry, address _positionManager, address _poolManager) {
         registry = _registry;
@@ -184,9 +220,75 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     ///         target is a pure function of elapsed time).
     function poke() external lock {
         uint256 step = _pendingStep();
-        if (step == 0) return;
-        poolManager.unlock(abi.encode(ACT_PLACE, step));
-        _advance(step);
+        if (step > 0) {
+            poolManager.unlock(abi.encode(ACT_PLACE, step));
+            _advance(step);
+        }
+        // Prime AFTER placing, so the tranche meets the depth this poke just added
+        // rather than the depth that preceded it. Runs even when `step == 0`, so a
+        // late poke still finishes the budget once the window has closed.
+        uint256 want = primePending();
+        if (want > 0) poolManager.unlock(abi.encode(ACT_PRIME, want));
+    }
+
+    /// @notice Commit EXTERNAL ETH to the prime buy and name the recipient of the
+    ///         bought token. Callable by the registry's owner, before or during a
+    ///         campaign; funding before ignition is the normal path.
+    ///
+    ///  Gated because `primeTo` decides where bought tokens land. The ETH itself is
+    ///  a gift to the campaign — {withdrawAll} returns any unspent remainder to the
+    ///  registry at relaunch, so nothing here can be stranded.
+    function fundPrime(address to) external payable {
+        if (msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry();
+        if (to == address(0)) revert BadConfig();
+        primeTo = to;
+        primeBudget += msg.value;
+        emit PrimeFunded(to, msg.value, primeBudget);
+    }
+
+    /// @notice ETH the prime buy should spend right now (0 = nothing to do).
+    ///
+    ///  The target tracks `placedWad`, so the budget is fully spent exactly when the
+    ///  stream completes. Like {_pendingStep} it is a pure function of schedule
+    ///  progress: it cannot be accelerated by poking more often, and poking less
+    ///  often only defers spending, never loses it.
+    function primePending() public view returns (uint256) {
+        if (primeTo == address(0) || primeBudget == 0 || !seeding) return 0;
+        uint256 target = (primeBudget * placedWad) / 1e18;
+        if (target > primeBudget) target = primeBudget;
+        if (target <= primeSpent) return 0;
+        uint256 want = target - primeSpent;
+        // Dust throttle, waived on the final tranche so the budget always closes out.
+        if (want < PRIME_MIN_WEI && target < primeBudget) return 0;
+        uint256 bal = address(this).balance;
+        return want > bal ? bal : want;
+    }
+
+    /// @dev One prime tranche: an EXACT-INPUT ETH->token swap whose output goes
+    ///      straight to `primeTo`. Assumes the PoolManager is already unlocked.
+    ///
+    ///      `hookData` tags the swap with this contract so the hook can waive the
+    ///      base fee and the anti-sniper surtax — which requires the deployer to
+    ///      have set BOTH `setOpener(seeder, true)` and `setTaxExempt(seeder, true)`
+    ///      (the hook demands both; see CauldronHook._isExemptPlayer). If either is
+    ///      missing the buy still succeeds, it just pays the launch surtax — the
+    ///      treasury overpays, nothing breaks or strands.
+    function _primeStep(uint256 ethIn) private {
+        BalanceDelta d = poolManager.swap(
+            _key,
+            SwapParams({
+                zeroForOne: true,
+                amountSpecified: -int256(ethIn),
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            abi.encode(address(this))
+        );
+        uint256 owed = uint256(uint128(-d.amount0()));
+        uint256 got = uint256(uint128(d.amount1()));
+        poolManager.settle{value: owed}();
+        if (got > 0) poolManager.take(_key.currency1, primeTo, got);
+        primeSpent += owed;
+        emit PrimeBought(gen, owed, got, primeSpent, primeBudget);
     }
 
     /// @notice HOOK-ONLY in-swap nudge. The caller (the pool's hook, in afterSwap)
@@ -232,6 +334,9 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
         if (act == ACT_PLACE) {
             (, uint256 stepWad) = abi.decode(data, (uint8, uint256));
             _placeStep(stepWad);
+        } else if (act == ACT_PRIME) {
+            (, uint256 ethIn) = abi.decode(data, (uint8, uint256));
+            _primeStep(ethIn);
         } else {
             (, address to) = abi.decode(data, (uint8, address));
             _teardown(to);
@@ -322,6 +427,17 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
         if (ebal > 0) { (bool ok,) = to.call{value: ebal}(""); require(ok, "eth"); }
         _lastEthOut = ebal;
         _lastTokenOut = tbal;
+
+        // LEDGER C MUST BE CLEARED HERE, NOT IN {startSeed}. The ETH balance above
+        // already swept any unspent prime budget back to the registry, so leaving
+        // `primeBudget` set would let the NEXT campaign compute a tranche against
+        // money this contract no longer holds — `settle{value:}` would then revert
+        // and take the whole stream down with it. Clearing in `startSeed` instead
+        // would be worse: funding happens BEFORE ignition, so it would wipe the
+        // budget every single launch. `primeTo` is deliberately kept — the treasury
+        // address does not change between generations, and re-funding is one call.
+        primeBudget = 0;
+        primeSpent = 0;
     }
 
     /// @dev BASE: lay `baseWad` of ledger A as ONE two-sided full-range position
