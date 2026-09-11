@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
 import { useAccount, useSwitchChain, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { PERP, PERP_ABI, PERP_LIVE } from "@/config/perp";
+import { PERP, PERP_ABI, PERP_LIVE, PERP_SLIPPAGE_BPS } from "@/config/perp";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 
 export interface PerpStats {
@@ -41,6 +41,12 @@ const INITIAL_STATS: PerpStats = { ...EMPTY_STATS, live: PERP_LIVE, maxLev: 3 };
  *  nested swaps + badge mint the wallet can't foresee at estimate time). */
 const LIQ_OPEN_GAS = 3_000_000n;
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
+
+/** `expected × (1 - slippage)`, in the engine's own units. */
+function floorFrom(expected: number): bigint {
+  if (!Number.isFinite(expected) || expected <= 0) return 0n;
+  return (parseEther(expected.toFixed(18)) * BigInt(10_000 - PERP_SLIPPAGE_BPS)) / 10_000n;
+}
 
 /**
  * usePerpEngine — the trading brain for the perp panel. ALL READS COME FROM
@@ -181,42 +187,73 @@ export function usePerpEngine(generation = 1) {
   // Always the 3-arg form (liqHint = 0n when none) — the engine's canonical
   // opener. A stale/healthy/zero hint is a silent no-op on-chain, so passing 0n
   // is safe and keeps ONE ABI shape (the 2-arg openShort no longer exists).
-  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n) => {
+  //  `spotPrice` is ETH PER TOKEN, the same number the panel prices the ticket
+  //  with. The engine buys `collateral × leverage` worth of ETH into tokens
+  //  (`PerpEngine.sol:800-818`) and reverts `Slippage()` when the swap returns
+  //  less than `minTokenOut`, so the floor is expressed in TOKENS. Computing it
+  //  with the FULL open fee (ignoring any OG discount) understates the expected
+  //  size, which errs toward filling rather than reverting.
+  //
+  //  The 4th argument is the collateral amount; on a native book it must equal
+  //  the ETH sent.
+  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0) => {
     if (!address) throw new Error("Connect a wallet first");
+    if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
     const value = parseEther(collateralEth.toFixed(18));
+    const notionalEth = collateralEth * (1 - stats.openFeeBps / 10_000) * leverage;
+    const minTokenOut = floorFrom(notionalEth / spotPrice);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openLong",
-      args: [leverage, 0n, liqHint], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minTokenOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
     });
-  }, [address, ensureChain, beginAction, writeContractAsync]);
+  }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 
-  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n) => {
+  //  A short sells the borrowed token side for ETH, so ITS floor is in ETH and
+  //  tracks the notional rather than a token count.
+  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0) => {
     if (!address) throw new Error("Connect a wallet first");
+    if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
     const value = parseEther(collateralEth.toFixed(18));
+    const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openShort",
-      args: [leverage, 0n, liqHint], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minEthOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
     });
-  }, [address, ensureChain, beginAction, writeContractAsync]);
+  }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 
-  const closePosition = useCallback(async (id: bigint) => {
+  //  `expectedOutEth` is what `_settle` compares `minOut` against — the gross
+  //  sale proceeds for a long (`PerpEngine.sol:1179-1180`) and the trader's ETH
+  //  residual for a short (`:1202`). Only the trader's own close enforces it
+  //  (`ownerSlippage`, :1175), which is precisely this call.
+  //
+  //  0 means "fill at any price" and was what every close signed. It is kept
+  //  ONLY as the unpriceable fallback: with no mark, refusing to close would
+  //  trap the position, which is worse than the status quo — so the panel
+  //  passes 0 only when it genuinely has no price.
+  const closePosition = useCallback(async (id: bigint, expectedOutEth = 0) => {
     await ensureChain();
     setPendingAction("close");
-    return writeContractAsync({ address: PERP.engine, abi: PERP_ABI, functionName: "close", args: [id, 0n] });
+    return writeContractAsync({
+      address: PERP.engine, abi: PERP_ABI, functionName: "close",
+      args: [id, floorFrom(expectedOutEth)],
+    });
   }, [ensureChain, writeContractAsync]);
 
   /** Close EVERY open position — sends one tx per position (wallet signs each). */
-  const closeAll = useCallback(async () => {
+  const closeAll = useCallback(async (expectedOutEth?: (p: PerpPosition) => number) => {
     if (positions.length === 0) return;
     if (chainId !== PERP.chainId) await switchChainAsync({ chainId: PERP.chainId });
     setPendingAction("close");
     for (const p of positions) {
       try {
-        await writeContractAsync({ address: PERP.engine, abi: PERP_ABI, functionName: "close", args: [p.id, 0n] });
+        await writeContractAsync({
+          address: PERP.engine, abi: PERP_ABI, functionName: "close",
+          args: [p.id, floorFrom(expectedOutEth ? expectedOutEth(p) : 0)],
+        });
       } catch { /* user rejected one → keep going with the rest */ }
     }
   }, [positions, chainId, switchChainAsync, writeContractAsync]);

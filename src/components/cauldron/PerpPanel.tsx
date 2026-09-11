@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { usePerpEngine, type PerpPosition } from "@/hooks/usePerpEngine";
@@ -19,6 +19,7 @@ interface PerpPanelProps {
   warm: boolean;       // past the open warmup
   generation?: number; // current iteration (for the Ponder reads)
   onTraded?: () => void; // called after a position opens/closes → refresh chart
+  chart?: ReactNode;   // the price/heatmap chart — rendered LEFT of the open-position ticket
 }
 
 const MAINTENANCE = 0.15; // mirrors PerpEngine.maintenanceBps (1500)
@@ -40,7 +41,7 @@ const gwei = (p: number) => (p > 0 ? `${(p * 1e9).toFixed(2)} gw` : "—");
  * PnL, health, and the liquidation price. Gated to a graceful "activates on
  * deploy" state until the PerpEngine address is configured.
  */
-export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded }: PerpPanelProps) {
+export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded, chart }: PerpPanelProps) {
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const perp = usePerpEngine(generation);
@@ -71,7 +72,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
 
   const onClosePosition = async (id: bigint, c: CardData) => {
     try {
-      await perp.closePosition(id);       // resolves once signed + submitted
+      await perp.closePosition(id, expectedCloseEth(perp.positions.find((q) => q.id === id), spotPrice));  // resolves once signed + submitted
       setCloseCard({ card: c, id });       // arm — pops when the position leaves the list
     } catch (e) { setToast({ kind: "err", msg: `Close failed — ${explainPerpError(e)}` }); }
   };
@@ -212,8 +213,8 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           : `The ${side} vault is fully utilized right now — no liquidity to borrow. Try the other side, or stake ${side === "long" ? "ETH" : `$${ticker}`} in the vault.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
-      if (side === "long") await perp.openLong(collateral, lev, liqHint);
-      else await perp.openShort(collateral, lev, liqHint);
+      if (side === "long") await perp.openLong(collateral, lev, liqHint, spotPrice);
+      else await perp.openShort(collateral, lev, liqHint, spotPrice);
     } catch (e: unknown) {
       const why = explainPerpError(e);       // decoded, human-readable reason
       setErr(why);
@@ -245,8 +246,19 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         .pp-toast__ic { font-size: 15px; margin-top: 1px; }
         .pp-toast__x { margin-left: auto; cursor: pointer; opacity: 0.6; background: none; border: none; color: inherit; font-size: 15px; }
         @keyframes pp-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
-        .pp { display: grid; grid-template-columns: 1fr; gap: 14px; }
-        @media (min-width: 900px) { .pp { grid-template-columns: 340px 1fr; align-items: start; } }
+        /* Stacked on narrow screens — chart, then the ticket, then the book.
+           From 900px the ticket moves into a right rail beside the chart and
+           spans down past it, so you never scroll away from "Open position". */
+        .pp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;
+              grid-template-areas: "chart" "open" "stack"; }
+        @media (min-width: 900px) {
+          .pp { grid-template-columns: minmax(0, 1fr) 340px; align-items: start;
+                grid-template-areas: "chart open" "stack open"; }
+        }
+        .pp-chart { grid-area: chart; min-width: 0; }
+        .pp-chart > .tc-perp-chart { margin-bottom: 0; }
+        .pp-open { grid-area: open; align-self: start; }
+        .pp-stack { grid-area: stack; min-width: 0; display: grid; gap: 14px; }
         .pp-card { border-radius: var(--r-md); padding: 16px; background: rgba(23,18,42,0.34); border: 1px solid rgba(255,255,255,0.06); }
         .pp-eyebrow { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: ${C.mute}; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
         .pp-eyebrow b { color: ${col}; font-weight: 500; }
@@ -337,8 +349,10 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         </div>
       )}
 
-      {/* ── open a position ── */}
-      <div className="pp-card">
+      {chart && <div className="pp-chart">{chart}</div>}
+
+      {/* ── open a position — the right rail, beside the chart ── */}
+      <div className="pp-card pp-open">
         <div className="pp-eyebrow"><span>Open position</span><span>max <b>{maxLev}×</b></span></div>
 
         <div className="pp-toggle">
@@ -396,7 +410,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
       </div>
 
       {/* ── OI, funding, vault + positions ── */}
-      <div style={{ display: "grid", gap: 14 }}>
+      <div className="pp-stack">
         <div className="pp-card">
           <div className="pp-eyebrow"><span>Open interest</span><span>{stats.live ? `${fundingSide} · ${(Math.abs(stats.fundingIdx) * 100).toFixed(3)}%` : "—"}</span></div>
           <div className="pp-oi">
@@ -441,7 +455,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
                   <div className="pp-agg__sub tc-mono">{agg.collateralEth.toFixed(4)} Ξ collateral · {perp.positions.length} open</div>
                 </div>
                 <div className="pp-agg__btns">
-                  <button className="pp-agg__closeall" onClick={() => perp.closeAll()} disabled={perp.closingBusy}>
+                  <button className="pp-agg__closeall" onClick={() => perp.closeAll((p) => expectedCloseEth(p, spotPrice))} disabled={perp.closingBusy}>
                     {perp.closingBusy ? "Closing…" : "Close all"}
                   </button>
                 </div>
@@ -467,6 +481,24 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
       {liqHit && <LiquidatoorModal hit={liqHit} onClose={ackLiq} />}
     </div>
   );
+}
+
+/**
+ * What `close` compares `minOut` against, in ETH.
+ *
+ *   LONG  → `_settle` sells `p.size` tokens and tests the gross `proceeds`
+ *           (`PerpEngine.sol:1179-1180`).
+ *   SHORT → it tests `residual`, the trader's ETH back after the buy-back
+ *           (`PerpEngine.sol:1202`).
+ *
+ * 0 when the market has no usable mark: the hook then signs a zero floor rather
+ * than trapping a position it cannot price.
+ */
+export function expectedCloseEth(p: PerpPosition | undefined, spotPrice: number): number {
+  if (!p || !(spotPrice > 0) || !(p.entryPrice > 0)) return 0;
+  return p.isLong
+    ? p.notionalEth * (spotPrice / p.entryPrice)
+    : Math.max(0, p.collateralEth + positionPnl(p, spotPrice));
 }
 
 /** Live PnL (ETH) for a position at the current spot. Shared by the cards + agg. */

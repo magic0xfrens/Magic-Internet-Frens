@@ -24,16 +24,36 @@ export const PERP = {
   vault: round.contracts.perpVault as Address,
 };
 
+/**
+ * Slippage the UI signs on a perp open or close, in bps.
+ *
+ * Every one of these was 0 — `minTokenOut`/`minEthOut` on an open and `minOut`
+ * on a close — which tells the engine "fill me at any price at all". `close`
+ * really is reachable today, so real closes really did sign a zero floor.
+ */
+export const PERP_SLIPPAGE_BPS = 100; // 1%
+
 export const PERP_LIVE = PERP.engine.toLowerCase() !== "0x0000000000000000000000000000000000000000";
 
 /** Minimal ABI — reads + the trader actions the UI needs. */
 export const PERP_ABI = [
-  // actions
-  { type: "function", name: "openLong", stateMutability: "payable", inputs: [{ name: "leverage", type: "uint8" }, { name: "minTokenOut", type: "uint256" }], outputs: [{ type: "uint256" }] },
-  // 3-arg opens carry a `liqHint`: rekt an underwater position on open → you earn
-  // the keeper reward + a Liquidatoor badge. Stale/healthy hint = silent no-op.
-  { type: "function", name: "openLong", stateMutability: "payable", inputs: [{ name: "leverage", type: "uint8" }, { name: "minTokenOut", type: "uint256" }, { name: "liqHint", type: "uint256" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "openShort", stateMutability: "payable", inputs: [{ name: "leverage", type: "uint8" }, { name: "minEthOut", type: "uint256" }, { name: "liqHint", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  //  ── actions ──
+  //  THE FOUR-ARGUMENT OPENS ARE THE ONLY ONES THAT EXIST.
+  //  `forge inspect PerpEngine methodIdentifiers` lists exactly two openers:
+  //      openLong(uint8,uint256,uint256,uint256)  = 0x79588b97
+  //      openShort(uint8,uint256,uint256,uint256) = 0x9e4a4754
+  //  and PerpEngine has no `fallback()` (only `receive()`), so an unknown
+  //  selector reverts. This ABI previously declared 2- and 3-argument shapes,
+  //  which encoded 0x1cff5d47 / 0x95dd8fe9 — selectors the engine does not
+  //  implement. EVERY perp open reverted.
+  //
+  //  The 4th argument is the COLLATERAL AMOUNT (`PerpEngine.sol:792`,
+  //  `_pullQuote(msg.sender, amount)`): on a native book it must equal the ETH
+  //  sent with the call. `liqHint` names a position to liquidate on open — if
+  //  it is underwater at the mark your open rekts it and mints you a Liquidatoor
+  //  badge; a stale/healthy/zero hint is a silent no-op.
+  { type: "function", name: "openLong", stateMutability: "payable", inputs: [{ name: "leverage", type: "uint8" }, { name: "minTokenOut", type: "uint256" }, { name: "liqHint", type: "uint256" }, { name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "openShort", stateMutability: "payable", inputs: [{ name: "leverage", type: "uint8" }, { name: "minEthOut", type: "uint256" }, { name: "liqHint", type: "uint256" }, { name: "amount", type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "close", stateMutability: "nonpayable", inputs: [{ name: "id", type: "uint256" }, { name: "minOut", type: "uint256" }], outputs: [] },
   { type: "function", name: "liquidate", stateMutability: "nonpayable", inputs: [{ name: "id", type: "uint256" }], outputs: [] },
   { type: "function", name: "forceCloseDead", stateMutability: "nonpayable", inputs: [{ name: "id", type: "uint256" }], outputs: [] },
