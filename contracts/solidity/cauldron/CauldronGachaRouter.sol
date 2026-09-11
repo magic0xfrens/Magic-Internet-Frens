@@ -475,7 +475,19 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 _take(tok, address(this), outG);
                 playWei += inE;
                 tokBal += outG;
-                ethBal = 0;
+                //  DEBIT WHAT THE POOL TOOK, not the whole balance (audit X4b).
+                //  An exact-input buy is not guaranteed to consume `ethBal`: the
+                //  price limit is the extreme tick ({_limit}), so on a thin pool
+                //  the swap runs to liquidity exhaustion and `inE < ethBal`.
+                //  Zeroing here dropped the remainder from the returned leftover
+                //  entirely — {playChurn} then refunded nothing and the quote sat
+                //  in this contract, with no exit at all on an ERC20 generation.
+                //  Subtracting keeps the remainder in play: it churns on the next
+                //  loop, and whatever survives the last loop is returned as
+                //  `ethLeftover` and paid back by {_payQuote}, exactly as {play}
+                //  refunds `spend - ethConsumed`. Checked arithmetic is the guard:
+                //  a pool that reports consuming more than it was offered reverts.
+                ethBal -= inE;
             }
             if (i + 1 < loops && tokBal > 0) {
                 BalanceDelta delta = poolManager.swap(
@@ -547,6 +559,18 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     function rescueETH(address to, uint256 amount) external onlyOwner {
         (bool ok,) = to.call{value: amount}("");
         require(ok, "rescue failed");
+    }
+
+    /// @notice The ERC20 counterpart of {rescueETH} (audit X4b).
+    ///
+    ///  Recovery here used to be one-sided: on a native generation stranded quote
+    ///  could at least be swept, while on an ERC20 generation there was no exit
+    ///  for it at all. This router holds no balance between transactions by
+    ///  design — every leg sweeps to the player before the call returns — so the
+    ///  only thing this can reach is dust and value stranded by a bug, and it is
+    ///  gated exactly like {rescueETH}.
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
+        _safeTransfer(token, to, amount);
     }
 
     receive() external payable {}
