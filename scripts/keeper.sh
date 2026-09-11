@@ -13,24 +13,50 @@
 #   ./scripts/keeper.sh          # one sweep
 #   ./scripts/keeper.sh watch    # sweep every ~8s forever
 #
-# SECURITY: sources .env.sepolia, uses $PRIVATE_KEY by name only.
+# SECURITY: loads contracts/solidity/.env.sepolia FIRST, then resolves a signer
+# through scripts/lib/signer.sh. With KEYSTORE_ACCOUNT set, no key touches argv;
+# the raw-PRIVATE_KEY fallback says out loud that it does.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-PERP="${PERP_ENGINE:-0x26ae199E143d98be557Eaf89EF7764291bcc51e5}"
+#  CONFIGURATION LOADS BEFORE ANYTHING READS IT.
+#  PERP and REGISTRY used to be bound ABOVE this `source`, so the hardcoded
+#  defaults won even when the env file named different addresses — and both
+#  defaults pointed at a dead round. The keeper swept an engine that no longer
+#  existed and reported "0 open" forever, which looks exactly like "nothing to
+#  liquidate".
+ENVFILE="contracts/solidity/.env.sepolia"
+[ -r "$ENVFILE" ] || { echo "missing $ENVFILE — refusing to run on defaults"; exit 1; }
+set -a; source "$ENVFILE"; set +a
+RPC="${SEPOLIA_RPC:?set SEPOLIA_RPC}"
+
+#  ADDRESSES COME FROM THE SHIPPED MANIFEST, and the env may only AGREE with it.
+#  A stale address is not a degraded mode, it is a different deployment: fail.
+manifest() { node -e "process.stdout.write(require('./indexer/deployments/round.json').contracts.$1 || '')"; }
+PERP_MANIFEST="$(manifest perpEngine)"
+REGISTRY_MANIFEST="$(manifest registry)"
+PERP="${PERP_ENGINE:-$PERP_MANIFEST}"
 # Registry — for materializeLegacyReserve() (deposits the hook's held live-buyback
 # tokens into the reserve + credits the collection floor; permissionless + cheap).
-REGISTRY="${CAULDRON_REGISTRY:-0x6629a99fbb485c36ee63eb1190486660234611b8}"
-set -a; source "contracts/solidity/.env.sepolia"; set +a
-RPC="${SEPOLIA_RPC:?set SEPOLIA_RPC}"
-KEEPER="$(cast wallet address --private-key "$PRIVATE_KEY")"
+REGISTRY="${CAULDRON_REGISTRY:-$REGISTRY_MANIFEST}"
+lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+[ -n "$PERP" ] && [ -n "$REGISTRY" ] || { echo "no perpEngine/registry in indexer/deployments/round.json"; exit 1; }
+if [ "$(lc "$PERP")" != "$(lc "$PERP_MANIFEST")" ]; then
+  echo "STALE PERP_ENGINE: env says $PERP, the manifest says $PERP_MANIFEST"; exit 1; fi
+if [ "$(lc "$REGISTRY")" != "$(lc "$REGISTRY_MANIFEST")" ]; then
+  echo "STALE CAULDRON_REGISTRY: env says $REGISTRY, the manifest says $REGISTRY_MANIFEST"; exit 1; fi
+
+# shellcheck source=lib/signer.sh
+source "scripts/lib/signer.sh"
+resolve_signer || exit 1
+KEEPER="$(cast wallet address "${SIGNER[@]}")"
 
 # Sweep the hook's buffered legacy buybacks into the reserve so the LIVE collection
 # floor reflects recent volume. No-op (returns 0) when nothing is pending, so it's
 # always safe to call. Run alongside the liquidation sweep.
 materialize() {
-  if cast send "$REGISTRY" 'materializeLegacyReserve()' --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1; then
+  if cast send "$REGISTRY" 'materializeLegacyReserve()' "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1; then
     echo "  ◆ materialized legacy buybacks → reserve/floor"
   fi
 }
@@ -47,7 +73,7 @@ sweep() {
     local liq; liq=$(cast call "$PERP" 'isLiquidatable(uint256)(bool)' "$id" --rpc-url "$RPC" 2>/dev/null)
     if [ "$liq" = "true" ]; then
       echo "  ⚡ position #$id is UNDERWATER → liquidating…"
-      if cast send "$PERP" 'liquidate(uint256)' "$id" --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1; then
+      if cast send "$PERP" 'liquidate(uint256)' "$id" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1; then
         echo "     ✅ liquidated #$id (keeper reward → $KEEPER)"
         liquidated=$((liquidated+1))
       else
