@@ -206,6 +206,24 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     uint256 public genesisReserveOutstanding;
 
     /// @notice generation + holder -> claimed
+    //  ── UNWIRED AND RESERVED. DO NOT RE-DERIVE THIS ───────────────────────
+    //  There is NO WRITER for this mapping anywhere in the non-test tree, so it
+    //  reads false for every (generation, holder) pair, forever. Nothing gates on
+    //  it either, so this is not a double-claim hole — no claim path is weakened
+    //  by it. `claimByBurn` proves a claim by BURNING the old-generation balance,
+    //  which is self-accounting: a wallet cannot burn the same tokens twice, so a
+    //  separate per-holder flag was never needed and was never wired.
+    //
+    //  KEPT rather than deleted because this base is shared by {CauldronRegistry}
+    //  and {RedemptionExt} and its layout is relied on by a live deployment:
+    //  removing the slot shifts every slot after it and makes the deployed storage
+    //  unreadable. Reserved is the correct state for it.
+    //
+    //  The registry's `hasClaimed(uint256,address)` accessor, which only read this,
+    //  IS removed — a public view that silently answers "never claimed" to an
+    //  integrator is a trap, and a comment protects readers of the source, not
+    //  callers of the contract. Failing loud on an unrecognized selector is the
+    //  same call this repo made on `completeRotation`.
     mapping(uint256 => mapping(address => bool)) public claimed;
     /// @notice generation -> NFT collection minted from that brew's volume
     mapping(uint256 => address) public generationCollection;

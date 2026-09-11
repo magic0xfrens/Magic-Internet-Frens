@@ -1771,9 +1771,14 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     // View Helpers
     // -----------------------------------------------------------------------
 
-    function hasClaimed(uint256 generation_, address holder) external view returns (bool) {
-        return claimed[generation_][holder];
-    }
+    //  `hasClaimed(uint256,address)` REMOVED. It read {CauldronBase.claimed},
+    //  which has no writer anywhere in the tree, so it answered false for every
+    //  holder of every generation — permanently, and silently. Nothing on-chain
+    //  gates on it and nothing off-chain calls it (grepped src/, indexer/, api/,
+    //  scripts/: the only `hasClaimed` hit is an unrelated field in the presale
+    //  ABI). An integrator or a future claim button that trusted it would have
+    //  shown every holder as never having claimed. Removing it makes that call
+    //  fail loud instead of lying; the slot stays reserved, see CauldronBase.
 
     // NOTE: `floorClaimableNow` moved to {RedemptionExt} to reclaim EIP-170
     // bytecode for the rotation-leg recovery. The ABI is UNCHANGED: the fallback
