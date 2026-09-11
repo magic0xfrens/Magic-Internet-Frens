@@ -206,7 +206,11 @@ ponder.on("Dividend:TreasuryFunded", async ({ event, context }) => { await bumpD
 /* ── migration + burn (per-iteration deflation) ────────────────────────── */
 ponder.on("CauldronRegistry:HolderClaimed", async ({ event, context }) => { await bumpIter(context, Number(event.args.generation), "migratedOut", event.args.amount as bigint); });
 ponder.on("CauldronRegistry:AutoMigrated", async ({ event, context }) => { await bumpIter(context, Number(event.args.fromGen), "migratedOut", event.args.amount as bigint); });
-ponder.on("CauldronRegistry:UnclaimedBurned", async ({ event, context }) => { await bumpIter(context, Number(event.args.gen), "burned", event.args.amount as bigint); });
+//  NO `UnclaimedBurned` SUBSCRIPTION. The event exists in no contract in the
+//  tree (38 of the other 39 indexer filters match a real event exactly), so the
+//  filter never fired and `iteration.burned` sat at 0 forever while the API
+//  served it as an indexed statistic. A filter on a non-existent topic is not a
+//  future-proofing measure, it is a number that lies quietly.
 
 /* ── price candles + raw swaps (charting) ──────────────────────────────── */
 // Lazy pool register: the genesis green-candle + prime-buy swaps fire INSIDE the

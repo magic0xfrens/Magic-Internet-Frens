@@ -194,7 +194,10 @@ export const iteration = onchainTable("iteration", (t) => ({
   token: t.hex(),
   symbol: t.text(),
   migratedOut: t.bigint().notNull().default(0n), // tokens migrated FROM this gen
-  burned: t.bigint().notNull().default(0n),      // unclaimed pool burned (burnUnclaimed)
+  //  ALWAYS 0: no contract emits `UnclaimedBurned`, so nothing ever writes this.
+  //  Kept so the column (and the API field) do not vanish under a live UI, but it
+  //  is not live data and must not be presented as one.
+  burned: t.bigint().notNull().default(0n),
   createdAt: t.bigint(),
 }));
 

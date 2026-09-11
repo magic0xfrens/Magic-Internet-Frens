@@ -57,7 +57,7 @@ export const RegistryAbi = [
   },
   {
     type: "event",
-    name: "UnclaimedBurned", // burnUnclaimed — deflation of a superseded gen
+    name: "UnclaimedBurned", // NOT EMITTED BY ANY CONTRACT — see indexer/src/index.ts
     inputs: [
       { name: "gen", type: "uint256", indexed: true },
       { name: "amount", type: "uint256", indexed: false },

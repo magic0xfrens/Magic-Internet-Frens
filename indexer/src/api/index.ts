@@ -1308,6 +1308,9 @@ app.get("/iterations", async (c) => {
     iterations: rows.map((r) => ({
       generation: r.id, token: r.token, symbol: r.symbol,
       migratedOut: r.migratedOut.toString(), burned: r.burned.toString(),
+      //  `burned` is NOT indexed — no contract emits `UnclaimedBurned`, so it is
+      //  structurally 0. Flagged so a consumer cannot mistake it for live data.
+      burnedIndexed: false,
     })),
     totalBurned: totalBurned.toString(),
     supplyPerGen: "777000000000000000000000000", // fixed 777M * 1e18 per iteration
