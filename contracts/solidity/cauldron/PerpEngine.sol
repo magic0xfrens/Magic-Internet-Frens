@@ -1623,6 +1623,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     function _creditPerp(bool ethSide) private {
         if (msg.sender != hookAddr) revert OnlyHook();
+        //  ── NATIVE ONLY, LIKE ITS THREE SIBLINGS (red-team H-3) ───────────
+        //  `fundPlv`, `fundInsurance` and `fundFromVault` all route through
+        //  {_pullQuote}, which refuses `msg.value` on an ERC20 book. This one
+        //  banked `msg.value` straight into `plv`/`tokYieldEth` — counters
+        //  denominated in the quote — so native wei inflated an ERC20 claim the
+        //  engine never received. Reachable: {CauldronHook} hands
+        //  {FeeRouteLib._deliver} its `_feeAsset`, which picks the native
+        //  selector at `address(0)`, and `_feeAsset` diverges from
+        //  `generationQuote` mid-rotation (cauldron/RedemptionExt.sol:487).
+        if (!_quoteIsNative()) revert BadParam();
         //  NATIVE path. A non-native quote delivers its perp fee through
         //  {creditPerpFeeAsset} instead (the hook's {FeeRouteLib.routePerp}
         //  approves + pulls), so a USDG/xNVDA pool CAN now fund the engine — see
