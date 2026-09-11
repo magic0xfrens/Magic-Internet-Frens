@@ -1127,14 +1127,37 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         the empty `receive()` because the hook receives raw ETH internally
     ///         (fee takes) that must NOT be double-counted into the buffer.
     function fundLegacyBuffer() external payable {
-        //  REJECT VALUE THIS BUFFER CANNOT SPEND (red-team X1/X4a — Critical).
-        //  The buffer is spent as raw units of the live pool's currency0. Native
-        //  wei may therefore only enter it when that currency IS native, and
-        //  never on top of a buffer already denominated in something else.
-        //  Reverting (rather than silently keeping the wei) is the point: an
-        //  accepted-but-unspendable donation had NO exit at any privilege level.
+        //  KEEP VALUE THE BUFFER CANNOT SPEND OUT OF IT (red-team X1/X4a —
+        //  Critical), BUT ROUTE IT, NEVER REFUSE IT (red-team X1e — High,
+        //  fix-induced). The buffer is spent as raw units of the live pool's
+        //  currency0, so native wei may only enter it while that currency IS
+        //  native and the buffer is not already holding something else. That
+        //  rule is unchanged and unweakened — this function still cannot put a
+        //  wei figure where an ERC20 figure is spent.
+        //
+        //  What changed is the DISPOSITION of value the buffer cannot take. A
+        //  revert here broke the feature it was protecting: the only caller is
+        //  {RoyaltyRouter} (cauldron/RoyaltyRouter.sol:33), the collection's
+        //  EIP-2981 receiver, whose `receive()` forwards unconditionally. A
+        //  marketplace that pushes royalties atomically inside the sale would
+        //  have had the WHOLE SALE revert for as long as the generation was
+        //  ERC20-quoted — a permissionless liveness break on secondary trading.
+        //
+        //  So it is credited to `relaunchETH` instead: the same rule
+        //  `_maybeLegacyBuyback` already applies to a buffer stranded by a quote
+        //  rotation. The royalty's purpose is to back the collection's floor —
+        //  as buffer it does that by market-buying the live token, as reserve it
+        //  does it directly — and `releaseRelaunchETH` is a real exit, so nothing
+        //  strands. Only the ROUTE changes with the denomination, never the
+        //  destination's purpose. Handled HERE rather than in the router because
+        //  the hook owns both counters: no new gated entrypoint, no new admin
+        //  surface, and the router keeps holding nothing.
+        if (msg.value == 0) return;
         if (Currency.unwrap(_liveKey.currency0) != address(0)
-            || (legacyBuffer != 0 && legacyBufferAsset != address(0))) revert BadParam();
+            || (legacyBuffer != 0 && legacyBufferAsset != address(0))) {
+            relaunchETH += msg.value;
+            return;
+        }
         legacyBufferAsset = address(0);
         legacyBuffer += msg.value;
     }

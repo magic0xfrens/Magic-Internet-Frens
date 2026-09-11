@@ -127,6 +127,7 @@ contract X4a_LegacyBufferDenomination is Test {
         uint256 hookEthAfter;
         uint256 payerEthAfter;
         uint256 hookUsdgAfter;
+        uint256 relaunchEthAfter;
     }
 
     function _erc20RoundTrip(uint256 donation, uint256 hookUsdgReserve) internal returns (Result memory r) {
@@ -139,14 +140,14 @@ contract X4a_LegacyBufferDenomination is Test {
         usdg.mint(address(hook), hookUsdgReserve);
 
         // A marketplace pays an NFT secondary royalty; RoyaltyRouter.receive
-        // forwards the whole msg.value into this entrypoint. It is now REFUSED:
-        // the buffer is spent as raw units of the live currency0, and the value
-        // had no exit at any privilege level once it was in.
+        // forwards the whole msg.value into this entrypoint. It is ACCEPTED but
+        // ROUTED: the buffer is spent as raw units of the live currency0, so the
+        // wei goes to `relaunchETH`, which `releaseRelaunchETH` can pay out.
         vm.deal(ROYALTY_PAYER, donation);
         vm.prank(ROYALTY_PAYER);
-        vm.expectRevert(CauldronHook.BadParam.selector);
         hook.fundLegacyBuffer{value: donation}();
         r.bufferAfterDonation = hook.legacyBuffer();
+        r.relaunchEthAfter = hook.relaunchETH();
 
         uint256 poolUsdgBefore = usdg.balanceOf(address(pm));
         vm.prank(address(hook));
@@ -203,13 +204,14 @@ contract X4a_LegacyBufferDenomination is Test {
         assertEq(r.bufferAfterDonation, 0, "no wei entered a buffer spent as USDG");
         assertEq(r.usdgRawPaidToPool, 0, "the hook paid no raw USDG units for a wei donation");
         assertEq(r.hookUsdgAfter, 2_000e6, "the quote reserve is untouched");
-        assertEq(r.hookEthAfter, 0, "the hook kept no ether that no counter claims");
-        assertEq(r.payerEthAfter, donation, "the payer keeps its ether instead of stranding it");
+        assertEq(r.hookEthAfter, donation, "the hook holds the ether...");
+        assertEq(r.relaunchEthAfter, donation, "...and relaunchETH claims it, so releaseRelaunchETH can pay it out");
+        assertEq(r.payerEthAfter, 0, "the royalty was ACCEPTED, not bounced: a sale must never revert");
 
         emit log_named_uint("control: wei spent on a native generation", ethSpent);
         emit log_named_uint("regression: buffer after a refused 1 ETH royalty", r.bufferAfterDonation);
         emit log_named_uint("regression: RAW USDG units paid to the pool", r.usdgRawPaidToPool);
-        emit log_named_uint("regression: ether returned to the payer", r.payerEthAfter);
+        emit log_named_uint("regression: ether claimed by relaunchETH", r.relaunchEthAfter);
     }
 
     function test_dust_royalty_permanently_bricks_the_floor_buyback() public {

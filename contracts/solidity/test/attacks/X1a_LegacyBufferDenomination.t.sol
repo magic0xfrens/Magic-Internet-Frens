@@ -185,11 +185,11 @@ contract X1aLegacyBufferDenomination is Test {
     }
 
     /// @notice REGRESSION (was the attack): the same native donation on an
-    ///         ERC20-quoted live pool is now REFUSED at the door. `legacyBuffer`
+    ///         ERC20-quoted live pool never reaches `legacyBuffer`. That buffer
     ///         is spent as raw units of `currency0`, so wei may not enter it
-    ///         while `currency0` is a token — and refusing (rather than keeping
-    ///         value with no exit) is the point: nothing in this contract could
-    ///         ever have paid that ether back out.
+    ///         while `currency0` is a token. The payment is ACCEPTED and routed
+    ///         to `relaunchETH` instead (X1e): a royalty must never revert, and
+    ///         the reserve has a release path, so nothing strands either.
     function test_X1a_attack_erc20LivePool_spendsErc20ReserveForNativeDonation() public {
         PoolKey memory k = _key(address(quoteToken), address(brewToken));
         _makeLive(k);
@@ -203,12 +203,13 @@ contract X1aLegacyBufferDenomination is Test {
         vm.deal(attacker, 1 ether);
 
         vm.prank(attacker);
-        vm.expectRevert(CauldronHook.BadParam.selector);
         hook.fundLegacyBuffer{value: DONATION}();
 
-        console2.log("regression: buffer after refused donation", hook.legacyBuffer());
+        console2.log("regression: buffer after donation", hook.legacyBuffer());
+        console2.log("regression: relaunchETH         ", hook.relaunchETH());
         assertEq(hook.legacyBuffer(), 0, "no wei entered a buffer spent as ERC20 units");
-        assertEq(attacker.balance, 1 ether, "the donor keeps the ether instead of stranding it");
+        assertEq(hook.relaunchETH(), DONATION, "it landed in the reserve, which HAS a release path");
+        assertEq(attacker.balance, 1 ether - DONATION, "accepted, not refused: a royalty must never revert");
 
         // Nothing is armed, so a swap cannot point a wei-sized number at the quote.
         pm.setCapacity(reserve);
