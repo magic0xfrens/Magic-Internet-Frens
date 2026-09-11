@@ -344,9 +344,31 @@ contract RedemptionExt is CauldronBase {
         uint256 srcPositionId;
         PoolKey memory srcKey;
         if (fromLeg == 0) {
-            fromQuote = generationQuote[gen];
             srcPositionId = generationPositionId[gen];
             srcKey = generationPoolKey[gen];
+            //  ── THE PRIMARY'S QUOTE IS ITS PAIR'S, NOT THE GENERATION'S ─────
+            //  This read `generationQuote[gen]`, and the two DIVERGE the moment a
+            //  migration completes: the flip below moves `generationQuote` to the
+            //  destination while `generationPositionId`/`generationPoolKey` stay on
+            //  the launch pair — they must, because the 69x redemption reserve is
+            //  held under that same key (every
+            //  `ReserveRef(generationReservePositionId[g], generationPoolKey[g], …)`).
+            //
+            //  So every later `fromLeg == 0` slice asked {PoolOps.removePartial} to
+            //  measure the DESTINATION asset out of the LAUNCH pair. It settles the
+            //  wrong currency, `quoteOut` comes back 0 and the call reverts
+            //  `BadConfig()` — while a slice out of leg 1 succeeds in the same block
+            //  under the same envelope. Measured on the fork harness: after a
+            //  completed ETH -> USDG migration the ~32% residual still sitting in
+            //  the ETH pair could never be rotated again, for the life of the
+            //  generation, and only a relaunch recovered it.
+            //
+            //  `currency0` is the pair's own quote by construction — the watermark
+            //  {PoolOps.openOrAddPair} asserts is `token > quote` — which is the
+            //  same slot `recoverLegs` was already corrected to match on (:487).
+            //  Before a migration the two are equal, so nothing changes for a fresh
+            //  generation; after one, the primary stays addressable.
+            fromQuote = Currency.unwrap(srcKey.currency0);
         } else {
             TreasuryLeg storage l = generationLegs[gen][fromLeg - 1];
             fromQuote = l.quote;
