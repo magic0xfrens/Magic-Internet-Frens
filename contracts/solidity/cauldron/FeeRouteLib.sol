@@ -129,7 +129,18 @@ library FeeRouteLib {
         if (asset == address(0)) { (ok, ) = guild.call{value: amount}(""); return ok; }
         (bool approved, ) = asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, amount));
         if (!approved) return false;
-        (ok, ) = guild.call(abi.encodeWithSignature("fundToken(address,uint256)", asset, amount));
+        bytes memory r;
+        (ok, r) = guild.call(abi.encodeWithSignature("fundToken(address,uint256)", asset, amount));
+        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL PULL (red-team X4c). The EVM
+        //  reports `success` for a call to an address with no code, so a
+        //  misconfigured `guild` made this report true, made the caller emit
+        //  `GuildFunded`, and left the approval standing — while the tokens never
+        //  moved and no holder was ever credited. `fundToken` returns nothing, so
+        //  the returndata cannot distinguish it; the code check can.
+        //  Reporting false routes the share to the relaunch reserve, which HAS an
+        //  exit, and the allowance is cleared on the line below.
+        if (ok && guild.code.length == 0) ok = false;
+        r; // (returndata unused: `fundToken` has no return value)
         // Leave no standing allowance behind if the pull did not occur.
         if (!ok) asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, uint256(0)));
     }
