@@ -178,6 +178,42 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     uint256 private _runnerId;
     uint256 private _runnerVotes;
 
+    /// @dev How many mandates the bench below can hold.
+    uint256 internal constant BENCH_SLOTS = 8;
+
+    /// @dev The mandates {_recomputeLeader} may choose from. Appended after
+    ///      `_runnerVotes`, so no existing storage slot moves.
+    ///
+    ///  ── ONE DEEP WAS NOT DEEP ENOUGH ────────────────────────────────────
+    ///  The runner-up slot above closed the easy version of this and left the
+    ///  hard one open, because it is exactly ONE deep. When a third proposal
+    ///  overtakes the leader, `vote` writes the DISPLACED LEADER into the runner
+    ///  slot (:356-359) and the previous runner-up is forgotten — it still
+    ///  exists, is still settled, is still unconsumed, and nothing remembers it.
+    ///  Two consumptions drain both slots, `markConsumed` falls through to the
+    ///  scan, and the scan was the positional window the runner slot was
+    ///  introduced to stop depending on. Measured: A(100), B(90), C(150) filed
+    ///  and voted, then 64 junk filings for 11.8M gas by one MiFren with no
+    ///  cooldown — after consuming C and A, `winner()` returned 0 and
+    ///  `hasProposals()` went false, so `relaunch()` reverted `NoProposal`.
+    ///  B, the guild's surviving 90-vote mandate, was erased by spam.
+    ///
+    ///  The sibling treasury governor removed the same shape by bounding its scan
+    ///  by TIME instead of position ({TreasuryGovernor.winner}), which works there
+    ///  because a treasury proposal must execute inside a 3-day window. A brew
+    ///  mandate has no such window on purpose — it is STOCKPILED against the next
+    ///  death, which may be months away — so time is not available here and the
+    ///  scan has to stop being over the proposal list at all.
+    ///
+    ///  Entry is by VOTES, which cost MiFrens, rather than by POSITION, which
+    ///  costs gas. A proposal nobody voted for never enters; displacing an
+    ///  incumbent requires out-voting the WEAKEST live mandate on the bench.
+    ///  Consumed and nonexistent entries are treated as weight 0 and are reclaimed
+    ///  first, so the bench self-cleans as the machine is reborn. The scan is a
+    ///  fixed 8 slots whatever the proposal count, which keeps the O(1) rebirth
+    ///  gas {MAX_LEADER_SCAN} was introduced for.
+    uint256[BENCH_SLOTS] private _bench;
+
     // -----------------------------------------------------------------------
     // Events
     // -----------------------------------------------------------------------
@@ -364,7 +400,29 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             _runnerId = proposalId;
         }
 
+        _benchRecord(proposalId, p.votes);
+
         emit Voted(proposalId, msg.sender, weight, p.votes);
+    }
+
+    /// @dev Keep `id` on the bench if it out-weighs the weakest thing already
+    ///      there. See {_bench}. O(BENCH_SLOTS) and only on the first vote that
+    ///      reaches an untracked proposal.
+    function _benchRecord(uint256 id, uint256 votes) private {
+        uint256 weakSlot;
+        uint256 weakVotes = type(uint256).max;
+        for (uint256 i; i < BENCH_SLOTS; ++i) {
+            uint256 b = _bench[i];
+            if (b == id) return;                       // already tracked
+            uint256 v;
+            if (b != 0) {
+                Proposal storage q = _proposals[b];
+                //  A consumed or vanished entry is dead weight, not a mandate.
+                if (q.exists && !q.consumed) v = q.votes;
+            }
+            if (v < weakVotes) { weakVotes = v; weakSlot = i; }
+        }
+        if (votes > weakVotes) _bench[weakSlot] = id;
     }
 
     // -----------------------------------------------------------------------
@@ -476,15 +534,20 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     /// @dev BOUNDED scan over the most recent SETTLED (voting-closed), unconsumed
     ///      proposals. See {MAX_LEADER_SCAN}.
     function _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes) {
-        uint256 n = proposalCount;
-        uint256 first = n > MAX_LEADER_SCAN ? n - MAX_LEADER_SCAN + 1 : 1;
-        for (uint256 i = first; i <= n; i++) {
-            Proposal storage p = _proposals[i];
+        //  OVER THE BENCH, NOT OVER THE PROPOSAL LIST. `uint256 first = n >
+        //  MAX_LEADER_SCAN ? n - MAX_LEADER_SCAN + 1 : 1` selected on proposal id,
+        //  and proposal ids are something any holder of one MiFren can mint without
+        //  cooldown or deposit — so the window was floodable and a voted, settled,
+        //  unconsumed mandate could be pushed out of it. See {_bench}.
+        for (uint256 i; i < BENCH_SLOTS; ++i) {
+            uint256 id = _bench[i];
+            if (id == 0) continue;
+            Proposal storage p = _proposals[id];
             if (!p.exists || p.consumed) continue;
             if (block.timestamp <= p.votingEndsAt) continue; // still open for votes
             if (p.votes > bestVotes) {
                 bestVotes = p.votes;
-                bestId = i;
+                bestId = id;
             }
         }
     }
