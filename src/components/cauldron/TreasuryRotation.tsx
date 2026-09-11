@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePublicClient } from "wagmi";
-import { parseUnits, type Address } from "viem";
+import { useAccount, usePublicClient } from "wagmi";
+import { formatUnits, type Address } from "viem";
 import { CAULDRON } from "@/config/cauldron";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
@@ -156,13 +156,22 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const { quotes } = useAllowedQuotes();
   const liveQuote = useCurrentQuote(gen);
   const from = quoteMeta(liveQuote);
-  const { env, refresh, checkVenue, rotateSlice, proposeEnvelope } = useTreasuryRotation();
+  const { env, refresh, checkVenue, quoteSlice, rotateSlice, proposeEnvelope } = useTreasuryRotation();
+  const { address } = useAccount();
 
   const [target, setTarget] = useState<string>("");
   const [maxSlip, setMaxSlip] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [venueOk, setVenueOk] = useState<boolean | null>(null);
+  //  The contract's own answer for THIS slice. null = it could not be quoted,
+  //  and an unquotable slice is one we refuse to sign a floor for.
+  const [expectedOut, setExpectedOut] = useState<bigint | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  //  WHICH LEG THE SLICE COMES FROM. 0 is the primary pool; the rest are legs
+  //  opened by earlier rotations. Declared here because the slice PREVIEW
+  //  below depends on it — the quote is per-leg, not per-generation.
+  const [fromLeg, setFromLeg] = useState(0);
 
   const to = quoteMeta((target || NATIVE_QUOTE) as Address);
   const targets = quotes.filter(
@@ -200,6 +209,19 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     return () => { live = false; };
   }, [route, checkVenue]);
 
+  //  PREVIEW THE SLICE. The panel must show the number it is going to sign, so
+  //  the expected output is quoted up front and re-quoted on every input that
+  //  changes it. `rotateSliceFrom` is simulated, never sent, by this effect.
+  useEffect(() => {
+    let live = true;
+    if (!route || env.idle) { setExpectedOut(null); return; }
+    setQuoting(true);
+    void quoteSlice(SLICE_BPS, route, fromLeg, address)
+      .then((out) => { if (live) setExpectedOut(out); })
+      .finally(() => { if (live) setQuoting(false); });
+    return () => { live = false; };
+  }, [route, fromLeg, address, env.idle, env.movedBps, quoteSlice]);
+
   //  HOW MUCH TO CONVERT. The contract has always taken any `maxTotalBps` up to
   //  MAX_ENVELOPE_BPS; the UI hardcoded the maximum, so every proposal was a
   //  near-total rotation and "move 30% into stables" was simply not expressible.
@@ -221,7 +243,6 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   //  opened by earlier rotations. Until the contract tracked legs this could not
   //  be offered at all — every rotation drained the original quote, so the
   //  treasury could split but never rebalance or merge back.
-  const [fromLeg, setFromLeg] = useState(0);
   const legs = env.legs ?? [];
   const srcMeta = quoteMeta(legs[fromLeg]?.quote ?? from.address);
   const slicesFor = (bps: number) => Math.floor(bps / SLICE_BPS);
@@ -246,14 +267,29 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     if (!route) { say("No route for this pair."); return; }
     setBusy("slice");
     try {
-      //  minOut is the caller's ONLY protection, and it must not be read from
-      //  the pool at execution time — a price read in the same transaction is a
-      //  price the caller's own swap can move. Derived from the slippage the
-      //  operator sets here, applied to the slice.
+      //  minOut is the caller's ONLY protection, and it is a PERCENTAGE OF THIS
+      //  SLICE — not a flat amount.
       //
-      //  0 would execute at any price. That is never the right default on a
-      //  permissionless entrypoint, so the field has no "off".
-      const minOut = parseUnits(String(Math.max(0, 1 - maxSlip / 100)), destMeta.decimals);
+      //  This line used to read
+      //      parseUnits(String(1 - maxSlip / 100), destMeta.decimals)
+      //  which is ~0.99 DESTINATION TOKENS whatever the slice is worth: a floor
+      //  of 0.99 USDG on a slice worth 7,500 USDG accepts a 99.99% loss while
+      //  the field above says "1%". At the other end, on a slice worth less than
+      //  one destination token the same constant EXCEEDS fair output and every
+      //  slice reverts. It was never a function of the trade.
+      //
+      //  The expected output is re-read from the contract immediately before
+      //  signing (a stale quote is a stale floor), and the slippage is applied
+      //  to THAT. 0 would execute at any price, so an unquotable slice is
+      //  refused rather than signed with a floor we invented.
+      const expected = await quoteSlice(SLICE_BPS, route, fromLeg, address);
+      setExpectedOut(expected);
+      if (expected === null) {
+        say("Could not quote this slice — refusing to sign an unbounded floor.");
+        return;
+      }
+      const slipBps = BigInt(Math.min(5_000, Math.max(0, Math.round(maxSlip * 100))));
+      const minOut = (expected * (10_000n - slipBps)) / 10_000n;
       await rotateSlice(SLICE_BPS, minOut, route, fromLeg);
       say(`Moved one ${(SLICE_BPS / 100).toFixed(0)}% slice from ${srcMeta.symbol} into ${destMeta.symbol}.`);
       await refresh();
@@ -369,6 +405,22 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             />
             %
           </label>
+
+          {/*  THE NUMBER THAT WILL BE SIGNED. A slippage field that does not
+               show the resulting floor is a promise the transaction need not
+               keep — which is exactly how a flat 0.99-token floor sat behind a
+               control reading "1%" without anyone noticing. */}
+          <p className="tr-note tc-mono">
+            {quoting
+              ? "Quoting this slice…"
+              : expectedOut === null
+                ? "This slice cannot be quoted right now — the panel will not sign a floor it cannot justify."
+                : `One ${(SLICE_BPS / 100).toFixed(0)}% slice returns about ${
+                    Number(formatUnits(expectedOut, destMeta.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 })
+                  } ${destMeta.symbol}. You will sign a minimum of ${
+                    Number(formatUnits((expectedOut * (10_000n - BigInt(Math.min(5_000, Math.max(0, Math.round(maxSlip * 100)))))) / 10_000n, destMeta.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 })
+                  } ${destMeta.symbol}.`}
+          </p>
 
           {venueOk === false && (
             <p className="tr-warn tc-mono">

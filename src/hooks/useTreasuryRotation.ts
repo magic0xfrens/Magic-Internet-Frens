@@ -279,6 +279,43 @@ export function useTreasuryRotation() {
   }, [pc]);
 
   /**
+   * WHAT ONE SLICE WOULD ACTUALLY RETURN — asked of the contract, not guessed.
+   *
+   * `rotateSliceFrom` returns `moved`, which is the destination-side OUTPUT of
+   * the swap (`RedemptionExt` :398 assigns it from `IQuoteRotator.swapOnce`,
+   * whose return is `out`). Simulating the real call with `minOut = 0` therefore
+   * yields this slice's expected output at current state, in the destination
+   * asset's own units — including the slice's size, the leg it comes from and
+   * the pool's depth, none of which the UI can infer on its own.
+   *
+   * This is the number a slippage percentage has to be a percentage OF. The
+   * panel used to sign `1 - maxSlip` DESTINATION TOKENS flat, which is not a
+   * function of the slice at all: ~0.99 whether the slice was worth 0.25 ETH or
+   * 25 ETH.
+   *
+   * Returns null when the call cannot be simulated (no envelope, uncurated
+   * venue, oracle floor unmet). The caller must then refuse to sign rather than
+   * substitute a floor of its own.
+   */
+  const quoteSlice = useCallback(
+    async (sliceBps: number, route: RouteKey, fromLeg = 0, account?: Address): Promise<bigint | null> => {
+      if (!pc) return null;
+      try {
+        const { result } = await pc.simulateContract({
+          address: CAULDRON.registry, abi: REGISTRY_ROTATE_ABI, functionName: "rotateSliceFrom",
+          args: [fromLeg, sliceBps, 0n, route],
+          ...(account ? { account } : {}),
+        });
+        const out = (result as readonly [bigint, bigint])[0];
+        return out > 0n ? out : null;
+      } catch {
+        return null;
+      }
+    },
+    [pc],
+  );
+
+  /**
    * Move ONE slice. Permissionless within the approved envelope: the
    * destination and the ceiling come from the vote, so the caller chooses only
    * the timing, and `minOut` bounds what bad timing can cost.
@@ -314,5 +351,5 @@ export function useTreasuryRotation() {
     });
   }, [writeContractAsync, env.governor]);
 
-  return { env, refresh: load, checkVenue, rotateSlice, proposeEnvelope, voteEnvelope, executeEnvelope };
+  return { env, refresh: load, checkVenue, quoteSlice, rotateSlice, proposeEnvelope, voteEnvelope, executeEnvelope };
 }
