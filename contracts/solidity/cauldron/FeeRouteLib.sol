@@ -149,6 +149,17 @@ library FeeRouteLib {
         private
         returns (bool ok)
     {
+        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL DELIVERY (red-team X4e — the
+        //  twin of X4c, on the perp-engine path). The EVM reports `success` for
+        //  a call to an address with no code, and these pull entrypoints return
+        //  nothing, so returndata cannot tell the two apart. Against a
+        //  misconfigured `to` this reported delivered while nothing was credited
+        //  to any staker — and on the NATIVE branch it was worse than the ERC20
+        //  one: the ether really left and sat at a codeless address with no way
+        //  back. Checking BEFORE either branch means the value never moves, the
+        //  caller is told false, and the share rolls into the relaunch reserve,
+        //  which has an exit (`releaseRelaunchETH` / `releaseRelaunchAsset`).
+        if (to.code.length == 0) return false;
         if (asset == address(0)) {
             (ok, ) = to.call{value: amount}(abi.encodeWithSelector(nativeSel));
             return ok;
@@ -208,6 +219,17 @@ library FeeRouteLib {
         bytes4 selector
     ) external returns (bool ok) {
         if (amount == 0) return true;
+        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL DELIVERY (red-team X4e — the
+        //  twin of X4c, on the perp-engine path). The EVM reports `success` for
+        //  a call to an address with no code, and these pull entrypoints return
+        //  nothing, so returndata cannot tell the two apart. Against a
+        //  misconfigured `to` this reported delivered while nothing was credited
+        //  to any staker — and on the NATIVE branch it was worse than the ERC20
+        //  one: the ether really left and sat at a codeless address with no way
+        //  back. Checking BEFORE either branch means the value never moves, the
+        //  caller is told false, and the share rolls into the relaunch reserve,
+        //  which has an exit (`releaseRelaunchETH` / `releaseRelaunchAsset`).
+        if (to.code.length == 0) return false;
         if (asset == address(0)) {
             (ok, ) = to.call{value: amount}(abi.encodeWithSelector(nativeSelector));
             return ok;
