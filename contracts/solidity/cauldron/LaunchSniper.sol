@@ -13,9 +13,19 @@ interface IRegistryCurrent {
     function currentToken() external view returns (address);
 }
 
+/// @dev MUST mirror `CauldronGachaRouter.play` EXACTLY (CauldronGachaRouter.sol:233).
+///  This interface used to declare a FOUR-argument `play` — selector 0x1ca5b161
+///  against the router's real 0x7fe7c4b6 — and the router has no fallback, so
+///  `launch()` reverted unconditionally and the atomic launch+buy could never
+///  run (blind red-team X5b). Five arguments, quote-first.
 interface IGachaPlay {
-    function play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax)
-        external payable returns (uint256);
+    function play(
+        uint256 quoteIn,
+        uint256 tokenIn,
+        uint256 minTokenOut,
+        uint256 minQuoteOut,
+        uint256 openMax
+    ) external payable returns (uint256);
 }
 
 /**
@@ -73,7 +83,12 @@ contract LaunchSniper is Ownable {
         // 2. Snipe the fresh pool tax-free (this contract is hook-exempt). The
         //    router tags the swap with this contract as the player, so exemption
         //    applies and the $GNOME lands here.
-        IGachaPlay(gachaRouter).play{value: msg.value}(0, minGnomeOut, 0, openMax);
+        //  `quoteIn` MUST be 0 here: iteration #1 is always a native-quote
+        //  generation (the presale pot is ether), and the router's `_pullQuote`
+        //  reverts `NativeQuoteTakesValue()` if a native play passes a non-zero
+        //  `quoteIn` alongside `msg.value`. `tokenIn = 0` (pure buy),
+        //  `minTokenOut = minGnomeOut` is the slippage floor, `minQuoteOut = 0`.
+        IGachaPlay(gachaRouter).play{value: msg.value}(0, 0, minGnomeOut, 0, openMax);
 
         // 3. Forward the bought $GNOME to the airdrop distributor.
         gnomeBought = IERC20(token).balanceOf(address(this));
