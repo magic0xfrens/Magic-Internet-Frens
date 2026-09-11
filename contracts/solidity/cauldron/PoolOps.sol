@@ -1048,10 +1048,34 @@ library PoolOps {
         //  a funded answer before still returns one. When `recovered == 0` every
         //  branch behaves exactly as it did.
         //
+        //  ── `vaultSwept` IS WEI, AND ONLY THE NATIVE BRANCH MEASURES IN WEI
+        //     (blind red-team X5c) ────────────────────────────────────────────
+        //  `CauldronVault.close()` (:119) sweeps `address(this).balance` — always
+        //  native. The caller feeds this third return straight into
+        //  `crystallizeCollection` as the NUMERATOR over `totalETH`
+        //  (Registry:1026-1028 → PoolOps:1356 `mulDiv(swept, activeBase, totalETH)`),
+        //  and `totalETH` is the SECOND return, denominated in whatever quote the
+        //  branch below picked. Reporting wei out of branch 1 or 3 therefore
+        //  divided wei by 6-decimal USDG units: ~20 gwei donated to the dying
+        //  vault (its `receive()` is open to anyone) crystallized the dead
+        //  collection's entitlement at the whole newborn active tranche, and
+        //  `CollectionLedger` (:143-154) has no downward adjuster.
+        //
+        //  Pricing wei into the new quote would need an oracle in the one
+        //  function that must never be the reason the machine cannot be reborn —
+        //  the trade this function already refuses to make. The honest answer is
+        //  that on a non-native rebirth the swept ether does NOT enter the
+        //  newborn's book at all (branches 1 and 3 seed from `recovered` + the
+        //  per-asset reserve; the wei just lands in the registry), so the dead
+        //  collection bought none of the new supply with it and its ETH-sized
+        //  entitlement is zero. Only branch 2 folds `vaultSwept` into the amount
+        //  it returns, so only branch 2 may report it: numerator and denominator
+        //  then come from the same addition and cannot disagree.
+        //
         // 1. The proposal's choice, if value already exists in that denomination.
         if (wantQuote != address(0) && (recovered == 0 || oldQuote == wantQuote)) {
             uint256 p = (oldQuote == wantQuote ? recovered : 0) + _pullAsset(hookAddr, wantQuote);
-            if (p > 0) return (wantQuote, p, vaultSwept);
+            if (p > 0) return (wantQuote, p, 0);
         }
         // 2. Native — recovery counts toward it only if the dead pool WAS native,
         //    so this branch is skipped when it would abandon a non-native one.
@@ -1061,9 +1085,9 @@ library PoolOps {
         }
         // 3. Last resort: the dying generation's own quote.
         if (oldQuote != address(0) && recovered > 0) {
-            return (oldQuote, recovered + _pullAsset(hookAddr, oldQuote), vaultSwept);
+            return (oldQuote, recovered + _pullAsset(hookAddr, oldQuote), 0);
         }
-        return (address(0), 0, vaultSwept);
+        return (address(0), 0, 0);
     }
 
     /// @dev Best-effort pull of the hook's per-asset relaunch reserve. This is also
