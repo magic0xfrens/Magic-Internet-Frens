@@ -22,6 +22,7 @@ import {INFTContract} from "./interfaces/INFTContract.sol";
 import {ICauldronCollection} from "./cauldron/ICauldron.sol";
 import {IDeathChecker} from "./cauldron/IDeathChecker.sol";
 import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/IPolicies.sol";
+import {SurtaxLib} from "./cauldron/SurtaxLib.sol";
 import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 import {FeeRouteLib} from "./cauldron/FeeRouteLib.sol";
 
@@ -1362,59 +1363,16 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         is no cleanly-predictable "cheap" block to schedule an entry into —
     ///         you can't just ape the block after a fixed window.
     function snipeSurtaxBps(PoolId id) public view returns (uint256) {
-        ISurtaxPolicy pol = surtaxPolicy;
-        if (address(pol) != address(0)) {
-            try pol.surtaxBps(id, poolInitBlock[id], snipeMaxBps, snipeWindowBlocks) returns (uint256 b) {
-                // Clamp to the hard cap so a module can't exceed the max surtax.
-                return b > MAX_SNIPE_BPS ? MAX_SNIPE_BPS : b;
-            } catch { /* fall through to built-in */ }
-        }
-        return _defaultSurtaxBps(id);
+        //  Policy preference, fallback and BOTH clamps live in the linked
+        //  {SurtaxLib} so this contract stays under EIP-170. The try/catch that
+        //  keeps a reverting module from bricking the fee path is the expensive
+        //  part and it moved intact; every input is still read HERE, so the
+        //  getters the indexer and the frontend use are unmoved.
+        return SurtaxLib.surtaxBps(
+            address(surtaxPolicy), id, poolInitBlock[id], snipeMaxBps, snipeWindowBlocks, MAX_SNIPE_BPS
+        );
     }
 
-    /// @dev Built-in anti-sniper surtax curve (linear decay + prevrandao jitter).
-    function _defaultSurtaxBps(PoolId id) internal view returns (uint256) {
-        uint256 maxBps = snipeMaxBps;
-        uint256 window = snipeWindowBlocks;
-        if (maxBps == 0 || window == 0) return 0;
-        uint256 start = poolInitBlock[id];
-        if (start == 0) return 0;
-        uint256 elapsed = block.number - start;
-        if (elapsed >= window) return 0;
-
-        uint256 remaining = window - elapsed;
-        // Deterministic decay: high at launch, fading to 0 across the window.
-        uint256 decayed = (maxBps * remaining) / window;
-        // Per-block jitter, also fading with the window, so late-window blocks can
-        // still randomly spike — a sniper can't pick a guaranteed-cheap block.
-        //
-        // ENTROPY (audit L-02). `prevrandao` is useless here: it is a constant (1)
-        // on Arbitrum/Orbit. The previous blockhash varies per block but is KNOWN to
-        // everyone during block N, so a sniper submitting into N could compute the
-        // exact surtax and skip expensive blocks. We therefore also fold in the
-        // pool's LIVE tick, which moves with the very trade being priced and is not
-        // knowable at submission time.
-        //
-        // JITTER MUST *ADD*, NOT `max` (red-team B-03). The previous form returned
-        // `max(decayed, jitter)`, but `rnd ∈ [0, maxBps]` and both terms carry the
-        // identical `remaining/window` factor under the same floor division, so
-        // `jitter <= decayed` for ALL inputs and the `max` was ALWAYS `decayed` —
-        // the tick term was dead code and the surtax was fully predictable from the
-        // block number alone, defeating the entire point of this branch. Adding the
-        // jitter on TOP of the decay makes it genuinely raise the rate (as the
-        // comment always claimed), so a "cheap" late-window block can still spike by
-        // an amount unknowable at submission. Clamped to `maxBps` so the surtax can
-        // never exceed its configured peak; `snipeSurtaxBps` clamps again to
-        // MAX_SNIPE_BPS, and `_takeEthFee` clamps the COMBINED rate so a trade always
-        // leaves >=1% to execute.
-        (, int24 tick,,) = poolManager.getSlot0(id);
-        uint256 rnd = uint256(
-            keccak256(abi.encodePacked(blockhash(block.number - 1), PoolId.unwrap(id), block.number, tick))
-        ) % (maxBps + 1);
-        uint256 jitter = (rnd * remaining) / window;
-        uint256 total = decayed + jitter;
-        return total > maxBps ? maxBps : total;
-    }
 
     /**
      * @dev Take the ETH fee for `ethAmount`: the base holder tax PLUS the decaying
