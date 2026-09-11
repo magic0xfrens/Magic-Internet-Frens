@@ -27,6 +27,23 @@ interface SwapWidgetProps {
 const BUY_QUICK = [0.01, 0.05, 0.1, 0.25];
 const SELL_PCTS = [25, 50, 100];
 
+/**
+ * SLIPPAGE — the floor every trade signs.
+ *
+ * Both legs used to pass `minOut = 0n` (`buy(eth, 0n, …)` and
+ * `sell(tokensIn, 0n, …)`), which tells the router "fill me at ANY price". The
+ * router takes a floor on both sides (`play(quoteIn, tokenIn, minTokenOut,
+ * minQuoteOut, openMax)`) and the hook forwards one — only the widget never
+ * supplied it. A sandwich could take the entire trade and the transaction would
+ * still succeed, on the path every ordinary user trades through.
+ *
+ * 1% by default, adjustable, because a fixed tolerance chosen silently on the
+ * user's behalf is the other half of the same mistake.
+ */
+const SLIP_PRESETS = [0.5, 1, 3] as const;
+const DEFAULT_SLIP_PCT = 1;
+const MAX_SLIP_PCT = 50;
+
 function compact(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0";
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
@@ -45,6 +62,7 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
   const [buyAmt, setBuyAmt] = useState<string>("0.05");
   const [sellAmt, setSellAmt] = useState<string>("");
   const [err, setErr] = useState<string>("");
+  const [slipPct, setSlipPct] = useState<number>(DEFAULT_SLIP_PCT);
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { buy, sell, approveToken, isPending, confirming, confirmed, reset, txHash } = useCauldronSwap();
@@ -74,6 +92,21 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
   const tokensIn = parseFloat(sellAmt) || 0;
   const estTokensOut = useMemo(() => (spotPrice > 0 ? eth / spotPrice : 0), [eth, spotPrice]);
   const estEthOut = useMemo(() => tokensIn * spotPrice, [tokensIn, spotPrice]);
+  //  The floor that will actually be signed, in the unit the router compares
+  //  against: token wei on a buy, ETH wei on a sell. Derived from the SAME
+  //  estimate shown above it, so the number on screen and the number in the
+  //  calldata cannot drift apart.
+  const slipBps = BigInt(Math.min(MAX_SLIP_PCT * 100, Math.max(0, Math.round(slipPct * 100))));
+  const minOutFor = (expected: number): bigint => {
+    if (!Number.isFinite(expected) || expected <= 0) return 0n;
+    try { return (parseEther(expected.toFixed(18)) * (10_000n - slipBps)) / 10_000n; }
+    catch { return 0n; }
+  };
+  const expectedOut = mode === "buy" ? estTokensOut : estEthOut;
+  const minOut = minOutFor(expectedOut);
+  //  No mark, no floor — and a floor of 0 is exactly the bug. Refuse instead.
+  const priceable = spotPrice > 0;
+
   const needsApproval = mode === "sell" && tokensIn > 0 &&
     (allowanceWei == null || (allowanceWei as bigint) < (() => { try { return parseEther((tokensIn).toFixed(18)); } catch { return 0n; } })());
 
@@ -93,14 +126,18 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
     try {
       if (mode === "buy") {
         if (eth <= 0) { setErr("Enter an ETH amount"); return; }
-        await buy(eth, 0n, 0, liqHint);
+        if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
+        await buy(eth, minOut, 0, liqHint);
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
         if (needsApproval) { await approveToken(token); return; } // approve first
+        if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         // Pass the exact on-chain balance so a "MAX" that rounds a hair high
         // (float precision on big balances) is clamped instead of reverting.
-        await sell(tokensIn, 0n, 0, liqHint, balanceWei as bigint | undefined);
+        await sell(tokensIn, minOut, 0, liqHint, balanceWei as bigint | undefined);
       }
     } catch (e: unknown) {
       const m = e as { shortMessage?: string; message?: string };
@@ -138,6 +175,14 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
         .sw__lbl { font-family: "DM Mono", monospace; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: ${C.mute}; }
         .sw__sub { font-family: "DM Mono", monospace; font-size: 9px; color: ${C.mute}; }
         .sw__row { display: flex; align-items: center; gap: 8px; }
+        .sw__slip { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 9px 0 6px; }
+        .sw__slip-l { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: ${C.mute}; }
+        .sw__slip-opts { display: flex; align-items: center; gap: 4px; }
+        .sw__slip-chip { padding: 3px 7px; border-radius: var(--r-sm); border: 1px solid rgba(255,255,255,0.08); background: rgba(8,6,15,0.5); color: ${C.mute}; font-family: "DM Mono", monospace; font-size: 10px; cursor: pointer; }
+        .sw__slip-chip--on { color: ${C.void}; background: ${side}; border-color: ${side}; }
+        .sw__slip-input { width: 34px; padding: 3px 4px; border-radius: var(--r-sm); border: 1px solid rgba(255,255,255,0.08); background: rgba(8,6,15,0.5); color: #fff; font-family: "DM Mono", monospace; font-size: 10px; text-align: right; }
+        .sw__slip-pct { font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; }
+        .sw__out--min .sw__out-v { color: ${C.mute}; }
         .sw__input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 20px; color: ${C.cream}; letter-spacing: -0.01em; }
         .sw__input::placeholder { color: rgba(143,131,184,0.45); }
         .sw__coin { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--r-chip); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 11px; color: ${C.cream}; white-space: nowrap; }
@@ -218,6 +263,33 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
           <p className="sw__gacha">Selling swaps ${ticker} back to ETH. A one-time approval is needed first.</p>
         </>
       )}
+
+      {/*  THE SLIPPAGE CONTROL AND THE NUMBER IT PRODUCES. A tolerance the user
+           cannot see or change is not protection, and a widget that shows an
+           estimate while signing a floor of zero is actively misleading. */}
+      <div className="sw__slip">
+        <span className="sw__slip-l">Max slippage</span>
+        <div className="sw__slip-opts">
+          {SLIP_PRESETS.map((sp) => (
+            <button key={sp} className={`sw__slip-chip ${slipPct === sp ? "sw__slip-chip--on" : ""}`}
+              onClick={() => setSlipPct(sp)}>{sp}%</button>
+          ))}
+          <input className="sw__slip-input" inputMode="decimal" value={slipPct}
+            aria-label="Max slippage percent"
+            onChange={(e) => setSlipPct(Math.min(MAX_SLIP_PCT, Number(e.target.value.replace(/[^0-9.]/g, "")) || 0))} />
+          <span className="sw__slip-pct">%</span>
+        </div>
+      </div>
+      <div className="sw__out sw__out--min">
+        <span className="sw__out-l">minimum received</span>
+        <span className="sw__out-v">
+          {!priceable
+            ? "unpriceable — will not sign"
+            : mode === "buy"
+              ? `${compact(Number(formatEther(minOut)))} $${ticker}`
+              : `${Number(formatEther(minOut)).toFixed(6)} \u039e`}
+        </span>
+      </div>
 
       <button className={`sw__cta ${busy ? "sw__cta--busy" : ""}`} onClick={onAction}
         disabled={busy || (isConnected && (mode === "buy" ? eth <= 0 : tokensIn <= 0 && !needsApproval))}>
