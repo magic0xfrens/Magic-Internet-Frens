@@ -170,6 +170,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     ///         `quoteIn`, and send no value (it would strand here).
     error ErcQuoteTakesNoValue();
     error BadLoops();
+    error OwnershipCannotBeRenounced();
 
     event Played(address indexed player, uint256 playWei, uint256 opened);
     event Churned(address indexed player, uint256 loops, uint256 volumeWei, uint256 opened);
@@ -575,6 +576,19 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     ///  gated exactly like {rescueETH}.
     function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         _safeTransfer(token, to, amount);
+    }
+
+    /// @notice DISABLED (blind red-team X4f). `Ownable` ships a live
+    ///         `renounceOwnership()`, and every owner-gated path on this router is
+    ///         a recovery or a repair: {rescueETH} and {rescueToken} are the ONLY
+    ///         exits for value stranded here, and {setOracle} is how the odds-curve
+    ///         conversion is repointed when the oracle changes. Renouncing would
+    ///         permanently seal all three — a router that could no longer return a
+    ///         player's stranded quote to them, ever. There is no upside: the owner
+    ///         cannot touch a live play, which settles entirely inside one unlock
+    ///         callback.
+    function renounceOwnership() public pure override {
+        revert OwnershipCannotBeRenounced();
     }
 
     receive() external payable {}
