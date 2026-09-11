@@ -154,5 +154,5 @@ contract B15_RotationErrorsAreDistinguishable is Test {
 /// @dev Reports no live envelope, which is the normal resting state.
 contract NoEnvelopeGovernor {
     function allowance() external pure returns (address, uint16) { return (address(0), 0); }
-    function consume(uint16) external {}
+    function consume(uint16, bool) external {}
 }

@@ -115,13 +115,86 @@ contract F10_QuoteRotationTotality is YBase {
             "generationQuote must follow a completed rotation"
         );
 
-        //  2. AND THE PERP ENGINE CAN NOW ADOPT IT. Pre-fix this reverted
-        //     `AlreadySynced` because the generation number had not changed.
-        perp.syncGeneration();
-        assertEq(
-            perp.quote(), address(usdg),
-            "the perp engine must mark against the asset the pool now trades"
-        );
+        //  2. AND THE PERP ENGINE ALREADY FOLLOWED IT — with NO keeper call.
+        //
+        //  This assertion used to call `perp.syncGeneration()` first, because
+        //  adopting the new quote was a separate, permissionless step someone had
+        //  to remember to take. That left a window: between the final slice and
+        //  whoever called sync, `PerpEngine.quote` still pointed at the drained
+        //  pool, and `_guardOpen` (PerpEngine.sol:1210-1214) checks warmup, death
+        //  and leverage but NOT quote freshness — so a trader could open in that
+        //  window and pin the engine there, since `syncGeneration` then reverts
+        //  `PositionsOpen()` (:987) and `forceClose*` both require a DEAD
+        //  generation (:937, :950).
+        //
+        //  `rotateSlice` now re-points the engine in the same transaction that
+        //  flips the quote (RedemptionExt.sol, at the `stillRotating` branch).
+        //  That is safe precisely there and nowhere else: reaching it required
+        //  `linkVolume` to succeed earlier in the same call, and that reverts
+        //  `PerpsOpen()` unless `openCount == 0` (CauldronHook.sol:1518).
+        //
+        //  Asserted BEFORE any sync call, so this proves the engine followed on
+        //  its own rather than proving a keeper can fix it after the fact.
+        //  ── AMENDED, AND STRENGTHENED, BY R-08 ──────────────────────────────
+        //  Adoption is the RIGHT outcome but it is not unconditional, and the
+        //  condition is not cosmetic. `PerpEngine.plv` is a bare COUNTER of the
+        //  quote asset and every payout leaves through `_pushQuote`, which pays in
+        //  whatever `quote` names TODAY. So adopting a new quote while the LP
+        //  vault holds value silently re-denominates staked capital: measured,
+        //  an ETH staker's `withdrawEth` reverted `BadParam()` inside
+        //  `_safeTransfer` with their ether sitting in the engine and no call able
+        //  to reach it, and the next honest depositor in the NEW asset could be
+        //  redeemed against by the stale ETH-side shares. {syncGeneration} now
+        //  refuses while `plv != 0`.
+        //
+        //  The property this test exists to protect is NOT "the slot changed" —
+        //  it is "the engine never prices, or sells leverage against, a pool the
+        //  liquidity has left". Both branches are asserted, so the end is pinned
+        //  however the means resolves:
+        //
+        //    plv == 0  -> the engine ADOPTS, exactly as before (no keeper call).
+        //    plv != 0  -> the engine PARKS: {_isDead} reads the divergence as
+        //                 death, so `_guardOpen` refuses new leverage (closing
+        //                 the pin-the-engine window this test was written for)
+        //                 and the book is force-closeable by anyone.
+        if (perp.plv() == 0) {
+            assertEq(
+                perp.quote(), address(usdg),
+                "the perp engine must mark against the asset the pool now trades"
+            );
+        } else {
+            assertEq(perp.quote(), address(0), "a funded engine keeps the asset it can pay in");
+            //  It must be INERT while diverged, or this branch would be a hole.
+            address late = address(0xF10DEF);
+            vm.deal(late, 1 ether);
+            vm.prank(late, late);
+            vm.expectRevert(PerpEngine.TokenDead.selector);
+            perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
+            console2.log("engine PARKED (plv funded), new leverage refused:", perp.plv());
+        }
+
+        //  3. AND A REDUNDANT SYNC IS A NO-OP, not a correction. `AlreadySynced`
+        //     here is the positive signal that step 2 was not luck: there is
+        //     nothing left for a keeper to adopt. On the parked branch the
+        //     equivalent signal is `VaultStaked` — the refusal is deliberate and
+        //     named, not an incidental failure, and it LIFTS once the vault is
+        //     drained, which is asserted below rather than assumed.
+        if (perp.plv() == 0) {
+            vm.expectRevert(PerpEngine.AlreadySynced.selector);
+            perp.syncGeneration();
+        } else {
+            vm.expectRevert(PerpEngine.VaultStaked.selector);
+            perp.syncGeneration();
+
+            //  THE PARK IS TEMPORARY, WHICH IS WHAT MAKES IT ACCEPTABLE: the
+            //  refusal lifts the moment the quote-side capital is drained, and the
+            //  engine then adopts on an ordinary permissionless call — no
+            //  privileged key and no relaunch. This rig has no PerpVault wired
+            //  (`_bootPerp` seeds `plv` straight from the owner), so the
+            //  drain-then-adopt leg is proved where a real vault exists:
+            //  S06_PerpVaultSolvency::test_S06_POC_QuoteRotationDrainsTheNewQuoteStakers.
+            console2.log("engine parked pending a drain; plv:", perp.plv());
+        }
     }
 
     /// @dev Stand up the ETH/USDG venue the rotation swaps through, and curate
@@ -180,6 +253,8 @@ contract F10_QuoteRotationTotality is YBase {
 contract FVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
-    function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev Mirrors `Votes.getPastTotalSupply` — the quorum denominator the
+    ///      real vote source ({MiFrensGenesis}) actually implements.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }

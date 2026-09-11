@@ -66,6 +66,30 @@ contract PerpVault is ReentrancyGuard {
     IPerpEngineVault public immutable engine;
     IVaultRegistry public immutable registry;
 
+    //  ── "ETH" HERE MEANS "THE QUOTE SIDE", NOT NECESSARILY ETHER ──────────
+    //  Every name in this block — `ethShares`, `pendingEth`, `assetsEth`,
+    //  `withdrawEth`, `claimPendingEth` — predates multi-quote and is now a
+    //  LEGACY LABEL for the side of the book denominated in the engine's `quote`.
+    //  The mechanics are quote-agnostic and always were: {deposit} branches on
+    //  `_engineQuote()` to pull native or ERC20, and every payout leaves through
+    //  `PerpEngine._pushQuote`, which pays in whatever `quote` names today.
+    //  `depositEth()` is a native-only convenience that correctly reverts on an
+    //  ERC20-quoted brew.
+    //
+    //  THE NAMES ARE KEPT because they are public ABI (frontend, indexer and
+    //  tests all read `ethShares`/`pendingEth`), and renaming buys nothing a
+    //  comment cannot. But a name that lies has cost this protocol three real
+    //  bugs — `ethRecovered` summing 6-decimal USDG into native wei (R-02),
+    //  `totalETH` at relaunch, and `plv` counting one asset while `quote` named
+    //  another (R-08) — so the rule is written down rather than assumed:
+    //
+    //      ONE ASSET AT A TIME. This side holds exactly one denomination, the
+    //      engine's current `quote`. {PerpEngine.syncGeneration} refuses to adopt
+    //      a new quote while `plv != 0`, so the asset cannot change underneath a
+    //      staker: the vault must be drained first, and a queue left against zero
+    //      backing is written down to zero by {_haircut} before then.
+    //
+    //  Anything added here must hold that invariant or convert explicitly.
     // ── ETH side ──
     uint256 public ethShares;                       // total ETH-side shares
     mapping(address => uint256) public ethShareOf;
@@ -108,6 +132,29 @@ contract PerpVault is ReentrancyGuard {
     constructor(address _engine, address _registry) {
         engine = IPerpEngineVault(_engine);
         registry = IVaultRegistry(_registry);
+    }
+
+    /// @notice Does anyone still have value in this vault — live shares on either
+    ///         side, or an unclaimed queued exit?
+    ///
+    ///  ── THE REPLACEMENT TEST FOR {PerpEngine.setVault} (red-team R-09) ─────
+    ///  That guard asked the ENGINE whether its balances were zero
+    ///  (`plv != 0 || plvToken != 0 || tokYieldEth != 0`), which conflates
+    ///  "someone is owed money" with "a counter is non-zero". Two kinds of
+    ///  residue that belong to NOBODY made it unsatisfiable forever:
+    ///
+    ///    - short-side yield credited while no token shares existed is orphaned
+    ///      by design (see the watermark note on {_foldTokYield}), and
+    ///      `tokYieldEth` is only ever decremented by paying an attributed
+    ///      claim — so an orphan can never be drained; and
+    ///    - redemption floors, so ordinary yield leaves one wei of `plv` dust
+    ///      behind the last staker.
+    ///
+    ///  Either one permanently removed the only lever for replacing a buggy vault
+    ///  on a live engine. Ownership of value is a question only the vault can
+    ///  answer, so it answers it here.
+    function hasStakers() external view returns (bool) {
+        return (ethShares | tokShares | pendingEth | pendingTok) != 0;
     }
 
     // ── asset bases (what backs LIVE shares, net of queued exits) ────────────
@@ -213,9 +260,39 @@ contract PerpVault is ReentrancyGuard {
         emit WithdrawEth(msg.sender, shares, paid, queued);
     }
 
+    /// @dev Write down `owed` if the queue as a whole outruns its backing.
+    ///
+    ///  ── A QUEUED EXIT IS A CLAIM, NOT A GUARANTEE (red-team L-3) ──────────
+    ///  `withdrawEth` converts at-risk SHARES into a fixed nominal claim that
+    ///  leaves the share base, so a queued exit stopped bearing bad-debt risk
+    ///  while still being first in line for the money. `assetsEth()` saturates at
+    ///  zero rather than letting the queue absorb its share of a loss, so every
+    ///  wei of a shortfall landed on whoever stayed staked. Measured on the real
+    ///  engine: lpA queued 0.4 ETH before a loss and recovered 84%; lpB, who did
+    ///  nothing, recovered 0% — and the vault still owed 0.0857 ETH more than the
+    ///  engine held. Queueing cost nothing, so it was every LP's dominant move:
+    ///  a bank run with a protocol-enforced starting gun.
+    ///
+    ///  Pro-rata is the honest rule: when backing < claims, each claimant is paid
+    ///  `owed * backing / claims` and the rest of their claim is written off, so
+    ///  the loss is shared in proportion rather than by reaction speed. Rounds
+    ///  DOWN (toward the vault), matching every other division here.
+    function _haircut(uint256 owed, uint256 backing, uint256 claims)
+        private
+        pure
+        returns (uint256)
+    {
+        if (claims == 0 || backing >= claims) return owed;
+        return FullMath.mulDiv(owed, backing, claims);
+    }
+
     /// @notice Claim a previously-queued ETH exit as liquidity frees up.
     function claimPendingEth() external nonReentrant returns (uint256 paid) {
         uint256 owed = pendingEthOf[msg.sender];
+        if (owed == 0) revert ZeroAmount();
+        //  Share any shortfall across the whole queue before paying (see {_haircut}).
+        uint256 capped = _haircut(owed, engine.totalEth(), pendingEth);
+        if (capped < owed) { pendingEth -= (owed - capped); pendingEthOf[msg.sender] = capped; owed = capped; }
         if (owed == 0) revert ZeroAmount();
         uint256 free = engine.freeEth();
         paid = owed <= free ? owed : free;
@@ -319,6 +396,10 @@ contract PerpVault is ReentrancyGuard {
     /// @notice Claim a previously-queued token exit as inventory frees up.
     function claimPendingToken() external nonReentrant returns (uint256 paid) {
         uint256 owed = pendingTokOf[msg.sender];
+        if (owed == 0) revert ZeroAmount();
+        //  Same pro-rata write-down as the ETH side (see {_haircut}).
+        uint256 capped = _haircut(owed, engine.totalTokenAssets(), pendingTok);
+        if (capped < owed) { pendingTok -= (owed - capped); pendingTokOf[msg.sender] = capped; owed = capped; }
         if (owed == 0) revert ZeroAmount();
         uint256 free = engine.freeToken();
         paid = owed <= free ? owed : free;

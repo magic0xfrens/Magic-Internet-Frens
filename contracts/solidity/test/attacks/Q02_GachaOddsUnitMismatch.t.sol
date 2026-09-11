@@ -29,9 +29,22 @@ contract BrokenOracle {
     function usdPerRawUnit(address) external pure returns (uint256) { revert("boom"); }
 }
 
-/// @dev Stands in for the registry the router reads `currentToken()` from.
+/// @dev Stands in for the registry the router reads its pool identity from.
+///
+///  Gained `currentGeneration`/`generationQuote` when the router stopped
+///  assuming native ETH (functional audit R-05): `_quote()` now asks the
+///  registry which asset the live generation trades, so a stub that cannot
+///  answer makes every priced path revert. `quote` is settable so the
+///  non-native case is testable; it defaults to `address(0)`, which is exactly
+///  the ETH-denominated world these Q-02 tests were written against.
 contract StubRegistry {
+    address public quote; // address(0) = native, the default
+
+    function setQuote(address q) external { quote = q; }
+
     function currentToken() external pure returns (address) { return address(0xB0B); }
+    function currentGeneration() external pure returns (uint256) { return 1; }
+    function generationQuote(uint256) external view returns (address) { return quote; }
 }
 
 /**

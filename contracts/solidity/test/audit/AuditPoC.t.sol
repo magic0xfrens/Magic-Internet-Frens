@@ -251,22 +251,24 @@ contract PoC_HookRoguePool is Test, IUnlockCallback {
             tickSpacing: 200,
             hooks: IHooks(address(hook))
         });
-        pm.initialize(rogueKey, uint160(1 << 96)); // 1:1
 
         assertEq(hook.relaunchETH(), 0, "no fees yet");
 
-        // Attacker adds their own worthless liquidity, then sells EVIL_B for
-        // EVIL_A (exact input, !zeroForOne) — so currency0 is the UNSPECIFIED leg
-        // and the hook treats it as "ETH".
-        pm.unlock(abi.encode(uint8(1), uint256(0)));
+        //  THE GATE MOVED EARLIER. This attack used to be defused by the hook
+        //  simply declining to TRACK a foreign pool: the rogue pool existed, the
+        //  swap went through, and every value path no-oped on `trackedPools`.
+        //  That left the pool creatable, which turned out to be the bigger
+        //  problem — an unadopted-but-live pool on the registry's next key
+        //  permanently bricks `relaunch` (see T01_PoolKeySquatRegression).
+        //  `_afterInitialize` now REVERTS for a non-registry sender, so the rogue
+        //  pool cannot be brought into existence in the first place.
+        bool created;
+        try pm.initialize(rogueKey, uint160(1 << 96)) { created = true; } catch {}
+        assertFalse(created, "FIXED: a foreign pool naming this hook cannot be initialized");
 
-        uint256 phantom = hook.relaunchETH();
-        console2.log("relaunchETH after the rogue-pool swap:", phantom);
-        console2.log("hook real ETH balance                :", address(hook).balance);
-
-        // FIXED: the pool was never adopted, so no fee was charged and no ETH-
-        // denominated accounting was created out of a worthless token.
-        assertEq(phantom, 0, "FIXED: no phantom relaunchETH from a foreign pool");
+        // The original property, still asserted: no ETH-denominated accounting
+        // was conjured out of two worthless tokens.
+        assertEq(hook.relaunchETH(), 0, "FIXED: no phantom relaunchETH from a foreign pool");
         assertFalse(hook.trackedPools(rogueKey.toId()), "FIXED: foreign pool not adopted");
         // The accounting therefore never exceeds the real balance (invariant I-6).
         assertLe(hook.relaunchETH() + hook.legacyBuffer(), address(hook).balance,
@@ -294,32 +296,29 @@ contract PoC_HookRoguePool is Test, IUnlockCallback {
             tickSpacing: 200,
             hooks: IHooks(address(hook))
         });
-        pm.initialize(ethEvilKey, _sqrtPriceFor(1e26, 1 ether));
 
         uint256 hookEthBefore = address(hook).balance;
-        uint256 attackerEthBefore = address(this).balance;
 
-        // One tiny swap in the attacker's own pool. At the TOP of afterSwap the
-        // hook fires `legacyBuyStep(key)` with the ATTACKER'S key and market-buys
-        // EVIL with the whole buffer — paying real ETH into the attacker's pool.
-        pm.unlock(abi.encode(uint8(2), uint256(0.001 ether)));
+        //  The attacker's venue cannot be built. `_afterInitialize` reverts for a
+        //  non-registry sender, so there is no pool to swap in and therefore no
+        //  `afterSwap` in which `legacyBuyStep` could be handed a hostile key.
+        bool created;
+        try pm.initialize(ethEvilKey, _sqrtPriceFor(1e26, 1 ether)) { created = true; } catch {}
+        assertFalse(created, "FIXED: the attacker cannot open a pool on this hook");
 
-        uint256 hookEthAfter = address(hook).balance;
-        uint256 attackerEthAfter = address(this).balance;
-
-        console2.log("hook ETH before / after  :", hookEthBefore, hookEthAfter);
-        console2.log("attacker ETH before/after:", attackerEthBefore, attackerEthAfter);
+        console2.log("hook ETH before / after  :", hookEthBefore, address(hook).balance);
         console2.log("hook legacyBuffer after  :", hook.legacyBuffer());
         console2.log("hook EVIL received       :", evilA.balanceOf(address(hook)));
 
-        // FIXED on two independent axes:
-        //  (1) the attacker's pool is not adopted, so no fee is taken there, and
+        // FIXED on three independent axes, outermost first:
+        //  (0) the attacker's pool cannot be created at all,
+        //  (1) an unadopted pool is not tracked, so no fee is taken there, and
         //  (2) even if it were, the buyback only spends into the registry's live
         //      key -- which is unset here, so it cannot fire at all.
-        assertGe(hookEthAfter, hookEthBefore, "FIXED: no hook ETH left the hook");
+        assertFalse(hook.trackedPools(ethEvilKey.toId()), "FIXED: attacker pool not adopted");
+        assertGe(address(hook).balance, hookEthBefore, "FIXED: no hook ETH left the hook");
         assertEq(evilA.balanceOf(address(hook)), 0, "FIXED: hook bought no attacker token");
         assertGe(hook.legacyBuffer(), 5 ether, "FIXED: the buffer is intact");
-        assertLt(attackerEthAfter, attackerEthBefore, "attacker only lost gas/slippage");
     }
 
     // ── unlock bodies ──────────────────────────────────────────────────────

@@ -59,6 +59,12 @@ contract RotationRoundTripTest is Test {
     IPoolManager pm;
     CauldronHook hook;
     CauldronRegistry registry;
+
+    /// @dev The hook's adoption gate reads this off whoever it holds as the
+    ///      registry. This contract stands in for that role (see {setUp}).
+    function allowedQuote(address q) external view returns (bool) {
+        return q == address(0) || q == address(usdg);
+    }
     QuoteRotator rotator;
     MockUSDG usdg;
 
@@ -91,9 +97,16 @@ contract RotationRoundTripTest is Test {
 
         registry = new CauldronRegistry(poolManager, positionManager, address(hook), address(0), 0);
         registry.setRedemptionExt(address(new RedemptionExt()));
-        hook.setRegistry(address(registry));
-        hook.setOpener(address(registry), true);
-        hook.setTaxExempt(address(registry), true);
+        //  THIS CONTRACT IS THE REGISTRY, for the hook's purposes. The tests below
+        //  call `PoolOps.openOrAddPair` directly — in production that library runs
+        //  delegatecalled inside the registry (RedemptionExt.rotateSlice), so the
+        //  `initialize` reaches the PoolManager as the registry. The hook's
+        //  adoption gate rejects a foreign initialize outright, so pointing it at
+        //  the contract that actually opens these pairs is what reproduces the
+        //  production caller rather than bypassing the gate.
+        hook.setRegistry(address(this));
+        hook.setOpener(address(this), true);
+        hook.setTaxExempt(address(this), true);
         registry.setFactory(address(new CauldronFactory()));
 
         usdg = new MockUSDG();

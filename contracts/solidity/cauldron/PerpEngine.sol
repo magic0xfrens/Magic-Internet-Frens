@@ -42,6 +42,11 @@ interface IMarkSource {
     function weightedTick() external view returns (int24);
 }
 
+/// @dev Just enough of {PerpVault} to ask whether anyone still has value in it.
+interface IPerpVaultStake {
+    function hasStakers() external view returns (bool);
+}
+
 interface IPerpHook {
     function isDead(PoolId id) external view returns (bool);
     /// @notice The active brew's NFT collection — where Liquidatoor badges mint.
@@ -112,18 +117,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     address internal nftBeneficiary;
     uint256 internal openFeeBps = 690;
     uint256 internal ogDiscountBps = 5_000;
-    uint256 public liqPenaltyBps = 690;
-    uint256 public divShareBps = 6_000;
+    //  `internal` to reclaim EIP-170 headroom for the R-07 staleness check in
+    //  {_isDead}. Cold config with no on-chain, test, frontend or indexer reader
+    //  (verified by grep across the repo) — read it from storage off-chain, the
+    //  same trade already made for `markSource` at :462.
+    uint256 internal liqPenaltyBps = 690;
+    uint256 internal divShareBps = 6_000;
     // Liquidator's cut of the penalty. 145 bps × the 6.9% penalty ≈ 0.1% of the
     // liquidated collateral — a tiny ETH tip; the Liquidatoor BADGE is the real
     // prize. (Also sizes the death-clearing keeper reward, but death-clearing is
     // now largely automatic via the relaunch auto-migrate.) Owner/timelock-tunable.
     uint256 public keeperBps = 145; // ≈ 0.1% of collateral to the liquidator
     uint256 public warmup = 24 hours;
-    uint256 public maxLeverageCeiling = 3;
+    uint256 internal maxLeverageCeiling = 3;
     uint256 public maintenanceBps = 1_500;
     uint256 public maxNotionalBps = 500;      // per-position notional ≤ 5% of depth
-    uint256 public maxOiBps = 3_000;          // per-side OI ≤ 30% of depth
+    //  `internal` to fund the R-07/L-2 guards against the EIP-170 ceiling. No
+    //  reader anywhere in the tree (tests, deploy scripts, frontend, indexer or
+    //  another contract) — verified by grep. Read it from storage off-chain, the
+    //  same trade already made for `markSource` and the tier arrays.
+    uint256 internal maxOiBps = 3_000;          // per-side OI ≤ 30% of depth
     /// @notice DUST FILTER: minimum ETH collateral to open a position. Stops bots
     ///         from spamming millions of dust positions (which would bloat the
     ///         liquidation set + heatmap and grief the batch auto-liquidator).
@@ -211,11 +224,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @notice Of every ROUTED fee (open fee + liq penalty): this share stays in
     ///         the PLV as LP yield (raises share price), and `insuranceBps` funds
     ///         the buffer. The remainder splits dividend/treasury as before.
-    uint256 public vaultYieldBps = 3_000;     // 30% of routed fees → LP yield
+    uint256 internal vaultYieldBps = 3_000;   // 30% of routed fees → LP yield
     uint256 internal insuranceBps = 1_000;      // 10% of routed fees → insurance
     /// @notice Max share of vault assets lent to traders (per side). The rest is
     ///         always instantly withdrawable — the LP liquidity buffer. (80%)
-    uint256 public maxUtilBps = 8_000;
+    //  `internal` to fund the R-07/L-2 guards against the EIP-170 ceiling. No
+    //  reader anywhere in the tree (tests, deploy scripts, frontend, indexer or
+    //  another contract) — verified by grep. Read it from storage off-chain, the
+    //  same trade already made for `markSource` and the tier arrays.
+    uint256 internal maxUtilBps = 8_000;
     /// @notice Bad-debt circuit breaker: once insurance is depleted below this
     ///         (in wei), new opens are paused until it refills from fees. 0 = off.
     uint256 internal insuranceFloor;
@@ -229,8 +246,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256 public maxLiqBps = 2_000;         // ETH-notional liquidated ≤ 20% of depth / block
     uint256 public maxFundingBps = 5_000;     // |funding P&L| ≤ 50% of collateral (anti-drain cap)
 
-    uint256[] public tierDepthWei;
-    uint8[]  public tierLeverage;
+    //  `internal`: a DYNAMIC-ARRAY auto-getter is the most expensive kind (bounds
+    //  check + element return, one per array), and neither has a single reader
+    //  outside this contract. Reclaimed for the R-07 check in {_isDead}.
+    uint256[] internal tierDepthWei;
+    uint8[]  internal tierLeverage;
 
     // ── TWAP oracle: a ring of cumulative-tick observations (Uniswap-style) ──
     // Writes are TIME-throttled (≥ OBS_INTERVAL apart) so the ring can't be
@@ -252,7 +272,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint16 internal obsIndex;          // next slot to write
     int56 internal tickCumulative;     // Σ tick·dt up to lastObsTs
     uint32 internal lastObsTs;         // last time tickCumulative was INTEGRATED
-    int24 public lastTick;
+    //  `internal` to fund the R-07/L-2 guards against the EIP-170 ceiling. No
+    //  reader anywhere in the tree (tests, deploy scripts, frontend, indexer or
+    //  another contract) — verified by grep. Read it from storage off-chain, the
+    //  same trade already made for `markSource` and the tier arrays.
+    int24 internal lastTick;
     /// @dev Last time a RING ENTRY was appended. Kept separate from `lastObsTs`
     ///      (audit A-02) so the integration clock can advance on EVERY observation
     ///      while ring appends stay throttled to OBS_INTERVAL — the two used to
@@ -322,6 +346,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     mapping(uint256 => uint256) internal _openPos;  // id → 1-based index in _openIds
     uint256 internal sweepCursor;                     // rotating scan start
     uint256 internal constant SWEEP_SCAN = 12;      // positions checked per swap
+    /// @dev Gas a single in-swap liquidation needs to finish. Measured at ~388k
+    ///      for one real kill (swap + settle + payouts); rounded up so the last
+    ///      iteration the loop starts can always complete rather than reverting
+    ///      the whole sweep. Pairs with {CauldronHook.LIQ_GAS_MIN}. See {_doSweep}.
+    uint256 internal constant SWEEP_KILL_RESERVE = 420_000;
     uint256 public longOiEth;    // Σ ETH borrowed by open longs
     uint256 public shortOiToken; // Σ token owed by open shorts
 
@@ -372,6 +401,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     error InsurancePaused();
     error DustPosition();
     error BadParam();
+    /// @notice The LP vault still holds quote-side value, so the engine may not
+    ///         adopt a different quote yet. See {syncGeneration} (red-team R-08).
+    ///         Named for the STAKE, not the event `VaultFunded` above it.
+    error VaultStaked();
 
     event Opened(uint256 indexed id, address indexed trader, bool isLong, uint256 collateral, uint256 size, uint8 leverage);
     event Closed(uint256 indexed id, address indexed trader, uint256 payout, int256 pnl);
@@ -891,6 +924,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         uint256 scanned;
         uint256 kills;
         while (scanned < SWEEP_SCAN && scanned < len && kills < MAX_LIQ_PER_SWAP) {
+            //  ── STOP BEFORE RUNNING OUT, NOT AFTER (red-team L-2) ───────────
+            //  The hook fires this with a fixed gas budget and discards the
+            //  result (CauldronHook.sol:912), so an OOG in here is not a partial
+            //  sweep — the whole call reverts and EVERY kill in it is rolled
+            //  back, silently. That made the book an attacker's lever: each
+            //  parked liquidatable position raised the gas bar for the sweep by
+            //  ~230k for everyone, so ~0.021 ETH of dust positions (minCollateral
+            //  is 0.003 ether, :131) pushed the bar past what ordinary swaps
+            //  carry and switched keeperless liquidation off pool-wide. Measured:
+            //  just under the bar, ZERO of four liquidatable positions died and
+            //  the swap still filled.
+            //
+            //  Breaking on the reserve makes the sweep DEGRADE instead: it banks
+            //  the kills it could afford and leaves the rest for the next swap,
+            //  which is the behaviour the bounded scan was already reaching for.
+            if (gasleft() < SWEEP_KILL_RESERVE) break;
             uint256 n = _openIds.length;
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
@@ -1024,6 +1073,29 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  `newQuote` was read at the top of this function (the guard needs it),
         //  so it is reused here rather than fetched twice.
         if (newQuote != quote && openCount != 0) revert PositionsOpen();
+        //  ── NOR WHILE THE LP VAULT STILL HOLDS QUOTE-SIDE VALUE (R-08) ──────
+        //  `plv` is a bare COUNTER of the quote asset, and `_sendEth` — the only
+        //  way it is ever paid out — routes through `_pushQuote` (:1553), which
+        //  pays in whatever `quote` says TODAY. Adopting a new quote therefore
+        //  re-denominates every staked wei without moving any of it: an 18-decimal
+        //  ETH balance starts being paid as a 6-decimal stable the engine does not
+        //  hold, so `PerpVault.withdrawEth` reverts `BadParam()` inside
+        //  `_safeTransfer` (:1473) and the staked ether is unreachable. Worse, the
+        //  vault goes on pricing shares off that same counter (PerpVault.sol:116),
+        //  so the next honest depositor in the NEW asset can be redeemed against
+        //  by the stale ETH-side shares.
+        //
+        //  Refusing is the whole fix, and it needs no swap: `quote` stays put, so
+        //  payouts stay native and every LP can exit normally. {_isDead} reads the
+        //  divergence as death (see its note), which force-closes the book and
+        //  stops new leverage, so the engine PARKS rather than mispaying. Once the
+        //  vault has drained, `syncGeneration` is permissionless and adopts the new
+        //  quote on the next call.
+        //
+        //  Only ever bites on a LIVE ROTATION: a relaunch clamps its quote to
+        //  native (red-team B-05), so the rebirth path sees `newQuote == quote`
+        //  and never reaches this line.
+        if (newQuote != quote && plv != 0) revert VaultStaked();
         quote = newQuote;
 
         syncedGeneration = gen;
@@ -1212,7 +1284,27 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (_isDead()) revert TokenDead(); // no leverage into a death
         if (leverage < 1 || leverage > maxLeverage()) revert BadLeverage();
     }
+    ///  ── A KEY THE ENGINE CAN NO LONGER TRADE IS AS GOOD AS DEAD (R-07) ────
+    ///  `quote` is a CACHE, adopted only in {syncGeneration} (:1027), which
+    ///  refuses while `openCount != 0` (:987). A live rotation that completes
+    ///  while this engine is unwired — which {CauldronHook.linkVolume}'s own note
+    ///  used to recommend ("or unset the engine") — leaves that cache pointing at
+    ///  the asset the treasury has just drained, and nothing could put it right:
+    ///  `forceCloseDead`/`forceCloseAllDead` both demand a DEAD pool, the
+    ///  pre-rotation pool is drained but very much alive, so `openCount` never
+    ///  fell and `syncGeneration` reverted `PositionsOpen()` for the rest of the
+    ///  generation. Meanwhile the engine went on marking, funding and liquidating
+    ///  against a pool that is cheap to push (CauldronHook.sol:1500-1508), and
+    ///  `_guardOpen` (:1210) kept selling leverage into it.
+    ///
+    ///  Treating a diverged quote as death fixes both halves with one test, and
+    ///  neither is a new restriction: it makes the book FORCE-CLOSEABLE by anyone
+    ///  (so the engine can be re-pointed without waiting for a rebirth), and it
+    ///  makes `_guardOpen` refuse new leverage into an engine that cannot price
+    ///  itself. When the quote agrees — every ordinary block — this is one
+    ///  comparison and the behaviour is unchanged.
     function _isDead() internal view returns (bool) {
+        if (quote != registry.generationQuote(registry.currentGeneration())) return true;
         try IPerpHook(hookAddr).isDead(_key().toId()) returns (bool d) { return d; } catch { return false; }
     }
     function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral) {
@@ -1647,8 +1739,17 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         So even the owner (a timelock+multisig on mainnet) cannot swap the
     ///         vault out from under staked funds and drain them via the onlyVault
     ///         withdraw path — depositor principal must first exit the legit way.
+    ///  ── ASK WHO IS OWED, NOT WHAT IS HELD (red-team R-09) ─────────────────
+    ///  This tested `plv != 0 || plvToken != 0 || tokYieldEth != 0`. Both of the
+    ///  residues that outlive the last depositor are unownable — orphaned
+    ///  short-side yield (credited at zero token shares, attributable to nobody
+    ///  and therefore never payable out) and one wei of `plv` left by ordinary
+    ///  floor-rounding — so the guard latched permanently on state that belongs
+    ///  to no one, and the ONLY lever for replacing a broken vault on a live
+    ///  engine was gone. Measured: one wei was enough.
+    ///  {PerpVault.hasStakers} answers the question the guard was always asking.
     function setVault(address _vault) external onlyOwner {
-        if (vault != address(0) && (plv != 0 || plvToken != 0 || tokYieldEth != 0)) revert BadParam();
+        if (vault != address(0) && IPerpVaultStake(vault).hasStakers()) revert BadParam();
         vault = _vault;
     }
     /// @notice Fee split: `_yieldBps` of routed fees → LP yield, `_insBps` →

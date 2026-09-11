@@ -296,31 +296,47 @@ export const TOKEN_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
-/** CauldronGachaRouter — one-click buy. `play` with ETH value + tokenIn=0 is a
- *  clean ETH→token buy (delivers the token to you) that also credits volume and
- *  rolls the crystal gacha (a chance to forge a creature NFT). */
+/** CauldronGachaRouter — one-click buy. `play` with the generation's QUOTE +
+ *  tokenIn=0 is a clean quote→token buy (delivers the token to you) that also
+ *  credits volume and rolls the crystal gacha (a chance to forge a creature NFT).
+ *
+ *  ── `quoteIn` (functional audit R-05) ──────────────────────────────────────
+ *  The router no longer assumes every generation trades native ETH — a
+ *  generation can launch on a non-ETH quote, or rotate into one mid-life. The
+ *  buy side is supplied one of two ways, and the contract rejects the wrong one
+ *  rather than stranding it:
+ *
+ *    • native generation  → send `value`, pass `quoteIn: 0n`
+ *    • ERC20 quote (USDG) → send NO value, approve the router, pass `quoteIn`
+ *
+ *  Read the live quote from `registry.generationQuote(currentGeneration)` to
+ *  decide which. `address(0)` means native. */
 export const GACHA_ROUTER_ABI = [
   {
     type: "function", name: "play", stateMutability: "payable",
     inputs: [
+      { name: "quoteIn", type: "uint256" },
       { name: "tokenIn", type: "uint256" },
       { name: "minTokenOut", type: "uint256" },
-      { name: "minEthOut", type: "uint256" },
+      { name: "minQuoteOut", type: "uint256" },
       { name: "openMax", type: "uint256" },
     ],
     outputs: [{ name: "opened", type: "uint256" }],
   },
-  // Same as play, but tags the swap with a perp `liqHint` — if that position is
-  // underwater at the mark, the swap auto-liquidates it and mints the swapper a
-  // Liquidatoor badge. A stale/healthy hint is a silent no-op.
+  // Same as play, but tags the swap with perp `liqHints` — any of those
+  // positions that is underwater at the mark is auto-liquidated inside the swap,
+  // minting the swapper a Liquidatoor badge each. Stale/healthy hints are silent
+  // no-ops. NOTE: this is an ARRAY (`uint256[]`); the previous entry here
+  // declared a bare `uint256`, which is why `useCauldronSwap` avoided it.
   {
     type: "function", name: "playLiq", stateMutability: "payable",
     inputs: [
+      { name: "quoteIn", type: "uint256" },
       { name: "tokenIn", type: "uint256" },
       { name: "minTokenOut", type: "uint256" },
-      { name: "minEthOut", type: "uint256" },
+      { name: "minQuoteOut", type: "uint256" },
       { name: "openMax", type: "uint256" },
-      { name: "liqHint", type: "uint256" },
+      { name: "liqHints", type: "uint256[]" },
     ],
     outputs: [{ name: "opened", type: "uint256" }],
   },
@@ -331,10 +347,14 @@ export const GACHA_ROUTER_ABI = [
     outputs: [{ name: "opened", type: "uint256" }],
   },
   // SPIN volume: Buy→Sell→Buy churn loops (each leg credited as Mana). More
-  // loops = more volume from the same ETH = more chances to summon a crystal.
+  // loops = more volume from the same spend = more chances to summon a crystal.
   {
     type: "function", name: "playChurn", stateMutability: "payable",
-    inputs: [{ name: "loops", type: "uint256" }, { name: "openMax", type: "uint256" }],
+    inputs: [
+      { name: "quoteIn", type: "uint256" },
+      { name: "loops", type: "uint256" },
+      { name: "openMax", type: "uint256" },
+    ],
     outputs: [{ name: "opened", type: "uint256" }],
   },
 ] as const;

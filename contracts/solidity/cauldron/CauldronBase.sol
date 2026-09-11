@@ -49,6 +49,10 @@ interface IVaultClose {
 ///         (oldest-first, deterministic) then re-arm the token side on the new gen.
 interface IPerpSync {
     function syncGeneration() external;
+    /// @dev Open positions remaining. `relaunch` MUST see zero here before it
+    ///      returns — a survivor can never be settled afterwards, because
+    ///      settlement swaps against a pool the relaunch has already drained.
+    function openCount() external view returns (uint256);
 }
 
 interface ICollectionLedger {
@@ -112,6 +116,10 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     error CannotClaimCurrentGen();
     error InsufficientETH();
     error NoLiquidityToSeed();
+    /// @notice The perp book still holds open positions after the relaunch's
+    ///         force-close. Retry with more gas — a survivor can never be
+    ///         settled afterwards, so the rebirth must not be allowed to stand.
+    error PerpBookNotCleared();
     error TooYoung();
     error NoProposal();
     error NotAdmin();
@@ -450,6 +458,28 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///         The primary stays in `generationPositionId`/`generationPoolKey` so
     ///         no existing reader changes.
     mapping(uint256 => TreasuryLeg[]) internal generationLegs;
+
+    /// @notice Quote proceeds recovered from a rotated leg whose asset was NOT
+    ///         the dying generation's own quote, held here awaiting a sink.
+    ///
+    ///  ── WHY THIS EXISTS (functional audit R-04) ────────────────────────────
+    ///  `recoverLegs` used to add EVERY leg's `quoteOut` into one `uint256` and
+    ///  hand it to `relaunch` as `ethFromLP`, which {PoolOps.seedFunding} then
+    ///  reads as an amount denominated in `generationQuote[oldGen]`. A treasury
+    ///  split across two quotes — the whole point of the multi-leg model — made
+    ///  that sum a mix of incompatible units: even ONE 6-decimal USDG leg puts
+    ///  raw 1e6 units into a native-wei total, so the `totalETH == 0` seeding
+    ///  decision was taken on a corrupted magnitude.
+    ///
+    ///  The value itself was never lost — a recovered leg's proceeds sit in this
+    ///  registry either way. Only the ARITHMETIC was wrong. So the fix separates
+    ///  the two: matching-quote proceeds keep flowing into the relaunch's funding
+    ///  figure, and foreign ones are booked here instead of being miscounted.
+    ///
+    ///  Appended at the END of the layout: this contract is shared byte-for-byte
+    ///  with the {RedemptionExt} delegatecall facet, so inserting anywhere above
+    ///  would shift every following slot and corrupt the facet's view of state.
+    mapping(address => uint256) internal legProceeds;
 
     //  READERS LIVE ON THE FACET, NOT HERE. A function on CauldronBase is
     //  inherited by the REGISTRY as well, and the registry has ~130 bytes of

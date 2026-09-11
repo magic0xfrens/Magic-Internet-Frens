@@ -319,7 +319,9 @@ contract RGov {
 
 contract NoFrens {
     function balanceOf(address) external pure returns (uint256) { return 0; }
-    function totalSupply() external pure returns (uint256) { return 0; }
+    /// @dev Mirrors `Votes.getPastTotalSupply` — the quorum denominator the
+    ///      real vote source ({MiFrensGenesis}) actually implements.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 0; }
 }
 
 /// @dev Everyone holds enough MiFrens to clear the treasury proposal threshold
@@ -327,7 +329,9 @@ contract NoFrens {
 contract RFrens {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
-    function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev Mirrors `Votes.getPastTotalSupply` — the quorum denominator the
+    ///      real vote source ({MiFrensGenesis}) actually implements.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }
 

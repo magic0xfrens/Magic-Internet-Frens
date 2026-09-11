@@ -51,7 +51,13 @@ export function useCauldronSwap() {
       // still healthy — can't foresee, which would OOG. Unused gas is refunded.
       return writeContractAsync({
         address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
-        functionName: "play", args: [0n, minOut, 0n, BigInt(openMax)], value,
+        functionName: "play",
+        //  `quoteIn: 0n` — this path supplies the buy side as native `value`.
+        //  Correct while the generation trades ETH; on a non-native generation
+        //  the router reverts `ErcQuoteTakesNoValue` rather than stranding it
+        //  (functional audit R-05). A USDG-denominated buy needs an approve +
+        //  a non-zero `quoteIn` with no value.
+        args: [0n, 0n, minOut, 0n, BigInt(openMax)], value,
         gas: LIQ_SWAP_GAS,
       });
     },
@@ -72,7 +78,8 @@ export function useCauldronSwap() {
         address: CAULDRON.gachaRouter as Address,
         abi: GACHA_ROUTER_ABI,
         functionName: "playChurn",
-        args: [BigInt(loops), BigInt(openMax)],
+        //  See the note in `buy`: native value, so `quoteIn` is 0.
+        args: [0n, BigInt(loops), BigInt(openMax)],
         value: parseEther(ethIn.toFixed(18)),
       });
     },
@@ -175,7 +182,11 @@ export function useCauldronSwap() {
       liqHint; // LEGACY/IGNORED — hook auto-liquidates hint-free; never call playLiq.
       return writeContractAsync({
         address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
-        functionName: "play", args: [tokenInWei, 0n, minEthOut, BigInt(openMax)], value: 0n,
+        //  A SELL supplies no buy side at all, so `quoteIn` is 0 and no value is
+        //  sent — which is valid on a native AND an ERC20-quote generation. The
+        //  proceeds come back in whatever the generation trades, so `minEthOut`
+        //  is really a min-QUOTE-out (functional audit R-05).
+        functionName: "play", args: [0n, tokenInWei, 0n, minEthOut, BigInt(openMax)], value: 0n,
         gas: LIQ_SWAP_GAS,
       });
     },

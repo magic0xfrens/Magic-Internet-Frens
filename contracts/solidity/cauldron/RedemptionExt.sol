@@ -8,7 +8,9 @@ import {PoolOps, IPositionManagerOps, ReserveRef} from "./PoolOps.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {CauldronBase, IMiFrensContinuable, IPerpSync} from "./CauldronBase.sol";
 
 /**
  * @title RedemptionExt
@@ -41,7 +43,10 @@ import {CauldronBase, IMiFrensContinuable} from "./CauldronBase.sol";
 /// @notice The hook's generation-volume registration.
 interface ITreasuryGovernor {
     function allowance() external view returns (address quote, uint16 remainingBps);
-    function consume(uint16 bps) external;
+    function consume(uint16 bps, bool fromPrimary) external;
+    /// Did the guild authorise moving the WHOLE position, and is that mandate
+    /// spent? The only thing that may redenominate a generation (red-team R-04).
+    function migrationMandateSpent() external view returns (bool);
 }
 
 interface IQuoteRotator {
@@ -243,6 +248,15 @@ contract RedemptionExt is CauldronBase {
     /// @notice Wired, but no live governance envelope: a GOVERNANCE state.
     error NoRotationApproved();
 
+    /// @dev Liquidity left in the primary position below which it counts as
+    ///      DRAINED for the purpose of redenominating the generation. Not zero:
+    ///      each `removeAll` leaves sub-wei rounding behind, and a generation
+    ///      must not be held un-migrated by a rounding crumb. Absolute rather
+    ///      than proportional on purpose — a proportional test would be a share
+    ///      of a number the caller can shrink, which is the class of bug this
+    ///      whole check exists to close.
+    uint128 internal constant PRIMARY_DRAINED_DUST = 1_000;
+
     function setRotationWiring(address rotator, address governor) external onlyOwner {
         if (rotator == address(0) || governor == address(0)) revert NotConfigured();
         quoteRotator = rotator;
@@ -290,7 +304,17 @@ contract RedemptionExt is CauldronBase {
         //  Wired, but the guild has approved nothing (or the envelope expired /
         //  is spent). Distinct from `RotationNotWired` above: this one is fixed
         //  by a vote, not by a deployment.
-        if (toQuote == address(0)) revert NoRotationApproved();
+        //
+        //  ── THE REMAINDER IS THE FLAG, NOT THE DESTINATION (red-team R-03) ──
+        //  This tested `toQuote == address(0)`, which is ALSO how a rotation back
+        //  to native ether names where it is going. The sentinel for "nothing
+        //  approved" was therefore identical to a legitimate destination, and the
+        //  guild could pass and execute a vote to return to ETH only to watch
+        //  every slice of it revert: rotation was ONE-WAY, so a treasury that
+        //  moved into an ERC20 could never come home. `allowance` reports 0
+        //  remaining for absent, expired AND spent envelopes alike, so the
+        //  remainder answers the liveness question without overloading an address.
+        if (remaining == 0) revert NoRotationApproved();
         if (sliceBps > remaining) revert BadConfig();        // envelope exhausted
 
         //  Re-checked even though the governor checked it twice: this is the
@@ -381,10 +405,36 @@ contract RedemptionExt is CauldronBase {
         //  Upsert by QUOTE rather than append: `openOrAddPair` tops up the same
         //  position on every later slice into the same pair, so appending would
         //  record the same id N times and unwind it N times at teardown.
-        _recordLeg(gen, toQuote, positionId, route);
+        //
+        //  ── THE LEG MUST BE RECORDED WITH ITS OWN PAIR (red-team R-02) ──────
+        //  This passed `route` — the VENUE the quote side was swapped through
+        //  (fromQuote/toQuote, e.g. ETH/USDG) — not the pair the liquidity was
+        //  actually deployed into (toQuote/token). `recoverLegs` hands that key
+        //  straight to {PoolOps.removeAll}, which uses `key.currency0/currency1`
+        //  to settle the position and to MEASURE what came back. With the venue
+        //  key it settled the wrong two currencies, reverted inside the
+        //  per-leg try/catch, and the leg stayed recorded but unrecovered —
+        //  SILENTLY, because that catch exists to stop one bad leg blocking a
+        //  rebirth. Measured consequence: after a completed rotation the registry
+        //  held ZERO of the destination asset at relaunch, having "recovered"
+        //  every leg. This is the pair {PoolOps.openOrAddPair} builds internally
+        //  from the same four inputs; the watermark invariant it asserts
+        //  (`token > quote`) is what fixes the currency order.
+        _recordLeg(
+            gen,
+            toQuote,
+            positionId,
+            PoolKey({
+                currency0: Currency.wrap(toQuote),
+                currency1: Currency.wrap(token),
+                fee: POOL_FEE,
+                tickSpacing: TICK_SPACING,
+                hooks: IHooks(address(hook))
+            })
+        );
         // Booked AFTER the move succeeds, so a reverted slice does not burn
         // envelope the treasury never actually spent.
-        ITreasuryGovernor(gov).consume(sliceBps);
+        ITreasuryGovernor(gov).consume(sliceBps, fromLeg == 0);
 
         //  ── WHEN THE ROTATION FINISHES, THE GENERATION'S QUOTE MUST FOLLOW ──
         //  `generationQuote[gen]` was written in exactly ONE place in the whole
@@ -404,13 +454,91 @@ contract RedemptionExt is CauldronBase {
         //  slot: flipping it early would make the next slice try to rotate the
         //  destination into itself.
         //
-        //  `allowance()` returns address(0) once the envelope is exhausted (or
-        //  expired), which is exactly "there are no more slices coming". A
-        //  partial rotation that simply stops therefore leaves the quote alone,
-        //  which is correct — 30% moved does not redenominate a generation.
-        (address stillRotating,) = ITreasuryGovernor(gov).allowance();
-        if (stillRotating == address(0)) {
+        //  ── EXHAUSTION IS NOT COMPLETION (red-team R-04) ────────────────────
+        //  This used to flip on `allowance() == address(0)` — "the envelope has
+        //  nothing left" — and the comment here claimed that made a partial
+        //  rotation safe: "30% moved does not redenominate a generation." That
+        //  was WRONG, and measurably so. `allowance` reports nothing left the
+        //  moment `movedBps >= maxTotalBps`, and `maxTotalBps` is the size of the
+        //  MANDATE, not the size of the pair. A guild that voted "move at most
+        //  25%" spent its envelope in ONE slice and redenominated the whole
+        //  generation with ~76% of the liquidity still sitting in the old asset.
+        //
+        //  Two things went wrong downstream. The perp engine re-pointed onto the
+        //  minority pool — the thin-pool mark this protocol already knows is
+        //  dangerous (CauldronHook.sol:1500-1508) — and relaunch began reading
+        //  the generation as denominated in an asset most of its liquidity was
+        //  not in.
+        //
+        //  {TreasuryGovernor.migrationMandateSpent} asks the question this line
+        //  actually needs: did the guild authorise moving the WHOLE position, and
+        //  is that authority now spent? A budget smaller than the position is
+        //  partial by construction and leaves the denomination alone.
+        //
+        //  ── AND THE BPS MUST BE A SHARE OF THE THING BEING MIGRATED ────────
+        //  Intent-plus-exhaustion is an ACCOUNTING test, and this line has now
+        //  been wrong twice for the same underlying reason: bps are counted,
+        //  and nothing checks what they were a share OF. `consume` books
+        //  `movedBps += bps` blind, while `rotateSliceFrom` lets a
+        //  PERMISSIONLESS caller pick which leg they come out of. So a stranger
+        //  could spend a whole 10,000-bps migration mandate 25 bps at a time out
+        //  of a 0.1% dust leg and redenominate the generation with the primary
+        //  pair bit-for-bit untouched — then, because `generationPoolKey` still
+        //  names the OLD pair while `generationQuote` names the new one, every
+        //  later `fromLeg == 0` slice measures in one asset and settles in
+        //  another and reverts, freezing the real treasury for the generation.
+        //
+        //  A migration mandate is about the GENERATION'S POSITION, so only a
+        //  slice taken OUT of that position may advance it. Secondary legs are
+        //  still rotatable under the same envelope — that is rebalancing, and it
+        //  is authorised — but it cannot be what declares the migration done.
+        //  With this, `movedBps` is once again a sum of shares of one position,
+        //  which is the unit `migrationMandateSpent` already assumes.
+        //
+        //  Note this deliberately does NOT try to make the flip a full-drain
+        //  test. Slices take a share of CURRENT liquidity, so bps compound
+        //  rather than sum and an exactly-10,000-bps budget converges on ~68%
+        //  moved; demanding a drained position would make completion
+        //  unreachable and the whole feature dead. The residual tail is a known,
+        //  separately-tracked limitation, not this Critical.
+        if (fromLeg == 0 && ITreasuryGovernor(gov).migrationMandateSpent()) {
             generationQuote[gen] = toQuote;
+
+            //  ── RE-POINT THE PERP ENGINE IN THE SAME TRANSACTION ────────────
+            //  `PerpEngine.quote` is assigned in exactly ONE place — inside
+            //  {PerpEngine.syncGeneration} — and that refuses while any position
+            //  is open (PerpEngine.sol:987). `forceCloseDead` / `forceCloseAllDead`
+            //  both require the generation to be DEAD (:937, :950). So on a LIVE
+            //  generation the engine can only be re-pointed while the book is
+            //  empty, and nothing was doing it.
+            //
+            //  That left a real window. The moment this line flips the quote, the
+            //  engine still marks against the pool this rotation just drained
+            //  (`_key()` reads its own `quote` slot, PerpEngine.sol:450 — NOT
+            //  `generationQuote`, despite what CauldronHook.sol:1499 claims). A
+            //  trader opening in that window pins it there: `_guardOpen`
+            //  (:1210-1214) checks warmup, death and leverage but never quote
+            //  freshness, and once `openCount != 0` no reachable call can correct
+            //  it until every position voluntarily closes. Marks, funding and
+            //  in-swap liquidations would run off a thin pool that is cheap to
+            //  push while the deep sibling sets the real price — exactly the
+            //  hazard CauldronHook.sol:1504-1508 describes.
+            //
+            //  Doing it HERE is safe and needs no new guard: reaching this line
+            //  required `linkVolume` to succeed earlier in this same call
+            //  (:372), and that reverts `PerpsOpen()` unless `openCount == 0`
+            //  (CauldronHook.sol:1518). So the book is provably empty right now,
+            //  which is the one condition `syncGeneration` demands. No user can
+            //  interleave an open — this is a single transaction.
+            //
+            //  Best-effort, mirroring `CauldronRegistry._perpHousekeep` (:1063):
+            //  a broken or unset engine must never block a governance-approved
+            //  rotation. If it does fail, the engine is merely stale — the same
+            //  state as before this fix — and `syncGeneration` stays
+            //  permissionless for a keeper to retry.
+            address eng = address(hook) != address(0) ? hook.perpEngine() : address(0);
+            if (eng != address(0)) { try IPerpSync(eng).syncGeneration() {} catch {} }
+
             emit GenerationRequoted(gen, fromQuote, toQuote);
         }
 
@@ -573,13 +701,48 @@ contract RedemptionExt is CauldronBase {
         address token = generationToken[gen];
         IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
 
+        //  ── ONE DENOMINATION PER SUM (functional audit R-04) ───────────────
+        //  `quoteOut` is returned to `CauldronRegistry._removeLiquidity`, added
+        //  to `ethRecovered` (:1558) and passed to {PoolOps.seedFunding} as an
+        //  amount measured in THIS asset (`generationQuote[oldGen]`, Registry
+        //  :922). So only legs actually denominated in it may be added to it.
+        //
+        //  Legs in any OTHER asset are still fully recovered — the position is
+        //  unwound and the proceeds land in this registry exactly as before, so
+        //  nothing is stranded that was not stranded already — but they are
+        //  booked to `legProceeds` instead of being silently miscounted.
+        //
+        //  ── MATCH THE PRIMARY POOL, NOT THE RECORDED QUOTE (red-team R-02) ──
+        //  This read `generationQuote[gen]`, which a completed rotation flips to
+        //  the DESTINATION asset while `generationPositionId`/`generationPoolKey`
+        //  keep pointing at the pair the generation launched in. (They must: the
+        //  69x redemption reserve is held in that same key — see every
+        //  `ReserveRef(generationReservePositionId[g], generationPoolKey[g], ...)`
+        //  — so the primary cannot be re-pointed without breaking redemption.)
+        //
+        //  The sum this feeds is `ethRecovered` in
+        //  `CauldronRegistry._removeLiquidity`, which is whatever the PRIMARY
+        //  position returned. Matching on the flipped quote therefore added
+        //  6-decimal USDG to 18-decimal wei in one integer, and the mixed
+        //  magnitude was then requested as raw USDG at seeding —
+        //  `TRANSFER_FROM_FAILED`, and a machine that could never be reborn.
+        //  Matching on the primary's OWN currency0 keeps one denomination per sum.
+        address matchQuote = Currency.unwrap(generationPoolKey[gen].currency0);
+
         uint256 i = legs.length;
         while (i > 0) {
             --i;
             TreasuryLeg memory l = legs[i];
             try PoolOps.removeAll(pm, l.positionId, l.key, token) returns (uint256 q, uint256 t) {
-                quoteOut += q;
+                //  The TOKEN side is the same asset for every leg (the dying
+                //  generation's own token), so it always aggregates.
                 tokenOut += t;
+                if (l.quote == matchQuote) {
+                    quoteOut += q;
+                } else if (q > 0) {
+                    legProceeds[l.quote] += q;
+                    emit LegProceedsBooked(gen, l.quote, q);
+                }
                 legs[i] = legs[legs.length - 1];
                 legs.pop();
                 emit LegRecovered(gen, l.quote, q, t);
@@ -588,5 +751,62 @@ contract RedemptionExt is CauldronBase {
             }
         }
     }
+
+    /// @notice How much of `asset` is held from recovered rotation legs that did
+    ///         not match their generation's quote. See {sweepLegProceeds}.
+    function legProceedsOf(address asset) external view returns (uint256) {
+        return legProceeds[asset];
+    }
+
+    /**
+     * @notice Move booked foreign leg proceeds out to a sink.
+     *
+     *  ── WHY THIS IS NOT AUTOMATIC ──────────────────────────────────────────
+     *  The obvious answer — "just add it back as liquidity" — is not available
+     *  at the moment the proceeds appear. `recoverLegs` runs inside
+     *  `_removeLiquidity` (Registry:785), which is TEARING DOWN every pool the
+     *  dying generation had; and the NEW generation's quote is not chosen until
+     *  {PoolOps.seedFunding} at Registry:921, ninety lines later, from a spec
+     *  that is not even read until :830. There is no LP in existence that can
+     *  accept a foreign asset at that instant.
+     *
+     *  Converting instead would need a swap, and therefore a price, inside the
+     *  one path that must never be the reason the machine cannot be reborn —
+     *  the trade {PoolOps.seedFunding} explicitly refuses to make (PoolOps.sol
+     *  :1021-1029). So the proceeds are booked and moved deliberately, after the
+     *  rebirth, by a call that cannot affect it.
+     *
+     *  WHERE IT SHOULD GO, in order of preference:
+     *    1. Back into liquidity, when a LATER generation is denominated in this
+     *       same asset — then it is ordinary funding and belongs in the pool.
+     *       Reachable today by sweeping to the treasury and letting the normal
+     *       seeding path use it.
+     *    2. To the genesis holders, as a dividend in that asset. The basket is
+     *       already multi-asset ({MiFrensDividend.fundToken}), but that function
+     *       is `funder`-gated to the HOOK, so the registry cannot call it
+     *       directly — wiring that route is a hook-side change, recommended and
+     *       deliberately not forced in here.
+     *
+     *  Owner-gated because the destination is a policy choice, not a mechanical
+     *  one, and because the amounts are small by construction (they exist only
+     *  when a guild rotated into a second quote and then rebirthed).
+     */
+    function sweepLegProceeds(address asset, address to) external onlyOwner returns (uint256 amount) {
+        if (to == address(0)) revert BadConfig();
+        amount = legProceeds[asset];
+        if (amount == 0) revert NoBalance();
+        //  Cleared BEFORE the transfer: this is the registry's own balance and
+        //  `to` is owner-chosen, so a re-entrant sweep must not be able to read
+        //  the same booking twice.
+        legProceeds[asset] = 0;
+        PoolOps.sendAsset(asset, to, amount);
+        emit LegProceedsSwept(asset, to, amount);
+    }
+
+    /// @notice A recovered leg's proceeds were in an asset other than its
+    ///         generation's quote, so they were booked rather than counted
+    ///         toward the rebirth's funding figure.
+    event LegProceedsBooked(uint256 indexed gen, address indexed asset, uint256 amount);
+    event LegProceedsSwept(address indexed asset, address indexed to, uint256 amount);
 
 }

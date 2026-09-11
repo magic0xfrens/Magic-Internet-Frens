@@ -4,7 +4,15 @@ pragma solidity ^0.8.26;
 interface IVotes721 {
     function getPastVotes(address account, uint256 blockNumber) external view returns (uint256);
     function getVotes(address account) external view returns (uint256);
-    function totalSupply() external view returns (uint256);
+    /// @dev The quorum denominator. NOT `totalSupply()`: the contract actually
+    ///      wired here is {MiFrensGenesis}, which is `ERC721Votes` but NOT
+    ///      `ERC721Enumerable` and therefore has no `totalSupply` and no
+    ///      fallback — every quorum read reverted `unrecognized function
+    ///      selector`, which killed `execute` outright. `getPastTotalSupply` is
+    ///      what `Votes` actually maintains, it is measured AT THE PROPOSAL'S
+    ///      SNAPSHOT (so quorum cannot be moved by minting or burning after the
+    ///      vote opens), and it follows burns, which a mint counter would not.
+    function getPastTotalSupply(uint256 timepoint) external view returns (uint256);
 }
 
 interface IRegistryQuotes {
@@ -114,6 +122,10 @@ contract TreasuryGovernor {
         uint16 movedBps;   // consumed so far, written by the registry
         uint64 expiry;
         bool active;
+        /// @dev Of `movedBps`, the part taken out of the GENERATION'S OWN
+        ///      position rather than a secondary rotated leg. Only this part may
+        ///      declare a migration finished — see {migrationMandateSpent}.
+        uint16 movedPrimaryBps;
     }
 
     IVotes721 public immutable mifrens;
@@ -134,12 +146,64 @@ contract TreasuryGovernor {
     ///
     ///  This is the O(1) half of the fix described on {winner}: maintained
     ///  incrementally where the votes actually change, and only VALIDATED on
-    ///  read. It is a hint, never authority — {winner} re-checks executability
-    ///  before trusting it, and falls back to the time-bounded scan when the hint
-    ///  is stale. A wrong hint can therefore cost a scan; it can never elect the
-    ///  wrong proposal.
+    ///  read. {winner} re-checks executability before trusting it, and falls back
+    ///  to the time-bounded scan when the hint is not executable.
+    ///
+    ///  ── WHAT MAKES THE FAST PATH SOUND ─────────────────────────────────────
+    ///  {winner} returns the hint on an EXECUTABILITY test alone, so the hint has
+    ///  to be a MAXIMUM and not merely a candidate — otherwise the fast path
+    ///  elects a proposal the scan would have beaten. The invariant that earns it:
+    ///
+    ///      every proposal that is not yet {_dead} holds at most `_leadVotes`
+    ///      FOR-votes.
+    ///
+    ///  Executable implies not-dead, so the hint dominates every proposal the scan
+    ///  could have returned. {vote} is the only writer and is responsible for
+    ///  keeping it true; read the branches there before changing any of them.
     uint256 private _leadId;
     uint256 private _leadVotes;
+
+    /// @dev When a FOR-vote last landed on a proposal that the hint does NOT
+    ///      track and that was still alive at the time. Nothing else; it exists
+    ///      only so {vote} can prove when a stale hint is safe to retire.
+    ///
+    ///  ── WHY A HINT MUST BE RETIRABLE AT ALL (S-04) ─────────────────────────
+    ///  `_leadVotes` used to be a permanent high-water mark — written in one
+    ///  place, lowered nowhere. So once a proposal drew V votes, `_leadId` went on
+    ///  pointing at it after it was executed, cancelled, or simply aged out, every
+    ///  later proposal passing quorum with fewer than V could never become the
+    ///  hint, and EVERY {winner} call fell through to the scan. `propose` costs
+    ///  {PROPOSAL_THRESHOLD} MiFrens and nothing else, so a third party could then
+    ///  price the guild's own mandate out of a block: measured at 6,421 gas honest
+    ///  and 363,633 with 400 junk filings, 888 gas apiece.
+    ///
+    ///  ── WHY THE OBVIOUS REPAIR IS WRONG ────────────────────────────────────
+    ///  "Let a later vote take over once the leader is no longer executable"
+    ///  breaks the maximality above, and does it silently:
+    ///
+    ///      L filed t=0,    500 votes         → hint L; dead from t=6d
+    ///      M filed t=4d,   400 votes at t=5d → 400 < 500, so M is untracked
+    ///      N filed t=6d+1, 150 votes         → L is dead, so N takes the hint
+    ///      read at t=9d+2                    → M and N are both executable
+    ///
+    ///  and the fast path elects N on 150 votes where the scan elects M on 400. A
+    ///  liveness fix that changes who won is not a fix. The hint cannot be handed
+    ///  to a smaller proposal while an unseen bigger one may still be alive.
+    ///
+    ///  ── WHAT MAKES RETIREMENT PROVABLE ─────────────────────────────────────
+    ///  Death has a deadline that voting itself fixes. `votingEndsAt` is set at
+    ///  creation and a vote can only land while it is in the future, so a proposal
+    ///  voted at `t` is dead by `t + VOTING_PERIOD + EXECUTION_WINDOW` — always,
+    ///  with no further transaction. Recording the last moment an untracked LIVE
+    ///  proposal was voted therefore dates every rival the hint cannot see: past
+    ///  that mark plus one full lifetime, all of them are provably dead, and a
+    ///  dead leader can be handed over to the voter in front of us because there
+    ///  is nothing left that could outrank them. That is the whole rule in {vote}.
+    ///
+    ///  The bound is TIGHT rather than conservative: in the M case above it
+    ///  refuses the handover until t=11d, which is exactly when M can no longer be
+    ///  executed. Refusing costs a scan; it never costs a wrong winner.
+    uint64 private _openVotedAt;
 
     // ── Guardrails. Constants rather than settable: a governor that can vote to
     //    weaken its own limits does not have limits.
@@ -350,12 +414,57 @@ contract TreasuryGovernor {
 
         hasVoted[id][msg.sender] = true;
         if (support) p.forVotes += w; else p.againstVotes += w;
-        //  Track the front-runner here, where the vote count actually moves, so
-        //  {winner} is O(1) unless the hint has gone stale. Ties keep the earlier
-        //  proposal, matching the strict `>` the scan uses.
-        if (support && p.forVotes > _leadVotes) {
-            _leadVotes = p.forVotes;
-            _leadId = id;
+        //  ── THE HINT IS MAINTAINED HERE, WHERE THE VOTE COUNTS MOVE ─────────
+        //  Five cases, and the only interesting question in each is whether the
+        //  invariant on `_leadId` still holds afterwards: EVERY PROPOSAL THAT IS
+        //  NOT DEAD HOLDS AT MOST `_leadVotes`. Ties keep the incumbent, matching
+        //  the strict `>` the scan uses.
+        if (support) {
+            uint256 v = p.forVotes;
+            uint256 lead = _leadId;
+            if (lead == id) {
+                //  (1) The leader gained. It only ever grows, so everything that
+                //      was under it still is.
+                _leadVotes = v;
+            } else if (lead == 0) {
+                //  (2) The first support ever cast. Nothing else has a FOR-vote,
+                //      so nothing else can be over it.
+                _leadId = id;
+                _leadVotes = v;
+            } else if (v > _leadVotes) {
+                //  (3) Overtaken. The demoted leader is now a rival the hint
+                //      cannot see, and it may well outlive this vote, so date it:
+                //      it is bounded by `_leadVotes < v` today, but case (4) will
+                //      one day lower the bar and must not forget it existed.
+                _openVotedAt = uint64(block.timestamp);
+                _leadId = id;
+                _leadVotes = v;
+            } else if (
+                _dead(proposals[lead]) &&
+                block.timestamp > uint256(_openVotedAt) + VOTING_PERIOD + EXECUTION_WINDOW
+            ) {
+                //  (4) RETIRING A STALE HINT — the fix for S-04, and the only
+                //      branch that lowers `_leadVotes`.
+                //
+                //      Two facts together say nothing alive can outrank `id`:
+                //      the leader is dead and death is permanent; and every OTHER
+                //      rival the hint never tracked was last voted at or before
+                //      `_openVotedAt`, so each died at `_openVotedAt +
+                //      VOTING_PERIOD + EXECUTION_WINDOW` at the latest — which is
+                //      already behind us. Proposals with no FOR-votes at all sit
+                //      at zero and are under `v` regardless.
+                //
+                //      Without this branch the hint pointed at a corpse forever
+                //      and every {winner} call paid for a scan a stranger could
+                //      inflate. With it, one honest vote restores the O(1) path.
+                _leadId = id;
+                _leadVotes = v;
+            } else {
+                //  (5) A live proposal the hint does not track. Date it, so a
+                //      later case (4) cannot hand the lead to something smaller
+                //      while this one is still executable.
+                _openVotedAt = uint64(block.timestamp);
+            }
         }
         emit Voted(id, msg.sender, support, w);
     }
@@ -394,7 +503,8 @@ contract TreasuryGovernor {
             maxTotalBps: p.maxTotalBps,
             movedBps: 0,
             expiry: uint64(block.timestamp) + ENVELOPE_LIFETIME,
-            active: true
+            active: true,
+            movedPrimaryBps: 0
         });
         lastEnvelopeAt = uint64(block.timestamp);
         emit Executed(id, p.quote, p.maxTotalBps, envelope.expiry);
@@ -501,13 +611,35 @@ contract TreasuryGovernor {
         return _passed(p);
     }
 
+    /// @dev Can this proposal NEVER be executable again? The retirement test for a
+    ///      stale hint (see case (4) in {vote}).
+    ///
+    ///  MONOTONE BY CONSTRUCTION, which is the only property the hint invariant
+    ///  leans on: `executed` and `cancelled` are one-way flags, and the third
+    ///  clause is a deadline that time only moves further past. Nothing here can
+    ///  go from true back to false, so retiring a hint on it is safe.
+    ///
+    ///  Strictly weaker than `!_executable`: a proposal still taking votes is not
+    ///  executable YET but is very much alive, and must never be treated as dead.
+    ///  A nonexistent id (`votingEndsAt == 0`) reads dead, which is correct — it
+    ///  can never be executed.
+    function _dead(Proposal storage p) private view returns (bool) {
+        if (p.executed || p.cancelled) return true;
+        return block.timestamp > uint256(p.votingEndsAt) + EXECUTION_WINDOW;
+    }
+
     // -----------------------------------------------------------------------
     // Consumed by the registry
     // -----------------------------------------------------------------------
 
     /// @notice The rotation the registry is currently permitted to perform.
-    /// @return quote destination asset, or address(0) when nothing is approved
-    /// @return remainingBps how much of the LP may still be moved
+    /// @return quote destination asset. MEANINGLESS unless `remainingBps > 0` —
+    ///         `address(0)` is a LEGITIMATE destination (native ether), so it can
+    ///         never be the "nothing is approved" signal. See {consume}.
+    /// @return remainingBps how much of the LP may still be moved. **This is the
+    ///         liveness flag**: 0 means no envelope (absent, expired or spent),
+    ///         and a live envelope always reports a non-zero remainder because
+    ///         the `movedBps >= maxTotalBps` case returns early.
     function allowance() public view returns (address quote, uint16 remainingBps) {
         Envelope storage e = envelope;
         if (!e.active || block.timestamp >= e.expiry) return (address(0), 0);
@@ -515,15 +647,75 @@ contract TreasuryGovernor {
         return (e.quote, e.maxTotalBps - e.movedBps);
     }
 
+    /// @notice Did the guild's mandate cover the WHOLE position, and is it spent?
+    ///
+    ///  ── WHY REDENOMINATION NEEDS ITS OWN TEST (red-team R-04) ──────────────
+    ///  Consumers used to read "the envelope has no allowance left" as "the
+    ///  rotation finished", and re-denominated the generation on it. But
+    ///  `maxTotalBps` is how much the guild VOTED to move, not how much of the LP
+    ///  exists: a fully-spent 2500-bps mandate left ~76% of the pair in the old
+    ///  asset and still flipped the generation's quote. Measured, pre-fix.
+    ///
+    ///  A mandate that budgets less than the whole position is PARTIAL by
+    ///  construction and must never redenominate. Only one that budgeted at least
+    ///  the entire position (>= BPS) can be said to have migrated the generation.
+    ///
+    ///  HONEST ABOUT THE UNIT: slices are a share of CURRENT liquidity, so budget
+    ///  bps compound rather than sum to a clean fraction — 12 slices of 2500 move
+    ///  ~96.8%, not 300%. This therefore tests INTENT (did the guild authorise
+    ///  moving the whole position?) plus exhaustion, and a small tail can remain
+    ///  in the old pair. Relaunch handles that tail explicitly rather than
+    ///  assuming it away; see {CauldronRegistry.relaunch}'s `oldQuote`.
+    ///
+    ///  ── AND THE BPS MUST HAVE COME OUT OF THE POSITION BEING MIGRATED ──────
+    ///  `movedBps` counts every slice, but `rotateSliceFrom` lets a
+    ///  PERMISSIONLESS caller choose WHICH LEG a slice comes out of, and bps of a
+    ///  0.1% dust leg are not bps of the treasury. Testing `movedBps` therefore
+    ///  let a stranger spend a whole migration mandate against a leg the mandate
+    ///  was not about and redenominate the generation with the primary pair
+    ///  untouched. `movedPrimaryBps` counts only what left the generation's own
+    ///  position, which is the unit the "did the whole position move" question
+    ///  was always assuming. Secondary legs remain rotatable under the same
+    ///  envelope — that is rebalancing, and it is authorised — they simply
+    ///  cannot be what declares the migration complete.
+    function migrationMandateSpent() external view returns (bool) {
+        Envelope storage e = envelope;
+        return e.maxTotalBps >= BPS_ONE && e.movedPrimaryBps >= e.maxTotalBps;
+    }
+
+    /// @dev One whole position, in bps. Named rather than inlined so the
+    ///      "did the mandate cover everything" test reads as intent.
+    uint16 internal constant BPS_ONE = 10_000;
+
     /// @notice Record a slice against the envelope. Registry-only: it is the
     ///         contract that actually moves the liquidity, so it is the only one
     ///         that may say how much has moved.
-    function consume(uint16 bps) external {
+    /// @param  bps         share of the SOURCE leg this slice moved.
+    /// @param  fromPrimary whether the source was the generation's own position.
+    ///                     Only these advance {migrationMandateSpent} — bps of a
+    ///                     secondary leg are not bps of the generation.
+    function consume(uint16 bps, bool fromPrimary) external {
         if (msg.sender != registry) revert NotGuardian();
         Envelope storage e = envelope;
-        (address q, uint16 left) = allowance();
-        if (q == address(0) || bps > left) revert BadParam();
+        (, uint16 left) = allowance();
+        //  ── `left`, NOT `quote`, IS THE LIVENESS TEST (red-team R-03) ───────
+        //  This read `q == address(0)` as "nothing approved". address(0) is also
+        //  how a rotation BACK TO NATIVE ETHER names its destination, so a
+        //  perfectly valid envelope was indistinguishable from no envelope and
+        //  every slice of it reverted. `allowance` already returns 0 remaining
+        //  for all three no-envelope cases, so the remainder is the honest flag.
+        if (left == 0 || bps > left) revert BadParam();
         e.movedBps += bps;
+        if (fromPrimary) e.movedPrimaryBps += bps;
+        //  ── A SPENT ENVELOPE MUST STOP BLOCKING GOVERNANCE (red-team R-05) ──
+        //  `propose` refuses while `envelope.active && now < expiry` (:322), and
+        //  nothing cleared `active` on exhaustion — only the guardian's `cancel`
+        //  (:409) ever did. So a mandate spent in its first hour locked out every
+        //  new treasury proposal until it EXPIRED, 30 days on mainnet defaults,
+        //  leaving the guild unable to even FILE a correction to a bad rotation.
+        //  `allowance()` already reported this envelope as finished; this makes
+        //  the stored state agree with what it reports.
+        if (e.movedBps >= e.maxTotalBps) e.active = false;
         emit EnvelopeConsumed(bps, e.movedBps);
     }
 
@@ -533,7 +725,14 @@ contract TreasuryGovernor {
         if (p.forVotes <= p.againstVotes) return false;
         // Quorum on TOTAL supply rather than turnout: a low-turnout vote should
         // fail rather than let a handful of holders move the treasury.
-        uint256 need = (mifrens.totalSupply() * QUORUM_BPS) / 10_000;
+        //
+        // Read at the PROPOSAL'S SNAPSHOT, the same timepoint `vote` weighs
+        // ballots against (:384). Reading a live supply here would have let
+        // anyone move the bar under a vote already in progress — and, more
+        // bluntly, the live getter this used to call does not exist on the
+        // contract that is actually wired (see {IVotes721.getPastTotalSupply}),
+        // so every quorum read reverted and no proposal could ever execute.
+        uint256 need = (mifrens.getPastTotalSupply(p.snapshot) * QUORUM_BPS) / 10_000;
         return p.forVotes >= need;
     }
 

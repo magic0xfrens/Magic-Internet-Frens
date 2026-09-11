@@ -69,6 +69,7 @@ interface ILegacyNote {
 /// @notice The perp engine's relaunch force-close (oldest-first, all dead positions).
 interface IPerpForceClose {
     function forceCloseAllDead() external;
+    function openCount() external view returns (uint256);
 }
 
 /// @notice The perp engine entries that credit a redirected perp-swap fee to the
@@ -145,12 +146,25 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Constants
     // -----------------------------------------------------------------------
     uint256 public constant BPS = 10_000;
-    uint256 public constant MAX_TAX_BPS = 1_000;       // hard ceiling: 10%
+    /// @dev `internal`, not `public`: nothing on- or off-chain calls the
+    ///      auto-getter (the docs quote the literal), and this hook needs the
+    ///      bytes to pay for the perp-survivor guard in {forceClosePerps}.
+    uint256 internal constant MAX_TAX_BPS = 1_000;       // hard ceiling: 10%
     // Gas the hook keeps for itself (fee + return + PoolManager reentrancy unlock)
     // before forwarding the rest to the in-swap auto-liquidation. Ensures the
     // parent swap can always finish even if the liq path runs out of gas.
     uint256 internal constant LIQ_GAS_RESERVE = 180_000;
-    uint256 internal constant LIQ_GAS_MIN = 250_000;   // don't bother firing under this
+    //  ── SIZED FROM A MEASURED KILL, NOT A GUESS (red-team L-2) ─────────────
+    //  This was 250_000 while ONE real liquidation costs ~388_000 (measured on a
+    //  fork: minimum swap gas for the sweep to actually kill a position was
+    //  543_602, against 103_857 for the bare swap). Only `gasleft - LIQ_GAS_RESERVE`
+    //  is forwarded, so between the old gate opening and a kill becoming
+    //  affordable there was a ~440k-wide band in which the sweep was ALWAYS fired
+    //  and ALWAYS failed — measured at 266_833 gas of the swapper's money burned
+    //  per swap for no effect, silently (the call's result is discarded at :912).
+    //  Raising the floor above the cost of the work it gates closes that band:
+    //  below it the sweep is skipped cheaply, above it it can finish.
+    uint256 internal constant LIQ_GAS_MIN = 400_000;   // don't bother firing under this
     // Native in-swap gacha (direct Uniswap/aggregator buys forge crystals with no
     // router). Fired LAST in afterSwap with leftover gas, isolated in a self-call.
     uint256 internal constant GACHA_GAS_RESERVE = 200_000; // keep for fee collection + return
@@ -174,7 +188,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     //
     // The window is now denominated in WALL-CLOCK SECONDS, which carries the intended
     // meaning identically on L1, on an Orbit L2 and on an Orbit L3.
-    uint256 public constant HOURS_PER_DAY = 24;
+    /// @dev `internal`, not `public`: the auto-generated getter is pure EIP-170
+    ///      overhead (no off-chain or test reader) and this hook needs the bytes
+    ///      to pay for the foreign-initialize revert in {_afterInitialize}.
+    uint256 internal constant HOURS_PER_DAY = 24;
     uint256 internal constant SECONDS_PER_HOUR = 1 hours;
     uint256 internal constant SECONDS_PER_DAY = 1 days;
     // (`BLOCKS_PER_HOUR` / `BLOCKS_PER_DAY` were removed with the block-based clock:
@@ -365,7 +382,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     uint256 internal mintBaseline;
 
     /// @notice Cap NFTs minted per call (gas safety).
-    uint256 public constant MAX_MINTS_PER_CALL = 30;
+    /// @dev `internal`, not `public`: nothing on- or off-chain calls the
+    ///      auto-getter (the docs quote the literal), and this hook needs the
+    ///      bytes to pay for the perp-survivor guard in {forceClosePerps}.
+    uint256 internal constant MAX_MINTS_PER_CALL = 30;
 
     // ── CRYSTAL GACHA (commit-reveal lottery, grind-resistant) ──────────────
     // Volume credit buys CRYSTALS along the rising curve. Breaking a crystal
@@ -401,7 +421,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @notice Buy/sell credit weighting (buys favoured). Owner-tunable.
     uint256 public buyWeightBps = 15_000;  // 1.5x
     uint256 public sellWeightBps = 5_000;  // 0.5x
-    uint256 public constant MAX_WEIGHT_BPS = 30_000; // 3x cap
+    uint256 internal constant MAX_WEIGHT_BPS = 30_000; // 3x cap (getter: see HOURS_PER_DAY)
     /// @notice When true, swaps that arrive WITHOUT router hookData (direct
     ///         Uniswap / aggregator buys) accrue crystal credit to `tx.origin` —
     ///         so every buyer earns NFT chances, not just our UI. Owner can turn
@@ -496,7 +516,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Absolute cap on total fee (base + surtax) so a swap always leaves
     ///         something to execute (never a 100% tax → zero-output revert path).
-    uint256 public constant MAX_TOTAL_FEE_BPS = 9_900; // 99%
+    /// @dev `internal`, not `public`: nothing on- or off-chain calls the
+    ///      auto-getter (the docs quote the literal), and this hook needs the
+    ///      bytes to pay for the perp-survivor guard in {forceClosePerps}.
+    uint256 internal constant MAX_TOTAL_FEE_BPS = 9_900; // 99%
 
     // -----------------------------------------------------------------------
     // Events
@@ -581,17 +604,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      phantom `relaunchETH` and permanently brick `releaseRelaunchETH`, and
     ///      could steer the legacy buyback into an attacker-priced book.
     ///      We therefore only ever ADOPT pools the registry itself created, paired
-    ///      against native ETH. Returning the selector WITHOUT tracking (rather than
-    ///      reverting) is deliberate: a revert here would let anyone grief pool
-    ///      creation, whereas simply declining to track means the hook serves that
-    ///      pool no fee logic at all (every hot path is `trackedPools`-gated).
+    ///      against native ETH.
+    ///
+    ///      A FOREIGN INITIALIZE MUST REVERT, NOT MERELY GO UNTRACKED. Declining to
+    ///      track looks like the conservative choice and is the opposite of it. The
+    ///      next generation's token is CREATE2-mined from public inputs
+    ///      (`PoolOps.deployTokenAbove`), so its PoolKey is computable before the
+    ///      token exists; `PoolOps._greenCandle` then calls `initialize` bare. Anyone
+    ///      who initializes that key first makes every future `relaunch()` revert
+    ///      `PoolAlreadyInitialized` — an untracked squat is INVISIBLE to every
+    ///      protocol read while permanently killing the eternal machine, for the cost
+    ///      of one call. Reverting here is what makes the key unsquattable: the key
+    ///      names this hook, so every initialize must come through this callback.
+    ///      Nobody but the registry has a legitimate reason to open a pool on this
+    ///      hook, so there is no pool creation left to grief.
     function _afterInitialize(
         address sender,
         PoolKey calldata key,
         uint160,
         int24
     ) internal override returns (bytes4) {
-        if (sender != registry) return BaseHook.afterInitialize.selector;
+        //  Cheapest possible revert form: this hook sits within a few dozen bytes
+        //  of EIP-170 and a custom-error revert here costs ~85 bytes, which pushes
+        //  it over. `require` with no reason string compiles to `revert(0,0)`.
+        require(sender == registry);
 
         //  Which side is the quote? One allowlist read on currency0 settles it:
         //  the registry validates the quote BEFORE creating the pool, so exactly
@@ -1511,13 +1547,32 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  which is a larger change than this interlock. Until it lands, the two
     ///  features are mutually exclusive rather than silently unsound: a
     ///  generation may run several pools, OR it may run perps, and the ordering
-    ///  is enforced here instead of living in a migration doc. Close the
-    ///  positions (or unset the engine) before diversifying the quote.
+    ///  is enforced here instead of living in a migration doc. CLOSE THE
+    ///  POSITIONS before diversifying the quote.
+    ///
+    ///  ── DO NOT "JUST UNSET THE ENGINE" (red-team R-07) ─────────────────────
+    ///  This note used to offer that as the alternative. It is the one thing an
+    ///  operator must not do: a zero `perpEngine` disables BOTH guards at once —
+    ///  the `openCount` check below, and the in-call re-point in
+    ///  {RedemptionExt.rotateSliceFrom} — so the rotation completes over a full
+    ///  book and the engine comes back pointing at an asset the pool no longer
+    ///  trades. {PerpEngine._isDead} now treats that divergence as death, so the
+    ///  book can at least be force-closed and the engine re-pointed by anyone;
+    ///  the advice is still wrong and is removed rather than merely survivable.
     function linkVolume(PoolId primary, PoolId secondary) external {
         if (msg.sender != registry) revert OnlyRegistry();
         if (perpEngine != address(0) && IPerpOpenCount(perpEngine).openCount() > 0) {
             revert PerpsOpen();
         }
+        //  A POOL IS NOT ITS OWN SIBLING (red-team R-03 follow-on).
+        //  `isDead` sums the primary's 24h volume and then every sibling's, so
+        //  self-linking would double-count one pool's trading and hold a dead
+        //  generation open forever — `relaunch` gates on `isDead`, so that is a
+        //  permanent brick, not a rounding error. Unreachable until a rotation
+        //  BACK to the launch quote became possible (the `remaining == 0` fix in
+        //  RedemptionExt): the destination pair is then the primary pair itself,
+        //  and `rotateSliceFrom` hands both sides of that to this function.
+        if (PoolId.unwrap(primary) == PoolId.unwrap(secondary)) return;
         PoolId[] storage sib = _volumeSiblings[primary];
         //  BOUNDED. isDead loops this list on every death check, and relaunch
         //  depends on isDead — so an unbounded list is a gas ceiling that ends
@@ -1709,6 +1764,31 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         _inRelaunchClose = true;
         try IPerpForceClose(eng).forceCloseAllDead() {} catch {}
         _inRelaunchClose = false;
+        //  ── A SURVIVOR IS NOT RECOVERABLE, SO IT MUST NOT BE CREATED ────────
+        //  The `catch` above is load-bearing (a book that is already empty
+        //  reverts `NotDead`), but it used to be the END of the story, on the
+        //  registry's claim that survivors get "cleared afterwards by the
+        //  permissionless forceCloseDead path". They cannot be:
+        //   1. the close is ALL-OR-NOTHING — an OOG mid-loop reverts every
+        //      settle it had done (measured: at a 12M relaunch cap 64/64
+        //      positions survive; at 14M none do); and
+        //   2. `forceCloseDead` is gated on `_isDead()`, which keys off
+        //      `registry.currentToken()` — a LIVE read. An instant later the
+        //      NEWBORN pool is current and alive, so every recovery call reverts
+        //      `NotDead` forever, and `syncGeneration` needs `openCount == 0`
+        //      so it reverts `PositionsOpen` for the rest of the machine's life.
+        //  Nor can it be repaired once stranded: `_settle` ALWAYS swaps, against
+        //  a pool the relaunch has by then drained. Trader collateral and the
+        //  LP's lent ETH would be locked permanently.
+        //
+        //  Reverting instead is safe AND recoverable: the whole relaunch rolls
+        //  back, `markConsumed` with it, the winning proposal stays live, and
+        //  the next caller simply sends more gas. It cannot wedge the machine,
+        //  because the work is bounded — the engine caps the book at 64 and its
+        //  loop bound (96) guarantees ONE call drains it, at ~7.5M gas, well
+        //  inside a block. The overflow the gas cap was written to prevent
+        //  cannot actually happen; the freeze it produced could, and did.
+        if (IPerpForceClose(eng).openCount() != 0) revert PerpsOpen();
     }
 
     /// @notice Registry-only: record the LIVE generation's PoolKey. Pushed at every

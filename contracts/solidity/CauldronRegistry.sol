@@ -9,6 +9,9 @@ import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.s
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
+//  `Currency` is a user-defined value type over `address`, so `unwrap` is a
+//  compile-time cast and costs this near-EIP-170 contract zero runtime bytes.
+import {Currency} from "v4-core/src/types/Currency.sol";
 
 import {CauldronToken} from "./CauldronToken.sol";
 import {CauldronHook} from "./CauldronHook.sol";
@@ -267,6 +270,22 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///         because both are deploy-time wiring and this registry has no
     ///         dispatcher budget for two entries. See RedemptionExt.
     function setRotationWiring(address, address) external { _forwardToExt(); }
+
+    /// @notice Move booked foreign leg proceeds out to a sink. See RedemptionExt.
+    ///
+    ///  A rotated leg recovered in an asset that is not its generation's quote is
+    ///  BOOKED rather than counted toward the rebirth (RedemptionExt's
+    ///  `legProceeds`). The facet shipped the only way to move that balance and
+    ///  the only way to read it, and NEITHER had a stub here — and this registry
+    ///  has no fallback, so both were dead and the booked asset was stuck.
+    ///  Fourth instance of the defect class {F20_FacetReachability} tracks.
+    function sweepLegProceeds(address, address) external returns (uint256) { _forwardToExt(); }
+
+    //  `legProceedsOf` is deliberately NOT stubbed: the registry has ~40 bytes of
+    //  EIP-170 headroom and the value-moving half had to win. The balance stays
+    //  observable off-chain from `LegProceedsBooked`/`LegProceedsSwept`, and on
+    //  a facet whose storage IS this contract's it can be read directly from the
+    //  slot. A read-only gap is recoverable; a stuck asset is not.
 
     function setAllowedQuote(address quote, bool allowed, uint256 scale) external onlyOwner {
         if (quote == address(0) && !allowed) revert NativeQuoteRequired();
@@ -918,8 +937,20 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         //  but it is now denominated in `specQuote`'s OWN units.
         uint256 totalETH;
         uint256 vaultSwept;
+        //  `oldQuote` is the denomination `ethFromLP` is MEASURED IN, which is the
+        //  primary pair's own currency0 — NOT `generationQuote[oldGen]`. A
+        //  completed rotation flips that mapping to the destination asset while
+        //  the primary position (and the redemption reserve sharing its key) stay
+        //  in the launch pair, so the two disagree exactly when a rotation has
+        //  happened. Passing the flipped value asked the seeder for an
+        //  ETH-magnitude number denominated in an asset this registry did not
+        //  hold: `TRANSFER_FROM_FAILED`, permanently (red-team R-02).
         (specQuote, totalETH, vaultSwept) = PoolOps.seedFunding(
-            address(hook), specQuote, generationQuote[oldGen], ethFromLP, generationVault[oldGen]
+            address(hook),
+            specQuote,
+            Currency.unwrap(generationPoolKey[oldGen].currency0),
+            ethFromLP,
+            generationVault[oldGen]
         );
 
         //  ── THE SOLVENCY CHECK, AND THE CONSUMPTION, IN THAT ORDER ──────────
@@ -1072,11 +1103,27 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
             // try/catch + GAS CAP (audit Z-07): a full book (64 × ~450k settlement)
             // can exceed a block, and without a cap the 63/64 rule would leave the
             // parent too little to finish the rebirth. Reserve the tail so an
-            // over-large force-close is bounded; any survivors are cleared afterwards
-            // by the permissionless forceCloseDead path, then syncGeneration re-arms.
+            // over-large force-close is bounded.
+            //  NOT `try`-WRAPPED, AND THAT IS THE POINT. Swallowing this call is
+            //  what let a gas-starved relaunch strand the whole perp book: the
+            //  close is all-or-nothing, so an OOG mid-loop reverts every settle
+            //  it had done, and the survivors can NEVER be cleared afterwards
+            //  (`forceCloseDead` is gated on an `_isDead()` that keys off the
+            //  now-live newborn token, and `_settle` would have to swap against
+            //  a pool this relaunch has already drained). Measured: at a 12M gas
+            //  cap, 64 of 64 positions survived and were locked permanently.
+            //
+            //  {CauldronHook.forceClosePerps} is total EXCEPT for that one
+            //  condition — it returns early with no engine wired and swallows
+            //  the benign `NotDead` of an already-empty book — so the only thing
+            //  that propagates here is a genuine survivor (or an OOG). Letting
+            //  it revert rolls the whole rebirth back, `markConsumed` included,
+            //  leaving the winning proposal live for a retry with more gas. The
+            //  work is bounded (64-position book, ~7.5M gas), so a retry always
+            //  fits in a block and this can never wedge the machine.
             uint256 g = gasleft();
             if (g > RELAUNCH_TAIL_RESERVE) {
-                try hook.forceClosePerps{gas: g - RELAUNCH_TAIL_RESERVE}() {} catch {}
+                hook.forceClosePerps{gas: g - RELAUNCH_TAIL_RESERVE}();
             }
         }
     }
@@ -1463,6 +1510,9 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     {
         if (_redeemBlocked()) revert RedemptionPaused();
         address col = generationCollection[gen];
+        //  The OG tranche may not draw the FORGED tranche's floor; the guard
+        //  lives in {PoolOps.recycleCollection}, which has the EIP-170 room and
+        //  sits next to the ledger accounting it protects.
         if (address(collectionLedger) == address(0) || col == address(0)) revert BadConfig();
         uint256 g = currentGeneration; // pay in the LIVE token, from the shared reserve
         amount = PoolOps.recycleCollection(

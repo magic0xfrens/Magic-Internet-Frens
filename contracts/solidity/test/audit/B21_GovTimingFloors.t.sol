@@ -106,5 +106,7 @@ contract RegStub21 {
 contract V21 {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
-    function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev Mirrors `Votes.getPastTotalSupply` — the quorum denominator the
+    ///      real vote source ({MiFrensGenesis}) actually implements.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
 }

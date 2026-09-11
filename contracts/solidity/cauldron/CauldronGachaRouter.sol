@@ -21,6 +21,12 @@ interface ICauldronHookGacha {
 
 interface IRegistryCurrent {
     function currentToken() external view returns (address);
+    /// @notice The generation the machine is currently running.
+    function currentGeneration() external view returns (uint256);
+    /// @notice The asset that generation is paired against. `address(0)` is
+    ///         native ETH. Written on relaunch (`CauldronRegistry:924`) AND when
+    ///         a live rotation completes (`RedemptionExt:413`).
+    function generationQuote(uint256 gen) external view returns (address);
 }
 
 /// @notice The quote oracle's uncached view, used to convert a play's ETH
@@ -115,10 +121,22 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         return _playInCurveUnits(playWei);
     }
 
+    ///  `playWei` is a notional in the QUOTE's own raw units — wei for native,
+    ///  6-decimal units for USDG — so it must be priced with the quote the pool
+    ///  actually trades, not with ETH.
+    ///
+    ///  ── SECOND HALF OF R-05 ───────────────────────────────────────────────
+    ///  This asked the oracle for `usdPerRawUnit(address(0))` unconditionally.
+    ///  On a USDG generation that priced a 6-decimal size with the 18-decimal
+    ///  ETH factor: a real $1,500 buy (1_500e6 raw units) came out as 4.5e12
+    ///  instead of 1500e18 — understated ~333,000,000x, collapsing the player's
+    ///  odds to nothing. Same unit mismatch the Q-02 note above describes,
+    ///  reintroduced along the QUOTE axis rather than the wei/USD one, and it
+    ///  fails in the same safe direction (players win less, never more).
     function _playInCurveUnits(uint256 playWei) internal view returns (uint256) {
         address o = oracle;
         if (o == address(0)) return playWei;
-        try IQuoteOracleView(o).usdPerRawUnit(address(0)) returns (uint256 f) {
+        try IQuoteOracleView(o).usdPerRawUnit(_quote()) returns (uint256 f) {
             if (f == 0) return playWei; // "cannot judge" → leave the size alone
             return (playWei * f) / 1e18;
         } catch {
@@ -146,6 +164,11 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     error NothingSupplied();
     error Slippage();
     error RefundFailed();
+    /// @notice This generation trades native ETH — send value, leave `quoteIn` 0.
+    error NativeQuoteTakesValue();
+    /// @notice This generation trades an ERC20 quote — approve and pass
+    ///         `quoteIn`, and send no value (it would strand here).
+    error ErcQuoteTakesNoValue();
     error BadLoops();
 
     event Played(address indexed player, uint256 playWei, uint256 opened);
@@ -167,10 +190,31 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         registry = IRegistryCurrent(_registry);
     }
 
-    /// @dev The current iteration's pool key (ETH is currency0).
+    /// @notice The asset the CURRENT generation is paired against — native ETH
+    ///         (`address(0)`) or a treasury-approved ERC20.
+    ///
+    ///  ── WAS HARDCODED TO address(0) (functional audit R-05) ───────────────
+    ///  This router used to assume every generation trades against native ETH.
+    ///  It does not: a generation can LAUNCH on a non-ETH quote, and a live
+    ///  {RedemptionExt.rotateSlice} can move an existing one (writing
+    ///  `generationQuote` at RedemptionExt.sol:413). On any such generation the
+    ///  key below addressed a pool that does not exist, so every `play` reverted
+    ///  — the gacha simply switched off, silently, for the rest of that
+    ///  iteration.
+    function _quote() internal view returns (address) {
+        return registry.generationQuote(registry.currentGeneration());
+    }
+
+    /// @dev The current iteration's pool key.
+    ///
+    ///  The QUOTE is always currency0. That is an INVARIANT, not an accident of
+    ///  `address(0)` sorting first: {CauldronRegistry.setAllowedQuote} refuses
+    ///  any quote at or above `PoolOps.QUOTE_WATERMARK`, and every iteration
+    ///  token is mined ABOVE that watermark — so an approved quote always sorts
+    ///  below the token it is paired with (CauldronRegistry.sol:246-256).
     function _key() internal view returns (PoolKey memory) {
         return PoolKey({
-            currency0: Currency.wrap(address(0)),
+            currency0: Currency.wrap(_quote()),
             currency1: Currency.wrap(registry.currentToken()),
             fee: POOL_FEE,
             tickSpacing: TICK_SPACING,
@@ -178,15 +222,21 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         });
     }
 
-    /// @notice One-click play. Send ETH to buy and/or approve+pass `tokenIn` to
-    ///         sell; the volume is credited to you and your crystals opened.
-    function play(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax)
+    /// @notice One-click play. Supply the generation's QUOTE to buy and/or
+    ///         approve+pass `tokenIn` to sell; the volume is credited to you and
+    ///         your crystals opened.
+    ///
+    ///  `quoteIn` is ignored while the generation trades native ETH — send the
+    ///  value instead. On a non-native generation send no value and pass the
+    ///  amount here, having approved this router first. {_pullQuote} enforces
+    ///  exactly one of the two.
+    function play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax)
         external
         payable
         nonReentrant
         returns (uint256 opened)
     {
-        return _play(tokenIn, minTokenOut, minEthOut, openMax, new uint256[](0));
+        return _play(quoteIn, tokenIn, minTokenOut, minQuoteOut, openMax, new uint256[](0));
     }
 
     /// @notice Same as {play}, but tags the swap with perp `liqHints`: any of
@@ -195,21 +245,54 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     ///         minting YOU (the swapper) a Liquidatoor badge + keeper reward for
     ///         each. Stale/healthy hints are silent no-ops, so passing them never
     ///         risks your trade. Frontends supply the crossed position ids here.
-    function playLiq(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax, uint256[] calldata liqHints)
+    function playLiq(
+        uint256 quoteIn,
+        uint256 tokenIn,
+        uint256 minTokenOut,
+        uint256 minQuoteOut,
+        uint256 openMax,
+        uint256[] calldata liqHints
+    )
         external
         payable
         nonReentrant
         returns (uint256 opened)
     {
-        return _play(tokenIn, minTokenOut, minEthOut, openMax, liqHints);
+        return _play(quoteIn, tokenIn, minTokenOut, minQuoteOut, openMax, liqHints);
     }
 
-    function _play(uint256 tokenIn, uint256 minTokenOut, uint256 minEthOut, uint256 openMax, uint256[] memory liqHints)
+    /// @dev Take the buy-side input in whichever form this generation's quote
+    ///      takes, and return the amount actually held by this router.
+    ///
+    ///  Native and ERC20 are mutually exclusive on purpose: accepting both would
+    ///  let a caller send value on a USDG generation and have it silently
+    ///  stranded here (`receive()` is open so the transfer itself would succeed).
+    ///  Refusing is the only behaviour that cannot lose someone's money.
+    function _pullQuote(address q, uint256 quoteIn) private returns (uint256) {
+        if (q == address(0)) {
+            if (quoteIn != 0) revert NativeQuoteTakesValue();
+            return msg.value;
+        }
+        if (msg.value != 0) revert ErcQuoteTakesNoValue();
+        if (quoteIn > 0) _safeTransferFrom(q, msg.sender, address(this), quoteIn);
+        return quoteIn;
+    }
+
+    function _play(
+        uint256 quoteIn,
+        uint256 tokenIn,
+        uint256 minTokenOut,
+        uint256 minQuoteOut,
+        uint256 openMax,
+        uint256[] memory liqHints
+    )
         internal
         returns (uint256 opened)
     {
-        if (msg.value == 0 && tokenIn == 0) revert NothingSupplied();
         PoolKey memory key = _key();
+        address q = Currency.unwrap(key.currency0);
+        uint256 spend = _pullQuote(q, quoteIn);
+        if (spend == 0 && tokenIn == 0) revert NothingSupplied();
 
         if (tokenIn > 0) {
             _safeTransferFrom(Currency.unwrap(key.currency1), msg.sender, address(this), tokenIn);
@@ -220,10 +303,10 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 uint8(0),
                 abi.encode(PlayData({
                     player: msg.sender,
-                    ethIn: msg.value,
+                    ethIn: spend,
                     tokenIn: tokenIn,
                     minTokenOut: minTokenOut,
-                    minEthOut: minEthOut,
+                    minEthOut: minQuoteOut,
                     liqHints: liqHints
                 }))
             )
@@ -232,7 +315,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
             abi.decode(ret, (uint256, uint256, uint256));
 
         // Slippage guard on the sell proceeds before any external send.
-        if (sellEthGross > 0 && sellEthGross < minEthOut) revert Slippage();
+        if (sellEthGross > 0 && sellEthGross < minQuoteOut) revert Slippage();
 
         // EFFECTS first: commit + resolve the gacha, THEN pay the player out
         // (audit L3 — external ETH/token sends happen last, after all state).
@@ -247,11 +330,12 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         if (tokenIn > tokenConsumed) {
             _safeTransfer(Currency.unwrap(key.currency1), msg.sender, tokenIn - tokenConsumed);
         }
-        uint256 ethOut = sellEthGross + (msg.value - ethConsumed); // proceeds + refund
-        if (ethOut > 0) {
-            (bool ok,) = msg.sender.call{value: ethOut}("");
-            if (!ok) revert RefundFailed();
-        }
+        //  Sell proceeds + whatever the buy leg did not consume, paid back in
+        //  the quote the player supplied — `spend`, not `msg.value`, because on
+        //  a non-native generation `msg.value` is zero by construction
+        //  ({_pullQuote}) and the unspent amount still has to come back.
+        uint256 quoteOut = sellEthGross + (spend - ethConsumed);
+        if (quoteOut > 0) _payQuote(q, msg.sender, quoteOut);
         emit Played(msg.sender, playWei, opened);
     }
 
@@ -281,17 +365,19 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     /// @notice Volume amplifier: crank buy→sell→…→buy in one tx so a small spend
     ///         generates a multiple of itself in volume (each leg credited to you).
     ///         Ends in a buy, so leftover creature-tokens are sent to your wallet.
-    function playChurn(uint256 loops, uint256 openMax)
+    function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax)
         external
         payable
         nonReentrant
         returns (uint256 opened)
     {
-        if (msg.value == 0) revert NothingSupplied();
+        address q = _quote();
+        uint256 spend = _pullQuote(q, quoteIn);
+        if (spend == 0) revert NothingSupplied();
         if (loops == 0 || loops > MAX_LOOPS) revert BadLoops();
 
         bytes memory ret = poolManager.unlock(
-            abi.encode(uint8(1), abi.encode(ChurnData({player: msg.sender, ethIn: msg.value, loops: loops})))
+            abi.encode(uint8(1), abi.encode(ChurnData({player: msg.sender, ethIn: spend, loops: loops})))
         );
         (uint256 playWei, uint256 ethLeftover) = abi.decode(ret, (uint256, uint256));
 
@@ -301,10 +387,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         opened = hook.commitCrystals(msg.sender, want, _playInCurveUnits(playWei));
         hook.resolveTickets(MAX_MINTS_PER_CALL);
 
-        if (ethLeftover > 0) {
-            (bool ok,) = msg.sender.call{value: ethLeftover}("");
-            if (!ok) revert RefundFailed();
-        }
+        if (ethLeftover > 0) _payQuote(q, msg.sender, ethLeftover);
         emit Churned(msg.sender, loops, playWei, opened);
     }
 
@@ -326,6 +409,9 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
 
         Currency eth = key.currency0;
         Currency tok = key.currency1;
+        //  The quote leg settles as native ETH only when the generation IS
+        //  native. On an ERC20 quote it must sync+transfer instead (R-05).
+        bool isNative = Currency.unwrap(eth) == address(0);
 
         uint256 ethConsumed;
         uint256 tokenConsumed;
@@ -341,7 +427,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
             uint256 outAmount = uint256(uint128(delta.amount1()));
             if (outAmount < d.minTokenOut) revert Slippage();
             ethConsumed = uint256(uint128(-delta.amount0()));
-            _settle(eth, ethConsumed, true);
+            _settle(eth, ethConsumed, isNative);
             _take(tok, d.player, outAmount);
         }
 
@@ -367,6 +453,9 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         bytes memory hookData = abi.encode(c.player);
         Currency eth = key.currency0;
         Currency tok = key.currency1;
+        //  The quote leg settles as native ETH only when the generation IS
+        //  native. On an ERC20 quote it must sync+transfer instead (R-05).
+        bool isNative = Currency.unwrap(eth) == address(0);
 
         uint256 ethBal = c.ethIn;
         uint256 tokBal;
@@ -382,7 +471,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 );
                 uint256 inE = uint256(uint128(-delta.amount0()));
                 uint256 outG = uint256(uint128(delta.amount1()));
-                _settle(eth, inE, true);
+                _settle(eth, inE, isNative);
                 _take(tok, address(this), outG);
                 playWei += inE;
                 tokBal += outG;
@@ -425,6 +514,22 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
 
     function _take(Currency currency, address to, uint256 amount) private {
         if (amount > 0) poolManager.take(currency, to, amount);
+    }
+
+    /// @dev Pay the player back in the generation's quote — native or ERC20.
+    ///
+    ///  The native branch keeps the original `RefundFailed` behaviour: a player
+    ///  whose fallback rejects ETH reverts the whole play rather than losing the
+    ///  refund. `_safeTransfer` gives the ERC20 branch the same property, since
+    ///  it requires the call to succeed AND the return value to be true.
+    function _payQuote(address q, address to, uint256 amount) private {
+        if (amount == 0) return;
+        if (q == address(0)) {
+            (bool ok,) = to.call{value: amount}("");
+            if (!ok) revert RefundFailed();
+        } else {
+            _safeTransfer(q, to, amount);
+        }
     }
 
     function _safeTransfer(address token, address to, uint256 amount) private {

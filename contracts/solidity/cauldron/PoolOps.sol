@@ -167,6 +167,11 @@ library PoolOps {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
+    /// @dev `initialize` failed AND the pool does not exist — so the failure was
+    ///      a refusal (the hook's adoption gate), not the benign "already open"
+    ///      case {openOrAddPair}'s catch is written for.
+    error PoolInitRefused();
+
     /// @dev Approve the PositionManager to pull `amount` of `token` via Permit2.
     function _approve(address token, address pm, uint256 amount) private {
         IERC20(token).approve(PERMIT2, amount);
@@ -859,12 +864,22 @@ library PoolOps {
         //  of one side than was supplied — the PositionManager then reverts
         //  MaximumAmountExceeded and the whole rotation fails to land. Caught by
         //  the fork test; a stub cannot surface it.
+        //  THE CATCH MEANS EXACTLY ONE THING: "the pair already exists". It must
+        //  not be allowed to mean anything else. `initialize` can now also fail
+        //  because the HOOK REFUSED US — `CauldronHook._afterInitialize` reverts
+        //  for any sender that is not the registry, which is what makes the
+        //  registry's next pool key unsquattable. Swallowing that refusal here
+        //  would leave `live == 0`, keep the contributed price, and hand a
+        //  non-existent pool to `_seedActive` — which fails far downstream as
+        //  `PoolNotInitialized`, naming neither the real cause nor this line.
+        //  A zero slot0 means the pool genuinely is not there, so re-throw.
         uint160 sqrtPriceX96 = _sqrtPrice(tokenAmount, quoteAmount);
         try poolManager.initialize(key, sqrtPriceX96) returns (int24) {
             // fresh pair: the contributed ratio IS the price
         } catch {
             (uint160 live,,,) = StateLibrary.getSlot0(poolManager, poolId);
-            if (live != 0) sqrtPriceX96 = live;
+            if (live == 0) revert PoolInitRefused();
+            sqrtPriceX96 = live;
         }
 
         positionId = _seedActive(
@@ -1363,6 +1378,31 @@ library PoolOps {
         ReserveRef memory r
     ) external returns (uint256 amount) {
         if (ICollectionOps(collection).ownerOf(tokenId) != caller) revert("not owner");
+        //  ── THE OG TRANCHE MAY NOT DRAW THE FORGED TRANCHE'S FLOOR ──────────
+        //  On the iteration-#2 continuation the generation's collection IS the
+        //  MiFrens contract, OGs included — but the pot this pays from was
+        //  credited with the FORGED share only (see `routeLiveBuyback` above),
+        //  and the matching vault is deliberately given
+        //  `floorOffset = genesisShares` for exactly that reason.
+        //  {CauldronVault.redeem} enforces it with `tokenId <= floorOffset`;
+        //  this path had no equivalent, so an OG could recycle against the
+        //  forged pot at a floor computed over every fren. Each one that did
+        //  also incremented the ledger's shared `retired`, permanently
+        //  destroying a unit of forged capacity — and the only decrementer,
+        //  `buyback`, reverts once the floor reaches zero, so it could not be
+        //  undone. OGs keep their own exit, `redeemOgFren`.
+        //
+        //  The offset is ASKED OF THE COLLECTION rather than passed in, so the
+        //  guard configures itself: only the MiFrens continuation answers
+        //  `GENESIS_SUPPLY`, and a plain brew collection returns no data, which
+        //  leaves the offset at zero and the check inert — which is correct,
+        //  because a plain brew has no OG tranche to protect.
+        (bool hasOg, bytes memory ogRet) =
+            collection.staticcall(abi.encodeWithSignature("GENESIS_SUPPLY()"));
+        if (hasOg && ogRet.length == 32) {
+            uint256 ogCount = abi.decode(ogRet, (uint256));
+            if (ogCount != 0 && tokenId <= ogCount) revert("og tranche");
+        }
         // mintedNow sizes the LIVE floor; ignored once the collection crystallized.
         uint256 mintedNow = IColMinted(collection).totalMinted();
         uint256 payout = ILedgerOps(ledger).redeem(gen, mintedNow); // checks-effects

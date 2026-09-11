@@ -338,9 +338,73 @@ contract QuoteRotator {
         if (amountIn == 0) revert BadConfig();
         if (!_allowed(to)) revert NotAllowedQuote();
         if (!_routeMatches(route, from, to)) revert NoRoute();
+        //  ── THE VENUE ALLOWLIST WAS NOT ON THIS PATH (red-team R-01) ────────
+        //  {allowedVenue} existed, was documented as failing closed, and was
+        //  enforced in {rotateStep} (:295) — but NOT here, and this is the
+        //  function `RedemptionExt.rotateSliceFrom` actually calls. The only
+        //  check that ran was {_routeMatches}, which compares the currency PAIR
+        //  and nothing else; a v4 PoolKey is five fields, so `fee`, `tickSpacing`
+        //  and `hooks` were all free. Anyone could deploy their own ETH/USDG pool
+        //  at any price and pass it as `route`.
+        //
+        //  Measured, pre-fix: the same slice filled 44,325.89 USDG through the
+        //  curated venue and 99.80 USDG through an attacker's — 99.775% of the
+        //  treasury's money, and the attacker withdrew 5.01 ETH against 0.01 in.
+        //
+        //  Keyed by PoolId, so listing a pair does not list every pool on it.
+        if (!allowedVenue[PoolIdLibrary.toId(route)]) revert NoRoute();
         out = _swap(route, from, to, amountIn);
-        if (out < minOut) revert SlippageTooHigh();
+        //  ── AND THE FLOOR CANNOT COME FROM THE CALLER ALONE ─────────────────
+        //  `rotateSliceFrom` is permissionless and takes `minOut` from whoever
+        //  calls it, so the caller supplying 0 disarmed the only price guard.
+        //  RedemptionExt's own comment claimed "the caller chooses only the
+        //  timing — and `minOut` bounds what timing can cost", which is circular:
+        //  a bound the attacker picks is not a bound. The caller may still demand
+        //  MORE than the oracle floor (tightening is always safe); it may not
+        //  demand less.
+        uint256 floor = _oracleFloor(from, to, amountIn);
+        if (out < (minOut > floor ? minOut : floor)) revert SlippageTooHigh();
         emit Rotated(from, to, amountIn, out, msg.sender);
+    }
+
+    /// @notice Tolerance, in bps, between the oracle's valuation of a rotation and
+    ///         the fill it will accept. Covers real pool fees + honest slippage.
+    ///         Owner-tunable because the right number depends on the pair's depth.
+    uint16 public rotationSlipBps = 300; // 3%
+
+    /// @notice Tune the oracle-derived price floor. Capped at 20% so the floor can
+    ///         never be widened into meaninglessness without an obvious on-chain
+    ///         signal; 0 pins fills to the oracle exactly.
+    function setRotationSlipBps(uint16 bps) external onlyOwner {
+        if (bps > 2000) revert BadConfig();
+        rotationSlipBps = bps;
+    }
+
+    /// @dev The least `to` this contract will accept for `amountIn` of `from`,
+    ///      valued through the oracle rather than through the pool being traded.
+    ///
+    ///  DECIMALS-AGNOSTIC BY CONSTRUCTION. Both legs are converted to USD first
+    ///  ({_usd} multiplies raw units by `usdPerRawUnit` and divides by 1e18), so a
+    ///  6-decimal quote against an 18-decimal one needs no scale factor here —
+    ///  the per-RAW-UNIT price carries it. The conversion back to raw `to` units
+    ///  divides by that same per-unit price.
+    ///
+    ///  FAILS OPEN, DELIBERATELY, AND ONLY WHEN UNPRICEABLE. With no oracle wired
+    ///  (or a leg it cannot value) this returns 0 and the caller's `minOut` stands
+    ///  alone — exactly today's behaviour. Reverting instead would make an
+    ///  oracle outage brick a governance-approved rotation, trading a value bug
+    ///  for a liveness bug. The venue allowlist above is the guard that does not
+    ///  depend on the oracle, which is why R-01 needs both halves.
+    function _oracleFloor(address from, address to, uint256 amountIn)
+        internal
+        returns (uint256)
+    {
+        uint256 inUsd = _usd(from, amountIn);
+        if (inUsd == 0) return 0;
+        uint256 perUnitTo = _usd(to, 1e18);   // USD per 1e18 raw units of `to`
+        if (perUnitTo == 0) return 0;
+        uint256 fair = (inUsd * 1e18) / perUnitTo;
+        return (fair * (BPS - rotationSlipBps)) / BPS;
     }
 
     // -----------------------------------------------------------------------
@@ -370,7 +434,14 @@ contract QuoteRotator {
     ///  re-allocation all the same. Denominated in USD (decimals-agnostic across
     ///  quotes) and owner-tunable. 0 = unbounded (explicit opt-out, not the
     ///  default). Defaulted low; governance raises it deliberately.
-    uint256 public maxArbNotionalUsd = 25_000e18; // $25k / call
+    uint256 public maxArbNotionalUsd = 25_000e18; // $25k / BLOCK (see {arbStep})
+
+    /// @dev Per-block arb notional accounting, so {maxArbNotionalUsd} bounds a
+    ///      BLOCK rather than a single call. Appended at the end of the layout;
+    ///      this contract is standalone (never delegatecalled), so no other
+    ///      contract's slots move.
+    uint256 internal arbBlock;
+    uint256 internal arbUsdThisBlock;
 
     event Arbed(uint256 spentIn, uint256 receivedOut, uint256 profitUsd, address keeper);
 
@@ -433,6 +504,23 @@ contract QuoteRotator {
         // an unrelated trade with treasury funds.
         if (Currency.unwrap(cheap.currency1) != Currency.unwrap(dear.currency1)) revert NoRoute();
         if (inQuote == outQuote) revert NoRoute();
+        //  ── THE SAME CURATION EVERY OTHER SPENDING PATH APPLIES (R-01/L-4) ──
+        //  `rotateStep` (:295) and `swapOnce` (:355) both refuse an uncurated
+        //  venue; this path never did, while taking BOTH PoolKeys — including
+        //  both `hooks` fields — straight from an anonymous caller. That is
+        //  precisely what {allowedVenue}'s own header (:176-178) says curation
+        //  exists to prevent: "VETTING A VENUE VETS ITS HOOK ... listing a pool
+        //  grants that hook execution inside this contract's `unlock`". Measured:
+        //  a stranger filled 1 ETH of treasury through two self-deployed pools
+        //  that `rotateStep` would have refused by key.
+        if (!allowedVenue[PoolIdLibrary.toId(cheap)] || !allowedVenue[PoolIdLibrary.toId(dear)]) {
+            revert NoRoute();
+        }
+        //  And the destination must be an asset the registry actually approved.
+        //  `setPlan` (:225), `rotateStep` (:286) and `swapOnce` (:339) all test
+        //  this; arbing into an unallowlisted asset re-denominated the treasury
+        //  into something no vote ever sanctioned, needing only a price feed.
+        if (!_allowed(outQuote)) revert NotAllowedQuote();
 
         (uint256 spent, uint256 received) =
             abi.decode(poolManager.unlock(abi.encode(uint8(1), cheap, dear, amountIn)), (uint256, uint256));
@@ -446,7 +534,19 @@ contract QuoteRotator {
         // Per-call notional bound (0 = off). Checked here rather than before the
         // unlock so it reuses the USD figure already computed; an over-cap arb
         // reverts and the swap unwinds atomically.
-        if (maxArbNotionalUsd != 0 && inUsd > maxArbNotionalUsd) revert ArbTooLarge();
+        //  ── PER BLOCK, NOT PER CALL (red-team L-4) ──────────────────────────
+        //  Nothing accumulated, so the "$25k per call" bound was really "$25k per
+        //  call, unlimited calls" — measured at 12 individually-compliant arbs in
+        //  ONE transaction moving $36,000 of treasury against a $25,000 cap, with
+        //  `block.number` unchanged. Accumulating per block makes the number mean
+        //  what the header says it means. Mirrors the `liqBlock`/`liqEthThisBlock`
+        //  idiom the perp engine already uses for its own per-block throttle.
+        if (maxArbNotionalUsd != 0) {
+            if (block.number != arbBlock) { arbBlock = block.number; arbUsdThisBlock = 0; }
+            uint256 spentThisBlock = arbUsdThisBlock + inUsd;
+            if (spentThisBlock > maxArbNotionalUsd) revert ArbTooLarge();
+            arbUsdThisBlock = spentThisBlock;
+        }
         if (outUsd <= inUsd) revert SlippageTooHigh();
 
         profitUsd = outUsd - inUsd;

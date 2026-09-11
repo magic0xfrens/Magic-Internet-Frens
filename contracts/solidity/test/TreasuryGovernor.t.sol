@@ -16,7 +16,12 @@ contract MockVotes is IVotes721 {
     function setSupply(uint256 v) external { supply = v; }
     function getVotes(address a) external view returns (uint256) { return now_[a]; }
     function getPastVotes(address a, uint256 blk) external view returns (uint256) { return past[blk][a]; }
-    function totalSupply() external view returns (uint256) { return supply; }
+    /// @dev Mirrors `Votes.getPastTotalSupply`, which is what the REAL vote
+    ///      source ({MiFrensGenesis}, an `ERC721Votes` that is deliberately not
+    ///      `ERC721Enumerable`) actually implements. The earlier `totalSupply()`
+    ///      stub here existed on no production contract, so this mock asserted a
+    ///      quorum path that reverted on every real deployment.
+    function getPastTotalSupply(uint256) external view returns (uint256) { return supply; }
 }
 
 contract RegistryStub {
@@ -91,7 +96,7 @@ contract TreasuryGovernorTest is Test {
         assertEq(gov.winner(), b, "the more-supported proposal wins");
 
         gov.execute(b);
-        (address q,,,, bool active) = gov.envelope();
+        (address q,,,, bool active,) = gov.envelope();
         assertEq(q, XNVDA, "the winner's asset is what gets installed");
         assertTrue(active);
     }
@@ -230,7 +235,7 @@ contract TreasuryGovernorTest is Test {
 
         vm.prank(GUARDIAN);
         gov.cancel(id);
-        (,,,, bool active) = gov.envelope();
+        (,,,, bool active,) = gov.envelope();
         assertFalse(active, "the guardian stops a live rotation");
 
         (address q,) = gov.allowance();
@@ -254,10 +259,10 @@ contract TreasuryGovernorTest is Test {
 
         vm.prank(address(0xBAD));
         vm.expectRevert(TreasuryGovernor.NotGuardian.selector);
-        gov.consume(100);
+        gov.consume(100, true);
 
         vm.prank(address(reg));
-        gov.consume(500);
+        gov.consume(500, true);
         (, uint16 left) = gov.allowance();
         assertEq(left, 2500, "3000 - 500 remains");
     }
@@ -270,7 +275,7 @@ contract TreasuryGovernorTest is Test {
         gov.execute(id);
 
         vm.prank(address(reg));
-        gov.consume(1000);
+        gov.consume(1000, true);
         (address q, uint16 left) = gov.allowance();
         assertEq(q, address(0), "spent envelope authorises nothing");
         assertEq(left, 0);

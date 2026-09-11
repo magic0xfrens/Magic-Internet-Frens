@@ -155,8 +155,11 @@ cast send YOUR_PRESALE_ADDRESS \
 
 ## 📚 Documentation
 
-- Full deployment guide: `../../DEPLOYMENT_GUIDE.md`
-- Frontend integration: `../../BUGS_FIXED.md`
+- Protocol overview: `CAULDRON.md`
+- Deploy scripts: `deploy/` (`DeployLaunchpad.s.sol`, `DeployRotationStack.s.sol`)
+- Mainnet checklist: `../../docs/MAINNET_LAUNCH.md`
+- Testnet runbook: `../../docs/TESTNET_PROGRESSIVE_RUNBOOK.md`
+- Deploy runbook: `../../audit/DEPLOY_RUNBOOK.md`
 - Foundry Book: https://book.getfoundry.sh
 
 ---
@@ -197,4 +200,4 @@ Edit `foundry.toml` to configure:
 
 ---
 
-For detailed instructions, see `DEPLOYMENT_GUIDE.md` in the root directory.
+For detailed instructions, see `../../docs/MAINNET_LAUNCH.md` and the scripts in `deploy/`.
