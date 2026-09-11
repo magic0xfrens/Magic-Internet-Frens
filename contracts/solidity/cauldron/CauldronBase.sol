@@ -365,6 +365,35 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  right order of magnitude, it changes rarely, and an attacker cannot move
     ///  it. A price feed here would be a manipulation surface on the one number
     ///  that decides whether a generation dies.
+    ///  ── STATUS: WRITE-ONLY. KEPT DELIBERATELY, NOT WIRED HERE ────────────
+    ///  Written in two places (`CauldronRegistry` :176 for native at construction
+    ///  and :323 in `setAllowedQuote`) and read by NOTHING on-chain except the
+    ///  public getter this declaration generates. It is not a bug that was missed;
+    ///  it is a design that was SUPERSEDED. The job described above — making a
+    ///  6-decimal quote's volume comparable to an 18-decimal one, so a rotation
+    ///  does not read as a generation dying — is now done by `QuoteOracle`'s
+    ///  per-RAW-UNIT USD pricing, which `CauldronHook._toUsd` consumes. A
+    ///  per-raw-unit price carries the decimals, so no separate scale factor is
+    ///  needed on that path.
+    ///
+    ///  WHY THE SLOT AND THE WRITES BOTH STAY:
+    ///    • The slot is slot 52 of a layout SHARED with {RedemptionExt} by
+    ///      construction and relied on by a live deployment. Deleting it would
+    ///      shift every slot after it in one contract and not the other, which is
+    ///      a far worse outcome than an unread mapping.
+    ///    • The writes are what keep the public getter honest. Removing them while
+    ///      keeping the getter would have it return 0 for every allowed quote — a
+    ///      value an off-chain reader cannot distinguish from "not allowed" — so
+    ///      the dead code would become actively misleading rather than merely
+    ///      unused. The cost is one SSTORE on an owner-only path.
+    ///
+    ///  IF IT IS EVER WIRED, the one honest reader is `CauldronHook._toUsd`'s
+    ///  unpriceable branch: that path returns 0 today, and 0 there means "cannot
+    ///  judge", which suppresses volume recording entirely. A governance-set
+    ///  magnitude is a better answer than silence for DEATH DETECTION specifically,
+    ///  because that path already fails toward alive by design. It would be wrong
+    ///  anywhere a PRICE is needed — notably `QuoteRotator._oracleFloor`, which
+    ///  must keep failing safe. That change belongs to whoever owns the hook.
     mapping(address => uint256) public quoteScale;         // slot 52
 
     // -----------------------------------------------------------------------
