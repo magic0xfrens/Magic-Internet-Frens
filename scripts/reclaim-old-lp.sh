@@ -73,7 +73,9 @@ if [ "$EXECUTE" != "1" ]; then
 fi
 
 : "${PRIVATE_KEY:?PRIVATE_KEY required with --execute}"
-SENDER=$(cast wallet address --private-key "$PRIVATE_KEY")
+source "$(dirname "$0")/lib/signer.sh"
+resolve_signer || exit 1
+SENDER=$(cast wallet address "${SIGNER[@]}")
 # NB: `${var,,}` is bash 4+; macOS ships bash 3.2, so lowercase via tr for portability.
 lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 if [ "$(lc "$SENDER")" != "$(lc "$ADMIN")" ]; then
@@ -81,7 +83,7 @@ if [ "$(lc "$SENDER")" != "$(lc "$ADMIN")" ]; then
 fi
 BEFORE=$(cast balance "$SENDER" --rpc-url "$RPC_URL")
 
-send() { echo "→ $*"; cast send "$@" --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" >/dev/null || echo "   (no-op / reverted — continuing)"; }
+send() { echo "→ $*"; cast send "$@" "${SIGNER[@]}" --rpc-url "$RPC_URL" >/dev/null || echo "   (no-op / reverted — continuing)"; }
 
 # A non-zero delay means the action must be ARMED first and then waited out.
 # (Post-audit builds require the arm at ANY delay — see finding F-19.)

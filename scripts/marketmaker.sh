@@ -21,7 +21,8 @@
 #                                               #   running while you test)
 #   SEED_EVERY=0 ./scripts/marketmaker.sh auto  # chaos, volume only (no perps)
 #
-# SECURITY: sources .env.sepolia and uses $PRIVATE_KEY by name only (never printed).
+# SECURITY: the signer comes from scripts/lib/signer.sh. With KEYSTORE_ACCOUNT set
+# no key reaches argv; the raw-PRIVATE_KEY fallback announces that it does.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -35,7 +36,9 @@ CONTRACTS_DIR="contracts/solidity"
 # load key + rpc (never echo the key)
 set -a; source "$CONTRACTS_DIR/.env.sepolia"; set +a
 RPC="${SEPOLIA_RPC:?set SEPOLIA_RPC in .env.sepolia}"
-DEPLOYER="$(cast wallet address --private-key "$PRIVATE_KEY")"
+source "$(dirname "$0")/lib/signer.sh"
+resolve_signer || exit 1
+DEPLOYER="$(cast wallet address "${SIGNER[@]}")"
 
 BASE_ETH="${BASE_ETH:-0.03}"     # base buy size in ETH
 INTENSITY="${2:-1}"              # size multiplier
@@ -58,14 +61,14 @@ buy() {
   local eth; eth=$(python3 -c "print(round(float($BASE_ETH)*float($INTENSITY)*float($1),6))")
   echo "  🟢 BUY  ${eth} Ξ   (price ~$(_gwei_price))"
   cast send "$GACHA" 'play(uint256,uint256,uint256,uint256)' 0 0 0 0 \
-    --value "$(_eth "$eth")" --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (buy tx failed — likely RPC hiccup)"
+    --value "$(_eth "$eth")" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (buy tx failed — likely RPC hiccup)"
 }
 
 _ensure_approved() {
   [ -f "$APPROVED_FLAG" ] && return 0
   echo "  … approving router to sell \$GNOME (one-time)"
   cast send "$TOKEN" 'approve(address,uint256)' "$GACHA" \
-    "$(python3 -c 'print(2**256-1)')" --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1 && touch "$APPROVED_FLAG"
+    "$(python3 -c 'print(2**256-1)')" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 && touch "$APPROVED_FLAG"
 }
 
 sell() {
@@ -77,7 +80,7 @@ sell() {
   python3 -c "import sys; sys.exit(0 if $amt>0 else 1)" || { echo "  (no token to sell)"; return 0; }
   echo "  🔴 SELL frac=$1  (price ~$(_gwei_price))"
   cast send "$GACHA" 'play(uint256,uint256,uint256,uint256)' "$amt" 0 0 0 \
-    --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (sell tx failed)"
+    "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (sell tx failed)"
 }
 
 wait_step() { sleep "$DELAY"; }
@@ -121,11 +124,11 @@ seed_perp() {
   if [ "$side" = "0" ]; then
     echo "  🎪 SEED long  ${col}Ξ @ ${lev}x  (a fresh victim for liquidators)"
     cast send "$PERP" 'openLong(uint8,uint256)' "$lev" 0 \
-      --value "$(_eth "$col")" --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (open long failed — warmup/depth/dead?)"
+      --value "$(_eth "$col")" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (open long failed — warmup/depth/dead?)"
   else
     echo "  🎪 SEED short ${col}Ξ @ ${lev}x  (a fresh victim for liquidators)"
     cast send "$PERP" 'openShort(uint8,uint256)' "$lev" 0 \
-      --value "$(_eth "$col")" --private-key "$PRIVATE_KEY" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (open short failed)"
+      --value "$(_eth "$col")" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (open short failed)"
   fi
 }
 

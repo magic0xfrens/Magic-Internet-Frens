@@ -29,7 +29,9 @@ if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
   PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
 fi
 [ -n "${PRIVATE_KEY:-}" ] || { echo "no PRIVATE_KEY (env or $ENVFILE)"; exit 1; }
-W=(--rpc-url "$R" --private-key "$PRIVATE_KEY")
+source "$(dirname "$0")/lib/signer.sh"
+resolve_signer || exit 1
+W=(--rpc-url "$R" "${SIGNER[@]}")
 
 num() { cast call "$PRESALE" "$1" --rpc-url "$R" | tail -1 | awk '{print $1}'; }
 

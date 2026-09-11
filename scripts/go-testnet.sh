@@ -31,7 +31,9 @@ fi
 
 if [ -n "$PK" ]; then
   echo "signing with the key from $ENVFILE"
-  W=(--rpc-url "$R" --private-key "$PK")
+source "$(dirname "$0")/lib/signer.sh"
+resolve_signer || exit 1
+  W=(--rpc-url "$R" "${SIGNER[@]}")
   export PRIVATE_KEY="$PK"
   #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on
   #  disk after the job that needed it is just a liability with no upside.

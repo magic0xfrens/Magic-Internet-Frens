@@ -51,7 +51,9 @@ if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
   PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
 fi
 if [ -n "${PRIVATE_KEY:-}" ]; then
-  W=(--rpc-url "$R" --private-key "$PRIVATE_KEY")
+source "$(dirname "$0")/lib/signer.sh"
+resolve_signer || exit 1
+  W=(--rpc-url "$R" "${SIGNER[@]}")
 else
   read -rsp "keystore password for 'deployer': " PW; echo
   W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PW")
