@@ -181,7 +181,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Which collection holds it. Defaults to the genesis collection, where badges
   // land today; per-iteration collections pass ?col=.
+  //  ONLY A KNOWN COLLECTION. `?col=` used to accept any address at all, so the
+  //  route would read `liqStats` off a contract the caller deployed and render
+  //  its answer as a badge. The typed decode blocks injection, but not forged
+  //  numbers — so the address is checked against the shipped manifest (plus any
+  //  extra collections named in LIQUIDATOOR_COLLECTIONS) before it is read.
   const colRaw = (req.query.col ?? "").toString();
+  const KNOWN_COLLECTIONS = new Set(
+    [deployment.contracts?.collection, ...(process.env.LIQUIDATOOR_COLLECTIONS || "").split(",")]
+      .map((a) => (a ?? "").trim().toLowerCase())
+      .filter((a) => /^0x[0-9a-f]{40}$/.test(a)),
+  );
+  if (colRaw && !KNOWN_COLLECTIONS.has(colRaw.toLowerCase())) {
+    return res.status(400).json({ error: "unknown collection" });
+  }
   const col = (/^0x[0-9a-fA-F]{40}$/.test(colRaw)
     ? colRaw
     : deployment.contracts.presale) as Address;
