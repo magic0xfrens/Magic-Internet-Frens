@@ -679,6 +679,36 @@ contract RedemptionExt is CauldronBase {
     // TREASURY LEGS -- readers (see {CauldronBase.TreasuryLeg})
     // -----------------------------------------------------------------------
 
+    /// @notice A holder burned old-generation tokens and took the same amount of
+    ///         the live one out of the reserve. Declared here as well as on the
+    ///         registry: same signature, same topic, so indexers see one event.
+    event HolderClaimed(uint256 indexed fromGen, address indexed holder, uint256 amount);
+
+    /// @notice Moved here from {CauldronRegistry} for EIP-170 headroom; the
+    ///         registry keeps a forwarder and delegatecalls this on its own storage.
+    function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount)
+        external
+        returns (uint256 claimedAmount)
+    {
+        if (fromGen == 0 || fromGen >= currentGeneration) revert CannotClaimCurrentGen();
+        if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) {
+            revert VestingEnforced();
+        }
+        address prevToken = generationToken[fromGen];
+        if (prevToken == address(0)) revert UnknownGeneration();
+        if (maxAmount == 0) revert NoBalance();
+        uint256 bal = IERC20(prevToken).balanceOf(msg.sender);
+        if (bal < maxAmount) maxAmount = bal;
+        if (maxAmount == 0) revert NoBalance();
+
+        uint256 g = currentGeneration;
+        claimedAmount = PoolOps.migrateUpTo(
+            IPositionManagerOps(address(positionManager)), prevToken, msg.sender, maxAmount,
+            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
+        );
+        emit HolderClaimed(fromGen, msg.sender, claimedAmount);
+    }
+
     /// @notice How many rotated legs a generation holds beyond its primary pool.
     function legCount(uint256 gen) external view returns (uint256) {
         return generationLegs[gen].length;

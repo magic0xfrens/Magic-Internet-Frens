@@ -1260,27 +1260,15 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///  engine stranded on a dead token. Sizing to capacity first gives it a partial
     ///  migration that is still exactly 1:1 on every wei it does burn.
     ///  Same gating as `claimByBurn`: the vesting escrow and the engine are exempt.
-    function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount)
-        external
-        returns (uint256 claimedAmount)
-    {
-        if (fromGen == 0 || fromGen >= currentGeneration) revert CannotClaimCurrentGen();
-        if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) {
-            revert VestingEnforced();
-        }
-        address prevToken = generationToken[fromGen];
-        if (prevToken == address(0)) revert UnknownGeneration();
-        if (maxAmount == 0) revert NoBalance();
-        uint256 bal = IERC20(prevToken).balanceOf(msg.sender);
-        if (bal < maxAmount) maxAmount = bal;
-        if (maxAmount == 0) revert NoBalance();
-
-        uint256 g = currentGeneration;
-        claimedAmount = PoolOps.migrateUpTo(
-            IPositionManagerOps(address(positionManager)), prevToken, msg.sender, maxAmount,
-            ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g])
-        );
-        emit HolderClaimed(fromGen, msg.sender, claimedAmount);
+    ///  ── THE BODY MOVED TO {RedemptionExt} (EIP-170) ───────────────────────
+    ///  This contract had 15 bytes of margin and the `recoverLegs` forwarder below
+    ///  needs ~150. This function is the cheapest thing to move that is worth more
+    ///  than its own stub: it is redemption, which is what the facet is for, and it
+    ///  touches nothing but {CauldronBase} storage and {PoolOps}. Behaviour,
+    ///  authority and ABI are identical - a delegatecall runs it on this registry's
+    ///  storage and custody.
+    function claimByBurnUpTo(uint256, uint256) external returns (uint256) {
+        _forwardToExt();
     }
 
     // -----------------------------------------------------------------------
