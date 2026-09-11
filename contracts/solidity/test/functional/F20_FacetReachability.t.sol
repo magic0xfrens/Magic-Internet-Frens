@@ -139,10 +139,17 @@ contract F20_FacetReachability is Test {
     ///         constant at :60), and it must not be externally callable.
     ///         Asserted so a future "fix all the unrouted selectors" pass does
     ///         not wrongly expose it.
-    function test_F20_RecoverLegsIsIntentionallyInternal() public {
+    function test_F20_RecoverLegsRetryIsRoutedAndTeardownEntryIsNot() public {
+        //  THIS TEST ENCODED THE BUG. It asserted `recoverLegs` "must stay
+        //  internal-only", which is exactly the defect: the facet documents a retry
+        //  for a leg whose unwind failed inside the per-leg try/catch, and with no
+        //  forwarder that retry could not be called by anyone. The property that is
+        //  actually wanted is BOTH halves - the gated public retry routes, and the
+        //  ungated teardown entry does not.
+        assertTrue(_routable(abi.encodeWithSignature("recoverLegs(uint256)", 1)), "the retry routes");
         assertFalse(
-            _routable(abi.encodeWithSignature("recoverLegs(uint256)", 1)),
-            "recoverLegs must stay internal-only"
+            _routable(abi.encodeWithSignature("recoverLegsAtTeardown(uint256)", 1)),
+            "the ungated teardown entry is reachable ONLY by the registry's own delegatecall"
         );
     }
 }

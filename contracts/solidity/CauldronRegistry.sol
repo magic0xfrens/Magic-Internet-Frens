@@ -55,12 +55,14 @@ import {
  *    Gen 7+: Cycle repeats
  */
 contract CauldronRegistry is CauldronBase, IUnlockCallback {
-    /// @dev `RedemptionExt.recoverLegs(uint256)`. Declared `constant` so solc
+    /// @dev `RedemptionExt.recoverLegsAtTeardown(uint256)` — the UNGATED entry, which
+    ///      exists only for this call and has no forwarder on purpose (the public
+    ///      `recoverLegs` stub below is the gated one). Declared `constant` so solc
     ///      folds the hash at COMPILE time — the same expression written inline
     ///      hashes on every call and cost this contract 156 bytes of its EIP-170
     ///      margin. Never hand-written: a wrong selector fails silently here,
     ///      leaving every rotated leg stranded with nothing to show for it.
-    bytes4 private constant RECOVER_LEGS = bytes4(keccak256("recoverLegs(uint256)"));
+    bytes4 private constant RECOVER_LEGS = bytes4(keccak256("recoverLegsAtTeardown(uint256)"));
 
     // Errors + the shared redemption events/views/storage now live in
     // {CauldronBase} (shared with the RedemptionExt delegatecall facet).
@@ -270,6 +272,22 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
     ///         because both are deploy-time wiring and this registry has no
     ///         dispatcher budget for two entries. See RedemptionExt.
     function setRotationWiring(address, address) external { _forwardToExt(); }
+
+    /// @notice Retry the unwind of a PAST generation's rotated legs. See
+    ///         RedemptionExt.
+    ///
+    ///  ── THE DOCUMENTED RETRY HAD NO WAY IN ────────────────────────────────
+    ///  `recoverLegs` is best-effort per leg on purpose, so one pool that cannot be
+    ///  unwound does not block a rebirth and strand every other leg with it — and
+    ///  the failed leg stays recorded precisely so it can be retried. There was no
+    ///  stub for it and this contract has no fallback, so the retry reverted as an
+    ///  unrecognized selector; calling the facet directly ran against the facet's
+    ///  own empty storage and returned (0, 0). The recovery the comment promised
+    ///  did not exist.
+    ///
+    ///  This forwarder cost 15 bytes more than this contract had, which is what the
+    ///  preceding `refactor(size)` commit was for.
+    function recoverLegs(uint256) external returns (uint256, uint256) { _forwardToExt(); }
 
     /// @notice Move booked foreign leg proceeds out to a sink. See RedemptionExt.
     ///

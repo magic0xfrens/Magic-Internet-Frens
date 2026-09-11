@@ -605,56 +605,20 @@ contract RedemptionExt is CauldronBase {
     event QuoteRotatorSet(address rotator);
     event RotationBegun(uint256 indexed gen, address indexed quote, uint256 amount, uint16 bps);
 
-    /**
-     * @notice Deploy converted proceeds as liquidity in the new pair, and tell
-     *         the hook the pair belongs to this generation.
-     *
-     *  The return leg. Handles a FIRST rotation and a rotation BACK identically:
-     *  {PoolOps.openOrAddPair} initializes a fresh pair or tops up a live one, so
-     *  the guild can move into USDG and later move back into ETH without a
-     *  different code path.
-     *
-     *  linkVolume is the part that must not be forgotten. Death is judged on 24h
-     *  volume, and once liquidity is split the primary pool alone can fall under
-     *  the threshold while the generation is healthy — relaunching something
-     *  perfectly alive. Registering the sibling here is what makes the hook count
-     *  the generation rather than one pool.
-     *
-     * @param quote       the pair's quote asset (already converted, held here)
-     * @param quoteAmount how much of it to deploy
-     * @param tokenAmount how much of the generation's token to pair with it
-     */
-    function completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount)
-        external
-        onlyOwner
-        returns (uint256 positionId)
-    {
-        if (!allowedQuote[quote]) revert NotConfigured();
-        uint256 gen = currentGeneration;
+    //  ── `completeRotation` DELETED: IT WAS DEAD CODE ──────────────────────
+    //  It had no registry stub and the registry has no fallback, so
+    //  `registry.completeRotation(...)` reverted as an unrecognized selector and
+    //  the facet-direct call ran against the facet's own empty storage. Nothing
+    //  on-chain or off-chain called it: the only references anywhere are comments
+    //  in `src/hooks/useTreasuryRotation.ts` and
+    //  `src/components/cauldron/TreasuryRotation.tsx` explaining that it is
+    //  unreachable. `rotateSliceFrom` already does everything it did — remove,
+    //  convert, redeploy, linkVolume — in one atomic call, which is why nothing
+    //  ever wanted the two-step form. Removed rather than wired: wiring it would
+    //  have spent registry dispatcher bytes on a second, weaker way to open a
+    //  pair, and an owner-only "deploy arbitrary amounts as liquidity" entrypoint
+    //  is a surface with no caller.
 
-        PoolId poolId;
-        (poolId, positionId) = PoolOps.openOrAddPair(
-            poolManager,
-            IPositionManagerOps(address(positionManager)),
-            address(hook),
-            generationToken[gen],
-            quote,
-            quoteAmount,
-            tokenAmount,
-            TICK_SPACING,
-            POOL_FEE
-        );
-
-        // Count this pair's volume toward the generation, or splitting liquidity
-        // would look like the generation dying.
-        IHookVolume(address(hook)).linkVolume(generationPoolId[gen], poolId);
-
-        emit RotationCompleted(gen, quote, poolId, quoteAmount, tokenAmount);
-    }
-
-    event RotationCompleted(
-        uint256 indexed gen, address indexed quote, PoolId poolId, uint256 quoteAmount, uint256 tokenAmount
-    );
     /// @notice Whether the genesis redemption floor is claimable at spot RIGHT NOW,
     ///         and the current per-fren floor. The reserve is a single-sided token
     ///         band placed BELOW the launch tick; it only pays pure token while spot
@@ -748,7 +712,44 @@ contract RedemptionExt is CauldronBase {
      *  block the rebirth and strand every OTHER leg with it. A failed leg stays
      *  recorded, so it can be retried once whatever broke is fixed.
      */
+    /// @notice PUBLIC RETRY. A leg whose unwind reverted inside the per-leg
+    ///         try/catch stays recorded so it can be retried once whatever broke is
+    ///         fixed — and that retry was UNREACHABLE: the registry has no fallback
+    ///         and no `recoverLegs` stub, so `registry.recoverLegs(gen)` died as
+    ///         "unrecognized function selector", while calling the deployed facet
+    ///         directly ran against its own empty storage and returned (0, 0). The
+    ///         documented recovery path did not exist. Fourth instance of this
+    ///         defect class here, after `setRotationWiring`, the three floor views
+    ///         and `rotateSliceFrom`.
+    ///
+    ///  PAST GENERATIONS ONLY, and that gate is the reason this is not simply the
+    ///  same function. Unwinding a LIVE generation's legs is not a rescue, it is an
+    ///  attack: it pulls the treasury's rotated liquidity out of its pools and
+    ///  parks it idle in the registry, which drops the linked sibling volume and can
+    ///  make a healthy generation read as dying. The teardown path needs no such
+    ///  gate — it runs on the generation being torn down, by definition — so it has
+    ///  its own entry below.
     function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut) {
+        if (gen == 0 || gen >= currentGeneration) revert CannotClaimCurrentGen();
+        return _recoverLegs(gen);
+    }
+
+    /// @notice TEARDOWN ENTRY. Ungated on the generation, because
+    ///         `CauldronRegistry._removeLiquidity` calls it on the generation it is
+    ///         dismantling, at a point where that generation is still
+    ///         `currentGeneration`.
+    ///
+    ///  ITS ACCESS CONTROL IS THAT NO REGISTRY STUB FORWARDS IT. The registry
+    ///  delegatecalls this selector directly from `_removeLiquidity`; there is no
+    ///  dispatcher entry for it, and the registry has no fallback, so no external
+    ///  caller can reach it. Calling the deployed facet directly runs against the
+    ///  facet's own empty storage and recovers nothing. Stated explicitly because
+    ///  it is implicit in the bytecode: DO NOT add a forwarder for this one.
+    function recoverLegsAtTeardown(uint256 gen) external returns (uint256, uint256) {
+        return _recoverLegs(gen);
+    }
+
+    function _recoverLegs(uint256 gen) private returns (uint256 quoteOut, uint256 tokenOut) {
         TreasuryLeg[] storage legs = generationLegs[gen];
         address token = generationToken[gen];
         IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
