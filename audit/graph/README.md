@@ -1,6 +1,6 @@
 # Cauldron function graph
 
-Generated 2026-09-11 at commit `1e98bb4` (branch snapshot of the working tree) from the decontaminated source tree `/tmp/blind-final/contracts/solidity` (comment tags stripped; line numbers and body hashes identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).
+Generated 2026-09-11 at commit `39d04e1` (branch snapshot of the working tree) from the decontaminated source tree `/tmp/blind-final/contracts/solidity` (comment tags stripped; line numbers and body hashes identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).
 
 Extraction only: no severity judgment, no exploit narrative. Every node comes from `skeleton.py`; every number below comes from `validate.py`, `join.py`, or `CROSSCHECK.md`.
 
@@ -352,6 +352,62 @@ Unresolved edges (0):
 
 Nothing unresolved and nothing malformed. Note that this only proves every edge that was written
 resolves to something — it cannot see the 13 calls above, which were never written down.
+
+## Re-sample after fix-up
+
+Twelve nodes that were not in the first sample, re-derived from source before the graph's values
+were opened, comparing authority, gate, writes, and every edge's presence and trust label.
+
+| cluster | sampled | matched | mismatched |
+|---|---|---|---|
+| pool | 6 | 6 | 0 |
+| nft | 6 | 6 | 0 |
+
+- pool: `PoolOps.createAndSeedProgressive`, `PoolOps.openOrAddPair`, `PoolOps.recycleCollection`,
+  `PoolOps.sendAsset`, `PoolOps._seedActive`, `PoolOps._greenCandle`.
+- nft: `CauldronGachaRouter.openReady`, `CauldronGachaRouter.play`, `CauldronGachaRouter._churn`,
+  `CauldronGachaRouter` constructor, `MiFrensDividend.fundToken`, `CollectionLedger.redeem`.
+
+No mismatch rows: every sampled node's authority, gate line, storage-write set, and edge list
+(including trust labels) re-derived identically. Edge counts landed exactly — 10 for
+`createAndSeedProgressive`, 8 for `_greenCandle`, 7 for `_seedActive`, 5 for `openOrAddPair`, 2 for
+`sendAsset`, 6 for `recycleCollection`, 5 for `openReady`, 1 for `play`, 2 for
+`CollectionLedger.redeem`, 1 for `MiFrensDividend.fundToken`.
+
+### The two earlier findings, re-checked directly
+
+- Trust labels in `cauldron/PoolOps.sol` are now uniform by callee type. All ten `IERC20.balanceOf`
+  edges are UNTRUSTED, including the four I flagged (PoolOps.sol:1163, PoolOps.sol:1175,
+  PoolOps.sol:1201, PoolOps.sol:1214), and so are `IERC20.approve` (PoolOps.sol:177,
+  PoolOps.sol:343), `IERC20.transferFrom` (PoolOps.sol:1433) and `ISeeder.startSeed`
+  (PoolOps.sol:344). The typed protocol interfaces stay TRUSTED at every one of their sites —
+  `ICollectionOps.ownerOf` at PoolOps.sol:1380 and PoolOps.sol:1429, `custodyTransfer` at
+  PoolOps.sol:1409 and PoolOps.sol:1436, `IColMinted.totalMinted` at three sites. Low-level calls are
+  UNTRUSTED throughout (`to.call` PoolOps.sol:1088, `asset.call` PoolOps.sol:1092,
+  `collection.staticcall` PoolOps.sol:1401). One rule, applied the same way everywhere.
+- `CauldronGachaRouter._churn` now carries both `IPoolManager.swap (CauldronGachaRouter.sol:467)` and
+  `IPoolManager.swap (CauldronGachaRouter.sol:481)`.
+
+### Completeness rescan
+
+Repeated the step-3 scan over pool and nft as well as the four earliest clusters, with `.swap(`,
+`.staticcall(` and `new ` added to the pattern list and function-declaration lines excluded.
+hook, perp and registry: **0 unmatched** — all 13 misses closed. pool and nft: only contract
+creations remain (PoolOps.sol:707, PoolOps.sol:718, CauldronFactory.sol:71, CauldronFactory.sol:75,
+CauldronFactory.sol:81, CauldronFactory.sol:103), and each is written up in the node's `value` and
+`reachability` with the same line citations — `CauldronCollection` (CauldronFactory.sol:71) and
+`CauldronVault` (CauldronFactory.sol:103) both name their deployment there. A creation is described
+in prose rather than modelled as an edge, consistently in both clusters, so this is a convention and
+not a gap.
+
+### Noted, not counted
+
+`_churn` records `CauldronGachaRouter._limit (CauldronGachaRouter.sol:469)` but not the second call
+to the same helper at CauldronGachaRouter.sol:483, although repeats at distinct lines are recorded
+elsewhere in that very node (`_settle` at CauldronGachaRouter.sol:474 and CauldronGachaRouter.sol:488,
+`_take` at CauldronGachaRouter.sol:475 and CauldronGachaRouter.sol:489). The helper is `private pure`
+with no external reach, and `unlockCallback` has the same shape, which I also did not count in the
+first pass.
 
 ## Residual: what the validator cannot catch
 
