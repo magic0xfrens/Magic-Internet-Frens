@@ -169,7 +169,6 @@ export const HOOK_ABI = [
 //  shapes. A declared selector nothing implements is how the perp opens stayed
 //  broken for a whole release.
 export const LEDGER_ABI = [
-  { type: "function", name: "floorPerNFT", stateMutability: "view", inputs: [{ name: "gen", type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "entitledTokens", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "crystallized", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
   // Live-buyback accumulator for the CURRENT collection (folds into its floor at death).
