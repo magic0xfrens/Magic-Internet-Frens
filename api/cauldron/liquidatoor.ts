@@ -179,8 +179,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const id = raw.replace(/[^0-9]/g, "");
   const tokenId = id ? BigInt(id) : 0n;
 
-  // Which collection holds it. Defaults to the genesis collection, where badges
-  // land today; per-iteration collections pass ?col=.
+  //  Which collection holds it. Defaults to the GENESIS COLLECTION, where badges
+  //  land today; per-iteration collections pass ?col=.
+  //
+  //  The default used to read `contracts.presale`, a DIFFERENT address, while
+  //  the comment claimed genesis and the allowlist below was built from
+  //  `contracts.collection`. A caller who passed no ?col= was therefore read
+  //  against a contract the allowlist would have rejected if they had named it.
   //  ONLY A KNOWN COLLECTION. `?col=` used to accept any address at all, so the
   //  route would read `liqStats` off a contract the caller deployed and render
   //  its answer as a badge. The typed decode blocks injection, but not forged
@@ -197,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const col = (/^0x[0-9a-fA-F]{40}$/.test(colRaw)
     ? colRaw
-    : deployment.contracts.presale) as Address;
+    : deployment.contracts.collection) as Address;
 
   const stats = tokenId >= LIQUIDATOR_ID_BASE ? await readStats(col, tokenId) : null;
 
