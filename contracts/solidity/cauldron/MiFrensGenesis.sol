@@ -575,6 +575,16 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     function igniteCauldron() external nonReentrant returns (address token) {
         if (address(registry) == address(0)) revert RegistryNotSet();
         if (finalized) revert AlreadyFinalized();
+        //  A CANCELLED SALE IS A REFUND POT, NOT A TREASURY (blind red-team X5a).
+        //  `cancelPresale` (:289) has no sell-out precondition, so "cancelled AND
+        //  sold out" is an ordinary state — and every gate here used to pass in
+        //  it. The whole un-refunded `paid[]` balance was then forwarded into
+        //  `registry.summon{value: balance}()`, and the only other ETH exit from
+        //  this contract is `refund()`: the debt survives, the ether does not,
+        //  and there is no owner sweep. It was front-runnable into the same block
+        //  as the first refund. `cancelled` is irreversible by design, so this
+        //  gate is permanent: a cancelled round is refunded, never ignited.
+        if (cancelled) revert AlreadyCancelled();
         if (minted < GENESIS_SUPPLY) revert NotSoldOut();
         // If a finalizer is set, only it may ignite → guarantees the team's
         // atomic summon+buy can't be front-run by a bot calling finalize first.
