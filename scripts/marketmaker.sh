@@ -27,11 +27,21 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# ── config (round-19) ──
-GACHA="${GACHA:-0x13D8b35477A106882f43778E838704bdD137f885}"
-TOKEN="${TOKEN:-0x125F6F988A681D0bA9288cce41D4d6b7478387df}"
-PERP="${PERP_ENGINE:-0x26ae199E143d98be557Eaf89EF7764291bcc51e5}"
+# ── config, FROM THE SHIPPED MANIFEST ──
+#  These were hardcoded round-19/20 addresses with no check at all, so the
+#  script happily pointed at a dead deployment — the same failure keeper.sh had.
+#  An env override may only AGREE with the manifest; a disagreement aborts.
 CONTRACTS_DIR="contracts/solidity"
+manifest() { node -e "const r=require('./indexer/deployments/round.json');process.stdout.write(String(r.contracts.$1 ?? r.$1 ?? ''))"; }
+GACHA_MANIFEST="$(manifest gachaRouter)"
+PERP_MANIFEST="$(manifest perpEngine)"
+GACHA="${GACHA:-$GACHA_MANIFEST}"
+TOKEN="${TOKEN:-}"
+PERP="${PERP_ENGINE:-$PERP_MANIFEST}"
+lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+[ -n "$GACHA" ] || { echo "no gachaRouter in indexer/deployments/round.json"; exit 1; }
+[ "$(lc "$GACHA")" = "$(lc "$GACHA_MANIFEST")" ] || { echo "STALE GACHA: env $GACHA vs manifest $GACHA_MANIFEST"; exit 1; }
+[ "$(lc "$PERP")" = "$(lc "$PERP_MANIFEST")" ] || { echo "STALE PERP_ENGINE: env $PERP vs manifest $PERP_MANIFEST"; exit 1; }
 
 # load key + rpc (never echo the key)
 set -a; source "$CONTRACTS_DIR/.env.sepolia"; set +a
@@ -48,7 +58,8 @@ APPROVED_FLAG="/tmp/.mm_approved_$TOKEN"
 # ── helpers ──
 _eth() { python3 -c "print(int(float($1)*1e18))"; }
 POOL_MANAGER="${POOL_MANAGER:-0xE03A1074c86CFeDd5C142C4F04F1a1536e203543}"
-POOL_ID="${POOL_ID:-0x8e367f8255a85bcf4b53d6fabe4da94b1f344766a94bd28e5e391504ad86f1d6}"
+POOL_ID="${POOL_ID:-$(node -e "const r=require('./indexer/deployments/round.json');process.stdout.write(String((r.poolIds&&(r.poolIds.live||Object.values(r.poolIds)[0]))||''))")}"
+[ -n "$POOL_ID" ] || { echo "no poolId in indexer/deployments/round.json (set POOL_ID)"; exit 1; }
 _gwei_price() {
   # REAL current spot (not the lagging TWAP): read slot0 from the PoolManager.
   local slot raw
@@ -60,8 +71,18 @@ _gwei_price() {
 buy() {
   local eth; eth=$(python3 -c "print(round(float($BASE_ETH)*float($INTENSITY)*float($1),6))")
   echo "  🟢 BUY  ${eth} Ξ   (price ~$(_gwei_price))"
-  cast send "$GACHA" 'play(uint256,uint256,uint256,uint256)' 0 0 0 0 \
-    --value "$(_eth "$eth")" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1 || echo "     (buy tx failed — likely RPC hiccup)"
+  #  FIVE ARGUMENTS. CauldronGachaRouter.play is
+  #  play(quoteIn, tokenIn, minTokenOut, minQuoteOut, openMax) — :234. This
+  #  called a FOUR-argument play() that the router does not implement, so every
+  #  buy reverted on an unknown selector and the `|| echo` below reported it as
+  #  an "RPC hiccup". The market maker has therefore been silently dead.
+  #
+  #  A revert is now FATAL. Swallowing it is what hid the bug for a whole round.
+  if ! cast send "$GACHA" 'play(uint256,uint256,uint256,uint256,uint256)' 0 0 0 0 0 \
+    --value "$(_eth "$eth")" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null; then
+    echo "     ✗ buy REVERTED — stopping rather than pretending this was transient" >&2
+    exit 1
+  fi
 }
 
 _ensure_approved() {
