@@ -136,13 +136,22 @@ contract X1bSurtaxJitterSteerable is Test {
         // ...and the jitter is still ALIVE: it moves with per-block randomness,
         // which is unknowable when the trade is submitted and cannot be set from
         // inside the transaction.
+        //
+        // Probe LATE in the window. Mid-window `decayed` is 2/3 of the peak and
+        // the jitter reaches the same, so `total` clamps to `maxBps` for roughly
+        // half of all seeds — a run of probes can all land on the clamp and say
+        // nothing about whether the jitter moved. At 25/30 elapsed the ceiling is
+        // 1/3 of the peak, so the clamp cannot bite and every distinct seed shows.
+        vm.roll(1_000_000 + 25);
         uint256 base = hook.snipeSurtaxBps(id);
         uint256 moved;
-        for (uint256 i = 1; i <= 6; i++) {
+        for (uint256 i = 1; i <= 12; i++) {
             vm.prevrandao(bytes32(i * uint256(0x9E3779B97F4A7C15)));
             if (hook.snipeSurtaxBps(id) != base) { moved = i; break; }
         }
-        console2.log("jitter still varies at prevrandao #", moved);
+        console2.log("late-window surtax at the base seed ", base);
+        console2.log("jitter still varies at prevrandao # ", moved);
+        assertLt(base, maxCfg, "premise: late in the window the peak clamp cannot bite");
         assertGt(moved, 0, "jitter is not dead: per-block randomness still moves it");
     }
 }

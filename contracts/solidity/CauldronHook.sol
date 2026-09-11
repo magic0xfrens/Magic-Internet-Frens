@@ -1705,6 +1705,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // -----------------------------------------------------------------------
 
     /**
+     * @notice Ownership is TRANSFERABLE, not renounceable (blind red-team X1d).
+     *
+     *  OpenZeppelin ships `renounceOwnership` live, and this contract inherits
+     *  {Ownable} directly rather than {CauldronBase}, so the guard at
+     *  CauldronBase.sol:417 never covered it. The owner is the only party who can
+     *  wire this hook at all — `setRegistry`, `setLegacyBuyback`, `setLiveKey`'s
+     *  upstream, the surtax policy, the fee router, the perp engine, the seeder,
+     *  every threshold. Renouncing would freeze all of it at whatever it happened
+     *  to be, on the contract that sits in the swap path of every trade, with no
+     *  recovery short of redeploying the pool at a new mined address.
+     *
+     *  There is no upside to trade off: the owner cannot touch user funds here,
+     *  so renouncing buys no safety it does not already have. Decentralisation is
+     *  handing ownership to the governance timelock, which `transferOwnership`
+     *  still does. This only removes the door that leads nowhere.
+     */
+    function renounceOwnership() public view override onlyOwner {
+        revert RenounceDisabled();
+    }
+
+    /// @notice Ownership is transferable, not renounceable. See {renounceOwnership}.
+    error RenounceDisabled();
+
+    /**
      * @notice Set the death threshold and, optionally, the oracle that prices
      *         volume for it — together with every other constant denominated in
      *         the same units.
