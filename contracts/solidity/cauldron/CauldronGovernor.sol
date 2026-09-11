@@ -178,6 +178,24 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     uint256 private _runnerId;
     uint256 private _runnerVotes;
 
+    /// @notice Ownership of this governor cannot be renounced.
+    ///
+    ///  `Ownable` ships a live, unguarded `renounceOwnership()`, and this contract's
+    ///  owner is the only party that can call {setRegistry} or {setBrewFee}. Calling
+    ///  it would permanently pin both — the governor could never be re-pointed at a
+    ///  new registry, and the brew fee would be frozen at whatever it happened to be
+    ///  — with no recovery path and no redeploy that preserves the stockpiled
+    ///  mandates. {CauldronBase} already blocks this for its inheritors; this
+    ///  governor is not one of them, so it needs its own guard, the same shape fixer
+    ///  D used on {MigrationVesting}. `transferOwnership` is untouched: handing the
+    ///  seat to a multisig or to a burn-with-a-key address is still available, and
+    ///  is the honest way to say "nobody should hold this".
+    error OwnershipCannotBeRenounced();
+
+    function renounceOwnership() public view override onlyOwner {
+        revert OwnershipCannotBeRenounced();
+    }
+
     /// @dev How many mandates the bench below can hold.
     uint256 internal constant BENCH_SLOTS = 8;
 
