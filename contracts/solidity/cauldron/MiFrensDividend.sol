@@ -477,7 +477,7 @@ contract MiFrensDividend is ReentrancyGuard {
         //  token is out of `activeShares`, so every subsequent deposit is divided
         //  among the remaining holders — computing the leaver's share at any
         //  later point would pay them out of value that is no longer theirs.
-        //  That is what makes this loop unavoidable, and why MAX_ASSETS is 4:
+        //  That is what makes this loop unavoidable, and why MAX_ASSETS is 3:
         //  this runs under the collection's forwarded gas budget.
         uint256 n = assets.length;
         for (uint256 i; i < n; ++i) {
