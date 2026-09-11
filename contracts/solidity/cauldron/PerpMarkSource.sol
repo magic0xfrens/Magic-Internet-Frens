@@ -84,6 +84,21 @@ contract PerpMarkSource is Ownable {
     error PoolCapped();
     error WrongPair();
     error AlreadyAdded();
+    error OwnershipCannotBeRenounced();
+
+    /// @notice Ownership of the mark source CANNOT be renounced.
+    ///
+    ///  Its entire owner surface IS the mark configuration — {setPrimary},
+    ///  {addPool}, {removePool}. A renounce pins the weighted mark to whatever
+    ///  pools happen to be registered at that instant, and the mark is what
+    ///  {PerpEngine} liquidates against. After a quote rotation the generation
+    ///  trades against a DIFFERENT pool, so re-pointing the primary is exactly
+    ///  the operation that would be needed and exactly the one that would be
+    ///  gone. Fail-soft does not save it either: the stale pools still answer, so
+    ///  the engine keeps trusting a mark for a pair it no longer trades.
+    function renounceOwnership() public pure override {
+        revert OwnershipCannotBeRenounced();
+    }
     error NotFound();
 
     event PrimarySet(PoolId indexed id);

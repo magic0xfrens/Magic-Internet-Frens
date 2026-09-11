@@ -432,6 +432,24 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         adopt a different quote yet. See {syncGeneration} (red-team R-08).
     ///         Named for the STAKE, not the event `VaultFunded` above it.
     error VaultStaked();
+    error OwnershipCannotBeRenounced();
+
+    /// @notice Ownership of this engine CANNOT be renounced.
+    ///
+    ///  {Ownable} ships `renounceOwnership()` live and unguarded, and this engine
+    ///  holds trader collateral, the LP's `plv`, the token inventory lent to
+    ///  shorts and the insurance buffer. The owner is the ONLY party who can call
+    ///  {setRisk}, {setFees}, {setGuards}, {setVault}, {setVaultLimits},
+    ///  {setMinCollateral}, {setMarkSource} or {skimInsurance} — i.e. every lever
+    ///  that re-tunes the liquidation mark, the funding rate, the utilization cap
+    ///  and the insurance floor after a quote rotation has moved the ground under
+    ///  the book. One renounce, deliberate or fat-fingered, freezes all of them
+    ///  forever with no recovery path on a live perp engine. There is no upside to
+    ///  renouncing: the owner cannot touch a trader's position or an LP's shares.
+    ///  Hand ownership to the timelock with `transferOwnership` instead.
+    function renounceOwnership() public pure override {
+        revert OwnershipCannotBeRenounced();
+    }
 
     event Opened(uint256 indexed id, address indexed trader, bool isLong, uint256 collateral, uint256 size, uint8 leverage);
     event Closed(uint256 indexed id, address indexed trader, uint256 payout, int256 pnl);
