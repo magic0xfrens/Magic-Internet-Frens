@@ -51,6 +51,7 @@ interface IGachaPlay {
 contract LaunchSniper is Ownable {
     error NotSoldOut();
     error NoValue();
+    error OwnershipCannotBeRenounced();
 
     event Launched(address indexed token, uint256 ethIn, uint256 gnomeBought, address indexed to);
 
@@ -105,6 +106,19 @@ contract LaunchSniper is Ownable {
         } else {
             IERC20(tokenAddr).transfer(owner(), IERC20(tokenAddr).balanceOf(address(this)));
         }
+    }
+
+    /// @notice DISABLED (blind red-team X5h). `Ownable` ships a live
+    ///         `renounceOwnership()`, and this contract's ENTIRE owner surface is
+    ///         {launch} and {sweep}. Sealing {sweep} is the part that bites: this
+    ///         contract is payable, takes ETH during a launch, holds the bought
+    ///         $GNOME between the buy and the forward, and receives whatever the
+    ///         gacha router refunds — and {sweep} is its ONLY exit for any of it.
+    ///         One renounce call therefore strands every token and every wei it
+    ///         ever holds, permanently, with no second path and no upgrade. There
+    ///         is no upside to renouncing a single-shot launch helper.
+    function renounceOwnership() public pure override {
+        revert OwnershipCannotBeRenounced();
     }
 
     receive() external payable {}
