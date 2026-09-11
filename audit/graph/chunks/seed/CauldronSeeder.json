@@ -1,0 +1,531 @@
+[
+ {
+  "contract": "CauldronSeeder",
+  "line": 144,
+  "authority": "internal (callers: startSeed, poke, pokeInSwap, withdrawAll, rescue)",
+  "authority_gate_quote": "if (_locked == 1) revert Reentrancy(); (CauldronSeeder.sol:144)",
+  "reads": [
+   "_locked (line 144)"
+  ],
+  "writes": [
+   "_locked (line 144)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Applied by `startSeed` (CauldronSeeder.sol:175), `poke` (CauldronSeeder.sol:231), `pokeInSwap` (CauldronSeeder.sol:307), `withdrawAll` (CauldronSeeder.sol:565) and `rescue` (CauldronSeeder.sol:597). It is a plain 0/1 flag, not a counter, so it is held across the nested `unlock` (CauldronSeeder.sol:222) re-entry: the PoolManager's callback runs while `_locked` (CauldronSeeder.sol:144) is 1. `unlockCallback` (CauldronSeeder.sol:341) therefore deliberately carries no lock and is gated on `poolManager` (CauldronSeeder.sol:342) instead; DERIVED: if it carried `lock` the whole design would self-revert.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 145,
+  "authority": "internal (callers: startSeed, withdrawAll, rescue)",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronSeeder.sol:145)",
+  "reads": [
+   "registry (line 145, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The single authority gate for custody actions. `registry` (CauldronSeeder.sol:160) is written once in the constructor and is immutable, so the gate can never rotate, be renounced, or dead-end while the registry lives. It guards `startSeed` (CauldronSeeder.sol:175), `withdrawAll` (CauldronSeeder.sol:565) and `rescue` (CauldronSeeder.sol:597); DERIVED: `fundPrime` (CauldronSeeder.sol:251) reverts with the same `OnlyRegistry` (CauldronSeeder.sol:252) error but does NOT use this modifier and does not admit the registry itself.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 159,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "registry (line 160, immutable)",
+   "deployer (line 161, immutable)",
+   "positionManager (line 162, immutable)",
+   "poolManager (line 163, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. `deployer` (CauldronSeeder.sol:161) is pinned to the deploying address and becomes the first of the two admins the funding gate at `owner` (CauldronSeeder.sol:252) accepts; `registry` (CauldronSeeder.sol:160) becomes the sole custody authority. DERIVED: all four slots are immutable and no setter exists, so a mis-wired registry can only be fixed by redeploying the seeder and re-pointing `setSeeder` (CauldronRegistry.sol:309).",
+  "observations": [
+   "comment at `unused` (CauldronSeeder.sol:82) says `positionManager` is unused now that placement is core-level; code at `positionManager` (CauldronSeeder.sol:162) still stores it and no other line in the file reads it"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 166,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native \u2014 `receive` is payable (line 166)",
+  "edges": [],
+  "reachability": "Any address can push ether in with no bookkeeping: the balance is not credited to `ethTotal` (CauldronSeeder.sol:189) or to `primeBudget` (CauldronSeeder.sol:255). It is read as the prime-buy cap at `balance` (CauldronSeeder.sol:273), swept to the registry at `ebal` (CauldronSeeder.sol:436) by `_teardown` (CauldronSeeder.sol:417), and swept again by `rescue` (CauldronSeeder.sol:597). DERIVED: the PoolManager also pays this contract through it when `take` (CauldronSeeder.sol:501) returns native currency0.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 175,
+  "authority": "registry",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:175)",
+  "reads": [
+   "seeding (line 176)",
+   "registry (line 215, immutable)",
+   "poolManager (line 222, immutable)",
+   "placedWad (line 224)",
+   "gen (line 224)"
+  ],
+  "writes": [
+   "_key (line 183)",
+   "token (line 184)",
+   "gen (line 185)",
+   "startTs (line 186)",
+   "window (line 187)",
+   "seedFloorWad (line 188)",
+   "ethTotal (line 189)",
+   "tokenTotal (line 190)",
+   "minStepWad (line 191)",
+   "baseWad (line 192)",
+   "_spacing (line 193)",
+   "_bandWidth (line 194)",
+   "seeding (line 195)",
+   "complete (line 201)",
+   "_basePlaced (line 202)",
+   "_lastEthOut (line 203)",
+   "_lastTokenOut (line 204)",
+   "ranges (line 210)",
+   "_lastAsk (line 212)",
+   "_lastBid (line 213)",
+   "placedWad (line 223)",
+   "complete (line 224)"
+  ],
+  "value": "receives native \u2014 `startSeed` is payable (line 175) and rejects any value that differs from the declared `ethTotal` (line 179); ERC20 pull of the brew token from the registry at `transferFrom` (line 215); the native leg leaves again inside the unlock when the `unlock` (line 222) places the floor slice",
+  "edges": [
+   "IERC20.transferFrom (CauldronSeeder.sol:215), UNTRUSTED, out-of-cluster",
+   "poolManager.unlock (CauldronSeeder.sol:222), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reachable only from the address in `registry` (CauldronSeeder.sol:145) through the `onlyRegistry` gate (CauldronSeeder.sol:175). In production `_seedGeneration` (CauldronRegistry.sol:1703) delegatecalls `createAndSeedProgressive` (PoolOps.sol:252), which runs in the registry's context and calls `startSeed` (PoolOps.sol:344) with the streamed ETH as value after approving the streamed tokens at `approve` (PoolOps.sol:343); that branch fires only when `seeder` (CauldronRegistry.sol:1722) is set and `nextSeedWindow` (CauldronRegistry.sol:1722) is non-zero. State required: `seeding` (CauldronSeeder.sol:176) must be false, so a previous campaign must have been closed by `withdrawAll` (CauldronSeeder.sol:565); config bounds are `seedFloorWad` (CauldronSeeder.sol:177) in (0,1e18], `bandWidth` (CauldronSeeder.sol:178) at least `spacing` (CauldronSeeder.sol:178), and `baseWad` (CauldronSeeder.sol:181) at most 0.5e18. The whole per-campaign reset at `delete` (CauldronSeeder.sol:210) runs BEFORE the pull, and the first placement happens in the same transaction through `unlock` (CauldronSeeder.sol:222).",
+  "observations": [
+   "comment at `msg` (PoolOps.sol:279) cites the value assert at seeder line 133 and the token pull at seeder line 169; code puts the assert at `ethTotal` (CauldronSeeder.sol:179) and the pull at `transferFrom` (CauldronSeeder.sol:215)"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 231,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 234, immutable)",
+   "poolManager (line 241, immutable)"
+  ],
+  "writes": [],
+  "value": "sends native indirectly \u2014 the `ACT_PRIME` unlock (line 241) re-enters `_primeStep` (line 286), which pays the PoolManager at `settle` (line 298) out of this contract's balance",
+  "edges": [
+   "CauldronSeeder._pendingStep (CauldronSeeder.sol:232), TRUSTED, in-cluster",
+   "poolManager.unlock (CauldronSeeder.sol:234), TRUSTED, out-of-cluster",
+   "CauldronSeeder._advance (CauldronSeeder.sol:235), TRUSTED, in-cluster",
+   "CauldronSeeder.primePending (CauldronSeeder.sol:240), TRUSTED, in-cluster",
+   "poolManager.unlock (CauldronSeeder.sol:241), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless: no authority check, only the reentrancy `lock` (CauldronSeeder.sol:231). It opens its own unlock at `unlock` (CauldronSeeder.sol:234), so it works whether or not the hook is wired. It is a no-op for the liquidity leg when `_pendingStep` (CauldronSeeder.sol:232) returns 0 \u2014 i.e. not seeding, already `complete` (CauldronSeeder.sol:317), or the step is under `minStepWad` (CauldronSeeder.sol:321). The prime leg at `primePending` (CauldronSeeder.sol:240) runs unconditionally afterwards, so a late poke still closes the budget once the window has passed. DERIVED: two separate `unlock` (CauldronSeeder.sol:241) calls mean two separate PoolManager sessions in one transaction.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 251,
+  "authority": "deployer or the registry's owner",
+  "authority_gate_quote": "if (msg.sender != deployer && msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry(); (CauldronSeeder.sol:252)",
+  "reads": [
+   "deployer (line 252, immutable)",
+   "registry (line 252, immutable)",
+   "primeBudget (line 256)"
+  ],
+  "writes": [
+   "primeTo (line 254)",
+   "primeBudget (line 255)"
+  ],
+  "value": "receives native \u2014 `fundPrime` is payable (line 251) and the whole amount is added to `primeBudget` (line 255)",
+  "edges": [
+   "IRegistryOwner.owner (CauldronSeeder.sol:252), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two admins, either of which suffices: the immutable `deployer` (CauldronSeeder.sol:161) and whatever `owner` (CauldronSeeder.sol:252) the registry currently reports. Callable at any time, before or during a campaign, and it does not require a live campaign \u2014 the `seeding` (CauldronSeeder.sol:266) guard on the pending amount simply returns 0 until one is armed, so pre-ignition funding waits. `primeTo` (CauldronSeeder.sol:254) is overwritten on every call and is deliberately NOT cleared at teardown (CauldronSeeder.sol:447), while `primeBudget` (CauldronSeeder.sol:449) is.",
+  "observations": [
+   "comment at `Callable` (CauldronSeeder.sol:245) says fundPrime is callable by the registry's owner; code at `deployer` (CauldronSeeder.sol:252) also accepts the immutable deployer",
+   "comment at `custodies` (CauldronSeeder.sol:48) says this contract only ever custodies ledger A; code at `primeBudget` (CauldronSeeder.sol:255) accumulates external ether that the file's own note at `LEDGER` (CauldronSeeder.sol:441) calls ledger C into the same native balance"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 265,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "primeTo (line 266)",
+   "primeBudget (line 266)",
+   "seeding (line 266)",
+   "placedWad (line 267)",
+   "primeSpent (line 269)",
+   "PRIME_MIN_WEI (line 272, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure view over campaign state; also called internally at `primePending` (CauldronSeeder.sol:240). Returns 0 unless `primeTo` (CauldronSeeder.sol:266) is set, `primeBudget` (CauldronSeeder.sol:266) is non-zero and `seeding` (CauldronSeeder.sol:266) is true. The target is `primeBudget` scaled by `placedWad` (CauldronSeeder.sol:267), so it is a pure function of stream progress; the dust floor at `PRIME_MIN_WEI` (CauldronSeeder.sol:272) is waived on the final tranche. The result is finally clamped to the live native balance at `bal` (CauldronSeeder.sol:274), so an under-funded contract asks for less rather than reverting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 286,
+  "authority": "internal (callers: unlockCallback)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+  "reads": [
+   "poolManager (line 287, immutable)",
+   "_key (line 288)",
+   "_key.currency1 (line 299)",
+   "primeTo (line 299)",
+   "primeSpent (line 300)",
+   "gen (line 301)",
+   "primeBudget (line 301)"
+  ],
+  "writes": [
+   "primeSpent (line 300)"
+  ],
+  "value": "sends native to the PoolManager at `settle` (line 298); the bought token is delivered straight to `primeTo` at `take` (line 299)",
+  "edges": [
+   "poolManager.swap (CauldronSeeder.sol:287), TRUSTED, out-of-cluster",
+   "poolManager.settle (CauldronSeeder.sol:298), TRUSTED, out-of-cluster",
+   "poolManager.take (CauldronSeeder.sol:299), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Only reachable from the dispatch at `_primeStep` (CauldronSeeder.sol:349) on the `ACT_PRIME` tag (CauldronSeeder.sol:347), which in turn is only opened at `unlock` (CauldronSeeder.sol:241). An exact-input zero-for-one swap with the price limit pinned to `MIN_SQRT_PRICE` (CauldronSeeder.sol:292), i.e. no slippage bound at all beyond the amount spent. The swap is tagged with this contract at `abi` (CauldronSeeder.sol:294) so the hook can waive fees; `_isExemptPlayer` (CauldronHook.sol:2383) requires BOTH `taxExempt` (CauldronHook.sol:2384) and `isOpener` (CauldronHook.sol:2384) to be set for the seeder, which matches the note at `setOpener` (CauldronSeeder.sol:282). Ordering: the delta is settled at `settle` (CauldronSeeder.sol:298) before the accounting write at `primeSpent` (CauldronSeeder.sol:300).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 307,
+  "authority": "hook (the address stored in _key.hooks at summon)",
+  "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+  "reads": [
+   "_key.hooks (line 308)"
+  ],
+  "writes": [],
+  "value": "NONE at this frame; the mint's native and token legs are paid by `_settle` (line 412)",
+  "edges": [
+   "CauldronSeeder._pendingStep (CauldronSeeder.sol:309), TRUSTED, in-cluster",
+   "CauldronSeeder._placeStep (CauldronSeeder.sol:311), TRUSTED, in-cluster",
+   "CauldronSeeder._advance (CauldronSeeder.sol:312), TRUSTED, in-cluster"
+  ],
+  "reachability": "Called by the pool's hook from afterSwap: `_maybePoke` (CauldronHook.sol:1047) fires a gas-bounded low-level `call` (CauldronHook.sol:1052) whose result is ignored, so a revert here silently pauses streaming instead of breaking the swap. The hook's `seeder` (CauldronHook.sol:1048) pointer is set by `setSeeder` (CauldronHook.sol:2001), reachable from the registry's `setSeeder` (CauldronRegistry.sol:311) or the hook owner. The gate compares against `_key` (CauldronSeeder.sol:308), which is written only at `_key` (CauldronSeeder.sol:183) \u2014 so before the first campaign `_key.hooks` is the zero address and this entry point is closed. No unlock is opened: the caller already holds it, so `_placeStep` (CauldronSeeder.sol:311) runs directly.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 316,
+  "authority": "internal (callers: poke, pokeInSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "seeding (line 317)",
+   "complete (line 317)",
+   "startTs (line 318)",
+   "window (line 318)",
+   "seedFloorWad (line 318)",
+   "placedWad (line 319)",
+   "minStepWad (line 321)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "SeedLib.deployedTargetWad (CauldronSeeder.sol:318), TRUSTED, library"
+  ],
+  "reachability": "Called at `_pendingStep` (CauldronSeeder.sol:232) and `_pendingStep` (CauldronSeeder.sol:309). Returns 0 while `seeding` (CauldronSeeder.sol:317) is false or `complete` (CauldronSeeder.sol:317) is true. The target is a pure function of elapsed time via `deployedTargetWad` (SeedLib.sol:58), so the stream cannot be accelerated by poking more often; the throttle at `minStepWad` (CauldronSeeder.sol:321) is waived once the target reaches 1e18 so the last slice always lands.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 327,
+  "authority": "internal (callers: poke, pokeInSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "startTs (line 328)",
+   "window (line 328)",
+   "seedFloorWad (line 328)",
+   "placedWad (line 329)",
+   "poolManager (line 331, immutable)",
+   "_key (line 331)",
+   "gen (line 333)"
+  ],
+  "writes": [
+   "placedWad (line 330)",
+   "complete (line 333)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "SeedLib.deployedTargetWad (CauldronSeeder.sol:328), TRUSTED, library",
+   "PoolIdLibrary.toId (CauldronSeeder.sol:331), TRUSTED, library",
+   "poolManager.getSlot0 (CauldronSeeder.sol:331), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Runs after a successful placement, from `_advance` (CauldronSeeder.sol:235) or `_advance` (CauldronSeeder.sol:312). It recomputes the schedule rather than adding the step, so `placedWad` (CauldronSeeder.sol:330) is snapped to the time-based target and the throttle remainder is never lost or double-counted; the `step` argument is explicitly discarded at `step` (CauldronSeeder.sol:334). Sets `complete` (CauldronSeeder.sol:333) once the target reaches 1e18, after which the early exit at `complete` (CauldronSeeder.sol:317) returns 0 forever for this campaign.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 341,
+  "authority": "poolManager",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+  "reads": [
+   "poolManager (line 342, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE at this frame; the three branches move value through `_placeStep` (line 346), `_primeStep` (line 349) and `_teardown` (line 352)",
+  "edges": [
+   "CauldronSeeder._placeStep (CauldronSeeder.sol:346), TRUSTED, in-cluster",
+   "CauldronSeeder._primeStep (CauldronSeeder.sol:349), TRUSTED, in-cluster",
+   "CauldronSeeder._teardown (CauldronSeeder.sol:352), TRUSTED, in-cluster"
+  ],
+  "reachability": "Re-entered by the PoolManager during an unlock this contract itself opened at `unlock` (CauldronSeeder.sol:222), `unlock` (CauldronSeeder.sol:234), `ACT_PRIME` (CauldronSeeder.sol:241) or `ACT_WITHDRAW` (CauldronSeeder.sol:566). The action byte is decoded at `act` (CauldronSeeder.sol:343) and dispatches to three private bodies; the final `else` (CauldronSeeder.sol:350) is a catch-all, so any tag other than `ACT_PLACE` (CauldronSeeder.sol:344) or `ACT_PRIME` (CauldronSeeder.sol:347) decodes as a teardown address. It carries no reentrancy modifier by design because the outer entry already holds `_locked` (CauldronSeeder.sol:144).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 363,
+  "authority": "internal (callers: unlockCallback, pokeInSwap)",
+  "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+  "reads": [
+   "_basePlaced (line 364)",
+   "baseWad (line 366)",
+   "poolManager (line 368, immutable)",
+   "_key (line 368)",
+   "tokenTotal (line 370)",
+   "baseWad (line 370)",
+   "ethTotal (line 371)",
+   "baseWad (line 371)",
+   "_spacing (line 376)",
+   "_bandWidth (line 376)",
+   "_spacing (line 378)",
+   "_bandWidth (line 378)",
+   "_key (line 402)",
+   "_key (line 408)"
+  ],
+  "writes": [
+   "_basePlaced (line 365)"
+  ],
+  "value": "NONE directly \u2014 both mints are paid or collected by `_settle` (line 412)",
+  "edges": [
+   "CauldronSeeder._placeBase (CauldronSeeder.sol:366), TRUSTED, in-cluster",
+   "PoolIdLibrary.toId (CauldronSeeder.sol:368), TRUSTED, library",
+   "poolManager.getSlot0 (CauldronSeeder.sol:368), TRUSTED, out-of-cluster",
+   "SeedLib.askBand (CauldronSeeder.sol:376), TRUSTED, library",
+   "SeedLib.bidBand (CauldronSeeder.sol:378), TRUSTED, library",
+   "CauldronSeeder._reserveRange (CauldronSeeder.sol:383), TRUSTED, in-cluster",
+   "CauldronSeeder._reserveRange (CauldronSeeder.sol:384), TRUSTED, in-cluster",
+   "TickMath.getSqrtPriceAtTick (CauldronSeeder.sol:390), TRUSTED, library",
+   "LiquidityAmounts.getLiquidityForAmount1 (CauldronSeeder.sol:389), TRUSTED, library",
+   "LiquidityAmounts.getLiquidityForAmount0 (CauldronSeeder.sol:394), TRUSTED, library",
+   "poolManager.modifyLiquidity (CauldronSeeder.sol:401), TRUSTED, out-of-cluster",
+   "poolManager.modifyLiquidity (CauldronSeeder.sol:407), TRUSTED, out-of-cluster",
+   "CauldronSeeder._settle (CauldronSeeder.sol:412), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two ways in, both requiring an open PoolManager unlock: from the dispatch at `_placeStep` (CauldronSeeder.sol:346) after a self-opened unlock, or directly at `_placeStep` (CauldronSeeder.sol:311) inside the hook's afterSwap. The lazy base is laid at most once per campaign because `_basePlaced` (CauldronSeeder.sol:365) is set before the call and reset only at `_basePlaced` (CauldronSeeder.sol:202). Both bands are sized against the CURRENT tick read at `getSlot0` (CauldronSeeder.sol:368), not the launch tick, and the step amounts are taken from the non-base remainder computed at `streamTok` (CauldronSeeder.sol:370) and `streamEth` (CauldronSeeder.sol:371). A band the cap declined comes back empty and is skipped by the `aHi` (CauldronSeeder.sol:388) and `bHi` (CauldronSeeder.sol:393) guards, which exist because `getLiquidityForAmount1` (CauldronSeeder.sol:389) divides by zero when lo equals hi.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 417,
+  "authority": "internal (callers: unlockCallback)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+  "reads": [
+   "ranges (line 418)",
+   "_key (line 420)",
+   "ranges (line 422)",
+   "poolManager (line 423, immutable)",
+   "_key (line 426)",
+   "token (line 434)",
+   "token (line 435)"
+  ],
+  "writes": [
+   "_lastEthOut (line 438)",
+   "_lastTokenOut (line 439)",
+   "primeBudget (line 449)",
+   "primeSpent (line 450)"
+  ],
+  "value": "ERC20 transfer of the brew token to `to` at `transfer` (line 435); sends native to `to` at `call` (line 437); pool proceeds are pulled in first by `_settle` (line 430)",
+  "edges": [
+   "PoolIdLibrary.toId (CauldronSeeder.sol:420), TRUSTED, library",
+   "poolManager.getPositionInfo (CauldronSeeder.sol:423), TRUSTED, out-of-cluster",
+   "poolManager.modifyLiquidity (CauldronSeeder.sol:425), TRUSTED, out-of-cluster",
+   "CauldronSeeder._settle (CauldronSeeder.sol:430), TRUSTED, in-cluster",
+   "IERC20.balanceOf (CauldronSeeder.sol:434), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronSeeder.sol:435), UNTRUSTED, out-of-cluster",
+   "to.call (CauldronSeeder.sol:437), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Only from the fall-through dispatch at `_teardown` (CauldronSeeder.sol:352) on the fall-through branch, which only the `ACT_WITHDRAW` unlock (CauldronSeeder.sol:566) opens, and that is `onlyRegistry` (CauldronSeeder.sol:565). The loop bound is the tracked-range length read at `ranges` (CauldronSeeder.sol:418) and every iteration at `i` (CauldronSeeder.sol:421) is capped by `MAX_RANGES` (CauldronSeeder.sol:544); a range whose liquidity is already zero is skipped at `liq` (CauldronSeeder.sol:424). The sweep is balance-based, not accounting-based: it forwards whatever `balanceOf` (CauldronSeeder.sol:434) and `balance` (CauldronSeeder.sol:436) report, which includes any unspent prime budget, and only then zeroes `primeBudget` (CauldronSeeder.sol:449) and `primeSpent` (CauldronSeeder.sol:450). The native send is a raw `call` (CauldronSeeder.sol:437) with all remaining gas and is required to succeed.",
+  "observations": [
+   "comment at `Nothing` (CauldronSeeder.sol:57) says teardown leaves nothing stranded; code at `ranges` (CauldronSeeder.sol:422) only unwinds ranges still in the tracked array, and `delete` (CauldronSeeder.sol:210) clears that array at the start of every campaign"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 462,
+  "authority": "internal (callers: _placeStep)",
+  "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+  "reads": [
+   "poolManager (line 463, immutable)",
+   "_key (line 463)",
+   "_spacing (line 464)",
+   "_spacing (line 465)",
+   "ethTotal (line 466)",
+   "baseWad (line 466)",
+   "tokenTotal (line 467)",
+   "baseWad (line 467)",
+   "gen (line 481)"
+  ],
+  "writes": [
+   "ranges (line 476)"
+  ],
+  "value": "NONE directly \u2014 the two-sided mint is paid by `_settle` (line 480)",
+  "edges": [
+   "PoolIdLibrary.toId (CauldronSeeder.sol:463), TRUSTED, library",
+   "poolManager.getSlot0 (CauldronSeeder.sol:463), TRUSTED, out-of-cluster",
+   "LiquidityAmounts.getLiquidityForAmounts (CauldronSeeder.sol:468), TRUSTED, library",
+   "TickMath.getSqrtPriceAtTick (CauldronSeeder.sol:469), TRUSTED, library",
+   "poolManager.modifyLiquidity (CauldronSeeder.sol:477), TRUSTED, out-of-cluster",
+   "CauldronSeeder._settle (CauldronSeeder.sol:480), TRUSTED, in-cluster"
+  ],
+  "reachability": "Called once per campaign, lazily, from the guarded call at `_placeBase` (CauldronSeeder.sol:366), and only when `baseWad` (CauldronSeeder.sol:366) is non-zero. The production caller `createAndSeedProgressive` (PoolOps.sol:252) passes `baseWad` (PoolOps.sol:348) as 0 because it already laid the base itself, so this body is dead on that path and reachable only when `baseWad` (CauldronSeeder.sol:192) is set non-zero by startSeed \u2014 which the fork tests and a direct registry call do. The range is pushed at `ranges` (CauldronSeeder.sol:476) BEFORE the mint so it is recoverable even if the mint reverts the transaction, and it deliberately bypasses `_reserveRange` (CauldronSeeder.sol:474) so a full-range band never becomes a per-side fallback.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 488,
+  "authority": "internal (callers: _placeStep, _teardown, _placeBase)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+  "reads": [
+   "poolManager (line 491, immutable)",
+   "_key.currency1 (line 491)",
+   "token (line 492)",
+   "_key.currency1 (line 495)",
+   "_key.currency0 (line 501)"
+  ],
+  "writes": [],
+  "value": "ERC20 transfer of the brew token to the PoolManager at `transfer` (line 492); sends native to the PoolManager at `settle` (line 499); pulls the two currencies back to this contract at `take` (line 495) and `take` (line 501)",
+  "edges": [
+   "poolManager.sync (CauldronSeeder.sol:491), TRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronSeeder.sol:492), UNTRUSTED, out-of-cluster",
+   "poolManager.settle (CauldronSeeder.sol:493), TRUSTED, out-of-cluster",
+   "poolManager.take (CauldronSeeder.sol:495), TRUSTED, out-of-cluster",
+   "poolManager.settle (CauldronSeeder.sol:499), TRUSTED, out-of-cluster",
+   "poolManager.take (CauldronSeeder.sol:501), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Runs inside an open unlock only, from the three call sites at `_settle` (CauldronSeeder.sol:412), `_settle` (CauldronSeeder.sol:430) and `_settle` (CauldronSeeder.sol:480). It hard-assumes the orientation stated at `currency0` (CauldronSeeder.sol:486): currency0 native, currency1 the ERC20 brew token \u2014 the token leg always goes through `IERC20` (CauldronSeeder.sol:492) and the native leg always through `settle` (CauldronSeeder.sol:499) with a value. The token payment is a bare `transfer` (CauldronSeeder.sol:492) whose boolean return is not checked, unlike the checked pull at `require` (CauldronSeeder.sol:215). DERIVED: a non-native quote never reaches here because the non-native branch at `quote` (PoolOps.sol:296) degrades to the atomic path before calling `startSeed` (PoolOps.sol:344).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 536,
+  "authority": "internal (callers: _placeStep)",
+  "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+  "reads": [
+   "ranges (line 537)",
+   "ranges (line 539)",
+   "MAX_RANGES (line 544, constant)",
+   "_lastAsk (line 545)",
+   "_lastBid (line 545)",
+   "_lastAsk.lo (line 550)",
+   "_lastAsk.lo (line 551)"
+  ],
+  "writes": [
+   "_lastAsk (line 540)",
+   "_lastBid (line 540)",
+   "ranges (line 553)",
+   "_lastAsk (line 554)",
+   "_lastBid (line 554)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called twice per placement from `_reserveRange` (CauldronSeeder.sol:383) and `_reserveRange` (CauldronSeeder.sol:384), once for the ask side and once for the bid side, before either band is sized. The linear scan at `ranges` (CauldronSeeder.sol:539) is bounded by the array length, which the cap at `MAX_RANGES` (CauldronSeeder.sol:544) holds at 64; the array is grown one entry per newly seen aligned band at `push` (CauldronSeeder.sol:553), so anyone who moves the tick by one spacing can grow it, and the full-range base push at `ranges` (CauldronSeeder.sol:476) consumes one slot too. Past the cap it degrades to the per-side fallback in `_lastAsk` (CauldronSeeder.sol:545), or declines the placement entirely by returning an empty band at `return` (CauldronSeeder.sol:550).",
+  "observations": [
+   "comment at `reverts` (CauldronSeeder.sol:111) says placement reverts once the range cap is hit; code at `MAX_RANGES` (CauldronSeeder.sol:544) instead returns a tracked same-side fallback at `return` (CauldronSeeder.sol:551), and the later note at `DEGRADE` (CauldronSeeder.sol:509) documents that reversal"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 565,
+  "authority": "registry",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:565)",
+  "reads": [
+   "poolManager (line 566, immutable)",
+   "_lastEthOut (line 568)",
+   "_lastTokenOut (line 569)"
+  ],
+  "writes": [
+   "ranges (line 570)",
+   "seeding (line 571)",
+   "complete (line 572)"
+  ],
+  "value": "NONE in this frame; the `ACT_WITHDRAW` unlock (line 566) re-enters `unlockCallback` (line 341) and `_teardown` (line 417) forwards both balances to the caller-named recipient",
+  "edges": [
+   "poolManager.unlock (CauldronSeeder.sol:566), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Registry-only through `onlyRegistry` (CauldronSeeder.sol:565). Two registry call sites, both guarded by a live campaign: the successor handoff at `withdrawAll` (CauldronSeeder.sol:565) is invoked from `seeding` (CauldronRegistry.sol:536) and the relaunch teardown from `seeding` (CauldronRegistry.sol:1581). It reads back the amounts recorded at `_lastEthOut` (CauldronSeeder.sol:438) rather than measuring them itself, then closes the campaign by clearing `seeding` (CauldronSeeder.sol:571) and setting `complete` (CauldronSeeder.sol:572); the reset at `complete` (CauldronSeeder.sol:201) clears both for the next generation. DERIVED: `ranges` (CauldronSeeder.sol:570) is deleted AFTER the unlock returns, so the teardown loop still sees the full set.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 597,
+  "authority": "registry",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:597)",
+  "reads": [
+   "token (line 598)",
+   "token (line 599)"
+  ],
+  "writes": [],
+  "value": "ERC20 transfer of the brew token to `to` at `transfer` (line 599); sends native to `to` at `call` (line 601)",
+  "edges": [
+   "IERC20.balanceOf (CauldronSeeder.sol:598), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronSeeder.sol:599), UNTRUSTED, out-of-cluster",
+   "to.call (CauldronSeeder.sol:601), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Registry-only through `onlyRegistry` (CauldronSeeder.sol:597); the only registry path is `rescueSeeder` (CauldronRegistry.sol:321), which is emergency-admin gated and timelocked and passes the registry itself at `rescue` (CauldronRegistry.sol:324). It touches no pool state and deliberately leaves `seeding` (CauldronSeeder.sol:594) armed so `withdrawAll` (CauldronSeeder.sol:565) stays reachable for the placed positions. It sweeps the whole token balance at `balanceOf` (CauldronSeeder.sol:598) and the whole native balance at `balance` (CauldronSeeder.sol:600), and leaves `primeBudget` (CauldronSeeder.sol:137) and `primeSpent` (CauldronSeeder.sol:138) untouched.",
+  "observations": [
+   "comment at `ledger` (CauldronSeeder.sol:580) says rescue only ever touches ledger A; code at `balance` (CauldronSeeder.sol:600) forwards the entire native balance, which the ledger-C note at `primeBudget` (CauldronSeeder.sol:137) says also holds the prime budget, and the counters are zeroed only at `primeBudget` (CauldronSeeder.sol:449)"
+  ]
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 607,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "placedWad (line 607)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Plain getter over `placedWad` (CauldronSeeder.sol:607), the same slot the step math reads at `placedWad` (CauldronSeeder.sol:319) and the prime math at `placedWad` (CauldronSeeder.sol:267). Used by off-chain tooling to watch stream progress.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 608,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "ranges (line 608)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Plain getter over the tracked-range count at `ranges` (CauldronSeeder.sol:608); the same length bounds the teardown loop at `ranges` (CauldronSeeder.sol:418) and the cap check at `MAX_RANGES` (CauldronSeeder.sol:544).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronSeeder",
+  "line": 609,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "complete (line 609)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Part of the seeder interface surface at `isComplete` (ISeeder.sol:36). Reports `complete` (CauldronSeeder.sol:609), which teardown also sets at `complete` (CauldronSeeder.sol:572), so a torn-down seeder reports complete until the next campaign clears it at `complete` (CauldronSeeder.sol:201).",
+  "observations": []
+ }
+]

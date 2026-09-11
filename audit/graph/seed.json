@@ -1,0 +1,1913 @@
+{
+ "cluster": "seed",
+ "source_root": "/tmp/blind-final/contracts/solidity",
+ "generated": "2026-09-11T13:24:25",
+ "files": {
+  "cauldron/CauldronSeeder.sol": 611,
+  "cauldron/SeedLib.sol": 147,
+  "cauldron/ISeeder.sol": 39,
+  "cauldron/MigrationVesting.sol": 308,
+  "cauldron/LaunchSniper.sol": 97
+ },
+ "nodes": [
+  {
+   "contract": "IRegistryOwner (declared in CauldronSeeder.sol)",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 23,
+   "kind": "function",
+   "name": "owner",
+   "signature": "function owner() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "writes": [],
+   "value": "NONE",
+   "reachability": "Declaration only, no body. The seeder casts its immutable `registry` (CauldronSeeder.sol:252) to this interface and calls `owner` (CauldronSeeder.sol:252) inside `fundPrime` (CauldronSeeder.sol:251), admitting the registry's owner as the second prime-budget admin next to the immutable `deployer` (CauldronSeeder.sol:79). DERIVED: the implementing contract is outside this cluster, so a revert or a self-destructed registry here makes `fundPrime` (CauldronSeeder.sol:251) unreachable for that admin.",
+   "reads": [],
+   "authority": "anyone (declaration only; the implementing getter is the registry's Ownable owner)",
+   "observations": []
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 144,
+   "kind": "modifier",
+   "name": "lock",
+   "signature": "modifier lock()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7b39189ebae1b1469734860d15b0d6291cc36028",
+   "body_lines": [
+    144,
+    144
+   ],
+   "observations": [],
+   "writes": [
+    "_locked (line 144)"
+   ],
+   "authority": "internal (callers: startSeed, poke, pokeInSwap, withdrawAll, rescue)",
+   "authority_gate_quote": "if (_locked == 1) revert Reentrancy(); (CauldronSeeder.sol:144)",
+   "edges": [],
+   "reads": [
+    "_locked (line 144)"
+   ],
+   "reachability": "Applied by `startSeed` (CauldronSeeder.sol:175), `poke` (CauldronSeeder.sol:231), `pokeInSwap` (CauldronSeeder.sol:307), `withdrawAll` (CauldronSeeder.sol:565) and `rescue` (CauldronSeeder.sol:597). It is a plain 0/1 flag, not a counter, so it is held across the nested `unlock` (CauldronSeeder.sol:222) re-entry: the PoolManager's callback runs while `_locked` (CauldronSeeder.sol:144) is 1. `unlockCallback` (CauldronSeeder.sol:341) therefore deliberately carries no lock and is gated on `poolManager` (CauldronSeeder.sol:342) instead; DERIVED: if it carried `lock` the whole design would self-revert.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 145,
+   "kind": "modifier",
+   "name": "onlyRegistry",
+   "signature": "modifier onlyRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9fc52a1474bebaa55e587b54813691f8e77da6c9",
+   "body_lines": [
+    145,
+    145
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "internal (callers: startSeed, withdrawAll, rescue)",
+   "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronSeeder.sol:145)",
+   "edges": [],
+   "reads": [
+    "registry (line 145, immutable)"
+   ],
+   "reachability": "The single authority gate for custody actions. `registry` (CauldronSeeder.sol:160) is written once in the constructor and is immutable, so the gate can never rotate, be renounced, or dead-end while the registry lives. It guards `startSeed` (CauldronSeeder.sol:175), `withdrawAll` (CauldronSeeder.sol:565) and `rescue` (CauldronSeeder.sol:597); DERIVED: `fundPrime` (CauldronSeeder.sol:251) reverts with the same `OnlyRegistry` (CauldronSeeder.sol:252) error but does NOT use this modifier and does not admit the registry itself.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 159,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _registry, address _positionManager, address _poolManager)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7d63cb42deee379445bcf21643f9e922c57999ab",
+   "body_lines": [
+    159,
+    164
+   ],
+   "observations": [
+    "comment at `unused` (CauldronSeeder.sol:82) says `positionManager` is unused now that placement is core-level; code at `positionManager` (CauldronSeeder.sol:162) still stores it and no other line in the file reads it"
+   ],
+   "writes": [
+    "registry (line 160, immutable)",
+    "deployer (line 161, immutable)",
+    "positionManager (line 162, immutable)",
+    "poolManager (line 163, immutable)"
+   ],
+   "authority": "deployer",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [],
+   "reachability": "Runs once at deployment. `deployer` (CauldronSeeder.sol:161) is pinned to the deploying address and becomes the first of the two admins the funding gate at `owner` (CauldronSeeder.sol:252) accepts; `registry` (CauldronSeeder.sol:160) becomes the sole custody authority. DERIVED: all four slots are immutable and no setter exists, so a mis-wired registry can only be fixed by redeploying the seeder and re-pointing `setSeeder` (CauldronRegistry.sol:309).",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 166,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    166,
+    166
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [],
+   "reachability": "Any address can push ether in with no bookkeeping: the balance is not credited to `ethTotal` (CauldronSeeder.sol:189) or to `primeBudget` (CauldronSeeder.sol:255). It is read as the prime-buy cap at `balance` (CauldronSeeder.sol:273), swept to the registry at `ebal` (CauldronSeeder.sol:436) by `_teardown` (CauldronSeeder.sol:417), and swept again by `rescue` (CauldronSeeder.sol:597). DERIVED: the PoolManager also pays this contract through it when `take` (CauldronSeeder.sol:501) returns native currency0.",
+   "value": "receives native \u2014 `receive` is payable (line 166)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 175,
+   "kind": "function",
+   "name": "startSeed",
+   "signature": "function startSeed(SeederConfig calldata cfg) external payable onlyRegistry lock",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "bf18360212efb7db36a9036be80956a714905a36",
+   "body_lines": [
+    175,
+    226
+   ],
+   "observations": [
+    "comment at `msg` (PoolOps.sol:279) cites the value assert at seeder line 133 and the token pull at seeder line 169; code puts the assert at `ethTotal` (CauldronSeeder.sol:179) and the pull at `transferFrom` (CauldronSeeder.sol:215)"
+   ],
+   "writes": [
+    "_key (line 183)",
+    "token (line 184)",
+    "gen (line 185)",
+    "startTs (line 186)",
+    "window (line 187)",
+    "seedFloorWad (line 188)",
+    "ethTotal (line 189)",
+    "tokenTotal (line 190)",
+    "minStepWad (line 191)",
+    "baseWad (line 192)",
+    "_spacing (line 193)",
+    "_bandWidth (line 194)",
+    "seeding (line 195)",
+    "complete (line 201)",
+    "_basePlaced (line 202)",
+    "_lastEthOut (line 203)",
+    "_lastTokenOut (line 204)",
+    "ranges (line 210)",
+    "_lastAsk (line 212)",
+    "_lastBid (line 213)",
+    "placedWad (line 223)",
+    "complete (line 224)"
+   ],
+   "authority": "registry",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:175)",
+   "edges": [
+    "IERC20.transferFrom (CauldronSeeder.sol:215), UNTRUSTED, out-of-cluster",
+    "poolManager.unlock (CauldronSeeder.sol:222), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "seeding (line 176)",
+    "registry (line 215, immutable)",
+    "poolManager (line 222, immutable)",
+    "placedWad (line 224)",
+    "gen (line 224)"
+   ],
+   "reachability": "Reachable only from the address in `registry` (CauldronSeeder.sol:145) through the `onlyRegistry` gate (CauldronSeeder.sol:175). In production `_seedGeneration` (CauldronRegistry.sol:1703) delegatecalls `createAndSeedProgressive` (PoolOps.sol:252), which runs in the registry's context and calls `startSeed` (PoolOps.sol:344) with the streamed ETH as value after approving the streamed tokens at `approve` (PoolOps.sol:343); that branch fires only when `seeder` (CauldronRegistry.sol:1722) is set and `nextSeedWindow` (CauldronRegistry.sol:1722) is non-zero. State required: `seeding` (CauldronSeeder.sol:176) must be false, so a previous campaign must have been closed by `withdrawAll` (CauldronSeeder.sol:565); config bounds are `seedFloorWad` (CauldronSeeder.sol:177) in (0,1e18], `bandWidth` (CauldronSeeder.sol:178) at least `spacing` (CauldronSeeder.sol:178), and `baseWad` (CauldronSeeder.sol:181) at most 0.5e18. The whole per-campaign reset at `delete` (CauldronSeeder.sol:210) runs BEFORE the pull, and the first placement happens in the same transaction through `unlock` (CauldronSeeder.sol:222).",
+   "value": "receives native \u2014 `startSeed` is payable (line 175) and rejects any value that differs from the declared `ethTotal` (line 179); ERC20 pull of the brew token from the registry at `transferFrom` (line 215); the native leg leaves again inside the unlock when the `unlock` (line 222) places the floor slice"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 231,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "lock"
+   ],
+   "body_sha1": "6c5e7dd5bc200c67ff14d71dd12b92965f4d5100",
+   "body_lines": [
+    231,
+    242
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "CauldronSeeder._pendingStep (CauldronSeeder.sol:232), TRUSTED, in-cluster",
+    "poolManager.unlock (CauldronSeeder.sol:234), TRUSTED, out-of-cluster",
+    "CauldronSeeder._advance (CauldronSeeder.sol:235), TRUSTED, in-cluster",
+    "CauldronSeeder.primePending (CauldronSeeder.sol:240), TRUSTED, in-cluster",
+    "poolManager.unlock (CauldronSeeder.sol:241), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "poolManager (line 234, immutable)",
+    "poolManager (line 241, immutable)"
+   ],
+   "reachability": "Permissionless: no authority check, only the reentrancy `lock` (CauldronSeeder.sol:231). It opens its own unlock at `unlock` (CauldronSeeder.sol:234), so it works whether or not the hook is wired. It is a no-op for the liquidity leg when `_pendingStep` (CauldronSeeder.sol:232) returns 0 \u2014 i.e. not seeding, already `complete` (CauldronSeeder.sol:317), or the step is under `minStepWad` (CauldronSeeder.sol:321). The prime leg at `primePending` (CauldronSeeder.sol:240) runs unconditionally afterwards, so a late poke still closes the budget once the window has passed. DERIVED: two separate `unlock` (CauldronSeeder.sol:241) calls mean two separate PoolManager sessions in one transaction.",
+   "value": "sends native indirectly \u2014 the `ACT_PRIME` unlock (line 241) re-enters `_primeStep` (line 286), which pays the PoolManager at `settle` (line 298) out of this contract's balance"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 251,
+   "kind": "function",
+   "name": "fundPrime",
+   "signature": "function fundPrime(address to) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "56f7dde867349349756be5145ce345a59ac11785",
+   "body_lines": [
+    251,
+    257
+   ],
+   "observations": [
+    "comment at `Callable` (CauldronSeeder.sol:245) says fundPrime is callable by the registry's owner; code at `deployer` (CauldronSeeder.sol:252) also accepts the immutable deployer",
+    "comment at `custodies` (CauldronSeeder.sol:48) says this contract only ever custodies ledger A; code at `primeBudget` (CauldronSeeder.sol:255) accumulates external ether that the file's own note at `LEDGER` (CauldronSeeder.sol:441) calls ledger C into the same native balance"
+   ],
+   "writes": [
+    "primeTo (line 254)",
+    "primeBudget (line 255)"
+   ],
+   "authority": "deployer or the registry's owner",
+   "authority_gate_quote": "if (msg.sender != deployer && msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry(); (CauldronSeeder.sol:252)",
+   "edges": [
+    "IRegistryOwner.owner (CauldronSeeder.sol:252), TRUSTED, in-cluster"
+   ],
+   "reads": [
+    "deployer (line 252, immutable)",
+    "registry (line 252, immutable)",
+    "primeBudget (line 256)"
+   ],
+   "reachability": "Two admins, either of which suffices: the immutable `deployer` (CauldronSeeder.sol:161) and whatever `owner` (CauldronSeeder.sol:252) the registry currently reports. Callable at any time, before or during a campaign, and it does not require a live campaign \u2014 the `seeding` (CauldronSeeder.sol:266) guard on the pending amount simply returns 0 until one is armed, so pre-ignition funding waits. `primeTo` (CauldronSeeder.sol:254) is overwritten on every call and is deliberately NOT cleared at teardown (CauldronSeeder.sol:447), while `primeBudget` (CauldronSeeder.sol:449) is.",
+   "value": "receives native \u2014 `fundPrime` is payable (line 251) and the whole amount is added to `primeBudget` (line 255)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 265,
+   "kind": "function",
+   "name": "primePending",
+   "signature": "function primePending() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "a1f373487be3cc2f47e842ad308dfbd53077f177",
+   "body_lines": [
+    265,
+    275
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [
+    "primeTo (line 266)",
+    "primeBudget (line 266)",
+    "seeding (line 266)",
+    "placedWad (line 267)",
+    "primeSpent (line 269)",
+    "PRIME_MIN_WEI (line 272, constant)"
+   ],
+   "reachability": "Pure view over campaign state; also called internally at `primePending` (CauldronSeeder.sol:240). Returns 0 unless `primeTo` (CauldronSeeder.sol:266) is set, `primeBudget` (CauldronSeeder.sol:266) is non-zero and `seeding` (CauldronSeeder.sol:266) is true. The target is `primeBudget` scaled by `placedWad` (CauldronSeeder.sol:267), so it is a pure function of stream progress; the dust floor at `PRIME_MIN_WEI` (CauldronSeeder.sol:272) is waived on the final tranche. The result is finally clamped to the live native balance at `bal` (CauldronSeeder.sol:274), so an under-funded contract asks for less rather than reverting.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "_primeStep",
+   "signature": "function _primeStep(uint256 ethIn) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b0c80b50ab0c3e56844ad2eccb7da702bb252451",
+   "body_lines": [
+    286,
+    302
+   ],
+   "observations": [],
+   "writes": [
+    "primeSpent (line 300)"
+   ],
+   "authority": "internal (callers: unlockCallback)",
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+   "edges": [
+    "poolManager.swap (CauldronSeeder.sol:287), TRUSTED, out-of-cluster",
+    "poolManager.settle (CauldronSeeder.sol:298), TRUSTED, out-of-cluster",
+    "poolManager.take (CauldronSeeder.sol:299), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "poolManager (line 287, immutable)",
+    "_key (line 288)",
+    "_key.currency1 (line 299)",
+    "primeTo (line 299)",
+    "primeSpent (line 300)",
+    "gen (line 301)",
+    "primeBudget (line 301)"
+   ],
+   "reachability": "Only reachable from the dispatch at `_primeStep` (CauldronSeeder.sol:349) on the `ACT_PRIME` tag (CauldronSeeder.sol:347), which in turn is only opened at `unlock` (CauldronSeeder.sol:241). An exact-input zero-for-one swap with the price limit pinned to `MIN_SQRT_PRICE` (CauldronSeeder.sol:292), i.e. no slippage bound at all beyond the amount spent. The swap is tagged with this contract at `abi` (CauldronSeeder.sol:294) so the hook can waive fees; `_isExemptPlayer` (CauldronHook.sol:2383) requires BOTH `taxExempt` (CauldronHook.sol:2384) and `isOpener` (CauldronHook.sol:2384) to be set for the seeder, which matches the note at `setOpener` (CauldronSeeder.sol:282). Ordering: the delta is settled at `settle` (CauldronSeeder.sol:298) before the accounting write at `primeSpent` (CauldronSeeder.sol:300).",
+   "value": "sends native to the PoolManager at `settle` (line 298); the bought token is delivered straight to `primeTo` at `take` (line 299)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 307,
+   "kind": "function",
+   "name": "pokeInSwap",
+   "signature": "function pokeInSwap() external lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "lock"
+   ],
+   "body_sha1": "6a659afdf7c857acde47e34893ef60f419842807",
+   "body_lines": [
+    307,
+    313
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "hook (the address stored in _key.hooks at summon)",
+   "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+   "edges": [
+    "CauldronSeeder._pendingStep (CauldronSeeder.sol:309), TRUSTED, in-cluster",
+    "CauldronSeeder._placeStep (CauldronSeeder.sol:311), TRUSTED, in-cluster",
+    "CauldronSeeder._advance (CauldronSeeder.sol:312), TRUSTED, in-cluster"
+   ],
+   "reads": [
+    "_key.hooks (line 308)"
+   ],
+   "reachability": "Called by the pool's hook from afterSwap: `_maybePoke` (CauldronHook.sol:1047) fires a gas-bounded low-level `call` (CauldronHook.sol:1052) whose result is ignored, so a revert here silently pauses streaming instead of breaking the swap. The hook's `seeder` (CauldronHook.sol:1048) pointer is set by `setSeeder` (CauldronHook.sol:2001), reachable from the registry's `setSeeder` (CauldronRegistry.sol:311) or the hook owner. The gate compares against `_key` (CauldronSeeder.sol:308), which is written only at `_key` (CauldronSeeder.sol:183) \u2014 so before the first campaign `_key.hooks` is the zero address and this entry point is closed. No unlock is opened: the caller already holds it, so `_placeStep` (CauldronSeeder.sol:311) runs directly.",
+   "value": "NONE at this frame; the mint's native and token legs are paid by `_settle` (line 412)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 316,
+   "kind": "function",
+   "name": "_pendingStep",
+   "signature": "function _pendingStep() private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b197e8eaeefebc884c0e724d5bc9a87cc1e58d70",
+   "body_lines": [
+    316,
+    323
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "internal (callers: poke, pokeInSwap)",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "SeedLib.deployedTargetWad (CauldronSeeder.sol:318), TRUSTED, library"
+   ],
+   "reads": [
+    "seeding (line 317)",
+    "complete (line 317)",
+    "startTs (line 318)",
+    "window (line 318)",
+    "seedFloorWad (line 318)",
+    "placedWad (line 319)",
+    "minStepWad (line 321)"
+   ],
+   "reachability": "Called at `_pendingStep` (CauldronSeeder.sol:232) and `_pendingStep` (CauldronSeeder.sol:309). Returns 0 while `seeding` (CauldronSeeder.sol:317) is false or `complete` (CauldronSeeder.sol:317) is true. The target is a pure function of elapsed time via `deployedTargetWad` (SeedLib.sol:58), so the stream cannot be accelerated by poking more often; the throttle at `minStepWad` (CauldronSeeder.sol:321) is waived once the target reaches 1e18 so the last slice always lands.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 327,
+   "kind": "function",
+   "name": "_advance",
+   "signature": "function _advance(uint256 step) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "36ab78252b3ec8ed83237543c92f2de346d3c40f",
+   "body_lines": [
+    327,
+    335
+   ],
+   "observations": [],
+   "writes": [
+    "placedWad (line 330)",
+    "complete (line 333)"
+   ],
+   "authority": "internal (callers: poke, pokeInSwap)",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "SeedLib.deployedTargetWad (CauldronSeeder.sol:328), TRUSTED, library",
+    "PoolIdLibrary.toId (CauldronSeeder.sol:331), TRUSTED, library",
+    "poolManager.getSlot0 (CauldronSeeder.sol:331), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "startTs (line 328)",
+    "window (line 328)",
+    "seedFloorWad (line 328)",
+    "placedWad (line 329)",
+    "poolManager (line 331, immutable)",
+    "_key (line 331)",
+    "gen (line 333)"
+   ],
+   "reachability": "Runs after a successful placement, from `_advance` (CauldronSeeder.sol:235) or `_advance` (CauldronSeeder.sol:312). It recomputes the schedule rather than adding the step, so `placedWad` (CauldronSeeder.sol:330) is snapped to the time-based target and the throttle remainder is never lost or double-counted; the `step` argument is explicitly discarded at `step` (CauldronSeeder.sol:334). Sets `complete` (CauldronSeeder.sol:333) once the target reaches 1e18, after which the early exit at `complete` (CauldronSeeder.sol:317) returns 0 forever for this campaign.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 341,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bcc8100d28eec1d2f2e733bc52d6a12e2c84f2f0",
+   "body_lines": [
+    341,
+    355
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "poolManager",
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+   "edges": [
+    "CauldronSeeder._placeStep (CauldronSeeder.sol:346), TRUSTED, in-cluster",
+    "CauldronSeeder._primeStep (CauldronSeeder.sol:349), TRUSTED, in-cluster",
+    "CauldronSeeder._teardown (CauldronSeeder.sol:352), TRUSTED, in-cluster"
+   ],
+   "reads": [
+    "poolManager (line 342, immutable)"
+   ],
+   "reachability": "Re-entered by the PoolManager during an unlock this contract itself opened at `unlock` (CauldronSeeder.sol:222), `unlock` (CauldronSeeder.sol:234), `ACT_PRIME` (CauldronSeeder.sol:241) or `ACT_WITHDRAW` (CauldronSeeder.sol:566). The action byte is decoded at `act` (CauldronSeeder.sol:343) and dispatches to three private bodies; the final `else` (CauldronSeeder.sol:350) is a catch-all, so any tag other than `ACT_PLACE` (CauldronSeeder.sol:344) or `ACT_PRIME` (CauldronSeeder.sol:347) decodes as a teardown address. It carries no reentrancy modifier by design because the outer entry already holds `_locked` (CauldronSeeder.sol:144).",
+   "value": "NONE at this frame; the three branches move value through `_placeStep` (line 346), `_primeStep` (line 349) and `_teardown` (line 352)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 363,
+   "kind": "function",
+   "name": "_placeStep",
+   "signature": "function _placeStep(uint256 stepWad) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bb2991dda67ec0abb1d36f321d0cdd8ff78a2e57",
+   "body_lines": [
+    363,
+    413
+   ],
+   "observations": [],
+   "writes": [
+    "_basePlaced (line 365)"
+   ],
+   "authority": "internal (callers: unlockCallback, pokeInSwap)",
+   "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+   "edges": [
+    "CauldronSeeder._placeBase (CauldronSeeder.sol:366), TRUSTED, in-cluster",
+    "PoolIdLibrary.toId (CauldronSeeder.sol:368), TRUSTED, library",
+    "poolManager.getSlot0 (CauldronSeeder.sol:368), TRUSTED, out-of-cluster",
+    "SeedLib.askBand (CauldronSeeder.sol:376), TRUSTED, library",
+    "SeedLib.bidBand (CauldronSeeder.sol:378), TRUSTED, library",
+    "CauldronSeeder._reserveRange (CauldronSeeder.sol:383), TRUSTED, in-cluster",
+    "CauldronSeeder._reserveRange (CauldronSeeder.sol:384), TRUSTED, in-cluster",
+    "TickMath.getSqrtPriceAtTick (CauldronSeeder.sol:390), TRUSTED, library",
+    "LiquidityAmounts.getLiquidityForAmount1 (CauldronSeeder.sol:389), TRUSTED, library",
+    "LiquidityAmounts.getLiquidityForAmount0 (CauldronSeeder.sol:394), TRUSTED, library",
+    "poolManager.modifyLiquidity (CauldronSeeder.sol:401), TRUSTED, out-of-cluster",
+    "poolManager.modifyLiquidity (CauldronSeeder.sol:407), TRUSTED, out-of-cluster",
+    "CauldronSeeder._settle (CauldronSeeder.sol:412), TRUSTED, in-cluster"
+   ],
+   "reads": [
+    "_basePlaced (line 364)",
+    "baseWad (line 366)",
+    "poolManager (line 368, immutable)",
+    "_key (line 368)",
+    "tokenTotal (line 370)",
+    "baseWad (line 370)",
+    "ethTotal (line 371)",
+    "baseWad (line 371)",
+    "_spacing (line 376)",
+    "_bandWidth (line 376)",
+    "_spacing (line 378)",
+    "_bandWidth (line 378)",
+    "_key (line 402)",
+    "_key (line 408)"
+   ],
+   "reachability": "Two ways in, both requiring an open PoolManager unlock: from the dispatch at `_placeStep` (CauldronSeeder.sol:346) after a self-opened unlock, or directly at `_placeStep` (CauldronSeeder.sol:311) inside the hook's afterSwap. The lazy base is laid at most once per campaign because `_basePlaced` (CauldronSeeder.sol:365) is set before the call and reset only at `_basePlaced` (CauldronSeeder.sol:202). Both bands are sized against the CURRENT tick read at `getSlot0` (CauldronSeeder.sol:368), not the launch tick, and the step amounts are taken from the non-base remainder computed at `streamTok` (CauldronSeeder.sol:370) and `streamEth` (CauldronSeeder.sol:371). A band the cap declined comes back empty and is skipped by the `aHi` (CauldronSeeder.sol:388) and `bHi` (CauldronSeeder.sol:393) guards, which exist because `getLiquidityForAmount1` (CauldronSeeder.sol:389) divides by zero when lo equals hi.",
+   "value": "NONE directly \u2014 both mints are paid or collected by `_settle` (line 412)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 417,
+   "kind": "function",
+   "name": "_teardown",
+   "signature": "function _teardown(address to) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "42aa5ce768c564efd1e1ee9def4148af047ac999",
+   "body_lines": [
+    417,
+    451
+   ],
+   "observations": [
+    "comment at `Nothing` (CauldronSeeder.sol:57) says teardown leaves nothing stranded; code at `ranges` (CauldronSeeder.sol:422) only unwinds ranges still in the tracked array, and `delete` (CauldronSeeder.sol:210) clears that array at the start of every campaign"
+   ],
+   "writes": [
+    "_lastEthOut (line 438)",
+    "_lastTokenOut (line 439)",
+    "primeBudget (line 449)",
+    "primeSpent (line 450)"
+   ],
+   "authority": "internal (callers: unlockCallback)",
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+   "edges": [
+    "PoolIdLibrary.toId (CauldronSeeder.sol:420), TRUSTED, library",
+    "poolManager.getPositionInfo (CauldronSeeder.sol:423), TRUSTED, out-of-cluster",
+    "poolManager.modifyLiquidity (CauldronSeeder.sol:425), TRUSTED, out-of-cluster",
+    "CauldronSeeder._settle (CauldronSeeder.sol:430), TRUSTED, in-cluster",
+    "IERC20.balanceOf (CauldronSeeder.sol:434), UNTRUSTED, out-of-cluster",
+    "IERC20.transfer (CauldronSeeder.sol:435), UNTRUSTED, out-of-cluster",
+    "to.call (CauldronSeeder.sol:437), UNTRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "ranges (line 418)",
+    "_key (line 420)",
+    "ranges (line 422)",
+    "poolManager (line 423, immutable)",
+    "_key (line 426)",
+    "token (line 434)",
+    "token (line 435)"
+   ],
+   "reachability": "Only from the fall-through dispatch at `_teardown` (CauldronSeeder.sol:352) on the fall-through branch, which only the `ACT_WITHDRAW` unlock (CauldronSeeder.sol:566) opens, and that is `onlyRegistry` (CauldronSeeder.sol:565). The loop bound is the tracked-range length read at `ranges` (CauldronSeeder.sol:418) and every iteration at `i` (CauldronSeeder.sol:421) is capped by `MAX_RANGES` (CauldronSeeder.sol:544); a range whose liquidity is already zero is skipped at `liq` (CauldronSeeder.sol:424). The sweep is balance-based, not accounting-based: it forwards whatever `balanceOf` (CauldronSeeder.sol:434) and `balance` (CauldronSeeder.sol:436) report, which includes any unspent prime budget, and only then zeroes `primeBudget` (CauldronSeeder.sol:449) and `primeSpent` (CauldronSeeder.sol:450). The native send is a raw `call` (CauldronSeeder.sol:437) with all remaining gas and is required to succeed.",
+   "value": "ERC20 transfer of the brew token to `to` at `transfer` (line 435); sends native to `to` at `call` (line 437); pool proceeds are pulled in first by `_settle` (line 430)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 462,
+   "kind": "function",
+   "name": "_placeBase",
+   "signature": "function _placeBase() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4367cb2476d57a4fae4324de466879af241e203b",
+   "body_lines": [
+    462,
+    483
+   ],
+   "observations": [],
+   "writes": [
+    "ranges (line 476)"
+   ],
+   "authority": "internal (callers: _placeStep)",
+   "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+   "edges": [
+    "PoolIdLibrary.toId (CauldronSeeder.sol:463), TRUSTED, library",
+    "poolManager.getSlot0 (CauldronSeeder.sol:463), TRUSTED, out-of-cluster",
+    "LiquidityAmounts.getLiquidityForAmounts (CauldronSeeder.sol:468), TRUSTED, library",
+    "TickMath.getSqrtPriceAtTick (CauldronSeeder.sol:469), TRUSTED, library",
+    "poolManager.modifyLiquidity (CauldronSeeder.sol:477), TRUSTED, out-of-cluster",
+    "CauldronSeeder._settle (CauldronSeeder.sol:480), TRUSTED, in-cluster"
+   ],
+   "reads": [
+    "poolManager (line 463, immutable)",
+    "_key (line 463)",
+    "_spacing (line 464)",
+    "_spacing (line 465)",
+    "ethTotal (line 466)",
+    "baseWad (line 466)",
+    "tokenTotal (line 467)",
+    "baseWad (line 467)",
+    "gen (line 481)"
+   ],
+   "reachability": "Called once per campaign, lazily, from the guarded call at `_placeBase` (CauldronSeeder.sol:366), and only when `baseWad` (CauldronSeeder.sol:366) is non-zero. The production caller `createAndSeedProgressive` (PoolOps.sol:252) passes `baseWad` (PoolOps.sol:348) as 0 because it already laid the base itself, so this body is dead on that path and reachable only when `baseWad` (CauldronSeeder.sol:192) is set non-zero by startSeed \u2014 which the fork tests and a direct registry call do. The range is pushed at `ranges` (CauldronSeeder.sol:476) BEFORE the mint so it is recoverable even if the mint reverts the transaction, and it deliberately bypasses `_reserveRange` (CauldronSeeder.sol:474) so a full-range band never becomes a per-side fallback.",
+   "value": "NONE directly \u2014 the two-sided mint is paid by `_settle` (line 480)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 488,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(BalanceDelta d) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "98c5ff315c38a42f7c22784e3330392023303446",
+   "body_lines": [
+    488,
+    503
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "internal (callers: _placeStep, _teardown, _placeBase)",
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert OnlyPoolManager(); (CauldronSeeder.sol:342)",
+   "edges": [
+    "poolManager.sync (CauldronSeeder.sol:491), TRUSTED, out-of-cluster",
+    "IERC20.transfer (CauldronSeeder.sol:492), UNTRUSTED, out-of-cluster",
+    "poolManager.settle (CauldronSeeder.sol:493), TRUSTED, out-of-cluster",
+    "poolManager.take (CauldronSeeder.sol:495), TRUSTED, out-of-cluster",
+    "poolManager.settle (CauldronSeeder.sol:499), TRUSTED, out-of-cluster",
+    "poolManager.take (CauldronSeeder.sol:501), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "poolManager (line 491, immutable)",
+    "_key.currency1 (line 491)",
+    "token (line 492)",
+    "_key.currency1 (line 495)",
+    "_key.currency0 (line 501)"
+   ],
+   "reachability": "Runs inside an open unlock only, from the three call sites at `_settle` (CauldronSeeder.sol:412), `_settle` (CauldronSeeder.sol:430) and `_settle` (CauldronSeeder.sol:480). It hard-assumes the orientation stated at `currency0` (CauldronSeeder.sol:486): currency0 native, currency1 the ERC20 brew token \u2014 the token leg always goes through `IERC20` (CauldronSeeder.sol:492) and the native leg always through `settle` (CauldronSeeder.sol:499) with a value. The token payment is a bare `transfer` (CauldronSeeder.sol:492) whose boolean return is not checked, unlike the checked pull at `require` (CauldronSeeder.sol:215). DERIVED: a non-native quote never reaches here because the non-native branch at `quote` (PoolOps.sol:296) degrades to the atomic path before calling `startSeed` (PoolOps.sol:344).",
+   "value": "ERC20 transfer of the brew token to the PoolManager at `transfer` (line 492); sends native to the PoolManager at `settle` (line 499); pulls the two currencies back to this contract at `take` (line 495) and `take` (line 501)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 536,
+   "kind": "function",
+   "name": "_reserveRange",
+   "signature": "function _reserveRange(int24 lo, int24 hi, bool isAsk) private returns (int24, int24)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0ea0665dc502f6dc81aa99eda931ee9abd672794",
+   "body_lines": [
+    536,
+    556
+   ],
+   "observations": [
+    "comment at `reverts` (CauldronSeeder.sol:111) says placement reverts once the range cap is hit; code at `MAX_RANGES` (CauldronSeeder.sol:544) instead returns a tracked same-side fallback at `return` (CauldronSeeder.sol:551), and the later note at `DEGRADE` (CauldronSeeder.sol:509) documents that reversal"
+   ],
+   "writes": [
+    "_lastAsk (line 540)",
+    "_lastBid (line 540)",
+    "ranges (line 553)",
+    "_lastAsk (line 554)",
+    "_lastBid (line 554)"
+   ],
+   "authority": "internal (callers: _placeStep)",
+   "authority_gate_quote": "if (msg.sender != address(_key.hooks)) revert OnlyHook(); (CauldronSeeder.sol:308)",
+   "edges": [],
+   "reads": [
+    "ranges (line 537)",
+    "ranges (line 539)",
+    "MAX_RANGES (line 544, constant)",
+    "_lastAsk (line 545)",
+    "_lastBid (line 545)",
+    "_lastAsk.lo (line 550)",
+    "_lastAsk.lo (line 551)"
+   ],
+   "reachability": "Called twice per placement from `_reserveRange` (CauldronSeeder.sol:383) and `_reserveRange` (CauldronSeeder.sol:384), once for the ask side and once for the bid side, before either band is sized. The linear scan at `ranges` (CauldronSeeder.sol:539) is bounded by the array length, which the cap at `MAX_RANGES` (CauldronSeeder.sol:544) holds at 64; the array is grown one entry per newly seen aligned band at `push` (CauldronSeeder.sol:553), so anyone who moves the tick by one spacing can grow it, and the full-range base push at `ranges` (CauldronSeeder.sol:476) consumes one slot too. Past the cap it degrades to the per-side fallback in `_lastAsk` (CauldronSeeder.sol:545), or declines the placement entirely by returning an empty band at `return` (CauldronSeeder.sol:550).",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 565,
+   "kind": "function",
+   "name": "withdrawAll",
+   "signature": "function withdrawAll(address to) external onlyRegistry lock returns (uint256 ethOut, uint256 tokenOut)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "0bd7f4481e6aa83a44ae517f42ec798b082950a5",
+   "body_lines": [
+    565,
+    573
+   ],
+   "observations": [],
+   "writes": [
+    "ranges (line 570)",
+    "seeding (line 571)",
+    "complete (line 572)"
+   ],
+   "authority": "registry",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:565)",
+   "edges": [
+    "poolManager.unlock (CauldronSeeder.sol:566), TRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "poolManager (line 566, immutable)",
+    "_lastEthOut (line 568)",
+    "_lastTokenOut (line 569)"
+   ],
+   "reachability": "Registry-only through `onlyRegistry` (CauldronSeeder.sol:565). Two registry call sites, both guarded by a live campaign: the successor handoff at `withdrawAll` (CauldronSeeder.sol:565) is invoked from `seeding` (CauldronRegistry.sol:536) and the relaunch teardown from `seeding` (CauldronRegistry.sol:1581). It reads back the amounts recorded at `_lastEthOut` (CauldronSeeder.sol:438) rather than measuring them itself, then closes the campaign by clearing `seeding` (CauldronSeeder.sol:571) and setting `complete` (CauldronSeeder.sol:572); the reset at `complete` (CauldronSeeder.sol:201) clears both for the next generation. DERIVED: `ranges` (CauldronSeeder.sol:570) is deleted AFTER the unlock returns, so the teardown loop still sees the full set.",
+   "value": "NONE in this frame; the `ACT_WITHDRAW` unlock (line 566) re-enters `unlockCallback` (line 341) and `_teardown` (line 417) forwards both balances to the caller-named recipient"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 597,
+   "kind": "function",
+   "name": "rescue",
+   "signature": "function rescue(address to) external onlyRegistry lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "9ebb312dc49510b68187643eef65f6e10403fa0b",
+   "body_lines": [
+    597,
+    602
+   ],
+   "observations": [
+    "comment at `ledger` (CauldronSeeder.sol:580) says rescue only ever touches ledger A; code at `balance` (CauldronSeeder.sol:600) forwards the entire native balance, which the ledger-C note at `primeBudget` (CauldronSeeder.sol:137) says also holds the prime budget, and the counters are zeroed only at `primeBudget` (CauldronSeeder.sol:449)"
+   ],
+   "writes": [],
+   "authority": "registry",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:597)",
+   "edges": [
+    "IERC20.balanceOf (CauldronSeeder.sol:598), UNTRUSTED, out-of-cluster",
+    "IERC20.transfer (CauldronSeeder.sol:599), UNTRUSTED, out-of-cluster",
+    "to.call (CauldronSeeder.sol:601), UNTRUSTED, out-of-cluster"
+   ],
+   "reads": [
+    "token (line 598)",
+    "token (line 599)"
+   ],
+   "reachability": "Registry-only through `onlyRegistry` (CauldronSeeder.sol:597); the only registry path is `rescueSeeder` (CauldronRegistry.sol:321), which is emergency-admin gated and timelocked and passes the registry itself at `rescue` (CauldronRegistry.sol:324). It touches no pool state and deliberately leaves `seeding` (CauldronSeeder.sol:594) armed so `withdrawAll` (CauldronSeeder.sol:565) stays reachable for the placed positions. It sweeps the whole token balance at `balanceOf` (CauldronSeeder.sol:598) and the whole native balance at `balance` (CauldronSeeder.sol:600), and leaves `primeBudget` (CauldronSeeder.sol:137) and `primeSpent` (CauldronSeeder.sol:138) untouched.",
+   "value": "ERC20 transfer of the brew token to `to` at `transfer` (line 599); sends native to `to` at `call` (line 601)"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 607,
+   "kind": "function",
+   "name": "deployedWad",
+   "signature": "function deployedWad() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5178bdfbf722617ed10cfc78a968ae10ab2f9e7f",
+   "body_lines": [
+    607,
+    607
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [
+    "placedWad (line 607)"
+   ],
+   "reachability": "Plain getter over `placedWad` (CauldronSeeder.sol:607), the same slot the step math reads at `placedWad` (CauldronSeeder.sol:319) and the prime math at `placedWad` (CauldronSeeder.sol:267). Used by off-chain tooling to watch stream progress.",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 608,
+   "kind": "function",
+   "name": "rangeCount",
+   "signature": "function rangeCount() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c74e6162a823327eeb0cdf08d1e592c377fba975",
+   "body_lines": [
+    608,
+    608
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [
+    "ranges (line 608)"
+   ],
+   "reachability": "Plain getter over the tracked-range count at `ranges` (CauldronSeeder.sol:608); the same length bounds the teardown loop at `ranges` (CauldronSeeder.sol:418) and the cap check at `MAX_RANGES` (CauldronSeeder.sol:544).",
+   "value": "NONE"
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 609,
+   "kind": "function",
+   "name": "isComplete",
+   "signature": "function isComplete() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8fe8df6e71084c19060bd2638fc9f3e4731791c1",
+   "body_lines": [
+    609,
+    609
+   ],
+   "observations": [],
+   "writes": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [
+    "complete (line 609)"
+   ],
+   "reachability": "Part of the seeder interface surface at `isComplete` (ISeeder.sol:36). Reports `complete` (CauldronSeeder.sol:609), which teardown also sets at `complete` (CauldronSeeder.sol:572), so a torn-down seeder reports complete until the next campaign clears it at `complete` (CauldronSeeder.sol:201).",
+   "value": "NONE"
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 30,
+   "kind": "function",
+   "name": "startSeed",
+   "signature": "function startSeed(SeederConfig calldata cfg) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only. It is the shared struct/selector surface used by both sides of the summon handoff: the delegatecalled `startSeed` (PoolOps.sol:344) call site and the implementation at `startSeed` (CauldronSeeder.sol:175). The config it carries is `SeederConfig` (ISeeder.sol:12), whose `ethTotal` (ISeeder.sol:25) must equal the value sent and whose `tokenTotal` (ISeeder.sol:26) is pulled by the implementation via transferFrom.",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:175)",
+   "edges": [],
+   "value": "receives native \u2014 `startSeed` is declared payable (line 30)",
+   "observations": [],
+   "reads": [],
+   "authority": "registry (the gate lives on the implementation, CauldronSeeder.startSeed)",
+   "writes": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 31,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; the implementation is `poke` (CauldronSeeder.sol:231). No production contract in this tree calls it through this interface \u2014 the registry only uses `seeding` (CauldronRegistry.sol:536), `withdrawAll` (CauldronRegistry.sol:537) and `rescue` (CauldronRegistry.sol:324). DERIVED: the nudge therefore arrives either from the hook's in-swap path or from an off-chain caller.",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "reads": [],
+   "authority": "anyone (the implementation CauldronSeeder.poke has no authority check)",
+   "writes": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 32,
+   "kind": "function",
+   "name": "withdrawAll",
+   "signature": "function withdrawAll(address to) external returns (uint256 ethOut, uint256 tokenOut)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only. Called by the registry at `withdrawAll` (CauldronRegistry.sol:537) during a successor handoff and at `withdrawAll` (CauldronRegistry.sol:1582) during relaunch teardown, both behind an `ISeeder` (CauldronRegistry.sol:536) seeding check. The two return values feed the registry's recovered totals at `ethRecovered` (CauldronRegistry.sol:1583).",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:565)",
+   "edges": [],
+   "value": "NONE at the declaration; the implementation forwards the recovered native and token balances at `withdrawAll` (line 32)",
+   "observations": [],
+   "reads": [],
+   "authority": "registry (the gate lives on the implementation, CauldronSeeder.withdrawAll)",
+   "writes": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 35,
+   "kind": "function",
+   "name": "rescue",
+   "signature": "function rescue(address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; the single caller is `rescue` (CauldronRegistry.sol:324) inside `rescueSeeder` (CauldronRegistry.sol:321), which is emergency-gated and timelocked. Unlike `withdrawAll` (ISeeder.sol:32) it is NOT guarded by a seeding check on the registry side.",
+   "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:597)",
+   "edges": [],
+   "value": "NONE at the declaration; the implementation forwards the loose token and native balances at `rescue` (line 35)",
+   "observations": [],
+   "reads": [],
+   "authority": "registry (the gate lives on the implementation, CauldronSeeder.rescue)",
+   "writes": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 36,
+   "kind": "function",
+   "name": "isComplete",
+   "signature": "function isComplete() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; implemented at `isComplete` (CauldronSeeder.sol:609), which returns the `complete` (CauldronSeeder.sol:609) flag. No production caller in this tree reads it \u2014 the registry branches on `seeding` (CauldronRegistry.sol:1581) instead.",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "reads": [],
+   "authority": "anyone (view)",
+   "writes": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 37,
+   "kind": "function",
+   "name": "seeding",
+   "signature": "function seeding() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; implemented by the public state variable at `seeding` (CauldronSeeder.sol:99). It is the flag both registry recovery paths branch on, at `seeding` (CauldronRegistry.sol:536) and `seeding` (CauldronRegistry.sol:1581), so a campaign that never clears it keeps `withdrawAll` (CauldronRegistry.sol:1582) reachable, and one that clears it early would strand the placed bands.",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "reads": [],
+   "authority": "anyone (view)",
+   "writes": []
+  },
+  {
+   "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "igniteCauldron",
+   "signature": "function igniteCauldron() external returns (address token)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; the single call site in this cluster is `igniteCauldron` (LaunchSniper.sol:70), and the implementation is `igniteCauldron` (MiFrensGenesis.sol:575). It is one-shot \u2014 `finalized` (MiFrensGenesis.sol:583) is set before the summon and re-entry is rejected at `AlreadyFinalized` (MiFrensGenesis.sol:577) \u2014 and it requires the tranche to be sold out at `minted` (MiFrensGenesis.sol:578). For the atomic launch to work the presale's `finalizer` (MiFrensGenesis.sol:581) must be this sniper, otherwise any bot can ignite first and the buy loses its block-0 privilege.",
+   "authority_gate_quote": "if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized(); (MiFrensGenesis.sol:581)",
+   "value": "NONE at the declaration; the implementation forwards the presale's whole native balance to the registry at `summon` (MiFrensGenesis.sol:585)",
+   "observations": [],
+   "edges": [],
+   "writes": [],
+   "authority": "the presale's finalizer, if one is set; otherwise anyone once the presale is sold out",
+   "reads": []
+  },
+  {
+   "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "soldOut",
+   "signature": "function soldOut() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; read once at `soldOut` (LaunchSniper.sol:67) as a precondition, reverting with `NotSoldOut` (LaunchSniper.sol:67) otherwise. The implementation at `soldOut` (MiFrensGenesis.sol:594) compares `minted` (MiFrensGenesis.sol:595) against the genesis supply, i.e. exactly the same condition the ignition itself re-checks, so this check is advisory rather than load-bearing.",
+   "authority_gate_quote": "UNGATED",
+   "value": "NONE",
+   "observations": [],
+   "edges": [],
+   "writes": [],
+   "authority": "anyone (declaration only; a view on the presale)",
+   "reads": []
+  },
+  {
+   "contract": "IRegistryCurrent (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 13,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; read at `currentToken` (LaunchSniper.sol:71) immediately after ignition so the sniper learns the freshly deployed token address. The registry writes that slot during a summon at `currentToken` (CauldronRegistry.sol:692) and again at every rebirth at `currentToken` (CauldronRegistry.sol:917). DERIVED: the address is a constructor-time parameter of the call, so pointing it at a hostile contract only affects which token the sniper forwards.",
+   "authority_gate_quote": "UNGATED",
+   "value": "NONE",
+   "observations": [],
+   "edges": [],
+   "writes": [],
+   "authority": "anyone (declaration only; the registry's public live-token pointer)",
+   "reads": []
+  },
+  {
+   "contract": "IGachaPlay (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "play",
+   "signature": "function play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax) external payable returns (uint256)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reachability": "Declaration only; the single call site is `play` (LaunchSniper.sol:76), which forwards the entire message value and relies on the router tagging the swap with the sniper so the hook's exemption applies. The exemption itself needs `taxExempt` (CauldronHook.sol:2384) AND `isOpener` (CauldronHook.sol:2384) \u2014 the latter is set for the ROUTER, the former for the tagged player. DERIVED: this local declaration is the only definition of the selector; nothing in the repo implements a four-argument play.",
+   "authority_gate_quote": "UNGATED",
+   "value": "receives native at the call site \u2014 the whole message value is forwarded at `play` (line 76)",
+   "observations": [
+    "comment at `router` (LaunchSniper.sol:74) says the router tags the swap with this contract as the player; code declares a four-argument `play` (LaunchSniper.sol:17) while the router's entry point at `play` (CauldronGachaRouter.sol:233) takes five arguments, so the two selectors differ"
+   ],
+   "edges": [],
+   "writes": [],
+   "authority": "anyone (declaration only; the router's play is permissionless and payable)",
+   "reads": []
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 47,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _owner) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    47,
+    47
+   ],
+   "reachability": "Deployment only. `Ownable` (LaunchSniper.sol:47) installs `_owner` (LaunchSniper.sol:47) as the sole authority over both `launch` (LaunchSniper.sol:58) and `sweep` (LaunchSniper.sol:86). DERIVED: OpenZeppelin Ownable also exposes transfer and renounce, so this authority can rotate or dead-end; there is no other stored configuration, every target address is supplied per call.",
+   "authority_gate_quote": "UNGATED",
+   "value": "NONE",
+   "observations": [],
+   "edges": [],
+   "writes": [],
+   "authority": "deployer",
+   "reads": []
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 58,
+   "kind": "function",
+   "name": "launch",
+   "signature": "function launch( address presale, address registry, address gachaRouter, address airdropWallet, uint256 minGnomeOut, uint256 openMax ) external payable onlyOwner returns (address token, uint256 gnomeBought)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5c5155b4a8d802a20a3145f60f8a9a39313093d6",
+   "body_lines": [
+    65,
+    83
+   ],
+   "reachability": "Owner-only, one shot in practice because `igniteCauldron` (LaunchSniper.sol:70) can only succeed once. Every counterparty is a call argument, not stored state: `presale` (LaunchSniper.sol:59), `registry` (LaunchSniper.sol:60), `gachaRouter` (LaunchSniper.sol:61) and `airdropWallet` (LaunchSniper.sol:62) are all owner-supplied, so the only trust anchor is the owner. Ordering is ignite, then read the token, then buy, then forward \u2014 the forwarded amount is measured from this contract's balance at `balanceOf` (LaunchSniper.sol:79), not from the router's return value, so any token already sitting here is swept out with the purchase. Slippage protection is the caller's `minGnomeOut` (LaunchSniper.sol:63); no deadline is imposed. There is no reentrancy guard, but the only state is the ERC20 balance read at line 79.",
+   "authority_gate_quote": "onlyOwner (LaunchSniper.sol:65)",
+   "value": "receives native \u2014 `launch` is payable (line 58) and rejects zero at `NoValue` (line 66); the entire message value is forwarded to the router at `play` (line 76); ERC20 transfer of the bought token to the airdrop wallet at `transfer` (line 80)",
+   "observations": [],
+   "edges": [
+    "IMiFrensGenesisFinalize.soldOut (LaunchSniper.sol:67), UNTRUSTED, in-cluster",
+    "IMiFrensGenesisFinalize.igniteCauldron (LaunchSniper.sol:70), UNTRUSTED, in-cluster",
+    "IRegistryCurrent.currentToken (LaunchSniper.sol:71), UNTRUSTED, in-cluster",
+    "IGachaPlay.play (LaunchSniper.sol:76), UNTRUSTED, in-cluster",
+    "IERC20.balanceOf (LaunchSniper.sol:79), UNTRUSTED, out-of-cluster",
+    "IERC20.transfer (LaunchSniper.sol:80), UNTRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "authority": "owner",
+   "reads": []
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 86,
+   "kind": "function",
+   "name": "sweep",
+   "signature": "function sweep(address tokenAddr) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "7056aeb6270348a230a91af8d96b1340ebb6947d",
+   "body_lines": [
+    86,
+    93
+   ],
+   "reachability": "Owner-only escape hatch with no amount argument: the zero address selects the whole native balance at `balance` (LaunchSniper.sol:88), any other address sweeps that token's entire balance at `balanceOf` (LaunchSniper.sol:91). The recipient is always the current `owner` (LaunchSniper.sol:88), so the destination rotates with ownership. The native leg is a raw `call` (LaunchSniper.sol:88) forwarding all gas and is required to succeed at `require` (LaunchSniper.sol:89); the token leg's boolean return is not checked.",
+   "authority_gate_quote": "onlyOwner (LaunchSniper.sol:86)",
+   "value": "sends native to the owner at `call` (line 88); ERC20 transfer of the named token to the owner at `transfer` (line 91)",
+   "observations": [],
+   "edges": [
+    "Ownable.owner (LaunchSniper.sol:88), TRUSTED, out-of-cluster",
+    "owner.call (LaunchSniper.sol:88), UNTRUSTED, out-of-cluster",
+    "Ownable.owner (LaunchSniper.sol:91), TRUSTED, out-of-cluster",
+    "IERC20.balanceOf (LaunchSniper.sol:91), UNTRUSTED, out-of-cluster",
+    "IERC20.transfer (LaunchSniper.sol:91), UNTRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "authority": "owner",
+   "reads": []
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 95,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    95,
+    95
+   ],
+   "reachability": "Open ether sink with no bookkeeping; it exists so a router refund can land, per the note at `Recover` (LaunchSniper.sol:85). Anything received is recoverable only by the owner through `sweep` (LaunchSniper.sol:86), and while a `launch` (LaunchSniper.sol:58) is mid-flight any ether pushed here is NOT part of the forwarded amount, which is fixed to the message value at `play` (LaunchSniper.sol:76).",
+   "authority_gate_quote": "UNGATED",
+   "value": "receives native \u2014 `receive` is payable (line 95)",
+   "observations": [],
+   "edges": [],
+   "writes": [],
+   "authority": "anyone",
+   "reads": []
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 14,
+   "kind": "function",
+   "name": "currentGeneration",
+   "signature": "function currentGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "observations": [],
+   "authority": "anyone (declaration only; the registry's public generation counter)",
+   "value": "NONE",
+   "reachability": "Declaration only. Read once per deposit at `currentGeneration` (MigrationVesting.sol:180) to learn which token the escrow is about to receive, immediately before `generationToken` (MigrationVesting.sol:181) resolves the address that gets pinned into the grant at `token` (MigrationVesting.sol:192). DERIVED: the registry advances the same counter during a relaunch, so a deposit and a rebirth in the same block pin whichever token the counter shows at that instant.",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [],
+   "writes": []
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 15,
+   "kind": "function",
+   "name": "generationToken",
+   "signature": "function generationToken(uint256 gen) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "observations": [],
+   "authority": "anyone (declaration only; the registry's generation-to-token map)",
+   "value": "NONE",
+   "reachability": "Declaration only. Called at `generationToken` (MigrationVesting.sol:156) inside the batch loop, at `generationToken` (MigrationVesting.sol:173) to resolve the dead token, and at `generationToken` (MigrationVesting.sol:181) to resolve the live one. A zero result is rejected at `BadGen` (MigrationVesting.sol:174) for the dead side; the live side at line 181 is NOT checked for zero.",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reads": [],
+   "writes": []
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "claimByBurn",
+   "signature": "function claimByBurn(uint256 fromGen, uint256 amount) external returns (uint256 claimedAmount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "observations": [],
+   "authority": "the registry's claimGate (this escrow) or the perp engine",
+   "value": "ERC20 transfer of the live-generation token from the registry's reserve to this escrow, driven by the call at `claimByBurn` (line 184)",
+   "reachability": "Declaration only; the single call site is `claimByBurn` (MigrationVesting.sol:184) inside `_pullAndVest` (MigrationVesting.sol:169). The registry burns the CALLER's dead-gen balance, so the escrow must already hold the pulled tokens from `transferFrom` (MigrationVesting.sol:178) \u2014 the registry checks that at `balanceOf` (CauldronRegistry.sol:1239). The gate at `claimGate` (CauldronRegistry.sol:1234) is what makes this escrow the only route for ordinary holders; the escrow itself never checks that it is the configured gate. DERIVED: if the registry's gate points elsewhere, every call here reverts and the escrow is left holding the dead tokens it already pulled in \u2014 the revert unwinds the pull too, since it is the same transaction.",
+   "authority_gate_quote": "msg.sender != claimGate && msg.sender != hook.perpEngine() (CauldronRegistry.sol:1234)",
+   "edges": [],
+   "reads": [],
+   "writes": []
+  },
+  {
+   "contract": "IStakerOracle (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 24,
+   "kind": "function",
+   "name": "isInstant",
+   "signature": "function isInstant(address who) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "authority": "anyone (declaration only; the implementation is whatever address the owner set)",
+   "value": "NONE",
+   "observations": [],
+   "reachability": "Declaration only. Called from `isInstant` (MigrationVesting.sol:256) inside a try/catch, so a reverting or missing implementation degrades to the vesting outcome at `catch` (MigrationVesting.sol:257) rather than bricking a migration. The target address lives in `stakerOracle` (MigrationVesting.sol:81) and is owner-settable at any time by `setStakerOracle` (MigrationVesting.sol:303), including to the zero address, which short-circuits at `stakerOracle` (MigrationVesting.sol:253). The shipped implementation is `isInstant` (PerpStakerOracle.sol:29). DERIVED: the result is consumed only at deposit time, so flipping the oracle never re-prices an existing grant."
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 114,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor( address _registry, address _owner, uint64 _vestWindow, address _stakerOracle ) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "06163038c692b60fa8bc2d69882ce2937e3f23d2",
+   "body_lines": [
+    119,
+    124
+   ],
+   "observations": [],
+   "authority": "deployer",
+   "authority_gate_quote": "UNGATED",
+   "writes": [
+    "registry (line 121, immutable)",
+    "vestWindow (line 122)",
+    "stakerOracle (line 123)"
+   ],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Runs once at deployment. The initial window is bounded by the same constants the setter uses, at `MIN_WINDOW` (MigrationVesting.sol:120) and `MAX_WINDOW` (MigrationVesting.sol:120). `registry` (MigrationVesting.sol:121) is immutable, so the escrow can never be re-pointed at a different registry; `stakerOracle` (MigrationVesting.sol:123) and `vestWindow` (MigrationVesting.sol:122) both remain owner-tunable. Ownership is handed to `_owner` (MigrationVesting.sol:119), documented as the timelock at `Governance` (MigrationVesting.sol:111); since the base is OpenZeppelin Ownable the owner can also renounce, which would freeze both setters.",
+   "reads": [
+    "MIN_WINDOW (line 120, constant)",
+    "MAX_WINDOW (line 120, constant)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 135,
+   "kind": "function",
+   "name": "startVest",
+   "signature": "function startVest(uint256 fromGen, uint256 amount) external nonReentrant returns (uint256 escrowed)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "ab7befb598ff20a73332d785eb7e0c41a8069e94",
+   "body_lines": [
+    139,
+    145
+   ],
+   "observations": [
+    "comment at `escrowed` (MigrationVesting.sol:134) says the return equals `amount` 1:1; code at `delta` (MigrationVesting.sol:187) lowers it to the measured balance delta whenever the delta is smaller"
+   ],
+   "authority": "anyone (a holder migrating their own balance)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE at this frame; `_pullAndVest` (line 141) pulls the dead-gen token in and `_release` (line 144) pays the live token out",
+   "edges": [
+    "MigrationVesting._pullAndVest (MigrationVesting.sol:141), TRUSTED, in-cluster",
+    "MigrationVesting._release (MigrationVesting.sol:144), TRUSTED, in-cluster"
+   ],
+   "reachability": "Permissionless self-service: it always migrates `msg.sender`'s own balance because the holder argument is fixed at `_pullAndVest` (MigrationVesting.sol:141). Preconditions are an allowance to this escrow on the dead token, checked implicitly at `transferFrom` (MigrationVesting.sol:178), and a non-zero amount at `ZeroAmount` (MigrationVesting.sol:140). The trailing `_release` (MigrationVesting.sol:144) is what makes an instant-tier migration a single transaction; for a vesting grant it moves nothing, and unlike the strict path at `NothingToClaim` (MigrationVesting.sol:208) it does not revert when nothing is due. Reentrancy is blocked by `nonReentrant` (MigrationVesting.sol:137), which matters because the payout at `transfer` (MigrationVesting.sol:230) calls an arbitrary token.",
+   "reads": []
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 153,
+   "kind": "function",
+   "name": "vestBatch",
+   "signature": "function vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "02985fbebfe30e2d14f1f00c0f8b02067843af73",
+   "body_lines": [
+    153,
+    164
+   ],
+   "observations": [
+    "comment at `skipped` (MigrationVesting.sol:150) says a holder with no balance or allowance is skipped and the batch never reverts; code at `ZeroAmount` (MigrationVesting.sol:188) reverts the whole loop from inside `_pullAndVest` (MigrationVesting.sol:169) when the measured delta is zero, and `NoBalanceOrAllowance` (MigrationVesting.sol:178) reverts it when the pull returns false"
+   ],
+   "authority": "anyone (keeper)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE at this frame; each iteration's pull and mint happen inside `_pullAndVest` (line 162)",
+   "edges": [
+    "IVestingRegistry.generationToken (MigrationVesting.sol:156), TRUSTED, in-cluster",
+    "IERC20.balanceOf (MigrationVesting.sol:158), UNTRUSTED, out-of-cluster",
+    "IERC20.allowance (MigrationVesting.sol:159), UNTRUSTED, out-of-cluster",
+    "MigrationVesting._pullAndVest (MigrationVesting.sol:162), TRUSTED, in-cluster"
+   ],
+   "reachability": "Permissionless. Anyone can book a grant for any address in `holders` (MigrationVesting.sol:153) \u2014 the only consent is that address's ERC20 allowance, read at `allowance` (MigrationVesting.sol:159) and min-ed against the balance at `amt` (MigrationVesting.sol:160). The loop is bounded only by the caller-supplied array length at `holders` (MigrationVesting.sol:154), and `generationToken` (MigrationVesting.sol:156) is re-read on every iteration rather than hoisted. Grants are booked but not swept: the comment at `claimFor` (MigrationVesting.sol:152) points holders at the separate claim entry points.",
+   "reads": [
+    "registry (line 156, immutable)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 169,
+   "kind": "function",
+   "name": "_pullAndVest",
+   "signature": "function _pullAndVest(address holder, uint256 fromGen, uint256 amount) private returns (uint256 escrowed)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "59729410c9d7567523d1033ce45dcad78c2f9ee1",
+   "body_lines": [
+    172,
+    199
+   ],
+   "observations": [],
+   "authority": "internal (callers: startVest, vestBatch)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [
+    "_grants (line 191)"
+   ],
+   "value": "ERC20 pull of the dead-gen token from the holder at `transferFrom` (line 178); the live-gen token arrives from the registry's reserve at `claimByBurn` (line 184)",
+   "edges": [
+    "IVestingRegistry.generationToken (MigrationVesting.sol:173), TRUSTED, in-cluster",
+    "IERC20.transferFrom (MigrationVesting.sol:178), UNTRUSTED, out-of-cluster",
+    "IVestingRegistry.currentGeneration (MigrationVesting.sol:180), TRUSTED, in-cluster",
+    "IVestingRegistry.generationToken (MigrationVesting.sol:181), TRUSTED, in-cluster",
+    "IERC20.balanceOf (MigrationVesting.sol:183), UNTRUSTED, out-of-cluster",
+    "IVestingRegistry.claimByBurn (MigrationVesting.sol:184), TRUSTED, in-cluster",
+    "IERC20.balanceOf (MigrationVesting.sol:186), UNTRUSTED, out-of-cluster",
+    "MigrationVesting._isInstant (MigrationVesting.sol:190), TRUSTED, in-cluster"
+   ],
+   "reachability": "The only writer of grant state. Reached from `_pullAndVest` (MigrationVesting.sol:141) for the caller's own balance and from `_pullAndVest` (MigrationVesting.sol:162) for any approved address. Ordering is pull-then-migrate-then-book: the dead tokens land here at `transferFrom` (MigrationVesting.sol:178) before the registry burns them, and the credited amount is measured rather than trusted, by bracketing the call with `before` (MigrationVesting.sol:183) and `delta` (MigrationVesting.sol:186). The schedule is snapshotted at book time \u2014 `vestWindow` (MigrationVesting.sol:190) is copied into the grant, and the pinned `token` (MigrationVesting.sol:192) is the live token at this instant, so a later relaunch cannot repoint an existing grant. Each call PUSHES a new grant at `_grants` (MigrationVesting.sol:191), so the per-holder array length is caller-growable.",
+   "reads": [
+    "registry (line 173, immutable)",
+    "registry (line 180, immutable)",
+    "registry (line 181, immutable)",
+    "registry (line 184, immutable)",
+    "vestWindow (line 190)",
+    "_grants (line 191)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 206,
+   "kind": "function",
+   "name": "claim",
+   "signature": "function claim() external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "5fc454f971f39c1d5a76c82602e4b65889abc2ac",
+   "body_lines": [
+    206,
+    209
+   ],
+   "observations": [],
+   "authority": "anyone (pays only the caller)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "ERC20 transfer of each grant's pinned token to the caller, performed by `_release` (line 207)",
+   "edges": [
+    "MigrationVesting._release (MigrationVesting.sol:207), TRUSTED, in-cluster"
+   ],
+   "reachability": "Permissionless but self-directed: the beneficiary is fixed to `msg.sender` at `_release` (MigrationVesting.sol:207). Reverts with `NothingToClaim` (MigrationVesting.sol:208) when nothing is currently vested, which is the only difference from the silent release at `_release` (MigrationVesting.sol:144). Guarded by `nonReentrant` (MigrationVesting.sol:206) because the payout at `transfer` (MigrationVesting.sol:230) hands control to an arbitrary token.",
+   "reads": []
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 213,
+   "kind": "function",
+   "name": "claimFor",
+   "signature": "function claimFor(address holder) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "8b440903a901cac77fcdd4ba1ead001e8224c795",
+   "body_lines": [
+    213,
+    216
+   ],
+   "observations": [],
+   "authority": "anyone (keeper; funds go to the named holder)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "ERC20 transfer of each grant's pinned token to the named holder, performed by `_release` (line 214)",
+   "edges": [
+    "MigrationVesting._release (MigrationVesting.sol:214), TRUSTED, in-cluster"
+   ],
+   "reachability": "Permissionless keeper convenience. The recipient is the `holder` (MigrationVesting.sol:214) argument, and `_release` (MigrationVesting.sol:221) pays that same address, so a caller can never redirect someone else's vested tokens. Reverts with `NothingToClaim` (MigrationVesting.sol:215) if the holder has nothing due, so a batch keeper must filter with `claimable` (MigrationVesting.sol:265) first.",
+   "reads": []
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 221,
+   "kind": "function",
+   "name": "_release",
+   "signature": "function _release(address holder) private returns (uint256 totalMoved)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "751f697340720ab6db7fcc544876171491632735",
+   "body_lines": [
+    221,
+    242
+   ],
+   "observations": [],
+   "authority": "internal (callers: startVest, claim, claimFor)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [
+    "_grants.released (line 228)",
+    "_grants (line 222)"
+   ],
+   "value": "ERC20 transfer of each grant's own pinned token to `holder` at `transfer` (line 230)",
+   "edges": [
+    "MigrationVesting._vestedOf (MigrationVesting.sol:225), TRUSTED, in-cluster",
+    "IERC20.transfer (MigrationVesting.sol:230), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Reached from `_release` (MigrationVesting.sol:144), `_release` (MigrationVesting.sol:207) and `_release` (MigrationVesting.sol:214); all three outer entries carry nonReentrant. Effects precede the interaction within each iteration: `released` (MigrationVesting.sol:228) is raised to the vested amount before the token call at `transfer` (MigrationVesting.sol:230), but the boolean return of that call is not checked. The loop is bounded by the holder's open-grant count, grown one entry per deposit at `_grants` (MigrationVesting.sol:191), and it prunes in place with a swap-pop at `gs` (MigrationVesting.sol:236) and `pop` (MigrationVesting.sol:237) \u2014 the index is only advanced in the else branch at `i` (MigrationVesting.sol:239), so the swapped-in element is re-examined. Grants holding different tokens are paid separately because the token is read per grant at `token` (MigrationVesting.sol:230).",
+   "reads": [
+    "_grants (line 222)",
+    "_grants.released (line 226)",
+    "_grants.token (line 230)",
+    "_grants.released (line 233)",
+    "_grants.total (line 233)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 245,
+   "kind": "function",
+   "name": "_vestedOf",
+   "signature": "function _vestedOf(Grant storage grt) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "45a3b559e539fbb327b84ea130f3b41a2854bd68",
+   "body_lines": [
+    245,
+    250
+   ],
+   "observations": [],
+   "authority": "internal (callers: _release, claimable, locked)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Pure schedule read over one grant, called at `_vestedOf` (MigrationVesting.sol:225), `_vestedOf` (MigrationVesting.sol:268) and `_vestedOf` (MigrationVesting.sol:276). A zero `window` (MigrationVesting.sol:246) means fully vested immediately \u2014 the instant tier. Otherwise it is linear from the deposit timestamp at `start` (MigrationVesting.sol:247), saturating at `window` (MigrationVesting.sol:248). The pro-rata division at `total` (MigrationVesting.sol:249) truncates, so rounding always favours the escrow over the beneficiary until the window closes, at which point the full `total` (MigrationVesting.sol:248) is returned.",
+   "reads": [
+    "_grants.window (line 246)",
+    "_grants.total (line 246)",
+    "_grants.start (line 247)",
+    "_grants.window (line 248)",
+    "_grants.total (line 249)",
+    "_grants.window (line 249)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 252,
+   "kind": "function",
+   "name": "_isInstant",
+   "signature": "function _isInstant(address who) private view returns (bool)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "33c763282c1eb5b5a7b7608e503724197f076fc5",
+   "body_lines": [
+    252,
+    258
+   ],
+   "observations": [],
+   "authority": "internal (callers: _pullAndVest)",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [
+    "IStakerOracle.isInstant (MigrationVesting.sol:256), UNTRUSTED, in-cluster"
+   ],
+   "reachability": "Called once per deposit at `_isInstant` (MigrationVesting.sol:190) to decide whether the new grant gets a zero window. An unset oracle short-circuits to false at `stakerOracle` (MigrationVesting.sol:253), so the safe default is that everybody vests. The external call at `isInstant` (MigrationVesting.sol:256) goes to an owner-controlled address and is wrapped in try/catch, so a revert is read as not-instant at `catch` (MigrationVesting.sol:257); an oracle that returns true for everyone would make every grant instant. DERIVED: the try/catch swallows an out-of-gas from a griefing oracle only to the extent the 63/64 rule leaves gas to continue.",
+   "reads": [
+    "stakerOracle (line 253)",
+    "stakerOracle (line 256)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 265,
+   "kind": "function",
+   "name": "claimable",
+   "signature": "function claimable(address holder) external view returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4c3df377ebf198c9784a76d1e1430d9ba5a7ff4f",
+   "body_lines": [
+    265,
+    270
+   ],
+   "observations": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [
+    "MigrationVesting._vestedOf (MigrationVesting.sol:268), TRUSTED, in-cluster"
+   ],
+   "reachability": "Read-only aggregate over one holder's open grants, iterating `gs` (MigrationVesting.sol:267) with the same caller-growable bound the release loop uses at `gs` (MigrationVesting.sol:223). It mirrors what a `claim` (MigrationVesting.sol:206) would move right now, summing vested-minus-released at `released` (MigrationVesting.sol:268). Drained grants are pruned by the release path, so this never counts a closed grant.",
+   "reads": [
+    "_grants (line 266)",
+    "_grants.released (line 268)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 273,
+   "kind": "function",
+   "name": "locked",
+   "signature": "function locked(address holder) external view returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b13b631b0d1dfe9b8e13e01b2753f7a1cfafa7ae",
+   "body_lines": [
+    273,
+    278
+   ],
+   "observations": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [
+    "MigrationVesting._vestedOf (MigrationVesting.sol:276), TRUSTED, in-cluster"
+   ],
+   "reachability": "Read-only aggregate over the same array as `claimable` (MigrationVesting.sol:265), iterating at `gs` (MigrationVesting.sol:275). It reports total-minus-vested at `total` (MigrationVesting.sol:276), which counts the still-unvested portion INCLUDING amounts already released \u2014 it does not subtract `released` (MigrationVesting.sol:268) the way the claimable side does, because a released amount is by definition already vested.",
+   "reads": [
+    "_grants (line 274)",
+    "_grants.total (line 276)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 281,
+   "kind": "function",
+   "name": "grantCount",
+   "signature": "function grantCount(address holder) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9f40086f59d7b82f8b75eaf78d2055fad6e9d9cc",
+   "body_lines": [
+    281,
+    283
+   ],
+   "observations": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Length of the per-holder grant array at `_grants` (MigrationVesting.sol:282). It shrinks as grants are pruned at `pop` (MigrationVesting.sol:237), so it counts OPEN grants only and is the bound a caller needs before iterating `grantAt` (MigrationVesting.sol:286).",
+   "reads": [
+    "_grants (line 282)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "grantAt",
+   "signature": "function grantAt(address holder, uint256 i) external view returns (Grant memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f8952a3673639deca041dd5f3a395496f2544fc8",
+   "body_lines": [
+    286,
+    288
+   ],
+   "observations": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "writes": [],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Indexed read of one open grant at `_grants` (MigrationVesting.sol:287); an out-of-range index reverts on the array bounds check. Because the release path prunes by swap-pop at `gs` (MigrationVesting.sol:236), indices are not stable across claims, so an off-chain reader must re-read `grantCount` (MigrationVesting.sol:281) between calls.",
+   "reads": [
+    "_grants (line 287)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 296,
+   "kind": "function",
+   "name": "setVestWindow",
+   "signature": "function setVestWindow(uint64 _window) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "b7589f6183f908aad2c60d43f1c8dadd67aff83b",
+   "body_lines": [
+    296,
+    300
+   ],
+   "observations": [],
+   "authority": "owner",
+   "authority_gate_quote": "onlyOwner (MigrationVesting.sol:296)",
+   "writes": [
+    "vestWindow (line 298)"
+   ],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Owner-only, bounded on both sides at `MIN_WINDOW` (MigrationVesting.sol:297) and `MAX_WINDOW` (MigrationVesting.sol:297), so the owner can neither make vesting effectively instant nor stretch it past 14 days. It affects FUTURE grants only, because the value is snapshotted into each grant at `vestWindow` (MigrationVesting.sol:190). The owner is the OpenZeppelin Ownable owner set at `Ownable` (MigrationVesting.sol:119) and can be transferred or renounced.",
+   "reads": [
+    "MIN_WINDOW (line 297, constant)",
+    "MAX_WINDOW (line 297, constant)"
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 303,
+   "kind": "function",
+   "name": "setStakerOracle",
+   "signature": "function setStakerOracle(address _oracle) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5af99fb2ac32d5bf577e37227c6a6c7e5e15c751",
+   "body_lines": [
+    303,
+    306
+   ],
+   "observations": [],
+   "authority": "owner",
+   "authority_gate_quote": "onlyOwner (MigrationVesting.sol:303)",
+   "writes": [
+    "stakerOracle (line 304)"
+   ],
+   "value": "NONE",
+   "edges": [],
+   "reachability": "Owner-only and unbounded: any address, including zero, can be installed at `stakerOracle` (MigrationVesting.sol:304). It is the one knob that decides whether a new deposit vests at all, since `_isInstant` (MigrationVesting.sol:190) gives a zero window to anyone the oracle blesses. There is no timelock or event-delay here beyond whatever the owner contract imposes, and no validation that the target implements `isInstant` (MigrationVesting.sol:256) \u2014 a non-conforming address simply reverts into the catch and everybody vests.",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 40,
+   "kind": "function",
+   "name": "_alignDown",
+   "signature": "function _alignDown(int24 tick, int24 spacing) internal pure returns (int24)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ac747d34e207c10ff4944b28b6683f31982f0cb3",
+   "body_lines": [
+    40,
+    44
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reachability": "Pure tick alignment, linked into every caller of the library. Called at `_alignDown` (SeedLib.sol:89) by the ask geometry, at `_alignDown` (SeedLib.sol:116) and `_alignDown` (SeedLib.sol:121) by the bid geometry, and at `_alignDown` (SeedLib.sol:130) by the width helper. Rounds toward negative infinity by correcting the truncating division at `r` (SeedLib.sol:42). DERIVED: `spacing` (SeedLib.sol:41) of zero would divide by zero, and the seeder only checks `spacing` against `bandWidth` (CauldronSeeder.sol:178), never against zero.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: askBand, bidBand, _bandWidth)",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 45,
+   "kind": "function",
+   "name": "_alignUp",
+   "signature": "function _alignUp(int24 tick, int24 spacing) internal pure returns (int24)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ca49e30bc6609d49673a4e86ff9cf497373ff5d5",
+   "body_lines": [
+    45,
+    49
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reachability": "Pure tick alignment toward positive infinity via the correction at `r` (SeedLib.sol:47). One in-library caller: the deepest-band floor clamp at `_alignUp` (SeedLib.sol:96). DERIVED: the sibling copy at `_alignUp` (ReserveLib.sol:34) is a separate declaration, so the two libraries do not share this code.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: askBand)",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 58,
+   "kind": "function",
+   "name": "deployedTargetWad",
+   "signature": "function deployedTargetWad(uint64 startTs, uint64 window, uint256 nowTs, uint256 seedFloorWad) internal pure returns (uint256 wad)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3497cb8b73bd26d794b7e464a47f49bf4c2195d0",
+   "body_lines": [
+    62,
+    69
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reachability": "The whole schedule. Linked into the seeder and called at `deployedTargetWad` (CauldronSeeder.sol:318) to size the next step and again at `deployedTargetWad` (CauldronSeeder.sol:328) to snap the bookkeeping, so both use identical inputs within one transaction. Monotone in `nowTs` (SeedLib.sol:58) and clamped at both ends: below `startTs` (SeedLib.sol:65) it returns the floor, and at or past `window` (SeedLib.sol:64) it returns 1e18. A zero `window` (SeedLib.sol:64) collapses to an atomic 100% placement, which is exactly the degenerate case the registry avoids by requiring `nextSeedWindow` (CauldronRegistry.sol:1722) to be non-zero before choosing the progressive path. The floor is clamped to 1e18 at `seedFloorWad` (SeedLib.sol:63) so an over-large floor cannot produce a target above 100%.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: CauldronSeeder._pendingStep, CauldronSeeder._advance)",
+   "reads": [
+    "WAD (line 63, constant)",
+    "WAD (line 64, constant)",
+    "WAD (line 68, constant)"
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 84,
+   "kind": "function",
+   "name": "askBand",
+   "signature": "function askBand(uint256 i, uint256 n, int24 launchTick, int24 spacing, int24 ceilingOffset) internal pure returns (int24 lower, int24 upper)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "e96b0131ce72d2de4a5c7eb3d0c24bddca01acfb",
+   "body_lines": [
+    88,
+    99
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "SeedLib._alignDown (SeedLib.sol:89), TRUSTED, in-cluster",
+    "SeedLib._bandWidth (SeedLib.sol:90), TRUSTED, in-cluster",
+    "SeedLib._alignUp (SeedLib.sol:96), TRUSTED, in-cluster"
+   ],
+   "reachability": "Called once per placement at `askBand` (CauldronSeeder.sol:376). The returned band sits BELOW the reference tick \u2014 `upper` (SeedLib.sol:93) at the aligned tick and `lower` (SeedLib.sol:94) one width under it \u2014 which is the pure-token1 side under the orientation stated at `ASK` (SeedLib.sol:24). The deepest band is clamped to the usable range at `floorTick` (SeedLib.sol:96) and degeneracy is repaired at `upper` (SeedLib.sol:98). DERIVED: the only production caller passes i = 0 and n = 1, so the tiling loop this signature was written for never runs on-chain.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [
+    "comment at `launchTick` (SeedLib.sol:78) documents the parameter as the pool tick right after initialize; code at `askBand` (CauldronSeeder.sol:376) passes the CURRENT tick just read at `getSlot0` (CauldronSeeder.sol:368)",
+    "comment at `ceilingOffset` (SeedLib.sol:80) documents the last parameter as the price ceiling in ticks below launch; code at `askBand` (CauldronSeeder.sol:376) passes the per-band width held in `_bandWidth` (CauldronSeeder.sol:98)"
+   ],
+   "authority": "internal (callers: CauldronSeeder._placeStep)",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 111,
+   "kind": "function",
+   "name": "bidBand",
+   "signature": "function bidBand(uint256 j, uint256 m, int24 launchTick, int24 spacing, int24 floorOffset) internal pure returns (int24 lower, int24 upper)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "2740763d8dc492ba674f874f57ad0463acf25c95",
+   "body_lines": [
+    115,
+    124
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "SeedLib._alignDown (SeedLib.sol:116), TRUSTED, in-cluster",
+    "SeedLib._bandWidth (SeedLib.sol:117), TRUSTED, in-cluster",
+    "SeedLib._alignDown (SeedLib.sol:121), TRUSTED, in-cluster"
+   ],
+   "reachability": "Called once per placement at `bidBand` (CauldronSeeder.sol:378). The band starts one spacing ABOVE the aligned reference tick at `L` (SeedLib.sol:116) so it is pure token0 (native) at seed, matching the orientation note at `BID` (SeedLib.sol:26). The top is clamped at `capTick` (SeedLib.sol:121) and degeneracy repaired at `lower` (SeedLib.sol:123). DERIVED: the repair at line 123 moves the LOWER tick down, whereas the ask repair at `upper` (SeedLib.sol:98) moves the UPPER tick up \u2014 the two helpers fix a collapsed band in opposite directions.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: CauldronSeeder._placeStep)",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 128,
+   "kind": "function",
+   "name": "_bandWidth",
+   "signature": "function _bandWidth(int24 offset, uint256 n, int24 spacing) internal pure returns (int24 w)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "8a93e6a46634578b2234c47a6974689f8440deca",
+   "body_lines": [
+    128,
+    132
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "SeedLib._alignDown (SeedLib.sol:130), TRUSTED, in-cluster"
+   ],
+   "reachability": "Called at `_bandWidth` (SeedLib.sol:90) and `_bandWidth` (SeedLib.sol:117). Guards the divisor at `n` (SeedLib.sol:129) and floors the result at one `spacing` (SeedLib.sol:131), so a width can never be zero or negative even when the offset is smaller than a spacing. With the seeder's n = 1 the result is the aligned offset itself, i.e. the `_bandWidth` (CauldronSeeder.sol:376) value it was handed.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: askBand, bidBand)",
+   "reads": []
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 140,
+   "kind": "function",
+   "name": "taperWeightWad",
+   "signature": "function taperWeightWad(uint256 i, uint256 n) internal pure returns (uint256 wad)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ba3123bc8de0856ecef20a3731b57bb741b8bed0",
+   "body_lines": [
+    140,
+    145
+   ],
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "reachability": "DERIVED: a grep of the non-test tree finds no caller \u2014 the seeder only links `deployedTargetWad` (CauldronSeeder.sol:318), `askBand` (CauldronSeeder.sol:376) and `bidBand` (CauldronSeeder.sol:378), so this weight is exercised only by tests. It computes a descending linear profile whose denominator at `denom` (SeedLib.sol:143) makes the weights sum to 1e18 bar integer dust; the division at `WAD` (SeedLib.sol:144) truncates, so the dust is always lost downward. Returns 0 for `n` (SeedLib.sol:141) of zero rather than reverting.",
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (no production caller)",
+   "reads": [
+    "WAD (line 144, constant)"
+   ]
+  }
+ ]
+}

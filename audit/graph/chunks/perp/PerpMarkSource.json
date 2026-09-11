@@ -1,0 +1,111 @@
+[
+ {
+  "contract": "PerpMarkSource",
+  "line": 93,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "poolManager (line 94, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deploy. It pins the pool manager and hands ownership to `_owner` (PerpMarkSource.sol:93) through the base constructor; `armed` (PerpMarkSource.sol:72) stays false, so `armed` (PerpMarkSource.sol:159) returns 0 until a primary is set. A zero tick read by an armed engine would be a real price, but the engine only reaches this contract once an owner has wired it at `markSource` (PerpEngine.sol:1727). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpMarkSource",
+  "line": 100,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpMarkSource.sol:100)",
+  "reads": [],
+  "writes": [
+   "primary (line 101)",
+   "armed (line 102)",
+   "pools (line 103)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The per-relaunch re-point. Setting a primary also CLEARS the sibling set at `pools` (PerpMarkSource.sol:103), because a new generation's pools have nothing to do with the old one's. There is no check that the key names a pool that exists or that its currencies match the engine's `_key` (PerpEngine.sol:482), so a mis-set primary silently becomes the mark the engine liquidates against. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpMarkSource",
+  "line": 111,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpMarkSource.sol:111)",
+  "reads": [
+   "armed (line 112)",
+   "pools (line 113)",
+   "MAX_POOLS (line 113, constant)",
+   "primary.currency0 (line 115)",
+   "primary.currency1 (line 116)",
+   "primary (line 120)",
+   "pools (line 121)",
+   "pools (line 123)"
+  ],
+  "writes": [
+   "pools (line 125)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Adds a sibling whose depth counts toward the mark. Four refusals: not armed at `armed` (PerpMarkSource.sol:112); the cap of `MAX_POOLS` (PerpMarkSource.sol:113); a currency pair that differs from the primary's in either slot at `WrongPair` (PerpMarkSource.sol:117) - the check that keeps a cross-quote oracle off the liquidation path; and duplicates, both against the primary at `primary` (PerpMarkSource.sol:120) and against the existing set in the loop at `pools` (PerpMarkSource.sol:123). Fee tier and tick spacing are free to differ, which is the same-quote depth-splitting case this exists for.",
+  "observations": []
+ },
+ {
+  "contract": "PerpMarkSource",
+  "line": 132,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpMarkSource.sol:132)",
+  "reads": [
+   "pools (line 134)",
+   "pools (line 136)",
+   "pools (line 137)"
+  ],
+  "writes": [
+   "pools (line 137)",
+   "pools (line 138)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Swap-and-pop removal of a sibling; reverts `NotFound` (PerpMarkSource.sol:143) if the key is not in the set. The primary is not in `pools` (PerpMarkSource.sol:134) and so can never be removed - only replaced through `setPrimary` (PerpMarkSource.sol:100). Removing narrows what the mark averages, which is why it is documented as safe at any time.",
+  "observations": []
+ },
+ {
+  "contract": "PerpMarkSource",
+  "line": 146,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "pools (line 146)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Size of the sibling set, excluding the primary. The only external reader of the set's cardinality; the engine never calls it, since `weightedTick` (PerpMarkSource.sol:158) takes no arguments precisely so the engine need not know the pool count. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpMarkSource",
+  "line": 158,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "armed (line 159)",
+   "primary (line 160)",
+   "poolManager (line 162, immutable)",
+   "pools (line 164)",
+   "poolManager (line 170)",
+   "pools (line 174)",
+   "poolManager (line 175)",
+   "poolManager (line 177)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The engine's mark source, reached only through the hand-rolled staticcall at `staticcall` (PerpEngine.sol:542). Fallback order, most to least specific: (1) not armed - return 0 at `armed` (PerpMarkSource.sol:159); (2) no siblings - return the primary's tick at `primaryTick` (PerpMarkSource.sol:165); (3) no in-range liquidity anywhere - return the primary's tick at `totalL` (PerpMarkSource.sol:185); (4) otherwise the liquidity-weighted average at `acc` (PerpMarkSource.sol:186). Each sibling with zero in-range depth is skipped at `l` (PerpMarkSource.sol:176), so a drained pool contributes no weight. The primary is weighted even when its own liquidity is zero, since its tick seeds `acc` (PerpMarkSource.sol:171) before the loop. Note case (1): an armed-false source returns tick 0, which the engine accepts as a valid answer. DERIVED.",
+  "observations": [
+   "comment at `generationQuote` (PerpMarkSource.sol:18) says the engine's `_sqrtP` reads slot0 of the one pool built from the registry's generation quote; the code at `quote` (PerpEngine.sol:483) builds that key from the engine's own CACHED quote storage slot, which `quote` (PerpEngine.sol:1099) is the only writer of."
+  ]
+ }
+]

@@ -1,0 +1,459 @@
+[
+ {
+  "contract": "PerpEngine",
+  "line": 186,
+  "authority": "internal (callers: _pullQuote, _pushQuote, _payOut)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quote (line 186)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "One-line predicate reached from `_pullQuote` (PerpEngine.sol:195), `_pushQuote` (PerpEngine.sol:215) and `_payOut` (PerpEngine.sol:1391). It decides every transport branch in the contract: a zero `quote` (PerpEngine.sol:186) means native, anything else means the ERC20 at that address.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 194,
+  "authority": "internal (callers: openLong, openShort, fundPlv, fundInsurance, creditPerpFeeAsset, fundFromVault)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quote (line 203)"
+  ],
+  "writes": [],
+  "value": "receives native asserted against `value` (line 196); ERC20 pull of the quote by `transferFrom` (line 204)",
+  "edges": [
+   "PerpEngine._quoteIsNative (PerpEngine.sol:195), TRUSTED, in-cluster",
+   "quote.call (PerpEngine.sol:203), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached from every path that takes value in: `_pullQuote` (PerpEngine.sol:781), `_pullQuote` (PerpEngine.sol:818), `_pullQuote` (PerpEngine.sol:1551), `_pullQuote` (PerpEngine.sol:1565), `_pullQuote` (PerpEngine.sol:1605) and `_pullQuote` (PerpEngine.sol:1634). Native mode only ASSERTS that `value` (PerpEngine.sol:196) equals the stated amount - it moves nothing. ERC20 mode requires a prior approval and refuses any attached value at `value` (PerpEngine.sol:199); the low-level return is decoded so a token that returns false cannot credit collateral that never arrived (`decode` (PerpEngine.sol:206)).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 213,
+  "authority": "internal (callers: _sendEth, claimPayout)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quote (line 219)"
+  ],
+  "writes": [],
+  "value": "sends native to `to` (line 216); ERC20 transfer of the quote to `to` via `_safeTransfer` (line 219)",
+  "edges": [
+   "to.call (PerpEngine.sol:216), UNTRUSTED, out-of-cluster",
+   "PerpEngine._safeTransfer (PerpEngine.sol:219), TRUSTED, in-cluster",
+   "PerpEngine._quoteIsNative (PerpEngine.sol:215), TRUSTED, in-cluster"
+  ],
+  "reachability": "The REVERTING push, for recipients the protocol chooses. Reached from `_pushQuote` (PerpEngine.sol:1376) (the vault withdraw and insurance-skim paths) and from `_pushQuote` (PerpEngine.sol:1414) in the payout claim. Unlike `_payOut` (PerpEngine.sol:1388) it forwards ALL remaining gas on the native branch at `call` (PerpEngine.sol:216) and reverts on failure at `EthSend` (PerpEngine.sol:217).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 424,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 444, immutable)",
+   "registry (line 445, immutable)"
+  ],
+  "writes": [
+   "poolManager (line 428, immutable)",
+   "hookAddr (line 428, immutable)",
+   "registry (line 428, immutable)",
+   "mifrens (line 429, immutable)",
+   "dividend (line 429)",
+   "treasury (line 429)",
+   "nftBeneficiary (line 430)",
+   "tierDepthWei (line 431)",
+   "tierLeverage (line 432)",
+   "lastFundingAt (line 433)",
+   "lastObsTs (line 436)",
+   "lastRingTs (line 437)",
+   "lastTick (line 438)",
+   "observations (line 439)",
+   "obsIndex (line 440)",
+   "syncedGeneration (line 444)",
+   "syncedToken (line 445)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._currentTick (PerpEngine.sol:438), TRUSTED, in-cluster",
+   "IPerpRegistry.currentGeneration (PerpEngine.sol:444), TRUSTED, out-of-cluster",
+   "IPerpRegistry.currentToken (PerpEngine.sol:445), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Runs once at deploy. It seeds the oracle ring with one zero-cumulative observation at `observations` (PerpEngine.sol:439) and arms the token side against whatever generation is live, at `syncedGeneration` (PerpEngine.sol:444). Note what it does NOT set: `quote` (PerpEngine.sol:183) is left at its zero default, so a freshly deployed engine is native-denominated until the first successful `syncGeneration` (PerpEngine.sol:1024) adopts a generation quote. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 454,
+  "authority": "internal (applied to: openLong, openShort, close, liquidate, forceCloseDead, forceCloseAllDead, syncGeneration, fundPlv, fundPlvToken, withdrawPlvTo, withdrawTokYieldTo, withdrawPlvTokenTo)",
+  "authority_gate_quote": "if (_inLocked || _liqReentry) revert Reentrant(); (PerpEngine.sol:455)",
+  "reads": [
+   "_inLocked (line 455)",
+   "_liqReentry (line 455)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Blocks any user entrypoint while an in-swap liquidation is settling. Both flags are raised together inside `_doSweep` (PerpEngine.sol:921) and `_inLocked` (PerpEngine.sol:922) and lowered at `_inLocked` (PerpEngine.sol:954). Note the asymmetry: `sweepLiquidations` (PerpEngine.sol:881), `selfSweep` (PerpEngine.sol:890), `unlockCallback` (PerpEngine.sol:1247), `creditPerpFee` (PerpEngine.sol:1574), `creditPerpFeeToken` (PerpEngine.sol:1579), `creditPerpFeeAsset` (PerpEngine.sol:1600), `fundInsurance` (PerpEngine.sol:1564), `fundFromVault` (PerpEngine.sol:1633) and `claimPayout` (PerpEngine.sol:1410) do NOT carry it. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 458,
+  "authority": "internal (applied to: fundFromVault, withdrawPlvTo, withdrawTokYieldTo, fundTokenFromVault, withdrawPlvTokenTo)",
+  "authority_gate_quote": "if (msg.sender != vault) revert NotVault(); (PerpEngine.sol:459)",
+  "reads": [
+   "vault (line 459)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The single role gate protecting the engine's working-capital surface. `vault` (PerpEngine.sol:459) is owner-settable at `vault` (PerpEngine.sol:1753), so the role rotates; while it is `address(0)` the five guarded functions are unreachable by anybody. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 466,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plv (line 466)",
+   "longOiEth (line 466)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Public view the vault prices ETH-side shares from: read at `totalEth` (PerpVault.sol:163) inside `assetsEth` (PerpVault.sol:162) and at `totalEth` (PerpVault.sol:294) in the queued-claim haircut. Also used internally by the utilization cap at `totalEth` (PerpEngine.sol:793). It counts free plus lent capital and deliberately excludes `insuranceEth` (PerpEngine.sol:223).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 468,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plv (line 468)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The instantly-withdrawable ETH-side buffer. Read by the vault at `freeEth` (PerpVault.sol:246), `freeEth` (PerpVault.sol:297) and `freeEth` (PerpVault.sol:420) to decide how much of a redemption pays now versus queues.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 470,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plvToken (line 470)",
+   "shortOiToken (line 470)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Token-side analogue of `totalEth` (PerpEngine.sol:466); read by the vault at `totalTokenAssets` (PerpVault.sol:168) and `totalTokenAssets` (PerpVault.sol:401), and internally by the short-side utilization cap at `totalTokenAssets` (PerpEngine.sol:831).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 472,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plvToken (line 472)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Free short inventory. Read by the vault at `freeToken` (PerpVault.sol:381), `freeToken` (PerpVault.sol:404) and `freeToken` (PerpVault.sol:428).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 482,
+  "authority": "internal (callers: _sqrtP, _currentTick, activeEthDepth, _swapBody, _isDead)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quote (line 483)",
+   "registry (line 484, immutable)",
+   "POOL_FEE (line 487, constant)",
+   "TICK_SPACING (line 487, constant)",
+   "hookAddr (line 487, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpRegistry.currentToken (PerpEngine.sol:484), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The one place the traded pool is identified. It pairs the CACHED `quote` (PerpEngine.sol:483) with the registry's LIVE `currentToken` (PerpEngine.sol:484) and orders them by address at `c0` (PerpEngine.sol:485). Every price, depth, swap and death test funnels through it, so while the cache and the registry's generation quote disagree the engine keys a pool that is not the generation's - which is exactly the condition `_isDead` (PerpEngine.sol:1307) reports as death.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 489,
+  "authority": "internal (callers: markSqrtPriceX96, _quoteEth, activeEthDepth, _ethToToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 489, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._key (PerpEngine.sol:489), TRUSTED, in-cluster",
+   "PoolIdLibrary.toId (PerpEngine.sol:489), TRUSTED, library",
+   "IPoolManager.getSlot0 (PerpEngine.sol:489), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Raw SPOT price. Used for execution-time sizing (`_sqrtP` (PerpEngine.sol:713) and `_sqrtP` (PerpEngine.sol:1343)) and as the mark FALLBACK at `_sqrtP` (PerpEngine.sol:683) whenever the observation ring cannot span `MIN_TWAP` (PerpEngine.sol:636). Returns 0 for an uninitialised pool, which `activeEthDepth` (PerpEngine.sol:689) special-cases but `_ethToToken` (PerpEngine.sol:1343) does not. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 534,
+  "authority": "internal (callers: constructor, _writeObs, syncGeneration)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "markSource (line 535)",
+   "poolManager (line 551, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "m.staticcall (PerpEngine.sol:542), UNTRUSTED, out-of-cluster",
+   "PerpEngine._key (PerpEngine.sol:551), TRUSTED, in-cluster",
+   "IPoolManager.getSlot0 (PerpEngine.sol:551), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The single tick source the whole mark stack is built on. Order of preference: (1) the owner-set `markSource` (PerpEngine.sol:535), dispatched by hand-rolled assembly `staticcall` (PerpEngine.sol:542) using only the 0x00 scratch slot, accepted only when the call succeeded AND returned exactly one word (`returndatasize` (PerpEngine.sol:546)); (2) otherwise the primary pool's `getSlot0` (PerpEngine.sol:551) tick. The returned word is cast with `int24` (PerpEngine.sol:549) with no range check, so a mark source is trusted to keep its answer in tick range. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 558,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._pokeFunding (PerpEngine.sol:558), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless keeper entrypoint that keeps the oracle and the funding index fresh when nobody is trading. It carries neither `nonReentrant` (PerpEngine.sol:778) nor the nesting guard, but it only reaches `_pokeFunding` (PerpEngine.sol:558), which makes no attacker-reachable external call other than the mark-source staticcall. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 597,
+  "authority": "internal (callers: _pokeFunding)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "lastObsTs (line 600)",
+   "lastTick (line 603)",
+   "lastRingTs (line 607)",
+   "OBS_INTERVAL (line 607, constant)",
+   "obsIndex (line 608)",
+   "tickCumulative (line 608)",
+   "OBS_MASK (line 609)"
+  ],
+  "writes": [
+   "tickCumulative (line 603)",
+   "lastObsTs (line 604)",
+   "observations (line 608)",
+   "obsIndex (line 609)",
+   "lastRingTs (line 610)",
+   "lastTick (line 613)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._currentTick (PerpEngine.sol:613), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reached on every mutating perp path through `_writeObs` (PerpEngine.sol:719). Two clocks: the integration clock `lastObsTs` (PerpEngine.sol:604) advances on every call with a non-zero delta, while ring APPENDS are throttled on `lastRingTs` (PerpEngine.sol:607) to one per `OBS_INTERVAL` (PerpEngine.sol:607). All timestamp deltas sit inside `unchecked` (PerpEngine.sol:599) so a uint32 epoch wrap yields the modulo difference instead of a panic. The tick is refreshed unconditionally at `lastTick` (PerpEngine.sol:613).",
+  "observations": [
+   "comment at `OBS_INTERVAL` (PerpEngine.sol:257) says filling every ring slot takes CARDINALITY x OBS_INTERVAL, quoted on the next line as roughly 68 minutes, and the note at `slots` (PerpEngine.sol:259) assumes 30-second minimum spacing; the code declares `OBS_CARDINALITY` (PerpEngine.sol:263) as 32 and `OBS_INTERVAL` (PerpEngine.sol:267) as 15 seconds, i.e. 8 minutes to fill."
+  ]
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 634,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "twapWindow (line 638)",
+   "obsIndex (line 641)",
+   "observations (line 644)",
+   "OBS_MASK (line 644)",
+   "OBS_CARDINALITY (line 645, constant)",
+   "MIN_TWAP (line 636, constant)",
+   "tickCumulative (line 672)",
+   "lastTick (line 672)",
+   "lastObsTs (line 672)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The manipulation-resistant mark, read from `twapTick` (PerpEngine.sol:682) and therefore from every liquidation and settlement. Fallback order: if the oldest populated entry is newer than the target it uses that oldest entry, but only when it spans `MIN_TWAP` (PerpEngine.sol:656); otherwise a binary search over the ring at `observations` (PerpEngine.sol:663) finds the newest entry at or before `target` (PerpEngine.sol:663). It returns ok=false at cold start (`n` (PerpEngine.sol:649)) or a zero span (`span` (PerpEngine.sol:675)), which the caller turns into a SPOT mark. The un-recorded tail is extrapolated at `lastTick` (PerpEngine.sol:672).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 681,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine.twapTick (PerpEngine.sol:682), TRUSTED, in-cluster",
+   "TickMath.getSqrtPriceAtTick (PerpEngine.sol:683), TRUSTED, library",
+   "PerpEngine._sqrtP (PerpEngine.sol:683), TRUSTED, in-cluster"
+  ],
+  "reachability": "The two-step mark: TWAP tick first, SPOT second. `ok` (PerpEngine.sol:683) decides, so during the cold-start window the liquidation mark IS spot; the open `warmup` (PerpEngine.sol:1283) is what keeps positions from existing during that window. Consumed by `_quoteMark` (PerpEngine.sol:715).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 686,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 690, immutable)",
+   "SQRT_MAX (line 692, constant)",
+   "Q96 (line 693, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._key (PerpEngine.sol:687), TRUSTED, in-cluster",
+   "PoolIdLibrary.toId (PerpEngine.sol:687), TRUSTED, library",
+   "PerpEngine._sqrtP (PerpEngine.sol:688), TRUSTED, in-cluster",
+   "IPoolManager.getLiquidity (PerpEngine.sol:690), TRUSTED, out-of-cluster",
+   "FullMath.mulDiv (PerpEngine.sol:692), TRUSTED, library"
+  ],
+  "reachability": "The depth every risk limit is measured against: leverage tiers at `activeEthDepth` (PerpEngine.sol:697), per-position notional at `activeEthDepth` (PerpEngine.sol:1317), per-side open-interest caps at `activeEthDepth` (PerpEngine.sol:798) and `activeEthDepth` (PerpEngine.sol:834), and the per-timestamp liquidation cap at `activeEthDepth` (PerpEngine.sol:866) and `activeEthDepth` (PerpEngine.sol:971). It is derived from the in-range `getLiquidity` (PerpEngine.sol:690) of the single primary pool and returns 0 when the pool is uninitialised or has no in-range depth, which turns the liquidation cap OFF at `cap` (PerpEngine.sol:867). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 696,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tierLeverage (line 698)",
+   "tierDepthWei (line 699)",
+   "maxLeverageCeiling (line 704)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine.activeEthDepth (PerpEngine.sol:697), TRUSTED, in-cluster"
+  ],
+  "reachability": "Depth-tiered leverage ceiling enforced at `maxLeverage` (PerpEngine.sol:1285). The loop walks `tierDepthWei` (PerpEngine.sol:699) and indexes `tierLeverage` (PerpEngine.sol:701) at i+1, so the arrays must satisfy the length relation imposed at `levs` (PerpEngine.sol:1707); the result is finally clamped to `maxLeverageCeiling` (PerpEngine.sol:704).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 709,
+  "authority": "internal (callers: _quoteEth, _quoteMark)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "Q96 (line 710, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "FullMath.mulDiv (PerpEngine.sol:710), TRUSTED, library"
+  ],
+  "reachability": "Pure token-to-quote conversion at an arbitrary sqrt price: two `mulDiv` (PerpEngine.sol:710) steps give size * (Q96/sp)^2. Because it works off the pool's Q96 sqrt price, the decimal ratio between quote and token is already baked in and no explicit decimals correction exists anywhere in the engine. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 713,
+  "authority": "internal (callers: skimInsurance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._quoteAt (PerpEngine.sol:713), TRUSTED, in-cluster",
+   "PerpEngine._sqrtP (PerpEngine.sol:713), TRUSTED, in-cluster"
+  ],
+  "reachability": "Spot-priced valuation. Its only live caller is the risk floor inside `_quoteEth` (PerpEngine.sol:1786), which values `shortOiToken` (PerpEngine.sol:1786) at SPOT while every liquidation decision uses the mark.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 715,
+  "authority": "internal (callers: _pokeFunding, liquidate, _tryLiquidate, _underwater, _killStats, positionHealth)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._quoteAt (PerpEngine.sol:715), TRUSTED, in-cluster",
+   "PerpEngine.markSqrtPriceX96 (PerpEngine.sol:715), TRUSTED, in-cluster"
+  ],
+  "reachability": "Mark-priced valuation - the number that decides solvency. Reached from `_quoteMark` (PerpEngine.sol:727) (funding imbalance), `_quoteMark` (PerpEngine.sol:861) and `_quoteMark` (PerpEngine.sol:966) (liquidation trigger and per-timestamp cap notional), `_quoteMark` (PerpEngine.sol:1115), `_quoteMark` (PerpEngine.sol:1470) and `_quoteMark` (PerpEngine.sol:1808).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 718,
+  "authority": "internal (callers: poke, openLong, openShort, close, liquidate, _doSweep, forceCloseDead, forceCloseAllDead)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "lastFundingAt (line 720)",
+   "shortOiToken (line 727)",
+   "longOiEth (line 728)",
+   "longOiEth (line 731)",
+   "fundingRateBpsPerDay (line 732)",
+   "BPS (line 733, constant)",
+   "fundingIndex (line 734)"
+  ],
+  "writes": [
+   "lastFundingAt (line 722)",
+   "fundingIndex (line 734)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._writeObs (PerpEngine.sol:719), TRUSTED, in-cluster",
+   "PerpEngine._quoteMark (PerpEngine.sol:727), TRUSTED, in-cluster"
+  ],
+  "reachability": "The clock for the whole system: it samples the oracle FIRST at `_writeObs` (PerpEngine.sol:719) and only then accrues funding, so even a sweep over an empty book advances the tick record. Early-returns on a zero time delta at `dt` (PerpEngine.sol:721) and on zero total open interest at `total` (PerpEngine.sol:729) - in both cases the observation has already been written. The index step is signed, valued at the MARK via `shortEth` (PerpEngine.sol:727), and unbounded per call only through `fundingRateBpsPerDay` (PerpEngine.sol:732), which `setRisk` (PerpEngine.sol:1691) caps at BPS.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 743,
+  "authority": "internal (callers: fundingDelta, _settle)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "fundingIndex (line 744)",
+   "maxFundingBps (line 750)",
+   "BPS (line 750, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Per-position funding P&L, evaluated once per settlement at `_fundingDelta` (PerpEngine.sol:1183). Notional is pinned to entry collateral x leverage at `notional` (PerpEngine.sol:748) rather than to live price, and the result is clamped both ways to `maxFundingBps` (PerpEngine.sol:750) of collateral at `cap` (PerpEngine.sol:751). Sign convention: positive means this position pays.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 756,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "positions (line 757)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._fundingDelta (PerpEngine.sol:759), TRUSTED, in-cluster"
+  ],
+  "reachability": "Read-only mirror of the settlement arithmetic for a live id; returns 0 for a closed or never-opened id at `trader` (PerpEngine.sol:758).",
+  "observations": []
+ }
+]

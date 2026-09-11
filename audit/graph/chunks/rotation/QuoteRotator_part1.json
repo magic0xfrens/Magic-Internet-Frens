@@ -1,0 +1,246 @@
+[
+ {
+  "contract": "QuoteRotator",
+  "line": 95,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "registry (line 96, immutable)",
+   "poolManager (line 97, immutable)",
+   "owner (line 98)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. It fixes the two immutables that can never be re-pointed \u2014 the `registry` (QuoteRotator.sol:96) that alone may call swapOnce, and the `poolManager` (QuoteRotator.sol:97) that alone may call back into unlockCallback \u2014 and makes the deployer the first `owner` (QuoteRotator.sol:98). No zero checks on either address. Everything else starts at its declaration default: `keeperBps` (QuoteRotator.sol:85), `rotationSlipBps` (QuoteRotator.sol:373), `arbKeeperBps` (QuoteRotator.sol:419), `minArbProfitUsd` (QuoteRotator.sol:424) and `maxArbNotionalUsd` (QuoteRotator.sol:437), while `quoteOracle` (QuoteRotator.sol:415) and every entry of `allowedVenue` (QuoteRotator.sol:179) start unset, so the contract ships with no route it will execute through.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 121,
+  "authority": "internal (callers: swapOnce)",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotOwner(); (QuoteRotator.sol:122)",
+  "reads": [
+   "registry (line 122, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Applied to exactly one function, `onlyRegistry` (QuoteRotator.sol:337). The address it compares against is immutable, set at `registry` (QuoteRotator.sol:96), so this authority cannot be transferred or revoked. The caller that satisfies it is the registry executing `swapOnce` (RedemptionExt.sol:376) under delegatecall, where `address(this)` is the registry itself.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 126,
+  "authority": "internal (callers: transferOwnership, setVenue, setPlan, cancelPlan, setKeeperBps, setRotationSlipBps, setArbParams, setMaxArbNotionalUsd)",
+  "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
+  "reads": [
+   "owner (line 127)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The configuration gate, held by the treasury rather than by the registry. It guards `transferOwnership` (QuoteRotator.sol:131), `setVenue` (QuoteRotator.sol:186), the `onlyOwner` on setPlan (QuoteRotator.sol:219), `cancelPlan` (QuoteRotator.sol:244), `setKeeperBps` (QuoteRotator.sol:249), `setRotationSlipBps` (QuoteRotator.sol:378), `setArbParams` (QuoteRotator.sol:448) and `setMaxArbNotionalUsd` (QuoteRotator.sol:458). It is deliberately NOT on the execution paths: `rotateStep` (QuoteRotator.sol:280) and `arbStep` (QuoteRotator.sol:496) are permissionless, `onlyRegistry` (QuoteRotator.sol:337) gates swapOnce, and the check at `registry` (QuoteRotator.sol:590) lets withdraw accept either.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 131,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "external onlyOwner (QuoteRotator.sol:131)",
+  "reads": [],
+  "writes": [
+   "owner (line 131)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, single-step, no zero check at `transferOwnership` (QuoteRotator.sol:131). Transferring to an unusable address freezes the venue allowlist, the plan, every bps parameter and the owner half of the check at `owner` (QuoteRotator.sol:590); the registry half of withdraw and the registry-gated `onlyRegistry` (QuoteRotator.sol:337) keep working, because they key off the immutable `registry` (QuoteRotator.sol:96) instead.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 186,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "function setVenue(PoolKey calldata route, bool allowed) external onlyOwner { (QuoteRotator.sol:186)",
+  "reads": [],
+  "writes": [
+   "allowedVenue (line 188)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "PoolIdLibrary.toId (QuoteRotator.sol:187), TRUSTED, library"
+  ],
+  "reachability": "Owner-only curation of the execution venues. The key is the hash of the whole PoolKey, computed at `toId` (QuoteRotator.sol:187), so fee, tickSpacing and hooks are all pinned and listing one pool on a pair does not list the others. The mapping written at `allowedVenue` (QuoteRotator.sol:188) is the gate every spending path consults: `allowedVenue` (QuoteRotator.sol:295) in rotateStep, `allowedVenue` (QuoteRotator.sol:355) in swapOnce, and `allowedVenue` (QuoteRotator.sol:516) for both legs of arbStep. An empty allowlist therefore makes all three revert, which is the documented fail-closed default.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 193,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "allowedVenue (line 194)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PoolIdLibrary.toId (QuoteRotator.sol:194), TRUSTED, library"
+  ],
+  "reachability": "Ungated view. Hashes the supplied key with `toId` (QuoteRotator.sol:194) and reports the flag, which is the same lookup the execution paths make at `allowedVenue` (QuoteRotator.sol:295). Offered so a keeper can check a route before spending gas on it; nothing in the contract calls it.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 212,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "onlyOwner (QuoteRotator.sol:219)",
+  "reads": [],
+  "writes": [
+   "plan (line 227)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "QuoteRotator._allowed (QuoteRotator.sol:225), TRUSTED, in-cluster"
+  ],
+  "reachability": "Owner-only. There is exactly ONE plan slot, so this overwrites any rotation already in flight \u2014 including its `doneIn` and `gotOut` progress, which are reset to zero in the same literal at `plan` (QuoteRotator.sol:227). Config checks: the pair must differ and the slice must fit the total, at `sliceIn` (QuoteRotator.sol:220); a zero `minRate` (QuoteRotator.sol:222) is refused because it would accept any fill; and the destination must be on the registry's allowlist, checked here through `_allowed` (QuoteRotator.sol:225) and again at execution time at `_allowed` (QuoteRotator.sol:286). `interval` is not bounded (QuoteRotator.sol:235), and the venue allowlist is a separate decision entirely, made at `setVenue` (QuoteRotator.sol:186).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 244,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "function cancelPlan() external onlyOwner { (QuoteRotator.sol:244)",
+  "reads": [
+   "plan.doneIn (line 245)",
+   "plan.gotOut (line 245)"
+  ],
+  "writes": [
+   "plan (line 246)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only abort. It emits the progress from `doneIn` (QuoteRotator.sol:245) and then clears the whole struct at `plan` (QuoteRotator.sol:246), which makes nextSliceSize return 0 at `totalIn` (QuoteRotator.sol:261) and rotateStep revert at `NoPlan` (QuoteRotator.sol:282). It moves no assets: whatever the plan already converted stays in this contract until `withdraw` (QuoteRotator.sol:589) sweeps it, and the record of how much that was is destroyed with the struct.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 249,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "function setKeeperBps(uint16 bps) external onlyOwner { (QuoteRotator.sol:249)",
+  "reads": [],
+  "writes": [
+   "keeperBps (line 251)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, capped at 1% by the check at `BadConfig` (QuoteRotator.sol:250). The value written to `keeperBps` (QuoteRotator.sol:251) is read only by `keeperBps` (QuoteRotator.sol:312), where it is applied to the slice's OUTPUT, so it is a share of what the rotation produced rather than of the treasury. Changing it takes effect on the next slice of an already-running plan; nothing snapshots it into the plan.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 259,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plan (line 260)",
+   "plan.totalIn (line 261)",
+   "plan.doneIn (line 261)",
+   "plan.lastStepAt (line 266)",
+   "plan.interval (line 266)",
+   "plan.sliceIn (line 268)",
+   "plan.from (line 269)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "QuoteRotator._balanceOf (QuoteRotator.sol:269), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view and the size oracle for `nextSliceSize` (QuoteRotator.sol:284). It returns 0 \u2014 which rotateStep turns into TooSoon \u2014 when there is no plan or `doneIn` has reached the total (QuoteRotator.sol:261) and when the `interval` has not elapsed (QuoteRotator.sol:266). A first slice is due immediately because the timer only applies once `lastStepAt` is non-zero (QuoteRotator.sol:266). The result is clamped twice: to what the plan has left at `left` (QuoteRotator.sol:267) and to what this contract actually holds at `held` (QuoteRotator.sol:270), so a plan can be scheduled for more than the balance and will simply step in smaller pieces. Holding zero of the source asset makes it return 0, which is indistinguishable from TooSoon at the call site.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 280,
+  "authority": "anyone (permissionless keeper; the caller chooses only the venue, from the curated list)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "plan (line 281)",
+   "plan.totalIn (line 282)",
+   "plan.to (line 286)",
+   "plan.from (line 287)",
+   "allowedVenue (line 295)",
+   "plan.minRate (line 306)",
+   "WAD (line 306, constant)",
+   "keeperBps (line 312)",
+   "BPS (line 312, constant)"
+  ],
+  "writes": [
+   "plan.lastStepAt (line 300)",
+   "plan.doneIn (line 301)",
+   "plan.gotOut (line 310)"
+  ],
+  "value": "`_send` pays the keeper a share of the plan's `to` asset (line 313); the swap legs settle and take inside `_swap` (line 303)",
+  "edges": [
+   "QuoteRotator.nextSliceSize (QuoteRotator.sol:284), TRUSTED, in-cluster",
+   "QuoteRotator._allowed (QuoteRotator.sol:286), TRUSTED, in-cluster",
+   "QuoteRotator._routeMatches (QuoteRotator.sol:287), TRUSTED, in-cluster",
+   "PoolIdLibrary.toId (QuoteRotator.sol:295), TRUSTED, library",
+   "QuoteRotator._swap (QuoteRotator.sol:303), TRUSTED, in-cluster",
+   "QuoteRotator._send (QuoteRotator.sol:313), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless external entry. State that must hold: a plan exists, checked at `totalIn` (QuoteRotator.sol:282), a slice is due and non-zero at `size` (QuoteRotator.sol:285), the destination is still allowlisted at `_allowed` (QuoteRotator.sol:286), the supplied key trades the plan's pair at `_routeMatches` (QuoteRotator.sol:287), and the key is curated at `allowedVenue` (QuoteRotator.sol:295). Effects are written before the external call \u2014 the timestamp at `lastStepAt` (QuoteRotator.sol:300) and the progress at `doneIn` (QuoteRotator.sol:301) \u2014 which matters because the swap re-enters this contract through `unlockCallback` (QuoteRotator.sol:609) and the keeper payment at the end calls an arbitrary address. There is no reentrancy guard anywhere in this contract. The price floor is the governed rate, computed at `minRate` (QuoteRotator.sol:306) from the amount actually sent, and the received amount is recorded rather than assumed at `gotOut` (QuoteRotator.sol:310). The keeper fee is taken from the output AFTER the floor check, at `fee` (QuoteRotator.sol:312), so the plan's recorded `gotOut` is larger than what the treasury keeps. Both the size cast at `doneIn` (QuoteRotator.sol:301) and the output cast at `gotOut` (QuoteRotator.sol:310) narrow a uint256 to uint128.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 331,
+  "authority": "registry (the immutable address; the gate is on THIS side, not the registry's)",
+  "authority_gate_quote": "external onlyRegistry (QuoteRotator.sol:337)",
+  "reads": [
+   "allowedVenue (line 355)"
+  ],
+  "writes": [],
+  "value": "the swap legs settle and take inside `_swap` (line 356); proceeds stay in this contract until `withdraw` (line 589) moves them",
+  "edges": [
+   "QuoteRotator._allowed (QuoteRotator.sol:339), TRUSTED, in-cluster",
+   "QuoteRotator._routeMatches (QuoteRotator.sol:340), TRUSTED, in-cluster",
+   "PoolIdLibrary.toId (QuoteRotator.sol:355), TRUSTED, library",
+   "QuoteRotator._swap (QuoteRotator.sol:356), TRUSTED, in-cluster",
+   "QuoteRotator._oracleFloor (QuoteRotator.sol:365), TRUSTED, in-cluster"
+  ],
+  "reachability": "The single-shot conversion used by the live rotation. The only caller is the facet running as the registry: `swapOnce` (RedemptionExt.sol:376), reached from `rotateSliceFrom` (CauldronRegistry.sol:262) through the delegatecall forwarder at `_forwardToExt` (CauldronRegistry.sol:1451). The authority gate is held HERE, by `onlyRegistry` (QuoteRotator.sol:121) against the immutable address; the registry side contributes the size and the envelope, not the authority. Preconditions: a non-zero `amountIn` (QuoteRotator.sol:338), an allowlisted destination at `_allowed` (QuoteRotator.sol:339), a key on the right pair at `_routeMatches` (QuoteRotator.sol:340), and a curated key at `allowedVenue` (QuoteRotator.sol:355). The accepted price is the LARGER of the caller's bound and the oracle-derived floor, at `floor` (QuoteRotator.sol:366), so a caller may tighten but never loosen it \u2014 and because `_oracleFloor` returns 0 when either leg is unpriceable, an unwired or silent oracle leaves the caller's own bound standing alone, at `_oracleFloor` (QuoteRotator.sol:365). Note the input asset must already have been sent here: nothing in this function pulls it, and `_settle` (QuoteRotator.sol:668) pays the pool out of this contract's balance.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 378,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "function setRotationSlipBps(uint16 bps) external onlyOwner { (QuoteRotator.sol:378)",
+  "reads": [],
+  "writes": [
+   "rotationSlipBps (line 380)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, capped at 20% by the check at `BadConfig` (QuoteRotator.sol:379). The value written to `rotationSlipBps` (QuoteRotator.sol:380) widens the oracle floor used by swapOnce, at `rotationSlipBps` (QuoteRotator.sol:407). It has no effect on the plan path, whose floor comes from the governed `minRate` (QuoteRotator.sol:306) instead, and none on arbStep, which compares USD totals directly at `outUsd` (QuoteRotator.sol:550).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 398,
+  "authority": "internal (callers: swapOnce)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "rotationSlipBps (line 407)",
+   "BPS (line 407, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "QuoteRotator._usd (QuoteRotator.sol:402), TRUSTED, in-cluster",
+   "QuoteRotator._usd (QuoteRotator.sol:404), TRUSTED, in-cluster"
+  ],
+  "reachability": "Single caller: `_oracleFloor` (QuoteRotator.sol:365). Not a view \u2014 it goes through `_usd` (QuoteRotator.sol:402), which calls the oracle's state-changing cached read. It fails OPEN: an unset oracle, an unpriceable source at `inUsd` (QuoteRotator.sol:403) or an unpriceable destination at `perUnitTo` (QuoteRotator.sol:405) each return 0, and the caller then relies on its own bound. Both legs are valued in USD first, so no decimals factor is needed here; the destination is priced per 1e18 raw units at `perUnitTo` (QuoteRotator.sol:404) and the fair amount divides by that at `fair` (QuoteRotator.sol:406). Every division truncates, so the floor rounds in the treasury's disfavour by at most one unit before the slippage haircut at `rotationSlipBps` (QuoteRotator.sol:407) is applied.",
+  "observations": []
+ }
+]

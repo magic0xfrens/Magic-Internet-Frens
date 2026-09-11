@@ -1,0 +1,187 @@
+[
+ {
+  "contract": "MintCurvePolicy",
+  "line": 71,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "base (line 83, immutable)",
+   "spread (line 84, immutable)",
+   "knee (line 85, immutable)",
+   "supply (line 86, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only; the launch script in the deploy directory is the only place in the tree that constructs it. The contract has no storage and no owner at all: all four parameters are immutable, so the ladder cannot be re-tuned after deploy and there is no gate to rotate or renounce. A zero `_knee` (MintCurvePolicy.sol:75) is refused because it would divide by zero at position zero, and a zero `_spread` (MintCurvePolicy.sol:82) is refused because a flat ladder breaks the rising-floor property the comment describes.",
+  "observations": []
+ },
+ {
+  "contract": "MintCurvePolicy",
+  "line": 95,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "base (line 99, immutable)",
+   "spread (line 99, immutable)",
+   "knee (line 99, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure-by-effect view called by the hook's mint pricing at `priceAt` (CauldronHook.sol:2094), inside a try/catch there, with the hook's own base and step arguments ignored by this implementation. Integer division at `knee` (MintCurvePolicy.sol:99) rounds the cost DOWN, and the units are whatever the caller's credit is denominated in - this contract performs no conversion and knows nothing about decimals.",
+  "observations": []
+ },
+ {
+  "contract": "MintCurvePolicy",
+  "line": 108,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "supply (line 109, immutable)",
+   "base (line 111, immutable)",
+   "spread (line 111, immutable)",
+   "knee (line 111, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Off-chain calibration helper: the loop at `n` (MintCurvePolicy.sol:110) runs `supply` times, a bound fixed at deploy and reachable by anyone, so on a large collection it can exceed a block's gas - it is never called from a mint path in this repo. The only caller in the tree is the launch script in the deploy directory. Each term rounds down exactly as the per-item view does, so the sum is the sum of the actual charges.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 36,
+  "authority": "owner",
+  "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (CauldronFactory.sol:37)",
+  "reads": [
+   "owner (line 37)"
+  ],
+  "writes": [
+   "liquidatorRenderer (line 38)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. The value is applied to every LATER collection the factory deploys at `liquidatorRenderer` (CauldronFactory.sol:86); collections already deployed keep whatever they were given, because the factory only holds the setter right during `deployBrew` (CauldronFactory.sol:63). DERIVED: the factory calls the collection setter only inside that function.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 42,
+  "authority": "owner",
+  "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (CauldronFactory.sol:43)",
+  "reads": [
+   "owner (line 43)"
+  ],
+  "writes": [
+   "owner (line 44)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, single-step, with no zero check: passing the zero address at `to` (CauldronFactory.sol:44) permanently dead-ends the badge-renderer setter, which is the only right this owner holds. The slot is initialised to the deploying address at `owner` (CauldronFactory.sol:21).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 63,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "liquidatorRenderer (line 86)",
+   "liquidatorRenderer (line 87)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronCollection.setVault (CauldronFactory.sol:76), TRUSTED, in-cluster",
+   "CauldronCollection.setRoyalty (CauldronFactory.sol:82), TRUSTED, in-cluster",
+   "CauldronCollection.setLiquidatorRenderer (CauldronFactory.sol:87), TRUSTED, in-cluster"
+  ],
+  "reachability": "UNGATED: any address can call it and get a collection plus a vault, because the factory grants no authority over an existing brew - the collection it creates takes its controller from the caller-supplied `c` (CauldronFactory.sol:72) rather than from msg.sender, and only the registry that calls it wires the result into the machine. In the protocol path the caller is the registry at `deployBrew` (CauldronRegistry.sol:1151). The factory keeps exactly two deploy-time rights through the collection's configurator slot, used at `setVault` (CauldronFactory.sol:76) and `setRoyalty` (CauldronFactory.sol:82), plus the badge renderer at `setLiquidatorRenderer` (CauldronFactory.sol:87). Royalties are pointed at a freshly deployed router at `RoyaltyRouter` (CauldronFactory.sol:81), and the vault is created with a zero floor offset at `CauldronVault` (CauldronFactory.sol:75).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 99,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "UNGATED and stateless: it returns a new vault bound to the collection and registry the caller names at `CauldronVault` (CauldronFactory.sol:103), so anyone can create an unwired vault for any collection - it confers nothing, because the collection only honours the vault its own `setVault` recorded. The protocol caller is the registry at `deployVault` (CauldronRegistry.sol:1189), which passes a non-zero floor offset for a continued collection.",
+  "observations": []
+ },
+ {
+  "contract": "ITransferValidator (declared in ICreatorToken.sol)",
+  "line": 8,
+  "authority": "declaration only (no body); in-cluster callers are the two collections' _update overrides; the validator contract itself is chosen by the collection's admin",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called on every mint, transfer and burn of either collection, at `validateTransfer` (MiFrensGenesis.sol:656) and `validateTransfer` (CauldronCollection.sol:176), and only while the slot is non-zero. The address is set by the genesis deployer at `transferValidator` (MiFrensGenesis.sol:468) or by the registry at `transferValidator` (CauldronCollection.sol:195), so an admin-chosen contract sits in the path of every token movement and can halt all of them by reverting. Declared view, but Solidity's type system is the only thing enforcing that on the callee.",
+  "observations": []
+ },
+ {
+  "contract": "ICreatorToken",
+  "line": 16,
+  "authority": "anyone (the implementations are public views)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Market-facing discovery surface implemented at `getTransferValidator` (MiFrensGenesis.sol:455) and `getTransferValidator` (CauldronCollection.sol:182); both just return the stored slot.",
+  "observations": []
+ },
+ {
+  "contract": "ICreatorToken",
+  "line": 17,
+  "authority": "anyone (the implementations are pure)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Implemented at `getTransferValidationFunction` (MiFrensGenesis.sol:460) and `getTransferValidationFunction` (CauldronCollection.sol:187); both report the same selector and the view flag without reading state.",
+  "observations": []
+ },
+ {
+  "contract": "ICreatorToken",
+  "line": 18,
+  "authority": "the collection's admin: the genesis deployer or the registry for the per-brew collection",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:466)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Implemented at `setTransferValidator` (MiFrensGenesis.sol:465) under the genesis deployer gate, and at `setTransferValidator` (CauldronCollection.sol:192) under the registry gate. Neither implementation validates the address, so the same call can enable or disable royalty enforcement and, with a hostile target, freeze transfers entirely.",
+  "observations": []
+ },
+ {
+  "contract": "INFTContract",
+  "line": 8,
+  "authority": "declaration only (no body); the only caller in the tree is the hook's private tax helper, which is out of cluster",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called inside a try/catch at `getHolderTaxRate` (CauldronHook.sol:1627) on a hook-configured address, so a reverting or missing implementation degrades rather than blocking a swap. Neither collection in this cluster implements it - the two ERC721s expose no such function - so the address the hook points at is some other contract. DERIVED: the identifier appears nowhere else in the tree.",
+  "observations": []
+ },
+ {
+  "contract": "INFTContract",
+  "line": 11,
+  "authority": "declaration only (no body); no call site exists anywhere in the tree",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declared beside the tax-rate view but never invoked through this interface: the only use of the interface type is the single tax call at `INFTContract` (CauldronHook.sol:1627). DERIVED: grep of the non-library sources finds no call of this member on this interface.",
+  "observations": []
+ }
+]

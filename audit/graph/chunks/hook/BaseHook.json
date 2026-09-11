@@ -1,0 +1,302 @@
+[
+ {
+  "contract": "BaseHook",
+  "line": 18,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook.validateHookAddress (BaseHook.sol:19), TRUSTED, in-cluster"
+  ],
+  "reachability": "Runs once, as part of CauldronHook's construction (`BaseHook` (CauldronHook.sol:562) is its base initialiser). It stores the manager in the v4-periphery `ImmutableState` (BaseHook.sol:18) base and then calls `validateHookAddress` (BaseHook.sol:19), which reverts unless the deployed address' low bits match the permission struct \u2014 this is what forces the salt mining.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 25,
+  "authority": "anyone (abstract declaration; the implementation is CauldronHook.getHookPermissions)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Abstract with no body at `getHookPermissions` (BaseHook.sol:25); the deployed contract's version is `getHookPermissions` (CauldronHook.sol:572). Read on-chain only by `getHookPermissions` (BaseHook.sol:32) during construction, and off-chain by deployment tooling.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 31,
+  "authority": "internal (callers: BaseHook constructor)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook.getHookPermissions (BaseHook.sol:32), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reached once, from `validateHookAddress` (BaseHook.sol:19). It hands the permission struct to the v4-core `Hooks` (BaseHook.sol:32) validator, which lives under lib/ and is therefore not a resolvable edge. It is `virtual` (BaseHook.sol:31) so a test harness can override it and etch a hook at an arbitrary address; CauldronHook does not override it.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 36,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:38)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._beforeInitialize (BaseHook.sol:41), TRUSTED, in-cluster"
+  ],
+  "reachability": "The v4 pool manager is the only permitted caller \u2014 the `onlyPoolManager` (BaseHook.sol:38) modifier comes from the periphery `ImmutableState` base. It forwards to `_beforeInitialize` (BaseHook.sol:41), which CauldronHook does NOT override, so any call reverts `HookNotImplemented`; the permission bit for it is false at `beforeInitialize` (CauldronHook.sol:579), so the manager never calls it.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 44,
+  "authority": "internal (callers: BaseHook.beforeInitialize)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body: `revert` (BaseHook.sol:45) unconditionally. Reached only from `_beforeInitialize` (BaseHook.sol:41), and unreachable in practice because the matching permission bit is false at `beforeInitialize` (CauldronHook.sol:579).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 49,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:51)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._afterInitialize (BaseHook.sol:54), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:51). This one IS enabled: `afterInitialize` (CauldronHook.sol:580) is true, so every initialize of a pool naming this hook lands here and is forwarded to the override `_afterInitialize` (CauldronHook.sol:621), which reverts unless the initializer is the registry.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 57,
+  "authority": "internal (callers: BaseHook.afterInitialize)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:58). It is shadowed by the override `_afterInitialize` (CauldronHook.sol:621), so the default is never executed in the deployed hook.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 62,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:67)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._beforeAddLiquidity (BaseHook.sol:68), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:67). Dead in this deployment: `beforeAddLiquidity` (CauldronHook.sol:581) is false, so the manager never dispatches here, and the forwarded `_beforeAddLiquidity` (BaseHook.sol:68) is not overridden.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 71,
+  "authority": "internal (callers: BaseHook.beforeAddLiquidity)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:76); not overridden by CauldronHook and gated off by the permission bit `beforeAddLiquidity` (CauldronHook.sol:581).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 80,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:85)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._beforeRemoveLiquidity (BaseHook.sol:86), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:85). Dead: `beforeRemoveLiquidity` (CauldronHook.sol:583) is false and `_beforeRemoveLiquidity` (BaseHook.sol:86) is not overridden.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 89,
+  "authority": "internal (callers: BaseHook.beforeRemoveLiquidity)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:94); gated off by `beforeRemoveLiquidity` (CauldronHook.sol:583).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 98,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:105)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._afterAddLiquidity (BaseHook.sol:106), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:105). Dead: `afterAddLiquidity` (CauldronHook.sol:582) is false and the return-delta bit `afterAddLiquidityReturnDelta` (CauldronHook.sol:591) is false too; `_afterAddLiquidity` (BaseHook.sol:106) is not overridden.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 109,
+  "authority": "internal (callers: BaseHook.afterAddLiquidity)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:117); gated off by `afterAddLiquidity` (CauldronHook.sol:582).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 121,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:128)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._afterRemoveLiquidity (BaseHook.sol:129), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:128). Dead: `afterRemoveLiquidity` (CauldronHook.sol:584) is false, as is `afterRemoveLiquidityReturnDelta` (CauldronHook.sol:592).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 132,
+  "authority": "internal (callers: BaseHook.afterRemoveLiquidity)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:140); gated off by `afterRemoveLiquidity` (CauldronHook.sol:584).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 144,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:146)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._beforeSwap (BaseHook.sol:149), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:146). ENABLED: `beforeSwap` (CauldronHook.sol:585) is true and `beforeSwapReturnDelta` (CauldronHook.sol:589) is true, so this is the entry for every swap on an adopted pool and the returned BeforeSwapDelta is honoured. Forwards to the override `_beforeSwap` (CauldronHook.sol:1128).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 152,
+  "authority": "internal (callers: BaseHook.beforeSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:157); shadowed by the override `_beforeSwap` (CauldronHook.sol:1128), so it never runs in the deployed hook.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 161,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:167)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._afterSwap (BaseHook.sol:168), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:167). ENABLED: `afterSwap` (CauldronHook.sol:586) and `afterSwapReturnDelta` (CauldronHook.sol:590) are both true, so the int128 this returns is taken out of the swapper's unspecified leg. Forwards to the override `_afterSwap` (CauldronHook.sol:778).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 171,
+  "authority": "internal (callers: BaseHook.afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:176); shadowed by the override `_afterSwap` (CauldronHook.sol:778).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 180,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:186)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._beforeDonate (BaseHook.sol:187), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:186). Dead: `beforeDonate` (CauldronHook.sol:587) is false and `_beforeDonate` (BaseHook.sol:187) is not overridden.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 190,
+  "authority": "internal (callers: BaseHook.beforeDonate)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:195); gated off by `beforeDonate` (CauldronHook.sol:587).",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 199,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:205)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "BaseHook._afterDonate (BaseHook.sol:206), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pool-manager only via `onlyPoolManager` (BaseHook.sol:205). Dead: `afterDonate` (CauldronHook.sol:588) is false and `_afterDonate` (BaseHook.sol:206) is not overridden.",
+  "observations": []
+ },
+ {
+  "contract": "BaseHook",
+  "line": 209,
+  "authority": "internal (callers: BaseHook.afterDonate)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Default body reverts at `revert` (BaseHook.sol:214); gated off by `afterDonate` (CauldronHook.sol:588).",
+  "observations": []
+ }
+]

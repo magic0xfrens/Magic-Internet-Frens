@@ -1,0 +1,79 @@
+{
+ "storage": [
+  {
+   "astId": 21737,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 21743,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "description",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_string_storage"
+  },
+  {
+   "astId": 21745,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "_answer",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_int256"
+  },
+  {
+   "astId": 21748,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "_round",
+   "offset": 0,
+   "slot": "3",
+   "type": "t_uint80"
+  },
+  {
+   "astId": 21751,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "stale",
+   "offset": 10,
+   "slot": "3",
+   "type": "t_bool"
+  },
+  {
+   "astId": 21754,
+   "contract": "cauldron/MockAggregator.sol:MockAggregator",
+   "label": "down",
+   "offset": 11,
+   "slot": "3",
+   "type": "t_bool"
+  }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_int256": {
+   "encoding": "inplace",
+   "label": "int256",
+   "numberOfBytes": "32"
+  },
+  "t_string_storage": {
+   "encoding": "bytes",
+   "label": "string",
+   "numberOfBytes": "32"
+  },
+  "t_uint80": {
+   "encoding": "inplace",
+   "label": "uint80",
+   "numberOfBytes": "10"
+  }
+ }
+}

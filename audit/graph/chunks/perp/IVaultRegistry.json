@@ -1,0 +1,14 @@
+[
+ {
+  "contract": "IVaultRegistry (declared in PerpVault.sol)",
+  "line": 24,
+  "authority": "anyone (declaration only; the vault calls it on the immutable `registry`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called once, at `currentToken` (PerpVault.sol:347), to decide which token a depositor must supply. The engine's own pull uses the same source at `currentToken` (PerpEngine.sol:1653), so both sides agree on the live generation's token - which also means a deposit made across a relaunch boundary would pull whichever token the registry names at that moment. DERIVED.",
+  "observations": []
+ }
+]

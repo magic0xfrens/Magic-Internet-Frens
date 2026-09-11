@@ -1,0 +1,119 @@
+{
+  "storage": [
+    {
+      "astId": 90,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "ethShares",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 94,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "ethShareOf",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 96,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "pendingEth",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 100,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "pendingEthOf",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 102,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "tokShares",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 106,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "tokShareOf",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 108,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "pendingTok",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 112,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "pendingTokOf",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 118,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "accEthPerTokShare",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 120,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "lastTokYieldCum",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 124,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "tokRewardDebt",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 128,
+      "contract": "cauldron/PerpVault.sol:PerpVault",
+      "label": "tokRewardOwed",
+      "offset": 0,
+      "slot": "11",
+      "type": "t_mapping(t_address,t_uint256)"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}

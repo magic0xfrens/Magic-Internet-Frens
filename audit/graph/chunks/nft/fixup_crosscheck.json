@@ -1,0 +1,222 @@
+[
+ {
+  "contract": "CauldronFactory",
+  "line": 36,
+  "edges": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 42,
+  "edges": []
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 63,
+  "edges": [
+   "CauldronCollection.setVault (CauldronFactory.sol:76), TRUSTED, in-cluster",
+   "CauldronCollection.setRoyalty (CauldronFactory.sol:82), TRUSTED, in-cluster",
+   "CauldronCollection.setLiquidatorRenderer (CauldronFactory.sol:87), TRUSTED, in-cluster"
+  ],
+  "value": "no native or token value moves here; what the call produces is three DEPLOYMENTS whose constructors run inside it - `CauldronCollection` (CauldronFactory.sol:71), `CauldronVault` (CauldronFactory.sol:75) and `RoyaltyRouter` (CauldronFactory.sol:81) - each created with caller-supplied addresses and none of them funded by this call.",
+  "reachability": "UNGATED: any address can call it and get a collection plus a vault, because the factory grants no authority over an existing brew - the collection it creates takes its controller from the caller-supplied `c` (CauldronFactory.sol:72) rather than from msg.sender, and only the registry that calls it wires the result into the machine. In the protocol path the caller is the registry at `deployBrew` (CauldronRegistry.sol:1151). Three contracts are deployed here and each deployment is what confers the right the following lines spend: `CauldronCollection` (CauldronFactory.sol:71) makes this factory the collection's deployer, which is the only identity its configurator accepts at `setVault` (CauldronFactory.sol:76), `setRoyalty` (CauldronFactory.sol:82) and `setLiquidatorRenderer` (CauldronFactory.sol:87); `CauldronVault` (CauldronFactory.sol:75) is constructed with a zero floor offset and bound to the caller-supplied registry, so that registry - not this factory - is the address able to close it; and `RoyaltyRouter` (CauldronFactory.sol:81) is bound to the caller-supplied hook and is then installed as the collection's royalty receiver at `setRoyalty` (CauldronFactory.sol:82). The badge renderer is applied only when the factory's own slot is non-zero at `liquidatorRenderer` (CauldronFactory.sol:86), and this call is the only moment the factory holds that right. DERIVED: the three constructors execute with this factory as msg.sender, which is what the deployer checks behind those setters compare against."
+ },
+ {
+  "contract": "CauldronFactory",
+  "line": 99,
+  "edges": [],
+  "value": "no native or token value moves; the call is a DEPLOYMENT - it runs the `CauldronVault` (CauldronFactory.sol:103) constructor with the collection, registry and floor offset the caller named, and funds it with nothing."
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 99,
+  "edges": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 120,
+  "edges": [
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:121), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 136,
+  "edges": [
+   "IQuoteOracleView.usdPerRawUnit (CauldronGachaRouter.sol:139), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:139), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 177,
+  "edges": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 184,
+  "edges": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 204,
+  "edges": [
+   "IRegistryCurrent.generationQuote (CauldronGachaRouter.sol:205), TRUSTED, in-cluster",
+   "IRegistryCurrent.currentGeneration (CauldronGachaRouter.sol:205), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 215,
+  "edges": [
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:217), TRUSTED, in-cluster",
+   "IRegistryCurrent.currentToken (CauldronGachaRouter.sol:218), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 233,
+  "edges": [
+   "CauldronGachaRouter._play (CauldronGachaRouter.sol:239), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 248,
+  "edges": [
+   "CauldronGachaRouter._play (CauldronGachaRouter.sol:261), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 271,
+  "edges": [
+   "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:277), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 281,
+  "edges": [
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:292), TRUSTED, in-cluster",
+   "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:294), TRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:298), TRUSTED, in-cluster",
+   "IPoolManager.unlock (CauldronGachaRouter.sol:301), TRUSTED, out-of-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:326), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:326), TRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:327), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:331), TRUSTED, in-cluster",
+   "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:338), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 345,
+  "edges": [
+   "ICauldronHookGacha.crystalsReady (CauldronGachaRouter.sol:346), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.costOfNextCrystals (CauldronGachaRouter.sol:351), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.buyWeightBps (CauldronGachaRouter.sol:352), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:360), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:361), UNTRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 368,
+  "edges": [
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:374), TRUSTED, in-cluster",
+   "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:375), TRUSTED, in-cluster",
+   "IPoolManager.unlock (CauldronGachaRouter.sol:379), TRUSTED, out-of-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:387), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:387), TRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:388), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:390), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 398,
+  "edges": [
+   "CauldronGachaRouter._churn (CauldronGachaRouter.sol:401), TRUSTED, in-cluster",
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:404), TRUSTED, in-cluster",
+   "IPoolManager.swap (CauldronGachaRouter.sol:422), TRUSTED, out-of-cluster",
+   "CauldronGachaRouter._limit (CauldronGachaRouter.sol:424), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:430), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:431), TRUSTED, in-cluster",
+   "IPoolManager.swap (CauldronGachaRouter.sol:436), TRUSTED, out-of-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:443), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:444), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 451,
+  "edges": [
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:452), TRUSTED, in-cluster",
+   "IPoolManager.swap (CauldronGachaRouter.sol:467), TRUSTED, out-of-cluster",
+   "CauldronGachaRouter._limit (CauldronGachaRouter.sol:469), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:474), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:475), TRUSTED, in-cluster",
+   "IPoolManager.swap (CauldronGachaRouter.sol:481), TRUSTED, out-of-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:488), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:489), TRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:497), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 501,
+  "edges": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 505,
+  "edges": [
+   "IPoolManager.settle (CauldronGachaRouter.sol:507), TRUSTED, out-of-cluster",
+   "IPoolManager.sync (CauldronGachaRouter.sol:509), TRUSTED, out-of-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:510), TRUSTED, in-cluster",
+   "IPoolManager.settle (CauldronGachaRouter.sol:511), TRUSTED, out-of-cluster"
+  ],
+  "value": "sends native to the pool manager at `settle` (line 507); on the ERC20 branch the manager's balance is synced at `sync` (line 509), the token is pushed to it at `_safeTransfer` (line 510) and the debt is closed at `settle` (line 511)"
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 515,
+  "edges": [
+   "IPoolManager.take (CauldronGachaRouter.sol:516), TRUSTED, out-of-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 525,
+  "edges": [
+   "to.call (CauldronGachaRouter.sol:528), UNTRUSTED, out-of-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:531), TRUSTED, in-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 535,
+  "edges": [
+   "token.call (CauldronGachaRouter.sol:537), UNTRUSTED, out-of-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 541,
+  "edges": [
+   "token.call (CauldronGachaRouter.sol:543), UNTRUSTED, out-of-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 547,
+  "edges": [
+   "to.call (CauldronGachaRouter.sol:548), UNTRUSTED, out-of-cluster"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 552,
+  "edges": []
+ }
+]

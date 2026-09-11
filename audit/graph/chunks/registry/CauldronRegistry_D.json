@@ -1,0 +1,161 @@
+[
+ {
+  "contract": "CauldronRegistry", "line": 1328,
+  "authority": "anyone (for their own wallet only)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": ["autoMigrate (line 1329)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Open and free: a caller can only ever clear their own slot, since the key is msg.sender at `autoMigrate` CauldronRegistry.sol:1329. It takes effect immediately because the keeper path re-reads the flag per holder inside `autoMigrateBatch` CauldronRegistry.sol:1352. Re-enabling costs the fee again at `AUTO_MIGRATE_FEE` CauldronRegistry.sol:1306 (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1340,
+  "authority": "anyone (permissionless keeper)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["currentGeneration (line 1344)", "claimGate (line 1348)", "generationToken (line 1349)", "currentGeneration (line 1351)", "positionManager (line 1353)", "generationReservePositionId (line 1354)", "generationPoolKey (line 1354)", "reserveTickLower (line 1354)", "reserveTickUpper (line 1354)"],
+  "writes": [],
+  "value": "burns each opted-in holder's whole previous-generation balance and releases the same amount of the live token from the reserve, inside `autoMigrateBatch` (line 1352)",
+  "edges": ["PoolOps.autoMigrateBatch (CauldronRegistry.sol:1352), TRUSTED, library"],
+  "reachability": "Permissionless. Three state conditions: an earlier source generation at `currentGeneration` CauldronRegistry.sol:1344, no vesting escrow at all (`claimGate` CauldronRegistry.sol:1348 closes this path for everyone, unlike the per-caller exemption on the direct claims), and a known source token at `prevToken` CauldronRegistry.sol:1350. The holder list is caller-supplied and its length is the loop bound, so the only limit is the block gas limit (`holders` CauldronRegistry.sol:1353). Per-holder consent is checked inside the library, and the burn primitive it uses needs no allowance, so the opt-in flag at `autoMigrate` CauldronRegistry.sol:1308 is the whole authorisation.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1383,
+  "authority": "anyone holding a genesis fren; the facet holds the gate (RedemptionExt checks OG ownership and the redemption circuit-breaker)",
+  "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != msg.sender) revert NotOwnerOf(); (RedemptionExt.sol:84)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the facet pays the live floor out of this registry's reserve position and takes custody of the fren",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:1384), TRUSTED, in-cluster",
+   "RedemptionExt.redeemOgFren (RedemptionExt.sol:78), TRUSTED, delegatecall"
+  ],
+  "reachability": "Thin stub; the body is `_forwardToExt` CauldronRegistry.sol:1384 and the code that runs is `redeemOgFren` RedemptionExt.sol:78, executing on this registry's storage and custody. Every gate is facet-side: the circuit-breaker at `_redeemBlocked` RedemptionExt.sol:79, ignition at `summoned` RedemptionExt.sol:80, the OG-only id range at `genesisShares` RedemptionExt.sol:83 and ownership at `ownerOf` RedemptionExt.sol:84. The facet's own nonReentrant runs against this registry's guard slot, which is why the stub must not carry one (`nonReentrant` RedemptionExt.sol:78).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1389,
+  "authority": "anyone; the facet holds the gate (the fren must currently sit in this registry's treasury)",
+  "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != address(this)) revert NotOwnerOf(); (RedemptionExt.sol:119)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the facet pulls twice the live floor in the current token from the buyer and grows the reserve with it",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:1390), TRUSTED, in-cluster",
+   "RedemptionExt.buyTreasuryOgFren (RedemptionExt.sol:115), TRUSTED, delegatecall"
+  ],
+  "reachability": "Stub whose body is `_forwardToExt` CauldronRegistry.sol:1390, reaching `buyTreasuryOgFren` RedemptionExt.sol:115. Facet-side conditions: ignition at `summoned` RedemptionExt.sol:116, the OG id range at `genesisShares` RedemptionExt.sol:117, and treasury custody at `ownerOf` RedemptionExt.sol:119. The price is derived, not quoted: twice `floorPerFren` RedemptionExt.sol:121, so it moves with the reserve.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1395,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the facet pulls the donated amount of the current token from the caller into the reserve",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:1396), TRUSTED, in-cluster",
+   "RedemptionExt.donateToReserve (RedemptionExt.sol:136), TRUSTED, delegatecall"
+  ],
+  "reachability": "Stub forwarding to `donateToReserve` RedemptionExt.sol:136, which has no caller gate at all; it only requires ignition at `summoned` RedemptionExt.sol:137 and a non-zero amount at `amount` RedemptionExt.sol:138. The pull is by transferFrom, so the caller must have approved this registry first (DERIVED). This is the path the dividend contract routes re-enchant fees through, which is why the fee quote at `enchantFee` CauldronRegistry.sol:341 lives on the registry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1401,
+  "authority": "anyone (permissionless keeper)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the facet sweeps the hook's held buyback tokens into this registry's reserve position",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:1402), TRUSTED, in-cluster",
+   "RedemptionExt.materializeLegacyReserve (RedemptionExt.sol:147), TRUSTED, delegatecall"
+  ],
+  "reachability": "Stub forwarding to `materializeLegacyReserve` RedemptionExt.sol:147. No caller gate; the only precondition is ignition at `summoned` RedemptionExt.sol:148. It deposits and credits in one step so a ledger credit can never out-run the reserve backing it (`materializeLegacy` RedemptionExt.sol:151). The rebirth performs the same flush for the dying generation on the burn path at `_flushLegacyAtRelaunch` CauldronRegistry.sol:1494, so an uncalled keeper does not lose the value.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1418,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronRegistry._forwardToExtView (CauldronRegistry.sol:1419), TRUSTED, in-cluster",
+   "RedemptionExt.floorClaimableNow (RedemptionExt.sol:648), TRUSTED, delegatecall"
+  ],
+  "reachability": "A read that cannot be declared view because Solidity refuses delegatecall in a view body, so it is nonpayable and an eth_call serves it unchanged. It reaches `floorClaimableNow` RedemptionExt.sol:648, which reads the live tick and compares it with the reserve band at `reserveTickUpper` RedemptionExt.sol:653. Ungated on both sides.",
+  "observations": [
+   "comment at `fallback` RedemptionExt.sol:646 says this view is reached through the registry's fallback; code at `floorClaimableNow` CauldronRegistry.sol:1418 is an explicit stub and `receive` CauldronRegistry.sol:554 is the only special function the registry declares."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1423,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronRegistry._forwardToExtView (CauldronRegistry.sol:1424), TRUSTED, in-cluster",
+   "RedemptionExt.legCount (RedemptionExt.sol:661), TRUSTED, delegatecall"
+  ],
+  "reachability": "Ungated read forwarded to `legCount` RedemptionExt.sol:661, which returns the length of the rotated-leg array for that generation from this registry's own storage (`generationLegs` RedemptionExt.sol:662). Nonpayable rather than view for the same delegatecall reason as the other two readers (`_forwardToExtView` CauldronRegistry.sol:1441).",
+  "observations": [
+   "comment at `fallback` CauldronBase.sol:488 says legCount and legAt are reached through the registry's fallback; code at `legCount` CauldronRegistry.sol:1423 and `legAt` CauldronRegistry.sol:1428 are explicit stubs, and the registry declares no fallback (`receive` CauldronRegistry.sol:554)."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1428,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronRegistry._forwardToExtView (CauldronRegistry.sol:1429), TRUSTED, in-cluster",
+   "RedemptionExt.legAt (RedemptionExt.sol:666), TRUSTED, delegatecall"
+  ],
+  "reachability": "Ungated read forwarded to `legAt` RedemptionExt.sol:666. There is no explicit bounds check; an out-of-range index reverts on the array access at `generationLegs` RedemptionExt.sol:671 (DERIVED). Callers are expected to page it against the count from `legCount` CauldronRegistry.sol:1423.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1441,
+  "authority": "internal (callers: floorClaimableNow, legCount, legAt)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": ["CauldronRegistry._forwardToExt (CauldronRegistry.sol:1442), TRUSTED, in-cluster"],
+  "reachability": "A one-line alias over `_forwardToExt` CauldronRegistry.sol:1442 that exists only to document why the three read stubs are not `view` CauldronRegistry.sol:1435. It adds no gate and no state of its own, so the three readers inherit exactly the facet's behaviour (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1451,
+  "authority": "internal (callers: rotateSlice, rotateSliceFrom, setRotationWiring, sweepLegProceeds, redeemOgFren, buyTreasuryOgFren, donateToReserve, materializeLegacyReserve, _forwardToExtView)",
+  "authority_gate_quote": "if (ext == address(0)) revert NotConfigured(); (CauldronRegistry.sol:1453)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE directly; the delegatecalled code executes with this registry's balances and position custody",
+  "edges": ["ext.delegatecall (CauldronRegistry.sol:1456), TRUSTED, delegatecall"],
+  "reachability": "The single door to the facet. It rejects an unset target at `ext` CauldronRegistry.sol:1453, because a delegatecall to an empty account would return success with empty data and silently no-op. The full calldata is copied verbatim at `calldatasize` CauldronRegistry.sol:1455 and returndata or revert data is bubbled unchanged at `returndatasize` CauldronRegistry.sol:1457. The target is whatever was frozen in at `redemptionExt` CauldronRegistry.sol:189, and it has unrestricted write access to every slot of this contract (DERIVED). It forwards all remaining gas (`gas` CauldronRegistry.sol:1456).",
+  "observations": [
+   "comment at `fallback` CauldronRegistry.sol:1773 says the fallback delegatecalls any unknown selector to the facet; code at `receive` CauldronRegistry.sol:554 declares only a receive function and each facet entry is an explicit stub such as `floorClaimableNow` CauldronRegistry.sol:1418, which the note at `fallback` CauldronRegistry.sol:1410 also states."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1473,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:1473)",
+  "reads": [],
+  "writes": ["collectionLedger (line 1474)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, unvalidated and replaceable despite the one-time wording: `collectionLedger` CauldronRegistry.sol:1474 accepts any address and can be written again. Zero keeps the legacy floor off, which is what the two collection paths test at `collectionLedger` CauldronRegistry.sol:1516 and CauldronRegistry.sol:1533, and what the rebirth tests at `collectionLedger` CauldronRegistry.sol:1024.",
+  "observations": []
+ }
+]

@@ -1,0 +1,255 @@
+[
+ {
+  "contract": "IRegistryQuotes (declared in CauldronGovernor.sol)",
+  "line": 25,
+  "authority": "anyone (declaration only, no body in this file; the selector is dispatched by propose through a low-level staticcall on the owner-set registry address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `allowedQuote` (CauldronGovernor.sol:25) has no body here. Its selector is encoded by `abi.encodeWithSelector` (CauldronGovernor.sol:286) and dispatched by `staticcall` (CauldronGovernor.sol:285) inside propose, where a failed call, a short return or a false decode all revert `QuoteNotAllowed` (CauldronGovernor.sol:288). The callee address is the storage slot `registry` (CauldronGovernor.sol:285), so the code actually reached is the registry's public allowlist mapping `allowedQuote` (CauldronRegistry.sol:303), which is written only by the owner-gated `setAllowedQuote` (CauldronRegistry.sol:290) and pre-seeded true for native ether at `allowedQuote` (CauldronRegistry.sol:173).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 189,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "mifrens (line 191, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. A zero electorate reverts `EmptyField` (CauldronGovernor.sol:190); otherwise the voting token is frozen into the immutable `mifrens` (CauldronGovernor.sol:191) that every later weight read uses. `Ownable` (CauldronGovernor.sol:189) installs the deployer as owner, and the owner is the only account that can ever wire `registry` (CauldronGovernor.sol:200). The registry is NOT set here, so until `setRegistry` (CauldronGovernor.sol:197) runs the only caller `NotRegistry` (CauldronGovernor.sol:400) would accept is address zero, and a non-native quote in propose staticalls address zero, whose empty return fails the length test at `QuoteNotAllowed` (CauldronGovernor.sol:288).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 197,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronGovernor.sol:197)",
+  "reads": [
+   "registry (line 198)"
+  ],
+  "writes": [
+   "registry (line 200)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and one-shot: a non-zero current value reverts `RegistryAlreadySet` (CauldronGovernor.sol:198) and a zero argument reverts `EmptyField` (CauldronGovernor.sol:199), so the consumer address can never be rotated or cleared once written to `registry` (CauldronGovernor.sol:200). Whatever lands here becomes the sole caller accepted by `NotRegistry` (CauldronGovernor.sol:400) and the target of the allowlist `staticcall` (CauldronGovernor.sol:285) in propose. Ownership itself is Ownable's: it can be transferred or renounced, and renouncing before this call leaves `markConsumed` (CauldronGovernor.sol:399) permanently unreachable (DERIVED).",
+  "observations": [
+   "comment `markConsumed` (CauldronGovernor.sol:20) says the only privileged call is markConsumed, restricted to the registry; code `onlyOwner` (CauldronGovernor.sol:197) adds an owner-gated setter, and `Ownable` (CauldronGovernor.sol:189) adds transferOwnership and renounceOwnership to the external surface."
+  ]
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 226,
+  "authority": "voter/holder (any address with non-zero live MiFrens voting power)",
+  "authority_gate_quote": "if (mifrens.getVotes(msg.sender) == 0) revert NoVotingPower(); (CauldronGovernor.sol:240)",
+  "reads": [
+   "mifrens (line 240, immutable)",
+   "MAX_NAME_BYTES (line 247, constant)",
+   "MAX_SYMBOL_BYTES (line 247, constant)",
+   "MAX_URI_BYTES (line 248, constant)",
+   "MAX_LINK_BYTES (line 249, constant)",
+   "MAX_NFT_SUPPLY (line 262, constant)",
+   "registry (line 285)",
+   "proposalCount (line 291)",
+   "VOTING_PERIOD (line 306, constant)"
+  ],
+  "writes": [
+   "proposalCount (line 291)",
+   "_proposals[id] (line 292)",
+   "_proposals[id].quote (line 300)",
+   "_proposals[id].votes (line 304)",
+   "_proposals[id].snapshot (line 305)",
+   "_proposals[id].votingEndsAt (line 306)",
+   "_proposals[id].consumed (line 307)",
+   "_proposals[id].exists (line 308)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IVotes.getVotes (CauldronGovernor.sol:240), TRUSTED, out-of-cluster",
+   "registry.staticcall (CauldronGovernor.sol:285), UNTRUSTED, out-of-cluster",
+   "IRegistryQuotes.allowedQuote (CauldronGovernor.sol:286), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless for anyone holding one MiFren of live voting power: `getVotes` (CauldronGovernor.sol:240) must be non-zero, with no deposit, cooldown or per-address cap. Input bounds applied here are empty name/symbol `EmptyField` (CauldronGovernor.sol:241), five byte caps `FieldTooLong` (CauldronGovernor.sol:251), a renderer that must have code `BadRenderer` (CauldronGovernor.sol:256), the collection-size ceiling `SupplyOutOfRange` (CauldronGovernor.sol:262) and, for any non-native quote, the registry allowlist `QuoteNotAllowed` (CauldronGovernor.sol:288). `volumePerNFT` (CauldronGovernor.sol:302) is stored unbounded and reaches the hook through `setNftCurveFrom` (CauldronRegistry.sol:1080). The new id is `proposalCount` (CauldronGovernor.sol:291) incremented, the power snapshot is the current block `snapshot` (CauldronGovernor.sol:305), and the vote closes at `votingEndsAt` (CauldronGovernor.sol:306), i.e. three days out. The record is what `winner` (CauldronGovernor.sol:375) hands the registry and what `relaunch` replays via `winner` (CauldronRegistry.sol:849).",
+  "observations": [
+   "comment `markConsumed` (CauldronGovernor.sol:261) says a proposal is untrusted input that must be rejected at this boundary because a deeper revert would freeze the machine; code bounds `nftSupply` (CauldronGovernor.sol:262) and the five strings at `FieldTooLong` (CauldronGovernor.sol:251) but stores `volumePerNFT` (CauldronGovernor.sol:302) unbounded, and it reaches the hook unclamped at `setNftCurveFrom` (CauldronRegistry.sol:1080)."
+  ]
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 315,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_proposals (line 316)",
+   "_proposals[proposalId].exists (line 317)",
+   "_proposals[proposalId].name (line 318)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "LaunchLib.displayName (CauldronGovernor.sol:318), TRUSTED, library"
+  ],
+  "reachability": "Unrestricted view. Reverts `UnknownProposal` (CauldronGovernor.sol:317) for an id that was never written, otherwise returns the stored name through the pure library helper `displayName` (CauldronGovernor.sol:318). No state, no value, no reachable side effect.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 329,
+  "authority": "voter/holder (one vote per address per proposal, weight from the proposal's snapshot block)",
+  "authority_gate_quote": "if (weight == 0) revert NoVotingPower(); (CauldronGovernor.sol:345)",
+  "reads": [
+   "_proposals (line 330)",
+   "_proposals[proposalId].exists (line 331)",
+   "_proposals[proposalId].consumed (line 332)",
+   "_proposals[proposalId].votingEndsAt (line 337)",
+   "hasVoted (line 338)",
+   "_proposals[proposalId].snapshot (line 343)",
+   "mifrens (line 344, immutable)",
+   "_proposals[proposalId].votes (line 348)",
+   "_leaderVotes (line 353)",
+   "_leaderId (line 356)",
+   "_runnerVotes (line 362)"
+  ],
+  "writes": [
+   "hasVoted (line 347)",
+   "_proposals[proposalId].votes (line 348)",
+   "_runnerId (line 357)",
+   "_runnerVotes (line 358)",
+   "_leaderVotes (line 360)",
+   "_leaderId (line 361)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IVotes.getPastVotes (CauldronGovernor.sol:344), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless per holder. The proposal must exist `UnknownProposal` (CauldronGovernor.sol:331), not be consumed `AlreadyConsumed` (CauldronGovernor.sol:332), still be inside its window `VotingClosed` (CauldronGovernor.sol:337) and not already have this voter `AlreadyVoted` (CauldronGovernor.sol:338); the snapshot block must be in the past `SnapshotNotReady` (CauldronGovernor.sol:343), so a proposal cannot be voted in the block that created it. Weight is the checkpointed balance at `getPastVotes` (CauldronGovernor.sol:344), so tokens moved after the snapshot cannot vote twice, but tallies are cumulative per address because there is no un-vote. This is the only writer of the leader pair `_leaderId` (CauldronGovernor.sol:361) and `_runnerId` (CauldronGovernor.sol:357); ties keep the incumbent because the comparison at `_leaderVotes` (CauldronGovernor.sol:353) is strict.",
+  "observations": [
+   "comment `balanceOf` (CauldronGovernor.sol:15) says the guild votes snapshot-free with weight read live from the MiFrens ERC721 balance; code `getPastVotes` (CauldronGovernor.sol:344) reads checkpointed weight at the stored `snapshot` (CauldronGovernor.sol:343), and `SnapshotNotReady` (CauldronGovernor.sol:343) refuses any vote in the proposing block."
+  ]
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 375,
+  "authority": "anyone (the registry is the production caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_proposals (line 378)",
+   "_proposals[proposalId].name (line 380)",
+   "_proposals[proposalId].quote (line 387)",
+   "_proposals[proposalId].nftSupply (line 388)",
+   "_proposals[proposalId].volumePerNFT (line 389)",
+   "_proposals[proposalId].proposer (line 390)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:376), TRUSTED, in-cluster"
+  ],
+  "reachability": "Unrestricted view, but only meaningful to the registry: `relaunch` calls `winner` (CauldronRegistry.sol:849) to build the next brew and later retires it with `markConsumed` (CauldronRegistry.sol:977). Selection is delegated to `_bestUnconsumed` (CauldronGovernor.sol:376), which returns the cached leader only once its voting window has closed; zero reverts `NoProposals` (CauldronGovernor.sol:377). The returned struct copies seven proposer-controlled strings and addresses into memory, which is the replay cost the byte caps in propose bound.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 394,
+  "authority": "anyone (the registry is the production caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:395), TRUSTED, in-cluster"
+  ],
+  "reachability": "Unrestricted view wrapping the same selection as winner. `relaunch` gates the whole rebirth on it at `hasProposals` (CauldronRegistry.sol:787) and reverts `NoProposal` there when it is false, so a false answer stops the machine being reborn until a settled, unconsumed proposal exists. It costs a scan whenever the cached-leader fast path in `_bestUnconsumed` (CauldronGovernor.sol:395) misses.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 399,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronGovernor.sol:400)",
+  "reads": [
+   "registry (line 400)",
+   "_proposals (line 401)",
+   "_proposals[proposalId].exists (line 402)",
+   "_proposals[proposalId].consumed (line 403)",
+   "_leaderId (line 407)",
+   "_runnerId (line 412)",
+   "_runnerVotes (line 413)"
+  ],
+  "writes": [
+   "_proposals[proposalId].consumed (line 404)",
+   "_leaderId (line 414)",
+   "_leaderVotes (line 415)",
+   "_runnerId (line 421)",
+   "_runnerVotes (line 422)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:419), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reachable only from the address stored in `registry` (CauldronGovernor.sol:400), which in production is CauldronRegistry inside relaunch at `markConsumed` (CauldronRegistry.sol:977); any other caller reverts `NotRegistry` (CauldronGovernor.sol:400). It re-checks existence `UnknownProposal` (CauldronGovernor.sol:402) and idempotence `AlreadyConsumed` (CauldronGovernor.sol:403), then sets `consumed` (CauldronGovernor.sol:404) one-way. Leader maintenance: consuming the leader promotes the carried runner-up when it is still live at `_runnerVotes` (CauldronGovernor.sol:413), else falls back to the bounded rescan `_recomputeLeader` (CauldronGovernor.sol:419); both slots are then cleared at `_runnerId` (CauldronGovernor.sol:421). Because this call sits inside relaunch, any revert downstream of it rolls the consumption back with the transaction (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 436,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_proposals (line 437)",
+   "_proposals[id].exists (line 438)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Unrestricted view. Copies the whole proposal, five strings included, into memory `_proposals` (CauldronGovernor.sol:437) and reverts `UnknownProposal` (CauldronGovernor.sol:438) for an id never written. No gate, no state change, no value.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 446,
+  "authority": "internal (callers: winner, hasProposals)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_proposals (line 447)",
+   "_leaderId (line 447)",
+   "_proposals[_leaderId].exists (line 448)",
+   "_proposals[_leaderId].consumed (line 448)",
+   "_leaderVotes (line 448)",
+   "_proposals[_leaderId].votingEndsAt (line 449)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:452), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; reached from `winner` (CauldronGovernor.sol:375) and `hasProposals` (CauldronGovernor.sol:394), hence from the registry's relaunch path. The fast path returns the cached `_leaderId` (CauldronGovernor.sol:450) only when it exists, is unconsumed, has votes and its window has closed at `votingEndsAt` (CauldronGovernor.sol:449); a proposal still taking votes therefore cannot be launched. Any miss pays the bounded scan `_recomputeLeader` (CauldronGovernor.sol:452), and returning zero is what makes relaunch revert.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGovernor",
+  "line": 478,
+  "authority": "internal (callers: markConsumed, _bestUnconsumed)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposalCount (line 479)",
+   "MAX_LEADER_SCAN (line 480, constant)",
+   "_proposals (line 482)",
+   "_proposals[i].exists (line 483)",
+   "_proposals[i].consumed (line 483)",
+   "_proposals[i].votingEndsAt (line 484)",
+   "_proposals[i].votes (line 485)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private; reached from `_bestUnconsumed` (CauldronGovernor.sol:446) and from the promotion fallback in `_recomputeLeader` (CauldronGovernor.sol:419), so up to three times per rebirth. The window is positional: it starts at `first` (CauldronGovernor.sol:480) and runs to `n` (CauldronGovernor.sol:481), i.e. at most the newest sixty-four ids, skipping non-existent, consumed, and still-open proposals and taking the strict maximum at `bestVotes` (CauldronGovernor.sol:485). Anything older than the window is unreachable by this scan whatever its vote count, which is why consumption carries a runner-up slot instead of relying on it (DERIVED).",
+  "observations": []
+ }
+]

@@ -1,0 +1,245 @@
+[
+ {
+  "contract": "CauldronRegistry", "line": 156,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": ["poolManager (line 165)", "positionManager (line 166)", "hook (line 167)", "emergencyAdmin (line 169, immutable)", "emergencyDelay (line 170, immutable)", "allowedQuote (line 173)", "quoteScale (line 174)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deploy. It writes the three former immutables as STORAGE so the delegatecall facet reads them correctly: `poolManager` CauldronRegistry.sol:165, `positionManager` CauldronRegistry.sol:166 and `hook` CauldronRegistry.sol:167. `emergencyAdmin` CauldronRegistry.sol:169 falls back to msg.sender when the argument is zero, and `emergencyDelay` CauldronRegistry.sol:170 is immutable so it can never be lowered afterwards. Native ether is seeded into the quote allowlist with `allowedQuote` CauldronRegistry.sol:173 and a 1e18 identity in `quoteScale` CauldronRegistry.sol:174, so a fresh deployment can always launch against ether. Ownership comes from the base constructor at `Ownable` CauldronBase.sol:390, which makes the deployer the owner (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 182,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:182)",
+  "reads": ["redemptionExt (line 188)"],
+  "writes": ["redemptionExt (line 189)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and one-shot: `redemptionExt` CauldronRegistry.sol:188 must still be zero or the call reverts AlreadySummoned, so the delegatecall target is frozen after the first write at `redemptionExt` CauldronRegistry.sol:189. A code-less target is rejected at `ext` CauldronRegistry.sol:187 because a delegatecall to an empty account returns success with no data. Every facet forwarder in this file depends on this having been set (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 195,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:195)",
+  "reads": [],
+  "writes": ["nextReserveCeilingOffset (line 197)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. Bounds-checked at `offset` CauldronRegistry.sol:196 then stored in `nextReserveCeilingOffset` CauldronRegistry.sol:197, which the next seed reads at `nextReserveCeilingOffset` CauldronRegistry.sol:1684 and CauldronRegistry.sol:1726. It takes effect on the NEXT summon or relaunch only (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 238,
+  "authority": "anyone at the registry; the facet holds the gate (RedemptionExt.rotateSliceFrom requires rotation wiring plus a live treasury-vote envelope)",
+  "authority_gate_quote": "if (remaining == 0) revert NoRotationApproved(); (RedemptionExt.sol:317)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the value movement happens inside the delegatecalled facet, which runs on this registry's own custody",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:239), TRUSTED, in-cluster",
+   "RedemptionExt.rotateSlice (RedemptionExt.sol:269), TRUSTED, delegatecall"
+  ],
+  "reachability": "A three-argument stub whose whole body is `_forwardToExt` CauldronRegistry.sol:239, which delegatecalls the facet with the untouched calldata. It lands on `rotateSlice` RedemptionExt.sol:269, which immediately tail-calls `rotateSliceFrom` RedemptionExt.sol:274 with fromLeg hard-coded to 0, so this entry can only ever drain the primary pool. The registry side is ungated; the facet side requires `quoteRotator` RedemptionExt.sol:292 and `treasuryGovernor` RedemptionExt.sol:301 to be wired and the guild's envelope to have room at `remaining` RedemptionExt.sol:317.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 262,
+  "authority": "anyone at the registry; the facet holds the gate (RedemptionExt.rotateSliceFrom requires rotation wiring plus a live treasury-vote envelope)",
+  "authority_gate_quote": "if (remaining == 0) revert NoRotationApproved(); (RedemptionExt.sol:317)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the value movement happens inside the delegatecalled facet, which runs on this registry's own custody",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:266), TRUSTED, in-cluster",
+   "RedemptionExt.rotateSliceFrom (RedemptionExt.sol:280), TRUSTED, delegatecall"
+  ],
+  "reachability": "The four-argument form. Body is `_forwardToExt` CauldronRegistry.sol:266 and it reaches `rotateSliceFrom` RedemptionExt.sol:280, which is public on the facet. The gate is entirely facet-side: wiring at `rot` RedemptionExt.sol:293, a governor at `gov` RedemptionExt.sol:302, a non-zero envelope at `remaining` RedemptionExt.sol:317 and a slice within it at `sliceBps` RedemptionExt.sol:318. Timing is the only thing the caller chooses; destination and ceiling come from the vote (`allowance` RedemptionExt.sol:303).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 272,
+  "authority": "owner (the gate is on the facet: RedemptionExt.setRotationWiring is onlyOwner and runs against this registry's owner slot)",
+  "authority_gate_quote": "external onlyOwner (RedemptionExt.sol:260)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:272), TRUSTED, in-cluster",
+   "RedemptionExt.setRotationWiring (RedemptionExt.sol:260), TRUSTED, delegatecall"
+  ],
+  "reachability": "Stub for `setRotationWiring` RedemptionExt.sol:260. Because the forward is a delegatecall, the facet's `onlyOwner` resolves against this registry's own owner slot, and the writes to `quoteRotator` RedemptionExt.sol:262 and `treasuryGovernor` RedemptionExt.sol:263 land in this registry's storage. Both arguments must be non-zero (`rotator` RedemptionExt.sol:261). Not one-shot: the wiring can be replaced (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 282,
+  "authority": "owner (the gate is on the facet: RedemptionExt.sweepLegProceeds is onlyOwner)",
+  "authority_gate_quote": "external onlyOwner returns (uint256 amount) (RedemptionExt.sol:794)",
+  "reads": ["redemptionExt (line 1452)"],
+  "writes": [],
+  "value": "NONE in this stub; the facet sends the booked asset out of this registry's balance",
+  "edges": [
+   "CauldronRegistry._forwardToExt (CauldronRegistry.sol:282), TRUSTED, in-cluster",
+   "RedemptionExt.sweepLegProceeds (RedemptionExt.sol:794), TRUSTED, delegatecall"
+  ],
+  "reachability": "Stub for `sweepLegProceeds` RedemptionExt.sol:794. Owner-gated facet-side; it zeroes `legProceeds` RedemptionExt.sol:801 before calling `sendAsset` RedemptionExt.sol:802, so the balance leaves this registry's custody to an owner-chosen recipient. The matching reader `legProceedsOf` RedemptionExt.sol:757 has no stub here, and this contract declares no fallback (`receive` CauldronRegistry.sol:554), so that reader is unreachable through the registry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 290,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:290)",
+  "reads": [],
+  "writes": ["allowedQuote (line 303)", "quoteScale (line 305)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only curation of the quote set a proposer may pick FROM. Native ether can never be removed (`quote` CauldronRegistry.sol:291) and an admitted quote must sort below the watermark (`QUOTE_WATERMARK` CauldronRegistry.sol:302) so every mined iteration token stays currency1. The flag is written at `allowedQuote` CauldronRegistry.sol:303 and, on admission only, a per-unit ether scale at `quoteScale` CauldronRegistry.sol:305 defaulting to 1e18. Relaunch re-reads the flag at `allowedQuote` CauldronRegistry.sol:897, so a de-listing between proposal and execution degrades the winner to native ether.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 309,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:309)",
+  "reads": ["hook (line 311)"],
+  "writes": ["seeder (line 310)"],
+  "value": "NONE",
+  "edges": ["CauldronHook.setSeeder (CauldronRegistry.sol:311), TRUSTED, out-of-cluster"],
+  "reachability": "Owner-only. Writes `seeder` CauldronRegistry.sol:310 and propagates the same address to the hook at `setSeeder` CauldronRegistry.sol:311 so afterSwap can nudge the stream. Setting it to zero turns progressive seeding off; the seed dispatcher tests both this and the window at `seeder` CauldronRegistry.sol:1722.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 321,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency timelocked nonReentrant (CauldronRegistry.sol:321)",
+  "reads": ["seeder (line 322)", "emergencyAdmin (line 346, immutable)", "emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "receives native and/or token back from the seeder through `rescue` (line 324)",
+  "edges": ["ISeeder.rescue (CauldronRegistry.sol:324), TRUSTED, out-of-cluster"],
+  "reachability": "Break-glass path for an aborted progressive campaign. The caller must be the emergency admin (`emergencyAdmin` CauldronRegistry.sol:346) and must have armed the action first, since `_consumeTimelock` CauldronRegistry.sol:388 reverts when `emergencyReadyAt` CauldronRegistry.sol:389 is zero and clears it at CauldronRegistry.sol:391. A seeder must be configured (`s` CauldronRegistry.sol:323) before `rescue` CauldronRegistry.sol:324 pulls the seeder's loose ledger funds back to this registry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 332,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:332)",
+  "reads": [],
+  "writes": ["nextSeedWindow (line 334)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. Either zero (atomic) or bounded to 60 seconds .. 7 days at `window` CauldronRegistry.sol:333, then stored at `nextSeedWindow` CauldronRegistry.sol:334. Progressive seeding fires only when this is non-zero AND a seeder is set, tested together at `nextSeedWindow` CauldronRegistry.sol:1722.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 341,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["enchantFeeMultBps (line 342)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": ["CauldronBase.floorPerFren (CauldronRegistry.sol:342), TRUSTED, out-of-cluster"],
+  "reachability": "Open view. Multiplies the live floor from `floorPerFren` CauldronRegistry.sol:342 by `enchantFeeMultBps` CauldronRegistry.sol:342 over 10000. The multiplier is emergency-admin tunable at `enchantFeeMultBps` CauldronRegistry.sol:446, so the quoted fee moves with that setting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 345,
+  "authority": "internal (callers: rescueSeeder, armEmergency, setRedemptionPaused, setEnchantFeeMult, emergencyWithdrawLP, emergencySweep, setSuccessor, setClaimGate, migrateToSuccessor, setMinLifetime)",
+  "authority_gate_quote": "if (msg.sender != emergencyAdmin) revert NotAdmin(); (CauldronRegistry.sol:346)",
+  "reads": ["emergencyAdmin (line 346, immutable)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The single break-glass gate. `emergencyAdmin` CauldronRegistry.sol:346 is immutable, set in the constructor at CauldronRegistry.sol:169, so this role can never be rotated or renounced after deploy. It is independent of `owner` CauldronRegistry.sol:413, which is the governance/timelock role.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 354,
+  "authority": "internal (callers: rescueSeeder, emergencyWithdrawLP, emergencySweep, migrateToSuccessor)",
+  "authority_gate_quote": "_consumeTimelock(); (CauldronRegistry.sol:355)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "NONE",
+  "edges": ["CauldronRegistry._consumeTimelock (CauldronRegistry.sol:355), TRUSTED, in-cluster"],
+  "reachability": "Applied to the four custody-moving emergency actions. It consumes the arming BEFORE the body runs (`_consumeTimelock` CauldronRegistry.sol:355), so a revert inside the body rolls the consumption back with the transaction. Arming is always required even at zero delay (`emergencyReadyAt` CauldronRegistry.sol:389), which is what keeps the forced-open redemption exit in `_redeemBlocked` CauldronBase.sol:386 meaningful.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 388,
+  "authority": "internal (callers: timelocked, setClaimGate)",
+  "authority_gate_quote": "if (emergencyReadyAt == 0) revert Timelocked(); (CauldronRegistry.sol:389)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Two independent conditions: the action must be armed (`emergencyReadyAt` CauldronRegistry.sol:389) and, when the delay is non-zero, the wait must have elapsed (`emergencyDelay` CauldronRegistry.sol:390). It then zeroes the arming at `emergencyReadyAt` CauldronRegistry.sol:391, so each arming buys exactly one execution. The claim-gate setter invokes `_consumeTimelock` CauldronRegistry.sol:501 only in the restricting direction.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 396,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:396)",
+  "reads": [],
+  "writes": ["igniter (line 397)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, no bound and no one-shot. `igniter` CauldronRegistry.sol:397 is the second address (besides the owner) accepted by summon at `igniter` CauldronRegistry.sol:677, so it is a one-time ignition right rather than a standing power once `summoned` CauldronRegistry.sol:678 is set.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 402,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:402)",
+  "reads": ["emergencyAdmin (line 346, immutable)", "emergencyDelay (line 403, immutable)", "emergencyReadyAt (line 404)"],
+  "writes": ["emergencyReadyAt (line 403)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Emergency-admin only. Sets `emergencyReadyAt` CauldronRegistry.sol:403 to now plus `emergencyDelay` CauldronRegistry.sol:403 and announces it. Arming has a second effect beyond the wait: it forces the redemption exit open, because `_redeemBlocked` CauldronBase.sol:386 only blocks while the arming is zero. The guardian can cancel it at `emergencyReadyAt` CauldronRegistry.sol:422.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 410,
+  "authority": "emergencyAdmin or owner",
+  "authority_gate_quote": "if (msg.sender != emergencyAdmin && msg.sender != owner()) revert NotAdmin(); (CauldronRegistry.sol:413)",
+  "reads": ["emergencyAdmin (line 413, immutable)"],
+  "writes": ["guardian (line 414)"],
+  "value": "NONE",
+  "edges": ["Ownable.owner (CauldronRegistry.sol:413), TRUSTED, out-of-cluster"],
+  "reachability": "Either of the two admin roles may write `guardian` CauldronRegistry.sol:414, and it is not one-shot, so the emergency admin can replace a guardian that would veto it (DERIVED). The guardian's only power is the cancel at `emergencyReadyAt` CauldronRegistry.sol:422.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 420,
+  "authority": "guardian",
+  "authority_gate_quote": "if (msg.sender != guardian) revert NotAdmin(); (CauldronRegistry.sol:421)",
+  "reads": ["guardian (line 421)"],
+  "writes": ["emergencyReadyAt (line 422)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Guardian-only, and the role defaults to address zero until `guardian` CauldronRegistry.sol:414 is set, so an unset guardian means no veto exists (DERIVED). Clearing `emergencyReadyAt` CauldronRegistry.sol:422 both cancels the pending action and re-closes the forced-open redemption exit that `_redeemBlocked` CauldronBase.sol:386 keys off.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 435,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:435)",
+  "reads": ["emergencyAdmin (line 346, immutable)"],
+  "writes": ["redemptionPaused (line 436)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Emergency-admin only and deliberately NOT timelocked, so the circuit breaker is immediate in both directions. `redemptionPaused` CauldronRegistry.sol:436 is one half of `_redeemBlocked` CauldronBase.sol:386; the other half is the arming, so pausing while an emergency is armed does not actually block redemptions.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 444,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:444)",
+  "reads": ["emergencyAdmin (line 346, immutable)"],
+  "writes": ["enchantFeeMultBps (line 446)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Emergency-admin only, capped at 1000000 bps (100x) at `bps` CauldronRegistry.sol:445 and written to `enchantFeeMultBps` CauldronRegistry.sol:446. The value is only ever read where the fee is computed, at `enchantFeeMultBps` CauldronRegistry.sol:342, which the dividend contract quotes off-chain and on-chain.",
+  "observations": []
+ }
+]

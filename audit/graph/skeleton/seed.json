@@ -1,0 +1,1026 @@
+{
+ "cluster": "seed",
+ "source_root": "/tmp/blind-final/contracts/solidity",
+ "generated": "2026-09-11T13:24:25",
+ "files": {
+  "cauldron/CauldronSeeder.sol": 611,
+  "cauldron/SeedLib.sol": 147,
+  "cauldron/ISeeder.sol": 39,
+  "cauldron/MigrationVesting.sol": 308,
+  "cauldron/LaunchSniper.sol": 97
+ },
+ "nodes": [
+  {
+   "contract": "IRegistryOwner (declared in CauldronSeeder.sol)",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 23,
+   "kind": "function",
+   "name": "owner",
+   "signature": "function owner() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 144,
+   "kind": "modifier",
+   "name": "lock",
+   "signature": "modifier lock()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7b39189ebae1b1469734860d15b0d6291cc36028",
+   "body_lines": [
+    144,
+    144
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 145,
+   "kind": "modifier",
+   "name": "onlyRegistry",
+   "signature": "modifier onlyRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9fc52a1474bebaa55e587b54813691f8e77da6c9",
+   "body_lines": [
+    145,
+    145
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 159,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _registry, address _positionManager, address _poolManager)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7d63cb42deee379445bcf21643f9e922c57999ab",
+   "body_lines": [
+    159,
+    164
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 166,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    166,
+    166
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 175,
+   "kind": "function",
+   "name": "startSeed",
+   "signature": "function startSeed(SeederConfig calldata cfg) external payable onlyRegistry lock",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "bf18360212efb7db36a9036be80956a714905a36",
+   "body_lines": [
+    175,
+    226
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 231,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "lock"
+   ],
+   "body_sha1": "6c5e7dd5bc200c67ff14d71dd12b92965f4d5100",
+   "body_lines": [
+    231,
+    242
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 251,
+   "kind": "function",
+   "name": "fundPrime",
+   "signature": "function fundPrime(address to) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "56f7dde867349349756be5145ce345a59ac11785",
+   "body_lines": [
+    251,
+    257
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 265,
+   "kind": "function",
+   "name": "primePending",
+   "signature": "function primePending() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "a1f373487be3cc2f47e842ad308dfbd53077f177",
+   "body_lines": [
+    265,
+    275
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "_primeStep",
+   "signature": "function _primeStep(uint256 ethIn) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b0c80b50ab0c3e56844ad2eccb7da702bb252451",
+   "body_lines": [
+    286,
+    302
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 307,
+   "kind": "function",
+   "name": "pokeInSwap",
+   "signature": "function pokeInSwap() external lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "lock"
+   ],
+   "body_sha1": "6a659afdf7c857acde47e34893ef60f419842807",
+   "body_lines": [
+    307,
+    313
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 316,
+   "kind": "function",
+   "name": "_pendingStep",
+   "signature": "function _pendingStep() private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b197e8eaeefebc884c0e724d5bc9a87cc1e58d70",
+   "body_lines": [
+    316,
+    323
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 327,
+   "kind": "function",
+   "name": "_advance",
+   "signature": "function _advance(uint256 step) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "36ab78252b3ec8ed83237543c92f2de346d3c40f",
+   "body_lines": [
+    327,
+    335
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 341,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bcc8100d28eec1d2f2e733bc52d6a12e2c84f2f0",
+   "body_lines": [
+    341,
+    355
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 363,
+   "kind": "function",
+   "name": "_placeStep",
+   "signature": "function _placeStep(uint256 stepWad) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bb2991dda67ec0abb1d36f321d0cdd8ff78a2e57",
+   "body_lines": [
+    363,
+    413
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 417,
+   "kind": "function",
+   "name": "_teardown",
+   "signature": "function _teardown(address to) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "42aa5ce768c564efd1e1ee9def4148af047ac999",
+   "body_lines": [
+    417,
+    451
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 462,
+   "kind": "function",
+   "name": "_placeBase",
+   "signature": "function _placeBase() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4367cb2476d57a4fae4324de466879af241e203b",
+   "body_lines": [
+    462,
+    483
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 488,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(BalanceDelta d) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "98c5ff315c38a42f7c22784e3330392023303446",
+   "body_lines": [
+    488,
+    503
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 536,
+   "kind": "function",
+   "name": "_reserveRange",
+   "signature": "function _reserveRange(int24 lo, int24 hi, bool isAsk) private returns (int24, int24)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0ea0665dc502f6dc81aa99eda931ee9abd672794",
+   "body_lines": [
+    536,
+    556
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 565,
+   "kind": "function",
+   "name": "withdrawAll",
+   "signature": "function withdrawAll(address to) external onlyRegistry lock returns (uint256 ethOut, uint256 tokenOut)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "0bd7f4481e6aa83a44ae517f42ec798b082950a5",
+   "body_lines": [
+    565,
+    573
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 597,
+   "kind": "function",
+   "name": "rescue",
+   "signature": "function rescue(address to) external onlyRegistry lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry",
+    "lock"
+   ],
+   "body_sha1": "9ebb312dc49510b68187643eef65f6e10403fa0b",
+   "body_lines": [
+    597,
+    602
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 607,
+   "kind": "function",
+   "name": "deployedWad",
+   "signature": "function deployedWad() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5178bdfbf722617ed10cfc78a968ae10ab2f9e7f",
+   "body_lines": [
+    607,
+    607
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 608,
+   "kind": "function",
+   "name": "rangeCount",
+   "signature": "function rangeCount() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c74e6162a823327eeb0cdf08d1e592c377fba975",
+   "body_lines": [
+    608,
+    608
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 609,
+   "kind": "function",
+   "name": "isComplete",
+   "signature": "function isComplete() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8fe8df6e71084c19060bd2638fc9f3e4731791c1",
+   "body_lines": [
+    609,
+    609
+   ]
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 30,
+   "kind": "function",
+   "name": "startSeed",
+   "signature": "function startSeed(SeederConfig calldata cfg) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 31,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 32,
+   "kind": "function",
+   "name": "withdrawAll",
+   "signature": "function withdrawAll(address to) external returns (uint256 ethOut, uint256 tokenOut)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 35,
+   "kind": "function",
+   "name": "rescue",
+   "signature": "function rescue(address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 36,
+   "kind": "function",
+   "name": "isComplete",
+   "signature": "function isComplete() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ISeeder",
+   "file": "cauldron/ISeeder.sol",
+   "line": 37,
+   "kind": "function",
+   "name": "seeding",
+   "signature": "function seeding() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "igniteCauldron",
+   "signature": "function igniteCauldron() external returns (address token)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "soldOut",
+   "signature": "function soldOut() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRegistryCurrent (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 13,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IGachaPlay (declared in LaunchSniper.sol)",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "play",
+   "signature": "function play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax) external payable returns (uint256)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 47,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _owner) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    47,
+    47
+   ]
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 58,
+   "kind": "function",
+   "name": "launch",
+   "signature": "function launch( address presale, address registry, address gachaRouter, address airdropWallet, uint256 minGnomeOut, uint256 openMax ) external payable onlyOwner returns (address token, uint256 gnomeBought)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5c5155b4a8d802a20a3145f60f8a9a39313093d6",
+   "body_lines": [
+    65,
+    83
+   ]
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 86,
+   "kind": "function",
+   "name": "sweep",
+   "signature": "function sweep(address tokenAddr) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "7056aeb6270348a230a91af8d96b1340ebb6947d",
+   "body_lines": [
+    86,
+    93
+   ]
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 95,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    95,
+    95
+   ]
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 14,
+   "kind": "function",
+   "name": "currentGeneration",
+   "signature": "function currentGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 15,
+   "kind": "function",
+   "name": "generationToken",
+   "signature": "function generationToken(uint256 gen) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IVestingRegistry (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "claimByBurn",
+   "signature": "function claimByBurn(uint256 fromGen, uint256 amount) external returns (uint256 claimedAmount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IStakerOracle (declared in MigrationVesting.sol)",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 24,
+   "kind": "function",
+   "name": "isInstant",
+   "signature": "function isInstant(address who) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 114,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor( address _registry, address _owner, uint64 _vestWindow, address _stakerOracle ) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "06163038c692b60fa8bc2d69882ce2937e3f23d2",
+   "body_lines": [
+    119,
+    124
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 135,
+   "kind": "function",
+   "name": "startVest",
+   "signature": "function startVest(uint256 fromGen, uint256 amount) external nonReentrant returns (uint256 escrowed)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "ab7befb598ff20a73332d785eb7e0c41a8069e94",
+   "body_lines": [
+    139,
+    145
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 153,
+   "kind": "function",
+   "name": "vestBatch",
+   "signature": "function vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "02985fbebfe30e2d14f1f00c0f8b02067843af73",
+   "body_lines": [
+    153,
+    164
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 169,
+   "kind": "function",
+   "name": "_pullAndVest",
+   "signature": "function _pullAndVest(address holder, uint256 fromGen, uint256 amount) private returns (uint256 escrowed)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "59729410c9d7567523d1033ce45dcad78c2f9ee1",
+   "body_lines": [
+    172,
+    199
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 206,
+   "kind": "function",
+   "name": "claim",
+   "signature": "function claim() external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "5fc454f971f39c1d5a76c82602e4b65889abc2ac",
+   "body_lines": [
+    206,
+    209
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 213,
+   "kind": "function",
+   "name": "claimFor",
+   "signature": "function claimFor(address holder) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "8b440903a901cac77fcdd4ba1ead001e8224c795",
+   "body_lines": [
+    213,
+    216
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 221,
+   "kind": "function",
+   "name": "_release",
+   "signature": "function _release(address holder) private returns (uint256 totalMoved)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "751f697340720ab6db7fcc544876171491632735",
+   "body_lines": [
+    221,
+    242
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 245,
+   "kind": "function",
+   "name": "_vestedOf",
+   "signature": "function _vestedOf(Grant storage grt) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "45a3b559e539fbb327b84ea130f3b41a2854bd68",
+   "body_lines": [
+    245,
+    250
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 252,
+   "kind": "function",
+   "name": "_isInstant",
+   "signature": "function _isInstant(address who) private view returns (bool)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "33c763282c1eb5b5a7b7608e503724197f076fc5",
+   "body_lines": [
+    252,
+    258
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 265,
+   "kind": "function",
+   "name": "claimable",
+   "signature": "function claimable(address holder) external view returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4c3df377ebf198c9784a76d1e1430d9ba5a7ff4f",
+   "body_lines": [
+    265,
+    270
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 273,
+   "kind": "function",
+   "name": "locked",
+   "signature": "function locked(address holder) external view returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b13b631b0d1dfe9b8e13e01b2753f7a1cfafa7ae",
+   "body_lines": [
+    273,
+    278
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 281,
+   "kind": "function",
+   "name": "grantCount",
+   "signature": "function grantCount(address holder) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9f40086f59d7b82f8b75eaf78d2055fad6e9d9cc",
+   "body_lines": [
+    281,
+    283
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "grantAt",
+   "signature": "function grantAt(address holder, uint256 i) external view returns (Grant memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f8952a3673639deca041dd5f3a395496f2544fc8",
+   "body_lines": [
+    286,
+    288
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 296,
+   "kind": "function",
+   "name": "setVestWindow",
+   "signature": "function setVestWindow(uint64 _window) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "b7589f6183f908aad2c60d43f1c8dadd67aff83b",
+   "body_lines": [
+    296,
+    300
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 303,
+   "kind": "function",
+   "name": "setStakerOracle",
+   "signature": "function setStakerOracle(address _oracle) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5af99fb2ac32d5bf577e37227c6a6c7e5e15c751",
+   "body_lines": [
+    303,
+    306
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 40,
+   "kind": "function",
+   "name": "_alignDown",
+   "signature": "function _alignDown(int24 tick, int24 spacing) internal pure returns (int24)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ac747d34e207c10ff4944b28b6683f31982f0cb3",
+   "body_lines": [
+    40,
+    44
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 45,
+   "kind": "function",
+   "name": "_alignUp",
+   "signature": "function _alignUp(int24 tick, int24 spacing) internal pure returns (int24)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ca49e30bc6609d49673a4e86ff9cf497373ff5d5",
+   "body_lines": [
+    45,
+    49
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 58,
+   "kind": "function",
+   "name": "deployedTargetWad",
+   "signature": "function deployedTargetWad(uint64 startTs, uint64 window, uint256 nowTs, uint256 seedFloorWad) internal pure returns (uint256 wad)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3497cb8b73bd26d794b7e464a47f49bf4c2195d0",
+   "body_lines": [
+    62,
+    69
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 84,
+   "kind": "function",
+   "name": "askBand",
+   "signature": "function askBand(uint256 i, uint256 n, int24 launchTick, int24 spacing, int24 ceilingOffset) internal pure returns (int24 lower, int24 upper)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "e96b0131ce72d2de4a5c7eb3d0c24bddca01acfb",
+   "body_lines": [
+    88,
+    99
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 111,
+   "kind": "function",
+   "name": "bidBand",
+   "signature": "function bidBand(uint256 j, uint256 m, int24 launchTick, int24 spacing, int24 floorOffset) internal pure returns (int24 lower, int24 upper)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "2740763d8dc492ba674f874f57ad0463acf25c95",
+   "body_lines": [
+    115,
+    124
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 128,
+   "kind": "function",
+   "name": "_bandWidth",
+   "signature": "function _bandWidth(int24 offset, uint256 n, int24 spacing) internal pure returns (int24 w)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "8a93e6a46634578b2234c47a6974689f8440deca",
+   "body_lines": [
+    128,
+    132
+   ]
+  },
+  {
+   "contract": "SeedLib",
+   "file": "cauldron/SeedLib.sol",
+   "line": 140,
+   "kind": "function",
+   "name": "taperWeightWad",
+   "signature": "function taperWeightWad(uint256 i, uint256 n) internal pure returns (uint256 wad)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ba3123bc8de0856ecef20a3731b57bb741b8bed0",
+   "body_lines": [
+    140,
+    145
+   ]
+  }
+ ]
+}

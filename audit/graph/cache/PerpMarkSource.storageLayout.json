@@ -1,0 +1,121 @@
+{
+  "storage": [
+    {
+      "astId": 458,
+      "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+      "label": "_owner",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 32,
+      "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+      "label": "primary",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_struct(PoolKey)3289_storage"
+    },
+    {
+      "astId": 35,
+      "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+      "label": "armed",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_bool"
+    },
+    {
+      "astId": 40,
+      "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+      "label": "pools",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_struct(PoolKey)3289_storage)dyn_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(PoolKey)3289_storage)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "struct PoolKey[]",
+      "numberOfBytes": "32",
+      "base": "t_struct(PoolKey)3289_storage"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_contract(IHooks)881": {
+      "encoding": "inplace",
+      "label": "contract IHooks",
+      "numberOfBytes": "20"
+    },
+    "t_int24": {
+      "encoding": "inplace",
+      "label": "int24",
+      "numberOfBytes": "3"
+    },
+    "t_struct(PoolKey)3289_storage": {
+      "encoding": "inplace",
+      "label": "struct PoolKey",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 3274,
+          "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+          "label": "currency0",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Currency)2943"
+        },
+        {
+          "astId": 3278,
+          "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+          "label": "currency1",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_userDefinedValueType(Currency)2943"
+        },
+        {
+          "astId": 3281,
+          "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+          "label": "fee",
+          "offset": 20,
+          "slot": "1",
+          "type": "t_uint24"
+        },
+        {
+          "astId": 3284,
+          "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+          "label": "tickSpacing",
+          "offset": 23,
+          "slot": "1",
+          "type": "t_int24"
+        },
+        {
+          "astId": 3288,
+          "contract": "cauldron/PerpMarkSource.sol:PerpMarkSource",
+          "label": "hooks",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_contract(IHooks)881"
+        }
+      ]
+    },
+    "t_uint24": {
+      "encoding": "inplace",
+      "label": "uint24",
+      "numberOfBytes": "3"
+    },
+    "t_userDefinedValueType(Currency)2943": {
+      "encoding": "inplace",
+      "label": "Currency",
+      "numberOfBytes": "20"
+    }
+  }
+}

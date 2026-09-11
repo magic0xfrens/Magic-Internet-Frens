@@ -1,0 +1,26 @@
+[
+ {
+  "contract": "IPerpHook (declared in PerpEngine.sol)",
+  "line": 51,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `hookAddr`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called once, inside a try/catch at `isDead` (PerpEngine.sol:1308), which is the second half of the death test; the first half is the quote-divergence check at `generationQuote` (PerpEngine.sol:1307). A revert here is swallowed and reported as not-dead, so an unwired hook leaves opens enabled at `_isDead` (PerpEngine.sol:1284) and force-close disabled at `_isDead` (PerpEngine.sol:999).",
+  "observations": []
+ },
+ {
+  "contract": "IPerpHook (declared in PerpEngine.sol)",
+  "line": 53,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `hookAddr`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called from `collection` (PerpEngine.sol:1493) on the in-liquidation badge path and from `collection` (PerpEngine.sol:1526) on the claim path. Both calls are typed and un-caught, so a hook that reverts here would revert `claimLiquidatorBadges` (PerpEngine.sol:1523); on the settlement path the surrounding gas guard at `gasleft` (PerpEngine.sol:1492) is checked first but the call itself is not wrapped. DERIVED.",
+  "observations": []
+ }
+]

@@ -1,0 +1,10 @@
+{
+  "hook": ["CauldronHook.sol", "vendor/BaseHook.sol", "vendor/HookMiner.sol", "cauldron/FeeRouteLib.sol", "cauldron/DefaultFeeRouter.sol", "cauldron/ReserveLib.sol", "cauldron/RoyaltyRouter.sol", "cauldron/LegacyBuyLib.sol"],
+  "registry": ["CauldronRegistry.sol", "CauldronToken.sol", "cauldron/IPolicies.sol", "cauldron/IDeathChecker.sol", "cauldron/ILiquidatorMintable.sol", "cauldron/ICauldron.sol"],
+  "pool": ["cauldron/CauldronBase.sol", "cauldron/PoolOps.sol"],
+  "perp": ["cauldron/PerpEngine.sol", "cauldron/PerpVault.sol", "cauldron/PerpSwapLib.sol", "cauldron/PerpMarkSource.sol", "cauldron/PerpStakerOracle.sol"],
+  "rotation": ["cauldron/QuoteRotator.sol", "cauldron/QuoteOracle.sol", "cauldron/RedemptionExt.sol", "cauldron/CauldronVault.sol", "cauldron/MockAggregator.sol", "cauldron/MockQuoteToken.sol"],
+  "governance": ["cauldron/CauldronGovernor.sol", "cauldron/TreasuryGovernor.sol"],
+  "nft": ["cauldron/MiFrensGenesis.sol", "cauldron/CauldronCollection.sol", "cauldron/CollectionLedger.sol", "cauldron/CauldronGachaRouter.sol", "cauldron/MiFrensDividend.sol", "cauldron/MintCurvePolicy.sol", "cauldron/CauldronFactory.sol", "cauldron/ICreatorToken.sol", "interfaces/INFTContract.sol"],
+  "seed": ["cauldron/CauldronSeeder.sol", "cauldron/SeedLib.sol", "cauldron/ISeeder.sol", "cauldron/MigrationVesting.sol", "cauldron/LaunchSniper.sol"]
+}

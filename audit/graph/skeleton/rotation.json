@@ -1,0 +1,1379 @@
+{
+ "cluster": "rotation",
+ "source_root": "/tmp/blind-final/contracts/solidity",
+ "generated": "2026-09-11T13:24:25",
+ "files": {
+  "cauldron/QuoteRotator.sol": 720,
+  "cauldron/QuoteOracle.sol": 345,
+  "cauldron/RedemptionExt.sol": 813,
+  "cauldron/CauldronVault.sol": 127,
+  "cauldron/MockAggregator.sol": 95,
+  "cauldron/MockQuoteToken.sol": 29
+ },
+ "nodes": [
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 7,
+   "kind": "function",
+   "name": "ownerOf",
+   "signature": "function ownerOf(uint256 tokenId) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "totalMinted",
+   "signature": "function totalMinted() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "burnFromVault",
+   "signature": "function burnFromVault(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 55,
+   "kind": "function",
+   "name": "outstanding",
+   "signature": "function outstanding() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0d646e0906c5012ba7bf40d629873d99737c5b17",
+   "body_lines": [
+    55,
+    59
+   ]
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 65,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _collection, address _registry, uint256 _floorOffset)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f2d444b70eecd32607a0a3d708d52aa9a58c2329",
+   "body_lines": [
+    65,
+    69
+   ]
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 72,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "ca70d925e4a0e2cc62709e0ccdd9fe799abcc050",
+   "body_lines": [
+    72,
+    74
+   ]
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 77,
+   "kind": "function",
+   "name": "floorPerNFT",
+   "signature": "function floorPerNFT() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "91aefcfbf99a875f76fa0f0af8b82432227ec5ca",
+   "body_lines": [
+    77,
+    81
+   ]
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 94,
+   "kind": "function",
+   "name": "redeem",
+   "signature": "function redeem(uint256 tokenId) external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "ee57e8ad4560680318165e58e4ca4c75bc362379",
+   "body_lines": [
+    94,
+    112
+   ]
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 116,
+   "kind": "function",
+   "name": "close",
+   "signature": "function close() external nonReentrant returns (uint256 swept)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "815ee286cfbc3f75a274d33aa6c0ccad5238bb32",
+   "body_lines": [
+    116,
+    125
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 54,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(string memory desc, int256 initialAnswer)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "58a898c22142ea1b66dd5a9b7d0397239313558c",
+   "body_lines": [
+    54,
+    58
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 60,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    60,
+    63
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 65,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    65,
+    65
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 68,
+   "kind": "function",
+   "name": "peg",
+   "signature": "function peg(int256 answer) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "be96bcaa2b238857b6ed34533d8df74e9bb1a737",
+   "body_lines": [
+    68,
+    72
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 76,
+   "kind": "function",
+   "name": "setStale",
+   "signature": "function setStale(bool s) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5e9ccf569b2b1bd8ae4440fb332cde1c452676c1",
+   "body_lines": [
+    76,
+    76
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 82,
+   "kind": "function",
+   "name": "setDown",
+   "signature": "function setDown(bool d) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "87c1a72f9aee3d4ae5bebf045140f48af8f8e872",
+   "body_lines": [
+    82,
+    82
+   ]
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 84,
+   "kind": "function",
+   "name": "latestRoundData",
+   "signature": "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "fb8de40244947552a57cb454fb1bd0ba10e49719",
+   "body_lines": [
+    88,
+    93
+   ]
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 20,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(string memory name_, string memory symbol_, uint8 dec_) ERC20(name_, symbol_)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "ERC20(name_, symbol_)"
+   ],
+   "body_sha1": "d60d39d29fe31e4e5486d411c76e8413654705d6",
+   "body_lines": [
+    20,
+    22
+   ]
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 24,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() public view override returns (uint8)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "ab51d70be60d35cb72c28b1c5d1bbe8bdb227645",
+   "body_lines": [
+    24,
+    24
+   ]
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 27,
+   "kind": "function",
+   "name": "mint",
+   "signature": "function mint(address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8cfddcead2898ea5bf3e7029e15bf202af53fb6f",
+   "body_lines": [
+    27,
+    27
+   ]
+  },
+  {
+   "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 5,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() external view returns (uint8)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 6,
+   "kind": "function",
+   "name": "latestRoundData",
+   "signature": "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IERC20Decimals (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 13,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() external view returns (uint8)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 110,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a3d95789c041d7e50a491e8203c298afb299c871",
+   "body_lines": [
+    110,
+    112
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 114,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    114,
+    117
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 119,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    119,
+    119
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 131,
+   "kind": "function",
+   "name": "setFeed",
+   "signature": "function setFeed(address quote, address aggregator, uint32 heartbeat, uint8 quoteDecimals) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "6ab697f40eb729fdf9d2d0d7587f58c0c28b8ae0",
+   "body_lines": [
+    134,
+    143
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 153,
+   "kind": "function",
+   "name": "setPegged",
+   "signature": "function setPegged(address quote, uint8 dec) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "f350555eee92c0d4c37fbdf869c8dc227ea35657",
+   "body_lines": [
+    153,
+    160
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 175,
+   "kind": "function",
+   "name": "setBounds",
+   "signature": "function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "7d782ef0ad4579e76c0d541b940249c75e0c4155",
+   "body_lines": [
+    175,
+    180
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 182,
+   "kind": "function",
+   "name": "setSequencer",
+   "signature": "function setSequencer(address feed, uint32 grace) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "843385e03d62d793b1b1bf4f30b6aa8656924ceb",
+   "body_lines": [
+    182,
+    186
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 202,
+   "kind": "function",
+   "name": "usdPerRawUnit",
+   "signature": "function usdPerRawUnit(address quote) external view returns (uint256 factor)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0f59720908f9bab9418aa26cf1475b2c4b1da4da",
+   "body_lines": [
+    202,
+    278
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 305,
+   "kind": "function",
+   "name": "cachedUsdPerRawUnit",
+   "signature": "function cachedUsdPerRawUnit(address quote) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a6f4890eed507ed8682a41bc3e7ff5ee650d940b",
+   "body_lines": [
+    305,
+    312
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 316,
+   "kind": "function",
+   "name": "priceable",
+   "signature": "function priceable(address quote) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "cbf040f37bb4c9e0d6b28b6ef0467439bd598362",
+   "body_lines": [
+    316,
+    318
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 320,
+   "kind": "function",
+   "name": "_sequencerOk",
+   "signature": "function _sequencerOk() internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "58c04a8cd4f7b3363c0726114574316d1aa3986e",
+   "body_lines": [
+    320,
+    342
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 95,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _registry, IPoolManager _poolManager)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "fa5670abdbf2678a0132c10d4faae6d67d4526cc",
+   "body_lines": [
+    95,
+    99
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 121,
+   "kind": "modifier",
+   "name": "onlyRegistry",
+   "signature": "modifier onlyRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1bf133b40dd818623a221a880ba7a4a14ea91c8b",
+   "body_lines": [
+    121,
+    124
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 126,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    126,
+    129
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 131,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    131,
+    131
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 186,
+   "kind": "function",
+   "name": "setVenue",
+   "signature": "function setVenue(PoolKey calldata route, bool allowed) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "481063b2315876b51829a284e8947cc6d61fd5ba",
+   "body_lines": [
+    186,
+    190
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 193,
+   "kind": "function",
+   "name": "isVenueAllowed",
+   "signature": "function isVenueAllowed(PoolKey calldata route) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "d0a398226f7c3cac16d95ebefa357300bca72b41",
+   "body_lines": [
+    193,
+    195
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 212,
+   "kind": "function",
+   "name": "setPlan",
+   "signature": "function setPlan( address from, address to, uint128 totalIn, uint128 sliceIn, uint256 minRate, uint32 interval ) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "116a5be534e3045b8795b3309c79cc3fc9b39cf2",
+   "body_lines": [
+    219,
+    239
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 244,
+   "kind": "function",
+   "name": "cancelPlan",
+   "signature": "function cancelPlan() external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "cdb80c9bcda8248c0a109d9666af64b26897149c",
+   "body_lines": [
+    244,
+    247
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 249,
+   "kind": "function",
+   "name": "setKeeperBps",
+   "signature": "function setKeeperBps(uint16 bps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "432c8ced91491e7c550662ac4747375692065060",
+   "body_lines": [
+    249,
+    252
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 259,
+   "kind": "function",
+   "name": "nextSliceSize",
+   "signature": "function nextSliceSize() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "7fc6c6dc998716374cca2d212d527f9ae81713a3",
+   "body_lines": [
+    259,
+    271
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 280,
+   "kind": "function",
+   "name": "rotateStep",
+   "signature": "function rotateStep(PoolKey calldata route) external returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4c406345d7f6978ae58cd6b7d8722a0a90d0a7cb",
+   "body_lines": [
+    280,
+    316
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 331,
+   "kind": "function",
+   "name": "swapOnce",
+   "signature": "function swapOnce( PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut ) external onlyRegistry returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "191f7e192ec92794d64433c64578d0646d4c04d9",
+   "body_lines": [
+    337,
+    368
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 378,
+   "kind": "function",
+   "name": "setRotationSlipBps",
+   "signature": "function setRotationSlipBps(uint16 bps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "fc16675eba117013a5b97d7068b1bcdc10358ea2",
+   "body_lines": [
+    378,
+    381
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 398,
+   "kind": "function",
+   "name": "_oracleFloor",
+   "signature": "function _oracleFloor(address from, address to, uint256 amountIn) internal returns (uint256)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4c3d5cbbee642a168ac739e75c32a6d547b890fd",
+   "body_lines": [
+    401,
+    408
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 448,
+   "kind": "function",
+   "name": "setArbParams",
+   "signature": "function setArbParams(address oracle, uint16 keeperBps, uint256 minProfitUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "1aad41925b0bf89d9294d646688ee0974210e637",
+   "body_lines": [
+    448,
+    453
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 458,
+   "kind": "function",
+   "name": "setMaxArbNotionalUsd",
+   "signature": "function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "4122b0064ff4ef699d07f167d98a795c9d996ed8",
+   "body_lines": [
+    458,
+    460
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 496,
+   "kind": "function",
+   "name": "arbStep",
+   "signature": "function arbStep(PoolKey calldata cheap, PoolKey calldata dear, uint256 amountIn) external returns (uint256 profitUsd)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "94501c0095811a454e480eabbb9a201e5616d3d7",
+   "body_lines": [
+    499,
+    562
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 564,
+   "kind": "function",
+   "name": "_usd",
+   "signature": "function _usd(address quote, uint256 raw) internal returns (uint256)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "6e3173fd126054b000038b076748e1e7768a1b77",
+   "body_lines": [
+    564,
+    573
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 589,
+   "kind": "function",
+   "name": "withdraw",
+   "signature": "function withdraw(address asset, address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "433ac0bc8cf3e87a2b90ff908a175ac34f3b9cf7",
+   "body_lines": [
+    589,
+    594
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 600,
+   "kind": "function",
+   "name": "_swap",
+   "signature": "function _swap(PoolKey calldata route, address from, address to, uint256 size) internal returns (uint256 out)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f34a1eb452cff668f90ad920e8e0709b56d7ad9e",
+   "body_lines": [
+    603,
+    607
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 609,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "14d51a88ced1f9d71dead37634c26f9fe22e0f92",
+   "body_lines": [
+    609,
+    634
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 641,
+   "kind": "function",
+   "name": "_arbCallback",
+   "signature": "function _arbCallback(bytes calldata data) internal returns (bytes memory)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ada8027e6ecd2f033797af5e85fdbad8e463de9a",
+   "body_lines": [
+    641,
+    666
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 668,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(address cur, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2a326bf188290320115041c684c56e4a17c654ce",
+   "body_lines": [
+    668,
+    676
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 678,
+   "kind": "function",
+   "name": "_send",
+   "signature": "function _send(address cur, address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3c23397744ecbea6198e4aed3c906354a81599ea",
+   "body_lines": [
+    678,
+    686
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 691,
+   "kind": "function",
+   "name": "_safeTransfer",
+   "signature": "function _safeTransfer(address token, address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0865e1c386910a90ce16b19a796b424a848daef7",
+   "body_lines": [
+    691,
+    695
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 697,
+   "kind": "function",
+   "name": "_routeMatches",
+   "signature": "function _routeMatches(PoolKey calldata route, address from, address to) internal pure returns (bool)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "9a73e9a8d944ab6a5553cee642de543e03eee47e",
+   "body_lines": [
+    701,
+    705
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 707,
+   "kind": "function",
+   "name": "_balanceOf",
+   "signature": "function _balanceOf(address asset) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f57b621ffd3e3bef07d74d33057c77936ba20efe",
+   "body_lines": [
+    707,
+    709
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 711,
+   "kind": "function",
+   "name": "_allowed",
+   "signature": "function _allowed(address quote) internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "61dc8300311e03ee3db62fc77e6866b1bb5a6752",
+   "body_lines": [
+    711,
+    716
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 718,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    718,
+    718
+   ]
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 45,
+   "kind": "function",
+   "name": "allowance",
+   "signature": "function allowance() external view returns (address quote, uint16 remainingBps)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 46,
+   "kind": "function",
+   "name": "consume",
+   "signature": "function consume(uint16 bps, bool fromPrimary) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 49,
+   "kind": "function",
+   "name": "migrationMandateSpent",
+   "signature": "function migrationMandateSpent() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 53,
+   "kind": "function",
+   "name": "swapOnce",
+   "signature": "function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 55,
+   "kind": "function",
+   "name": "withdraw",
+   "signature": "function withdraw(address asset, address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IHookVolume (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 59,
+   "kind": "function",
+   "name": "linkVolume",
+   "signature": "function linkVolume(PoolId primary, PoolId secondary) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 78,
+   "kind": "function",
+   "name": "redeemOgFren",
+   "signature": "function redeemOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "3bab551edf6c15ab7b0b57c08103c878b7f113fa",
+   "body_lines": [
+    78,
+    106
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 115,
+   "kind": "function",
+   "name": "buyTreasuryOgFren",
+   "signature": "function buyTreasuryOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 paid)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "651a1088830fba041932a3add0066e4d13076b93",
+   "body_lines": [
+    115,
+    127
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 136,
+   "kind": "function",
+   "name": "donateToReserve",
+   "signature": "function donateToReserve(uint256 amount) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "7e56d9d17184310d43f2964e30d1dfd7cd87413e",
+   "body_lines": [
+    136,
+    140
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 147,
+   "kind": "function",
+   "name": "materializeLegacyReserve",
+   "signature": "function materializeLegacyReserve() external nonReentrant returns (uint256 added)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "d329fb3e1a65c40a58867893d8e2244bfcd5e723",
+   "body_lines": [
+    147,
+    160
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 165,
+   "kind": "function",
+   "name": "_pullGrow",
+   "signature": "function _pullGrow(address from, uint256 amount) private returns (uint256 added)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e75f90d6fe77a920616f507a0f64bf5888044fd4",
+   "body_lines": [
+    165,
+    184
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 260,
+   "kind": "function",
+   "name": "setRotationWiring",
+   "signature": "function setRotationWiring(address rotator, address governor) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "704f917df702dbee18d0426a443f3a6753adb93f",
+   "body_lines": [
+    260,
+    265
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 269,
+   "kind": "function",
+   "name": "rotateSlice",
+   "signature": "function rotateSlice( uint16 sliceBps, uint256 minOut, PoolKey calldata route ) external returns (uint256 moved, uint256 positionId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "60533d31111f24200eb06ee72d9a3c6858239f98",
+   "body_lines": [
+    273,
+    275
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 280,
+   "kind": "function",
+   "name": "rotateSliceFrom",
+   "signature": "function rotateSliceFrom( uint8 fromLeg, uint16 sliceBps, uint256 minOut, PoolKey calldata route ) public returns (uint256 moved, uint256 positionId)",
+   "visibility": "public",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c41631f88ccbae7bc68307748372cd075c3dd24f",
+   "body_lines": [
+    285,
+    546
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 605,
+   "kind": "function",
+   "name": "completeRotation",
+   "signature": "function completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount) external onlyOwner returns (uint256 positionId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "bebfb565e9d44717e7c20c1b95714df2c70689fa",
+   "body_lines": [
+    609,
+    631
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 648,
+   "kind": "function",
+   "name": "floorClaimableNow",
+   "signature": "function floorClaimableNow() external view returns (bool claimable, uint256 perFren)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9d6bcc8ce9db6a413608a84b1689a9b9d3cdcfdc",
+   "body_lines": [
+    648,
+    654
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 661,
+   "kind": "function",
+   "name": "legCount",
+   "signature": "function legCount(uint256 gen) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9822da989af6d7a3edde9f38fc620498db347c6b",
+   "body_lines": [
+    661,
+    663
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 666,
+   "kind": "function",
+   "name": "legAt",
+   "signature": "function legAt(uint256 gen, uint256 i) external view returns (address quote, uint256 positionId, PoolKey memory key)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5afb5cbb7eb904ad5b929467bca20356d14c7c88",
+   "body_lines": [
+    670,
+    673
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 676,
+   "kind": "function",
+   "name": "_recordLeg",
+   "signature": "function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8d5b85c18af4a026860dd2e710c81b49c33511f0",
+   "body_lines": [
+    676,
+    684
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 699,
+   "kind": "function",
+   "name": "recoverLegs",
+   "signature": "function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut)",
+   "visibility": "public",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cac662339040ee882a1e967945a1ce70b843ae72",
+   "body_lines": [
+    699,
+    753
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 757,
+   "kind": "function",
+   "name": "legProceedsOf",
+   "signature": "function legProceedsOf(address asset) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "bfb0294c1f4fec68b57be7f90a59c88c86b8a909",
+   "body_lines": [
+    757,
+    759
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 794,
+   "kind": "function",
+   "name": "sweepLegProceeds",
+   "signature": "function sweepLegProceeds(address asset, address to) external onlyOwner returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "0c3687441f4eb237bd6d61f5eddeff3ae817de43",
+   "body_lines": [
+    794,
+    804
+   ]
+  }
+ ]
+}

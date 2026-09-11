@@ -1,0 +1,105 @@
+[
+ {
+  "contract": "SeedLib",
+  "line": 40,
+  "authority": "internal (callers: askBand, bidBand, _bandWidth)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure tick alignment, linked into every caller of the library. Called at `_alignDown` (SeedLib.sol:89) by the ask geometry, at `_alignDown` (SeedLib.sol:116) and `_alignDown` (SeedLib.sol:121) by the bid geometry, and at `_alignDown` (SeedLib.sol:130) by the width helper. Rounds toward negative infinity by correcting the truncating division at `r` (SeedLib.sol:42). DERIVED: `spacing` (SeedLib.sol:41) of zero would divide by zero, and the seeder only checks `spacing` against `bandWidth` (CauldronSeeder.sol:178), never against zero.",
+  "observations": []
+ },
+ {
+  "contract": "SeedLib",
+  "line": 45,
+  "authority": "internal (callers: askBand)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure tick alignment toward positive infinity via the correction at `r` (SeedLib.sol:47). One in-library caller: the deepest-band floor clamp at `_alignUp` (SeedLib.sol:96). DERIVED: the sibling copy at `_alignUp` (ReserveLib.sol:34) is a separate declaration, so the two libraries do not share this code.",
+  "observations": []
+ },
+ {
+  "contract": "SeedLib",
+  "line": 58,
+  "authority": "internal (callers: CauldronSeeder._pendingStep, CauldronSeeder._advance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "WAD (line 63, constant)",
+   "WAD (line 64, constant)",
+   "WAD (line 68, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The whole schedule. Linked into the seeder and called at `deployedTargetWad` (CauldronSeeder.sol:318) to size the next step and again at `deployedTargetWad` (CauldronSeeder.sol:328) to snap the bookkeeping, so both use identical inputs within one transaction. Monotone in `nowTs` (SeedLib.sol:58) and clamped at both ends: below `startTs` (SeedLib.sol:65) it returns the floor, and at or past `window` (SeedLib.sol:64) it returns 1e18. A zero `window` (SeedLib.sol:64) collapses to an atomic 100% placement, which is exactly the degenerate case the registry avoids by requiring `nextSeedWindow` (CauldronRegistry.sol:1722) to be non-zero before choosing the progressive path. The floor is clamped to 1e18 at `seedFloorWad` (SeedLib.sol:63) so an over-large floor cannot produce a target above 100%.",
+  "observations": []
+ },
+ {
+  "contract": "SeedLib",
+  "line": 84,
+  "authority": "internal (callers: CauldronSeeder._placeStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "SeedLib._alignDown (SeedLib.sol:89), TRUSTED, in-cluster",
+   "SeedLib._bandWidth (SeedLib.sol:90), TRUSTED, in-cluster",
+   "SeedLib._alignUp (SeedLib.sol:96), TRUSTED, in-cluster"
+  ],
+  "reachability": "Called once per placement at `askBand` (CauldronSeeder.sol:376). The returned band sits BELOW the reference tick \u2014 `upper` (SeedLib.sol:93) at the aligned tick and `lower` (SeedLib.sol:94) one width under it \u2014 which is the pure-token1 side under the orientation stated at `ASK` (SeedLib.sol:24). The deepest band is clamped to the usable range at `floorTick` (SeedLib.sol:96) and degeneracy is repaired at `upper` (SeedLib.sol:98). DERIVED: the only production caller passes i = 0 and n = 1, so the tiling loop this signature was written for never runs on-chain.",
+  "observations": [
+   "comment at `launchTick` (SeedLib.sol:78) documents the parameter as the pool tick right after initialize; code at `askBand` (CauldronSeeder.sol:376) passes the CURRENT tick just read at `getSlot0` (CauldronSeeder.sol:368)",
+   "comment at `ceilingOffset` (SeedLib.sol:80) documents the last parameter as the price ceiling in ticks below launch; code at `askBand` (CauldronSeeder.sol:376) passes the per-band width held in `_bandWidth` (CauldronSeeder.sol:98)"
+  ]
+ },
+ {
+  "contract": "SeedLib",
+  "line": 111,
+  "authority": "internal (callers: CauldronSeeder._placeStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "SeedLib._alignDown (SeedLib.sol:116), TRUSTED, in-cluster",
+   "SeedLib._bandWidth (SeedLib.sol:117), TRUSTED, in-cluster",
+   "SeedLib._alignDown (SeedLib.sol:121), TRUSTED, in-cluster"
+  ],
+  "reachability": "Called once per placement at `bidBand` (CauldronSeeder.sol:378). The band starts one spacing ABOVE the aligned reference tick at `L` (SeedLib.sol:116) so it is pure token0 (native) at seed, matching the orientation note at `BID` (SeedLib.sol:26). The top is clamped at `capTick` (SeedLib.sol:121) and degeneracy repaired at `lower` (SeedLib.sol:123). DERIVED: the repair at line 123 moves the LOWER tick down, whereas the ask repair at `upper` (SeedLib.sol:98) moves the UPPER tick up \u2014 the two helpers fix a collapsed band in opposite directions.",
+  "observations": []
+ },
+ {
+  "contract": "SeedLib",
+  "line": 128,
+  "authority": "internal (callers: askBand, bidBand)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "SeedLib._alignDown (SeedLib.sol:130), TRUSTED, in-cluster"
+  ],
+  "reachability": "Called at `_bandWidth` (SeedLib.sol:90) and `_bandWidth` (SeedLib.sol:117). Guards the divisor at `n` (SeedLib.sol:129) and floors the result at one `spacing` (SeedLib.sol:131), so a width can never be zero or negative even when the offset is smaller than a spacing. With the seeder's n = 1 the result is the aligned offset itself, i.e. the `_bandWidth` (CauldronSeeder.sol:376) value it was handed.",
+  "observations": []
+ },
+ {
+  "contract": "SeedLib",
+  "line": 140,
+  "authority": "internal (no production caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "WAD (line 144, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "DERIVED: a grep of the non-test tree finds no caller \u2014 the seeder only links `deployedTargetWad` (CauldronSeeder.sol:318), `askBand` (CauldronSeeder.sol:376) and `bidBand` (CauldronSeeder.sol:378), so this weight is exercised only by tests. It computes a descending linear profile whose denominator at `denom` (SeedLib.sol:143) makes the weights sum to 1e18 bar integer dust; the division at `WAD` (SeedLib.sol:144) truncates, so the dust is always lost downward. Returns 0 for `n` (SeedLib.sol:141) of zero rather than reverting.",
+  "observations": []
+ }
+]

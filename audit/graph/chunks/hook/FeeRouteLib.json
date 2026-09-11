@@ -1,0 +1,114 @@
+[
+ {
+  "contract": "FeeRouteLib",
+  "line": 48,
+  "authority": "internal to the hook via delegatecall (callers: CauldronHook._routeEthFee, CauldronHook._takeEthFee); the deployed library address is callable by anyone but holds no state and no funds",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "no direct transfer; value leaves through `_fundGuild` (FeeRouteLib.sol:64) and `_move` (FeeRouteLib.sol:68)",
+  "edges": [
+   "FeeRouteLib._fundGuild (FeeRouteLib.sol:64), TRUSTED, library",
+   "FeeRouteLib._move (FeeRouteLib.sol:68), TRUSTED, library"
+  ],
+  "reachability": "Declared `external` (FeeRouteLib.sol:54) in a library, so it is delegatecalled and runs in the hook's context: the ether sent is the hook's and the tokens moved are the hook's. Three call sites, all inside the swap: `routeSplit` (CauldronHook.sol:1354) for the ordinary fee split, `routeSplit` (CauldronHook.sol:1473) for the anti-sniper surtax, and nothing else. Both call sites reach it only after the hook has already taken the fee, so the authority is whatever reached `_takeEthFee` (CauldronHook.sol:1426) \u2014 the pool manager driving before/afterSwap. Nothing here reverts: a guild or vault that refuses is reported by returning the undelivered amount as `leftover` (FeeRouteLib.sol:65), which the caller books into the reserve.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 79,
+  "authority": "internal to the hook via delegatecall (caller: CauldronHook._routePerpFee); the deployed library address is callable by anyone but holds no state and no funds",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "no direct transfer; value leaves through `_fundGuild` (FeeRouteLib.sol:97) and `_deliver` (FeeRouteLib.sol:100)",
+  "edges": [
+   "FeeRouteLib._fundGuild (FeeRouteLib.sol:97), TRUSTED, library",
+   "FeeRouteLib._deliver (FeeRouteLib.sol:100), TRUSTED, library"
+  ],
+  "reachability": "Delegatecalled from the single site `routePerp` (CauldronHook.sol:1201), which is reached only when the swapper is the perp engine \u2014 the branch at `perpEngine` (CauldronHook.sol:1465). The guild share goes through the accounted path and the staker share through `_deliver` (FeeRouteLib.sol:100), which picks the native selector or the ERC20 pull selector the caller passed in. Neither failure reverts: both undelivered shares accumulate into `leftover` (FeeRouteLib.sol:101) and the hook credits them to the reserve.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 105,
+  "authority": "internal (callers: FeeRouteLib.routeSplit)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to the recipient `to` (line 106); ERC20 transfer encoded against `asset` (line 107)",
+  "edges": [
+   "to.call (FeeRouteLib.sol:106), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:107), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private, so only `_move` (FeeRouteLib.sol:68) reaches it \u2014 the floor-vault leg of the split. The native branch forwards ALL remaining gas to an address the protocol chose (`vault`), and the ERC20 branch checks the return payload at `abi` (FeeRouteLib.sol:110), treating an empty return as success and decoding a bool otherwise. A revert inside the recipient is swallowed by the low-level call and surfaces as `ok` (FeeRouteLib.sol:105) false.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 128,
+  "authority": "internal (callers: FeeRouteLib.routeSplit, FeeRouteLib.routePerp)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to the guild `guild` (line 129); ERC20 approve of `asset` (line 130) then a pull by `guild` (line 132)",
+  "edges": [
+   "guild.call (FeeRouteLib.sol:129), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:130), UNTRUSTED, out-of-cluster",
+   "guild.call (FeeRouteLib.sol:132), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:134), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; reached from `_fundGuild` (FeeRouteLib.sol:64) and `_fundGuild` (FeeRouteLib.sol:97). Native uses the guild's bare receive; an ERC20 is approved and then pulled by `fundToken` (FeeRouteLib.sol:132) so the dividend can account for it. The approval is only cleared when the pull reports failure at `ok` (FeeRouteLib.sol:134); a pull that succeeds but consumes less than the approved amount leaves the remainder standing. Every call's result is captured rather than bubbled, so this can never revert the swap that produced the fee.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 137,
+  "authority": "internal (callers: FeeRouteLib.routePerp)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to the engine `to` (line 142); ERC20 approve of `asset` (line 145) then a pull by `to` (line 147)",
+  "edges": [
+   "to.call (FeeRouteLib.sol:142), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:145), UNTRUSTED, out-of-cluster",
+   "to.call (FeeRouteLib.sol:147), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:150), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; the only call site is `_deliver` (FeeRouteLib.sol:100). The selectors are supplied by the caller, so the target entrypoint is chosen at the hook: `nativeSel` (FeeRouteLib.sol:142) for a value-bearing call and `assetSel` (FeeRouteLib.sol:147) for the pull. The dangling-approval cleanup at `approve` (FeeRouteLib.sol:150) runs only on failure. Results are captured, never bubbled.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 162,
+  "authority": "internal to the hook via delegatecall (caller: CauldronHook.releaseRelaunchAsset); the deployed library address is callable by anyone but holds no state and no funds",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `to` (line 168); sends native with a gas cap to `to` (line 169); ERC20 transfer encoded against `asset` (line 175)",
+  "edges": [
+   "to.call (FeeRouteLib.sol:168), UNTRUSTED, out-of-cluster",
+   "to.call (FeeRouteLib.sol:169), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:175), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "The single in-tree call site is `send` (CauldronHook.sol:1686) inside the registry-gated non-native release, which passes `gasCap` (FeeRouteLib.sol:162) as 0, i.e. the unbounded native branch. A zero amount reports success without moving anything at `amount` (FeeRouteLib.sol:166). The ERC20 branch checks the return payload at `abi` (FeeRouteLib.sol:178), which is what lets the caller keep its counter intact when a token returns false.",
+  "observations": []
+ },
+ {
+  "contract": "FeeRouteLib",
+  "line": 192,
+  "authority": "internal to the hook via delegatecall; NO caller anywhere in the source tree",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `to` (line 201); ERC20 approve of `asset` (line 204) then a pull by `to` (line 208)",
+  "edges": [
+   "to.call (FeeRouteLib.sol:201), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:204), UNTRUSTED, out-of-cluster",
+   "to.call (FeeRouteLib.sol:208), UNTRUSTED, out-of-cluster",
+   "asset.call (FeeRouteLib.sol:211), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Unreachable from the protocol: `deliver` (FeeRouteLib.sol:192) has no call site in any non-test source file (DERIVED) \u2014 the perp fee path uses the private `_deliver` (FeeRouteLib.sol:137) instead, and this external twin is dead weight that still occupies a selector in the deployed library. If it were called, it would behave exactly like the private twin plus the zero-amount short circuit at `amount` (FeeRouteLib.sol:199).",
+  "observations": []
+ }
+]

@@ -1,0 +1,194 @@
+{
+  "storage": [
+    {
+      "astId": 71,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "registry",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(IReserveRegistry)48"
+    },
+    {
+      "astId": 74,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "accPerShare",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 77,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "activeShares",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 80,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "residual",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 82,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "totalDeposited",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 84,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "totalClaimed",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 89,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "debtOf",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 93,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "accPerShareOf",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 99,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "debtOfAsset",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 103,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "assets",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_array(t_address)dyn_storage"
+    },
+    {
+      "astId": 107,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "knownAsset",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 117,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "owedAsset",
+      "offset": 0,
+      "slot": "11",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 120,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "funder",
+      "offset": 0,
+      "slot": "12",
+      "type": "t_address"
+    },
+    {
+      "astId": 151,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "enchantedBy",
+      "offset": 0,
+      "slot": "13",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 156,
+      "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+      "label": "owed",
+      "offset": 0,
+      "slot": "14",
+      "type": "t_mapping(t_address,t_uint256)"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_address)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "address[]",
+      "numberOfBytes": "32",
+      "base": "t_address"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_contract(IReserveRegistry)48": {
+      "encoding": "inplace",
+      "label": "contract IReserveRegistry",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_address)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}

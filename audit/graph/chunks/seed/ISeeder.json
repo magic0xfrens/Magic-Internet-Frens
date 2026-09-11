@@ -1,0 +1,62 @@
+[
+ {
+  "contract": "ISeeder", "line": 30,
+  "authority": "registry (the gate lives on the implementation, CauldronSeeder.startSeed)",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:175)",
+  "reads": [], "writes": [],
+  "value": "receives native — `startSeed` is declared payable (line 30)",
+  "edges": [],
+  "reachability": "Declaration only. It is the shared struct/selector surface used by both sides of the summon handoff: the delegatecalled `startSeed` (PoolOps.sol:344) call site and the implementation at `startSeed` (CauldronSeeder.sol:175). The config it carries is `SeederConfig` (ISeeder.sol:12), whose `ethTotal` (ISeeder.sol:25) must equal the value sent and whose `tokenTotal` (ISeeder.sol:26) is pulled by the implementation via transferFrom.",
+  "observations": []
+ },
+ {
+  "contract": "ISeeder", "line": 31,
+  "authority": "anyone (the implementation CauldronSeeder.poke has no authority check)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; the implementation is `poke` (CauldronSeeder.sol:231). No production contract in this tree calls it through this interface — the registry only uses `seeding` (CauldronRegistry.sol:536), `withdrawAll` (CauldronRegistry.sol:537) and `rescue` (CauldronRegistry.sol:324). DERIVED: the nudge therefore arrives either from the hook's in-swap path or from an off-chain caller.",
+  "observations": []
+ },
+ {
+  "contract": "ISeeder", "line": 32,
+  "authority": "registry (the gate lives on the implementation, CauldronSeeder.withdrawAll)",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:565)",
+  "reads": [], "writes": [],
+  "value": "NONE at the declaration; the implementation forwards the recovered native and token balances at `withdrawAll` (line 32)",
+  "edges": [],
+  "reachability": "Declaration only. Called by the registry at `withdrawAll` (CauldronRegistry.sol:537) during a successor handoff and at `withdrawAll` (CauldronRegistry.sol:1582) during relaunch teardown, both behind an `ISeeder` (CauldronRegistry.sol:536) seeding check. The two return values feed the registry's recovered totals at `ethRecovered` (CauldronRegistry.sol:1583).",
+  "observations": []
+ },
+ {
+  "contract": "ISeeder", "line": 35,
+  "authority": "registry (the gate lives on the implementation, CauldronSeeder.rescue)",
+  "authority_gate_quote": "onlyRegistry (CauldronSeeder.sol:597)",
+  "reads": [], "writes": [],
+  "value": "NONE at the declaration; the implementation forwards the loose token and native balances at `rescue` (line 35)",
+  "edges": [],
+  "reachability": "Declaration only; the single caller is `rescue` (CauldronRegistry.sol:324) inside `rescueSeeder` (CauldronRegistry.sol:321), which is emergency-gated and timelocked. Unlike `withdrawAll` (ISeeder.sol:32) it is NOT guarded by a seeding check on the registry side.",
+  "observations": []
+ },
+ {
+  "contract": "ISeeder", "line": 36,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; implemented at `isComplete` (CauldronSeeder.sol:609), which returns the `complete` (CauldronSeeder.sol:609) flag. No production caller in this tree reads it — the registry branches on `seeding` (CauldronRegistry.sol:1581) instead.",
+  "observations": []
+ },
+ {
+  "contract": "ISeeder", "line": 37,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; implemented by the public state variable at `seeding` (CauldronSeeder.sol:99). It is the flag both registry recovery paths branch on, at `seeding` (CauldronRegistry.sol:536) and `seeding` (CauldronRegistry.sol:1581), so a campaign that never clears it keeps `withdrawAll` (CauldronRegistry.sol:1582) reachable, and one that clears it early would strand the placed bands.",
+  "observations": []
+ }
+]

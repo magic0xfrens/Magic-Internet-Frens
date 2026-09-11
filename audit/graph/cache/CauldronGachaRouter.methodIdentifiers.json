@@ -1,0 +1,22 @@
+{
+ "MAX_LOOPS()": "37a2eb71",
+ "MAX_MINTS_PER_CALL()": "4b985fd8",
+ "POOL_FEE()": "dd1b9c4a",
+ "TICK_SPACING()": "46ca626b",
+ "hook()": "7f5a7c7b",
+ "hookAddr()": "ebb36f89",
+ "openReady(uint256)": "96c8709f",
+ "oracle()": "7dc0d1d0",
+ "owner()": "8da5cb5b",
+ "play(uint256,uint256,uint256,uint256,uint256)": "7fe7c4b6",
+ "playChurn(uint256,uint256,uint256)": "c4ffce88",
+ "playInCurveUnits(uint256)": "45332433",
+ "playLiq(uint256,uint256,uint256,uint256,uint256,uint256[])": "3ac9ef55",
+ "poolManager()": "dc4c90d3",
+ "registry()": "7b103999",
+ "renounceOwnership()": "715018a6",
+ "rescueETH(address,uint256)": "099a04e5",
+ "setOracle(address)": "7adbf973",
+ "transferOwnership(address)": "f2fde38b",
+ "unlockCallback(bytes)": "91dd7346"
+}

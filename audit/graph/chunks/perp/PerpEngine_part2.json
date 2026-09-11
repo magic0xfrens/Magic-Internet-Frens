@@ -1,0 +1,361 @@
+[
+ {
+  "contract": "PerpEngine",
+  "line": 777,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "minCollateral (line 786)",
+   "plv (line 788)",
+   "vault (line 792)",
+   "longOiEth (line 793)",
+   "maxUtilBps (line 793)",
+   "BPS (line 793, constant)",
+   "insuranceFloor (line 794)",
+   "insuranceEth (line 794)",
+   "maxOiBps (line 798)"
+  ],
+  "writes": [
+   "plv (line 800)",
+   "longOiEth (line 800)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 781); pays the pool and takes token through `_swapExactIn` (line 801)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:781), TRUSTED, in-cluster",
+   "PerpEngine._guardOpen (PerpEngine.sol:782), TRUSTED, in-cluster",
+   "PerpEngine._pokeFunding (PerpEngine.sol:783), TRUSTED, in-cluster",
+   "PerpEngine._takeFee (PerpEngine.sol:785), TRUSTED, in-cluster",
+   "PerpEngine.totalEth (PerpEngine.sol:793), TRUSTED, in-cluster",
+   "PerpEngine._checkNotional (PerpEngine.sol:797), TRUSTED, in-cluster",
+   "PerpEngine.activeEthDepth (PerpEngine.sol:798), TRUSTED, in-cluster",
+   "PerpEngine._swapExactIn (PerpEngine.sol:801), TRUSTED, in-cluster",
+   "PerpEngine._book (PerpEngine.sol:804), TRUSTED, in-cluster",
+   "PerpEngine._sweepAfterOpen (PerpEngine.sol:806), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless, but five state gates must hold: the warmup and death tests inside `_guardOpen` (PerpEngine.sol:782); the dust floor `minCollateral` (PerpEngine.sol:786); PLV sufficiency at `plv` (PerpEngine.sol:788); the utilization cap and insurance circuit breaker, both only active once `vault` (PerpEngine.sol:792) is wired; and the depth-relative notional and open-interest caps at `_checkNotional` (PerpEngine.sol:797) and `maxOiBps` (PerpEngine.sol:798). Ordering: value is pulled at `_pullQuote` (PerpEngine.sol:781) BEFORE any guard runs, so every revert path unwinds the pull. The borrow is moved out of `plv` (PerpEngine.sol:800) before the swap, and the position is booked only after the slippage check at `minTokenOut` (PerpEngine.sol:802). The trailing `_sweepAfterOpen` (PerpEngine.sol:806) is best-effort and cannot revert the open.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 814,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "minCollateral (line 823)",
+   "plvToken (line 828)",
+   "vault (line 830)",
+   "shortOiToken (line 831)",
+   "maxUtilBps (line 831)",
+   "BPS (line 831, constant)",
+   "insuranceFloor (line 832)",
+   "insuranceEth (line 832)",
+   "maxOiBps (line 834)"
+  ],
+  "writes": [
+   "plvToken (line 836)",
+   "shortOiToken (line 836)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 818); sells borrowed token for quote through `_swapExactIn` (line 837)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:818), TRUSTED, in-cluster",
+   "PerpEngine._guardOpen (PerpEngine.sol:819), TRUSTED, in-cluster",
+   "PerpEngine._pokeFunding (PerpEngine.sol:820), TRUSTED, in-cluster",
+   "PerpEngine._takeFee (PerpEngine.sol:822), TRUSTED, in-cluster",
+   "PerpEngine._checkNotional (PerpEngine.sol:826), TRUSTED, in-cluster",
+   "PerpEngine._ethToToken (PerpEngine.sol:827), TRUSTED, in-cluster",
+   "PerpEngine.totalTokenAssets (PerpEngine.sol:831), TRUSTED, in-cluster",
+   "PerpEngine.activeEthDepth (PerpEngine.sol:834), TRUSTED, in-cluster",
+   "PerpEngine._swapExactIn (PerpEngine.sol:837), TRUSTED, in-cluster",
+   "PerpEngine._book (PerpEngine.sol:841), TRUSTED, in-cluster",
+   "PerpEngine._sweepAfterOpen (PerpEngine.sol:843), TRUSTED, in-cluster"
+  ],
+  "reachability": "Mirror of the long path with the two sides swapped: the borrow is TOKEN, sized from the quote notional at SPOT by `_ethToToken` (PerpEngine.sol:827), and the resulting `proceeds` (PerpEngine.sol:837) are held by the engine alongside collateral as backing for the token debt. The open-interest cap is compared in token units by converting depth at `_ethToToken` (PerpEngine.sol:834). `plvToken` (PerpEngine.sol:836) is debited before the sell, and the position records `tokenToSell` (PerpEngine.sol:841) as its size (what must be bought back).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 849,
+  "authority": "the position's trader",
+  "authority_gate_quote": "if (p.trader != msg.sender) revert NotTrader(); (PerpEngine.sol:851)",
+  "reads": [
+   "positions (line 850)",
+   "MODE_NORMAL (line 853, constant)"
+  ],
+  "writes": [],
+  "value": "pays out through `_settle` (line 853)",
+  "edges": [
+   "PerpEngine._pokeFunding (PerpEngine.sol:852), TRUSTED, in-cluster",
+   "PerpEngine._settle (PerpEngine.sol:853), TRUSTED, in-cluster"
+  ],
+  "reachability": "The only settlement mode that enforces the caller's slippage bound: `MODE_NORMAL` (PerpEngine.sol:853) is what sets `ownerSlippage` (PerpEngine.sol:1140) inside the settlement. Passing `address(0)` (PerpEngine.sol:853) as keeper means no keeper cut is taken.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 856,
+  "authority": "anyone (subject to the position being underwater at the mark)",
+  "authority_gate_quote": "if (!_underwaterVal(p, notional)) revert Healthy(); (PerpEngine.sol:862)",
+  "reads": [
+   "positions (line 857)",
+   "liqBlock (line 865)",
+   "liqEthThisBlock (line 867)",
+   "maxLiqBps (line 866)",
+   "BPS (line 866, constant)",
+   "MODE_LIQUIDATION (line 869, constant)"
+  ],
+  "writes": [
+   "liqBlock (line 865)",
+   "liqEthThisBlock (line 865)",
+   "liqEthThisBlock (line 868)"
+  ],
+  "value": "pays the keeper and trader through `_settle` (line 869)",
+  "edges": [
+   "PerpEngine._pokeFunding (PerpEngine.sol:859), TRUSTED, in-cluster",
+   "PerpEngine._quoteMark (PerpEngine.sol:861), TRUSTED, in-cluster",
+   "PerpEngine._underwaterVal (PerpEngine.sol:862), TRUSTED, in-cluster",
+   "PerpEngine.activeEthDepth (PerpEngine.sol:866), TRUSTED, in-cluster",
+   "PerpEngine._settle (PerpEngine.sol:869), TRUSTED, in-cluster"
+  ],
+  "reachability": "The explicit keeper entrypoint of the liquidation path. Preconditions: the id is live (`trader` (PerpEngine.sol:858)), the mark value is below the maintenance threshold (`_underwaterVal` (PerpEngine.sol:862)), and the per-timestamp notional throttle has room (`cap` (PerpEngine.sol:867)). The throttle resets whenever `liqBlock` (PerpEngine.sol:865) differs from the current timestamp, and is DISABLED entirely when depth is zero because `cap` (PerpEngine.sol:867) then guards on cap > 0. The caller becomes the keeper at `msg` (PerpEngine.sol:869) and receives the keeper cut plus a badge.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 881,
+  "authority": "hook",
+  "authority_gate_quote": "if (msg.sender != hookAddr) revert OnlyHook(); (PerpEngine.sol:882)",
+  "reads": [
+   "hookAddr (line 882, immutable)"
+  ],
+  "writes": [],
+  "value": "pays keepers and traders through `_doSweep` (line 883)",
+  "edges": [
+   "PerpEngine._doSweep (PerpEngine.sol:883), TRUSTED, in-cluster"
+  ],
+  "reachability": "The keeperless liquidation entrypoint: the hook calls it from afterSwap on every trade on any interface, passing the swapper as `liquidator` (PerpEngine.sol:883). It runs with `inLocked` true, so settlement swaps execute in place inside the pool manager's existing lock rather than opening a new one. It carries no reentrancy modifier of its own - nesting is prevented by `_liqReentry` (PerpEngine.sol:907) inside the sweep. The hook discards the result, so anything that reverts in here rolls back every kill in the call. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 890,
+  "authority": "the engine itself",
+  "authority_gate_quote": "if (msg.sender != address(this)) revert OnlyHook(); (PerpEngine.sol:891)",
+  "reads": [],
+  "writes": [],
+  "value": "pays keepers and traders through `_doSweep` (line 892)",
+  "edges": [
+   "PerpEngine._doSweep (PerpEngine.sol:892), TRUSTED, in-cluster"
+  ],
+  "reachability": "External only so the post-open sweep can be wrapped in try/catch: the sole caller is `selfSweep` (PerpEngine.sol:900). `inLocked` is false here, so each settlement swap opens its own `unlock` (PerpEngine.sol:1234).",
+  "observations": [
+   "comment at `selfSweep` (PerpEngine.sol:890) documents this as the engine calling itself; the guard at `OnlyHook` (PerpEngine.sol:891) tests `address(this)` but reverts with the hook-named error."
+  ]
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 896,
+  "authority": "internal (callers: openLong, openShort)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine.selfSweep (PerpEngine.sol:900), TRUSTED, in-cluster"
+  ],
+  "reachability": "Best-effort cascade after an open. It refuses to start below a `gasleft` (PerpEngine.sol:898) floor of 250k, forwards all but a 120k reserve at `fwd` (PerpEngine.sol:899), and swallows every failure in the empty catch at `catch` (PerpEngine.sol:900) so a liquidation cascade can never revert the trader's own open.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 906,
+  "authority": "internal (callers: sweepLiquidations, selfSweep)",
+  "authority_gate_quote": "if (_liqReentry) return; (PerpEngine.sol:907)",
+  "reads": [
+   "_liqReentry (line 907)",
+   "_openIds (line 919)",
+   "sweepCursor (line 923)",
+   "SWEEP_SCAN (line 926, constant)",
+   "MAX_LIQ_PER_SWAP (line 926, constant)",
+   "SWEEP_KILL_RESERVE (line 942, constant)",
+   "_openIds (line 943)",
+   "_openIds (line 946)",
+   "_openIds (line 950)"
+  ],
+  "writes": [
+   "_liqReentry (line 921)",
+   "_inLocked (line 922)",
+   "sweepCursor (line 953)",
+   "_inLocked (line 954)",
+   "_liqReentry (line 955)"
+  ],
+  "value": "pays keepers and traders through `_tryLiquidate` (line 947)",
+  "edges": [
+   "PerpEngine._pokeFunding (PerpEngine.sol:918), TRUSTED, in-cluster",
+   "PerpEngine._tryLiquidate (PerpEngine.sol:947), TRUSTED, in-cluster"
+  ],
+  "reachability": "The bounded rotating scan. It pokes the oracle BEFORE the empty-book early return at `_pokeFunding` (PerpEngine.sol:918), so an idle pool still records observations. The loop is bounded three ways - `SWEEP_SCAN` (PerpEngine.sol:926) checks, `MAX_LIQ_PER_SWAP` (PerpEngine.sol:926) kills, and a gas floor of `SWEEP_KILL_RESERVE` (PerpEngine.sol:942) that BREAKS rather than reverting. The cursor does not advance after a kill because `_removeOpen` (PerpEngine.sol:950) swap-popped a new occupant into the same slot; it is persisted at `sweepCursor` (PerpEngine.sol:953) so coverage rotates across swaps. While it runs, `_inLocked` (PerpEngine.sol:922) makes every settlement swap run in place and `notNested` (PerpEngine.sol:454) locks out every user entrypoint.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 961,
+  "authority": "internal (callers: _doSweep)",
+  "authority_gate_quote": "if (!_underwaterVal(p, notional)) return; (PerpEngine.sol:967)",
+  "reads": [
+   "positions (line 962)",
+   "liqBlock (line 970)",
+   "liqEthThisBlock (line 972)",
+   "maxLiqBps (line 971)",
+   "BPS (line 971, constant)",
+   "MODE_LIQUIDATION (line 974, constant)"
+  ],
+  "writes": [
+   "liqBlock (line 970)",
+   "liqEthThisBlock (line 970)",
+   "liqEthThisBlock (line 973)"
+  ],
+  "value": "pays the keeper and trader through `_settle` (line 974)",
+  "edges": [
+   "PerpEngine._quoteMark (PerpEngine.sol:966), TRUSTED, in-cluster",
+   "PerpEngine._underwaterVal (PerpEngine.sol:967), TRUSTED, in-cluster",
+   "PerpEngine.activeEthDepth (PerpEngine.sol:971), TRUSTED, in-cluster",
+   "PerpEngine._settle (PerpEngine.sol:974), TRUSTED, in-cluster"
+  ],
+  "reachability": "Identical checks to the keeper entrypoint but SILENT: a closed id, a healthy position or a full per-timestamp cap all `return` (PerpEngine.sol:972) instead of reverting, which is what lets the surrounding sweep keep scanning. It assumes its caller already raised `_liqReentry` (PerpEngine.sol:921) and poked funding.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 983,
+  "authority": "anyone (once the generation is dead)",
+  "authority_gate_quote": "if (!_isDead()) revert NotDead(); (PerpEngine.sol:986)",
+  "reads": [
+   "positions (line 984)",
+   "MODE_DEATH (line 988, constant)"
+  ],
+  "writes": [],
+  "value": "pays the keeper and trader through `_settle` (line 988)",
+  "edges": [
+   "PerpEngine._isDead (PerpEngine.sol:986), TRUSTED, in-cluster",
+   "PerpEngine._pokeFunding (PerpEngine.sol:987), TRUSTED, in-cluster",
+   "PerpEngine._settle (PerpEngine.sol:988), TRUSTED, in-cluster"
+  ],
+  "reachability": "Per-position death clearing. No penalty is taken in `MODE_DEATH` (PerpEngine.sol:988); the caller earns only the keeper share of the residual computed at `reward` (PerpEngine.sol:1217). Death is EITHER the hook reporting the pool dead OR the cached quote diverging from the registry's, both decided by `_isDead` (PerpEngine.sol:1306).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 998,
+  "authority": "anyone (once the generation is dead); driven by the hook at relaunch",
+  "authority_gate_quote": "if (!_isDead()) revert NotDead(); (PerpEngine.sol:999)",
+  "reads": [
+   "openCount (line 1008)",
+   "FORCE_CLOSE_MAX (line 1008, constant)",
+   "_openIds (line 1009)",
+   "positions (line 1010)",
+   "MODE_DEATH (line 1010, constant)"
+  ],
+  "writes": [],
+  "value": "pays the keeper and every trader through `_settle` (line 1010)",
+  "edges": [
+   "PerpEngine._isDead (PerpEngine.sol:999), TRUSTED, in-cluster",
+   "PerpEngine._pokeFunding (PerpEngine.sol:1000), TRUSTED, in-cluster",
+   "PerpEngine._settle (PerpEngine.sol:1010), TRUSTED, in-cluster"
+  ],
+  "reachability": "Drains the whole book so nothing is trapped across a relaunch. It repeatedly settles `_openIds` (PerpEngine.sol:1009) index 0, relying on the swap-and-pop in `_removeOpen` (PerpEngine.sol:1332) to refill that slot; the order is therefore deterministic and caller-independent. The loop bound `FORCE_CLOSE_MAX` (PerpEngine.sol:1008) is 96 while the book is capped at `MAX_OPEN_POSITIONS` (PerpEngine.sol:1323) of 64, which is what makes one call always sufficient. Called best-effort inside a try/catch by the hook at `forceCloseAllDead` (CauldronHook.sol:1765).",
+  "observations": [
+   "comment at `Bounded` (PerpEngine.sol:993) says the call is bounded to 64 positions; the loop at `FORCE_CLOSE_MAX` (PerpEngine.sol:1008) bounds it by the constant declared as 96 at `FORCE_CLOSE_MAX` (PerpEngine.sol:163)."
+  ]
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1024,
+  "authority": "anyone (permissionless); also driven by the registry and the redemption extension",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 1025, immutable)",
+   "syncedGeneration (line 1035)",
+   "quote (line 1035)",
+   "openCount (line 1036)",
+   "syncedGeneration (line 1038)",
+   "syncedToken (line 1043)",
+   "quote (line 1075)",
+   "openCount (line 1075)",
+   "quote (line 1098)",
+   "plv (line 1098)"
+  ],
+  "writes": [
+   "plvToken (line 1051)",
+   "shortOiToken (line 1052)",
+   "longOiEth (line 1053)",
+   "observations (line 1056)",
+   "tickCumulative (line 1057)",
+   "obsIndex (line 1058)",
+   "lastObsTs (line 1059)",
+   "lastRingTs (line 1060)",
+   "lastTick (line 1061)",
+   "observations (line 1062)",
+   "quote (line 1099)",
+   "syncedGeneration (line 1101)",
+   "syncedToken (line 1102)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IPerpRegistry.currentGeneration (PerpEngine.sol:1025), TRUSTED, out-of-cluster",
+   "IPerpRegistry.generationQuote (PerpEngine.sol:1034), TRUSTED, out-of-cluster",
+   "PerpSwapLib.migrateInventory (PerpEngine.sol:1044), TRUSTED, library",
+   "IPerpRegistry.currentToken (PerpEngine.sol:1049), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (PerpEngine.sol:1050), UNTRUSTED, out-of-cluster",
+   "PerpEngine._currentTick (PerpEngine.sol:1061), TRUSTED, in-cluster"
+  ],
+  "reachability": "The only writer of `quote` (PerpEngine.sol:1099) and therefore the only way the engine re-denominates. Four gates in order: a no-op guard that requires either a new generation or a changed quote (`AlreadySynced` (PerpEngine.sol:1035)); an empty book (`openCount` (PerpEngine.sol:1036)); the same empty-book test repeated for the quote change at `openCount` (PerpEngine.sol:1075); and finally a refusal to adopt a new quote while `plv` (PerpEngine.sol:1098) is non-zero. Effects: best-effort 1:1 inventory migration through `migrateInventory` (PerpEngine.sol:1044), re-pointing `plvToken` (PerpEngine.sol:1051) at the engine's REAL balance of the new token, zeroing both open-interest counters, and a full reset of the observation ring at `observations` (PerpEngine.sol:1056). Driven from outside by `syncGeneration` (CauldronRegistry.sol:1097) and `syncGeneration` (RedemptionExt.sol:540), both inside try/catch.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1107,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "positions (line 1108)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._underwater (PerpEngine.sol:1110), TRUSTED, in-cluster"
+  ],
+  "reachability": "Frontend and keeper probe for the liquidation trigger; false for a closed id at `trader` (PerpEngine.sol:1109). It uses the same mark as the real check, so it is exact rather than advisory.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1114,
+  "authority": "internal (callers: isLiquidatable, positionHealth)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._underwaterVal (PerpEngine.sol:1115), TRUSTED, in-cluster",
+   "PerpEngine._quoteMark (PerpEngine.sol:1115), TRUSTED, in-cluster"
+  ],
+  "reachability": "Convenience wrapper that computes the mark value itself; the hot liquidation paths deliberately call `_underwaterVal` (PerpEngine.sol:1123) directly so the ring is only walked once per kill.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1123,
+  "authority": "internal (callers: liquidate, _tryLiquidate, _underwater)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "maintenanceBps (line 1126)",
+   "BPS (line 1126, constant)",
+   "maintenanceBps (line 1130)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The solvency predicate, in two shapes. LONG: the token held is underwater when its mark value is below debt plus the maintenance buffer at `principal` (PerpEngine.sol:1126) - note collateral does not appear, because a long's collateral was already spent into the position. SHORT: underwater when the mark cost of buying back the owed size plus the buffer exceeds `backing` (PerpEngine.sol:1131), where backing is collateral plus the proceeds held at `backing` (PerpEngine.sol:1129).",
+  "observations": []
+ }
+]

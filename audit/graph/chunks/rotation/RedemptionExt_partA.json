@@ -1,0 +1,206 @@
+[
+ {
+  "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+  "line": 45,
+  "authority": "anyone (declaration only; the implementation is the address stored in treasuryGovernor)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, called once per rotation slice at `allowance` (RedemptionExt.sol:303), before any liquidity moves. Its second return value is the envelope's liveness flag: zero remaining means absent, expired or spent, and the caller reverts there at `remaining` (RedemptionExt.sol:317). The implementation is `allowance` (TreasuryGovernor.sol:643). The destination address it returns is used verbatim as the rotation target and is re-checked against the registry allowlist at `allowedQuote` (RedemptionExt.sol:322).",
+  "observations": [
+   "comment at `registration` (RedemptionExt.sol:43) describes the hook's generation-volume registration; code at `ITreasuryGovernor` (RedemptionExt.sol:44) declares the treasury envelope interface instead, and the generation-volume registration is the separate `linkVolume` (RedemptionExt.sol:59)"
+  ]
+ },
+ {
+  "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+  "line": 46,
+  "authority": "anyone (declaration only; the implementation gates on its own caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, invoked at `consume` (RedemptionExt.sol:437) AFTER the liquidity has been removed, swapped and redeployed, so a reverted slice burns no envelope. The second argument tells the governor whether the slice came out of the primary position, passed as the comparison at `fromLeg` (RedemptionExt.sol:437). The implementation is `consume` (TreasuryGovernor.sol:697).",
+  "observations": []
+ },
+ {
+  "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+  "line": 49,
+  "authority": "anyone (declaration only; the implementation is the address stored in treasuryGovernor)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, and the single input to the redenomination decision: it is consulted at `migrationMandateSpent` (RedemptionExt.sol:504), and only when the slice came out of the primary position. A true answer rewrites the generation's recorded quote at `generationQuote` (RedemptionExt.sol:505) and re-points the perp engine in the same transaction at `syncGeneration` (RedemptionExt.sol:540). The implementation is `migrationMandateSpent` (TreasuryGovernor.sol:681).",
+  "observations": []
+ },
+ {
+  "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+  "line": 53,
+  "authority": "anyone (declaration only; the implementation gates on its own caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, called at `swapOnce` (RedemptionExt.sol:376) immediately after the quote side has been pushed to the rotator at `sendAsset` (RedemptionExt.sol:375). The implementation is `swapOnce` (QuoteRotator.sol:331) and it holds the authority gate itself, at `registry` (QuoteRotator.sol:122) \u2014 this facet runs as the registry under delegatecall, which is what satisfies it. The floor argument passed here is the caller's, and the rotator raises it to its own oracle floor at `floor` (QuoteRotator.sol:366).",
+  "observations": []
+ },
+ {
+  "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+  "line": 55,
+  "authority": "anyone (declaration only; the implementation gates on its own caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, called at `withdraw` (RedemptionExt.sol:377) to pull the converted proceeds straight back into the registry, so nothing is left parked in the rotator between the swap and the redeploy. The implementation is `withdraw` (QuoteRotator.sol:589), whose gate accepts the registry as well as its own owner, at `registry` (QuoteRotator.sol:590). The amount requested is exactly what the swap reported, so a rotator holding a leftover balance of the same asset does not release it here.",
+  "observations": []
+ },
+ {
+  "contract": "IHookVolume (declared in RedemptionExt.sol)",
+  "line": 59,
+  "authority": "anyone (declaration only; the implementation gates on its own caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, with two call sites, both passing the generation's primary pool id first: `linkVolume` (RedemptionExt.sol:396) inside the sliced rotation and `linkVolume` (RedemptionExt.sol:628) inside completeRotation. The implementation is `linkVolume` (CauldronHook.sol:1562); it is registry-only at `OnlyRegistry` (CauldronHook.sol:1563) and additionally refuses while any perp position is open, at `PerpsOpen` (CauldronHook.sol:1565) \u2014 which is what guarantees the book is empty when the rotation re-points the engine at `syncGeneration` (RedemptionExt.sol:540).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 78,
+  "authority": "anyone holding a genesis MiFren (the gate is on the facet side, under the registry's delegatecall)",
+  "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != msg.sender) revert NotOwnerOf(); (RedemptionExt.sol:84)",
+  "reads": [
+   "summoned (line 80)",
+   "genesisShares (line 83)",
+   "mifrens (line 84)",
+   "genesisReserveOutstanding (line 91)",
+   "currentGeneration (line 94)",
+   "positionManager (line 96)",
+   "generationReservePositionId (line 97)",
+   "generationPoolKey (line 97)",
+   "reserveTickLower (line 98)",
+   "reserveTickUpper (line 98)"
+  ],
+  "writes": [
+   "genesisReserveOutstanding (line 91)"
+  ],
+  "value": "`claimFromReserve` pays the redeemer in the generation's token out of the out-of-range reserve position (line 95)",
+  "edges": [
+   "CauldronBase._redeemBlocked (RedemptionExt.sol:79), TRUSTED, out-of-cluster",
+   "IERC721.ownerOf (RedemptionExt.sol:84), UNTRUSTED, out-of-cluster",
+   "CauldronBase.floorPerFren (RedemptionExt.sol:86), TRUSTED, out-of-cluster",
+   "IMiFrensContinuable.custodyTransfer (RedemptionExt.sol:92), UNTRUSTED, out-of-cluster",
+   "PoolOps.claimFromReserve (RedemptionExt.sol:95), TRUSTED, library"
+  ],
+  "reachability": "Reached only through the registry's thin stub at `redeemOgFren` (CauldronRegistry.sol:1383), which delegatecalls the full calldata into this facet at `delegatecall` (CauldronRegistry.sol:1456); every gate is therefore evaluated HERE, against the registry's storage and with the registry as address(this). Preconditions: redemption not circuit-broken at `_redeemBlocked` (RedemptionExt.sol:79), the machine summoned at `summoned` (RedemptionExt.sol:80), the id inside the genesis tranche at `genesisShares` (RedemptionExt.sol:83), caller ownership at `ownerOf` (RedemptionExt.sol:84), and a non-zero floor at `F` (RedemptionExt.sol:87). Ordering is effects-then-interaction: the accounting debit at `genesisReserveOutstanding` (RedemptionExt.sol:91) and the custody move at `custodyTransfer` (RedemptionExt.sol:92) both precede the liquidity pull at `claimFromReserve` (RedemptionExt.sol:95), and a short delivery unwinds everything at `NoBalance` (RedemptionExt.sol:104) with a fixed 1e12 tolerance. The `nonReentrant` guard uses the registry's own slot because the facet shares its layout.",
+  "observations": [
+   "comment at `debit` (RedemptionExt.sol:88) says the reserve accounting is debited first; code at `genesisReserveOutstanding` (RedemptionExt.sol:91) debits only when the recorded reserve is at least the floor and otherwise skips the debit while still paying out"
+  ]
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 115,
+  "authority": "anyone (the facet holds the checks; reached through the registry forwarder)",
+  "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != address(this)) revert NotOwnerOf(); (RedemptionExt.sol:119)",
+  "reads": [
+   "summoned (line 116)",
+   "genesisShares (line 117)",
+   "mifrens (line 119)",
+   "mifrens (line 125)",
+   "currentGeneration (line 126)"
+  ],
+  "writes": [],
+  "value": "`_pullGrow` collects twice the live floor in the generation's token from the buyer (line 124)",
+  "edges": [
+   "IERC721.ownerOf (RedemptionExt.sol:119), UNTRUSTED, out-of-cluster",
+   "CauldronBase.floorPerFren (RedemptionExt.sol:121), TRUSTED, out-of-cluster",
+   "RedemptionExt._pullGrow (RedemptionExt.sol:124), TRUSTED, in-cluster",
+   "IMiFrensContinuable.custodyTransfer (RedemptionExt.sol:125), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached through the registry stub at `buyTreasuryOgFren` (CauldronRegistry.sol:1389) and its delegatecall at `_forwardToExt` (CauldronRegistry.sol:1451). There is no caller allowlist \u2014 the gating condition is that the registry itself currently custodies the fren, at `ownerOf` (RedemptionExt.sol:119), which only happens after a redemption moved it there at `custodyTransfer` (RedemptionExt.sol:92). Price is twice the LIVE floor read at `floorPerFren` (RedemptionExt.sol:121), so it moves between the quote and the transaction; the payment is pulled and added to the reserve before the fren moves, at `_pullGrow` (RedemptionExt.sol:124). The value written into the event is the amount actually ADDED to the reserve rather than the amount charged, at `_pullGrow` (RedemptionExt.sol:124).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 136,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "summoned (line 137)"
+  ],
+  "writes": [],
+  "value": "`_pullGrow` pulls the caller's generation tokens into the reserve (line 139)",
+  "edges": [
+   "RedemptionExt._pullGrow (RedemptionExt.sol:139), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless, reached through the registry stub at `donateToReserve` (CauldronRegistry.sol:1395). Only two conditions: the machine is `summoned` (RedemptionExt.sol:137) and the `amount` is non-zero (RedemptionExt.sol:138). The caller must have approved the registry for the generation token first, because the pull is a plain transferFrom at `transferFrom` (RedemptionExt.sol:167). The registry documents this as the route paid re-enchant fees take, at `donateToReserve` (CauldronRegistry.sol:340).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 147,
+  "authority": "anyone (keeper or frontend)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "summoned (line 148)",
+   "currentGeneration (line 149)",
+   "positionManager (line 152)",
+   "hook (line 152)",
+   "collectionLedger (line 153)",
+   "mifrens (line 153)",
+   "genesisShares (line 153)",
+   "generationCollection (line 153)",
+   "generationToken (line 154)",
+   "generationReservePositionId (line 155)",
+   "generationPoolKey (line 155)",
+   "reserveTickLower (line 155)",
+   "reserveTickUpper (line 155)",
+   "genesisPending (line 158)"
+  ],
+  "writes": [
+   "genesisPending (line 158)"
+  ],
+  "value": "`materializeLegacy` moves the hook's held buyback tokens into the shared reserve position (line 151)",
+  "edges": [
+   "PoolOps.materializeLegacy (RedemptionExt.sol:151), TRUSTED, library"
+  ],
+  "reachability": "Permissionless, reached through the registry stub at `materializeLegacyReserve` (CauldronRegistry.sol:1401). The only precondition is `summoned` (RedemptionExt.sol:148); with nothing pending the library returns zero and the event is skipped at `added` (RedemptionExt.sol:159). Everything else happens inside the library call, which is handed the reserve position by reference at `ReserveRef` (RedemptionExt.sol:155) and the ledger and collection addresses at `collectionLedger` (RedemptionExt.sol:153). The genesis share of what was deposited is accumulated locally at `genesisPending` (RedemptionExt.sol:158), which is the counter a later crystallisation draws on.",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 165,
+  "authority": "internal (callers: buyTreasuryOgFren, donateToReserve)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "currentGeneration (line 166)",
+   "generationToken (line 167)",
+   "positionManager (line 169)",
+   "generationReservePositionId (line 170)",
+   "generationPoolKey (line 170)",
+   "reserveTickLower (line 171)",
+   "reserveTickUpper (line 171)",
+   "genesisReserveOutstanding (line 182)"
+  ],
+  "writes": [
+   "genesisReserveOutstanding (line 182)"
+  ],
+  "value": "ERC20 `transferFrom` pulls the generation token from the payer into the registry (line 167)",
+  "edges": [
+   "IERC20.transferFrom (RedemptionExt.sol:167), UNTRUSTED, out-of-cluster",
+   "PoolOps.addToReserve (RedemptionExt.sol:168), TRUSTED, library",
+   "CauldronBase.floorPerFren (RedemptionExt.sol:183), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; two callers, `_pullGrow` (RedemptionExt.sol:124) and `_pullGrow` (RedemptionExt.sol:139). The pull is a raw transferFrom whose boolean is checked at `transferFrom` (RedemptionExt.sol:167), so a token that returns false reverts rather than silently succeeding; a fee-on-transfer token would still over-report, because the amount requested and not the amount received is what is passed on at `amount` (RedemptionExt.sol:171). The interaction precedes the effect here \u2014 tokens are pulled, then deposited, then the counter is raised at `genesisReserveOutstanding` (RedemptionExt.sol:182) \u2014 and the pay-for-nothing guard at `added` (RedemptionExt.sol:181) is what makes a deposit that maps to zero liquidity revert instead of keeping the payment. The returned value is the amount ADDED, which the callers use in place of the amount charged.",
+  "observations": []
+ }
+]

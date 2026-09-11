@@ -1,0 +1,4353 @@
+{
+ "cluster": "nft",
+ "source_root": "/tmp/blind-final/contracts/solidity",
+ "generated": "2026-09-11T13:24:25",
+ "files": {
+  "cauldron/MiFrensGenesis.sol": 719,
+  "cauldron/CauldronCollection.sol": 433,
+  "cauldron/CollectionLedger.sol": 157,
+  "cauldron/CauldronGachaRouter.sol": 554,
+  "cauldron/MiFrensDividend.sol": 544,
+  "cauldron/MintCurvePolicy.sol": 115,
+  "cauldron/CauldronFactory.sol": 106,
+  "cauldron/ICreatorToken.sol": 20,
+  "interfaces/INFTContract.sol": 13
+ },
+ "nodes": [
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 133,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor( string memory name_, string memory symbol_, address minter_, address registry_, uint256 maxSupply_, MetadataMode mode_, string memory baseURI_, address renderer_, address royaltyReceiver_, uint96 royaltyBps_ ) ERC721(name_, symbol_)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "ERC721(name_, symbol_)"
+   ],
+   "body_sha1": "de57477d274e2c2d294a16012099649540203f8e",
+   "body_lines": [
+    144,
+    163
+   ],
+   "authority": "deployer (the CauldronFactory, which becomes `configurator`)",
+   "reads": [
+    "LIQUIDATOR_ID_BASE (line 148, constant)"
+   ],
+   "value": "NONE",
+   "reachability": "Deployment only, from the factory's `new CauldronCollection` (CauldronFactory.sol:71). Three distinct authorities are frozen here: the mint right in `minter` (CauldronCollection.sol:155), the controller in `deployer` (CauldronCollection.sol:156) - which is the registry passed in, not the caller - and the factory in `configurator` (CauldronCollection.sol:157). All four are immutable, so no gate in this file can ever be rotated or renounced. The art cap is forced below the badge range at `LIQUIDATOR_ID_BASE` (CauldronCollection.sol:148). The royalty default is installed through `_setDefaultRoyalty` (CauldronCollection.sol:162) only when a non-zero receiver is passed.",
+   "writes": [
+    "minter (line 155, immutable)",
+    "deployer (line 156, immutable)",
+    "configurator (line 157, immutable)",
+    "maxSupply (line 158, immutable)",
+    "mode (line 159)",
+    "renderer (line 160)",
+    "_baseTokenURI (line 161)"
+   ],
+   "edges": [],
+   "observations": [
+    "comment at `admin` (CauldronCollection.sol:22) says there is no admin surface at all after construction; code at `setMetadata` (CauldronCollection.sol:316), `setTransferValidator` (CauldronCollection.sol:192), `setRarityOdds` (CauldronCollection.sol:426) and `setLiquidatorURI` (CauldronCollection.sol:328) are post-construction setters held by the registry"
+   ],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 169,
+   "kind": "function",
+   "name": "_update",
+   "signature": "function _update(address to, uint256 tokenId, address auth) internal override returns (address)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bb72805d9f210b8f24d1e6908badadcfa4bdf1c5",
+   "body_lines": [
+    173,
+    179
+   ],
+   "authority": "internal (callers: ERC721 _mint, _burn, _transfer and the inherited public transfer entry points)",
+   "reads": [
+    "transferValidator (line 174)"
+   ],
+   "value": "NONE",
+   "reachability": "The single chokepoint for every id movement: reached from `_mint` (CauldronCollection.sol:213), `_mint` (CauldronCollection.sol:356), `_burn` (CauldronCollection.sol:386), `_transfer` (CauldronCollection.sol:396) and the inherited transfer functions. When `transferValidator` (CauldronCollection.sol:174) is non-zero an arbitrary external contract is called before the state change, so a reverting validator freezes minting, burning and the registry recycle alike. Unlike the genesis collection there is no dividend ping and no everMoved bookkeeping here.",
+   "writes": [],
+   "edges": [
+    "ITransferValidator.validateTransfer (CauldronCollection.sol:176), UNTRUSTED, out-of-cluster",
+    "ERC721._update (CauldronCollection.sol:178), TRUSTED, out-of-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 182,
+   "kind": "function",
+   "name": "getTransferValidator",
+   "signature": "function getTransferValidator() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "2ede13e2759297ef93349ee16002dfa39d389648",
+   "body_lines": [
+    182,
+    184
+   ],
+   "authority": "anyone",
+   "reads": [
+    "transferValidator (line 183)"
+   ],
+   "value": "NONE",
+   "reachability": "View of the slot written at `transferValidator` (CauldronCollection.sol:195).",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 187,
+   "kind": "function",
+   "name": "getTransferValidationFunction",
+   "signature": "function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "cbc44bdf3d419823449aebcfdcd45349b7f807fe",
+   "body_lines": [
+    187,
+    189
+   ],
+   "authority": "anyone",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "Pure constant pair; returns the selector of `validateTransfer` (CauldronCollection.sol:188) and reads no state.",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 192,
+   "kind": "function",
+   "name": "setTransferValidator",
+   "signature": "function setTransferValidator(address validator) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "fa01b6f3209235ccf967738ac9d6dae32cbd2082",
+   "body_lines": [
+    192,
+    196
+   ],
+   "authority": "registry (held in the immutable `deployer` slot)",
+   "reads": [
+    "deployer (line 193, immutable)",
+    "transferValidator (line 194)"
+   ],
+   "value": "NONE",
+   "reachability": "Only the registry address frozen at `deployer` (CauldronCollection.sol:156) can reach it, and that address is immutable so the right cannot be moved. Setting a non-zero value routes every move through the external check at `validateTransfer` (CauldronCollection.sol:176).",
+   "writes": [
+    "transferValidator (line 195)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:193)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 199,
+   "kind": "function",
+   "name": "supportsInterface",
+   "signature": "function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981) returns (bool)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "60f0cb66b5e355a6739e4972daca8d494486aa4f",
+   "body_lines": [
+    199,
+    201
+   ],
+   "authority": "anyone",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "View; adds the creator-token id to the inherited answer at `supportsInterface` (CauldronCollection.sol:200).",
+   "writes": [],
+   "edges": [
+    "ERC2981.supportsInterface (CauldronCollection.sol:200), TRUSTED, out-of-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 207,
+   "kind": "function",
+   "name": "mint",
+   "signature": "function mint(address to) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3b718bab852ceea73d617af4032007a9cf6c80a3",
+   "body_lines": [
+    207,
+    215
+   ],
+   "authority": "minter (the volume hook, frozen at deploy)",
+   "reads": [
+    "minter (line 208, immutable)",
+    "totalMinted (line 209)",
+    "maxSupply (line 209, immutable)",
+    "totalMinted (line 210)"
+   ],
+   "value": "NONE",
+   "reachability": "The only art-mint path in the collection: no public mint exists, and the caller must be the immutable `minter` (CauldronCollection.sol:208). Ids are strictly increasing from the pre-incremented `totalMinted` (CauldronCollection.sol:210) and are capped by `maxSupply` (CauldronCollection.sol:209). The token is created at `_mint` (CauldronCollection.sol:213) through the `_update` override (CauldronCollection.sol:169). Only the mint block is committed at `mintBlockOf` (CauldronCollection.sol:212); no rarity is assigned yet, so a fresh token reads as unrevealed at `revealed` (CauldronCollection.sol:411).",
+   "writes": [
+    "totalMinted (line 210)",
+    "mintBlockOf (line 212)"
+   ],
+   "edges": [],
+   "observations": [
+    "comment at `Rarity` (CauldronCollection.sol:99) says the tier is rolled at mint from an on-chain seed and stored; code at `mintBlockOf` (CauldronCollection.sol:212) stores only the block and `rarityOf` (CauldronCollection.sol:270) is written later inside the reveal path"
+   ],
+   "authority_gate_quote": "if (msg.sender != minter) revert OnlyMinter(); (CauldronCollection.sol:208)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 219,
+   "kind": "function",
+   "name": "reveal",
+   "signature": "function reveal(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "222c01a55377f219fea925e5f095247ea4e904fa",
+   "body_lines": [
+    219,
+    221
+   ],
+   "authority": "holder of token",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "Wrapper; the ownership gate is in the callee at `ownerOf` (CauldronCollection.sol:248).",
+   "writes": [],
+   "edges": [
+    "CauldronCollection._reveal (CauldronCollection.sol:220), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 239,
+   "kind": "function",
+   "name": "revealBatch",
+   "signature": "function revealBatch(uint256[] calldata tokenIds) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "94cf710cfcefafe6327404306db8063334dcf706",
+   "body_lines": [
+    239,
+    245
+   ],
+   "authority": "holder of token",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "Batch wrapper bounded at fifty ids by the check at `BadBatch` (CauldronCollection.sol:243); every element still passes the per-token ownership gate at `ownerOf` (CauldronCollection.sol:248), so a single id the caller does not own reverts the whole batch.",
+   "writes": [],
+   "edges": [
+    "CauldronCollection._reveal (CauldronCollection.sol:244), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 247,
+   "kind": "function",
+   "name": "_reveal",
+   "signature": "function _reveal(uint256 tokenId) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "548c0c2e837457bc0c8c5444a119a50364c0c6bd",
+   "body_lines": [
+    247,
+    274
+   ],
+   "authority": "internal (callers: reveal, revealBatch); the caller must own the token",
+   "reads": [
+    "revealed (line 249)",
+    "mintBlockOf (line 250)"
+   ],
+   "value": "NONE",
+   "reachability": "Reached from the single wrapper at `_reveal` (CauldronCollection.sol:220) or the batch at `_reveal` (CauldronCollection.sol:244). Reverts until the committed block is in the past at `NotReady` (CauldronCollection.sol:251); once its hash has aged out it rewrites `mintBlockOf` (CauldronCollection.sol:265) and returns leaving `revealed` (CauldronCollection.sol:249) false, so the token stays revealable and nothing is lost. The seed at `_rollRarity` (CauldronCollection.sol:269) mixes the block hash, the id and this contract's address only.",
+   "writes": [
+    "mintBlockOf (line 265)",
+    "rarityOf (line 270)",
+    "revealed (line 271)"
+   ],
+   "edges": [
+    "ERC721.ownerOf (CauldronCollection.sol:248), TRUSTED, out-of-cluster",
+    "CauldronCollection._rollRarity (CauldronCollection.sol:269), TRUSTED, in-cluster"
+   ],
+   "observations": [
+    "comment at `keeper` (CauldronCollection.sol:263) says the holder or a keeper can call reveal again after a re-anchor; code at `ownerOf` (CauldronCollection.sol:248) rejects any caller that is not the current owner, so no keeper can"
+   ],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 276,
+   "kind": "function",
+   "name": "_rollRarity",
+   "signature": "function _rollRarity(uint256 seed) private view returns (uint8)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c0ba744222e022708acb5f76dc6666eaa837e3ef",
+   "body_lines": [
+    276,
+    282
+   ],
+   "authority": "internal (callers: _reveal)",
+   "reads": [
+    "rarityCumBps (line 279)"
+   ],
+   "value": "NONE",
+   "reachability": "Called only from the reveal path at `_rollRarity` (CauldronCollection.sol:269). Walks four cumulative buckets at `rarityCumBps` (CauldronCollection.sol:279) and falls through to tier zero.",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "setVault",
+   "signature": "function setVault(address _vault) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8774598de4ece47b9037e6ef406bbdac9b280d12",
+   "body_lines": [
+    286,
+    290
+   ],
+   "authority": "configurator (the factory) or registry",
+   "reads": [
+    "configurator (line 287, immutable)",
+    "deployer (line 287, immutable)",
+    "vault (line 288)"
+   ],
+   "value": "NONE",
+   "reachability": "Write-once: a second call reverts on the non-zero `vault` (CauldronCollection.sol:288) test. The factory calls it inside `setVault` (CauldronFactory.sol:76); the registry can do it instead if the factory has not. It confers the burn right checked at `vault` (CauldronCollection.sol:385), so the burn authority is permanent once set.",
+   "writes": [
+    "vault (line 289)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:287)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 296,
+   "kind": "function",
+   "name": "setRoyalty",
+   "signature": "function setRoyalty(address receiver, uint96 bps) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cc0ca21d73adac5f5ad8e320176700159a4e9ba8",
+   "body_lines": [
+    296,
+    300
+   ],
+   "authority": "configurator (the factory) or registry",
+   "reads": [
+    "configurator (line 297, immutable)",
+    "deployer (line 297, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Re-settable by either holder, capped at 10 percent by the require at `bps` (CauldronCollection.sol:298). The factory uses it to point royalties at the RoyaltyRouter it just deployed, at `setRoyalty` (CauldronFactory.sol:82). The receiver lands in inherited ERC2981 storage through `_setDefaultRoyalty` (CauldronCollection.sol:299) and is never read back in this file.",
+   "writes": [],
+   "edges": [],
+   "observations": [
+    "comment at `deployer` (CauldronCollection.sol:292) says the royalty receiver is re-pointable by the deployer only; code at `configurator` (CauldronCollection.sol:297) also accepts the factory"
+   ],
+   "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:297)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 306,
+   "kind": "function",
+   "name": "setLiquidatorMinter",
+   "signature": "function setLiquidatorMinter(address _minter) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "5231360fecf00f2177e81b57be4885a4fa743557",
+   "body_lines": [
+    306,
+    309
+   ],
+   "authority": "registry or minter (the volume hook)",
+   "reads": [
+    "deployer (line 307, immutable)",
+    "minter (line 307, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Both holders are immutable, so this right can neither rotate nor be renounced. It confers the only authority accepted at `liquidatorMinter` (CauldronCollection.sol:350), and it is freely re-settable, including to zero, which silently disables badge minting.",
+   "writes": [
+    "liquidatorMinter (line 308)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != deployer && msg.sender != minter) revert OnlyMinter(); (CauldronCollection.sol:307)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 316,
+   "kind": "function",
+   "name": "setMetadata",
+   "signature": "function setMetadata(MetadataMode _mode, address _renderer, string calldata baseURI_) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "677c34a0fa5396961b22751308d8f4653580485d",
+   "body_lines": [
+    316,
+    325
+   ],
+   "authority": "registry (held in the immutable `deployer` slot)",
+   "reads": [
+    "deployer (line 317, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Registry-only. Renderer mode requires a contract with code at `_renderer` (CauldronCollection.sol:319), but the base-URI branch accepts an empty string, and only the branch that matches the new mode is written - switching to base-URI mode with an empty argument blanks `_baseTokenURI` (CauldronCollection.sol:322) for every token.",
+   "writes": [
+    "renderer (line 320)",
+    "_baseTokenURI (line 322)",
+    "mode (line 324)"
+   ],
+   "edges": [],
+   "observations": [
+    "comment at `immutable` (CauldronCollection.sol:17) says the metadata choice is immutable at deploy; code at `mode` (CauldronCollection.sol:324) lets the registry change both the mode and its source at any time"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:317)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 328,
+   "kind": "function",
+   "name": "setLiquidatorURI",
+   "signature": "function setLiquidatorURI(string calldata uri) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1fda3f525a500c9d1d8f825fc88e3baa08913103",
+   "body_lines": [
+    328,
+    331
+   ],
+   "authority": "registry (held in the immutable `deployer` slot)",
+   "reads": [
+    "deployer (line 329, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Registry-only metadata base for the badge branch at `liquidatorURI` (CauldronCollection.sol:408).",
+   "writes": [
+    "liquidatorURI (line 330)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:329)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 336,
+   "kind": "function",
+   "name": "mintLiquidator",
+   "signature": "function mintLiquidator(address to) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4dfec9bd3900c001a3ec3e9053abd167454948ca",
+   "body_lines": [
+    336,
+    338
+   ],
+   "authority": "liquidatorMinter (the wired PerpEngine)",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "Wrapper; the gate is in the callee at `liquidatorMinter` (CauldronCollection.sol:350). The empty stats struct skips the `_liqStats` write (CauldronCollection.sol:355).",
+   "writes": [],
+   "edges": [
+    "CauldronCollection._mintLiquidator (CauldronCollection.sol:337), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 342,
+   "kind": "function",
+   "name": "mintLiquidatorWithStats",
+   "signature": "function mintLiquidatorWithStats(address to, LiqStats calldata st) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "40696ee613a4f98dbcb0e7ba1402f0197386dd75",
+   "body_lines": [
+    345,
+    347
+   ],
+   "authority": "liquidatorMinter (the wired PerpEngine)",
+   "reads": [],
+   "value": "NONE",
+   "reachability": "Same gate, in the callee at `liquidatorMinter` (CauldronCollection.sol:350); the caller's stats are stored verbatim at `_liqStats` (CauldronCollection.sol:355) with no validation.",
+   "writes": [],
+   "edges": [
+    "CauldronCollection._mintLiquidator (CauldronCollection.sol:346), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 349,
+   "kind": "function",
+   "name": "_mintLiquidator",
+   "signature": "function _mintLiquidator(address to, LiqStats memory st) internal returns (uint256 tokenId)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "5de6ad6637e65838a7830f861f2d1afefb4d64bd",
+   "body_lines": [
+    349,
+    358
+   ],
+   "authority": "internal (callers: mintLiquidator, mintLiquidatorWithStats)",
+   "reads": [
+    "liquidatorMinter (line 350)",
+    "LIQUIDATOR_ID_BASE (line 351, constant)",
+    "liquidatorMinted (line 351)"
+   ],
+   "value": "NONE",
+   "reachability": "Badge ids are `LIQUIDATOR_ID_BASE` plus a counter (CauldronCollection.sol:351) and are uncapped: nothing here compares against `maxSupply` (CauldronCollection.sol:209), and the counter is separate from `totalMinted` (CauldronCollection.sol:210). Collision with art ids is impossible because the constructor refuses a cap at or above `LIQUIDATOR_ID_BASE` (CauldronCollection.sol:148). The token is created at `_mint` (CauldronCollection.sol:356).",
+   "writes": [
+    "liquidatorMinted (line 351)",
+    "isLiquidatoor (line 352)",
+    "_liqStats (line 355)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 361,
+   "kind": "function",
+   "name": "liqStats",
+   "signature": "function liqStats(uint256 tokenId) external view returns (LiqStats memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "63a0e684701fc12be5d71c5237150df74bf9a9a1",
+   "body_lines": [
+    361,
+    363
+   ],
+   "authority": "anyone",
+   "reads": [
+    "_liqStats (line 362)"
+   ],
+   "value": "NONE",
+   "reachability": "View of whatever the badge minter recorded at `_liqStats` (CauldronCollection.sol:355); a badge minted through the bare wrapper at `mintLiquidator` (CauldronCollection.sol:336) reads back as an all-zero struct.",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 373,
+   "kind": "function",
+   "name": "setLiquidatorRenderer",
+   "signature": "function setLiquidatorRenderer(address r) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ca36223bd4546d7ad6d64f0f7c93b0f57e1e127e",
+   "body_lines": [
+    373,
+    376
+   ],
+   "authority": "configurator (the factory) or registry",
+   "reads": [
+    "configurator (line 374, immutable)",
+    "deployer (line 374, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Called by the factory during deployment at `setLiquidatorRenderer` (CauldronFactory.sol:87) and thereafter by the registry. Points the badge branch of `tokenURI` (CauldronCollection.sol:406) at an arbitrary contract.",
+   "writes": [
+    "liquidatorRenderer (line 375)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:374)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 379,
+   "kind": "function",
+   "name": "liquidatoorTrait",
+   "signature": "function liquidatoorTrait(uint256 tokenId) external view returns (string memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "aaca80625688fe68f0f354432a64c130e5cd6d78",
+   "body_lines": [
+    379,
+    381
+   ],
+   "authority": "anyone",
+   "reads": [
+    "isLiquidatoor (line 380)"
+   ],
+   "value": "NONE",
+   "reachability": "View over the flag written at `isLiquidatoor` (CauldronCollection.sol:352).",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 384,
+   "kind": "function",
+   "name": "burnFromVault",
+   "signature": "function burnFromVault(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f2f5866c0548ff39cdb5c0d36aa4dbbac674fd8a",
+   "body_lines": [
+    384,
+    387
+   ],
+   "authority": "vault",
+   "reads": [
+    "vault (line 385)"
+   ],
+   "value": "NONE",
+   "reachability": "Only the address wired once at `vault` (CauldronCollection.sol:289). The burn at `_burn` (CauldronCollection.sol:386) does not decrement `totalMinted` (CauldronCollection.sol:210), so the id counter is monotonic, a burned id is never re-issued, and the live ERC721 supply falls below the counter by exactly the number of burns. DERIVED: the counter is written on one line only.",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != vault) revert OnlyVault(); (CauldronCollection.sol:385)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 394,
+   "kind": "function",
+   "name": "custodyTransfer",
+   "signature": "function custodyTransfer(address from, address to, uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2e2a77612653e1b4acf05f3a771dd5350e6600b8",
+   "body_lines": [
+    394,
+    397
+   ],
+   "authority": "registry (held in the immutable `deployer` slot)",
+   "reads": [
+    "deployer (line 395, immutable)"
+   ],
+   "value": "NONE",
+   "reachability": "Registry-only move with no owner approval: `_transfer` (CauldronCollection.sol:396) only requires that `from` is the current owner, and the ownership check the comment relies on is entirely on the registry side. It routes through the `_update` override (CauldronCollection.sol:169), so a set validator can block it. Nothing is burned, so the collection size is unchanged.",
+   "writes": [],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert OnlyVault(); (CauldronCollection.sol:395)"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 400,
+   "kind": "function",
+   "name": "tokenURI",
+   "signature": "function tokenURI(uint256 tokenId) public view override returns (string memory)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "2dfb7c2bd82a12d46e39fe5d7a65380291c0dc6c",
+   "body_lines": [
+    400,
+    422
+   ],
+   "authority": "anyone",
+   "reads": [
+    "isLiquidatoor (line 403)",
+    "liquidatorRenderer (line 405)",
+    "liquidatorURI (line 408)",
+    "revealed (line 411)",
+    "unrevealedURI (line 411)",
+    "mode (line 412)",
+    "renderer (line 413)",
+    "_baseTokenURI (line 417)",
+    "rarityOf (line 418)"
+   ],
+   "value": "NONE",
+   "reachability": "View that calls out to two registry-settable contracts. Reverts for an unminted id at `_requireOwned` (CauldronCollection.sol:401). The art branch at `renderer` (CauldronCollection.sol:413) has no zero-address guard, so Renderer mode with a cleared renderer reverts for every art token, while the badge branch at `liquidatorRenderer` (CauldronCollection.sol:405) does check. Base-URI output interpolates the tier at `rarityOf` (CauldronCollection.sol:418) through `toString` (CauldronCollection.sol:420).",
+   "writes": [],
+   "edges": [
+    "ICollectionRenderer.tokenURI (CauldronCollection.sol:406), UNTRUSTED, out-of-cluster",
+    "ICollectionRenderer.tokenURI (CauldronCollection.sol:413), UNTRUSTED, out-of-cluster"
+   ],
+   "observations": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronCollection",
+   "file": "cauldron/CauldronCollection.sol",
+   "line": 426,
+   "kind": "function",
+   "name": "setRarityOdds",
+   "signature": "function setRarityOdds(uint16[4] calldata cum) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1278d3b5e2884bcb75fa2fb7488df2940edb430d",
+   "body_lines": [
+    426,
+    431
+   ],
+   "authority": "registry (held in the immutable `deployer` slot)",
+   "reads": [
+    "deployer (line 427, immutable)",
+    "totalMinted (line 428)"
+   ],
+   "value": "NONE",
+   "reachability": "Registry-only and only while `totalMinted` (CauldronCollection.sol:428) is zero, so unlike the genesis collection the odds are frozen before the first mint and cannot be changed under tokens that are already waiting to reveal. The require at `cum` (CauldronCollection.sol:429) enforces an ascending ladder ending at 10000.",
+   "writes": [
+    "rarityCumBps (line 430)"
+   ],
+   "edges": [],
+   "observations": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:427)"
+  },
+  {
+   "contract": "CauldronFactory",
+   "file": "cauldron/CauldronFactory.sol",
+   "line": 36,
+   "kind": "function",
+   "name": "setLiquidatorRenderer",
+   "signature": "function setLiquidatorRenderer(address r) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "84688586f8370581d4307a52d9d7613df19d78c7",
+   "body_lines": [
+    36,
+    40
+   ],
+   "value": "NONE",
+   "reads": [
+    "owner (line 37)"
+   ],
+   "observations": [],
+   "writes": [
+    "liquidatorRenderer (line 38)"
+   ],
+   "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (CauldronFactory.sol:37)",
+   "reachability": "Owner-only. The value is applied to every LATER collection the factory deploys at `liquidatorRenderer` (CauldronFactory.sol:86); collections already deployed keep whatever they were given, because the factory only holds the setter right during `deployBrew` (CauldronFactory.sol:63). DERIVED: the factory calls the collection setter only inside that function.",
+   "edges": [],
+   "authority": "owner"
+  },
+  {
+   "contract": "CauldronFactory",
+   "file": "cauldron/CauldronFactory.sol",
+   "line": 42,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cfa084da1ee935be1765fe38e10f2f09b8b8bb23",
+   "body_lines": [
+    42,
+    45
+   ],
+   "value": "NONE",
+   "reads": [
+    "owner (line 43)"
+   ],
+   "observations": [],
+   "writes": [
+    "owner (line 44)"
+   ],
+   "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (CauldronFactory.sol:43)",
+   "reachability": "Owner-only, single-step, with no zero check: passing the zero address at `to` (CauldronFactory.sol:44) permanently dead-ends the badge-renderer setter, which is the only right this owner holds. The slot is initialised to the deploying address at `owner` (CauldronFactory.sol:21).",
+   "edges": [],
+   "authority": "owner"
+  },
+  {
+   "contract": "CauldronFactory",
+   "file": "cauldron/CauldronFactory.sol",
+   "line": 63,
+   "kind": "function",
+   "name": "deployBrew",
+   "signature": "function deployBrew(Config calldata c) external returns (address collection, address vault)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ff077c77d4f8a55e8f2a08b4d6cb7f7f72780544",
+   "body_lines": [
+    66,
+    90
+   ],
+   "value": "no native or token value moves here; what the call produces is three DEPLOYMENTS whose constructors run inside it - `CauldronCollection` (CauldronFactory.sol:71), `CauldronVault` (CauldronFactory.sol:75) and `RoyaltyRouter` (CauldronFactory.sol:81) - each created with caller-supplied addresses and none of them funded by this call.",
+   "reads": [
+    "liquidatorRenderer (line 86)",
+    "liquidatorRenderer (line 87)"
+   ],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "UNGATED: any address can call it and get a collection plus a vault, because the factory grants no authority over an existing brew - the collection it creates takes its controller from the caller-supplied `c` (CauldronFactory.sol:72) rather than from msg.sender, and only the registry that calls it wires the result into the machine. In the protocol path the caller is the registry at `deployBrew` (CauldronRegistry.sol:1151). Three contracts are deployed here and each deployment is what confers the right the following lines spend: `CauldronCollection` (CauldronFactory.sol:71) makes this factory the collection's deployer, which is the only identity its configurator accepts at `setVault` (CauldronFactory.sol:76), `setRoyalty` (CauldronFactory.sol:82) and `setLiquidatorRenderer` (CauldronFactory.sol:87); `CauldronVault` (CauldronFactory.sol:75) is constructed with a zero floor offset and bound to the caller-supplied registry, so that registry - not this factory - is the address able to close it; and `RoyaltyRouter` (CauldronFactory.sol:81) is bound to the caller-supplied hook and is then installed as the collection's royalty receiver at `setRoyalty` (CauldronFactory.sol:82). The badge renderer is applied only when the factory's own slot is non-zero at `liquidatorRenderer` (CauldronFactory.sol:86), and this call is the only moment the factory holds that right. DERIVED: the three constructors execute with this factory as msg.sender, which is what the deployer checks behind those setters compare against.",
+   "edges": [
+    "CauldronCollection.setVault (CauldronFactory.sol:76), TRUSTED, in-cluster",
+    "CauldronCollection.setRoyalty (CauldronFactory.sol:82), TRUSTED, in-cluster",
+    "CauldronCollection.setLiquidatorRenderer (CauldronFactory.sol:87), TRUSTED, in-cluster"
+   ],
+   "authority": "anyone"
+  },
+  {
+   "contract": "CauldronFactory",
+   "file": "cauldron/CauldronFactory.sol",
+   "line": 99,
+   "kind": "function",
+   "name": "deployVault",
+   "signature": "function deployVault(address collection, address registry, uint256 floorOffset) external returns (address vault)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8460a525d1413a8e24449a3d8854a1a97c4522b4",
+   "body_lines": [
+    102,
+    104
+   ],
+   "value": "no native or token value moves; the call is a DEPLOYMENT - it runs the `CauldronVault` (CauldronFactory.sol:103) constructor with the collection, registry and floor offset the caller named, and funds it with nothing.",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "UNGATED and stateless: it returns a new vault bound to the collection and registry the caller names at `CauldronVault` (CauldronFactory.sol:103), so anyone can create an unwired vault for any collection - it confers nothing, because the collection only honours the vault its own `setVault` recorded. The protocol caller is the registry at `deployVault` (CauldronRegistry.sol:1189), which passes a non-zero floor offset for a continued collection.",
+   "edges": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 15,
+   "kind": "function",
+   "name": "commitCrystals",
+   "signature": "function commitCrystals(address player, uint256 maxCount, uint256 playWei) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster callers are _play, openReady and playChurn, all reachable by anyone; the hook holds its own gate",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "if (_locked != 1) revert Reentrancy(); (CauldronGachaRouter.sol:178)",
+   "reachability": "Called at `commitCrystals` (CauldronGachaRouter.sol:326), `commitCrystals` (CauldronGachaRouter.sol:360) and `commitCrystals` (CauldronGachaRouter.sol:387). The router always passes `msg.sender` as the player, so it cannot credit a third party, and the size argument is whatever the router computed - a raw notional on the swap paths and a curve-unit figure on the ready path. The implementation and its authority check are out of cluster.",
+   "reads": []
+  },
+  {
+   "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "resolveTickets",
+   "signature": "function resolveTickets(uint256 maxCount) external returns (uint256, uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster callers are _play, openReady and playChurn",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Called immediately after each commit at `resolveTickets` (CauldronGachaRouter.sol:327), `resolveTickets` (CauldronGachaRouter.sol:361) and `resolveTickets` (CauldronGachaRouter.sol:388), always bounded by the constant at `MAX_MINTS_PER_CALL` (CauldronGachaRouter.sol:327). Its return value is discarded on every call site.",
+   "reads": []
+  },
+  {
+   "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "crystalsReady",
+   "signature": "function crystalsReady(address player) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is openReady",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read once per call at `crystalsReady` (CauldronGachaRouter.sol:346) to size the batch, then clamped by the router.",
+   "reads": []
+  },
+  {
+   "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 18,
+   "kind": "function",
+   "name": "costOfNextCrystals",
+   "signature": "function costOfNextCrystals(uint256 count) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is openReady",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read at `costOfNextCrystals` (CauldronGachaRouter.sol:351); its result is treated as already being in the hook's curve unit and is divided by the buy weight to produce the play size at `playWei` (CauldronGachaRouter.sol:353).",
+   "reads": []
+  },
+  {
+   "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 19,
+   "kind": "function",
+   "name": "buyWeightBps",
+   "signature": "function buyWeightBps() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is openReady",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read at `buyWeightBps` (CauldronGachaRouter.sol:352); a zero answer makes the router pass the raw credit through unscaled at `creditToOpen` (CauldronGachaRouter.sol:353).",
+   "reads": []
+  },
+  {
+   "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 23,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is _key",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read on every swap path through `currentToken` (CauldronGachaRouter.sol:218) to build currency1 of the pool key, so the router follows the live generation with no rewiring.",
+   "reads": []
+  },
+  {
+   "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 25,
+   "kind": "function",
+   "name": "currentGeneration",
+   "signature": "function currentGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is _quote",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read at `currentGeneration` (CauldronGachaRouter.sol:205) purely to index the quote lookup.",
+   "reads": []
+  },
+  {
+   "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 29,
+   "kind": "function",
+   "name": "generationQuote",
+   "signature": "function generationQuote(uint256 gen) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is _quote",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Read at `generationQuote` (CauldronGachaRouter.sol:205). Its answer decides both the currency0 of the key at `_quote` (CauldronGachaRouter.sol:217) and, through the zero test, whether the router settles native or ERC20 at `isNative` (CauldronGachaRouter.sol:414).",
+   "reads": []
+  },
+  {
+   "contract": "IQuoteOracleView (declared in CauldronGachaRouter.sol)",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 37,
+   "kind": "function",
+   "name": "usdPerRawUnit",
+   "signature": "function usdPerRawUnit(address quote) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "writes": [],
+   "authority": "declaration only (no body); in-cluster caller is _playInCurveUnits",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Called inside a try/catch at `usdPerRawUnit` (CauldronGachaRouter.sol:139) on an owner-settable address. A revert or a zero answer both fall back to the unconverted size at `playWei` (CauldronGachaRouter.sol:143), so the oracle can only ever reduce a player's odds, never block the play.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 99,
+   "kind": "function",
+   "name": "setOracle",
+   "signature": "function setOracle(address _oracle) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "8819c58ad7642f3df9464b79825c73c01194cfa3",
+   "body_lines": [
+    99,
+    102
+   ],
+   "value": "NONE",
+   "writes": [
+    "oracle (line 100)"
+   ],
+   "authority": "owner",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "external onlyOwner (CauldronGachaRouter.sol:99)",
+   "reachability": "Owner-only, freely re-settable, no zero check and no code check: the address lands in `oracle` (CauldronGachaRouter.sol:100) and is then called on every swap-path play at `usdPerRawUnit` (CauldronGachaRouter.sol:139). The owner slot is the OZ Ownable one, so it can also be transferred or renounced from outside this file.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 120,
+   "kind": "function",
+   "name": "playInCurveUnits",
+   "signature": "function playInCurveUnits(uint256 playWei) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f46ec74d7889a40dc730e9d9f6cc55e69e717ea8",
+   "body_lines": [
+    120,
+    122
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:121), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "View wrapper so a frontend can display the same number the chain will roll at `_playInCurveUnits` (CauldronGachaRouter.sol:326).",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 136,
+   "kind": "function",
+   "name": "_playInCurveUnits",
+   "signature": "function _playInCurveUnits(uint256 playWei) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "29fc2b9ef32530cfb670a5f8eb45b0989962d972",
+   "body_lines": [
+    136,
+    145
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "internal (callers: playInCurveUnits, _play, playChurn)",
+   "observations": [],
+   "edges": [
+    "IQuoteOracleView.usdPerRawUnit (CauldronGachaRouter.sol:139), UNTRUSTED, in-cluster",
+    "CauldronGachaRouter._quote (CauldronGachaRouter.sol:139), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "With `oracle` (CauldronGachaRouter.sol:137) unset the size passes through unchanged. Otherwise the raw size is multiplied by the oracle's factor and divided by 1e18 at `f` (CauldronGachaRouter.sol:141), so the result is only in the hook's unit if the oracle's scaling matches; the quote asked for is the generation's own quote at `_quote` (CauldronGachaRouter.sol:139), not native ETH. Rounds down, and a zero factor is treated as `cannot judge` (CauldronGachaRouter.sol:140).",
+   "reads": [
+    "oracle (line 137)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 177,
+   "kind": "modifier",
+   "name": "nonReentrant",
+   "signature": "modifier nonReentrant()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1c7a0e6192e769f914da806e29ee59776a85059f",
+   "body_lines": [
+    177,
+    182
+   ],
+   "value": "NONE",
+   "writes": [
+    "_locked (line 179)",
+    "_locked (line 181)"
+   ],
+   "authority": "internal (callers: play, playLiq, openReady, playChurn)",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "if (_locked != 1) revert Reentrancy(); (CauldronGachaRouter.sol:178)",
+   "reachability": "Wraps all four external entry points. It is NOT applied to `unlockCallback` (CauldronGachaRouter.sol:398), which is reached re-entrantly from the pool manager while the flag is already set, so the guard admits that one nested frame by design.",
+   "reads": [
+    "_locked (line 178)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 184,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(IPoolManager _poolManager, address _hook, address _registry, address _owner) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "0e9f47de60f7453f83e4db67ea5538d141884e30",
+   "body_lines": [
+    186,
+    191
+   ],
+   "value": "NONE",
+   "writes": [
+    "poolManager (line 187, immutable)",
+    "hook (line 188, immutable)",
+    "hookAddr (line 189, immutable)",
+    "registry (line 190, immutable)"
+   ],
+   "authority": "deployer",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Deployment only, with no zero checks on any of the four wired addresses. All four are immutable, so the pool manager, hook and registry cannot be re-pointed; only `oracle` (CauldronGachaRouter.sol:100) and the OZ owner are mutable afterwards. The owner comes from the constructor argument at `Ownable` (CauldronGachaRouter.sol:185).",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 204,
+   "kind": "function",
+   "name": "_quote",
+   "signature": "function _quote() internal view returns (address)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9340051c881d052a412b6eb73a37000d74e3742c",
+   "body_lines": [
+    204,
+    206
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "internal (callers: _key, _playInCurveUnits, playChurn)",
+   "observations": [],
+   "edges": [
+    "IRegistryCurrent.generationQuote (CauldronGachaRouter.sol:205), TRUSTED, in-cluster",
+    "IRegistryCurrent.currentGeneration (CauldronGachaRouter.sol:205), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Two chained registry views on every call. The answer is re-read per call rather than cached, so a rotation that rewrites the generation's quote changes which asset `_pullQuote` (CauldronGachaRouter.sol:271) demands from the very next caller, and a play that is in flight in the same block can be pointed at a different pool than the sender expected. DERIVED: nothing in this file stores the quote.",
+   "reads": [
+    "registry (line 205, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 215,
+   "kind": "function",
+   "name": "_key",
+   "signature": "function _key() internal view returns (PoolKey memory)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "48405c31fb76adcadb3b1bb9e39bab71b2583198",
+   "body_lines": [
+    215,
+    223
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "internal (callers: _play, unlockCallback, _churn)",
+   "observations": [
+    "comment at `currency0` (CauldronGachaRouter.sol:210) states as an invariant that the quote always sorts into currency0; code at `Currency` (CauldronGachaRouter.sol:217) assigns the two currencies by role and never compares the addresses, so the property is enforced elsewhere, not here"
+   ],
+   "edges": [
+    "CauldronGachaRouter._quote (CauldronGachaRouter.sol:217), TRUSTED, in-cluster",
+    "IRegistryCurrent.currentToken (CauldronGachaRouter.sol:218), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Rebuilds the pool key from live registry state on every entry. The quote is placed in currency0 at `_quote` (CauldronGachaRouter.sol:217) and the iteration token in currency1 at `currentToken` (CauldronGachaRouter.sol:218) with no comparison between the two addresses, so the ordering rests entirely on the registry's own admission rule.",
+   "reads": [
+    "POOL_FEE (line 219, constant)",
+    "TICK_SPACING (line 220, constant)",
+    "hookAddr (line 221, immutable)",
+    "registry (line 218, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 233,
+   "kind": "function",
+   "name": "play",
+   "signature": "function play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax) external payable nonReentrant returns (uint256 opened)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "a9bbaab569e7544f461b64b6da64869da376a09f",
+   "body_lines": [
+    238,
+    240
+   ],
+   "value": "receives native when the generation's quote is native - declared `payable` (line 235)",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._play (CauldronGachaRouter.sol:239), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Permissionless entry point guarded by `nonReentrant` (CauldronGachaRouter.sol:236). Passes an empty hint array, so no perp liquidation is attempted at `_play` (CauldronGachaRouter.sol:239).",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 248,
+   "kind": "function",
+   "name": "playLiq",
+   "signature": "function playLiq( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] calldata liqHints ) external payable nonReentrant returns (uint256 opened)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "953290286489315e6d2becae3ff659da49bb049a",
+   "body_lines": [
+    260,
+    262
+   ],
+   "value": "receives native when the generation's quote is native - declared `payable` (line 257)",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._play (CauldronGachaRouter.sol:261), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Same permissionless path as the plain play, guarded by `nonReentrant` (CauldronGachaRouter.sol:258); the caller-supplied hint list is forwarded untouched into the swap's hookData at `liqHints` (CauldronGachaRouter.sol:408). The array is unbounded here - only the hook limits how many hints it will process. DERIVED: no length check exists in this file.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 271,
+   "kind": "function",
+   "name": "_pullQuote",
+   "signature": "function _pullQuote(address q, uint256 quoteIn) private returns (uint256)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7ebdadd6bf7341ab85b52fa2dbbdaede66394aa1",
+   "body_lines": [
+    271,
+    279
+   ],
+   "value": "receives native `msg.value` on the native branch (line 274); ERC20 pull of `q` from the caller into this router (line 277)",
+   "writes": [],
+   "authority": "internal (callers: _play, playChurn)",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:277), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Enforces exactly one funding form: value with no `quoteIn` (CauldronGachaRouter.sol:273) when the quote is native, or an allowance pull with no value at `msg.value` (CauldronGachaRouter.sol:276) otherwise. It returns the REQUESTED amount at `quoteIn` (CauldronGachaRouter.sol:278) rather than a measured balance delta, so a fee-on-transfer quote would credit the player more than actually arrived. DERIVED: no balance is read before or after the pull.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 281,
+   "kind": "function",
+   "name": "_play",
+   "signature": "function _play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] memory liqHints ) internal returns (uint256 opened)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a56944d67e9e13e8aee41237ee40f2edc28fdca5",
+   "body_lines": [
+    291,
+    340
+   ],
+   "value": "ERC20 pull of the iteration token from the caller at `_safeTransferFrom` (line 298); ERC20 refund of the unused token to `msg.sender` (line 331); quote paid back to `msg.sender` (line 338)",
+   "writes": [],
+   "authority": "internal (callers: play, playLiq)",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._key (CauldronGachaRouter.sol:292), TRUSTED, in-cluster",
+    "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:294), TRUSTED, in-cluster",
+    "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:298), TRUSTED, in-cluster",
+    "IPoolManager.unlock (CauldronGachaRouter.sol:301), TRUSTED, out-of-cluster",
+    "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:326), UNTRUSTED, in-cluster",
+    "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:326), TRUSTED, in-cluster",
+    "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:327), UNTRUSTED, in-cluster",
+    "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:331), TRUSTED, in-cluster",
+    "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:338), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Body of both public play paths. It pulls the two inputs, then enters the pool manager through `unlock` (CauldronGachaRouter.sol:301), which calls back into `unlockCallback` (CauldronGachaRouter.sol:398) where the swaps run. Slippage on the sell leg is checked only when something was sold, at `sellEthGross` (CauldronGachaRouter.sol:318); the buy leg's minimum is enforced inside the callback instead. The gacha commit and resolve happen before any payout, so the two token sends at `_safeTransfer` (CauldronGachaRouter.sol:331) and `_payQuote` (CauldronGachaRouter.sol:338) are the last actions and the hook cannot be re-entered through a hostile recipient while state is half-written. The play size reported to the hook is the ETH-equivalent notional `playWei` (CauldronGachaRouter.sol:322), converted for the curve, while the event reports the raw notional.",
+   "reads": [
+    "poolManager (line 301, immutable)",
+    "hook (line 326, immutable)",
+    "MAX_MINTS_PER_CALL (line 327, constant)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 345,
+   "kind": "function",
+   "name": "openReady",
+   "signature": "function openReady(uint256 maxCount) external nonReentrant returns (uint256 opened)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "e491050c810f7fc7e45494393e403e448bb3e031",
+   "body_lines": [
+    345,
+    363
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [
+    "ICauldronHookGacha.crystalsReady (CauldronGachaRouter.sol:346), UNTRUSTED, in-cluster",
+    "ICauldronHookGacha.costOfNextCrystals (CauldronGachaRouter.sol:351), UNTRUSTED, in-cluster",
+    "ICauldronHookGacha.buyWeightBps (CauldronGachaRouter.sol:352), UNTRUSTED, in-cluster",
+    "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:360), UNTRUSTED, in-cluster",
+    "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:361), UNTRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Permissionless and payment-free: it opens crystals the caller already earned, clamped to the constant at `MAX_MINTS_PER_CALL` (CauldronGachaRouter.sol:347) and to the caller's own `maxCount` (CauldronGachaRouter.sol:348), and returns early when nothing is ready at `ready` (CauldronGachaRouter.sol:349). No value moves in this function at all; the size handed to the hook is derived from the hook's own curve at `creditToOpen` (CauldronGachaRouter.sol:353) and is deliberately not passed through the oracle conversion.",
+   "reads": [
+    "hook (line 346, immutable)",
+    "MAX_MINTS_PER_CALL (line 347, constant)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 368,
+   "kind": "function",
+   "name": "playChurn",
+   "signature": "function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax) external payable nonReentrant returns (uint256 opened)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "86efb8be392c606734760b80b6acafb66e51654d",
+   "body_lines": [
+    373,
+    392
+   ],
+   "value": "receives native when the quote is native - declared `payable` (line 370); leftover quote paid back to `msg.sender` (line 390)",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._quote (CauldronGachaRouter.sol:374), TRUSTED, in-cluster",
+    "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:375), TRUSTED, in-cluster",
+    "IPoolManager.unlock (CauldronGachaRouter.sol:379), TRUSTED, out-of-cluster",
+    "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:387), UNTRUSTED, in-cluster",
+    "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:387), TRUSTED, in-cluster",
+    "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:388), UNTRUSTED, in-cluster",
+    "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:390), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Permissionless, guarded by `nonReentrant` (CauldronGachaRouter.sol:371) and bounded by the constant at `MAX_LOOPS` (CauldronGachaRouter.sol:377). It requires a buy-side amount at `spend` (CauldronGachaRouter.sol:376) - there is no sell-only churn - and enters the pool manager at `unlock` (CauldronGachaRouter.sol:379) with the churn tag, so the callback runs `_churn` (CauldronGachaRouter.sol:401). The reported volume is the sum of both directions of every loop, so a single deposit is credited as a multiple of itself; the payout at `_payQuote` (CauldronGachaRouter.sol:390) is the last action.",
+   "reads": [
+    "MAX_LOOPS (line 377, constant)",
+    "poolManager (line 379, immutable)",
+    "hook (line 387, immutable)",
+    "MAX_MINTS_PER_CALL (line 388, constant)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 398,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata raw) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f38629bcb6a78fb7a905fdc4c2021bed0ca3fdd5",
+   "body_lines": [
+    398,
+    449
+   ],
+   "value": "the pool manager pays the swap output to the player at `_take` (line 431); the sell output is taken to this router at `_take` (line 444)",
+   "writes": [],
+   "authority": "poolManager (re-entered during unlock)",
+   "observations": [],
+   "edges": [
+    "CauldronGachaRouter._churn (CauldronGachaRouter.sol:401), TRUSTED, in-cluster",
+    "CauldronGachaRouter._key (CauldronGachaRouter.sol:404), TRUSTED, in-cluster",
+    "IPoolManager.swap (CauldronGachaRouter.sol:422), TRUSTED, out-of-cluster",
+    "CauldronGachaRouter._limit (CauldronGachaRouter.sol:424), TRUSTED, in-cluster",
+    "CauldronGachaRouter._settle (CauldronGachaRouter.sol:430), TRUSTED, in-cluster",
+    "CauldronGachaRouter._take (CauldronGachaRouter.sol:431), TRUSTED, in-cluster",
+    "IPoolManager.swap (CauldronGachaRouter.sol:436), TRUSTED, out-of-cluster",
+    "CauldronGachaRouter._settle (CauldronGachaRouter.sol:443), TRUSTED, in-cluster",
+    "CauldronGachaRouter._take (CauldronGachaRouter.sol:444), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronGachaRouter.sol:399)",
+   "reachability": "Only the pool manager can enter, and only while one of the four entry points holds the lock; the caller check at `poolManager` (CauldronGachaRouter.sol:399) is the whole gate, and the payload is trusted because the manager echoes back exactly what the router encoded. The key is rebuilt here at `_key` (CauldronGachaRouter.sol:404) rather than passed in, so a mid-transaction registry change would swap the pool between the outer call and this frame. Buy-leg slippage is enforced at `outAmount` (CauldronGachaRouter.sol:428); the sell leg has no minimum here and is checked by the caller instead. The swap's hookData carries the player and the hint list at `hookData` (CauldronGachaRouter.sol:408), so volume is credited to the player rather than to the router. Price limits come from the extreme constants at `_limit` (CauldronGachaRouter.sol:424), i.e. the pool bounds, not a price the caller chose.",
+   "reads": [
+    "poolManager (line 399, immutable)",
+    "poolManager (line 422, immutable)",
+    "poolManager (line 436, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 451,
+   "kind": "function",
+   "name": "_churn",
+   "signature": "function _churn(ChurnData memory c) private returns (bytes memory)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ebfc37565bd0ae52d494aaedb672e2da164f42d3",
+   "body_lines": [
+    451,
+    499
+   ],
+   "value": "leftover iteration token sent to the player at `_safeTransfer` (line 497)",
+   "writes": [],
+   "authority": "internal (callers: unlockCallback)",
+   "observations": [
+    "comment at `hookData` (CauldronGachaRouter.sol:453) is the churn encoding of the player alone; code at `hookData` (CauldronGachaRouter.sol:408) encodes a second word for the play path, so the two paths hand the hook different payload shapes"
+   ],
+   "edges": [
+    "CauldronGachaRouter._key (CauldronGachaRouter.sol:452), TRUSTED, in-cluster",
+    "IPoolManager.swap (CauldronGachaRouter.sol:467), TRUSTED, out-of-cluster",
+    "CauldronGachaRouter._limit (CauldronGachaRouter.sol:469), TRUSTED, in-cluster",
+    "CauldronGachaRouter._settle (CauldronGachaRouter.sol:474), TRUSTED, in-cluster",
+    "CauldronGachaRouter._take (CauldronGachaRouter.sol:475), TRUSTED, in-cluster",
+    "IPoolManager.swap (CauldronGachaRouter.sol:481), TRUSTED, out-of-cluster",
+    "CauldronGachaRouter._settle (CauldronGachaRouter.sol:488), TRUSTED, in-cluster",
+    "CauldronGachaRouter._take (CauldronGachaRouter.sol:489), TRUSTED, in-cluster",
+    "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:497), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronGachaRouter.sol:399)",
+   "reachability": "Reached only through the tagged branch of the callback at `_churn` (CauldronGachaRouter.sol:401), so it inherits the pool-manager gate. The loop at `loops` (CauldronGachaRouter.sol:465) runs at most ten iterations and each one performs up to two swaps with NO slippage minimum anywhere - the only protection is the loop bound and the price limits at `_limit` (CauldronGachaRouter.sol:469). The final sell is skipped by the index test at `loops` (CauldronGachaRouter.sol:480) so the run ends holding the quote, and any token dust is pushed to the player at `_safeTransfer` (CauldronGachaRouter.sol:497). Both directions are added into the same `playWei` accumulator (CauldronGachaRouter.sol:490), so the credited volume counts the round trip twice.",
+   "reads": [
+    "poolManager (line 467, immutable)",
+    "poolManager (line 481, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 501,
+   "kind": "function",
+   "name": "_limit",
+   "signature": "function _limit(bool zeroForOne) private pure returns (uint160)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "dc805e20c93fe65f7d2d721ee36478912fed8feb",
+   "body_lines": [
+    501,
+    503
+   ],
+   "value": "NONE",
+   "writes": [],
+   "authority": "internal (callers: unlockCallback, _churn)",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pure constants returned at `zeroForOne` (CauldronGachaRouter.sol:502): the minimum and maximum usable square-root prices, i.e. no price limit at all. Every swap in the file uses them, so the callers rely on explicit minimum-output checks instead.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 505,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(Currency currency, uint256 amount, bool isNative) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "148eacaece7452442349be0c958dd5e04aac7c7d",
+   "body_lines": [
+    505,
+    513
+   ],
+   "value": "sends native to the pool manager at `settle` (line 507); on the ERC20 branch the manager's balance is synced at `sync` (line 509), the token is pushed to it at `_safeTransfer` (line 510) and the debt is closed at `settle` (line 511)",
+   "writes": [],
+   "authority": "internal (callers: unlockCallback, _churn)",
+   "observations": [],
+   "edges": [
+    "IPoolManager.settle (CauldronGachaRouter.sol:507), TRUSTED, out-of-cluster",
+    "IPoolManager.sync (CauldronGachaRouter.sol:509), TRUSTED, out-of-cluster",
+    "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:510), TRUSTED, in-cluster",
+    "IPoolManager.settle (CauldronGachaRouter.sol:511), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Two settlement shapes selected by the `isNative` flag the caller computed (CauldronGachaRouter.sol:506): value-bearing settle for native, or sync then transfer then settle for an ERC20 quote. The native branch spends this contract's balance, which includes anything the open `receive` (CauldronGachaRouter.sol:552) has accumulated, not only the current caller's value. DERIVED: the function takes an amount, not a per-caller accounting entry.",
+   "reads": [
+    "poolManager (line 507, immutable)",
+    "poolManager (line 509, immutable)",
+    "poolManager (line 510, immutable)",
+    "poolManager (line 511, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 515,
+   "kind": "function",
+   "name": "_take",
+   "signature": "function _take(Currency currency, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "110688771df6319f7fb550556051fbe582c8bee5",
+   "body_lines": [
+    515,
+    517
+   ],
+   "value": "the pool manager pays `to` at `take` (line 516)",
+   "writes": [],
+   "authority": "internal (callers: unlockCallback, _churn)",
+   "observations": [],
+   "edges": [
+    "IPoolManager.take (CauldronGachaRouter.sol:516), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Zero-amount no-op at `amount` (CauldronGachaRouter.sol:516). The destination is either the player directly or this router, chosen by each call site.",
+   "reads": [
+    "poolManager (line 516, immutable)"
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 525,
+   "kind": "function",
+   "name": "_payQuote",
+   "signature": "function _payQuote(address q, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ca2f7616c6576871eb6c40fc9712191605eacd9c",
+   "body_lines": [
+    525,
+    533
+   ],
+   "value": "sends native to `to` (line 528); ERC20 sent to `to` at `_safeTransfer` (line 531)",
+   "writes": [],
+   "authority": "internal (callers: _play, playChurn)",
+   "observations": [],
+   "edges": [
+    "to.call (CauldronGachaRouter.sol:528), UNTRUSTED, out-of-cluster",
+    "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:531), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pays the player back in whatever the generation's quote is. The native branch forwards all remaining gas to an arbitrary recipient at `call` (CauldronGachaRouter.sol:528); it is only ever reached after the gacha state has already been committed, and every caller is wrapped by the guard at `_locked` (CauldronGachaRouter.sol:178). A rejecting recipient reverts the whole play at `RefundFailed` (CauldronGachaRouter.sol:529) rather than losing the refund.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 535,
+   "kind": "function",
+   "name": "_safeTransfer",
+   "signature": "function _safeTransfer(address token, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e176d5f47c66e0115b9c20aae1600a4738364b70",
+   "body_lines": [
+    535,
+    539
+   ],
+   "value": "ERC20 transfer of `token` to `to` (line 537)",
+   "writes": [],
+   "authority": "internal (callers: _play, _churn, _settle, _payQuote)",
+   "observations": [],
+   "edges": [
+    "token.call (CauldronGachaRouter.sol:537), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Raw call with a decoded-boolean check at `data` (CauldronGachaRouter.sol:538), so both standard and non-standard ERC20s are handled. The token address always comes from the pool key or the generation quote, never directly from a caller argument. DERIVED: every call site passes a currency unwrapped from the key or the quote.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 541,
+   "kind": "function",
+   "name": "_safeTransferFrom",
+   "signature": "function _safeTransferFrom(address token, address from, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bce748b50cafac4d9bdc0d276488ca5afd5f3af4",
+   "body_lines": [
+    541,
+    545
+   ],
+   "value": "ERC20 transferFrom of `token` from `from` to `to` (line 543)",
+   "writes": [],
+   "authority": "internal (callers: _pullQuote, _play)",
+   "observations": [],
+   "edges": [
+    "token.call (CauldronGachaRouter.sol:543), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pulls the caller's quote or token using the router's allowance; the same decoded-boolean check at `data` (CauldronGachaRouter.sol:544) applies. Both call sites pass `msg.sender` as the source, so the allowance cannot be spent on behalf of a third party. DERIVED: the two call sites are the pull at `_safeTransferFrom` (CauldronGachaRouter.sol:277) and the one at `_safeTransferFrom` (CauldronGachaRouter.sol:298).",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 547,
+   "kind": "function",
+   "name": "rescueETH",
+   "signature": "function rescueETH(address to, uint256 amount) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "cab006e3f0acb6d2e4ffe44268d5ebdc5ef60b26",
+   "body_lines": [
+    547,
+    550
+   ],
+   "value": "sends native to `to` (line 548)",
+   "writes": [],
+   "authority": "owner",
+   "observations": [],
+   "edges": [
+    "to.call (CauldronGachaRouter.sol:548), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "external onlyOwner (CauldronGachaRouter.sol:547)",
+   "reachability": "Owner-only sweep of the contract's native balance to any address, with no accounting and no cap: it can move value that arrived through the open `receive` (CauldronGachaRouter.sol:552) or any native dust left by a settlement. It has no reentrancy guard, but it holds no per-user accounting to corrupt. DERIVED: the router stores no per-player balances.",
+   "reads": []
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 552,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    552,
+    552
+   ],
+   "value": "receives native - declared `payable` (line 552)",
+   "writes": [],
+   "authority": "anyone",
+   "observations": [],
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Open and empty, so any address can push ETH in. Such a balance is indistinguishable from a player's value once inside, and it is spendable by the native settle branch at `settle` (CauldronGachaRouter.sol:507) and by the owner at `rescueETH` (CauldronGachaRouter.sol:547).",
+   "reads": []
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 72,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _registry)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c910907f34fa15f1ae969dec196fa1327e0dd3e0",
+   "body_lines": [
+    72,
+    75
+   ],
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "writes": [
+    "registry (line 74, immutable)"
+   ],
+   "reachability": "Deployment only. `registry` (CollectionLedger.sol:74) is immutable and non-zero, so the single authority over this cap table is fixed at deploy and can never be rotated, renounced or dead-ended.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "authority": "deployer"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 77,
+   "kind": "modifier",
+   "name": "onlyRegistry",
+   "signature": "modifier onlyRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9fc52a1474bebaa55e587b54813691f8e77da6c9",
+   "body_lines": [
+    77,
+    80
+   ],
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "writes": [],
+   "reachability": "The only gate in the file, applied to `credit` (CollectionLedger.sol:106), `redeem` (CollectionLedger.sol:117), `buyback` (CollectionLedger.sol:130) and `crystallize` (CollectionLedger.sol:143). Every number in this contract is therefore whatever the registry asserts; the ledger holds no tokens and verifies nothing against a balance.",
+   "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CollectionLedger.sol:78)",
+   "reads": [
+    "registry (line 78, immutable)"
+   ],
+   "authority": "internal (callers: credit, redeem, buyback, crystallize)"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 86,
+   "kind": "function",
+   "name": "outstanding",
+   "signature": "function outstanding(uint256 gen, uint256 mintedNow) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4c00f3923544658e184c18951deefa470e51b6ff",
+   "body_lines": [
+    86,
+    90
+   ],
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "writes": [],
+   "reachability": "Pure view. Before death the supply term is the caller-supplied `mintedNow` argument (CollectionLedger.sol:87) rather than anything this contract can verify; after `crystallized` (CollectionLedger.sol:87) is set it switches to the snapshot in `frozenSupply` (CollectionLedger.sol:87). Saturates at zero at `supply` (CollectionLedger.sol:89) so retired can exceed supply without reverting.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "crystallized (line 87)",
+    "frozenSupply (line 87)",
+    "retired (line 88)"
+   ],
+   "authority": "anyone"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 94,
+   "kind": "function",
+   "name": "floorPerNFT",
+   "signature": "function floorPerNFT(uint256 gen, uint256 mintedNow) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "74488ede4b41ffaa05671cadc83a6ae796d91e93",
+   "body_lines": [
+    94,
+    98
+   ],
+   "edges": [
+    "CollectionLedger.outstanding (CollectionLedger.sol:95), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "observations": [],
+   "writes": [],
+   "reachability": "Pure view; integer division at `entitledTokens` (CollectionLedger.sol:97) rounds the per-NFT floor DOWN, and returns zero when `n` (CollectionLedger.sol:96) is zero instead of dividing by zero.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "entitledTokens (line 97)"
+   ],
+   "authority": "anyone"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 106,
+   "kind": "function",
+   "name": "credit",
+   "signature": "function credit(uint256 gen, uint256 tokens) external onlyRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "4d743c362e40263e1928e141e06c27bfca25f599",
+   "body_lines": [
+    106,
+    111
+   ],
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "writes": [
+    "entitledTokens (line 108)",
+    "totalEntitled (line 109)"
+   ],
+   "reachability": "Registry-only. The single increase path for a generation's pot: both `entitledTokens` (CollectionLedger.sol:108) and the global `totalEntitled` (CollectionLedger.sol:109) move by the same amount, so the stated sum invariant is preserved. Nothing is transferred here - the tokens the number represents sit in the registry's reserve, so the counter is backed only by the registry's own discipline. DERIVED: the contract makes no external call and holds no balance.",
+   "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:106)",
+   "reads": [
+    "entitledTokens (line 110)"
+   ],
+   "authority": "registry"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 117,
+   "kind": "function",
+   "name": "redeem",
+   "signature": "function redeem(uint256 gen, uint256 mintedNow) external onlyRegistry returns (uint256 payout)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "53a40a3e8fe7a3e7e1941f0e7b1df4330504da40",
+   "body_lines": [
+    117,
+    125
+   ],
+   "edges": [
+    "CollectionLedger.outstanding (CollectionLedger.sol:118), TRUSTED, in-cluster",
+    "CollectionLedger.floorPerNFT (CollectionLedger.sol:124), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "observations": [],
+   "writes": [
+    "entitledTokens (line 121)",
+    "retired (line 122)",
+    "totalEntitled (line 123)"
+   ],
+   "reachability": "Registry-only. Pays one NFT's share, computed by the same rounding-down division as the view at `payout` (CollectionLedger.sol:120), then debits both counters by exactly that amount at `entitledTokens` (CollectionLedger.sol:121) and `totalEntitled` (CollectionLedger.sol:123) and increments `retired` (CollectionLedger.sol:122). The rounding remainder stays in the pot, so the per-NFT floor of the survivors can only rise. Reverts when nothing is outstanding at `n` (CollectionLedger.sol:119). The caller-supplied `mintedNow` sizes the divisor, so a registry that passes a larger count pays less per NFT and one that passes a smaller count pays more. DERIVED: `mintedNow` is never validated in this file.",
+   "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:117)",
+   "reads": [
+    "entitledTokens (line 120)",
+    "retired (line 122)"
+   ],
+   "authority": "registry"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 130,
+   "kind": "function",
+   "name": "buyback",
+   "signature": "function buyback(uint256 gen, uint256 mintedNow, uint256 paid) external onlyRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "b5015a91a67516959ed6bf063feb7ff26c139554",
+   "body_lines": [
+    130,
+    137
+   ],
+   "edges": [
+    "CollectionLedger.floorPerNFT (CollectionLedger.sol:136), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "observations": [],
+   "writes": [
+    "entitledTokens (line 133)",
+    "retired (line 134)",
+    "totalEntitled (line 135)"
+   ],
+   "reachability": "Registry-only, and refused unless something is retired at `retired` (CollectionLedger.sol:132), so the un-retire at `retired` (CollectionLedger.sol:134) cannot underflow. Credits the full `paid` amount (CollectionLedger.sol:133) while returning one NFT to the outstanding set, which raises the floor whenever paid exceeds the current per-NFT share; the ledger itself never checks the two-times-floor rule the comment attributes to the registry.",
+   "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:130)",
+   "reads": [
+    "retired (line 132)"
+   ],
+   "authority": "registry"
+  },
+  {
+   "contract": "CollectionLedger",
+   "file": "cauldron/CollectionLedger.sol",
+   "line": 143,
+   "kind": "function",
+   "name": "crystallize",
+   "signature": "function crystallize(uint256 gen, uint256 mintedAtDeath, uint256 extraEntitled) external onlyRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "2a321177bb0277df9678ec190b51543356fe423f",
+   "body_lines": [
+    146,
+    155
+   ],
+   "edges": [],
+   "value": "NONE",
+   "observations": [],
+   "writes": [
+    "crystallized (line 148)",
+    "frozenSupply (line 149)",
+    "entitledTokens (line 151)",
+    "totalEntitled (line 152)"
+   ],
+   "reachability": "Registry-only and one-time per generation, enforced at `crystallized` (CollectionLedger.sol:147). It freezes the supply term used by `frozenSupply` (CollectionLedger.sol:87) to whatever `mintedAtDeath` the registry passes - a zero there makes the generation's outstanding count zero forever, which makes the floor view return zero at `n` (CollectionLedger.sol:96) and the redeem path revert at `n` (CollectionLedger.sol:119) while the pot keeps its balance. The optional final credit moves both counters together at `totalEntitled` (CollectionLedger.sol:152). DERIVED: no function in the file clears `crystallized` or rewrites `frozenSupply`.",
+   "authority_gate_quote": "onlyRegistry (CollectionLedger.sol:145)",
+   "reads": [
+    "crystallized (line 147)",
+    "entitledTokens (line 154)"
+   ],
+   "authority": "registry"
+  },
+  {
+   "contract": "ITransferValidator (declared in ICreatorToken.sol)",
+   "file": "cauldron/ICreatorToken.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "validateTransfer",
+   "signature": "function validateTransfer(address caller, address from, address to, uint256 tokenId) external view",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Called on every mint, transfer and burn of either collection, at `validateTransfer` (MiFrensGenesis.sol:656) and `validateTransfer` (CauldronCollection.sol:176), and only while the slot is non-zero. The address is set by the genesis deployer at `transferValidator` (MiFrensGenesis.sol:468) or by the registry at `transferValidator` (CauldronCollection.sol:195), so an admin-chosen contract sits in the path of every token movement and can halt all of them by reverting. Declared view, but Solidity's type system is the only thing enforcing that on the callee.",
+   "edges": [],
+   "authority": "declaration only (no body); in-cluster callers are the two collections' _update overrides; the validator contract itself is chosen by the collection's admin"
+  },
+  {
+   "contract": "ICreatorToken",
+   "file": "cauldron/ICreatorToken.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "getTransferValidator",
+   "signature": "function getTransferValidator() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Market-facing discovery surface implemented at `getTransferValidator` (MiFrensGenesis.sol:455) and `getTransferValidator` (CauldronCollection.sol:182); both just return the stored slot.",
+   "edges": [],
+   "authority": "anyone (the implementations are public views)"
+  },
+  {
+   "contract": "ICreatorToken",
+   "file": "cauldron/ICreatorToken.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "getTransferValidationFunction",
+   "signature": "function getTransferValidationFunction() external view returns (bytes4 functionSignature, bool isViewFunction)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Implemented at `getTransferValidationFunction` (MiFrensGenesis.sol:460) and `getTransferValidationFunction` (CauldronCollection.sol:187); both report the same selector and the view flag without reading state.",
+   "edges": [],
+   "authority": "anyone (the implementations are pure)"
+  },
+  {
+   "contract": "ICreatorToken",
+   "file": "cauldron/ICreatorToken.sol",
+   "line": 18,
+   "kind": "function",
+   "name": "setTransferValidator",
+   "signature": "function setTransferValidator(address validator) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:466)",
+   "reachability": "Implemented at `setTransferValidator` (MiFrensGenesis.sol:465) under the genesis deployer gate, and at `setTransferValidator` (CauldronCollection.sol:192) under the registry gate. Neither implementation validates the address, so the same call can enable or disable royalty enforcement and, with a hostile target, freeze transfers entirely.",
+   "edges": [],
+   "authority": "the collection's admin: the genesis deployer or the registry for the per-brew collection"
+  },
+  {
+   "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "ownerOf",
+   "signature": "function ownerOf(uint256 tokenId) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "The ownership oracle for every gate in this contract: read at `ownerOf` (MiFrensDividend.sol:308), `ownerOf` (MiFrensDividend.sol:387) and `ownerOf` (MiFrensDividend.sol:531) to authorise a claim or a cast, and at `ownerOf` (MiFrensDividend.sol:257) to decide whether an enchantment is still live. The address it is called on is the immutable collection at `mifrens` (MiFrensDividend.sol:176).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster callers are pending, pendingToken, isEnchanted, _castSpell and _claim"
+  },
+  {
+   "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "GENESIS_SUPPLY",
+   "signature": "function GENESIS_SUPPLY() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Read once at `GENESIS_SUPPLY` (MiFrensDividend.sol:177) to fix the free-enchant tranche size; the result must be non-zero at `s` (MiFrensDividend.sol:178).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is the constructor"
+  },
+  {
+   "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 10,
+   "kind": "function",
+   "name": "MAX_SUPPLY",
+   "signature": "function MAX_SUPPLY() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Read once at `MAX_SUPPLY` (MiFrensDividend.sol:181) to fix the eligibility cap, floored at the genesis size at `m` (MiFrensDividend.sol:182). Because it is captured at deploy, a collection whose cap later changed would not be followed - in the collection this cluster ships, the value is immutable.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is the constructor"
+  },
+  {
+   "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 12,
+   "kind": "function",
+   "name": "everMoved",
+   "signature": "function everMoved(uint256 tokenId) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Read at `everMoved` (MiFrensDividend.sol:449) and only for ids at or below the free tranche: a genesis fren that has never moved returns early and pays nothing, everything else falls through to the fee.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee"
+  },
+  {
+   "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 18,
+   "kind": "function",
+   "name": "enchantFee",
+   "signature": "function enchantFee() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Read at `enchantFee` (MiFrensDividend.sol:450); a zero answer makes the enchant free at `fee` (MiFrensDividend.sol:451). The registry can therefore switch the fee on and off for every future caster without any call into this contract.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee"
+  },
+  {
+   "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 19,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Read at `currentToken` (MiFrensDividend.sol:452) to decide which asset the fee is charged in, so the fee follows the live generation's token and a zero answer makes the enchant free at `tok` (MiFrensDividend.sol:453).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee"
+  },
+  {
+   "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 20,
+   "kind": "function",
+   "name": "donateToReserve",
+   "signature": "function donateToReserve(uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "edges": [],
+   "reachability": "Called at `donateToReserve` (MiFrensDividend.sol:457) after an approve for the exact fee, so the fee leaves this contract in the same transaction it arrived. A registry that does not pull the approved amount would leave the tokens sitting here with no path out. DERIVED: no other function in the file moves an arbitrary asset balance that is not credited to an accumulator.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 175,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _mifrens, address _treasury)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9467a7eccf529a98131a87604e5492b5f84767aa",
+   "body_lines": [
+    175,
+    184
+   ],
+   "edges": [
+    "IMiFrensShares.GENESIS_SUPPLY (MiFrensDividend.sol:177), TRUSTED, in-cluster",
+    "IMiFrensShares.MAX_SUPPLY (MiFrensDividend.sol:181), TRUSTED, in-cluster"
+   ],
+   "reachability": "Deployment only, and it calls straight into the collection address it is handed at `mifrens` (MiFrensDividend.sol:176) with no code check. Four immutables are fixed here; the only mutable authorities afterwards are `registry` (MiFrensDividend.sol:192) and `funder` (MiFrensDividend.sol:202), both one-time and both held by `treasury` (MiFrensDividend.sol:183). The treasury address is also the sweep destination when nobody is enchanted, so the same address that wires the contract receives undistributable fees.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "NONE",
+   "writes": [
+    "mifrens (line 176, immutable)",
+    "SHARES (line 180, immutable)",
+    "MAX_TOKEN (line 182, immutable)",
+    "treasury (line 183, immutable)"
+   ],
+   "observations": [],
+   "authority": "deployer"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 189,
+   "kind": "function",
+   "name": "setRegistry",
+   "signature": "function setRegistry(address _registry) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "d022ce5407788e3c3581c96bb80741a76c5fff3a",
+   "body_lines": [
+    189,
+    194
+   ],
+   "edges": [],
+   "reachability": "One-time: a second call reverts on the non-zero `registry` (MiFrensDividend.sol:191) test, so the fee route is fixed forever once wired, and it cannot be unwired if the registry later misbehaves. Until it is set, the fee path at `reg` (MiFrensDividend.sol:447) returns immediately and every enchant is free.",
+   "authority_gate_quote": "if (msg.sender != treasury) revert NotOwner(); (MiFrensDividend.sol:190)",
+   "reads": [
+    "treasury (line 190, immutable)",
+    "registry (line 191)"
+   ],
+   "value": "NONE",
+   "writes": [
+    "registry (line 192)"
+   ],
+   "observations": [],
+   "authority": "treasury"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 199,
+   "kind": "function",
+   "name": "setFunder",
+   "signature": "function setFunder(address _funder) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e7b956e07eef249d7a841c0e7208eb4fdb015abb",
+   "body_lines": [
+    199,
+    204
+   ],
+   "edges": [],
+   "reachability": "One-time: the non-zero test at `funder` (MiFrensDividend.sol:201) makes it unrepeatable, so the single address allowed to append to the basket is permanent. Until set, the basket funder check at `funder` (MiFrensDividend.sol:278) rejects everyone, which means a non-ETH fee has no way in at all.",
+   "authority_gate_quote": "if (msg.sender != treasury) revert NotOwner(); (MiFrensDividend.sol:200)",
+   "reads": [
+    "treasury (line 200, immutable)",
+    "funder (line 201)"
+   ],
+   "value": "NONE",
+   "writes": [
+    "funder (line 202)"
+   ],
+   "observations": [],
+   "authority": "treasury"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 235,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "a50a66139c91a7008aad4a5327bea370e79701e1",
+   "body_lines": [
+    235,
+    249
+   ],
+   "edges": [
+    "treasury.call (MiFrensDividend.sol:240), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Open to any sender, so the ETH accumulator cannot be poisoned by an unexpected funder - every wei simply becomes everyone's. With nobody enchanted the whole balance including carried `residual` (MiFrensDividend.sol:237) is pushed to the treasury, and a rejecting treasury re-banks it at `residual` (MiFrensDividend.sol:241) rather than reverting the fee-paying swap. Otherwise the deposit is divided by the live `activeShares` (MiFrensDividend.sol:245) and the division dust is carried at `residual` (MiFrensDividend.sol:247). `totalDeposited` (MiFrensDividend.sol:236) counts the raw value only, so it is not reduced by a treasury sweep and does not track the claimable pot. The external call happens after `residual` is zeroed but before the accumulator branch returns, and this function has no reentrancy guard - a hostile treasury re-entering would find `residual` already zero. DERIVED: the sweep branch returns immediately after the call.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "residual (line 237)",
+    "activeShares (line 238)",
+    "treasury (line 240, immutable)",
+    "ACC (line 245, constant)",
+    "activeShares (line 245)",
+    "accPerShare (line 246)",
+    "activeShares (line 247)",
+    "ACC (line 247, constant)"
+   ],
+   "value": "receives native - declared `payable` (line 235); sends native to `treasury` (line 240)",
+   "writes": [
+    "totalDeposited (line 236)",
+    "residual (line 239)",
+    "residual (line 241)",
+    "accPerShare (line 246)",
+    "residual (line 247)"
+   ],
+   "observations": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 255,
+   "kind": "function",
+   "name": "pending",
+   "signature": "function pending(uint256 tokenId) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8aa0a8979c2300ca757df584ffbc60605bc7bb15",
+   "body_lines": [
+    255,
+    259
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:257), TRUSTED, in-cluster"
+   ],
+   "reachability": "View. Returns zero for an id outside the eligibility cap at `MAX_TOKEN` (MiFrensDividend.sol:256) and for any fren whose caster is no longer its owner at `enchantedBy` (MiFrensDividend.sol:257), which is the same liveness test the claim path uses. It reverts for a non-existent id because the collection's ownerOf does.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "MAX_TOKEN (line 256, immutable)",
+    "enchantedBy (line 257)",
+    "accPerShare (line 258)",
+    "debtOf (line 258)",
+    "ACC (line 258, constant)"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 273,
+   "kind": "function",
+   "name": "fundToken",
+   "signature": "function fundToken(address asset, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "78512527f926b27d2f6e9992920c13f2c0965492",
+   "body_lines": [
+    273,
+    289
+   ],
+   "edges": [
+    "MiFrensDividend._pull (MiFrensDividend.sol:286), TRUSTED, in-cluster"
+   ],
+   "reachability": "Only the wired funder can append to the basket, and the list is hard-capped at `MAX_ASSETS` (MiFrensDividend.sol:282) with no removal path anywhere in the file. Refuses to take a deposit when nobody is enchanted at `activeShares` (MiFrensDividend.sol:280), so unlike the ETH path there is no sweep and the caller keeps the fee. The accumulator is credited with the REQUESTED amount at `amount` (MiFrensDividend.sol:287), not with a measured balance change, so a fee-on-transfer or rebasing asset would credit holders more than actually arrived; the division also rounds down and the remainder is silently retained by the contract with no residual carry, unlike the ETH branch. DERIVED: no balance is read before or after `_pull`.",
+   "authority_gate_quote": "if (msg.sender != funder) revert NotOwner(); (MiFrensDividend.sol:278)",
+   "reads": [
+    "funder (line 278)",
+    "activeShares (line 280)",
+    "knownAsset (line 281)",
+    "assets (line 282)",
+    "MAX_ASSETS (line 282, constant)",
+    "ACC (line 287, constant)",
+    "activeShares (line 287)"
+   ],
+   "value": "ERC20 pull of `asset` from the funder into this contract (line 286)",
+   "writes": [
+    "knownAsset (line 283)",
+    "assets (line 284)",
+    "accPerShareOf (line 287)"
+   ],
+   "observations": [],
+   "authority": "funder (the hook), wired once by the treasury"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 292,
+   "kind": "function",
+   "name": "pendingToken",
+   "signature": "function pendingToken(uint256 tokenId, address asset) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "535dd23375cf64119445a433d3694dfaa8c72635",
+   "body_lines": [
+    292,
+    296
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:294), TRUSTED, in-cluster"
+   ],
+   "reachability": "View, mirroring the ETH one per asset. It will underflow and revert rather than return zero if a debt marker ever exceeded the accumulator at `accPerShareOf` (MiFrensDividend.sol:295); the code keeps markers at or below the accumulator everywhere they are written. DERIVED: every write of `debtOfAsset` assigns the current accumulator value.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "MAX_TOKEN (line 293, immutable)",
+    "enchantedBy (line 294)",
+    "accPerShareOf (line 295)",
+    "debtOfAsset (line 295)",
+    "ACC (line 295, constant)"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 299,
+   "kind": "function",
+   "name": "assetCount",
+   "signature": "function assetCount() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "332a19e195a1c27add6f21c61c0d8a5d8ac1d151",
+   "body_lines": [
+    299,
+    299
+   ],
+   "edges": [],
+   "reachability": "View of the basket length, which is the bound of every loop over `assets` (MiFrensDividend.sol:299).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "assets (line 299)"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 307,
+   "kind": "function",
+   "name": "claimTokens",
+   "signature": "function claimTokens(uint256 tokenId) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "5a284ccd0bd4de63acdd0b68c771e0849c5c363f",
+   "body_lines": [
+    307,
+    329
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:308), TRUSTED, in-cluster",
+    "MiFrensDividend._tryPush (MiFrensDividend.sol:325), TRUSTED, in-cluster"
+   ],
+   "reachability": "Two gates: current ownership at `ownerOf` (MiFrensDividend.sol:308) and a live enchantment by that same caller at `enchantedBy` (MiFrensDividend.sol:309), so a buyer cannot claim what the previous owner accrued. The per-asset debt marker is advanced at `debtOfAsset` (MiFrensDividend.sol:323) BEFORE the push, and a failed push banks the amount at `owedAsset` (MiFrensDividend.sol:326) instead of reverting, so one hostile token cannot block the other legs and nothing is paid twice. The loop is bounded by the basket length at `n` (MiFrensDividend.sol:318), which only the funder can grow. This path does not touch `totalClaimed` (MiFrensDividend.sol:522), which counts ETH only.",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:308)",
+   "reads": [
+    "enchantedBy (line 309)",
+    "assets (line 318)",
+    "assets (line 320)",
+    "accPerShareOf (line 321)",
+    "debtOfAsset (line 321)",
+    "ACC (line 321, constant)",
+    "accPerShareOf (line 323)"
+   ],
+   "value": "ERC20 push of `a` to `msg.sender` (line 325)",
+   "writes": [
+    "debtOfAsset (line 323)",
+    "owedAsset (line 326)"
+   ],
+   "observations": [],
+   "authority": "holder of token who is also its caster"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 333,
+   "kind": "function",
+   "name": "withdrawOwedToken",
+   "signature": "function withdrawOwedToken(address asset) external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "7fdfa03a41edaec2247b6e7b96083fc21209cd37",
+   "body_lines": [
+    333,
+    343
+   ],
+   "edges": [
+    "MiFrensDividend._tryPush (MiFrensDividend.sol:340), TRUSTED, in-cluster"
+   ],
+   "reachability": "Ungated because it can only pay out `owedAsset` (MiFrensDividend.sol:334) for the caller's own address, zeroed at `owedAsset` (MiFrensDividend.sol:336) before the push and guarded by nonReentrant on the declaration at `withdrawOwedToken` (MiFrensDividend.sol:333). Unlike the claim loop this one reverts on a failed transfer at `TransferFailed` (MiFrensDividend.sol:340), which rolls the zeroing back so the balance stays banked. A zero balance is a silent no-op.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "owedAsset (line 334)"
+   ],
+   "value": "ERC20 push of `asset` to `msg.sender` (line 340)",
+   "writes": [
+    "owedAsset (line 336)"
+   ],
+   "observations": [],
+   "authority": "anyone (pays only the caller's own banked balance)"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 347,
+   "kind": "function",
+   "name": "_pull",
+   "signature": "function _pull(address asset, address from, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "96d2d7401629647ded6130f4b216a6ea3677dba7",
+   "body_lines": [
+    347,
+    352
+   ],
+   "edges": [
+    "asset.call (MiFrensDividend.sol:348), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Raw call so a non-standard token is handled, with the result checked at `ret` (MiFrensDividend.sol:351) and a revert on failure. The asset address comes from the funder's argument, so the funder chooses which contract this calls into; it is the same address that is then appended to the iterated basket at `assets` (MiFrensDividend.sol:284).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "ERC20 transferFrom into this contract, encoded at `transferFrom` (line 349)",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: fundToken)"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 356,
+   "kind": "function",
+   "name": "_tryPush",
+   "signature": "function _tryPush(address asset, address to, uint256 amount) private returns (bool)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4cc4c553f6d6dbf7df05eda2a9999c06291a8490",
+   "body_lines": [
+    356,
+    361
+   ],
+   "edges": [
+    "asset.call (MiFrensDividend.sol:357), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Reports failure instead of throwing, which is what lets the claim loop at `_tryPush` (MiFrensDividend.sol:325) survive one bad asset. It forwards all remaining gas to the token contract, so a token that consumes the whole budget can still make a claim run out of gas; both callers hold the nonReentrant guard.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [],
+   "value": "ERC20 transfer of `asset` to `to` (line 358)",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: claimTokens, withdrawOwedToken)"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 365,
+   "kind": "function",
+   "name": "isEnchanted",
+   "signature": "function isEnchanted(uint256 tokenId) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b58e71f8a517c6c47a664368e9c8efb0efa34dd8",
+   "body_lines": [
+    365,
+    368
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:367), TRUSTED, in-cluster"
+   ],
+   "reachability": "View of the same liveness test the pay paths use at `enchantedBy` (MiFrensDividend.sol:367). It does not mean the fren is counted in `activeShares` (MiFrensDividend.sol:397): a fren whose transfer hook was skipped reads as not-enchanted here while still occupying a share.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "MAX_TOKEN (line 366, immutable)",
+    "enchantedBy (line 367)"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 375,
+   "kind": "function",
+   "name": "castSpell",
+   "signature": "function castSpell(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "6c16987c6ee297a7819035f52a66eef00b2e6f07",
+   "body_lines": [
+    375,
+    377
+   ],
+   "edges": [
+    "MiFrensDividend._castSpell (MiFrensDividend.sol:376), TRUSTED, in-cluster"
+   ],
+   "reachability": "Wrapper; the whole gate is in the callee at `ownerOf` (MiFrensDividend.sol:387).",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "holder of token"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 380,
+   "kind": "function",
+   "name": "castMany",
+   "signature": "function castMany(uint256[] calldata tokenIds) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9d238f88cc138c8140eb3100f918ff2fc2ee3327",
+   "body_lines": [
+    380,
+    383
+   ],
+   "edges": [
+    "MiFrensDividend._castSpell (MiFrensDividend.sol:382), TRUSTED, in-cluster"
+   ],
+   "reachability": "Unbounded batch: the loop at `n` (MiFrensDividend.sol:381) is sized by the caller's own array, and every element re-runs the per-token gate, so the only cost of a long list is the caller's gas. Each element may pull an enchant fee, so one transaction can charge the caller several fees.",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+   "reads": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": [],
+   "authority": "holder of token"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 385,
+   "kind": "function",
+   "name": "_castSpell",
+   "signature": "function _castSpell(uint256 tokenId) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3c89a25da06ab3364cca1e5ef8e52d7cc67f0239",
+   "body_lines": [
+    385,
+    439
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:387), TRUSTED, in-cluster",
+    "MiFrensDividend._collectEnchantFee (MiFrensDividend.sol:396), TRUSTED, in-cluster"
+   ],
+   "reachability": "Reachable by any current owner of an id within the cap at `MAX_TOKEN` (MiFrensDividend.sol:386). Two branches: a fresh join pays the fee first and then increments `activeShares` (MiFrensDividend.sol:397); a stale one - a fren whose transfer hook did not run - settles the PREVIOUS caster's ETH into `owed` (MiFrensDividend.sol:401) and their basket into `owedAsset` (MiFrensDividend.sol:433) and re-points without changing the count, so the share count stays balanced either way. Re-casting for an id you already hold returns at `cur` (MiFrensDividend.sol:389) before any fee. The debt markers for ETH and for every basket asset are set to the current accumulators at `debtOf` (MiFrensDividend.sol:403) and `debtOfAsset` (MiFrensDividend.sol:435), so earning starts now with no back-pay - but only for assets in the list at the time of the cast. DERIVED: the marker loop is bounded by the same basket the funder controls.",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+   "reads": [
+    "MAX_TOKEN (line 386, immutable)",
+    "enchantedBy (line 388)",
+    "accPerShare (line 401)",
+    "debtOf (line 401)",
+    "ACC (line 401, constant)",
+    "accPerShare (line 403)",
+    "assets (line 427)",
+    "assets (line 429)",
+    "accPerShareOf (line 430)",
+    "debtOfAsset (line 432)",
+    "ACC (line 433, constant)"
+   ],
+   "value": "NONE",
+   "writes": [
+    "activeShares (line 397)",
+    "owed (line 401)",
+    "debtOf (line 403)",
+    "owedAsset (line 433)",
+    "debtOfAsset (line 435)",
+    "enchantedBy (line 437)"
+   ],
+   "observations": [],
+   "authority": "internal (callers: castSpell, castMany); the caller must own the token"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 445,
+   "kind": "function",
+   "name": "_collectEnchantFee",
+   "signature": "function _collectEnchantFee(uint256 tokenId) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "45ca85e6deae67b886e4d698bee83658e8c1103b",
+   "body_lines": [
+    445,
+    458
+   ],
+   "edges": [
+    "IMiFrensShares.everMoved (MiFrensDividend.sol:449), TRUSTED, in-cluster",
+    "IReserveRegistry.enchantFee (MiFrensDividend.sol:450), UNTRUSTED, in-cluster",
+    "IReserveRegistry.currentToken (MiFrensDividend.sol:452), UNTRUSTED, in-cluster",
+    "IERC20.transferFrom (MiFrensDividend.sol:455), UNTRUSTED, out-of-cluster",
+    "IERC20.approve (MiFrensDividend.sol:456), UNTRUSTED, out-of-cluster",
+    "IReserveRegistry.donateToReserve (MiFrensDividend.sol:457), UNTRUSTED, in-cluster"
+   ],
+   "reachability": "Four independent early exits make the fee optional: no registry at `reg` (MiFrensDividend.sol:447), an unmoved original genesis id at `SHARES` (MiFrensDividend.sol:449), a zero fee at `fee` (MiFrensDividend.sol:451), or no live token at `tok` (MiFrensDividend.sol:453). The pull at `transferFrom` (MiFrensDividend.sol:455) is a typed call whose boolean return is required, so a token that returns nothing reverts the enchant. The amount, the asset and the destination are all chosen by the registry between the read and the transfer, and the approve return value is not checked at `approve` (MiFrensDividend.sol:456). Whatever is pulled is immediately handed on at `donateToReserve` (MiFrensDividend.sol:457); if that call does not take the tokens they stay here uncredited to anyone.",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "registry (line 446)",
+    "SHARES (line 449, immutable)"
+   ],
+   "value": "ERC20 transferFrom of `tok` from the caster into this contract (line 455); ERC20 approve of `reg` for the fee (line 456)",
+   "writes": [],
+   "observations": [],
+   "authority": "internal (callers: _castSpell)"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 464,
+   "kind": "function",
+   "name": "onMiFrenTransfer",
+   "signature": "function onMiFrenTransfer(uint256 tokenId, address /*from*/) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b0193d4ed8581abb0e1ed590d52bcd2cc9ce552a",
+   "body_lines": [
+    464,
+    497
+   ],
+   "edges": [],
+   "reachability": "Only the collection can call it, and it is invoked from that contract's transfer chokepoint at `onMiFrenTransfer` (MiFrensGenesis.sol:695) inside a try/catch with a fixed gas stipend - so a revert or an out-of-gas here is swallowed by the caller and the transfer still settles, leaving the fren counted in `activeShares` (MiFrensDividend.sol:493) with a stale caster. A fren that was never enchanted returns at `cur` (MiFrensDividend.sol:467), which is why badge ids and un-cast frens are free no-ops. Both the ETH entitlement at `owed` (MiFrensDividend.sol:468) and each basket leg at `owedAsset` (MiFrensDividend.sol:488) are settled to the LEAVER before the share is released, because after the decrement the leaver's share can no longer be computed. There is no eligibility-cap check here, unlike the claim and cast paths.",
+   "authority_gate_quote": "if (msg.sender != address(mifrens)) revert NotCollection(); (MiFrensDividend.sol:465)",
+   "reads": [
+    "mifrens (line 465, immutable)",
+    "enchantedBy (line 466)",
+    "accPerShare (line 468)",
+    "debtOf (line 468)",
+    "ACC (line 468, constant)",
+    "assets (line 482)",
+    "assets (line 484)",
+    "accPerShareOf (line 485)",
+    "debtOfAsset (line 486)",
+    "ACC (line 488, constant)"
+   ],
+   "value": "NONE",
+   "writes": [
+    "owed (line 468)",
+    "owedAsset (line 488)",
+    "debtOfAsset (line 489)",
+    "activeShares (line 493)",
+    "enchantedBy (line 494)",
+    "debtOf (line 495)"
+   ],
+   "observations": [
+    "comment at `MAX_ASSETS` (MiFrensDividend.sol:480) says the basket cap is four because this loop runs under the collection's forwarded gas budget; code at `MAX_ASSETS` (MiFrensDividend.sol:124) sets the cap to three"
+   ],
+   "authority": "the MiFrens collection"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 502,
+   "kind": "function",
+   "name": "claim",
+   "signature": "function claim(uint256 tokenId) public nonReentrant returns (uint256 amount)",
+   "visibility": "public",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "3944e9f04c7501ab0c1c83a56b0c9f942b1eaf31",
+   "body_lines": [
+    502,
+    504
+   ],
+   "edges": [
+    "MiFrensDividend._claim (MiFrensDividend.sol:503), TRUSTED, in-cluster"
+   ],
+   "reachability": "Wrapper carrying the nonReentrant guard at `claim` (MiFrensDividend.sol:502); the gates are in the callee at `ownerOf` (MiFrensDividend.sol:531).",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+   "reads": [],
+   "value": "sends native to `msg.sender` (line 538)",
+   "writes": [],
+   "observations": [],
+   "authority": "holder of token who is also its caster"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 507,
+   "kind": "function",
+   "name": "claimMany",
+   "signature": "function claimMany(uint256[] calldata tokenIds) external nonReentrant returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "7f8d9e302ee89818272527603444e060a8aa0b1c",
+   "body_lines": [
+    511,
+    514
+   ],
+   "edges": [
+    "MiFrensDividend._claim (MiFrensDividend.sol:513), TRUSTED, in-cluster"
+   ],
+   "reachability": "Unbounded batch sized by the caller's own array at `n` (MiFrensDividend.sol:512); every element re-checks ownership and enchantment, and each one performs its own native send inside the single nonReentrant frame declared at `nonReentrant` (MiFrensDividend.sol:509). One id the caller does not own reverts the whole batch.",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+   "reads": [],
+   "value": "sends native to `msg.sender` (line 538)",
+   "writes": [],
+   "observations": [],
+   "authority": "holder of token who is also its caster"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 518,
+   "kind": "function",
+   "name": "withdrawOwed",
+   "signature": "function withdrawOwed() external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "c7e20d9e7a6d8f3ec161e5d9e6aa04247cf55fab",
+   "body_lines": [
+    518,
+    527
+   ],
+   "edges": [
+    "msg.sender.call (MiFrensDividend.sol:523), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Ungated but self-limited: it pays only `owed` (MiFrensDividend.sol:519) for the caller, zeroed at `owed` (MiFrensDividend.sol:521) before the send, and the send is wrapped by nonReentrant at `withdrawOwed` (MiFrensDividend.sol:518). A rejecting recipient reverts at `TransferFailed` (MiFrensDividend.sol:524), rolling back the zeroing so nothing is lost. This is the only other writer of `totalClaimed` (MiFrensDividend.sol:522).",
+   "authority_gate_quote": "UNGATED",
+   "reads": [
+    "owed (line 519)"
+   ],
+   "value": "sends native to `msg.sender` (line 523)",
+   "writes": [
+    "owed (line 521)",
+    "totalClaimed (line 522)"
+   ],
+   "observations": [],
+   "authority": "anyone (pays only the caller's own banked balance)"
+  },
+  {
+   "contract": "MiFrensDividend",
+   "file": "cauldron/MiFrensDividend.sol",
+   "line": 529,
+   "kind": "function",
+   "name": "_claim",
+   "signature": "function _claim(uint256 tokenId) private returns (uint256 amount)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f7f80b0dd6f6ef6b503912056a590c36873e32d2",
+   "body_lines": [
+    529,
+    542
+   ],
+   "edges": [
+    "IMiFrensShares.ownerOf (MiFrensDividend.sol:531), TRUSTED, in-cluster",
+    "msg.sender.call (MiFrensDividend.sol:538), UNTRUSTED, out-of-cluster"
+   ],
+   "reachability": "Three gates - the cap at `MAX_TOKEN` (MiFrensDividend.sol:530), current ownership at `ownerOf` (MiFrensDividend.sol:531), and a live enchantment by the caller at `enchantedBy` (MiFrensDividend.sol:532) - so exactly one address can ever claim a given id and only for the window it was enchanted. The debt marker is advanced at `debtOf` (MiFrensDividend.sol:535) before the send, so a re-entering recipient would compute zero; both public wrappers also hold the nonReentrant guard. The payout is integer-divided by the scale at `ACC` (MiFrensDividend.sol:534), so sub-wei dust stays in the accumulator rather than being lost.",
+   "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+   "reads": [
+    "MAX_TOKEN (line 530, immutable)",
+    "enchantedBy (line 532)",
+    "accPerShare (line 534)",
+    "debtOf (line 534)",
+    "ACC (line 534, constant)",
+    "accPerShare (line 535)"
+   ],
+   "value": "sends native to `msg.sender` (line 538)",
+   "writes": [
+    "debtOf (line 535)",
+    "totalClaimed (line 537)"
+   ],
+   "observations": [],
+   "authority": "internal (callers: claim, claimMany); the caller must own the token and be its caster"
+  },
+  {
+   "contract": "IRegistrySummon (declared in MiFrensGenesis.sol)",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "summon",
+   "signature": "function summon() external payable returns (address token, bytes32 poolId)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "authority": "declaration only (no body); the sole in-cluster caller is MiFrensGenesis.igniteCauldron, which holds the gate; the implementing registry is out of cluster",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (minted < GENESIS_SUPPLY) revert NotSoldOut(); (MiFrensGenesis.sol:578)",
+   "observations": [],
+   "reachability": "Reached only from `igniteCauldron` (MiFrensGenesis.sol:575), which forwards the contract's entire balance at `summon` (MiFrensGenesis.sol:585). The callee's own authority check is out of cluster; on this side the call is guarded by the sellout test at `NotSoldOut` (MiFrensGenesis.sol:578) and the one-shot `finalized` flag (MiFrensGenesis.sol:583).",
+   "value": "receives native - declared `payable` (line 16)"
+  },
+  {
+   "contract": "IRegistrySummon (declared in MiFrensGenesis.sol)",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "summoned",
+   "signature": "function summoned() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "authority": "declaration only (no body); no call site exists in this cluster",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Declared but never invoked by any cluster file: the only non-comment occurrence of the selector's sibling is the call to `summon` (MiFrensGenesis.sol:585), and `summoned` (MiFrensGenesis.sol:17) itself appears only in this declaration. DERIVED (grep of every cluster file for the identifier).",
+   "value": "NONE"
+  },
+  {
+   "contract": "IMiFrensDividendHook (declared in MiFrensGenesis.sol)",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 21,
+   "kind": "function",
+   "name": "onMiFrenTransfer",
+   "signature": "function onMiFrenTransfer(uint256 tokenId, address from) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "authority": "declaration only (no body); the only in-cluster caller is MiFrensGenesis._update, and the address it is called on is whatever `setDividend` wired",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (from != address(0) && dividend != address(0)) (MiFrensGenesis.sol:693)",
+   "observations": [],
+   "reachability": "Invoked from the ERC721 `_update` override (MiFrensGenesis.sol:647) on every non-mint move, in a try/catch with a fixed gas stipend at `GAS_DIVIDEND_FWD` (MiFrensGenesis.sol:695). The in-cluster implementation is `onMiFrenTransfer` (MiFrensDividend.sol:464); it only acts for an enchanted id.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 227,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor( string memory name_, string memory symbol_, uint256 genesisSupply_, uint256 maxSupply_, uint256 price_, uint256 maxPerWallet_, string memory baseURI_ ) ERC721(name_, symbol_) EIP712(name_, \"1\")",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "ERC721(name_, symbol_)",
+    "EIP712(name_, \"1\")"
+   ],
+   "body_sha1": "29b176430b015bd4a16a0f534ebce6f1164973c2",
+   "body_lines": [
+    235,
+    246
+   ],
+   "reads": [
+    "LIQUIDATOR_ID_BASE (line 239, constant)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "GENESIS_SUPPLY (line 240, immutable)",
+    "MAX_SUPPLY (line 241, immutable)",
+    "PRICE (line 242, immutable)",
+    "MAX_PER_WALLET (line 243, immutable)",
+    "_base (line 244)",
+    "deployer (line 245, immutable)"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Deployment only. `deployer` (MiFrensGenesis.sol:245) is fixed to the deploying address and is immutable, so every deployer-gated setter in this file is permanently bound to it and can never be rotated or renounced. The art cap is forced below the badge id range by the check at `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:239), so MiFren ids and Liquidatoor ids cannot collide. DERIVED: no function in the file writes `GENESIS_SUPPLY`, `MAX_SUPPLY`, `PRICE` or `MAX_PER_WALLET` after construction (they are immutable).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 249,
+   "kind": "function",
+   "name": "setRegistry",
+   "signature": "function setRegistry(address _registry) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "372f83963e9c8d9f1a29cd53773538ecb416fd30",
+   "body_lines": [
+    249,
+    254
+   ],
+   "reads": [
+    "deployer (line 250, immutable)",
+    "registry (line 251)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "registry (line 253)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert ZeroAddress(); (MiFrensGenesis.sol:250)",
+   "observations": [],
+   "reachability": "Open to the deployer exactly once: the second call reverts on the non-zero `registry` (MiFrensGenesis.sol:251) test, so the summon target is write-once. Until it runs, `custodyTransfer` (MiFrensGenesis.sol:414) and the registry half of the gate at `registry` (MiFrensGenesis.sol:326) are unreachable, and `igniteCauldron` (MiFrensGenesis.sol:575) reverts on the zero `registry` (MiFrensGenesis.sol:576) and refuses to ignite.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 262,
+   "kind": "function",
+   "name": "mint",
+   "signature": "function mint(uint256 quantity) external payable nonReentrant",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "ed9fca0d25baf47ca1aad1b9ffd1f2a0477c5e2f",
+   "body_lines": [
+    262,
+    284
+   ],
+   "reads": [
+    "finalized (line 263)",
+    "cancelled (line 264)",
+    "minted (line 266)",
+    "GENESIS_SUPPLY (line 266, immutable)",
+    "PRICE (line 267, immutable)",
+    "MAX_PER_WALLET (line 268, immutable)",
+    "minted (line 274)"
+   ],
+   "authority": "anyone",
+   "edges": [
+    "ERC721.balanceOf (MiFrensGenesis.sol:268), TRUSTED, out-of-cluster"
+   ],
+   "writes": [
+    "paid (line 270)",
+    "revealed (line 278)",
+    "minted (line 282)"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Permissionless while the presale is open: blocked once `finalized` (MiFrensGenesis.sol:263) or `cancelled` (MiFrensGenesis.sol:264) is set. Supply is capped at `GENESIS_SUPPLY` (MiFrensGenesis.sol:266) - not MAX_SUPPLY - and per-caller at `MAX_PER_WALLET` (MiFrensGenesis.sol:268), measured on current `balanceOf` (MiFrensGenesis.sol:268) rather than on lifetime purchases. Each id is marked `revealed` (MiFrensGenesis.sol:278) before it is minted, so the OG tranche never rolls a rarity. `_mint` (MiFrensGenesis.sol:279) re-enters this contract's `_update` (MiFrensGenesis.sol:647) override, where the dividend ping is skipped because from is zero.",
+   "value": "receives native - exact `msg.value` required (line 267)"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 289,
+   "kind": "function",
+   "name": "cancelPresale",
+   "signature": "function cancelPresale() external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "6caffc45b85e633eddd05b91eb778cd14cb2efb2",
+   "body_lines": [
+    289,
+    295
+   ],
+   "reads": [
+    "deployer (line 290, immutable)",
+    "finalized (line 291)",
+    "cancelled (line 292)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "cancelled (line 293)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:290)",
+   "observations": [],
+   "reachability": "Deployer-only and one-way: nothing in the file clears `cancelled` (MiFrensGenesis.sol:293), so after this call `mint` (MiFrensGenesis.sol:262) is permanently dead and only `refund` (MiFrensGenesis.sol:300) runs. It is refused after ignition by the `finalized` test (MiFrensGenesis.sol:291). DERIVED: `cancelled` is written on exactly one line in the file.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 300,
+   "kind": "function",
+   "name": "refund",
+   "signature": "function refund() external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "068cadbe38c88971d565195afed956c26de1c020",
+   "body_lines": [
+    300,
+    308
+   ],
+   "reads": [
+    "cancelled (line 301)",
+    "paid (line 302)"
+   ],
+   "authority": "anyone (pays out only to a caller with a recorded balance)",
+   "edges": [
+    "msg.sender.call (MiFrensGenesis.sol:305), UNTRUSTED, out-of-cluster"
+   ],
+   "writes": [
+    "paid (line 304)"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Only after the deployer sets `cancelled` (MiFrensGenesis.sol:301). Pays back exactly the caller's recorded `paid` (MiFrensGenesis.sol:302) balance, which is zeroed at `paid` (MiFrensGenesis.sol:304) before the external send, so a re-entering receiver finds nothing left; the OZ `nonReentrant` guard on the declaration (MiFrensGenesis.sol:300) blocks re-entry as well. The NFTs already minted are not burned, so the refunded ETH and the tokens both survive the cancel.",
+   "value": "sends native to `msg.sender` (line 305)"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 315,
+   "kind": "function",
+   "name": "totalMinted",
+   "signature": "function totalMinted() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "092deca3eb70eafc85e11e559449b4c8e7d2fc89",
+   "body_lines": [
+    315,
+    317
+   ],
+   "reads": [
+    "minted (line 316)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View. Counts genesis mints written at `minted` (MiFrensGenesis.sol:282) plus volume mints written at `minted` (MiFrensGenesis.sol:478); Liquidatoor badges are not included because they increment `liquidatorMinted` (MiFrensGenesis.sol:379) instead. Burns via `burnFromVault` (MiFrensGenesis.sol:545) never decrement it. DERIVED: those are the only two writes to the counter in the file.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 320,
+   "kind": "function",
+   "name": "maxSupply",
+   "signature": "function maxSupply() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "1856215aee9f1eabe19adf827986628e9781f053",
+   "body_lines": [
+    320,
+    322
+   ],
+   "reads": [
+    "MAX_SUPPLY (line 321, immutable)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View of the immutable art cap set in the constructor at `MAX_SUPPLY` (MiFrensGenesis.sol:241). It bounds only the volume tranche check at `MAX_SUPPLY` (MiFrensGenesis.sol:476).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 325,
+   "kind": "modifier",
+   "name": "onlyDeployerOrRegistry",
+   "signature": "modifier onlyDeployerOrRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c7fe4f36c80ae6d1246bfbc9a0d65df53a14bcfc",
+   "body_lines": [
+    325,
+    328
+   ],
+   "reads": [
+    "deployer (line 326, immutable)",
+    "registry (line 326)"
+   ],
+   "authority": "internal (callers: setMinter, setVault, setDividend)",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != deployer && msg.sender != address(registry)) revert NotAuthorized(); (MiFrensGenesis.sol:326)",
+   "observations": [],
+   "reachability": "Applied to `setMinter` (MiFrensGenesis.sol:333), `setVault` (MiFrensGenesis.sol:338) and `setDividend` (MiFrensGenesis.sol:343). Both holders are permanent: `deployer` (MiFrensGenesis.sol:245) is immutable and `registry` (MiFrensGenesis.sol:253) is write-once, so this gate cannot be rotated, renounced or dead-ended. DERIVED: no other function in the file writes either slot.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 333,
+   "kind": "function",
+   "name": "setMinter",
+   "signature": "function setMinter(address _minter) external onlyDeployerOrRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyDeployerOrRegistry"
+   ],
+   "body_sha1": "7ade795db9a40b88e4d691015a78ce8d4d8d45de",
+   "body_lines": [
+    333,
+    335
+   ],
+   "reads": [],
+   "authority": "deployer or registry",
+   "edges": [],
+   "writes": [
+    "minter (line 334)"
+   ],
+   "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:333)",
+   "observations": [],
+   "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Re-settable with no zero check, so the volume-mint right at `minter` (MiFrensGenesis.sol:475) can be moved to any address at any time, including after ignition.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 338,
+   "kind": "function",
+   "name": "setVault",
+   "signature": "function setVault(address _vault) external onlyDeployerOrRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyDeployerOrRegistry"
+   ],
+   "body_sha1": "f9999fd9c216bc6c5c5e60c76e73012b4cba0798",
+   "body_lines": [
+    338,
+    340
+   ],
+   "reads": [],
+   "authority": "deployer or registry",
+   "edges": [],
+   "writes": [
+    "vault (line 339)"
+   ],
+   "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:338)",
+   "observations": [],
+   "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Grants the burn right checked at `vault` (MiFrensGenesis.sol:546); re-settable per iteration, again with no zero check.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 343,
+   "kind": "function",
+   "name": "setDividend",
+   "signature": "function setDividend(address _dividend) external onlyDeployerOrRegistry",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyDeployerOrRegistry"
+   ],
+   "body_sha1": "1fc1907060eba978aa552e55bb150556b80e89a4",
+   "body_lines": [
+    343,
+    345
+   ],
+   "reads": [],
+   "authority": "deployer or registry",
+   "edges": [],
+   "writes": [
+    "dividend (line 344)"
+   ],
+   "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:343)",
+   "observations": [],
+   "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Sets the address pinged on every non-mint transfer at `dividend` (MiFrensGenesis.sol:693); setting it to zero silently disables the enchantment break.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 351,
+   "kind": "function",
+   "name": "setLiquidatorMinter",
+   "signature": "function setLiquidatorMinter(address _minter) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "09c713d91e0d69ac5f7d335bc0ad3a4835894480",
+   "body_lines": [
+    351,
+    354
+   ],
+   "reads": [
+    "deployer (line 352, immutable)",
+    "registry (line 352)",
+    "minter (line 352)"
+   ],
+   "authority": "deployer, registry, or the wired minter (the volume hook)",
+   "edges": [],
+   "writes": [
+    "liquidatorMinter (line 353)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer && msg.sender != address(registry) && msg.sender != minter) revert NotAuthorized(); (MiFrensGenesis.sol:352)",
+   "observations": [],
+   "reachability": "Three holders, the third of which is itself settable: whoever holds `minter` (MiFrensGenesis.sol:352) can hand the badge-mint right on. Confers the only authority accepted at `liquidatorMinter` (MiFrensGenesis.sol:378).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 357,
+   "kind": "function",
+   "name": "setLiquidatorURI",
+   "signature": "function setLiquidatorURI(string calldata uri) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0b7fb3ff241192471b8efdbf60b7e8fb1ab4eaa1",
+   "body_lines": [
+    357,
+    360
+   ],
+   "reads": [
+    "deployer (line 358, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "liquidatorURI (line 359)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:358)",
+   "observations": [],
+   "reachability": "Deployer-only metadata base used by the badge branch of `liquidatorURI` (MiFrensGenesis.sol:628).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 365,
+   "kind": "function",
+   "name": "mintLiquidator",
+   "signature": "function mintLiquidator(address to) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4dfec9bd3900c001a3ec3e9053abd167454948ca",
+   "body_lines": [
+    365,
+    367
+   ],
+   "reads": [],
+   "authority": "liquidatorMinter (the wired PerpEngine)",
+   "edges": [
+    "MiFrensGenesis._mintLiquidator (MiFrensGenesis.sol:366), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+   "observations": [],
+   "reachability": "Thin wrapper; the authority check lives in the callee at `liquidatorMinter` (MiFrensGenesis.sol:378). Passes an empty stats struct so the `_liqStats` write (MiFrensGenesis.sol:382) is skipped.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 370,
+   "kind": "function",
+   "name": "mintLiquidatorWithStats",
+   "signature": "function mintLiquidatorWithStats(address to, LiqStats calldata st) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "40696ee613a4f98dbcb0e7ba1402f0197386dd75",
+   "body_lines": [
+    373,
+    375
+   ],
+   "reads": [],
+   "authority": "liquidatorMinter (the wired PerpEngine)",
+   "edges": [
+    "MiFrensGenesis._mintLiquidator (MiFrensGenesis.sol:374), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+   "observations": [],
+   "reachability": "Same gate as the bare variant, in the callee at `liquidatorMinter` (MiFrensGenesis.sol:378); the caller-supplied stats are recorded verbatim at `_liqStats` (MiFrensGenesis.sol:382) with no validation of victim, size or price.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 377,
+   "kind": "function",
+   "name": "_mintLiquidator",
+   "signature": "function _mintLiquidator(address to, LiqStats memory st) internal returns (uint256 tokenId)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "5de6ad6637e65838a7830f861f2d1afefb4d64bd",
+   "body_lines": [
+    377,
+    385
+   ],
+   "reads": [
+    "liquidatorMinter (line 378)",
+    "LIQUIDATOR_ID_BASE (line 379, constant)",
+    "liquidatorMinted (line 379)"
+   ],
+   "authority": "internal (callers: mintLiquidator, mintLiquidatorWithStats)",
+   "edges": [],
+   "writes": [
+    "liquidatorMinted (line 379)",
+    "isLiquidatoor (line 380)",
+    "_liqStats (line 382)"
+   ],
+   "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+   "observations": [],
+   "reachability": "Badge ids are `LIQUIDATOR_ID_BASE` plus a counter (MiFrensGenesis.sol:379) and are uncapped - nothing here compares against `MAX_SUPPLY` (MiFrensGenesis.sol:476). Because the constructor refuses a cap at or above `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:239), badge ids can never overlap art ids. Each badge is a full ERC721Votes token, so it carries a vote through the self-delegation at `_delegate` (MiFrensGenesis.sol:660). The ERC721 mint itself happens at `_mint` (MiFrensGenesis.sol:383), which re-enters the `_update` override (MiFrensGenesis.sol:647).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 388,
+   "kind": "function",
+   "name": "liqStats",
+   "signature": "function liqStats(uint256 tokenId) external view returns (LiqStats memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "63a0e684701fc12be5d71c5237150df74bf9a9a1",
+   "body_lines": [
+    388,
+    390
+   ],
+   "reads": [
+    "_liqStats (line 389)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View of whatever the badge minter recorded at `_liqStats` (MiFrensGenesis.sol:382); returns a zeroed struct for ids that were minted through the bare `mintLiquidator` (MiFrensGenesis.sol:365) path or that are not badges at all.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 393,
+   "kind": "function",
+   "name": "setLiquidatorRenderer",
+   "signature": "function setLiquidatorRenderer(address r) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3859965ce12c36afb48306df426bab3186c0ff5e",
+   "body_lines": [
+    393,
+    396
+   ],
+   "reads": [
+    "deployer (line 394, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "liquidatorRenderer (line 395)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:394)",
+   "observations": [],
+   "reachability": "Deployer-only. Points the badge branch of `tokenURI` (MiFrensGenesis.sol:626) at an arbitrary contract whose code is called on every badge metadata read.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 399,
+   "kind": "function",
+   "name": "liquidatoorTrait",
+   "signature": "function liquidatoorTrait(uint256 tokenId) external view returns (string memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "aaca80625688fe68f0f354432a64c130e5cd6d78",
+   "body_lines": [
+    399,
+    401
+   ],
+   "reads": [
+    "isLiquidatoor (line 400)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View over the flag written at `isLiquidatoor` (MiFrensGenesis.sol:380).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 414,
+   "kind": "function",
+   "name": "custodyTransfer",
+   "signature": "function custodyTransfer(address from, address to, uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e634009683b6572968ace69e0368b4d0951c7f32",
+   "body_lines": [
+    414,
+    417
+   ],
+   "reads": [
+    "registry (line 415)"
+   ],
+   "authority": "registry",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != address(registry)) revert NotAuthorized(); (MiFrensGenesis.sol:415)",
+   "observations": [],
+   "reachability": "Registry-only move with no owner approval: `_transfer` (MiFrensGenesis.sol:416) checks only that `from` is the current owner. It routes through the `_update` override (MiFrensGenesis.sol:647), so it breaks the enchantment, moves the vote and sets `everMoved` (MiFrensGenesis.sol:702) exactly like a market transfer. No burn happens here, so the collection count is unchanged.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 423,
+   "kind": "function",
+   "name": "setFinalizer",
+   "signature": "function setFinalizer(address _finalizer) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a0cafca9f3ec838073afd1b3152c67a97d84a48f",
+   "body_lines": [
+    423,
+    426
+   ],
+   "reads": [
+    "deployer (line 424, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "finalizer (line 425)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:424)",
+   "observations": [],
+   "reachability": "Deployer-only. Writing a non-zero `finalizer` (MiFrensGenesis.sol:425) converts ignition from permissionless to single-address, enforced at `finalizer` (MiFrensGenesis.sol:581); it can be set back to zero at any time before ignition.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 429,
+   "kind": "function",
+   "name": "setMetadata",
+   "signature": "function setMetadata(MetadataMode _mode, address _renderer, string calldata baseURI_) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f8fddd48c5b5f0b2d40fc79b95196fc7ad4a96d1",
+   "body_lines": [
+    431,
+    436
+   ],
+   "reads": [
+    "deployer (line 432, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "mode (line 433)",
+    "renderer (line 434)",
+    "_base (line 435)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:432)",
+   "observations": [],
+   "reachability": "Deployer-only, unlimited re-settable. An empty string leaves `_base` (MiFrensGenesis.sol:435) untouched, but `mode` (MiFrensGenesis.sol:433) and `renderer` (MiFrensGenesis.sol:434) are always overwritten, so passing a zero renderer with Renderer mode falls back to the baseURI branch at `renderer` (MiFrensGenesis.sol:633).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 439,
+   "kind": "function",
+   "name": "setRarityOdds",
+   "signature": "function setRarityOdds(uint16[4] calldata cum) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "32fa6ec97577ff57be3164e371db94a6c1aa86a9",
+   "body_lines": [
+    439,
+    443
+   ],
+   "reads": [
+    "deployer (line 440, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "rarityCumBps (line 442)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:440)",
+   "observations": [],
+   "reachability": "Deployer-only. The require at `cum` (MiFrensGenesis.sol:441) enforces ascending cumulative bps ending at 10000, but nothing pins the odds at reveal time: a token minted under one ladder is rolled against whatever `rarityCumBps` (MiFrensGenesis.sol:553) holds when `_reveal` runs.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 446,
+   "kind": "function",
+   "name": "setRoyalty",
+   "signature": "function setRoyalty(address receiver, uint96 bps) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f95428fcbd3120ce2473feeb9be532156755339f",
+   "body_lines": [
+    446,
+    450
+   ],
+   "reads": [
+    "deployer (line 447, immutable)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:447)",
+   "observations": [],
+   "reachability": "Deployer-only, capped at 10 percent by the require at `bps` (MiFrensGenesis.sol:448). The receiver and rate land in the inherited ERC2981 storage through `_setDefaultRoyalty` (MiFrensGenesis.sol:449), which this file never reads back.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 455,
+   "kind": "function",
+   "name": "getTransferValidator",
+   "signature": "function getTransferValidator() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "2ede13e2759297ef93349ee16002dfa39d389648",
+   "body_lines": [
+    455,
+    457
+   ],
+   "reads": [
+    "transferValidator (line 456)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View of the slot written at `transferValidator` (MiFrensGenesis.sol:468) and consulted on every move at `transferValidator` (MiFrensGenesis.sol:654).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 460,
+   "kind": "function",
+   "name": "getTransferValidationFunction",
+   "signature": "function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "cbc44bdf3d419823449aebcfdcd45349b7f807fe",
+   "body_lines": [
+    460,
+    462
+   ],
+   "reads": [],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Pure constant pair advertising the validator entry point; it returns the selector of `validateTransfer` (MiFrensGenesis.sol:461) and reads no state.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 465,
+   "kind": "function",
+   "name": "setTransferValidator",
+   "signature": "function setTransferValidator(address validator) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4dd5b3a0456258919b93992d20ab7c0346b01a3a",
+   "body_lines": [
+    465,
+    469
+   ],
+   "reads": [
+    "transferValidator (line 467)"
+   ],
+   "authority": "deployer",
+   "edges": [],
+   "writes": [
+    "transferValidator (line 468)"
+   ],
+   "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:466)",
+   "observations": [],
+   "reachability": "Deployer-only and freely re-settable, including to zero. A non-zero value makes every mint, transfer and burn call out to that address first at `validateTransfer` (MiFrensGenesis.sol:656), so a validator that reverts halts the whole collection - including the vault burn at `_burn` (MiFrensGenesis.sol:547) and the registry move at `_transfer` (MiFrensGenesis.sol:416). DERIVED: `_update` is the single ERC721 chokepoint, and the validator call precedes the super call.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 474,
+   "kind": "function",
+   "name": "mint",
+   "signature": "function mint(address to) external returns (uint256 tokenId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9d6e0353bd9dcedcb7fb487cccaf28a7a583b23d",
+   "body_lines": [
+    474,
+    483
+   ],
+   "reads": [
+    "minter (line 475)",
+    "minted (line 476)",
+    "MAX_SUPPLY (line 476, immutable)",
+    "minted (line 477)"
+   ],
+   "authority": "minter (the wired volume hook)",
+   "edges": [],
+   "writes": [
+    "minted (line 478)",
+    "mintBlockOf (line 480)"
+   ],
+   "authority_gate_quote": "if (msg.sender != minter) revert OnlyMinter(); (MiFrensGenesis.sol:475)",
+   "observations": [],
+   "reachability": "Only the address in `minter` (MiFrensGenesis.sol:475) reaches this, and only while `minted` is below `MAX_SUPPLY` (MiFrensGenesis.sol:476). The id is `minted` plus one (MiFrensGenesis.sol:477), so this tranche continues the same numbering the presale used and a never-sold-out genesis leaves ids that a volume mint will then occupy. Rarity is not rolled here: only the mint block is committed at `mintBlockOf` (MiFrensGenesis.sol:480). The token itself is created at `_mint` (MiFrensGenesis.sol:481).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 487,
+   "kind": "function",
+   "name": "reveal",
+   "signature": "function reveal(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "222c01a55377f219fea925e5f095247ea4e904fa",
+   "body_lines": [
+    487,
+    489
+   ],
+   "reads": [],
+   "authority": "holder of token",
+   "edges": [
+    "MiFrensGenesis._reveal (MiFrensGenesis.sol:488), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+   "observations": [],
+   "reachability": "Wrapper; the ownership gate is in the callee at `ownerOf` (MiFrensGenesis.sol:516). A genesis id is already flagged at `revealed` (MiFrensGenesis.sol:278) so the call is a no-op for the OG tranche.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 507,
+   "kind": "function",
+   "name": "revealBatch",
+   "signature": "function revealBatch(uint256[] calldata tokenIds) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "94cf710cfcefafe6327404306db8063334dcf706",
+   "body_lines": [
+    507,
+    513
+   ],
+   "reads": [],
+   "authority": "holder of token",
+   "edges": [
+    "MiFrensGenesis._reveal (MiFrensGenesis.sol:512), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+   "observations": [],
+   "reachability": "Batch wrapper bounded at fifty ids by the check at `BadBatch` (MiFrensGenesis.sol:511); every element still passes the per-token ownership gate at `ownerOf` (MiFrensGenesis.sol:516), so one id the caller does not own reverts the whole batch.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 515,
+   "kind": "function",
+   "name": "_reveal",
+   "signature": "function _reveal(uint256 tokenId) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "548c0c2e837457bc0c8c5444a119a50364c0c6bd",
+   "body_lines": [
+    515,
+    542
+   ],
+   "reads": [
+    "revealed (line 517)",
+    "mintBlockOf (line 518)"
+   ],
+   "authority": "internal (callers: reveal, revealBatch); the caller must own the token",
+   "edges": [
+    "ERC721.ownerOf (MiFrensGenesis.sol:516), TRUSTED, out-of-cluster",
+    "MiFrensGenesis._rollRarity (MiFrensGenesis.sol:537), TRUSTED, in-cluster"
+   ],
+   "writes": [
+    "mintBlockOf (line 533)",
+    "rarityOf (line 538)",
+    "revealed (line 539)"
+   ],
+   "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+   "observations": [
+    "comment at `keeper` (MiFrensGenesis.sol:531) says the holder or a keeper can call reveal again after a re-anchor; code at `ownerOf` (MiFrensGenesis.sol:516) rejects every caller that is not the current owner, so no keeper can"
+   ],
+   "reachability": "Reached from the single-token wrapper at `_reveal` (MiFrensGenesis.sol:488) or the batch wrapper at `_reveal` (MiFrensGenesis.sol:512). Reverts while `block.number` is not past the committed block (MiFrensGenesis.sol:519); once the hash has aged out, it rewrites `mintBlockOf` (MiFrensGenesis.sol:533) and returns without setting `revealed`, so the token stays revealable and the caller must come back. The seed mixes only the block hash, the id and this contract's address at `_rollRarity` (MiFrensGenesis.sol:537), all known to the caller once the block is mined. DERIVED: the re-anchor branch is the one path that writes state and still leaves the token unrevealed.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 545,
+   "kind": "function",
+   "name": "burnFromVault",
+   "signature": "function burnFromVault(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f2f5866c0548ff39cdb5c0d36aa4dbbac674fd8a",
+   "body_lines": [
+    545,
+    548
+   ],
+   "reads": [
+    "vault (line 546)"
+   ],
+   "authority": "vault",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "if (msg.sender != vault) revert OnlyVault(); (MiFrensGenesis.sol:546)",
+   "observations": [],
+   "reachability": "Only the address wired at `vault` (MiFrensGenesis.sol:339). The burn does not touch `minted` (MiFrensGenesis.sol:478), so the counter that gates new mints is monotonic and a burned id is never re-issued; the ERC721 balance and the counter therefore diverge by exactly the number of burns. DERIVED: no line in the file decrements the counter.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 550,
+   "kind": "function",
+   "name": "_rollRarity",
+   "signature": "function _rollRarity(uint256 seed) private view returns (uint8)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c0ba744222e022708acb5f76dc6666eaa837e3ef",
+   "body_lines": [
+    550,
+    556
+   ],
+   "reads": [
+    "rarityCumBps (line 553)"
+   ],
+   "authority": "internal (callers: _reveal)",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Called only from the reveal path at `_rollRarity` (MiFrensGenesis.sol:537). Walks the four cumulative buckets at `rarityCumBps` (MiFrensGenesis.sol:553) and falls through to tier zero, so a ladder whose last entry is below 10000 silently returns the common tier.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 575,
+   "kind": "function",
+   "name": "igniteCauldron",
+   "signature": "function igniteCauldron() external nonReentrant returns (address token)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "4d33eae7c4e4611f7e68a47a619f0b98f5ba1ae1",
+   "body_lines": [
+    575,
+    587
+   ],
+   "reads": [
+    "registry (line 576)",
+    "finalized (line 577)",
+    "minted (line 578)",
+    "GENESIS_SUPPLY (line 578, immutable)",
+    "finalizer (line 581)"
+   ],
+   "authority": "anyone, unless a finalizer is wired - then only that address",
+   "edges": [
+    "IRegistrySummon.summon (MiFrensGenesis.sol:585), UNTRUSTED, out-of-cluster"
+   ],
+   "writes": [
+    "finalized (line 583)"
+   ],
+   "authority_gate_quote": "if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized(); (MiFrensGenesis.sol:581)",
+   "observations": [],
+   "reachability": "One-shot: `finalized` (MiFrensGenesis.sol:583) is set before the external call and is never cleared, and the OZ `nonReentrant` guard on the declaration (MiFrensGenesis.sol:575) blocks re-entry. It forwards the full `balance` (MiFrensGenesis.sol:584), which is every ETH `mint` collected, to a registry address that the deployer chose - there is no other withdrawal path in the file. The sellout test reads the same `minted` (MiFrensGenesis.sol:578) counter that volume mints increment. Setting it also permanently blocks `cancelPresale` (MiFrensGenesis.sol:289) and therefore `refund` (MiFrensGenesis.sol:300).",
+   "value": "sends native to `registry` (line 585)"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 594,
+   "kind": "function",
+   "name": "soldOut",
+   "signature": "function soldOut() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b0d7a265180a5bf8b99e87a72bfccf6e128f661c",
+   "body_lines": [
+    594,
+    596
+   ],
+   "reads": [
+    "minted (line 595)",
+    "GENESIS_SUPPLY (line 595, immutable)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View mirroring the ignition condition at `GENESIS_SUPPLY` (MiFrensGenesis.sol:578).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 599,
+   "kind": "function",
+   "name": "remaining",
+   "signature": "function remaining() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c3b457eae2b8eea35b33b130c74dc64ba62d1d47",
+   "body_lines": [
+    599,
+    601
+   ],
+   "reads": [
+    "minted (line 600)",
+    "GENESIS_SUPPLY (line 600, immutable)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View. Saturates at zero rather than underflowing when `minted` (MiFrensGenesis.sol:600) has passed the genesis cap via volume mints.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 610,
+   "kind": "function",
+   "name": "isGenesis",
+   "signature": "function isGenesis(uint256 tokenId) public view returns (bool)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "3a993b1378eb824f80435cc47f1d23d82c2f274f",
+   "body_lines": [
+    610,
+    612
+   ],
+   "reads": [
+    "GENESIS_SUPPLY (line 611, immutable)"
+   ],
+   "authority": "anyone",
+   "edges": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Pure id comparison against the immutable `GENESIS_SUPPLY` (MiFrensGenesis.sol:611); id zero is excluded. Badge ids start at `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:379) and so are never genesis.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 617,
+   "kind": "function",
+   "name": "ogTrait",
+   "signature": "function ogTrait(uint256 tokenId) external view returns (string memory)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8a1cf83dc9df814e97b817f84c40857eb8f92266",
+   "body_lines": [
+    617,
+    619
+   ],
+   "reads": [],
+   "authority": "anyone",
+   "edges": [
+    "MiFrensGenesis.isGenesis (MiFrensGenesis.sol:618), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [
+    "comment at `rarity` (MiFrensGenesis.sol:615) says the non-genesis branch reports the rolled rarity tier; code at `isGenesis` (MiFrensGenesis.sol:618) returns a fixed string for every non-genesis id and never reads `rarityOf` (MiFrensGenesis.sol:538)"
+   ],
+   "reachability": "View helper over `isGenesis` (MiFrensGenesis.sol:610).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 621,
+   "kind": "function",
+   "name": "tokenURI",
+   "signature": "function tokenURI(uint256 tokenId) public view override returns (string memory)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8dcb8d6b27669ed4a27ac2e2b4978beddd5642d3",
+   "body_lines": [
+    621,
+    637
+   ],
+   "reads": [
+    "isLiquidatoor (line 624)",
+    "liquidatorRenderer (line 625)",
+    "liquidatorURI (line 628)",
+    "GENESIS_SUPPLY (line 632, immutable)",
+    "revealed (line 632)",
+    "unrevealedURI (line 632)",
+    "mode (line 633)",
+    "renderer (line 633)",
+    "_base (line 636)"
+   ],
+   "authority": "anyone",
+   "edges": [
+    "ICollectionRenderer.tokenURI (MiFrensGenesis.sol:626), UNTRUSTED, out-of-cluster",
+    "ICollectionRenderer.tokenURI (MiFrensGenesis.sol:634), UNTRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View, but it calls out to two deployer-settable contracts: the badge renderer at `liquidatorRenderer` (MiFrensGenesis.sol:625) and the art renderer at `renderer` (MiFrensGenesis.sol:633). Reverts for an unowned id at `_requireOwned` (MiFrensGenesis.sol:622). Only ids above `GENESIS_SUPPLY` (MiFrensGenesis.sol:632) can show the placeholder, so an unrevealed genesis id is impossible by construction. Both string branches concatenate the id through `toString` (MiFrensGenesis.sol:628) and `toString` (MiFrensGenesis.sol:636).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 647,
+   "kind": "function",
+   "name": "_update",
+   "signature": "function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Votes) returns (address)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "302b3815b596c308310152103fead37211c99791",
+   "body_lines": [
+    651,
+    705
+   ],
+   "reads": [
+    "transferValidator (line 654)",
+    "dividend (line 693)",
+    "GAS_DIVIDEND_MIN (line 694, constant)",
+    "GAS_DIVIDEND_FWD (line 695, constant)",
+    "GENESIS_SUPPLY (line 701, immutable)",
+    "everMoved (line 701)"
+   ],
+   "authority": "internal (callers: ERC721 _mint, _burn, _transfer and the public transfer entry points)",
+   "edges": [
+    "ITransferValidator.validateTransfer (MiFrensGenesis.sol:656), UNTRUSTED, out-of-cluster",
+    "ERC721._update (MiFrensGenesis.sol:658), TRUSTED, out-of-cluster",
+    "IMiFrensDividendHook.onMiFrenTransfer (MiFrensGenesis.sol:695), UNTRUSTED, in-cluster"
+   ],
+   "writes": [
+    "everMoved (line 702)"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "The single chokepoint for every id movement in this collection, reached from `_mint` (MiFrensGenesis.sol:279), `_mint` (MiFrensGenesis.sol:383), `_mint` (MiFrensGenesis.sol:481), `_transfer` (MiFrensGenesis.sol:416), `_burn` (MiFrensGenesis.sol:547) and the inherited public transfer functions. Order is: the external validator first at `validateTransfer` (MiFrensGenesis.sol:656), then the ERC721 state change at `_update` (MiFrensGenesis.sol:658), then the `delegates` read (MiFrensGenesis.sol:659) and self-delegation at `_delegate` (MiFrensGenesis.sol:660), then the dividend ping, then the `everMoved` write (MiFrensGenesis.sol:702) - so the dividend is called after ownership has already moved. A caller who leaves less than `GAS_DIVIDEND_MIN` (MiFrensGenesis.sol:694) is reverted rather than allowed to starve the child call, and the child gets a fixed `GAS_DIVIDEND_FWD` stipend (MiFrensGenesis.sol:695) inside a try/catch, so a reverting dividend cannot brick a transfer. The `everMoved` flag is set only for ids at or below `GENESIS_SUPPLY` (MiFrensGenesis.sol:701).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 707,
+   "kind": "function",
+   "name": "_increaseBalance",
+   "signature": "function _increaseBalance(address account, uint128 amount) internal override(ERC721, ERC721Votes)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3e01bc4a66fbb1bfa296c714fa66f9d1c8e82b6f",
+   "body_lines": [
+    710,
+    712
+   ],
+   "reads": [],
+   "authority": "internal (callers: ERC721 batch-mint plumbing)",
+   "edges": [
+    "ERC721._increaseBalance (MiFrensGenesis.sol:711), TRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "Diamond resolution only; it forwards to the inherited implementation at `_increaseBalance` (MiFrensGenesis.sol:711) and no code in this file calls it directly. DERIVED: the identifier appears nowhere else in the file.",
+   "value": "NONE"
+  },
+  {
+   "contract": "MiFrensGenesis",
+   "file": "cauldron/MiFrensGenesis.sol",
+   "line": 715,
+   "kind": "function",
+   "name": "supportsInterface",
+   "signature": "function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981) returns (bool)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "60f0cb66b5e355a6739e4972daca8d494486aa4f",
+   "body_lines": [
+    715,
+    717
+   ],
+   "reads": [],
+   "authority": "anyone",
+   "edges": [
+    "ERC2981.supportsInterface (MiFrensGenesis.sol:716), TRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reachability": "View. Adds the creator-token id to whatever the inherited chain answers at `supportsInterface` (MiFrensGenesis.sol:716).",
+   "value": "NONE"
+  },
+  {
+   "contract": "MintCurvePolicy",
+   "file": "cauldron/MintCurvePolicy.sol",
+   "line": 71,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(uint256 _base, uint256 _spread, uint256 _knee, uint256 _supply)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f7eeaebc6e7155bd6d7e937bd3f9f0975bf8a0ae",
+   "body_lines": [
+    71,
+    87
+   ],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "base (line 83, immutable)",
+    "spread (line 84, immutable)",
+    "knee (line 85, immutable)",
+    "supply (line 86, immutable)"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Deployment only; the launch script in the deploy directory is the only place in the tree that constructs it. The contract has no storage and no owner at all: all four parameters are immutable, so the ladder cannot be re-tuned after deploy and there is no gate to rotate or renounce. A zero `_knee` (MintCurvePolicy.sol:75) is refused because it would divide by zero at position zero, and a zero `_spread` (MintCurvePolicy.sol:82) is refused because a flat ladder breaks the rising-floor property the comment describes.",
+   "edges": [],
+   "authority": "deployer"
+  },
+  {
+   "contract": "MintCurvePolicy",
+   "file": "cauldron/MintCurvePolicy.sol",
+   "line": 95,
+   "kind": "function",
+   "name": "priceAt",
+   "signature": "function priceAt(uint256 k, uint256, uint256) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b4ab07132921b3f2e4e3504d256dff3e6c2fbc46",
+   "body_lines": [
+    95,
+    100
+   ],
+   "value": "NONE",
+   "reads": [
+    "base (line 99, immutable)",
+    "spread (line 99, immutable)",
+    "knee (line 99, immutable)"
+   ],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pure-by-effect view called by the hook's mint pricing at `priceAt` (CauldronHook.sol:2094), inside a try/catch there, with the hook's own base and step arguments ignored by this implementation. Integer division at `knee` (MintCurvePolicy.sol:99) rounds the cost DOWN, and the units are whatever the caller's credit is denominated in - this contract performs no conversion and knows nothing about decimals.",
+   "edges": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "MintCurvePolicy",
+   "file": "cauldron/MintCurvePolicy.sol",
+   "line": 108,
+   "kind": "function",
+   "name": "totalToMintOut",
+   "signature": "function totalToMintOut() external view returns (uint256 total)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "04e0e7f5f840d5ccaef0ef41b7b24644669704de",
+   "body_lines": [
+    108,
+    113
+   ],
+   "value": "NONE",
+   "reads": [
+    "supply (line 109, immutable)",
+    "base (line 111, immutable)",
+    "spread (line 111, immutable)",
+    "knee (line 111, immutable)"
+   ],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Off-chain calibration helper: the loop at `n` (MintCurvePolicy.sol:110) runs `supply` times, a bound fixed at deploy and reachable by anyone, so on a large collection it can exceed a block's gas - it is never called from a mint path in this repo. The only caller in the tree is the launch script in the deploy directory. Each term rounds down exactly as the per-item view does, so the sum is the sum of the actual charges.",
+   "edges": [],
+   "authority": "anyone"
+  },
+  {
+   "contract": "INFTContract",
+   "file": "interfaces/INFTContract.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "getHolderTaxRate",
+   "signature": "function getHolderTaxRate(address holder) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Called inside a try/catch at `getHolderTaxRate` (CauldronHook.sol:1627) on a hook-configured address, so a reverting or missing implementation degrades rather than blocking a swap. Neither collection in this cluster implements it - the two ERC721s expose no such function - so the address the hook points at is some other contract. DERIVED: the identifier appears nowhere else in the tree.",
+   "edges": [],
+   "authority": "declaration only (no body); the only caller in the tree is the hook's private tax helper, which is out of cluster"
+  },
+  {
+   "contract": "INFTContract",
+   "file": "interfaces/INFTContract.sol",
+   "line": 11,
+   "kind": "function",
+   "name": "balanceOf",
+   "signature": "function balanceOf(address holder) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Declared beside the tax-rate view but never invoked through this interface: the only use of the interface type is the single tax call at `INFTContract` (CauldronHook.sol:1627). DERIVED: grep of the non-library sources finds no call of this member on this interface.",
+   "edges": [],
+   "authority": "declaration only (no body); no call site exists anywhere in the tree"
+  }
+ ]
+}

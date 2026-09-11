@@ -1,0 +1,439 @@
+[
+ {
+  "contract": "CauldronCollection",
+  "line": 133,
+  "authority": "deployer (the CauldronFactory, which becomes `configurator`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "LIQUIDATOR_ID_BASE (line 148, constant)"
+  ],
+  "writes": [
+   "minter (line 155, immutable)",
+   "deployer (line 156, immutable)",
+   "configurator (line 157, immutable)",
+   "maxSupply (line 158, immutable)",
+   "mode (line 159)",
+   "renderer (line 160)",
+   "_baseTokenURI (line 161)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only, from the factory's `new CauldronCollection` (CauldronFactory.sol:71). Three distinct authorities are frozen here: the mint right in `minter` (CauldronCollection.sol:155), the controller in `deployer` (CauldronCollection.sol:156) - which is the registry passed in, not the caller - and the factory in `configurator` (CauldronCollection.sol:157). All four are immutable, so no gate in this file can ever be rotated or renounced. The art cap is forced below the badge range at `LIQUIDATOR_ID_BASE` (CauldronCollection.sol:148). The royalty default is installed through `_setDefaultRoyalty` (CauldronCollection.sol:162) only when a non-zero receiver is passed.",
+  "observations": [
+   "comment at `admin` (CauldronCollection.sol:22) says there is no admin surface at all after construction; code at `setMetadata` (CauldronCollection.sol:316), `setTransferValidator` (CauldronCollection.sol:192), `setRarityOdds` (CauldronCollection.sol:426) and `setLiquidatorURI` (CauldronCollection.sol:328) are post-construction setters held by the registry"
+  ]
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 169,
+  "authority": "internal (callers: ERC721 _mint, _burn, _transfer and the inherited public transfer entry points)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "transferValidator (line 174)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ITransferValidator.validateTransfer (CauldronCollection.sol:176), UNTRUSTED, out-of-cluster",
+   "ERC721._update (CauldronCollection.sol:178), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The single chokepoint for every id movement: reached from `_mint` (CauldronCollection.sol:213), `_mint` (CauldronCollection.sol:356), `_burn` (CauldronCollection.sol:386), `_transfer` (CauldronCollection.sol:396) and the inherited transfer functions. When `transferValidator` (CauldronCollection.sol:174) is non-zero an arbitrary external contract is called before the state change, so a reverting validator freezes minting, burning and the registry recycle alike. Unlike the genesis collection there is no dividend ping and no everMoved bookkeeping here.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 182,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "transferValidator (line 183)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of the slot written at `transferValidator` (CauldronCollection.sol:195).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 187,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure constant pair; returns the selector of `validateTransfer` (CauldronCollection.sol:188) and reads no state.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 192,
+  "authority": "registry (held in the immutable `deployer` slot)",
+  "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:193)",
+  "reads": [
+   "deployer (line 193, immutable)",
+   "transferValidator (line 194)"
+  ],
+  "writes": [
+   "transferValidator (line 195)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the registry address frozen at `deployer` (CauldronCollection.sol:156) can reach it, and that address is immutable so the right cannot be moved. Setting a non-zero value routes every move through the external check at `validateTransfer` (CauldronCollection.sol:176).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 199,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ERC2981.supportsInterface (CauldronCollection.sol:200), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "View; adds the creator-token id to the inherited answer at `supportsInterface` (CauldronCollection.sol:200).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 207,
+  "authority": "minter (the volume hook, frozen at deploy)",
+  "authority_gate_quote": "if (msg.sender != minter) revert OnlyMinter(); (CauldronCollection.sol:208)",
+  "reads": [
+   "minter (line 208, immutable)",
+   "totalMinted (line 209)",
+   "maxSupply (line 209, immutable)",
+   "totalMinted (line 210)"
+  ],
+  "writes": [
+   "totalMinted (line 210)",
+   "mintBlockOf (line 212)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The only art-mint path in the collection: no public mint exists, and the caller must be the immutable `minter` (CauldronCollection.sol:208). Ids are strictly increasing from the pre-incremented `totalMinted` (CauldronCollection.sol:210) and are capped by `maxSupply` (CauldronCollection.sol:209). The token is created at `_mint` (CauldronCollection.sol:213) through the `_update` override (CauldronCollection.sol:169). Only the mint block is committed at `mintBlockOf` (CauldronCollection.sol:212); no rarity is assigned yet, so a fresh token reads as unrevealed at `revealed` (CauldronCollection.sol:411).",
+  "observations": [
+   "comment at `Rarity` (CauldronCollection.sol:99) says the tier is rolled at mint from an on-chain seed and stored; code at `mintBlockOf` (CauldronCollection.sol:212) stores only the block and `rarityOf` (CauldronCollection.sol:270) is written later inside the reveal path"
+  ]
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 219,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronCollection._reveal (CauldronCollection.sol:220), TRUSTED, in-cluster"
+  ],
+  "reachability": "Wrapper; the ownership gate is in the callee at `ownerOf` (CauldronCollection.sol:248).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 239,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronCollection._reveal (CauldronCollection.sol:244), TRUSTED, in-cluster"
+  ],
+  "reachability": "Batch wrapper bounded at fifty ids by the check at `BadBatch` (CauldronCollection.sol:243); every element still passes the per-token ownership gate at `ownerOf` (CauldronCollection.sol:248), so a single id the caller does not own reverts the whole batch.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 247,
+  "authority": "internal (callers: reveal, revealBatch); the caller must own the token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (CauldronCollection.sol:248)",
+  "reads": [
+   "revealed (line 249)",
+   "mintBlockOf (line 250)"
+  ],
+  "writes": [
+   "mintBlockOf (line 265)",
+   "rarityOf (line 270)",
+   "revealed (line 271)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ERC721.ownerOf (CauldronCollection.sol:248), TRUSTED, out-of-cluster",
+   "CauldronCollection._rollRarity (CauldronCollection.sol:269), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reached from the single wrapper at `_reveal` (CauldronCollection.sol:220) or the batch at `_reveal` (CauldronCollection.sol:244). Reverts until the committed block is in the past at `NotReady` (CauldronCollection.sol:251); once its hash has aged out it rewrites `mintBlockOf` (CauldronCollection.sol:265) and returns leaving `revealed` (CauldronCollection.sol:249) false, so the token stays revealable and nothing is lost. The seed at `_rollRarity` (CauldronCollection.sol:269) mixes the block hash, the id and this contract's address only.",
+  "observations": [
+   "comment at `keeper` (CauldronCollection.sol:263) says the holder or a keeper can call reveal again after a re-anchor; code at `ownerOf` (CauldronCollection.sol:248) rejects any caller that is not the current owner, so no keeper can"
+  ]
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 276,
+  "authority": "internal (callers: _reveal)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "rarityCumBps (line 279)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called only from the reveal path at `_rollRarity` (CauldronCollection.sol:269). Walks four cumulative buckets at `rarityCumBps` (CauldronCollection.sol:279) and falls through to tier zero.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 286,
+  "authority": "configurator (the factory) or registry",
+  "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:287)",
+  "reads": [
+   "configurator (line 287, immutable)",
+   "deployer (line 287, immutable)",
+   "vault (line 288)"
+  ],
+  "writes": [
+   "vault (line 289)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Write-once: a second call reverts on the non-zero `vault` (CauldronCollection.sol:288) test. The factory calls it inside `setVault` (CauldronFactory.sol:76); the registry can do it instead if the factory has not. It confers the burn right checked at `vault` (CauldronCollection.sol:385), so the burn authority is permanent once set.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 296,
+  "authority": "configurator (the factory) or registry",
+  "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:297)",
+  "reads": [
+   "configurator (line 297, immutable)",
+   "deployer (line 297, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Re-settable by either holder, capped at 10 percent by the require at `bps` (CauldronCollection.sol:298). The factory uses it to point royalties at the RoyaltyRouter it just deployed, at `setRoyalty` (CauldronFactory.sol:82). The receiver lands in inherited ERC2981 storage through `_setDefaultRoyalty` (CauldronCollection.sol:299) and is never read back in this file.",
+  "observations": [
+   "comment at `deployer` (CauldronCollection.sol:292) says the royalty receiver is re-pointable by the deployer only; code at `configurator` (CauldronCollection.sol:297) also accepts the factory"
+  ]
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 306,
+  "authority": "registry or minter (the volume hook)",
+  "authority_gate_quote": "if (msg.sender != deployer && msg.sender != minter) revert OnlyMinter(); (CauldronCollection.sol:307)",
+  "reads": [
+   "deployer (line 307, immutable)",
+   "minter (line 307, immutable)"
+  ],
+  "writes": [
+   "liquidatorMinter (line 308)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Both holders are immutable, so this right can neither rotate nor be renounced. It confers the only authority accepted at `liquidatorMinter` (CauldronCollection.sol:350), and it is freely re-settable, including to zero, which silently disables badge minting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 316,
+  "authority": "registry (held in the immutable `deployer` slot)",
+  "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:317)",
+  "reads": [
+   "deployer (line 317, immutable)"
+  ],
+  "writes": [
+   "renderer (line 320)",
+   "_baseTokenURI (line 322)",
+   "mode (line 324)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only. Renderer mode requires a contract with code at `_renderer` (CauldronCollection.sol:319), but the base-URI branch accepts an empty string, and only the branch that matches the new mode is written - switching to base-URI mode with an empty argument blanks `_baseTokenURI` (CauldronCollection.sol:322) for every token.",
+  "observations": [
+   "comment at `immutable` (CauldronCollection.sol:17) says the metadata choice is immutable at deploy; code at `mode` (CauldronCollection.sol:324) lets the registry change both the mode and its source at any time"
+  ]
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 328,
+  "authority": "registry (held in the immutable `deployer` slot)",
+  "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:329)",
+  "reads": [
+   "deployer (line 329, immutable)"
+  ],
+  "writes": [
+   "liquidatorURI (line 330)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only metadata base for the badge branch at `liquidatorURI` (CauldronCollection.sol:408).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 336,
+  "authority": "liquidatorMinter (the wired PerpEngine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronCollection._mintLiquidator (CauldronCollection.sol:337), TRUSTED, in-cluster"
+  ],
+  "reachability": "Wrapper; the gate is in the callee at `liquidatorMinter` (CauldronCollection.sol:350). The empty stats struct skips the `_liqStats` write (CauldronCollection.sol:355).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 342,
+  "authority": "liquidatorMinter (the wired PerpEngine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronCollection._mintLiquidator (CauldronCollection.sol:346), TRUSTED, in-cluster"
+  ],
+  "reachability": "Same gate, in the callee at `liquidatorMinter` (CauldronCollection.sol:350); the caller's stats are stored verbatim at `_liqStats` (CauldronCollection.sol:355) with no validation.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 349,
+  "authority": "internal (callers: mintLiquidator, mintLiquidatorWithStats)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)",
+  "reads": [
+   "liquidatorMinter (line 350)",
+   "LIQUIDATOR_ID_BASE (line 351, constant)",
+   "liquidatorMinted (line 351)"
+  ],
+  "writes": [
+   "liquidatorMinted (line 351)",
+   "isLiquidatoor (line 352)",
+   "_liqStats (line 355)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Badge ids are `LIQUIDATOR_ID_BASE` plus a counter (CauldronCollection.sol:351) and are uncapped: nothing here compares against `maxSupply` (CauldronCollection.sol:209), and the counter is separate from `totalMinted` (CauldronCollection.sol:210). Collision with art ids is impossible because the constructor refuses a cap at or above `LIQUIDATOR_ID_BASE` (CauldronCollection.sol:148). The token is created at `_mint` (CauldronCollection.sol:356).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 361,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_liqStats (line 362)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of whatever the badge minter recorded at `_liqStats` (CauldronCollection.sol:355); a badge minted through the bare wrapper at `mintLiquidator` (CauldronCollection.sol:336) reads back as an all-zero struct.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 373,
+  "authority": "configurator (the factory) or registry",
+  "authority_gate_quote": "if (msg.sender != configurator && msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:374)",
+  "reads": [
+   "configurator (line 374, immutable)",
+   "deployer (line 374, immutable)"
+  ],
+  "writes": [
+   "liquidatorRenderer (line 375)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called by the factory during deployment at `setLiquidatorRenderer` (CauldronFactory.sol:87) and thereafter by the registry. Points the badge branch of `tokenURI` (CauldronCollection.sol:406) at an arbitrary contract.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 379,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "isLiquidatoor (line 380)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View over the flag written at `isLiquidatoor` (CauldronCollection.sol:352).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 384,
+  "authority": "vault",
+  "authority_gate_quote": "if (msg.sender != vault) revert OnlyVault(); (CauldronCollection.sol:385)",
+  "reads": [
+   "vault (line 385)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the address wired once at `vault` (CauldronCollection.sol:289). The burn at `_burn` (CauldronCollection.sol:386) does not decrement `totalMinted` (CauldronCollection.sol:210), so the id counter is monotonic, a burned id is never re-issued, and the live ERC721 supply falls below the counter by exactly the number of burns. DERIVED: the counter is written on one line only.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 394,
+  "authority": "registry (held in the immutable `deployer` slot)",
+  "authority_gate_quote": "if (msg.sender != deployer) revert OnlyVault(); (CauldronCollection.sol:395)",
+  "reads": [
+   "deployer (line 395, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only move with no owner approval: `_transfer` (CauldronCollection.sol:396) only requires that `from` is the current owner, and the ownership check the comment relies on is entirely on the registry side. It routes through the `_update` override (CauldronCollection.sol:169), so a set validator can block it. Nothing is burned, so the collection size is unchanged.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 400,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "isLiquidatoor (line 403)",
+   "liquidatorRenderer (line 405)",
+   "liquidatorURI (line 408)",
+   "revealed (line 411)",
+   "unrevealedURI (line 411)",
+   "mode (line 412)",
+   "renderer (line 413)",
+   "_baseTokenURI (line 417)",
+   "rarityOf (line 418)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICollectionRenderer.tokenURI (CauldronCollection.sol:406), UNTRUSTED, out-of-cluster",
+   "ICollectionRenderer.tokenURI (CauldronCollection.sol:413), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "View that calls out to two registry-settable contracts. Reverts for an unminted id at `_requireOwned` (CauldronCollection.sol:401). The art branch at `renderer` (CauldronCollection.sol:413) has no zero-address guard, so Renderer mode with a cleared renderer reverts for every art token, while the badge branch at `liquidatorRenderer` (CauldronCollection.sol:405) does check. Base-URI output interpolates the tier at `rarityOf` (CauldronCollection.sol:418) through `toString` (CauldronCollection.sol:420).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronCollection",
+  "line": 426,
+  "authority": "registry (held in the immutable `deployer` slot)",
+  "authority_gate_quote": "if (msg.sender != deployer) revert OnlyMinter(); (CauldronCollection.sol:427)",
+  "reads": [
+   "deployer (line 427, immutable)",
+   "totalMinted (line 428)"
+  ],
+  "writes": [
+   "rarityCumBps (line 430)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only and only while `totalMinted` (CauldronCollection.sol:428) is zero, so unlike the genesis collection the odds are frozen before the first mint and cannot be changed under tokens that are already waiting to reveal. The require at `cum` (CauldronCollection.sol:429) enforces an ascending ladder ending at 10000.",
+  "observations": []
+ }
+]

@@ -1,0 +1,12 @@
+[
+ {
+  "contract": "IStakerOracle (declared in MigrationVesting.sol)", "line": 24,
+  "authority": "anyone (declaration only; the implementation is whatever address the owner set)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called from `isInstant` (MigrationVesting.sol:256) inside a try/catch, so a reverting or missing implementation degrades to the vesting outcome at `catch` (MigrationVesting.sol:257) rather than bricking a migration. The target address lives in `stakerOracle` (MigrationVesting.sol:81) and is owner-settable at any time by `setStakerOracle` (MigrationVesting.sol:303), including to the zero address, which short-circuits at `stakerOracle` (MigrationVesting.sol:253). The shipped implementation is `isInstant` (PerpStakerOracle.sol:29). DERIVED: the result is consumed only at deposit time, so flipping the oracle never re-prices an existing grant.",
+  "observations": []
+ }
+]

@@ -1,0 +1,48 @@
+[
+ {
+  "contract": "PerpSwapLib",
+  "line": 52,
+  "authority": "engine (linked library; the only caller is PerpEngine._swapBody)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MIN_LIMIT (line 66, constant)",
+   "SQRT_MAX (line 66, constant)"
+  ],
+  "writes": [],
+  "value": "settles the pay leg through `_settle` (line 89) and receives the other leg through `take` (line 90)",
+  "edges": [
+   "PerpSwapLib._settle (PerpSwapLib.sol:89), TRUSTED, in-cluster",
+   "PerpSwapLib._settle (PerpSwapLib.sol:94), TRUSTED, in-cluster"
+  ],
+  "reachability": "An `external` library function, so Solidity deploys it separately and the engine reaches it by DELEGATECALL from `swapLeg` (PerpEngine.sol:1268); it therefore runs in the engine's context - `address(this)` is the engine, settled value leaves the engine's balance and taken currency lands on the engine. It holds no storage of its own. Orientation is PASSED IN rather than re-derived: `quoteIsCurrency0` (PerpSwapLib.sol:59) decides which delta is which, and the swap direction is `z` (PerpSwapLib.sol:65), the XNOR of intent and orientation. The price limit follows the resulting direction at `limit` (PerpSwapLib.sol:66) and is the extreme tick either way, i.e. there is NO slippage bound inside the library - bounds are enforced by the engine's own minOut checks. The specified amount is signed at `spec` (PerpSwapLib.sol:71): positive for an exact-out buy, negative otherwise. Deltas are read from the pool at `quoteAmt` (PerpSwapLib.sol:83) and `tokAmt` (PerpSwapLib.sol:84), the owed side is settled and the owed-to-us side is taken at `got` (PerpSwapLib.sol:90).",
+  "observations": []
+ },
+ {
+  "contract": "PerpSwapLib",
+  "line": 101,
+  "authority": "internal (callers: swapLeg)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to the pool manager via `settle` (line 104); ERC20 transfer of the currency to the pool manager via `transfer` (line 112)",
+  "edges": [
+   "c.call (PerpSwapLib.sol:111), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "The pay leg, in the two shapes v4 accepts. Native settles with attached value at `settle` (PerpSwapLib.sol:104) - value that comes out of the ENGINE's balance because this runs under delegatecall. An ERC20 settles by sync, transfer, settle at `sync` (PerpSwapLib.sol:106), and the transfer's return is decoded at `ok` (PerpSwapLib.sol:114) so a false-returning token fails here with a clear reason rather than surfacing later as the user's swap reverting on a non-zero delta. A zero amount short-circuits at `amount` (PerpSwapLib.sol:102).",
+  "observations": []
+ },
+ {
+  "contract": "PerpSwapLib",
+  "line": 128,
+  "authority": "engine (linked library; the only caller is PerpEngine.syncGeneration)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "burns the engine's dead-generation token balance and receives the live token inside the registry `call` (line 134)",
+  "edges": [
+   "registry.call (PerpSwapLib.sol:134), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached by delegatecall from `migrateInventory` (PerpEngine.sol:1044), so the balance read at `balanceOf` (PerpSwapLib.sol:132) and the tokens burned and received are the ENGINE's. Deliberately best-effort: it uses a LOW-LEVEL call by signature string at `claimByBurnUpTo` (PerpSwapLib.sol:135) and simply returns zero when the call fails or returns short data at `ret` (PerpSwapLib.sol:137), so a thin reserve or a registry without that entrypoint leaves the engine holding the old token instead of reverting the whole sync. A zero balance short-circuits at `oldBal` (PerpSwapLib.sol:133).",
+  "observations": []
+ }
+]

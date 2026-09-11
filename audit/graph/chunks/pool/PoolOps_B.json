@@ -1,0 +1,88 @@
+[
+ {"contract":"PoolOps","line":682,
+  "authority":"anyone directly at the linked library address; in the protocol path, igniter/owner via summon and anyone via relaunch once the pool is dead",
+  "authority_gate_quote":"if (!hook.isDead(oldPoolId)) revert TokenStillAlive(); (CauldronRegistry.sol:779)",
+  "reads":["QUOTE_WATERMARK (line 692, constant)","SALT_TRIES (line 701, constant)"],
+  "writes":[],
+  "value":"NONE (the deployed token mints its whole fixed supply to the deployer, which is the registry under delegatecall, at `totalSupply` (line 707))",
+  "edges":[],
+  "observations":[],
+  "reachability":"Delegatecalled from `_deployToken` (CauldronRegistry.sol:1626), which `summon` reaches at `_deployToken` (CauldronRegistry.sol:691) with a native quote and `relaunch` at `_deployToken` (CauldronRegistry.sol:916) with the quote the winning proposal named. It mines a CREATE2 salt until the predicted address sorts above `floor` (line 692) — the greater of the requested quote and the hard-coded watermark — and asserts the prediction at `require` (line 710). The search is bounded by `SALT_TRIES` (line 701); on exhaustion it does NOT revert but deploys unmined and returns `address(0)` at `CauldronToken` (line 718), so the caller must record the RETURNED quote rather than the requested one, which the registry does at `specQuote` (CauldronRegistry.sol:916). Because the library is delegatecalled, the CREATE2 deployer is the registry, so the address cannot be occupied by a third party."},
+
+ {"contract":"PoolOps","line":722,
+  "authority":"internal (callers: createAndSeed, createAndSeedProgressive, _greenCandle, openOrAddPair)",
+  "authority_gate_quote":"UNGATED",
+  "reads":[],"writes":[],
+  "value":"sends native to the PositionManager with the mint at `modifyLiquidities` (line 761); on the ERC20 branch the quote is PULLED by the PositionManager after `_approve` (line 763)",
+  "edges":[
+   "PoolOps._approve (PoolOps.sol:732), TRUSTED, in-cluster",
+   "TickMath.getSqrtPriceAtTick (PoolOps.sol:739), TRUSTED, library",
+   "LiquidityAmounts.getLiquidityForAmounts (PoolOps.sol:737), TRUSTED, library",
+   "IPositionManagerOps.nextTokenId (PoolOps.sol:756), TRUSTED, out-of-cluster",
+   "IPositionManagerOps.modifyLiquidities (PoolOps.sol:761), TRUSTED, out-of-cluster",
+   "PoolOps._approve (PoolOps.sol:763), TRUSTED, in-cluster",
+   "IPositionManagerOps.modifyLiquidities (PoolOps.sol:764), TRUSTED, out-of-cluster"
+  ],
+  "observations":[],
+  "reachability":"The full-range mint used by every seed path and by the rotation's return leg: `_seedActive` (line 225), `_seedActive` (line 307), `_seedActive` (line 471) and `_seedActive` (line 885). The range is the whole curve, snapped to spacing at `minTick` (line 734) and `maxTick` (line 735); liquidity is sized from the price it is minted at via `getLiquidityForAmounts` (line 737), which is why `openOrAddPair` (line 834) re-reads the live price before calling here. The action list is MINT_POSITION, SETTLE_PAIR, SWEEP at `actions` (line 745), with the sweep returning excess quote to the registry at `params` (line 754). The native/ERC20 split at `quote` (line 759) decides whether value is forwarded or an allowance is granted; the header warns that sending value with an ERC20 quote would strand it at `PositionManager` (line 758)."},
+
+ {"contract":"PoolOps","line":770,
+  "authority":"internal (callers: createAndSeed, createAndSeedProgressive, _greenCandle)",
+  "authority_gate_quote":"UNGATED",
+  "reads":[],"writes":[],
+  "value":"no native leg — the band is single-sided token; the token is PULLED by the PositionManager after `_approve` (line 794)",
+  "edges":[
+   "ReserveLib.liquidityForTokenOut (PoolOps.sol:779), TRUSTED, library",
+   "PoolOps._approve (PoolOps.sol:794), TRUSTED, in-cluster",
+   "IPositionManagerOps.nextTokenId (PoolOps.sol:808), TRUSTED, out-of-cluster",
+   "IPositionManagerOps.modifyLiquidities (PoolOps.sol:809), TRUSTED, out-of-cluster"
+  ],
+  "observations":[],
+  "reachability":"Mints the out-of-range reserve band that backs 1:1 migration and the genesis claim; reached from `_seedReserve` (line 231), `_seedReserve` (line 303) and `_seedReserve` (line 486). Sizing rounds DOWN in `liquidityForTokenOut` (line 779), so a dust tranche maps to zero liquidity and the function returns 0 at `liquidity` (line 793) instead of letting the PositionManager revert — leaving the generation with no reserve position, which `claimFromReserve` (line 1147) and `addToReserve` (line 1187) both treat as a no-op. Single-sided is expressed by max0 = 0 at `params` (line 799)."},
+
+ {"contract":"PoolOps","line":834,
+  "authority":"anyone directly at the linked library address; in the protocol path, permissionless within the guild's approved envelope, or the owner on the completion path",
+  "authority_gate_quote":"if (remaining == 0) revert NoRotationApproved(); (RedemptionExt.sol:317)",
+  "reads":[],"writes":[],
+  "value":"the quote and token legs are paid inside `_seedActive` (line 885)",
+  "edges":[
+   "PoolIdLibrary.toId (PoolOps.sol:855), TRUSTED, library",
+   "PoolOps._sqrtPrice (PoolOps.sol:876), TRUSTED, in-cluster",
+   "IPoolManager.initialize (PoolOps.sol:877), TRUSTED, out-of-cluster",
+   "StateLibrary.getSlot0 (PoolOps.sol:880), TRUSTED, library",
+   "PoolOps._seedActive (PoolOps.sol:885), TRUSTED, in-cluster"
+  ],
+  "observations":[],
+  "reachability":"The return leg of a rotation, delegatecalled from `openOrAddPair` (RedemptionExt.sol:382) inside the permissionless-within-mandate `rotateSliceFrom` (RedemptionExt.sol:280) and from `openOrAddPair` (RedemptionExt.sol:614) inside the owner-only `completeRotation` (RedemptionExt.sol:605). Two preconditions are asserted rather than assumed: non-zero amounts at `require` (line 845) and the watermark ordering at `require` (line 846). LIVE POOL STATE: `initialize` is attempted, and on failure the catch reads `getSlot0` (line 880) — a zero sqrt price means the pool genuinely does not exist, so the refusal is re-thrown at `PoolInitRefused` (line 881); otherwise the LIVE price replaces the contributed one at `sqrtPriceX96` (line 882) so the top-up is sized at the price it will actually mint at."},
+
+ {"contract":"PoolOps","line":905,
+  "authority":"anyone directly at the linked library address; in the protocol path, permissionless within the guild's approved envelope",
+  "authority_gate_quote":"if (remaining == 0) revert NoRotationApproved(); (RedemptionExt.sol:317)",
+  "reads":["MAX_ROTATION_BPS (line 913, constant)"],
+  "writes":[],
+  "value":"TAKE_PAIR delivers both currencies to the registry at `modifyLiquidities` (line 932)",
+  "edges":[
+   "IPositionManagerOps.getPositionLiquidity (PoolOps.sol:914), TRUSTED, out-of-cluster",
+   "PoolOps._balance (PoolOps.sol:920), TRUSTED, in-cluster",
+   "IERC20.balanceOf (PoolOps.sol:921), UNTRUSTED, out-of-cluster",
+   "IPositionManagerOps.modifyLiquidities (PoolOps.sol:932), TRUSTED, out-of-cluster",
+   "PoolOps._balance (PoolOps.sol:934), TRUSTED, in-cluster",
+   "IERC20.balanceOf (PoolOps.sol:935), UNTRUSTED, out-of-cluster"
+  ],
+  "observations":[],
+  "reachability":"Delegatecalled from `removePartial` (RedemptionExt.sol:363) in `rotateSliceFrom` (RedemptionExt.sol:280), the only caller. It withdraws a share of the CURRENT liquidity — read live at `getPositionLiquidity` (line 914) — capped by `MAX_ROTATION_BPS` (line 913) at 50%, and returns 0 rather than reverting when the position or the computed share is empty at `take` (line 918). No BURN_POSITION action is encoded at `actions` (line 925), so the source pair keeps trading. Both outputs are MEASURED as balance deltas around the call, quote through `_balance` (line 934) so an ERC20-quoted generation is accounted at all, and token through `balanceOf` (line 935)."},
+
+ {"contract":"PoolOps","line":1000,
+  "authority":"anyone directly at the linked library address; in the protocol path, anyone once the old pool is dead (the gate is on the registry side)",
+  "authority_gate_quote":"if (!hook.isDead(oldPoolId)) revert TokenStillAlive(); (CauldronRegistry.sol:779)",
+  "reads":[],"writes":[],
+  "value":"receives native from the dying vault at `close` (line 1013) and from the hook's native reserve at `_pullEth` (line 1059); receives ERC20 from the hook's per-asset reserve at `_pullAsset` (line 1053) and `_pullAsset` (line 1064)",
+  "edges":[
+   "IVaultCloseOps.close (PoolOps.sol:1013), TRUSTED, out-of-cluster",
+   "PoolOps._pullAsset (PoolOps.sol:1053), TRUSTED, in-cluster",
+   "PoolOps._pullEth (PoolOps.sol:1059), TRUSTED, in-cluster",
+   "PoolOps._pullAsset (PoolOps.sol:1064), TRUSTED, in-cluster"
+  ],
+  "observations":[],
+  "reachability":"Delegatecalled once per rebirth from `seedFunding` (CauldronRegistry.sol:948) inside `relaunch` (CauldronRegistry.sol:767), after the dead LP has been recovered, and it decides the denomination the newborn launches in. Preference order: the proposal's quote, but only when nothing already-held would be stranded at `wantQuote` (line 1052); then native at `recovered` (line 1058); then the dying generation's own quote at `oldQuote` (line 1063). Every external step is best-effort — the vault close is try/catch'd at `close` (line 1013) and both hook pulls swallow reverts inside `_pullAsset` (line 1074) and `_pullEth` (line 1081) — so nothing here can be the reason a rebirth fails. The amount returned is in the units of the asset returned, and the caller passes both to the seeder at `totalETH` (CauldronRegistry.sol:948); a zero answer at `vaultSwept` (line 1066) leaves the registry's own guard to fire."}
+]

@@ -1,0 +1,31 @@
+[
+ {
+  "contract": "HookMiner",
+  "line": 23,
+  "authority": "internal (callers: deploy scripts and test harnesses, none in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "FLAG_MASK (line 28, constant)",
+   "MAX_LOOP (line 32, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "HookMiner.computeAddress (HookMiner.sol:33), TRUSTED, in-cluster"
+  ],
+  "reachability": "`find` (HookMiner.sol:23) is a library `internal` function, so it is inlined into whatever unit imports it. No contract in this cluster calls it; the only importers in the tree are deploy scripts and test harnesses (DERIVED). It brute-forces a CREATE2 salt whose address carries the hook-flag bits masked by `FLAG_MASK` (HookMiner.sol:28) and has no deployed code, giving up after `MAX_LOOP` (HookMiner.sol:32) iterations with a revert string.",
+  "observations": []
+ },
+ {
+  "contract": "HookMiner",
+  "line": 48,
+  "authority": "internal (callers: HookMiner.find)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure CREATE2 address derivation, called once per loop iteration from `computeAddress` (HookMiner.sol:33). No storage, no external calls: a single `keccak256` (HookMiner.sol:54) over the 0xFF / deployer / salt / init-code-hash preimage.",
+  "observations": []
+ }
+]

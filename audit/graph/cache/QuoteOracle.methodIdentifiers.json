@@ -1,0 +1,16 @@
+{
+ "TTL()": "1575f63e",
+ "cache(address)": "f8342edf",
+ "cachedUsdPerRawUnit(address)": "e3947bf0",
+ "feeds(address)": "2fba4aa9",
+ "gracePeriod()": "a06db7dc",
+ "owner()": "8da5cb5b",
+ "priceable(address)": "5e5ea259",
+ "sequencerUptime()": "97b91d4c",
+ "setBounds(address,uint128,uint128)": "09bcab55",
+ "setFeed(address,address,uint32,uint8)": "9b01a6a6",
+ "setPegged(address,uint8)": "26c97b77",
+ "setSequencer(address,uint32)": "e5cd307b",
+ "transferOwnership(address)": "f2fde38b",
+ "usdPerRawUnit(address)": "a18f6f5b"
+}

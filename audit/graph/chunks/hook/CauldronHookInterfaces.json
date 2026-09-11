@@ -1,0 +1,172 @@
+[
+ {
+  "contract": "IRegistryQuotes (declared in CauldronHook.sol)",
+  "line": 32,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Dispatched once per pool adoption at `allowedQuote` (CauldronHook.sol:644), against the address in `registry` (CauldronHook.sol:644) \u2014 the one caller `_afterInitialize` (CauldronHook.sol:621) has already required the initializer to BE the registry, so the callee is trusted by construction. Its single bool decides `quoteIsCurrency0` (CauldronHook.sol:647) for the pool's whole life; only currency0 is tested, currency1 is inferred.",
+  "observations": []
+ },
+ {
+  "contract": "IQuoteOracle (declared in CauldronHook.sol)",
+  "line": 42,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, and never used as an interface call: the hook builds the selector by hand at `cachedUsdPerRawUnit` (CauldronHook.sol:745) and fires a raw `call` (CauldronHook.sol:744) so a reverting oracle cannot take the swap down. The target is `quoteOracle` (CauldronHook.sol:742), set only through `setDeathThreshold` (CauldronHook.sol:1737). It is non-view by design, so this is a state-changing call inside afterSwap and the oracle is a re-entrancy-capable trusted component.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpOpenCount (declared in CauldronHook.sol)",
+  "line": 49,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. One dispatch site: `openCount` (CauldronHook.sol:1564) inside the registry-gated `linkVolume` (CauldronHook.sol:1562). It is NOT wrapped in try/catch, so a perp engine that reverts here blocks sibling-pool linking entirely.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
+  "line": 53,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, and DEAD: `liquidateInSwap` (CauldronHook.sol:53) has no dispatch site anywhere in the hook (DERIVED). The swap path uses the hint-free sweep at `sweepLiquidations` (CauldronHook.sol:949) instead.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
+  "line": 54,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, and DEAD: `liquidateManyInSwap` (CauldronHook.sol:54) has no dispatch site anywhere in the hook (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
+  "line": 55,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; used as a SELECTOR, not an interface call. `sweepLiquidations` (CauldronHook.sol:949) is encoded into a gas-capped low-level `call` (CauldronHook.sol:948) on `perpEngine` (CauldronHook.sol:945) with the result discarded, so the sweep can neither revert nor OOG the parent swap. The liquidator credited is `tx` (CauldronHook.sol:949) \u2014 the transaction origin, not the router.",
+  "observations": []
+ },
+ {
+  "contract": "ICollectionLiquidator (declared in CauldronHook.sol)",
+  "line": 60,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. One dispatch site, `setLiquidatorMinter` (CauldronHook.sol:1982), inside a try/catch in `_wireLiquidator` (CauldronHook.sol:1980); a collection that does not grant the hook this right simply no-ops, so a summon or relaunch cannot brick on it.",
+  "observations": []
+ },
+ {
+  "contract": "ILegacyNote (declared in CauldronHook.sol)",
+  "line": 66,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, and DEAD: `noteLegacyBuy` (CauldronHook.sol:66) has no dispatch site in the hook (DERIVED). The buyback's accounting is deferred to the counter written at `legacyOwedToReserve` (CauldronHook.sol:1086) and settled later by the registry's sweep through `sweepLegacyReserve` (CauldronHook.sol:1112).",
+  "observations": [
+   "comment at `registry` (CauldronHook.sol:63) says this is the registry entry that records a legacy buyback against the live collection's pending entitlement; code never calls `noteLegacyBuy` (CauldronHook.sol:66) and instead accrues `legacyOwedToReserve` (CauldronHook.sol:1086) for a later registry-pulled sweep"
+  ]
+ },
+ {
+  "contract": "IPerpForceClose (declared in CauldronHook.sol)",
+  "line": 71,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. One dispatch site: `forceCloseAllDead` (CauldronHook.sol:1765), inside the registry-gated `forceClosePerps` (CauldronHook.sol:1760) and wrapped in try/catch, with the transient relaunch flag set around it so the engine's settlement swaps pay no fee.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpForceClose (declared in CauldronHook.sol)",
+  "line": 72,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. One dispatch site: `openCount` (CauldronHook.sol:1791), immediately after the try/catch. It is NOT guarded, and a non-zero result reverts `PerpsOpen` (CauldronHook.sol:1791) \u2014 so the engine's answer here can abort the registry's whole relaunch transaction.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
+  "line": 78,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; used as a SELECTOR. `creditPerpFee` (CauldronHook.sol:1203) is chosen for the BUY side and handed to `routePerp` (CauldronHook.sol:1201), which calls it with value through the library's native branch. Reached only when the swapper is the perp engine, per the branch at `perpEngine` (CauldronHook.sol:1465).",
+  "observations": []
+ },
+ {
+  "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
+  "line": 79,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; used as a SELECTOR. `creditPerpFeeToken` (CauldronHook.sol:1203) is the SELL-side counterpart passed to `routePerp` (CauldronHook.sol:1201). Same gate as its buy-side twin: only a swap whose sender is `perpEngine` (CauldronHook.sol:1465) routes here.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
+  "line": 82,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; used as a SELECTOR for the non-native pull path. `creditPerpFeeAsset` (CauldronHook.sol:1204) is passed to `routePerp` (CauldronHook.sol:1201) and invoked by the library only after it has approved the engine, so the engine pulls rather than receives.",
+  "observations": []
+ },
+ {
+  "contract": "ISeederInSwap (declared in CauldronHook.sol)",
+  "line": 89,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; used as a SELECTOR. `pokeInSwap` (CauldronHook.sol:1052) is encoded into a gas-capped low-level call on `seeder` (CauldronHook.sol:1048) from `_maybePoke` (CauldronHook.sol:1047), with the result ignored. Fires on every swap on a tracked pool before any fee is taken, provided a seeder is wired and enough gas remains.",
+  "observations": []
+ }
+]

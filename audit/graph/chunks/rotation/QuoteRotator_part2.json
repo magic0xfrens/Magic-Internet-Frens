@@ -1,0 +1,271 @@
+[
+ {
+  "contract": "QuoteRotator",
+  "line": 448,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "external onlyOwner (QuoteRotator.sol:448)",
+  "reads": [],
+  "writes": [
+   "quoteOracle (line 450)",
+   "arbKeeperBps (line 451)",
+   "minArbProfitUsd (line 452)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. The only bound is the 20% ceiling on the keeper share at `keeperBps` (QuoteRotator.sol:449); the oracle address written to `quoteOracle` (QuoteRotator.sol:450) is unchecked, and setting it to zero makes the helper return 0 at `o` (QuoteRotator.sol:566) \u2014 which makes arbStep revert at `inUsd` (QuoteRotator.sol:533) and makes the swapOnce floor fail open at `inUsd` (QuoteRotator.sol:403). `minArbProfitUsd` (QuoteRotator.sol:452) is written with no floor, so zero is storable and every profitable-by-one-wei arb becomes executable.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 458,
+  "authority": "owner (the treasury)",
+  "authority_gate_quote": "function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner { (QuoteRotator.sol:458)",
+  "reads": [],
+  "writes": [
+   "maxArbNotionalUsd (line 459)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, entirely unvalidated: the value lands in `maxArbNotionalUsd` (QuoteRotator.sol:459) and zero is an explicit opt-out that skips the whole accounting block at `maxArbNotionalUsd` (QuoteRotator.sol:544).",
+  "observations": [
+   "comment at `cap` (QuoteRotator.sol:455) says this tunes the per-call notional cap; code at `spentThisBlock` (QuoteRotator.sol:546) accumulates the spend across every call in the same block and compares the running total, so the number bounds a block rather than a call"
+  ]
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 496,
+  "authority": "anyone (permissionless keeper)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "allowedVenue (line 516)",
+   "maxArbNotionalUsd (line 544)",
+   "arbBlock (line 545)",
+   "arbUsdThisBlock (line 546)",
+   "minArbProfitUsd (line 553)",
+   "arbKeeperBps (line 558)",
+   "BPS (line 558, constant)"
+  ],
+  "writes": [
+   "arbBlock (line 545)",
+   "arbUsdThisBlock (line 545)",
+   "arbUsdThisBlock (line 548)"
+  ],
+  "value": "`_send` pays the keeper a cut of the received quote (line 559); the two swap legs settle and take inside the unlock at `unlock` (line 526)",
+  "edges": [
+   "PoolIdLibrary.toId (QuoteRotator.sol:516), TRUSTED, library",
+   "QuoteRotator._allowed (QuoteRotator.sol:523), TRUSTED, in-cluster",
+   "IPoolManager.unlock (QuoteRotator.sol:526), TRUSTED, out-of-cluster",
+   "QuoteRotator._usd (QuoteRotator.sol:531), TRUSTED, in-cluster",
+   "QuoteRotator._usd (QuoteRotator.sol:532), TRUSTED, in-cluster",
+   "QuoteRotator._send (QuoteRotator.sol:559), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless external entry that spends this contract's own balance. Shape checks first: both pools must share currency1, at `currency1` (QuoteRotator.sol:505); the two quotes must differ, at `inQuote` (QuoteRotator.sol:506); BOTH keys must be curated, at `allowedVenue` (QuoteRotator.sol:516); and the destination quote must be on the registry's allowlist, at `_allowed` (QuoteRotator.sol:523). The quote side of each pool is assumed to be currency0 \u2014 read that way at `cheap` (QuoteRotator.sol:501) and at `dear` (QuoteRotator.sol:502) \u2014 which is the same watermark assumption the seeding path makes. Both legs execute in one `unlock` (QuoteRotator.sol:526) and only then is the trade judged: both legs must be priceable at `outUsd` (QuoteRotator.sol:533), the running block notional must stay under the cap at `spentThisBlock` (QuoteRotator.sol:547), the trade must be profitable at `outUsd` (QuoteRotator.sol:550), and the profit must clear the floor at `minArbProfitUsd` (QuoteRotator.sol:553). Effects-after-interaction throughout: the per-block counter at `arbUsdThisBlock` (QuoteRotator.sol:548) is written after the swaps have already run, and the keeper payment at `keeperCut` (QuoteRotator.sol:559) calls an arbitrary address with no reentrancy guard anywhere in this contract. The keeper cut is computed from the profit share of the received amount, so it truncates toward zero at `keeperCut` (QuoteRotator.sol:558).",
+  "observations": [
+   "comment at `None` (QuoteRotator.sol:488) says no capital is needed because only the net delta settles; code at `_settle` (QuoteRotator.sol:663) settles the full spent amount of the cheap pool's currency0 out of this contract's own balance, and takes the dear pool's currency0 separately at `take` (QuoteRotator.sol:664) \u2014 the two are different assets, so they do not net"
+  ]
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 564,
+  "authority": "internal (callers: _oracleFloor, arbStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quoteOracle (line 565)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "o.call (QuoteRotator.sol:567), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Three call sites: `_usd` (QuoteRotator.sol:402) and `_usd` (QuoteRotator.sol:404) for the swapOnce floor, and `_usd` (QuoteRotator.sol:531) and `_usd` (QuoteRotator.sol:532) for the arb's profit test. It is state-changing because the oracle entry point it hits is, which is why `_oracleFloor` (QuoteRotator.sol:398) cannot be a view either. Totality is by construction: an unset oracle returns 0 at `o` (QuoteRotator.sol:566), and a revert, a codeless address or a short return all degrade to 0 at `ret` (QuoteRotator.sol:570) rather than propagating. The selector is built by hand from a string at `abi` (QuoteRotator.sol:568), so it is not checked against any interface at compile time. The final multiply-then-divide at `f` (QuoteRotator.sol:572) truncates.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 589,
+  "authority": "registry or owner (either satisfies the check; the gate is on this side)",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:590)",
+  "reads": [
+   "registry (line 590, immutable)",
+   "owner (line 590)"
+  ],
+  "writes": [],
+  "value": "`_send` moves the named asset \u2014 native or ERC20 \u2014 to an arbitrary destination (line 592)",
+  "edges": [
+   "QuoteRotator._send (QuoteRotator.sol:592), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two authorities share one entry. The registry half is what the live rotation uses, at `withdraw` (RedemptionExt.sol:377), pulling the converted proceeds back in the same transaction that produced them; the owner half is the treasury's dust sweep. The only validation is a non-zero destination at `BadConfig` (QuoteRotator.sol:591) \u2014 amount, asset and recipient are otherwise unconstrained, and nothing here consults `plan` (QuoteRotator.sol:77), so a withdrawal can take the very balance a live plan was scheduled against. `nextSliceSize` absorbs that by clamping to the held balance at `held` (QuoteRotator.sol:270) rather than reverting.",
+  "observations": [
+   "comment at `Owner` (QuoteRotator.sol:582) says this is owner-only; code at `registry` (QuoteRotator.sol:590) accepts the registry as well, as the later note at `rotateSlice` (QuoteRotator.sol:586) describes"
+  ]
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 600,
+  "authority": "internal (callers: rotateStep, swapOnce)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 605, immutable)"
+  ],
+  "writes": [],
+  "value": "the actual transfers happen in the callback this opens, at `unlock` (line 605)",
+  "edges": [
+   "IPoolManager.unlock (QuoteRotator.sol:605), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached from `_swap` (QuoteRotator.sol:303) and `_swap` (QuoteRotator.sol:356), both of which have already checked the venue and the pair. Direction is derived, not supplied: the swap is zeroForOne exactly when the pool's currency0 is the asset being sold, at `zeroForOne` (QuoteRotator.sol:604). The payload is tagged with a leading 0 so the shared callback can tell it from an arb payload, at `unlock` (QuoteRotator.sol:605), and the single returned word is decoded as the amount received at `out` (QuoteRotator.sol:606).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 609,
+  "authority": "poolManager (the immutable address)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotOwner(); (QuoteRotator.sol:610)",
+  "reads": [
+   "poolManager (line 610, immutable)",
+   "poolManager (line 620)"
+  ],
+  "writes": [],
+  "value": "pays the pool through `_settle` (line 631) and receives the bought asset through `take` (line 632)",
+  "edges": [
+   "QuoteRotator._arbCallback (QuoteRotator.sol:615), TRUSTED, in-cluster",
+   "IPoolManager.swap (QuoteRotator.sol:620), TRUSTED, out-of-cluster",
+   "BalanceDeltaLibrary.amount1 (QuoteRotator.sol:630), TRUSTED, library",
+   "QuoteRotator._settle (QuoteRotator.sol:631), TRUSTED, in-cluster",
+   "IPoolManager.take (QuoteRotator.sol:632), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reachable only while the pool manager is unlocked, and only from the manager itself \u2014 the gate at `poolManager` (QuoteRotator.sol:610) is an address equality, so no other caller can drive it. One entry point serves two payload shapes, distinguished by a leading tag decoded at `kind` (QuoteRotator.sol:614) before the rest of the calldata is interpreted; tag 1 hands off to the arb path at `_arbCallback` (QuoteRotator.sol:615). The rotation path swaps exact-input (the negative amountSpecified at `amountSpecified` (QuoteRotator.sol:624)) with the price limit pinned to the extreme tick at `sqrtPriceLimitX96` (QuoteRotator.sol:625), so the pool imposes no price bound at all and the entire protection is the caller's own floor. The key used here is the one that arrived in the payload, decoded at `key` (QuoteRotator.sol:617), which the callers have already matched against the allowlist. The amount received is read from the delta at `amount1` (QuoteRotator.sol:630), the input is paid at `_settle` (QuoteRotator.sol:631), and the output is pulled at `take` (QuoteRotator.sol:632) \u2014 settle before take, so the contract is never left owing the manager at the end.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 641,
+  "authority": "internal (callers: unlockCallback)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 646, immutable)",
+   "poolManager (line 656)",
+   "poolManager (line 664)"
+  ],
+  "writes": [],
+  "value": "settles the spent quote out of this contract at `_settle` (line 663) and receives the sold quote at `take` (line 664)",
+  "edges": [
+   "IPoolManager.swap (QuoteRotator.sol:646), TRUSTED, out-of-cluster",
+   "BalanceDeltaLibrary.amount0 (QuoteRotator.sol:651), TRUSTED, library",
+   "BalanceDeltaLibrary.amount1 (QuoteRotator.sol:652), TRUSTED, library",
+   "IPoolManager.swap (QuoteRotator.sol:656), TRUSTED, out-of-cluster",
+   "BalanceDeltaLibrary.amount0 (QuoteRotator.sol:661), TRUSTED, library",
+   "QuoteRotator._settle (QuoteRotator.sol:663), TRUSTED, in-cluster",
+   "IPoolManager.take (QuoteRotator.sol:664), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Single caller: the tag-1 branch at `_arbCallback` (QuoteRotator.sol:615), so it inherits the pool-manager-only gate at `poolManager` (QuoteRotator.sol:610) and runs inside the unlock opened at `unlock` (QuoteRotator.sol:526). Direction is hard-coded rather than derived: leg one sets `zeroForOne` true (QuoteRotator.sol:648) and leg two sets `zeroForOne` false (QuoteRotator.sol:658), which only makes sense because arbStep already required both pools to share currency1 and to differ in currency0. Leg two sells exactly what leg one produced, read at `got` (QuoteRotator.sol:652), so the token nets to zero and no inventory is left behind. Both legs pin `sqrtPriceLimitX96` (QuoteRotator.sol:648) to the extreme tick, and so does the second at `sqrtPriceLimitX96` (QuoteRotator.sol:658), so neither swap is price-bounded; the only economic check is the USD comparison the caller makes afterwards at `outUsd` (QuoteRotator.sol:550).",
+  "observations": [
+   "comment at `capital` (QuoteRotator.sol:637) says no capital is required because the token bought on the cheap side is sold on the dear side within the same lock; code at `_settle` (QuoteRotator.sol:663) still pays the cheap pool's currency0 in full from this contract's balance, and only the TOKEN leg nets \u2014 the two quote legs are different assets"
+  ]
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 668,
+  "authority": "internal (callers: unlockCallback, _arbCallback)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 670, immutable)",
+   "poolManager (line 672)",
+   "poolManager (line 674)"
+  ],
+  "writes": [],
+  "value": "sends native to the pool manager at `settle` (line 670); ERC20 to the pool manager at `_safeTransfer` (line 673)",
+  "edges": [
+   "IPoolManager.settle (QuoteRotator.sol:670), TRUSTED, out-of-cluster",
+   "IPoolManager.sync (QuoteRotator.sol:672), TRUSTED, out-of-cluster",
+   "QuoteRotator._safeTransfer (QuoteRotator.sol:673), TRUSTED, in-cluster",
+   "IPoolManager.settle (QuoteRotator.sol:674), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Two callers, both inside an unlock: `_settle` (QuoteRotator.sol:631) for a rotation slice and `_settle` (QuoteRotator.sol:663) for the arb's input leg. Address(0) means native and is paid by attaching value to the settle call at `settle` (QuoteRotator.sol:670); anything else follows the v4 sync-transfer-settle sequence at `sync` (QuoteRotator.sol:672) and `settle` (QuoteRotator.sol:674). Both branches pay out of this contract's own balance, so the assets must already be here \u2014 `swapOnce` (QuoteRotator.sol:331) is called only after the registry has sent them, at `sendAsset` (RedemptionExt.sol:375). A shortfall surfaces as a failed transfer at `_safeTransfer` (QuoteRotator.sol:673) or as an unbalanced delta when the manager relocks.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 678,
+  "authority": "internal (callers: rotateStep, arbStep, withdraw)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to an arbitrary recipient at `call` (line 681); ERC20 transfer at `_safeTransfer` (line 684)",
+  "edges": [
+   "to.call (QuoteRotator.sol:681), UNTRUSTED, out-of-cluster",
+   "QuoteRotator._safeTransfer (QuoteRotator.sol:684), TRUSTED, in-cluster"
+  ],
+  "reachability": "The single outbound value path. Three callers: the keeper fee at `_send` (QuoteRotator.sol:313), the arb keeper cut at `_send` (QuoteRotator.sol:559), and the custody sweep at `_send` (QuoteRotator.sol:592). A zero `amount` returns without doing anything (QuoteRotator.sol:679). The native branch forwards all remaining gas to an address the caller supplied \u2014 `msg.sender` on both keeper paths \u2014 at `call` (QuoteRotator.sol:681), and a failure reverts the whole transaction at `TransferFailed` (QuoteRotator.sol:682), so a keeper contract that rejects ETH cannot merely forfeit its fee, it undoes the slice.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 691,
+  "authority": "internal (callers: _settle, _send)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transfer of the named token to the recipient at `transfer` (line 693)",
+  "edges": [
+   "token.call (QuoteRotator.sol:693), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Called from `_safeTransfer` (QuoteRotator.sol:673) to pay the pool manager and from `_safeTransfer` (QuoteRotator.sol:684) to pay a recipient. The token address originates from the plan, from the caller's PoolKey or from a withdraw argument, so it is arbitrary code invoked with a hand-built selector at `selector` (QuoteRotator.sol:693). Success requires the call to succeed AND either return nothing or decode to true, at `ok` (QuoteRotator.sol:694).",
+  "observations": [
+   "comment at `CHECKED` (QuoteRotator.sol:688) says an unchecked transfer would report success while nothing moved; code at `ret` (QuoteRotator.sol:694) accepts an empty return as success, which is also what a call to an address with no code produces \u2014 no code-length check is made"
+  ]
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 697,
+  "authority": "internal (callers: rotateStep, swapOnce)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure pair check used at `_routeMatches` (QuoteRotator.sol:287) and `_routeMatches` (QuoteRotator.sol:340). It compares only the two currencies, in either order, at `c0` (QuoteRotator.sol:704) \u2014 fee, tickSpacing and hooks are untouched, which is exactly why both call sites follow it with the PoolId lookup at `allowedVenue` (QuoteRotator.sol:295) and `allowedVenue` (QuoteRotator.sol:355).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 707,
+  "authority": "internal (callers: nextSliceSize)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IERC20.balanceOf (QuoteRotator.sol:708), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Single caller: `_balanceOf` (QuoteRotator.sol:269), where it clamps the slice to what is actually held. Address(0) reads this contract's native balance and anything else is an external call to the token at `balanceOf` (QuoteRotator.sol:708); that call is not wrapped, so a token that reverts on balanceOf makes `nextSliceSize` (QuoteRotator.sol:259) revert and blocks the plan entirely rather than returning 0.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 711,
+  "authority": "internal (callers: setPlan, rotateStep, swapOnce, arbStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 714, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "registry.staticcall (QuoteRotator.sol:714), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The allowlist bridge, consulted at `_allowed` (QuoteRotator.sol:225), `_allowed` (QuoteRotator.sol:286), `_allowed` (QuoteRotator.sol:339) and `_allowed` (QuoteRotator.sol:523). Native is allowed unconditionally without any call, at `quote` (QuoteRotator.sol:712); everything else is a hand-built staticcall into the registry's public mapping getter at `registry` (QuoteRotator.sol:714). It fails CLOSED \u2014 a reverting call, a short return or a false answer all read as not allowed at `ok` (QuoteRotator.sol:715) \u2014 which is the opposite direction from the oracle helper `_usd` (QuoteRotator.sol:564).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteRotator",
+  "line": 718,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "`receive` receives native with no accounting (line 718)",
+  "edges": [],
+  "reachability": "An empty payable receiver with no event and no bookkeeping at `receive` (QuoteRotator.sol:718). It is required for the native leg of the machinery: the registry sends ETH here before a native-source rotation at `sendAsset` (RedemptionExt.sol:375), and the pool manager pays native output into this contract at `take` (QuoteRotator.sol:632). Anything that lands here is indistinguishable from rotation proceeds and is reachable only through `withdraw` (QuoteRotator.sol:589) or as the source balance a plan step consumes at `_balanceOf` (QuoteRotator.sol:269).",
+  "observations": []
+ }
+]

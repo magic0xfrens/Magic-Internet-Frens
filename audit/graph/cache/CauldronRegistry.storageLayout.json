@@ -1,0 +1,723 @@
+{
+  "storage": [
+    {
+      "astId": 14446,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "_owner",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 9240,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "nextReserveCeilingOffset",
+      "offset": 20,
+      "slot": "0",
+      "type": "t_int24"
+    },
+    {
+      "astId": 9242,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "summoned",
+      "offset": 23,
+      "slot": "0",
+      "type": "t_bool"
+    },
+    {
+      "astId": 9245,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "_seedBuyUnlocked",
+      "offset": 24,
+      "slot": "0",
+      "type": "t_bool"
+    },
+    {
+      "astId": 9247,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "currentGeneration",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9249,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "currentToken",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_address"
+    },
+    {
+      "astId": 9254,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationToken",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 9259,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationProposer",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 9264,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationParent",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 9270,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationPoolId",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_mapping(t_uint256,t_userDefinedValueType(PoolId)20317)"
+    },
+    {
+      "astId": 9276,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationPoolKey",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_uint256,t_struct(PoolKey)20363_storage)"
+    },
+    {
+      "astId": 9281,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationPositionId",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 9286,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationReservePositionId",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 9291,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "reserveTickLower",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_mapping(t_uint256,t_int24)"
+    },
+    {
+      "astId": 9295,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "reserveTickUpper",
+      "offset": 0,
+      "slot": "11",
+      "type": "t_mapping(t_uint256,t_int24)"
+    },
+    {
+      "astId": 9298,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisReserveOutstanding",
+      "offset": 0,
+      "slot": "12",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9305,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "claimed",
+      "offset": 0,
+      "slot": "13",
+      "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))"
+    },
+    {
+      "astId": 9310,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationCollection",
+      "offset": 0,
+      "slot": "14",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 9315,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationVault",
+      "offset": 0,
+      "slot": "15",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 9319,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "collectionLedger",
+      "offset": 0,
+      "slot": "16",
+      "type": "t_contract(ICollectionLedger)9091"
+    },
+    {
+      "astId": 9322,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisPending",
+      "offset": 0,
+      "slot": "17",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9326,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "factory",
+      "offset": 0,
+      "slot": "18",
+      "type": "t_contract(ICauldronFactory)9033"
+    },
+    {
+      "astId": 9330,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "governor",
+      "offset": 0,
+      "slot": "19",
+      "type": "t_contract(ICauldronGovernor)10169"
+    },
+    {
+      "astId": 9334,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "nftMaxSupply",
+      "offset": 0,
+      "slot": "20",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9337,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "royaltyDividend",
+      "offset": 0,
+      "slot": "21",
+      "type": "t_address"
+    },
+    {
+      "astId": 9341,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "royaltyBps",
+      "offset": 20,
+      "slot": "21",
+      "type": "t_uint96"
+    },
+    {
+      "astId": 9345,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisMode",
+      "offset": 0,
+      "slot": "22",
+      "type": "t_enum(MetadataMode)10094"
+    },
+    {
+      "astId": 9347,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisBaseURI",
+      "offset": 0,
+      "slot": "23",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 9349,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisRenderer",
+      "offset": 0,
+      "slot": "24",
+      "type": "t_address"
+    },
+    {
+      "astId": 9352,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "mifrens",
+      "offset": 0,
+      "slot": "25",
+      "type": "t_address"
+    },
+    {
+      "astId": 9355,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisBonusBps",
+      "offset": 0,
+      "slot": "26",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9358,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisShares",
+      "offset": 0,
+      "slot": "27",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9361,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "genesisSharePerFren",
+      "offset": 0,
+      "slot": "28",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9365,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "enchantFeeMultBps",
+      "offset": 0,
+      "slot": "29",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9368,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "redemptionPaused",
+      "offset": 0,
+      "slot": "30",
+      "type": "t_bool"
+    },
+    {
+      "astId": 9371,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "guardian",
+      "offset": 1,
+      "slot": "30",
+      "type": "t_address"
+    },
+    {
+      "astId": 9374,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "successor",
+      "offset": 0,
+      "slot": "31",
+      "type": "t_address"
+    },
+    {
+      "astId": 9377,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "claimGate",
+      "offset": 0,
+      "slot": "32",
+      "type": "t_address"
+    },
+    {
+      "astId": 9380,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "airdropWallet",
+      "offset": 0,
+      "slot": "33",
+      "type": "t_address"
+    },
+    {
+      "astId": 9382,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "airdropReserve",
+      "offset": 0,
+      "slot": "34",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9385,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "primeBuyEth",
+      "offset": 0,
+      "slot": "35",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9388,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "primeFunder",
+      "offset": 0,
+      "slot": "36",
+      "type": "t_address"
+    },
+    {
+      "astId": 9391,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "emergencyReadyAt",
+      "offset": 0,
+      "slot": "37",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9394,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "lastSummonAt",
+      "offset": 0,
+      "slot": "38",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9398,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "minLifetime",
+      "offset": 0,
+      "slot": "39",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9403,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "autoMigrate",
+      "offset": 0,
+      "slot": "40",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 9406,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "poolManager",
+      "offset": 0,
+      "slot": "41",
+      "type": "t_contract(IPoolManager)16274"
+    },
+    {
+      "astId": 9409,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "positionManager",
+      "offset": 0,
+      "slot": "42",
+      "type": "t_contract(IPositionManager)9112"
+    },
+    {
+      "astId": 9412,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "hook",
+      "offset": 0,
+      "slot": "43",
+      "type": "t_contract(CauldronHook)5274"
+    },
+    {
+      "astId": 9415,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "redemptionExt",
+      "offset": 0,
+      "slot": "44",
+      "type": "t_address"
+    },
+    {
+      "astId": 9418,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "seeder",
+      "offset": 0,
+      "slot": "45",
+      "type": "t_address"
+    },
+    {
+      "astId": 9421,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "nextSeedWindow",
+      "offset": 20,
+      "slot": "45",
+      "type": "t_uint64"
+    },
+    {
+      "astId": 9424,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "igniter",
+      "offset": 0,
+      "slot": "46",
+      "type": "t_address"
+    },
+    {
+      "astId": 9429,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "allowedQuote",
+      "offset": 0,
+      "slot": "47",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 9434,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationQuote",
+      "offset": 0,
+      "slot": "48",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 9437,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "quoteRotator",
+      "offset": 0,
+      "slot": "49",
+      "type": "t_address"
+    },
+    {
+      "astId": 9440,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "treasuryGovernor",
+      "offset": 0,
+      "slot": "50",
+      "type": "t_address"
+    },
+    {
+      "astId": 9445,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "quoteScale",
+      "offset": 0,
+      "slot": "51",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 9520,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "generationLegs",
+      "offset": 0,
+      "slot": "52",
+      "type": "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9513_storage)dyn_storage)"
+    },
+    {
+      "astId": 9525,
+      "contract": "CauldronRegistry.sol:CauldronRegistry",
+      "label": "legProceeds",
+      "offset": 0,
+      "slot": "53",
+      "type": "t_mapping(t_address,t_uint256)"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(TreasuryLeg)9513_storage)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "struct CauldronBase.TreasuryLeg[]",
+      "numberOfBytes": "32",
+      "base": "t_struct(TreasuryLeg)9513_storage"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_contract(CauldronHook)5274": {
+      "encoding": "inplace",
+      "label": "contract CauldronHook",
+      "numberOfBytes": "20"
+    },
+    "t_contract(ICauldronFactory)9033": {
+      "encoding": "inplace",
+      "label": "contract ICauldronFactory",
+      "numberOfBytes": "20"
+    },
+    "t_contract(ICauldronGovernor)10169": {
+      "encoding": "inplace",
+      "label": "contract ICauldronGovernor",
+      "numberOfBytes": "20"
+    },
+    "t_contract(ICollectionLedger)9091": {
+      "encoding": "inplace",
+      "label": "contract ICollectionLedger",
+      "numberOfBytes": "20"
+    },
+    "t_contract(IHooks)15991": {
+      "encoding": "inplace",
+      "label": "contract IHooks",
+      "numberOfBytes": "20"
+    },
+    "t_contract(IPoolManager)16274": {
+      "encoding": "inplace",
+      "label": "contract IPoolManager",
+      "numberOfBytes": "20"
+    },
+    "t_contract(IPositionManager)9112": {
+      "encoding": "inplace",
+      "label": "contract IPositionManager",
+      "numberOfBytes": "20"
+    },
+    "t_enum(MetadataMode)10094": {
+      "encoding": "inplace",
+      "label": "enum MetadataMode",
+      "numberOfBytes": "1"
+    },
+    "t_int24": {
+      "encoding": "inplace",
+      "label": "int24",
+      "numberOfBytes": "3"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_address)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9513_storage)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct CauldronBase.TreasuryLeg[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_struct(TreasuryLeg)9513_storage)dyn_storage"
+    },
+    "t_mapping(t_uint256,t_int24)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => int24)",
+      "numberOfBytes": "32",
+      "value": "t_int24"
+    },
+    "t_mapping(t_uint256,t_mapping(t_address,t_bool))": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => mapping(address => bool))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_bool)"
+    },
+    "t_mapping(t_uint256,t_struct(PoolKey)20363_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct PoolKey)",
+      "numberOfBytes": "32",
+      "value": "t_struct(PoolKey)20363_storage"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_userDefinedValueType(PoolId)20317)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => PoolId)",
+      "numberOfBytes": "32",
+      "value": "t_userDefinedValueType(PoolId)20317"
+    },
+    "t_string_storage": {
+      "encoding": "bytes",
+      "label": "string",
+      "numberOfBytes": "32"
+    },
+    "t_struct(PoolKey)20363_storage": {
+      "encoding": "inplace",
+      "label": "struct PoolKey",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 20348,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "currency0",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_userDefinedValueType(Currency)20017"
+        },
+        {
+          "astId": 20352,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "currency1",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_userDefinedValueType(Currency)20017"
+        },
+        {
+          "astId": 20355,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "fee",
+          "offset": 20,
+          "slot": "1",
+          "type": "t_uint24"
+        },
+        {
+          "astId": 20358,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "tickSpacing",
+          "offset": 23,
+          "slot": "1",
+          "type": "t_int24"
+        },
+        {
+          "astId": 20362,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "hooks",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_contract(IHooks)15991"
+        }
+      ]
+    },
+    "t_struct(TreasuryLeg)9513_storage": {
+      "encoding": "inplace",
+      "label": "struct CauldronBase.TreasuryLeg",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 9505,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "quote",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 9508,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "positionId",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9512,
+          "contract": "CauldronRegistry.sol:CauldronRegistry",
+          "label": "key",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_struct(PoolKey)20363_storage"
+        }
+      ]
+    },
+    "t_uint24": {
+      "encoding": "inplace",
+      "label": "uint24",
+      "numberOfBytes": "3"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    },
+    "t_uint96": {
+      "encoding": "inplace",
+      "label": "uint96",
+      "numberOfBytes": "12"
+    },
+    "t_userDefinedValueType(Currency)20017": {
+      "encoding": "inplace",
+      "label": "Currency",
+      "numberOfBytes": "20"
+    },
+    "t_userDefinedValueType(PoolId)20317": {
+      "encoding": "inplace",
+      "label": "PoolId",
+      "numberOfBytes": "32"
+    }
+  }
+}

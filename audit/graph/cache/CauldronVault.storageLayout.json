@@ -1,0 +1,32 @@
+{
+ "storage": [
+  {
+   "astId": 15475,
+   "contract": "cauldron/CauldronVault.sol:CauldronVault",
+   "label": "redeemed",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 15481,
+   "contract": "cauldron/CauldronVault.sol:CauldronVault",
+   "label": "closed",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_bool"
+  }
+ ],
+ "types": {
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  }
+ }
+}

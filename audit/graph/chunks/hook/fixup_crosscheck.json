@@ -1,0 +1,18 @@
+[
+ {"contract":"CauldronHook","line":1426,"edges":[
+  "CauldronHook._taxedPlayer (CauldronHook.sol:1439), TRUSTED, in-cluster",
+  "CauldronHook._getHolderTaxRate (CauldronHook.sol:1439), TRUSTED, in-cluster",
+  "CauldronHook.snipeSurtaxBps (CauldronHook.sol:1441), TRUSTED, in-cluster",
+  "IPoolManager.take (CauldronHook.sol:1460), TRUSTED, out-of-cluster",
+  "CauldronHook._routePerpFee (CauldronHook.sol:1465), TRUSTED, in-cluster",
+  "CauldronHook._routeEthFee (CauldronHook.sol:1466), TRUSTED, in-cluster",
+  "FeeRouteLib.routeSplit (CauldronHook.sol:1473), TRUSTED, delegatecall",
+  "CauldronHook._routeEthFee (CauldronHook.sol:1474), TRUSTED, in-cluster"]},
+ {"contract":"LegacyBuyLib","line":50,"edges":[
+  "IPoolManager.swap (LegacyBuyLib.sol:55), TRUSTED, out-of-cluster",
+  "IPoolManager.settle (LegacyBuyLib.sol:89), TRUSTED, out-of-cluster",
+  "IPoolManager.sync (LegacyBuyLib.sol:91), TRUSTED, out-of-cluster",
+  "IERC20.transfer (LegacyBuyLib.sol:92), UNTRUSTED, out-of-cluster",
+  "IPoolManager.settle (LegacyBuyLib.sol:93), TRUSTED, out-of-cluster",
+  "IPoolManager.take (LegacyBuyLib.sol:97), TRUSTED, out-of-cluster"]}
+]

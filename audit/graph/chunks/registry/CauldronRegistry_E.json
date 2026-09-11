@@ -1,0 +1,137 @@
+[
+ {
+  "contract": "CauldronRegistry", "line": 1494,
+  "authority": "internal (callers: relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["positionManager (line 1497)", "hook (line 1497)", "collectionLedger (line 1498)", "mifrens (line 1498)", "genesisShares (line 1498)", "generationCollection (line 1498)", "genesisPending (line 1501)"],
+  "writes": ["genesisPending (line 1501)"],
+  "value": "NONE at this level; the library sweeps the hook's un-materialized buyback tokens for the dying generation and, with the deposit flag false, credits the ledger as a NUMBER instead of depositing them, inside `materializeLegacy` (line 1496)",
+  "edges": ["PoolOps.materializeLegacy (CauldronRegistry.sol:1496), TRUSTED, library"],
+  "reachability": "Private and called from exactly one place, the ledger branch of the rebirth at `_flushLegacyAtRelaunch` CauldronRegistry.sol:1025, which itself only runs when `collectionLedger` CauldronRegistry.sol:1024 is non-zero. The burn path is selected by the trailing false argument at `empty` CauldronRegistry.sol:1499, so the reserve reference is unused. The OG share it returns is accumulated into `genesisPending` CauldronRegistry.sol:1501, which the same rebirth folds into the genesis reserve a few lines earlier in program order at `genesisPending` CauldronRegistry.sol:1001 — the fold happens BEFORE this flush in the source, so a flush's OG share lands in the NEXT rebirth's sizing (DERIVED).",
+  "observations": [
+   "comment at `Hook` CauldronRegistry.sol:1479 documents a hook-called recorder that is hook-only and no-ops without a ledger; code declares no such function here, and the next declaration is the private `_flushLegacyAtRelaunch` CauldronRegistry.sol:1494 reachable only from the rebirth."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1508,
+  "authority": "anyone owning the collection NFT (ownership enforced in the library)",
+  "authority_gate_quote": "if (ICollectionOps(collection).ownerOf(tokenId) != caller) revert(\"not owner\"); (PoolOps.sol:1380)",
+  "reads": ["generationCollection (line 1512)", "collectionLedger (line 1516)", "currentGeneration (line 1517)", "positionManager (line 1519)", "generationReservePositionId (line 1521)", "generationPoolKey (line 1521)", "reserveTickLower (line 1521)", "reserveTickUpper (line 1521)"],
+  "writes": [],
+  "value": "releases the collection's floor entitlement in the LIVE generation's token out of the shared reserve to the caller, and moves the NFT into this registry's custody, inside `recycleCollection` (line 1518)",
+  "edges": [
+   "CauldronBase._redeemBlocked (CauldronRegistry.sol:1511), TRUSTED, out-of-cluster",
+   "PoolOps.recycleCollection (CauldronRegistry.sol:1518), TRUSTED, library"
+  ],
+  "reachability": "Open to the NFT's owner. The circuit-breaker applies here (`_redeemBlocked` CauldronRegistry.sol:1511), and both the ledger and the generation's collection must be wired (`collectionLedger` CauldronRegistry.sol:1516). Payment is made in the CURRENT generation's token from the shared reserve position, read at `currentGeneration` CauldronRegistry.sol:1517, not in the token of the generation the NFT belongs to. The OG-tranche exclusion and the ownership check both live in the library at `recycleCollection` CauldronRegistry.sol:1518, and the reserve-short rollback is enforced there too.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1529,
+  "authority": "anyone (the NFT must currently sit in this registry's treasury)",
+  "authority_gate_quote": "if (ICollectionOps(collection).ownerOf(tokenId) != address(this)) revert(\"not treasury\"); (PoolOps.sol:1429)",
+  "reads": ["generationCollection (line 1532)", "collectionLedger (line 1533)", "currentGeneration (line 1534)", "positionManager (line 1536)", "generationToken (line 1537)", "generationReservePositionId (line 1538)", "generationPoolKey (line 1538)", "reserveTickLower (line 1538)", "reserveTickUpper (line 1538)"],
+  "writes": [],
+  "value": "pulls twice the NFT's floor in the live token from the buyer into the reserve and hands the NFT over, inside `buyCollection` (line 1535)",
+  "edges": ["PoolOps.buyCollection (CauldronRegistry.sol:1535), TRUSTED, library"],
+  "reachability": "Open to anyone. Unlike the recycle side it does NOT consult the redemption circuit-breaker: there is no `_redeemBlocked` CauldronRegistry.sol:1511 equivalent in this body (DERIVED). Preconditions are only a wired ledger and a known collection at `collectionLedger` CauldronRegistry.sol:1533. The payment token is the LIVE generation's, read at `generationToken` CauldronRegistry.sol:1537, and the price is derived from the ledger floor inside the library rather than supplied by the caller.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1552,
+  "authority": "internal (callers: relaunch, emergencyWithdrawLP)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["generationPoolKey (line 1556)", "generationToken (line 1557)", "positionManager (line 1558)", "generationPositionId (line 1562)", "generationReservePositionId (line 1567)", "seeder (line 1580)", "redemptionExt (line 1599)", "RECOVER_LEGS (line 1607, constant)"],
+  "writes": [],
+  "value": "recovers both sides of the active and reserve positions into this registry through `removeAll` (line 1564) and (line 1569); recovers the streamed book through `withdrawAll` (line 1582); recovers every rotated leg through the delegatecall at `RECOVER_LEGS` (line 1607)",
+  "edges": [
+   "PoolOps.removeAll (CauldronRegistry.sol:1564), TRUSTED, library",
+   "PoolOps.removeAll (CauldronRegistry.sol:1569), TRUSTED, library",
+   "ISeeder.seeding (CauldronRegistry.sol:1581), TRUSTED, out-of-cluster",
+   "ISeeder.withdrawAll (CauldronRegistry.sol:1582), TRUSTED, out-of-cluster",
+   "ext.delegatecall (CauldronRegistry.sol:1607), TRUSTED, delegatecall",
+   "RedemptionExt.recoverLegs (RedemptionExt.sol:699), TRUSTED, delegatecall"
+  ],
+  "reachability": "Private, reached from the rebirth at `_removeLiquidity` CauldronRegistry.sol:804 and from the break-glass pull at CauldronRegistry.sol:452. Four recovery sources are summed into ONE pair of totals: the active position, skipped when its id is zero on a streamed generation (`activeId` CauldronRegistry.sol:1563); the reserve position (`rid` CauldronRegistry.sol:1568); the seeder's bands, only while it reports itself active (`seeding` CauldronRegistry.sol:1581); and the rotated legs via a delegatecall whose failure is deliberately swallowed at `ok` CauldronRegistry.sol:1608. The leg selector is compiler-computed at `RECOVER_LEGS` CauldronRegistry.sol:63 rather than hand-written, because a wrong selector would fail silently through that same swallow. The totals are denominated in the PRIMARY pair's currency0, which is why only legs in that same asset may be added to them (`recoverLegs` RedemptionExt.sol:699).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1626,
+  "authority": "internal (callers: summon, relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE; the deployed token mints its entire fixed supply to this registry inside its own constructor",
+  "edges": ["PoolOps.deployTokenAbove (CauldronRegistry.sol:1641), TRUSTED, library"],
+  "reachability": "Private, called once per generation from `_deployToken` CauldronRegistry.sol:691 and CauldronRegistry.sol:916. It is delegatecalled into the library so `address(this)` stays this registry, making the registry both the deployer and the holder of the whole supply. It returns the quote that was ACTUALLY achievable rather than the one requested (`quoteUsed` CauldronRegistry.sol:1631), and the caller records that value, which is why a mining failure downgrades the generation to native ether instead of reverting.",
+  "observations": [
+   "comment at `CREATE2` CauldronRegistry.sol:1621 says this uses plain CREATE and NOT CREATE2 because a predictable address could be squatted; code at `salt` PoolOps.sol:707 deploys with CREATE2 from a mined salt, and the note two lines below at `CREATE2` CauldronRegistry.sol:1635 calls the registry the CREATE2 deployer."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1671,
+  "authority": "internal (callers: _seedGeneration)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["poolManager (line 1682)", "positionManager (line 1682)", "hook (line 1682)", "nextReserveCeilingOffset (line 1684)", "generationQuote (line 1685)"],
+  "writes": [],
+  "value": "pays the whole funded amount and the active token tranche into the new pool, then buys the reserve back out as a visible first-block trade, inside `createAndSeedWithBuy` (line 1681)",
+  "edges": [
+   "PoolOps.createAndSeedWithBuy (CauldronRegistry.sol:1681), TRUSTED, library",
+   "CauldronRegistry._recordSeed (CauldronRegistry.sol:1687), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private, reached only from the atomic branch at `_createPoolAndSeedWithBuy` CauldronRegistry.sol:1732. It does NOT arm the callback window itself; the caller hoisted that, so it relies on `_seedBuyUnlocked` CauldronRegistry.sol:1721 already being set. The per-iteration ceiling comes from `nextReserveCeilingOffset` CauldronRegistry.sol:1684 and the pair from `generationQuote` CauldronRegistry.sol:1685, which the rebirth wrote before seeding at CauldronRegistry.sol:982.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1703,
+  "authority": "internal (callers: summon, relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["seeder (line 1722)", "nextSeedWindow (line 1722)", "poolManager (line 1724)", "positionManager (line 1724)", "hook (line 1724)", "nextReserveCeilingOffset (line 1726)", "seeder (line 1727)", "nextSeedWindow (line 1727)", "generationQuote (line 1728)"],
+  "writes": ["_seedBuyUnlocked (line 1721)", "_seedBuyUnlocked (line 1734)"],
+  "value": "hands the active tranche plus the funding to either the streaming seeder or the atomic green-candle seed; on the progressive branch the token side leaves this registry for the seeder inside `createAndSeedProgressive` (line 1723)",
+  "edges": [
+   "PoolOps.createAndSeedProgressive (CauldronRegistry.sol:1723), TRUSTED, library",
+   "CauldronRegistry._recordSeed (CauldronRegistry.sol:1730), TRUSTED, in-cluster",
+   "CauldronRegistry._createPoolAndSeedWithBuy (CauldronRegistry.sol:1732), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private, the single seed dispatcher for both ignition (`_seedGeneration` CauldronRegistry.sol:724) and every rebirth (CauldronRegistry.sol:1065). It arms the PoolManager callback window for BOTH branches at `_seedBuyUnlocked` CauldronRegistry.sol:1721 and clears it unconditionally at CauldronRegistry.sol:1734, so the window is open for the whole seed rather than just the buy. The branch is taken only when a seeder is set AND the window is non-zero (`nextSeedWindow` CauldronRegistry.sol:1722); anything else falls through to the atomic path at `_createPoolAndSeedWithBuy` CauldronRegistry.sol:1732. A non-native generation is handled inside the library rather than here (`createAndSeedProgressive` CauldronRegistry.sol:1723).",
+  "observations": [
+   "comment at `_createPoolAndSeedWithBuy` CauldronRegistry.sol:1660 says BOTH genesis and relaunch now use the green-candle seed; code at `createAndSeedProgressive` CauldronRegistry.sol:1723 takes a different library entry whenever a seeder is set and `nextSeedWindow` CauldronRegistry.sol:1722 is non-zero."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1740,
+  "authority": "internal (callers: _seedGeneration, _createPoolAndSeedWithBuy)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["hook (line 1748)"],
+  "writes": ["generationPoolId (line 1742)", "generationPoolKey (line 1743)", "generationPositionId (line 1744)", "generationReservePositionId (line 1745)", "reserveTickLower (line 1746)", "reserveTickUpper (line 1747)"],
+  "value": "NONE",
+  "edges": ["CauldronHook.setLiveKey (CauldronRegistry.sol:1748), TRUSTED, out-of-cluster"],
+  "reachability": "Private bookkeeping, reached from both seed branches at `_recordSeed` CauldronRegistry.sol:1730 and CauldronRegistry.sol:1687. It is the only writer of the six per-generation position fields, including `generationPositionId` CauldronRegistry.sol:1744, which stays zero for a streamed generation and is what the teardown checks at `activeId` CauldronRegistry.sol:1563. It then pushes the live key to the hook at `setLiveKey` CauldronRegistry.sol:1748 so the legacy buyback can only spend into the current pool; that call is not wrapped, so a hook that refuses the key reverts the seed (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1758,
+  "authority": "poolManager, and only while the seed-buy window is armed",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronRegistry.sol:1759)",
+  "reads": ["poolManager (line 1759)", "_seedBuyUnlocked (line 1760)"],
+  "writes": [],
+  "value": "spends this registry's quote side and receives the bought token, inside `executeBuy` (line 1761)",
+  "edges": ["PoolOps.executeBuy (CauldronRegistry.sol:1761), TRUSTED, library"],
+  "reachability": "Two independent conditions, both mandatory: the caller must be the PoolManager (`poolManager` CauldronRegistry.sol:1759) and the transient window must be open (`_seedBuyUnlocked` CauldronRegistry.sol:1760). The window is opened by the seed dispatcher at `_seedBuyUnlocked` CauldronRegistry.sol:1721 and by the ignition prime buy at `_seedBuyUnlocked` CauldronRegistry.sol:737, and it is a plain storage bool rather than a transient slot, so it is set and cleared within the same transaction (DERIVED). The swap encoding lives entirely in the delegatecalled library at `executeBuy` CauldronRegistry.sol:1761, so it runs on this registry's balances.",
+  "observations": [
+   "comment at `relaunch` CauldronRegistry.sol:1752 says the callback is accepted ONLY while a relaunch buy is armed; code at `_seedBuyUnlocked` CauldronRegistry.sol:1760 accepts it whenever the flag is set, and ignition also sets it, at `_seedBuyUnlocked` CauldronRegistry.sol:737 and CauldronRegistry.sol:1721."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1768,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["claimed (line 1769)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Open view over `claimed` CauldronRegistry.sol:1769. Nothing in this file writes that mapping: migration is tracked by burning the old token rather than by a per-holder flag, so this reader answers false for every holder in the current model (DERIVED).",
+  "observations": []
+ }
+]

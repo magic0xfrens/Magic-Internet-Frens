@@ -1,0 +1,178 @@
+{
+ "storage": [
+  {
+   "astId": 33424,
+   "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+   "label": "owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 33429,
+   "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+   "label": "feeds",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_mapping(t_address,t_struct(Feed)33422_storage)"
+  },
+  {
+   "astId": 33433,
+   "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+   "label": "sequencerUptime",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_contract(IAggregatorV3)33393"
+  },
+  {
+   "astId": 33437,
+   "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+   "label": "gracePeriod",
+   "offset": 20,
+   "slot": "2",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 33915,
+   "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+   "label": "cache",
+   "offset": 0,
+   "slot": "3",
+   "type": "t_mapping(t_address,t_struct(Cached)33910_storage)"
+  }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_contract(IAggregatorV3)33393": {
+   "encoding": "inplace",
+   "label": "contract IAggregatorV3",
+   "numberOfBytes": "20"
+  },
+  "t_mapping(t_address,t_struct(Cached)33910_storage)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => struct QuoteOracle.Cached)",
+   "numberOfBytes": "32",
+   "value": "t_struct(Cached)33910_storage"
+  },
+  "t_mapping(t_address,t_struct(Feed)33422_storage)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => struct QuoteOracle.Feed)",
+   "numberOfBytes": "32",
+   "value": "t_struct(Feed)33422_storage"
+  },
+  "t_struct(Cached)33910_storage": {
+   "encoding": "inplace",
+   "label": "struct QuoteOracle.Cached",
+   "numberOfBytes": "64",
+   "members": [
+    {
+     "astId": 33907,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "factor",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 33909,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "at",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_uint64"
+    }
+   ]
+  },
+  "t_struct(Feed)33422_storage": {
+   "encoding": "inplace",
+   "label": "struct QuoteOracle.Feed",
+   "numberOfBytes": "64",
+   "members": [
+    {
+     "astId": 33407,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "aggregator",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_contract(IAggregatorV3)33393"
+    },
+    {
+     "astId": 33410,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "heartbeat",
+     "offset": 20,
+     "slot": "0",
+     "type": "t_uint32"
+    },
+    {
+     "astId": 33413,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "quoteDecimals",
+     "offset": 24,
+     "slot": "0",
+     "type": "t_uint8"
+    },
+    {
+     "astId": 33416,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "pegged",
+     "offset": 25,
+     "slot": "0",
+     "type": "t_bool"
+    },
+    {
+     "astId": 33419,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "minUsd",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_uint128"
+    },
+    {
+     "astId": 33421,
+     "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+     "label": "maxUsd",
+     "offset": 16,
+     "slot": "1",
+     "type": "t_uint128"
+    }
+   ]
+  },
+  "t_uint128": {
+   "encoding": "inplace",
+   "label": "uint128",
+   "numberOfBytes": "16"
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  },
+  "t_uint32": {
+   "encoding": "inplace",
+   "label": "uint32",
+   "numberOfBytes": "4"
+  },
+  "t_uint64": {
+   "encoding": "inplace",
+   "label": "uint64",
+   "numberOfBytes": "8"
+  },
+  "t_uint8": {
+   "encoding": "inplace",
+   "label": "uint8",
+   "numberOfBytes": "1"
+  }
+ }
+}

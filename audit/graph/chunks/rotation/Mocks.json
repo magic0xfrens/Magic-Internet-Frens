@@ -1,0 +1,150 @@
+[
+ {
+  "contract": "MockAggregator",
+  "line": 54,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "owner (line 55)",
+   "description (line 56)",
+   "_answer (line 57)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment; whoever deploys becomes `owner` (MockAggregator.sol:55) and therefore holds every setter on this feed. The initial price is taken verbatim into `_answer` (MockAggregator.sol:57) with no sign or range check, and `_round` keeps its declaration default of 1 (MockAggregator.sol:44). This contract is a testnet stand-in wired into `QuoteOracle` through `setFeed` (QuoteOracle.sol:131); on that path it is the aggregator the oracle calls.",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 60,
+  "authority": "internal (callers: transferOwnership, peg, setStale, setDown)",
+  "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
+  "reads": [
+   "owner (line 61)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The single gate on this contract. Applied to `transferOwnership` (MockAggregator.sol:65), `peg` (MockAggregator.sol:68), `setStale` (MockAggregator.sol:76) and `setDown` (MockAggregator.sol:82). `latestRoundData` (MockAggregator.sol:84) is deliberately outside it. The owner slot can be moved but never zeroed by a dedicated path, so it can be renounced only by pointing `transferOwnership` at a dead address (MockAggregator.sol:65).",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 65,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (MockAggregator.sol:65)",
+  "reads": [],
+  "writes": [
+   "owner (line 65)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only via the modifier at `onlyOwner` (MockAggregator.sol:60). No zero check on the destination, so `owner` (MockAggregator.sol:65) can be set to address(0) and every setter on this feed becomes unreachable \u2014 the price then freezes at whatever `_answer` (MockAggregator.sol:57) last held while keeps stamping it with the current block time at `ts` (MockAggregator.sol:91).",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 68,
+  "authority": "owner",
+  "authority_gate_quote": "function peg(int256 answer) external onlyOwner { (MockAggregator.sol:68)",
+  "reads": [],
+  "writes": [
+   "_answer (line 69)",
+   "_round (line 70)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. Sets the raw 8-decimal answer into `_answer` (MockAggregator.sol:69) with no bound check; a negative or zero value is accepted here and is rejected downstream instead, by `answer` (QuoteOracle.sol:239). Because the returned `_round` and answer carry a fresh timestamp (MockAggregator.sol:92), one `peg` call is enough to make the oracle's heartbeat check at `heartbeat` (QuoteOracle.sol:246) pass indefinitely.",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 76,
+  "authority": "owner",
+  "authority_gate_quote": "function setStale(bool s) external onlyOwner { stale = s; } (MockAggregator.sol:76)",
+  "reads": [],
+  "writes": [
+   "stale (line 76)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only switch read by `stale` (MockAggregator.sol:91): when set, the feed reports `ts` of 1 for both `startedAt` and `updatedAt`, which drives `QuoteOracle.usdPerRawUnit` into its staleness branch at `heartbeat` (QuoteOracle.sol:246) and makes it return 0. On the cached path that 0 is discarded and the last good factor survives, at `fresh` (QuoteOracle.sol:310).",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 82,
+  "authority": "owner",
+  "authority_gate_quote": "function setDown(bool d) external onlyOwner { down = d; } (MockAggregator.sol:82)",
+  "reads": [],
+  "writes": [
+   "down (line 82)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only switch read by `down` (MockAggregator.sol:89): when set, `latestRoundData` reverts instead of answering. That exercises the oracle's try/catch at `catch` (QuoteOracle.sol:236) and, when this feed is used as the sequencer uptime feed, the one at `catch` (QuoteOracle.sol:339).",
+  "observations": []
+ },
+ {
+  "contract": "MockAggregator",
+  "line": 84,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "down (line 89)",
+   "stale (line 91)",
+   "_round (line 92)",
+   "_answer (line 92)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Ungated view, the surface `QuoteOracle` consumes: called through the typed interface at `latestRoundData` (QuoteOracle.sol:231) for a priced quote and at `latestRoundData` (QuoteOracle.sol:328) when this contract is wired as the sequencer uptime feed. It reverts rather than returning when `down` is set (MockAggregator.sol:89); otherwise both timestamps are the same `ts` value (MockAggregator.sol:92), so `startedAt` and `updatedAt` can never disagree.",
+  "observations": [
+   "comment at `updatedAt` (MockAggregator.sol:27) says it returns block.timestamp rather than the moment peg was called; code at `ts` (MockAggregator.sol:91) returns block.timestamp only while `stale` is false, and returns the epoch value 1 otherwise"
+  ]
+ },
+ {
+  "contract": "MockQuoteToken",
+  "line": 20,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "_decimals (line 21, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. The decimal count is stored immutably at `_decimals` (MockQuoteToken.sol:21), so the value `QuoteOracle` reads through `IERC20Decimals` at `decimals` (QuoteOracle.sol:138) and at `decimals` (QuoteOracle.sol:155) can never change afterwards. Name and symbol go to the OpenZeppelin base through the `ERC20` constructor modifier (MockQuoteToken.sol:20).",
+  "observations": []
+ },
+ {
+  "contract": "MockQuoteToken",
+  "line": 24,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_decimals (line 24, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Ungated view overriding the base implementation. It is what `setFeed` reads when the caller passes 0 for the decimals argument, at `decimals` (QuoteOracle.sol:138), and likewise `setPegged` at `decimals` (QuoteOracle.sol:155) \u2014 so a quote registered with a zero decimals argument inherits this value into `f.quoteDecimals` and thence into the divisor at `quoteDecimals` (QuoteOracle.sol:277).",
+  "observations": []
+ },
+ {
+  "contract": "MockQuoteToken",
+  "line": 27,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "mints ERC20 balance via `_mint` to an arbitrary recipient (line 27)",
+  "edges": [
+   "ERC20._mint (MockQuoteToken.sol:27), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Completely ungated: any address may call `mint` for any amount to any recipient (MockQuoteToken.sol:27). Supply and balances are the OpenZeppelin base's storage, written inside `_mint`; nothing in this contract caps either. The contract header states this is testnet-only and must never reach mainnet, and the registry's allowlist is what decides whether such a token is usable as a quote at all, via `setAllowedQuote` (CauldronRegistry.sol:290).",
+  "observations": []
+ }
+]

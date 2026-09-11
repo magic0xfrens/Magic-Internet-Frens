@@ -1,0 +1,9 @@
+[
+ {"contract":"MiFrensDividend","line":445,"edges":[
+  "IMiFrensShares.everMoved (MiFrensDividend.sol:449), TRUSTED, in-cluster",
+  "IReserveRegistry.enchantFee (MiFrensDividend.sol:450), UNTRUSTED, in-cluster",
+  "IReserveRegistry.currentToken (MiFrensDividend.sol:452), UNTRUSTED, in-cluster",
+  "IERC20.transferFrom (MiFrensDividend.sol:455), UNTRUSTED, out-of-cluster",
+  "IERC20.approve (MiFrensDividend.sol:456), UNTRUSTED, out-of-cluster",
+  "IReserveRegistry.donateToReserve (MiFrensDividend.sol:457), UNTRUSTED, in-cluster"]}
+]

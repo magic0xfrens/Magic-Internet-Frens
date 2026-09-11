@@ -1,0 +1,19 @@
+[
+ {
+  "contract": "LegacyBuyLib",
+  "line": 50,
+  "authority": "anyone in principle (a linked library address with no state and no funds); in the protocol reached only by delegatecall from CauldronHook.legacyBuyStep",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `poolManager` (LegacyBuyLib.sol:89); ERC20 transfer of the quote to the pool manager via `transfer` (LegacyBuyLib.sol:92)",
+  "edges": [
+   "IERC20.transfer (LegacyBuyLib.sol:92), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Declared `external` (LegacyBuyLib.sol:51) in a library, so Solidity deploys it separately and the hook reaches it by delegatecall at `buyStep` (CauldronHook.sol:1075): `address(this)` is the hook, the settled value is the hook's and the token taken lands on the hook. The gate is entirely on the hook side \u2014 `legacyBuyStep` (CauldronHook.sol:1063) is self-call-only and is itself fired from the gas-bounded self-call at `call` (CauldronHook.sol:1035), which requires a full `legacyBuffer` (CauldronHook.sol:1016), a native-side quote per `quoteIsCurrency0` (CauldronHook.sol:1027) and an id equal to the live key. It runs nested inside the user's swap while the pool manager is already unlocked, so it uses core `swap` (LegacyBuyLib.sol:55) directly. It settles the REALISED debit `spent` (LegacyBuyLib.sol:70) rather than the requested amount, then branches on `q` (LegacyBuyLib.sol:88): native uses `settle` (LegacyBuyLib.sol:89), an ERC20 quote uses sync/transfer/settle at `sync` (LegacyBuyLib.sol:91). The bought token is pulled to the hook with `take` (LegacyBuyLib.sol:97). The pool-manager entrypoints live under lib/ and are therefore not resolvable edges.",
+  "observations": [
+   "comment at `settle` (LegacyBuyLib.sol:44) says this function is ETH-quote only because `settle` assumes the quote is native; code at `q` (LegacyBuyLib.sol:88) branches and takes an ERC20 sync/transfer/settle path for a non-native quote",
+   "comment at `legacyBuyStep` (CauldronHook.sol:1017) says `legacyBuyStep` settles with `settle{value:}`; code at `poolManager` (LegacyBuyLib.sol:91) settles an ERC20 quote with sync + transfer + bare settle instead"
+  ]
+ }
+]

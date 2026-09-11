@@ -1,0 +1,136 @@
+# Decontamination verification
+
+RESULT: PASS
+
+## Line counts
+- .sol files in real tree: 181; in blind tree: 113
+- files with differing line counts: 0
+- files only in real tree (quarantined/excluded): 68
+  - test/F12_IgniteEconomics.t.sol
+  - test/F13_MintCurve.t.sol
+  - test/F14_OracleSafety.t.sol
+  - test/F15_QuotePriceability.t.sol
+  - test/attacks/A01_Create2Squat.t.sol
+  - test/attacks/A02_PerpAttacks.t.sol
+  - test/attacks/A05_ReserveFloorSeeder.t.sol
+  - test/attacks/B01_StrandedPerpGuildDividend.t.sol
+  - test/attacks/B02_DividendGasBudgetOverrun.t.sol
+  - test/attacks/B03_SurtaxJitterDeadCode.t.sol
+  - test/attacks/B04_ArbNotionalCap.t.sol
+  - test/attacks/B05_NonEthRelaunchBrick.t.sol
+  - test/attacks/B06_ProposerOwedDenomination.t.sol
+  - test/attacks/B07_RelaunchTotality.t.sol
+  - test/attacks/B08_NonEthRebirth.t.sol
+  - test/attacks/Q01_StrandedGuildDividend.t.sol
+  - test/attacks/Q02_GachaOddsUnitMismatch.t.sol
+  - test/attacks/Q07_WeightedMark.t.sol
+  - test/attacks/S01_PerpQuoteDeadlock.t.sol
+  - test/attacks/S02_RotationSurface.t.sol
+  - test/attacks/S04_GovernanceScanDoS.t.sol
+  - test/attacks/S06_PerpVaultSolvency.t.sol
+  - test/attacks/S08_InSwapGasStarvation.t.sol
+  - test/attacks/S09_ArbStepGovernance.t.sol
+  - test/attacks/T01_PoolKeySquatRegression.t.sol
+  - test/attacks/T02_EnvelopeBurnedOnADustLeg.t.sol
+  - test/attacks/T02_MarkSourceUnarmed.t.sol
+  - test/attacks/T02_OracleCacheStaleness.t.sol
+  - test/attacks/T02_PartialFlipStrandsThePrimary.t.sol
+  - test/attacks/T02_PerpAfterRotation.t.sol
+  - test/attacks/T02_RotationDestinationSquat.t.sol
+  - test/attacks/T02_StaleFloorSandwich.t.sol
+  - test/attacks/T03_InventoryWipe.t.sol
+  - test/attacks/T03_RelaunchSurvivorBrick.t.sol
+  - test/attacks/T03_VaultQueueSeniority.t.sol
+  - test/attacks/T07_LegProceedsUnreachable.t.sol
+  - test/attacks/T08_GovernorQuorumWiring.t.sol
+  - test/attacks/Y01_ReserveCeilingBreach.t.sol
+  - test/attacks/Y02_DepthManip.t.sol
+  - test/attacks/Y03_RelaunchGasBrick.t.sol
+  - test/attacks/Z01_ExactOutSellFeeBypass.t.sol
+  - test/attacks/Z02_PerpStaleMark.t.sol
+  - test/attacks/Z03_GovernorSpamRelaunchDoS.t.sol
+  - test/attacks/Z04_SeederRescueStrandsLp.t.sol
+  - test/attacks/Z05_L2BlockClock.t.sol
+  - test/attacks/Z06_GovernanceLockout.t.sol
+  - test/attacks/ZAuditBase.sol
+  - test/audit/AuditPoC.t.sol
+  - test/audit/AuditPoC2.t.sol
+  - test/audit/AuditPoC3.t.sol
+  - test/audit/AuditPoC4.t.sol
+  - test/audit/AuditPoC5_DividendBasket.t.sol
+  - test/audit/AuditPoC6_QuoteReserve.t.sol
+  - test/audit/AuditPoC7_StaleOracleDeath.t.sol
+  - test/audit/B09_ProposalPayloadGasBrick.t.sol
+  - test/audit/B10_ScanWindowErasure.t.sol
+  - test/audit/B11_OracleRevertBypassesCache.t.sol
+  - test/audit/B12_RotatorVenueUnvalidated.t.sol
+  - test/audit/B13_SeedFundingDustPreference.t.sol
+  - test/audit/B14_FastFullRotation.t.sol
+  - test/audit/B15_RotationWiringUnreachable.t.sol
+  - test/audit/B16_FeatureReachability.t.sol
+  - test/audit/B17_TreasuryScanBound.t.sol
+  - test/audit/B18_StaleRecastForfeitsBasket.t.sol
+  - test/audit/B19_ProgressiveNonNative.t.sol
+  - test/audit/B20_SelfCheckScanWindow.t.sol
+  - test/audit/B21_GovTimingFloors.t.sol
+  - test/audit/ReserveBoundProbe.t.sol
+
+## Hyphenated finding-shaped hits in comments/prose (must be 0): 0
+
+## Hyphenated hits inside code or string literals (residual leak, not stripped): 46
+  - test/invariants/VestingInvariants.t.sol:133 `V-1` :: assertGe(live.balanceOf(address(vesting)), owed, "V-1: escrow owes more than it holds");
+  - test/invariants/VestingInvariants.t.sol:143 `V-2` :: "V-2: grant accounting drifted"
+  - test/invariants/VestingInvariants.t.sol:150 `V-3` :: assertLe(handler.ghostReleasedAll(), handler.ghostEscrowedAll(), "V-3: over-release");
+  - test/invariants/VestingInvariants.t.sol:160 `V-4` :: assertLe(g.released, g.total, "V-4: released above total");
+  - test/invariants/FacetLayoutInvariant.t.sol:78 `F-1` :: "F-1: facet must compute the floor from the CALLER's storage"
+  - test/invariants/FacetLayoutInvariant.t.sol:113 `F-3` :: assertEq(probe.localRedeemBlocked(), expected, "F-3: exit guarantee semantics");
+  - test/invariants/FacetLayoutInvariant.t.sol:115 `F-3` :: assertFalse(probe.localRedeemBlocked(), "F-3: an armed emergency FORCES the exit open");
+  - test/invariants/LedgerInvariants.t.sol:104 `L-1` :: assertEq(ledger.totalEntitled(), sum, "L-1: totalEntitled drifted from the per-gen sum");
+  - test/invariants/LedgerInvariants.t.sol:115 `L-3` :: "L-3: entitlement exceeds everything ever credited"
+  - test/invariants/LedgerInvariants.t.sol:126 `L-4` :: assertLe(o, supply, "L-4: outstanding above supply");
+  - test/invariants/LedgerInvariants.t.sol:128 `L-4` :: assertEq(o, supply - ledger.retired(g), "L-4: outstanding != supply - retired");
+  - test/invariants/LedgerInvariants.t.sol:130 `L-4` :: assertEq(o, 0, "L-4: outstanding must floor at zero");
+  - test/invariants/LedgerInvariants.t.sol:161 `L-2` :: assertGe(floorAfter, floorBefore, "L-2: a recycle must never dilute the remaining holders");
+  - test/invariants/CauldronSystemInvariants.t.sol:452 `I-1` :: "I-1: a generation minted beyond its fixed cap"
+  - test/invariants/CauldronSystemInvariants.t.sol:457 `I-1` :: "I-1: the LIVE generation must carry the full fixed supply"
+  - test/invariants/CauldronSystemInvariants.t.sol:517 `I-3` :: assertGe(held, owed, "I-3: the reserve holds less than it owes (drained backing)");
+  - test/invariants/CauldronSystemInvariants.t.sol:533 `I-4` :: "I-4: the reserve position left the registry's custody"
+  - test/invariants/CauldronSystemInvariants.t.sol:541 `I-4` :: assertFalse(rlo == lo && rhi == hi, "I-4: the seeder minted into the reserve band");
+  - test/invariants/CauldronSystemInvariants.t.sol:555 `I-5` :: assertGe(address(perp).balance, claimedEth, "I-5: engine ETH accounting exceeds its balance");
+  - test/invariants/CauldronSystemInvariants.t.sol:559 `I-5` :: "I-5: engine token inventory accounting exceeds its balance");
+  - test/invariants/CauldronSystemInvariants.t.sol:574 `I-6` :: "I-6: the hook owes more ETH than it holds (see finding C-01)"
+  - test/invariants/CauldronSystemInvariants.t.sol:574 `C-01` :: "I-6: the hook owes more ETH than it holds (see finding C-01)"
+  - test/invariants/CauldronSystemInvariants.t.sol:590 `I-7` :: "I-7: generations advanced without a relaunch");
+  - test/invariants/ReserveMathFuzz.t.sol:40 `R-1` :: assertLt(lo, hi, "R-1: band must be non-empty");
+  - test/invariants/ReserveMathFuzz.t.sol:41 `R-1` :: assertEq(lo % SPACING, 0, "R-1: lower aligned");
+  - test/invariants/ReserveMathFuzz.t.sol:42 `R-1` :: assertEq(hi % SPACING, 0, "R-1: upper aligned");
+  - test/invariants/ReserveMathFuzz.t.sol:43 `R-1` :: assertGe(int256(lo), int256(TickMath.MIN_TICK), "R-1: lower >= MIN_TICK");
+  - test/invariants/ReserveMathFuzz.t.sol:44 `R-1` :: assertLe(int256(hi), int256(TickMath.MAX_TICK), "R-1: upper <= MAX_TICK");
+  - test/invariants/ReserveMathFuzz.t.sol:56 `R-2` :: assertLe(int256(hi), int256(launchTick), "R-2: reserve upper must be <= launch tick");
+  - test/invariants/ReserveMathFuzz.t.sol:57 `R-2` :: assertLe(int256(hi), int256(launchTick) - int256(offset) + int256(SPACING), "R-2: at least `offset` below launch");
+  - test/invariants/ReserveMathFuzz.t.sol:84 `R-3` :: assertLe(back, amount, "R-3: reserve math must round DOWN, never up");
+  - test/invariants/ReserveMathFuzz.t.sol:96 `R-4` :: "R-4: liquidity must be monotone in the token amount"
+  - test/invariants/ReserveMathFuzz.t.sol:117 `S-1` :: assertLe(w1, w2, "S-1: schedule must be monotone in time");
+  - test/invariants/ReserveMathFuzz.t.sol:118 `S-1` :: assertLe(w2, 1e18, "S-1: never above 100%");
+  - test/invariants/ReserveMathFuzz.t.sol:119 `S-1` :: assertGe(w1, floorWad > 1e18 ? 1e18 : floorWad, "S-1: never below the seed floor");
+  - test/invariants/ReserveMathFuzz.t.sol:120 `S-1` :: if (t2 >= uint256(start) + window) assertEq(w2, 1e18, "S-1: fully deployed by window end");
+  - test/invariants/ReserveMathFuzz.t.sol:125 `S-2` :: assertEq(SeedLib.deployedTargetWad(start, 0, t, bound(floorWad, 0, 1e18)), 1e18, "S-2");
+  - test/invariants/ReserveMathFuzz.t.sol:141 `S-3` :: assertLt(aLo, aHi, "S-3: ask band non-empty");
+  - test/invariants/ReserveMathFuzz.t.sol:142 `S-3` :: assertLt(bLo, bHi, "S-3: bid band non-empty");
+  - test/invariants/ReserveMathFuzz.t.sol:143 `S-3` :: assertLe(int256(aHi), int256(L), "S-3: ask band at/below the aligned launch tick (pure token1)");
+  - test/invariants/ReserveMathFuzz.t.sol:144 `S-3` :: assertGt(int256(bLo), int256(L), "S-3: bid band strictly above the launch tick (pure ETH)");
+  - test/invariants/ReserveMathFuzz.t.sol:145 `S-3` :: assertGe(int256(aLo), int256(TickMath.MIN_TICK), "S-3: ask floor within range");
+  - test/invariants/ReserveMathFuzz.t.sol:146 `S-3` :: assertLe(int256(bHi), int256(TickMath.MAX_TICK), "S-3: bid ceiling within range");
+  - test/invariants/ReserveMathFuzz.t.sol:155 `S-4` :: assertLe(sum, 1e18, "S-4: taper must never over-allocate");
+  - test/invariants/ReserveMathFuzz.t.sol:156 `S-4` :: assertGe(sum + n, 1e18, "S-4: taper allocates ~everything (dust only)");
+  - deploy/DeployLaunchpad.s.sol:184 `F-19` :: require(emergencyDelay > 0, "EMERGENCY_DELAY must be > 0 (audit F-19)");
+
+## Hyphenless letter+digit tokens remaining (residual, classify each): 17
+  - `M0` x6  e.g. render-out/art-short.txt:1 :: <path fill="%23151819" d="M0 0h1024v775H0z"/><path fill="%233b1e4f" d="m459 101-1 2-6 11v2a94 94 0 0 0 0 38q0 9 4 17v-14
+  - `M86` x4  e.g. render-out/art-short.txt:1 :: <path fill="%23151819" d="M0 0h1024v775H0z"/><path fill="%233b1e4f" d="m459 101-1 2-6 11v2a94 94 0 0 0 0 38q0 9 4 17v-14
+  - `M98` x2  e.g. render-out/art-short.txt:1 :: <path fill="%23151819" d="M0 0h1024v775H0z"/><path fill="%233b1e4f" d="m459 101-1 2-6 11v2a94 94 0 0 0 0 38q0 9 4 17v-14
+  - `M87` x2  e.g. render-out/art-short.txt:1 :: <path fill="%23151819" d="M0 0h1024v775H0z"/><path fill="%233b1e4f" d="m459 101-1 2-6 11v2a94 94 0 0 0 0 38q0 9 4 17v-14
+  - `M94` x2  e.g. render-out/art-short.txt:1 :: <path fill="%23151819" d="M0 0h1024v775H0z"/><path fill="%233b1e4f" d="m459 101-1 2-6 11v2a94 94 0 0 0 0 38q0 9 4 17v-14
+  - `M88` x1  e.g. render-out/art-long.txt:1 :: <path fill="%232b2b2b" d="M0 0h1024v775H0z"/><path fill="%23568233" d="m890 136 19-1c13 0 13 0 17 3l4 5 1 2c1 7 1 7-2 11
+
+## File names carrying a letter+digit prefix (residual leak, cannot be renamed without breaking citations): 0

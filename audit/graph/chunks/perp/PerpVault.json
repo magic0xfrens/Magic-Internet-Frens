@@ -1,0 +1,432 @@
+[
+ {
+  "contract": "PerpVault",
+  "line": 132,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "engine (line 133, immutable)",
+   "registry (line 134, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deploy. Both counterparties are immutable, so a vault is bound to one engine forever - re-pointing happens on the ENGINE side at `vault` (PerpEngine.sol:1753), not here. There is no owner and no admin function anywhere in this contract: every entrypoint is permissionless and acts only on the caller's own position. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 156,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "ethShares (line 157)",
+   "tokShares (line 157)",
+   "pendingEth (line 157)",
+   "pendingTok (line 157)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The replacement test the engine's vault-rotation guard calls at `hasStakers` (PerpEngine.sol:1752). It ORs all four ownership counters in one expression at `pendingTok` (PerpVault.sol:157), so it answers `is anyone owed anything` rather than `is any engine counter non-zero` - which is what stops unownable residue (orphaned short-side yield, one-wei rounding dust) from latching the guard permanently.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 162,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "pendingEth (line 164)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpEngineVault.totalEth (PerpVault.sol:163), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The asset base live shares are priced against: the engine's whole ETH-side book MINUS the queued-exit claims, saturating at zero at `pendingEth` (PerpVault.sol:164). Note it uses `totalEth` (PerpVault.sol:163), which counts capital lent to open longs, so the share price includes not-yet-returned principal.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 167,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "pendingTok (line 169)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpEngineVault.totalTokenAssets (PerpVault.sol:168), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Token-side mirror of `assetsEth` (PerpVault.sol:162): the engine's whole token book minus queued token exits, saturating at zero at `pendingTok` (PerpVault.sol:169).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 187,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "ethShares (line 202)",
+   "OFFSET (line 202, constant)"
+  ],
+  "writes": [
+   "ethShares (line 204)",
+   "ethShareOf (line 205)"
+  ],
+  "value": "receives native asserted against `value` (line 195); pulls the ERC20 quote through `_pull` (line 198); forwards it to the engine at `fundFromVault` (line 206)",
+  "edges": [
+   "PerpVault._engineQuote (PerpVault.sol:193), TRUSTED, in-cluster",
+   "PerpVault._pull (PerpVault.sol:198), TRUSTED, in-cluster",
+   "PerpVault._approve (PerpVault.sol:199), TRUSTED, in-cluster",
+   "PerpVault.assetsEth (PerpVault.sol:202), TRUSTED, in-cluster",
+   "IPerpEngineVault.fundFromVault (PerpVault.sol:206), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The ETH-side entry. Denomination is decided per call by `_engineQuote` (PerpVault.sol:193), and the two branches are mutually exclusive: native requires value to equal the stated amount, ERC20 requires no value at all at `value` (PerpVault.sol:197). Shares are priced BEFORE the funds reach the engine, so `assetsEth` (PerpVault.sol:202) is the pre-deposit base; the virtual `OFFSET` (PerpVault.sol:202) plus the +1 denominator is the inflation-attack guard. Effects (share mint) precede the single external interaction at `fundFromVault` (PerpVault.sol:206), which is also the only place value leaves this contract on this path.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 212,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native and forwards the whole `msg` value (line 213)",
+  "edges": [
+   "PerpVault.deposit (PerpVault.sol:213), TRUSTED, in-cluster"
+  ],
+  "reachability": "Native-only convenience that forwards the whole message value. On an ERC20-quoted brew it necessarily fails: the inner branch demands zero value at `value` (PerpVault.sol:197) while this passes `msg.value` (PerpVault.sol:213) as the amount, and a zero amount reverts at `amount` (PerpVault.sol:188). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 216,
+  "authority": "private (callers: deposit)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "engine.staticcall (PerpVault.sol:217), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Deliberately defensive: a raw staticcall by signature string at `quote` (PerpVault.sol:218) rather than a typed interface call, so an engine that predates multi-quote and has no such function returns no data and is treated as NATIVE at `address` (PerpVault.sol:220) instead of reverting the deposit. A short return is also treated as native at `ret` (PerpVault.sol:220). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 226,
+  "authority": "private (callers: deposit, depositToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 pull of the depositor's balance into this vault by `transferFrom` (line 228)",
+  "edges": [
+   "token.call (PerpVault.sol:227), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Checked pull: an empty return or a decoded true is accepted, anything else reverts at `ZeroAmount` (PerpVault.sol:230) - without which shares would be minted for a deposit that never moved. Used for the ERC20-quote branch at `_pull` (PerpVault.sol:198) and for every token-side deposit at `_pull` (PerpVault.sol:355).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 233,
+  "authority": "private (callers: deposit, depositToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "grants the engine an ERC20 `approve` allowance over this vault's balance (line 234)",
+  "edges": [
+   "token.call (PerpVault.sol:234), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Sets the exact allowance the engine will pull in the same transaction. Unlike `_pull` (PerpVault.sol:226) it checks only the call's success flag and NOT the returned boolean at `ok` (PerpVault.sol:235); the following engine pull would revert anyway if the allowance had not been set. It writes a fresh absolute allowance rather than incrementing, so a token that rejects a non-zero-to-non-zero approval would fail here. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 240,
+  "authority": "anyone (redeems only the caller's own shares)",
+  "authority_gate_quote": "if (shares > bal) revert InsufficientShares(); (PerpVault.sol:243)",
+  "reads": [
+   "ethShareOf (line 241)",
+   "ethShares (line 245)",
+   "OFFSET (line 245, constant)"
+  ],
+  "writes": [
+   "ethShareOf (line 253)",
+   "ethShares (line 254)",
+   "pendingEth (line 256)",
+   "pendingEthOf (line 257)"
+  ],
+  "value": "pays the caller out of the engine at `withdrawPlvTo` (line 259)",
+  "edges": [
+   "PerpVault.assetsEth (PerpVault.sol:245), TRUSTED, in-cluster",
+   "IPerpEngineVault.freeEth (PerpVault.sol:246), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.withdrawPlvTo (PerpVault.sol:259), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Redemption is split by AVAILABILITY, not by entitlement: the owed amount is priced at the live share price at `owed` (PerpVault.sol:245), then capped by the engine's free buffer at `free` (PerpVault.sol:246) with the remainder queued at `queued` (PerpVault.sol:248). Ordering is strict CEI - shares are burned and the queue is earmarked at `pendingEth` (PerpVault.sol:256) before the single external call at `withdrawPlvTo` (PerpVault.sol:259). Queueing converts at-risk shares into a fixed nominal claim that leaves the share base; the pro-rata write-down at `_haircut` (PerpVault.sol:280) is what keeps that from being a free option.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 280,
+  "authority": "private (callers: claimPendingEth, claimPendingToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The pro-rata write-down applied to a queued claim. It is a no-op while backing covers the whole queue at `claims` (PerpVault.sol:285); otherwise every claimant is scaled by backing over claims at `backing` (PerpVault.sol:286), rounding DOWN toward the vault. It is pure, so it writes nothing itself - the callers persist the reduction at `pendingEth` (PerpVault.sol:295) and `pendingTok` (PerpVault.sol:402).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 290,
+  "authority": "anyone (claims only the caller's own queued exit)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "pendingEthOf (line 291)",
+   "pendingEth (line 294)"
+  ],
+  "writes": [
+   "pendingEth (line 295)",
+   "pendingEthOf (line 295)",
+   "pendingEthOf (line 300)",
+   "pendingEth (line 301)"
+  ],
+  "value": "pays the caller out of the engine at `withdrawPlvTo` (line 302)",
+  "edges": [
+   "PerpVault._haircut (PerpVault.sol:294), TRUSTED, in-cluster",
+   "IPerpEngineVault.totalEth (PerpVault.sol:294), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.freeEth (PerpVault.sol:297), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.withdrawPlvTo (PerpVault.sol:302), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Drains a queued claim as liquidity returns. The haircut is applied first and PERSISTED at `pendingEthOf` (PerpVault.sol:295), so a write-down is permanent even if backing later recovers. The backing it compares against is the engine's TOTAL at `totalEth` (PerpVault.sol:294) - which includes capital still lent to open longs and also backs live shares - while the claims side counts only `pendingEth` (PerpVault.sol:294). Payment is then capped by the free buffer at `free` (PerpVault.sol:297), and a zero payable amount reverts at `paid` (PerpVault.sol:299) rather than no-oping. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 319,
+  "authority": "internal (callers: depositToken, claimTokYield, withdrawToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "lastTokYieldCum (line 321)",
+   "lastTokYieldCum (line 322)",
+   "tokShares (line 324)",
+   "accEthPerTokShare (line 325)",
+   "ACC (line 325, constant)",
+   "tokShares (line 325)"
+  ],
+  "writes": [
+   "lastTokYieldCum (line 323)",
+   "accEthPerTokShare (line 325)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IPerpEngineVault.tokYieldCumulative (PerpVault.sol:320), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Folds newly accrued short-side yield into the per-share index. The watermark at `lastTokYieldCum` (PerpVault.sol:323) is advanced ALWAYS, including when `tokShares` (PerpVault.sol:324) is zero - so yield that accrued with nobody staked is emitted as unattributed and can never be back-paid to whoever deposits next. That orphaned value stays in the engine's segregated pot, which only ever pays attributed claims. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 329,
+  "authority": "internal (callers: depositToken, claimTokYield, withdrawToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tokShareOf (line 330)",
+   "accEthPerTokShare (line 332)",
+   "ACC (line 332, constant)",
+   "tokRewardDebt (line 333)"
+  ],
+  "writes": [
+   "tokRewardOwed (line 333)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Banks a user's earned-so-far reward into their owed balance, at the OLD share count - which is why every caller runs it before touching `tokShareOf` (PerpVault.sol:330). The comparison at `tokRewardDebt` (PerpVault.sol:333) makes a baseline above the accrued figure a silent no-op rather than an underflow.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 337,
+  "authority": "internal (callers: depositToken, claimTokYield, withdrawToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tokShareOf (line 338)",
+   "accEthPerTokShare (line 338)",
+   "ACC (line 338, constant)"
+  ],
+  "writes": [
+   "tokRewardDebt (line 338)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Rebases the user's reward baseline to their CURRENT share count. Always paired after `_settleTok` (PerpVault.sol:329); the pair is what makes a share-count change neither forfeit nor duplicate accrued reward.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 345,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tokShares (line 349)",
+   "OFFSET (line 349, constant)"
+  ],
+  "writes": [
+   "tokShares (line 351)",
+   "tokShareOf (line 352)"
+  ],
+  "value": "pulls the generation token from the depositor at `_pull` (line 355) and hands it to the engine at `fundTokenFromVault` (line 357)",
+  "edges": [
+   "IVaultRegistry.currentToken (PerpVault.sol:347), TRUSTED, out-of-cluster",
+   "PerpVault._syncTokYield (PerpVault.sol:348), TRUSTED, in-cluster",
+   "PerpVault._settleTok (PerpVault.sol:348), TRUSTED, in-cluster",
+   "PerpVault.assetsTok (PerpVault.sol:349), TRUSTED, in-cluster",
+   "PerpVault._resetTokDebt (PerpVault.sol:353), TRUSTED, in-cluster",
+   "PerpVault._pull (PerpVault.sol:355), TRUSTED, in-cluster",
+   "PerpVault._approve (PerpVault.sol:356), TRUSTED, in-cluster",
+   "IPerpEngineVault.fundTokenFromVault (PerpVault.sol:357), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The token-side entry. Reward bookkeeping is settled at the old share count first at `_settleTok` (PerpVault.sol:348), shares are priced against the pre-deposit base at `assetsTok` (PerpVault.sol:349), and the baseline is rebased at `_resetTokDebt` (PerpVault.sol:353) before any external movement. The asset is whatever the registry currently names at `currentToken` (PerpVault.sol:347), so this is always the live generation's token. Token principal is structurally protected because a short's buy-back restores the inventory in full at `plvToken` (PerpEngine.sol:1160).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 363,
+  "authority": "anyone (claims only the caller's own accrued reward)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tokRewardOwed (line 365)"
+  ],
+  "writes": [
+   "tokRewardOwed (line 367)"
+  ],
+  "value": "pays the caller out of the engine's segregated pot at `withdrawTokYieldTo` (line 368)",
+  "edges": [
+   "PerpVault._syncTokYield (PerpVault.sol:364), TRUSTED, in-cluster",
+   "PerpVault._settleTok (PerpVault.sol:364), TRUSTED, in-cluster",
+   "PerpVault._resetTokDebt (PerpVault.sol:364), TRUSTED, in-cluster",
+   "IPerpEngineVault.withdrawTokYieldTo (PerpVault.sol:368), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Pays the short-attributed reward WITHOUT converting token principal: the stake stays staked. Effects before interaction - the owed balance is zeroed at `tokRewardOwed` (PerpVault.sol:367) before the engine call at `withdrawTokYieldTo` (PerpVault.sol:368). The reward leaves the engine through its quote-denominated push, while the pot itself was credited from native value on the native fee path at `tokYieldEth` (PerpEngine.sol:1621).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 374,
+  "authority": "anyone (redeems only the caller's own shares)",
+  "authority_gate_quote": "if (shares > bal) revert InsufficientShares(); (PerpVault.sol:377)",
+  "reads": [
+   "tokShareOf (line 375)",
+   "tokShares (line 380)",
+   "OFFSET (line 380, constant)"
+  ],
+  "writes": [
+   "tokShareOf (line 385)",
+   "tokShares (line 386)",
+   "pendingTok (line 389)",
+   "pendingTokOf (line 390)"
+  ],
+  "value": "pays the caller token out of the engine at `withdrawPlvTokenTo` (line 392)",
+  "edges": [
+   "PerpVault._syncTokYield (PerpVault.sol:379), TRUSTED, in-cluster",
+   "PerpVault._settleTok (PerpVault.sol:379), TRUSTED, in-cluster",
+   "PerpVault.assetsTok (PerpVault.sol:380), TRUSTED, in-cluster",
+   "PerpVault._resetTokDebt (PerpVault.sol:387), TRUSTED, in-cluster",
+   "IPerpEngineVault.freeToken (PerpVault.sol:381), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.withdrawPlvTokenTo (PerpVault.sol:392), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Token-side mirror of `withdrawEth` (PerpVault.sol:240), with the reward bookkeeping wrapped around it: bank at the old count at `_settleTok` (PerpVault.sol:379), burn shares, rebase at `_resetTokDebt` (PerpVault.sol:387), queue the shortfall at `pendingTok` (PerpVault.sol:389), and only then call the engine at `withdrawPlvTokenTo` (PerpVault.sol:392).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 397,
+  "authority": "anyone (claims only the caller's own queued exit)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "pendingTokOf (line 398)",
+   "pendingTok (line 401)"
+  ],
+  "writes": [
+   "pendingTok (line 402)",
+   "pendingTokOf (line 402)",
+   "pendingTokOf (line 407)",
+   "pendingTok (line 408)"
+  ],
+  "value": "pays the caller token out of the engine at `withdrawPlvTokenTo` (line 409)",
+  "edges": [
+   "PerpVault._haircut (PerpVault.sol:401), TRUSTED, in-cluster",
+   "IPerpEngineVault.totalTokenAssets (PerpVault.sol:401), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.freeToken (PerpVault.sol:404), TRUSTED, out-of-cluster",
+   "IPerpEngineVault.withdrawPlvTokenTo (PerpVault.sol:409), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Token-side twin of `claimPendingEth` (PerpVault.sol:290), with the same persisted pro-rata write-down at `pendingTokOf` (PerpVault.sol:402). The engine pays in the registry's CURRENT token at `currentToken` (PerpEngine.sol:1661), so a claim queued before a relaunch is settled in the NEW generation's token while the queued number was priced against the old inventory. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 417,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "ethShareOf (line 418)",
+   "ethShares (line 419)",
+   "OFFSET (line 419, constant)",
+   "pendingEthOf (line 422)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpVault.assetsEth (PerpVault.sol:419), TRUSTED, in-cluster",
+   "IPerpEngineVault.freeEth (PerpVault.sol:420), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Frontend view mirroring `withdrawEth` (PerpVault.sol:240) exactly: same pricing formula at `redeemable` (PerpVault.sol:419) and the same free-buffer cap at `free` (PerpVault.sol:420), plus the caller's already-queued balance. It does NOT apply the haircut, so the pending figure it reports is the un-written-down claim.",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 425,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "tokShareOf (line 426)",
+   "tokShares (line 427)",
+   "OFFSET (line 427, constant)",
+   "pendingTokOf (line 430)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpVault.assetsTok (PerpVault.sol:427), TRUSTED, in-cluster",
+   "IPerpEngineVault.freeToken (PerpVault.sol:428), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Token-side mirror of `ethPosition` (PerpVault.sol:417), using the same formula as `assetsTok` (PerpVault.sol:380).",
+  "observations": []
+ },
+ {
+  "contract": "PerpVault",
+  "line": 434,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "accEthPerTokShare (line 435)",
+   "lastTokYieldCum (line 439)",
+   "tokShares (line 439)",
+   "ACC (line 439, constant)",
+   "tokShareOf (line 440)",
+   "tokRewardDebt (line 442)",
+   "tokRewardOwed (line 443)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpEngineVault.tokYieldCumulative (PerpVault.sol:436), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Simulates the fold plus the settle without writing. It mirrors the zero-share rule exactly - the un-folded delta is only added when `tokShares` (PerpVault.sol:439) is positive - so the view never promises unattributed yield that `_syncTokYield` (PerpVault.sol:319) would refuse to credit.",
+  "observations": []
+ }
+]

@@ -1,0 +1,228 @@
+[
+ {
+  "contract": "RedemptionExt",
+  "line": 260,
+  "authority": "owner (the registry's own owner slot; the gate is on the FACET side, the registry stub is ungated)",
+  "authority_gate_quote": "external onlyOwner (RedemptionExt.sol:260)",
+  "reads": [],
+  "writes": [
+   "quoteRotator (line 262)",
+   "treasuryGovernor (line 263)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Reached through the registry's stub at `setRotationWiring` (CauldronRegistry.sol:272), which carries no modifier of its own and simply delegatecalls at `_forwardToExt` (CauldronRegistry.sol:1451); the authority check therefore runs here, against the registry's inherited owner slot, because the facet shares the registry's layout. Both addresses are rejected if zero at `NotConfigured` (RedemptionExt.sol:261) and neither is checked for code. It is deliberately re-callable, so a rotator or governor can be replaced. Until it has run, `quoteRotator` (RedemptionExt.sol:292) is zero and every rotation slice reverts with the wiring error rather than the governance one.",
+  "observations": [
+   "comment at `sliceBps` (RedemptionExt.sol:210) documents the slice, floor and route parameters of a rotation call; code at `setRotationWiring` (RedemptionExt.sol:260) is the next declaration after that block and takes a rotator and a governor instead"
+  ]
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 269,
+  "authority": "anyone (permissionless within the approved envelope)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "all value movement happens in the call it forwards to, at `rotateSliceFrom` (line 274)",
+  "edges": [
+   "RedemptionExt.rotateSliceFrom (RedemptionExt.sol:274), TRUSTED, in-cluster"
+  ],
+  "reachability": "The three-argument form, reached through the registry stub at `rotateSlice` (CauldronRegistry.sol:238). It hard-codes the source leg to the primary position at `rotateSliceFrom` (RedemptionExt.sol:274) and adds no checks of its own \u2014 every gate, including the envelope, lives in the callee. The treasury frontend issues the four-argument form instead, which the registry also stubs at `rotateSliceFrom` (CauldronRegistry.sol:262).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 280,
+  "authority": "anyone (permissionless; the destination and the ceiling come from the governance envelope, not from the caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quoteRotator (line 292)",
+   "treasuryGovernor (line 301)",
+   "allowedQuote (line 322)",
+   "MAX_SLICE_BPS (line 326, constant)",
+   "currentGeneration (line 328)",
+   "generationToken (line 329)",
+   "generationQuote (line 347)",
+   "generationPositionId (line 348)",
+   "generationPoolKey (line 349)",
+   "generationLegs (line 351)",
+   "positionManager (line 364)",
+   "poolManager (line 383)",
+   "hook (line 385)",
+   "generationPoolId (line 396)",
+   "hook (line 432)",
+   "hook (line 539)"
+  ],
+  "writes": [
+   "generationQuote (line 505)"
+  ],
+  "value": "`sendAsset` pushes the removed quote side to the rotator (line 375); `withdraw` pulls the converted asset back (line 377); `openOrAddPair` deploys both sides into the destination pair (line 382)",
+  "edges": [
+   "ITreasuryGovernor.allowance (RedemptionExt.sol:303), TRUSTED, in-cluster",
+   "PoolOps.removePartial (RedemptionExt.sol:363), TRUSTED, library",
+   "PoolOps.sendAsset (RedemptionExt.sol:375), TRUSTED, library",
+   "IQuoteRotator.swapOnce (RedemptionExt.sol:376), TRUSTED, in-cluster",
+   "IQuoteRotator.withdraw (RedemptionExt.sol:377), TRUSTED, in-cluster",
+   "PoolOps.openOrAddPair (RedemptionExt.sol:382), TRUSTED, library",
+   "IHookVolume.linkVolume (RedemptionExt.sol:396), TRUSTED, in-cluster",
+   "RedemptionExt._recordLeg (RedemptionExt.sol:423), TRUSTED, in-cluster",
+   "ITreasuryGovernor.consume (RedemptionExt.sol:437), TRUSTED, in-cluster",
+   "ITreasuryGovernor.migrationMandateSpent (RedemptionExt.sol:504), TRUSTED, in-cluster",
+   "CauldronHook.perpEngine (RedemptionExt.sol:539), TRUSTED, out-of-cluster",
+   "IPerpSync.syncGeneration (RedemptionExt.sol:540), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "The whole rotation, in one transaction, reached through the registry stub at `rotateSliceFrom` (CauldronRegistry.sol:262) and its delegatecall at `_forwardToExt` (CauldronRegistry.sol:1451), so it runs on the registry's storage and custody with no caller allowlist anywhere. Five state conditions gate it: the rotator is wired at `rot` (RedemptionExt.sol:293); the governor is wired at `gov` (RedemptionExt.sol:302); the envelope has room left, judged on the REMAINDER rather than on the destination address, at `remaining` (RedemptionExt.sol:317) and again at `BadConfig` (RedemptionExt.sol:318); the destination is still allowlisted at `allowedQuote` (RedemptionExt.sol:322); and the slice is within the per-call ceiling at `MAX_SLICE_BPS` (RedemptionExt.sol:326). The source leg is the caller's choice \u2014 the primary position at `generationQuote` (RedemptionExt.sol:347) or a recorded leg at `generationLegs` (RedemptionExt.sol:351) \u2014 and a leg may not rotate into itself, at `fromQuote` (RedemptionExt.sol:359). Sequence: remove a share of the chosen position at `removePartial` (RedemptionExt.sol:363), refusing a one-sided result at `tokenOut` (RedemptionExt.sol:371); send the quote side out and swap it at `swapOnce` (RedemptionExt.sol:376), where the rotator raises the floor to its own oracle bound; pull the proceeds straight back at `withdraw` (RedemptionExt.sol:377); redeploy at `openOrAddPair` (RedemptionExt.sol:382); register the sibling pool for volume at `linkVolume` (RedemptionExt.sol:396), which itself refuses while any perp position is open; record the leg by QUOTE, with the DESTINATION pair rather than the venue key, at `_recordLeg` (RedemptionExt.sol:423); and only then book the envelope at `consume` (RedemptionExt.sol:437), so a reverted slice spends nothing. The generation's recorded denomination flips only when the slice came out of the primary AND the migration mandate is spent, at `migrationMandateSpent` (RedemptionExt.sol:504), and the perp engine is re-pointed best-effort in the same call at `syncGeneration` (RedemptionExt.sol:540), whose failure is swallowed. The token side never leaves the registry; the destination pair is built with the same fee and spacing constants as the primary, at `TICK_SPACING` (RedemptionExt.sol:390).",
+  "observations": [
+   "comment at `DRAINED` (RedemptionExt.sol:252) describes a dust threshold below which the primary position counts as drained for the purpose of redenominating the generation; code at `migrationMandateSpent` (RedemptionExt.sol:504) decides redenomination purely from the governor's mandate flag, and the constant declared at `PRIMARY_DRAINED_DUST` (RedemptionExt.sol:258) is read nowhere in the file"
+  ]
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 605,
+  "authority": "owner (the gate is on the facet side) \u2014 but see reachability: no registry forwarder exists",
+  "authority_gate_quote": "onlyOwner (RedemptionExt.sol:607)",
+  "reads": [
+   "allowedQuote (line 610)",
+   "currentGeneration (line 611)",
+   "poolManager (line 615)",
+   "positionManager (line 616)",
+   "hook (line 617)",
+   "generationToken (line 618)",
+   "generationPoolId (line 628)",
+   "hook (line 628)"
+  ],
+  "writes": [],
+  "value": "`openOrAddPair` deploys the named quote amount and token amount out of the registry's custody into the pair (line 614)",
+  "edges": [
+   "PoolOps.openOrAddPair (RedemptionExt.sol:614), TRUSTED, library",
+   "IHookVolume.linkVolume (RedemptionExt.sol:628), TRUSTED, in-cluster"
+  ],
+  "reachability": "DERIVED: this selector has no stub on the registry \u2014 the forwarders are declared one by one and the registry has no catch-all, as the note at `fallback` (CauldronRegistry.sol:1408) states \u2014 so it cannot be reached on the registry's storage and custody at all. Called directly on a deployed facet it runs against that contract's own empty storage, where `allowedQuote` (RedemptionExt.sol:610) is false for every asset and the check reverts before anything moves. Were it reachable, the gate would be the registry's owner slot via `onlyOwner` (RedemptionExt.sol:607), the amounts would be taken from whatever the registry holds at `openOrAddPair` (RedemptionExt.sol:614), and the sibling pool would be registered for volume at `linkVolume` (RedemptionExt.sol:628). The same three steps already run inline inside the sliced rotation at `openOrAddPair` (RedemptionExt.sol:382).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 648,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "currentGeneration (line 650)",
+   "summoned (line 651)",
+   "poolManager (line 652)",
+   "generationPoolId (line 652)",
+   "reserveTickUpper (line 653)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronBase.floorPerFren (RedemptionExt.sol:649), TRUSTED, out-of-cluster",
+   "StateLibrary.getSlot0 (RedemptionExt.sol:652), TRUSTED, library"
+  ],
+  "reachability": "Read-only, reached through the registry's view stub at `floorClaimableNow` (CauldronRegistry.sol:1418), which routes to the same delegatecall at `_forwardToExtView` (CauldronRegistry.sol:1441) \u2014 so it is declared non-view on the registry side and served by eth_call. It reads spot from the PRIMARY pool at `getSlot0` (RedemptionExt.sol:652) and reports claimable only while the tick sits above the reserve band at `reserveTickUpper` (RedemptionExt.sol:653). Note it always reads the primary key even after a completed rotation has flipped `generationQuote` (RedemptionExt.sol:505), which is consistent with the reserve itself staying in the launch pair. An unsummoned machine or a zero floor short-circuits at `summoned` (RedemptionExt.sol:651).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 661,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "generationLegs (line 662)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read-only, reached through the registry's view stub at `legCount` (CauldronRegistry.sol:1423) and the shared delegatecall at `_forwardToExtView` (CauldronRegistry.sol:1441). It reports the live length of `generationLegs` (RedemptionExt.sol:662), which shrinks as the recovery loop pops entries at `legs` (RedemptionExt.sol:747), so it is a count of OUTSTANDING legs rather than of legs ever opened. It is also the upper bound a caller needs before choosing the source leg index at `fromLeg` (RedemptionExt.sol:351).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 666,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "generationLegs (line 671)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read-only, reached through the registry's view stub at `legAt` (CauldronRegistry.sol:1428). It indexes `generationLegs` (RedemptionExt.sol:671) with no bounds check of its own, so an out-of-range index reverts on the array access rather than returning empty. The returned key is the DESTINATION pair the liquidity sits in, which is what the recovery loop hands to `removeAll` (RedemptionExt.sol:736); note that the leg index used by a rotation is one-based, because index zero names the primary at `fromLeg` (RedemptionExt.sol:346).",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 676,
+  "authority": "internal (callers: rotateSliceFrom)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "generationLegs (line 677)",
+   "generationLegs.quote (line 680)"
+  ],
+  "writes": [
+   "generationLegs.positionId (line 680)",
+   "generationLegs.legs (line 682)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private, single caller: `_recordLeg` (RedemptionExt.sol:423). It is an UPSERT keyed on the quote asset \u2014 the scan bounded by `n` (RedemptionExt.sol:679) walks every existing leg and, on a match, overwrites only the position id and returns at `positionId` (RedemptionExt.sol:680), leaving the stored key untouched. A fresh quote is appended at `legs` (RedemptionExt.sol:682) and only that path emits the event. The loop is bounded by the number of DISTINCT quotes a generation has rotated into, which the same push is what grows, so repeated slices into one pair add no iterations.",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 699,
+  "authority": "anyone (public and ungated) \u2014 reached in practice only through the registry's relaunch delegatecall",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "generationLegs (line 700)",
+   "generationToken (line 701)",
+   "positionManager (line 702)",
+   "generationPoolKey (line 730)",
+   "legProceeds (line 743)"
+  ],
+  "writes": [
+   "legProceeds (line 743)",
+   "generationLegs.legs (line 746)",
+   "generationLegs.legs (line 747)"
+  ],
+  "value": "`removeAll` unwinds each leg's position, delivering both sides into the registry (line 736)",
+  "edges": [
+   "PoolOps.removeAll (RedemptionExt.sol:736), TRUSTED, library"
+  ],
+  "reachability": "Invoked during relaunch by `_removeLiquidity`, which builds the selector at compile time and delegatecalls the facet at `delegatecall` (CauldronRegistry.sol:1607), adding the two returned figures to the rebirth's recovery totals at `ethRecovered` (CauldronRegistry.sol:1610); that call site swallows failure. The denomination test matches each leg against the PRIMARY pool's own currency0 at `matchQuote` (RedemptionExt.sol:730) rather than against the possibly-flipped `generationQuote` (RedemptionExt.sol:505), so only same-asset proceeds are added to the returned sum and foreign ones are booked at `legProceeds` (RedemptionExt.sol:743). The loop walks the array backwards from its length at `legs` (RedemptionExt.sol:732) and each success does a swap-and-pop at `legs` (RedemptionExt.sol:746), so a leg moved down into the current slot is not revisited in this pass; a leg whose unwind reverts is left recorded by the per-leg `catch` (RedemptionExt.sol:749) and can be retried. The token side of every leg is the same asset and always aggregates at `tokenOut` (RedemptionExt.sol:739).",
+  "observations": [
+   "comment at `rebirth` (RedemptionExt.sol:690) says it is safe to call directly afterwards for a generation whose rebirth predates this; code on the registry declares no stub for this selector and reaches it only through the internal delegatecall at `RECOVER_LEGS` (CauldronRegistry.sol:1607), so a direct call lands on the facet's own empty storage instead of the registry's"
+  ]
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 757,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "legProceeds (line 758)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read-only accessor for the booked foreign proceeds written at `legProceeds` (RedemptionExt.sol:743). DERIVED: the registry deliberately declares no stub for it, as stated at `legProceedsOf` (CauldronRegistry.sol:284), and the registry has no catch-all, per the note at `fallback` (CauldronRegistry.sol:1408) \u2014 so on the registry's storage the balance is observable only from the events emitted at `LegProceedsBooked` (RedemptionExt.sol:744) and at `LegProceedsSwept` (RedemptionExt.sol:803), or by reading the slot directly. A direct call to the deployed facet returns that contract's own empty mapping.",
+  "observations": []
+ },
+ {
+  "contract": "RedemptionExt",
+  "line": 794,
+  "authority": "owner (the registry's own owner slot; the gate is on the FACET side, the registry stub is ungated)",
+  "authority_gate_quote": "external onlyOwner (RedemptionExt.sol:794)",
+  "reads": [
+   "legProceeds (line 796)"
+  ],
+  "writes": [
+   "legProceeds (line 801)"
+  ],
+  "value": "`sendAsset` moves the whole booked balance of the asset to an owner-chosen destination (line 802)",
+  "edges": [
+   "PoolOps.sendAsset (RedemptionExt.sol:802), TRUSTED, library"
+  ],
+  "reachability": "Reached through the registry's ungated stub at `sweepLegProceeds` (CauldronRegistry.sol:282), so the owner check runs here against the registry's inherited owner slot. It refuses a zero destination at `BadConfig` (RedemptionExt.sol:795) and a zero balance at `NoBalance` (RedemptionExt.sol:797); the booking is cleared BEFORE the transfer at `legProceeds` (RedemptionExt.sol:801), so a recipient that re-enters cannot read the same balance twice. It always moves the FULL booked amount \u2014 there is no partial sweep \u2014 and the destination is unconstrained, including a destination that is not the treasury.",
+  "observations": []
+ }
+]

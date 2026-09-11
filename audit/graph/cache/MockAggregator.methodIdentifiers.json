@@ -1,0 +1,12 @@
+{
+ "decimals()": "313ce567",
+ "description()": "7284e416",
+ "down()": "d8337928",
+ "latestRoundData()": "feaf968c",
+ "owner()": "8da5cb5b",
+ "peg(int256)": "159763d4",
+ "setDown(bool)": "23eca47a",
+ "setStale(bool)": "e1312147",
+ "stale()": "eda3640e",
+ "transferOwnership(address)": "f2fde38b"
+}

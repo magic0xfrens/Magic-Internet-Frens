@@ -1,0 +1,217 @@
+[
+ {
+  "contract": "CauldronToken", "line": 36,
+  "authority": "deployer (the registry, acting through the delegatecalled PoolOps deploy)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": ["generation (line 43, immutable)", "birthBlock (line 44, immutable)", "registry (line 45, immutable)"],
+  "value": "NONE in native terms; the entire initial supply is minted to the registry at `_mint` (line 46)",
+  "edges": [],
+  "reachability": "Reached only from the generation deploy inside the linked library, at `CauldronToken` PoolOps.sol:707 for the mined CREATE2 path and `CauldronToken` PoolOps.sol:718 for the unmined fallback. Because the library is delegatecalled, address(this) is the registry, so the `registry` CauldronToken.sol:45 recorded here and the mint recipient are the same contract that orchestrates the generation. There is no minting function afterwards, so supply can only ever fall (DERIVED).",
+  "observations": [
+   "comment at `TOTAL_SUPPLY` CauldronToken.sol:29 declares a fixed 777 million supply as a constant; code at `_initialSupply` CauldronToken.sol:46 mints whatever amount the deployer passes and never compares it with that constant."
+  ]
+ },
+ {
+  "contract": "CauldronToken", "line": 49,
+  "authority": "internal (callers: burn)",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronToken.sol:50)",
+  "reads": ["registry (line 50, immutable)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The token's only access control. `registry` CauldronToken.sol:50 is immutable, fixed at construction from the deploying contract at CauldronToken.sol:45, so the role can never be transferred or revoked (DERIVED). It guards exactly one function, `burn` CauldronToken.sol:58.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronToken", "line": 58,
+  "authority": "registry",
+  "authority_gate_quote": "onlyRegistry (CauldronToken.sol:58)",
+  "reads": ["registry (line 50, immutable)"],
+  "writes": [],
+  "value": "destroys `amount` of the named holder's balance, reducing total supply (line 59)",
+  "edges": [],
+  "reachability": "Callable only by the immutable registry (`onlyRegistry` CauldronToken.sol:58). It needs no allowance and names an arbitrary holder, so it is the primitive behind both the dead-LP burn at `burn` CauldronRegistry.sol:811 and the 1:1 migration burns issued through the library at `burn` PoolOps.sol:1251 and PoolOps.sol:1340. The keeper batch reaches it for an opted-in wallet without that wallet signing anything, which is why the opt-in flag is revocable at `autoMigrate` CauldronRegistry.sol:1329.",
+  "observations": [
+   "comment at `leftovers` CauldronToken.sol:56 lists burning unclaimed migration leftovers as a use of this function; code at `burnUnclaimed` CauldronRegistry.sol:1358 records that path as obsolete in the reserve-LP model, and no such caller remains in the registry."
+  ]
+ },
+ {
+  "contract": "ICollectionRenderer (declared in ICauldron.sol)", "line": 12,
+  "authority": "anyone (view on a proposer-supplied renderer contract)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; no body here. It is consumed by the collections' metadata path at `tokenURI` CauldronCollection.sol:413 and `tokenURI` MiFrensGenesis.sol:634, and for badges at `tokenURI` CauldronCollection.sol:406. The address comes from the winning proposal, copied at `renderer` CauldronRegistry.sol:902 and handed to the factory config at `renderer` CauldronRegistry.sol:1160, so it is proposer-controlled code (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "LaunchLib (declared in ICauldron.sol)", "line": 38,
+  "authority": "internal (callers: summon, relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["GUILD_SUFFIX (line 39, constant)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure and internal, so it is inlined into its callers: ignition at `displayName` CauldronRegistry.sol:688 and every rebirth at `displayName` CauldronRegistry.sol:913. The suffix is the file constant read at `GUILD_SUFFIX` ICauldron.sol:39, never a parameter, so a proposer controls only the prefix. The proposer's raw name is unbounded in length, and this concatenation is what the token and collection are then constructed with (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronGovernor (declared in ICauldron.sol)", "line": 45,
+  "authority": "anyone (view); the registry is its only in-tree caller",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the read the rebirth takes at `winner` CauldronRegistry.sol:849. The implementation at `winner` CauldronGovernor.sol:375 selects the best unconsumed proposal at `_bestUnconsumed` CauldronGovernor.sol:376 and reverts when there is none, which is why the rebirth checks liveness first at `hasProposals` CauldronRegistry.sol:787. Everything in the returned spec is proposer-authored, including the quote and the renderer (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronGovernor (declared in ICauldron.sol)", "line": 46,
+  "authority": "registry (the implementation restricts the caller)",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronGovernor.sol:400)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the one state-changing governor call the registry makes, at `markConsumed` CauldronRegistry.sol:977. The implementation at `markConsumed` CauldronGovernor.sol:399 accepts only the wired registry and refuses a second consumption at `consumed` CauldronGovernor.sol:403. Its placement in the rebirth is load-bearing: anything that reverts after it rolls the consumption back with the transaction, which is why the only remaining revert sits immediately before it at `totalETH` CauldronRegistry.sol:976.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronGovernor (declared in ICauldron.sol)", "line": 47,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the liveness gate the rebirth applies at `hasProposals` CauldronRegistry.sol:787, alongside a zero-address check on the governor itself. The implementation at `hasProposals` CauldronGovernor.sol:394 simply reports whether an unconsumed proposal exists at `_bestUnconsumed` CauldronGovernor.sol:395.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronCollection (declared in ICauldron.sol)", "line": 52,
+  "authority": "the collection's wired minter (the volume hook)",
+  "authority_gate_quote": "if (msg.sender != minter) revert OnlyMinter(); (CauldronCollection.sol:208)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the mint the hook performs when a play wins, at `mint` CauldronHook.sol:2329. The implementation at `mint` CauldronCollection.sol:207 accepts only the wired minter and refuses once the cap is reached at `maxSupply` CauldronCollection.sol:209. The registry is what wires the hook in, at `setCollection` CauldronRegistry.sol:1167 for a fresh brew and at `setMinter` CauldronRegistry.sol:1193 for the continuation.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronCollection (declared in ICauldron.sol)", "line": 53,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration satisfied by a public state variable rather than a written function: the counter is incremented in place at `totalMinted` CauldronCollection.sol:210, so the interface is served by the compiler-generated getter (DERIVED). The hook reads it for the curve anchor at `totalMinted` CauldronHook.sol:1965 and for mint-out checks at `totalMinted` CauldronHook.sol:2161.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronCollection (declared in ICauldron.sol)", "line": 54,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the per-brew cap the hook compares against at `maxSupply` CauldronHook.sol:2162 and CauldronHook.sol:2223. The value originates in the registry, either from the owner setting at `nftMaxSupply` CauldronRegistry.sol:578 or from the proposer's request clamped at `MAX_NFT_SUPPLY` CauldronRegistry.sol:908, and it is fixed when the collection is constructed (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IDeathChecker", "line": 27,
+  "authority": "anyone (view on a pluggable module)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the swappable death rule. The hook calls it only when one is wired, inside a try/catch at `isDead` CauldronHook.sol:1607, and falls back to the built-in volume comparison at `deathThreshold` CauldronHook.sol:1610 on any revert, so a broken module cannot brick the rebirth. The volume it is handed is summed across a generation's sibling pools at `getVolume24h` CauldronHook.sol:1602. The registry's rebirth gate consumes the answer at `isDead` CauldronRegistry.sol:779.",
+  "observations": [
+   "comment at `owner` IDeathChecker.sol:13 says the hook owner points the hook at a new checker; code at `registry` CauldronHook.sol:1850 accepts the registry address as well as the owner."
+  ]
+ },
+ {
+  "contract": "ILiquidatorMintable", "line": 38,
+  "authority": "the collection's wired liquidatorMinter (the perp engine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. The implementation at `mintLiquidatorWithStats` CauldronCollection.sol:342 forwards to `_mintLiquidator` CauldronCollection.sol:349, where the single caller check lives. Badge ids come from a separate range at `LIQUIDATOR_ID_BASE` CauldronCollection.sol:351, so the art tranche's counters are untouched, and the stats write is skipped entirely for a zero victim at `victim` CauldronCollection.sol:355.",
+  "observations": []
+ },
+ {
+  "contract": "ILiquidatorMintable", "line": 44,
+  "authority": "the collection's wired liquidatorMinter (the perp engine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (CauldronCollection.sol:350)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The stats-free form, kept for an engine deployed before the stats existed. The implementation at `mintLiquidator` CauldronCollection.sol:336 passes an all-zero record into the same internal path at `_mintLiquidator` CauldronCollection.sol:337, so the gate and the id range are identical to the stats form (`liquidatorMinter` CauldronCollection.sol:350).",
+  "observations": []
+ },
+ {
+  "contract": "ILiquidatorMintable", "line": 47,
+  "authority": "anyone (view)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Open read of what a badge commemorates, implemented at `liqStats` CauldronCollection.sol:361 over the mapping the mint writes at `_liqStats` CauldronCollection.sol:355. A stats-free mint leaves the record zeroed, so the reader cannot distinguish absent from zero (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "ISurtaxPolicy (declared in IPolicies.sol)", "line": 25,
+  "authority": "anyone (view on a pluggable module)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the anti-sniper surtax rule. The hook consults it only when wired, inside a try/catch at `surtaxBps` CauldronHook.sol:1367, passing its own configured peak and window so a simple module can reuse them. The module is installed by the owner or the registry at `surtaxPolicy` CauldronHook.sol:1861. It returns a number and never custodies funds, so a malicious module's blast radius is the fee rate it reports (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IOddsPolicy (declared in IPolicies.sol)", "line": 37,
+  "authority": "anyone (view on a pluggable module)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the gacha win-probability rule, consulted inside a try/catch at `oddsBps` CauldronHook.sol:2143 and installed alongside the other two modules at `oddsPolicy` CauldronHook.sol:1862. The play size it receives is denominated in the units the hook measures a play in, which is the same unit its own configured full-volume threshold uses (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "ICurvePolicy (declared in IPolicies.sol)", "line": 49,
+  "authority": "anyone (view on a pluggable module)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration of the mint-cost curve, consulted inside a try/catch at `priceAt` CauldronHook.sol:2094 with the hook's own base and step, and installed at `curvePolicy` CauldronHook.sol:1863. The base the hook passes is the value the registry pushes from the winning proposal at `setNftCurveFrom` CauldronRegistry.sol:1080.",
+  "observations": []
+ },
+ {
+  "contract": "IFeeRouter (declared in IPolicies.sol)", "line": 70,
+  "authority": "anyone (view on a pluggable module)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE; the module only returns amounts, and the hook performs every send itself",
+  "edges": [],
+  "reachability": "Declaration of the fee-split structure. The hook calls it in a try/catch at `route` CauldronHook.sol:1279 and accepts the answer ONLY when the three parts sum exactly to the fee at `feeAmount` CauldronHook.sol:1280; otherwise it falls through to the built-in split at `wantGuild` CauldronHook.sol:1288. The router is installed by the owner or the registry at `feeRouter` CauldronHook.sol:1873, and the reference implementation makes the sum exact by construction at `toRelaunch` DefaultFeeRouter.sol:29.",
+  "observations": []
+ }
+]

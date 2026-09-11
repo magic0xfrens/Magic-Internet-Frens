@@ -1,0 +1,5 @@
+{
+ "getPastTotalSupply(uint256)": "8e539e8c",
+ "getPastVotes(address,uint256)": "3a46b1a8",
+ "getVotes(address)": "9ab24eb0"
+}

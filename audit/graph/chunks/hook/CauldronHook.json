@@ -1,0 +1,1470 @@
+[
+ {
+  "contract": "CauldronHook",
+  "line": 556,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "deathThreshold (line 563)",
+   "nftContract (line 564)",
+   "treasury (line 565)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "BaseHook.validateHookAddress (BaseHook.sol:19), TRUSTED, in-cluster"
+  ],
+  "reachability": "Runs once at CREATE2 deployment. Ownership is passed in explicitly at `Ownable` (CauldronHook.sol:562) because the hook is deployed through a factory, so the constructor's sender is not the intended owner. The base initialiser reaches `validateHookAddress` (BaseHook.sol:19), which reverts unless the mined address carries exactly the permission bits of `getHookPermissions` (CauldronHook.sol:572). Note that `registry` (CauldronHook.sol:1893) is NOT set here: the hook is inert until the owner wires it, and `registry` (CauldronHook.sol:630) compares against a zero registry until then.",
+  "observations": [
+   "comment at `stability` (CauldronHook.sol:239) says the treasury slot is a dead slot read by nothing and kept only for layout stability; code at `treasury` (CauldronHook.sol:565) still writes it from a constructor parameter"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 572,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure; no state. Read on-chain during construction by `getHookPermissions` (BaseHook.sol:32) so the v4 address-flag validation can compare it against the deployed address, and off-chain by deploy tooling that mines the salt. The enabled bits are `afterInitialize` (CauldronHook.sol:580), `beforeSwap` (CauldronHook.sol:585), `afterSwap` (CauldronHook.sol:586), `beforeSwapReturnDelta` (CauldronHook.sol:589) and `afterSwapReturnDelta` (CauldronHook.sol:590); every liquidity and donate bit is false.",
+  "observations": [
+   "comment at `afterSwapReturnDelta` (CauldronHook.sol:114) says the hook's permissions are afterInitialize, afterSwap and afterSwapReturnDelta; code additionally enables `beforeSwap` (CauldronHook.sol:585) and `beforeSwapReturnDelta` (CauldronHook.sol:589), which is what lets the buy-leg fee be skimmed before the swap"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 621,
+  "authority": "poolManager (and, inside it, only the registry may be the initializer)",
+  "authority_gate_quote": "require(sender == registry); (CauldronHook.sol:630)",
+  "reads": [
+   "registry (line 630)",
+   "registry (line 644)"
+  ],
+  "writes": [
+   "quoteIsCurrency0 (line 647)",
+   "trackedPools (line 648)",
+   "_lastUpdateTs (line 649)",
+   "poolInitBlock (line 650)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IRegistryQuotes.allowedQuote (CauldronHook.sol:644), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Anyone may initialize a v4 pool naming this hook, so the external entry `afterInitialize` (BaseHook.sol:49) is publicly reachable through the pool manager; the adoption gate is the bare `require` (CauldronHook.sol:630), which reverts (no reason string) unless the initializer is the registry. A revert here makes the initialize itself fail, which is what stops anyone squatting a future generation's computable PoolKey. Once past the gate it asks the registry which side is the quote with a single `allowedQuote` (CauldronHook.sol:644) call on currency0 ONLY \u2014 currency1 is inferred, never checked \u2014 and freezes that answer in `quoteIsCurrency0` (CauldronHook.sol:647) for the pool's lifetime. It also stamps `poolInitBlock` (CauldronHook.sol:650) with the block number, which is the anchor for the anti-sniper decay.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 741,
+  "authority": "internal (callers: CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quoteOracle (line 742)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "o.call (CauldronHook.sol:744), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached once per tracked swap from `_toUsd` (CauldronHook.sol:835). With no oracle wired it is the identity at `raw` (CauldronHook.sol:743), so volume stays in raw quote units. Otherwise it makes a low-level `call` (CauldronHook.sol:744) \u2014 not a staticcall, so the oracle can write and can re-enter the hook mid-swap \u2014 and any failure, short return or zero factor collapses to 0 at `f` (CauldronHook.sol:749), which the caller treats as `cannot judge` and records nothing. The multiply-then-divide at `raw` (CauldronHook.sol:749) rounds DOWN and can revert on overflow for an enormous raw amount, which would revert the swap.",
+  "observations": [
+   "comment at `oracles` (CauldronHook.sol:99) says the 24h volume is fully computed inside afterSwap with no oracles; code at `quoteOracle` (CauldronHook.sol:742) makes a state-changing external oracle call from inside that same callback whenever the slot is wired"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 778,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:167)",
+  "reads": [
+   "trackedPools (line 791)",
+   "quoteIsCurrency0 (line 794)",
+   "collection (line 857)",
+   "_liveKey.currency1 (line 858)",
+   "creditUntaggedSwaps (line 876)",
+   "registry (line 881)",
+   "buyWeightBps (line 888)",
+   "sellWeightBps (line 888)",
+   "BPS (line 888, constant)",
+   "nftCredit (line 892)",
+   "creditEpoch (line 892)",
+   "lifetimeVolumeOf (line 895)",
+   "totalLifetimeVolume (line 898)",
+   "quest (line 906)",
+   "perpEngine (line 945)",
+   "LIQ_GAS_RESERVE (line 947, constant)",
+   "LIQ_GAS_MIN (line 947, constant)",
+   "GACHA_GAS_MIN (line 964, constant)",
+   "GACHA_GAS_RESERVE (line 965, constant)"
+  ],
+  "writes": [
+   "cumulativeVolume (line 838)",
+   "nftCredit (line 894)",
+   "lifetimeVolumeOf (line 897)",
+   "totalLifetimeVolume (line 900)"
+  ],
+  "value": "NONE directly; it returns a positive int128 fee at `fee` (line 1002) which the pool manager takes out of the swapper's unspecified leg, and the ether itself is pulled in `_takeEthFee` (line 1000)",
+  "edges": [
+   "CauldronHook._maybeLegacyBuyback (CauldronHook.sol:798), TRUSTED, in-cluster",
+   "CauldronHook._maybePoke (CauldronHook.sol:800), TRUSTED, in-cluster",
+   "CauldronHook._toUsd (CauldronHook.sol:835), TRUSTED, in-cluster",
+   "CauldronHook._recordVolume (CauldronHook.sol:837), TRUSTED, in-cluster",
+   "quest.call (CauldronHook.sol:907), UNTRUSTED, out-of-cluster",
+   "perpEngine.call (CauldronHook.sol:948), UNTRUSTED, out-of-cluster",
+   "address(this).call (CauldronHook.sol:965), TRUSTED, in-cluster",
+   "CauldronHook._isExemptPlayer (CauldronHook.sol:990), TRUSTED, in-cluster",
+   "CauldronHook._takeEthFee (CauldronHook.sol:1000), TRUSTED, in-cluster",
+   "CauldronHook._maybeLegacyBuyback (CauldronHook.sol:1001), TRUSTED, in-cluster"
+  ],
+  "reachability": "The hot path. Reached on every swap of every pool that names this hook, through the pool-manager-gated wrapper `afterSwap` (BaseHook.sol:161). Two transient flags short-circuit it entirely at `_inSelfBuy` (CauldronHook.sol:787) \u2014 the hook's own buyback swap and the registry-driven relaunch close \u2014 and the adoption gate `trackedPools` (CauldronHook.sol:791) makes it inert for any pool the registry did not create. Live pool state read here: the pool manager's computed `delta` (CauldronHook.sol:811) supplies the quote-side amount for volume, and `delta` (CauldronHook.sol:995) supplies it again for the sell-leg fee base; the quote side itself comes from storage, not from the key. Volume is converted to a common unit and a zero result writes nothing. Credit accrual is gated on the pool's currency1 matching `_liveKey` (CauldronHook.sol:858), so retired generations accrue nothing, and the attributed player is the hookData tag when present else `tx` (CauldronHook.sol:876) origin. Three best-effort external calls follow, all result-ignored and gas-capped: the quest notification, the perp sweep, and a self-call into `nativeGachaStep` (CauldronHook.sol:966). The fee is only charged when the unspecified leg IS the quote at `unspecifiedIsCurrency0` (CauldronHook.sol:986), which is the sell leg; buys were charged in beforeSwap.",
+  "observations": [
+   "comment at `liqHint` (CauldronHook.sol:923) says the swap must carry a liquidation hint in hookData and the engine is fired at the hinted position; code at `sweepLiquidations` (CauldronHook.sol:949) passes no hint at all and calls a bounded rotating sweep instead",
+   "comment at `liquidateInSwap` (CauldronHook.sol:929) names `liquidateInSwap` as the function whose gas is being reserved; code at `perpEngine` (CauldronHook.sol:948) calls `sweepLiquidations` (CauldronHook.sol:949)",
+   "comment at `GACHA_GAS_RESERVE` (CauldronHook.sol:958) says the native gacha self-call keeps a reserve for fee collection and the return; code at `gg` (CauldronHook.sol:964) compares remaining gas against the MIN constant but subtracts the RESERVE constant at `GACHA_GAS_RESERVE` (CauldronHook.sol:965), so the two constants are not compared against each other the way the sibling perp gate does at `LIQ_GAS_RESERVE` (CauldronHook.sol:947)"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1015,
+  "authority": "internal (callers: CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "legacyRegistry (line 1016)",
+   "legacyBuffer (line 1016)",
+   "legacyThreshold (line 1016)",
+   "quoteIsCurrency0 (line 1027)",
+   "_liveKey (line 1028)",
+   "LEGACY_GAS_MIN (line 1034, constant)",
+   "LEGACY_GAS_RESERVE (line 1035, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "address(this).call (CauldronHook.sol:1035), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; called twice per afterSwap, at `_maybeLegacyBuyback` (CauldronHook.sol:798) before anything else and again at `_maybeLegacyBuyback` (CauldronHook.sol:1001) after the sell-leg fee, so either leg can trigger a buy. Four conditions must hold: a configured `legacyRegistry` (CauldronHook.sol:1016), a buffer at or above its threshold, a native-side quote per `quoteIsCurrency0` (CauldronHook.sol:1027), and the triggering pool id equal to the live key's id at `live` (CauldronHook.sol:1030). The caller's own key is explicitly discarded at `key` (CauldronHook.sol:1032) so an attacker cannot steer the spend into a book they price. The spend runs as a gas-capped self-call whose result is discarded.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1047,
+  "authority": "internal (callers: CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "seeder (line 1048)",
+   "SEED_POKE_GAS_MIN (line 1051, constant)",
+   "SEED_POKE_GAS_RESERVE (line 1052, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "s.call (CauldronHook.sol:1052), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; one call site, `_maybePoke` (CauldronHook.sol:800), near the top of afterSwap and BEFORE the adoption-dependent work below it \u2014 but after the tracked-pool early return at `trackedPools` (CauldronHook.sol:791), so an unadopted pool never reaches it. No-ops when `seeder` (CauldronHook.sol:1048) is unset. The call is gas-capped and its result discarded, so a broken seeder can waste gas but cannot revert the swap.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1063,
+  "authority": "hook itself (self-call only)",
+  "authority_gate_quote": "if (msg.sender != address(this)) revert OnlySelf(); (CauldronHook.sol:1064)",
+  "reads": [
+   "legacyBuffer (line 1065)",
+   "legacyThreshold (line 1066)"
+  ],
+  "writes": [
+   "legacyBuffer (line 1067)",
+   "legacyBuffer (line 1080)",
+   "legacyOwedToReserve (line 1086)"
+  ],
+  "value": "spends native or quote out of the hook through the delegatecalled `buyStep` (line 1075)",
+  "edges": [
+   "LegacyBuyLib.buyStep (CauldronHook.sol:1075), TRUSTED, delegatecall"
+  ],
+  "reachability": "External but self-only: the sole reachable caller is the gas-capped self `call` (CauldronHook.sol:1035) inside `_maybeLegacyBuyback` (CauldronHook.sol:1015), which already re-checks the threshold. The buffer is zeroed BEFORE the swap at `legacyBuffer` (CauldronHook.sol:1067) and the unspent remainder is credited back at `legacyBuffer` (CauldronHook.sol:1080), so a partially-filled buy does not lose the difference. The transient re-entry flag is raised around the nested swap at `_inSelfBuy` (CauldronHook.sol:1074) so the hook's own before/afterSwap charge nothing; it is cleared at `_inSelfBuy` (CauldronHook.sol:1076) but NOT in a try/catch, so a reverting library call unwinds the whole self-call rather than leaving the flag set. The bought tokens stay on the hook and are only counted, at `legacyOwedToReserve` (CauldronHook.sol:1086); the ledger credit is deferred to the registry's sweep.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1096,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "legacyBuffer (line 1097)"
+  ],
+  "value": "receives native, credited to `legacyBuffer` (line 1097)",
+  "edges": [],
+  "reachability": "Permissionless and payable. The intended caller is a RoyaltyRouter forwarding EIP-2981 secondary royalties at `fundLegacyBuffer` (RoyaltyRouter.sol:33), but any address can donate. It is deliberately separate from the bare `receive` (CauldronHook.sol:2443) because the hook also receives raw ether internally that must NOT be counted as buffer. There is no cap and no accounting beyond the single add, so a donation is indistinguishable from a fee-derived buffer entry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1112,
+  "authority": "legacyRegistry",
+  "authority_gate_quote": "if (msg.sender != legacyRegistry) revert OnlySelf(); (CauldronHook.sol:1113)",
+  "reads": [
+   "legacyOwedToReserve (line 1114)"
+  ],
+  "writes": [
+   "legacyOwedToReserve (line 1117)"
+  ],
+  "value": "ERC20 transfer of `token` to the caller-supplied recipient (line 1118)",
+  "edges": [
+   "IERC20.balanceOf (CauldronHook.sol:1115), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronHook.sol:1118), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Gated on `legacyRegistry` (CauldronHook.sol:1113) \u2014 the same slot the fee split uses as an on/off switch, settable by owner OR registry through `setLegacyBuyback` (CauldronHook.sol:1835). Both `token` (CauldronHook.sol:1112) and the destination are caller-supplied, so the caller chooses which ERC20 is read and where it lands; the only invariant enforced is that the debit equals what actually moved, clamped to the live balance at `amt` (CauldronHook.sol:1116). The transfer's boolean return is not checked at `transfer` (CauldronHook.sol:1118), so a token that returns false instead of reverting would still debit the counter.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1128,
+  "authority": "poolManager",
+  "authority_gate_quote": "onlyPoolManager (BaseHook.sol:146)",
+  "reads": [
+   "trackedPools (line 1138)",
+   "quoteIsCurrency0 (line 1140)"
+  ],
+  "writes": [],
+  "value": "NONE directly; the returned BeforeSwapDelta at `toBeforeSwapDelta` (line 1181) makes the manager credit the hook `fee` (line 1175) of the input currency",
+  "edges": [
+   "CauldronHook._isExemptPlayer (CauldronHook.sol:1167), TRUSTED, in-cluster",
+   "CauldronHook._takeEthFee (CauldronHook.sol:1175), TRUSTED, in-cluster"
+  ],
+  "reachability": "Entered through the pool-manager-gated wrapper `beforeSwap` (BaseHook.sol:144) on every swap. The same two transient flags short-circuit it at `_inSelfBuy` (CauldronHook.sol:1135), and an unadopted pool returns a zero delta at `trackedPools` (CauldronHook.sol:1138). Live pool state read here is only the recorded quote side at `quoteIsCurrency0` (CauldronHook.sol:1140) plus the caller's own params. One quadrant is REFUSED outright rather than served: an exact-output sell reverts at `ExactOutSellUnsupported` (CauldronHook.sol:1162), which makes that swap impossible on an adopted pool. Exact-input buys are charged here, and the positive specified delta built at `toBeforeSwapDelta` (CauldronHook.sol:1181) tells the manager the hook consumed that much of the input so only the remainder is swapped; every other case returns `ZERO_DELTA` (CauldronHook.sol:1164).",
+  "observations": [
+   "comment at `unspecifiedIsEth` (CauldronHook.sol:1145) says the afterSwap side early-returns because its `unspecifiedIsEth` test is false; code names that variable `unspecifiedIsCurrency0` (CauldronHook.sol:985) and compares it against the recorded quote side rather than against ether",
+   "comment at `deltas` (CauldronHook.sol:103) says the hook collects its tiered fees via afterSwap return deltas; code charges the buy leg here instead, returning a BeforeSwapDelta built at `toBeforeSwapDelta` (CauldronHook.sol:1181)"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1196,
+  "authority": "internal (callers: CauldronHook._takeEthFee)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "BPS (line 1197, constant)",
+   "guild (line 1202)",
+   "perpEngine (line 1202)"
+  ],
+  "writes": [],
+  "value": "no direct transfer; the guild and staker shares leave through the delegatecalled `routePerp` (line 1201)",
+  "edges": [
+   "FeeRouteLib.routePerp (CauldronHook.sol:1201), TRUSTED, delegatecall",
+   "CauldronHook._creditReserve (CauldronHook.sol:1201), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; one call site, `_routePerpFee` (CauldronHook.sol:1465), taken only when the swapper IS the configured perp engine. The 30/70 split is a hard-coded literal at `toGuild` (CauldronHook.sol:1197) \u2014 not a tunable bps slot \u2014 and the remainder is computed by subtraction at `toStakers` (CauldronHook.sol:1198) so the two always sum exactly. Which staker side is credited is decided by the caller's isBuy flag at `isBuy` (CauldronHook.sol:1203). Whatever the library could not deliver comes back as a number and is booked to the reserve in the same expression.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1213,
+  "authority": "internal (callers: CauldronHook._routePerpFee, CauldronHook._routeEthFee)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "relaunchETH (line 1216)",
+   "relaunchAsset (line 1217)"
+  ],
+  "writes": [
+   "relaunchETH (line 1216)",
+   "relaunchAsset (line 1217)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private; two call sites, `_creditReserve` (CauldronHook.sol:1201) and `_creditReserve` (CauldronHook.sol:1353). It is the only place a residual is denominated: the transient fee-asset field decides at `a` (CauldronHook.sol:1216) whether the amount joins the native wei counter or the per-asset mapping, which is what keeps a non-native fee out of a counter that is paid out with a value-bearing call.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1220,
+  "authority": "internal (callers: CauldronHook._takeEthFee)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "activeProposer (line 1258)",
+   "proposerBps (line 1259)",
+   "BPS (line 1260, constant)",
+   "proposerOwed (line 1262)",
+   "feeRouter (line 1277)",
+   "guild (line 1279)",
+   "vault (line 1279)",
+   "guildBps (line 1279)",
+   "floorBps (line 1279)",
+   "guild (line 1288)",
+   "guildBps (line 1288)",
+   "floorBps (line 1290)",
+   "_liveKey.currency0 (line 1317)",
+   "legacyRegistry (line 1318)",
+   "legacyBps (line 1318)",
+   "vault (line 1336)",
+   "legacyRegistry (line 1340)"
+  ],
+  "writes": [
+   "proposerOwed (line 1262)",
+   "legacyBuffer (line 1325)",
+   "legacyBuffer (line 1340)"
+  ],
+  "value": "no direct transfer; the guild and floor shares leave through the delegatecalled `routeSplit` (line 1354) and everything undelivered is booked by `_creditReserve` (line 1353)",
+  "edges": [
+   "IFeeRouter.route (CauldronHook.sol:1279), UNTRUSTED, out-of-cluster",
+   "CauldronHook._creditReserve (CauldronHook.sol:1353), TRUSTED, in-cluster",
+   "FeeRouteLib.routeSplit (CauldronHook.sol:1354), TRUSTED, delegatecall"
+  ],
+  "reachability": "Private; reached from `_routeEthFee` (CauldronHook.sol:1466) for the base fee of an ordinary swap and from `_routeEthFee` (CauldronHook.sol:1474) for a surtax the guild refused. Order of operations: the proposer slice is carved off the top but ONLY for a native fee at `prop` (CauldronHook.sol:1258), accrued pull-style so the swap path stays call-free; then an optional pluggable router is asked for the split inside try/catch at `route` (CauldronHook.sol:1279) and its answer is discarded unless the three parts sum exactly to the fee; then the legacy carve, taken from the floor share first and gated on the fee asset MATCHING the live pool's currency0 at `_feeAsset` (CauldronHook.sol:1317); then two floor fall-backs at `vault` (CauldronHook.sol:1336) and `_feeAsset` (CauldronHook.sol:1342) that redirect a floor share the vault cannot hold. Nothing reverts: every undeliverable share ends in the reserve.",
+  "observations": [
+   "comment at `rule` (CauldronHook.sol:1338) says the no-vault floor fold uses the same native-only rule as the buyback carve above it; code at `_feeAsset` (CauldronHook.sol:1340) tests the fee asset against address(0) while the carve above tests it against `_liveKey` (CauldronHook.sol:1317), so the two rules differ once a generation is quoted in an ERC20",
+   "comment at `feeRouter` (CauldronHook.sol:693) points the reader at a line number for the re-entrant fee router; code has `feeRouter` (CauldronHook.sol:1277) as the actual read site, and the cited line is a comment"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1364,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "surtaxPolicy (line 1365)",
+   "poolInitBlock (line 1367)",
+   "snipeMaxBps (line 1367)",
+   "snipeWindowBlocks (line 1367)",
+   "MAX_SNIPE_BPS (line 1369, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ISurtaxPolicy.surtaxBps (CauldronHook.sol:1367), UNTRUSTED, out-of-cluster",
+   "CauldronHook._defaultSurtaxBps (CauldronHook.sol:1372), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view, so anyone can read it, and it is also on the fee hot path from `snipeSurtaxBps` (CauldronHook.sol:1441). A pluggable policy is consulted inside try/catch and its answer clamped to the hard cap at `MAX_SNIPE_BPS` (CauldronHook.sol:1369); a revert falls through to the built-in curve. The policy is a view, so it cannot move funds, but it CAN return a number that raises every trader's fee up to the cap.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1376,
+  "authority": "internal (callers: CauldronHook.snipeSurtaxBps)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "snipeMaxBps (line 1377)",
+   "snipeWindowBlocks (line 1378)",
+   "poolInitBlock (line 1380)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Reached from `_defaultSurtaxBps` (CauldronHook.sol:1372). Returns 0 for an unconfigured window or a pool that was never initialized through this hook at `start` (CauldronHook.sol:1380), and 0 once the window has elapsed. Live pool state read here: the CURRENT tick via `poolManager` (CauldronHook.sol:1410) \u2014 a v4-core StateLibrary read that lives under lib/ and so is not a resolvable edge \u2014 which is folded together with the previous blockhash and the pool id into the jitter at `rnd` (CauldronHook.sol:1411). The jitter is ADDED to the linear decay and the sum clamped at `maxBps` (CauldronHook.sol:1416), so reading it inside the same transaction as the trade being priced is the only way to know it.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1426,
+  "authority": "internal (callers: CauldronHook._beforeSwap, CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_TOTAL_FEE_BPS (line 1442, constant)",
+   "BPS (line 1443, constant)",
+   "quoteIsCurrency0 (line 1458)",
+   "perpEngine (line 1465)",
+   "guild (line 1473)"
+  ],
+  "writes": [],
+  "value": "pulls `total` (line 1460) of the quote currency out of the pool manager into this hook",
+  "edges": [
+   "CauldronHook._taxedPlayer (CauldronHook.sol:1439), TRUSTED, in-cluster",
+   "CauldronHook._getHolderTaxRate (CauldronHook.sol:1439), TRUSTED, in-cluster",
+   "CauldronHook.snipeSurtaxBps (CauldronHook.sol:1441), TRUSTED, in-cluster",
+   "CauldronHook._routePerpFee (CauldronHook.sol:1465), TRUSTED, in-cluster",
+   "CauldronHook._routeEthFee (CauldronHook.sol:1466), TRUSTED, in-cluster",
+   "FeeRouteLib.routeSplit (CauldronHook.sol:1473), TRUSTED, delegatecall",
+   "CauldronHook._routeEthFee (CauldronHook.sol:1474), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; the two call sites are the buy leg at `_takeEthFee` (CauldronHook.sol:1175) and the sell leg at `_takeEthFee` (CauldronHook.sol:1000), so its authority is exactly the pool manager's. The taxed identity is resolved once at `_taxedPlayer` (CauldronHook.sol:1439) so a routed trade is charged the trader's tier rather than the router's. The combined rate is clamped at `MAX_TOTAL_FEE_BPS` (CauldronHook.sol:1442) so a swap always keeps at least one percent. The actual custody move is the pool-manager `take` (CauldronHook.sol:1460) \u2014 an in-swap call to core that credits this contract \u2014 and it happens BEFORE any routing, with the transient fee-asset field written first at `_feeAsset` (CauldronHook.sol:1459) so every downstream send knows the denomination. Surtax is offered to the guild first and only falls into the normal split if the guild is unset or refused at `guild` (CauldronHook.sol:1473).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1481,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1481)",
+  "reads": [
+   "MAX_SNIPE_BPS (line 1482, constant)"
+  ],
+  "writes": [
+   "snipeWindowBlocks (line 1483)",
+   "snipeMaxBps (line 1484)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. The peak is bounded by `MAX_SNIPE_BPS` (CauldronHook.sol:1482) but the WINDOW is not bounded at all at `snipeWindowBlocks` (CauldronHook.sol:1483), so an arbitrarily long surtax window can be set; the per-swap clamp in `MAX_TOTAL_FEE_BPS` (CauldronHook.sol:1442) is what keeps a trade executable.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1491,
+  "authority": "internal (callers: CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_lastBucketIndex (line 1493)",
+   "_lastUpdateTs (line 1494)",
+   "SECONDS_PER_DAY (line 1496, constant)",
+   "HOURS_PER_DAY (line 1497, constant)",
+   "_volumeBuckets (line 1512)"
+  ],
+  "writes": [
+   "_volumeBuckets (line 1498)",
+   "_volumeBuckets (line 1507)",
+   "_volumeBuckets (line 1513)",
+   "_lastBucketIndex (line 1515)",
+   "_lastUpdateTs (line 1516)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._getCurrentBucket (CauldronHook.sol:1492), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; one call site, `_recordVolume` (CauldronHook.sol:837), and only when the converted volume is non-zero. Two loops clear stale buckets: a full 24-iteration wipe when more than a day has passed at `HOURS_PER_DAY` (CauldronHook.sol:1497), otherwise a partial wipe bounded to 24 by the clamp at `steps` (CauldronHook.sol:1504). The bucket add saturates at the uint128 ceiling at `bucketTotal` (CauldronHook.sol:1514) rather than wrapping or reverting, so an enormous swap cannot revert the trade here.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1521,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_lastUpdateTs (line 1522)",
+   "SECONDS_PER_DAY (line 1522, constant)",
+   "_volumeBuckets (line 1523)",
+   "HOURS_PER_DAY (line 1527, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Public view; also on the death path from `getVolume24h` (CauldronHook.sol:1600) and `getVolume24h` (CauldronHook.sol:1602), so it runs once per sibling pool. A window older than a day returns 0 without reading anything at `_lastUpdateTs` (CauldronHook.sol:1522). The 24-iteration sum is `unchecked` (CauldronHook.sol:1524); the bound is the fixed array length, not attacker-controlled.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1562,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1563)",
+  "reads": [
+   "registry (line 1563)",
+   "perpEngine (line 1564)",
+   "_volumeSiblings (line 1576)",
+   "MAX_SIBLINGS (line 1582, constant)"
+  ],
+  "writes": [
+   "_volumeSiblings (line 1576)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IPerpOpenCount.openCount (CauldronHook.sol:1564), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Registry-only. It refuses while any perp position is open at `openCount` (CauldronHook.sol:1564) \u2014 an UNGUARDED external call, so an engine that reverts blocks linking entirely. Self-linking is silently ignored at `primary` (CauldronHook.sol:1575), and the list is capped at nine entries at `MAX_SIBLINGS` (CauldronHook.sol:1582), which is what bounds the loop in the death check. The duplicate scan at `sib` (CauldronHook.sol:1584) is linear in the existing list, so the cap bounds it too, and the append itself is `sib` (CauldronHook.sol:1587).",
+  "observations": [
+   "comment at `treasury` (CauldronHook.sol:1580) says seven pools is already a wide treasury and the cap is headroom above that; code sets `MAX_SIBLINGS` (CauldronHook.sol:769) to nine"
+  ]
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1594,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "trackedPools (line 1595)",
+   "_volumeSiblings (line 1601)",
+   "deathChecker (line 1603)",
+   "deathThreshold (line 1607)",
+   "deathThreshold (line 1610)",
+   "deathThreshold (line 1613)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook.getVolume24h (CauldronHook.sol:1600), TRUSTED, in-cluster",
+   "CauldronHook.getVolume24h (CauldronHook.sol:1602), TRUSTED, in-cluster",
+   "IDeathChecker.isDead (CauldronHook.sol:1607), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "External view, permissionless, and it is the gate the registry's relaunch depends on. An untracked pool is never dead at `trackedPools` (CauldronHook.sol:1595). Volume is summed across the primary and every sibling, so the loop at `sib` (CauldronHook.sol:1602) costs one full 24-bucket sum per sibling and is bounded only by the sibling cap. A pluggable checker is consulted inside try/catch at `checker` (CauldronHook.sol:1607) and a revert falls back to the built-in comparison, so a broken module cannot brick relaunch \u2014 but a WORKING hostile module can return either answer.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1616,
+  "authority": "internal (callers: CauldronHook._recordVolume)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "SECONDS_PER_HOUR (line 1617, constant)",
+   "HOURS_PER_DAY (line 1617, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private view, one call site at `_getCurrentBucket` (CauldronHook.sol:1492). Pure wall-clock arithmetic on the block timestamp, which is what makes the window mean the same thing on a chain whose block numbers track a parent chain.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1624,
+  "authority": "internal (callers: CauldronHook._takeEthFee)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "nftContract (line 1625)",
+   "defaultTaxBps (line 1625)",
+   "nftContract (line 1627)",
+   "defaultTaxBps (line 1630)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "INFTContract.getHolderTaxRate (CauldronHook.sol:1627), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private view, one call site at `_getHolderTaxRate` (CauldronHook.sol:1439). With no tier contract wired it returns the flat default. Otherwise it makes an unbounded-gas external view call inside try/catch at `INFTContract` (CauldronHook.sol:1627); a revert falls back to the default, but a returned rate is used VERBATIM with no cap of its own \u2014 the only ceiling is the combined clamp at `MAX_TOTAL_FEE_BPS` (CauldronHook.sol:1442).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1636,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1636)",
+  "reads": [
+   "MAX_TAX_BPS (line 1637, constant)"
+  ],
+  "writes": [
+   "defaultTaxBps (line 1638)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, bounded by `MAX_TAX_BPS` (CauldronHook.sol:1637) at ten percent. Only affects swaps where `nftContract` (CauldronHook.sol:1625) is unset or reverting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1651,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1652)",
+  "reads": [
+   "registry (line 1652)",
+   "relaunchETH (line 1654)"
+  ],
+  "writes": [
+   "relaunchETH (line 1657)"
+  ],
+  "value": "sends native to `registry` (line 1659)",
+  "edges": [
+   "registry.call (CauldronHook.sol:1659), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Registry-only, and the counter is zeroed BEFORE the send at `relaunchETH` (CauldronHook.sol:1657), so it is checks-effects-interactions. A zero balance reverts `NoETHToRelease` (CauldronHook.sol:1655) rather than returning zero, and a failed send reverts `SendFailed` (CauldronHook.sol:1660) \u2014 which rolls the zeroing back, so the counter and the balance cannot silently diverge here. The counter is authoritative: nothing compares it against `address(this).balance`, so ether paid out elsewhere reduces the backing without reducing the number.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1679,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1680)",
+  "reads": [
+   "registry (line 1680)",
+   "relaunchAsset (line 1682)"
+  ],
+  "writes": [
+   "relaunchAsset (line 1685)"
+  ],
+  "value": "ERC20 transfer of `asset` to `registry` (line 1686)",
+  "edges": [
+   "FeeRouteLib.send (CauldronHook.sol:1686), TRUSTED, delegatecall"
+  ],
+  "reachability": "Registry-only, per-asset counterpart to the native release. The mapping entry is zeroed before the move at `relaunchAsset` (CauldronHook.sol:1685) and the library's boolean IS checked at `send` (CauldronHook.sol:1686), so a token that returns false rather than reverting cannot zero the counter while the tokens stay put. The gas cap passed is zero, i.e. unbounded, which matters only for the native branch the caller cannot reach here.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1737,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1743)",
+  "reads": [],
+  "writes": [
+   "deathThreshold (line 1744)",
+   "quoteOracle (line 1747)",
+   "volumePerNFT (line 1748)",
+   "nftPriceStep (line 1749)",
+   "oddsFullVolumeWei (line 1750)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, and the only way to wire `quoteOracle` (CauldronHook.sol:1747). Wiring an oracle re-denominates every volume-derived number, so the setter forces the curve to be restated in the same call and rejects a zero base or zero full-play size at `BadParam` (CauldronHook.sol:1746). A zero oracle argument leaves the oracle and the curve untouched while still moving `deathThreshold` (CauldronHook.sol:1744) \u2014 and there is no way to UNSET an oracle once set, because address(0) is the leave-alone sentinel.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1760,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1761)",
+  "reads": [
+   "registry (line 1761)",
+   "perpEngine (line 1762)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpForceClose.forceCloseAllDead (CauldronHook.sol:1765), UNTRUSTED, out-of-cluster",
+   "IPerpForceClose.openCount (CauldronHook.sol:1791), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Registry-only, called once per rebirth. It raises the transient relaunch flag at `_inRelaunchClose` (CauldronHook.sol:1764) so the engine's settlement swaps skip fee and buyback, force-closes inside try/catch, then lowers it at `_inRelaunchClose` (CauldronHook.sol:1766). The flag is transient, so it clears at end of transaction even if the close reverts. The final survivor check at `openCount` (CauldronHook.sol:1791) is NOT guarded and reverts `PerpsOpen` (CauldronHook.sol:1791) on any leftover, which deliberately unwinds the caller's whole relaunch rather than stranding positions.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1822,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1823)",
+  "reads": [
+   "registry (line 1823)"
+  ],
+  "writes": [
+   "_liveKey (line 1824)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only, pushed at every summon and relaunch. It is a plain storage write with NO validation of the key at `_liveKey` (CauldronHook.sol:1824) \u2014 not the currencies, not the fee, not the hook field \u2014 so the registry alone decides which pool the buyback spends into and which currency1 the credit gate at `_liveKey` (CauldronHook.sol:858) compares against.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1828,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_liveKey (line 1829)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "External view returning the whole struct; the canonical pool for integrators. Same data the internal paths read at `_liveKey` (CauldronHook.sol:1028).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1835,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:1836)",
+  "reads": [
+   "registry (line 1836)",
+   "BPS (line 1837, constant)"
+  ],
+  "writes": [
+   "legacyRegistry (line 1838)",
+   "legacyBps (line 1839)",
+   "legacyThreshold (line 1840)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:1836), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Two holders: the registry and the owner. `legacyRegistry` (CauldronHook.sol:1838) is unvalidated and doubles as the authority for `sweepLegacyReserve` (CauldronHook.sol:1112), so setting it grants that withdrawal right to an arbitrary address. The share is bounded by `BPS` (CauldronHook.sol:1837) at 100 percent of the post-guild fee, and a zero threshold argument leaves the existing threshold alone at `legacyThreshold` (CauldronHook.sol:1840).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1849,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:1850)",
+  "reads": [
+   "registry (line 1850)"
+  ],
+  "writes": [
+   "deathChecker (line 1851)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:1850), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry. Unvalidated: any address, including one that is not a contract, can be written to `deathChecker` (CauldronHook.sol:1851); the consumer wraps it in try/catch at `checker` (CauldronHook.sol:1607) so a bad module degrades to the built-in rule.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1859,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:1860)",
+  "reads": [
+   "registry (line 1860)"
+  ],
+  "writes": [
+   "surtaxPolicy (line 1861)",
+   "oddsPolicy (line 1862)",
+   "curvePolicy (line 1863)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:1860), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry; all three modules are written unconditionally, so passing address(0) for one CLEARS it rather than leaving it alone. Each consumer clamps and falls back: the surtax at `MAX_SNIPE_BPS` (CauldronHook.sol:1369), the odds at `ODDS_HARD_CAP_BPS` (CauldronHook.sol:2145), the curve at `c` (CauldronHook.sol:2096) which only rejects a zero price.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1871,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:1872)",
+  "reads": [
+   "registry (line 1872)"
+  ],
+  "writes": [
+   "feeRouter (line 1873)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:1872), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry. The router only returns amounts \u2014 the hook keeps custody and does the sends itself at `routeSplit` (CauldronHook.sol:1354) \u2014 and a result that does not sum exactly to the fee is discarded at `feeAmount` (CauldronHook.sol:1280). It is still a call made mid-swap into an admin-chosen address, so it is a re-entrancy surface into the fee path.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1877,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1877)",
+  "reads": [],
+  "writes": [
+   "nftContract (line 1878)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, unvalidated. It selects the contract every swap asks for a tax tier at `INFTContract` (CauldronHook.sol:1627), so it directly controls what every trader pays, bounded only by the combined clamp at `MAX_TOTAL_FEE_BPS` (CauldronHook.sol:1442).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1890,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1890)",
+  "reads": [
+   "registry (line 1891)"
+  ],
+  "writes": [
+   "registry (line 1893)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and ONE-SHOT: a second call reverts `RegistryAlreadySet` (CauldronHook.sol:1891) and zero is rejected at `ZeroAddress` (CauldronHook.sol:1892). This is what stops the owner re-pointing the reserve's payee; the only way past it is the delayed override pair.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1906,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1906)",
+  "reads": [],
+  "writes": [
+   "pendingRegistry (line 1908)",
+   "registrySwapReadyAt (line 1909)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only step one of the controller swap. It arms `pendingRegistry` (CauldronHook.sol:1908) and stamps a deadline of now plus the constant at `REGISTRY_SWAP_DELAY` (CauldronHook.sol:1909); the delay is a constant, so the owner cannot shorten their own notice period. Re-proposing simply overwrites both and restarts the clock.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1915,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1915)",
+  "reads": [],
+  "writes": [
+   "pendingRegistry (line 1916)",
+   "registrySwapReadyAt (line 1917)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only abort of an armed swap; no delay, because it can only ever cancel. It emits the proposal event with zero values at `RegistryOverrideProposed` (CauldronHook.sol:1918), which an indexer must interpret as a cancellation rather than a proposal.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1926,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:1926)",
+  "reads": [
+   "pendingRegistry (line 1927)",
+   "registrySwapReadyAt (line 1929)",
+   "relaunchETH (line 1930)",
+   "relaunchETH (line 1931)",
+   "registry (line 1933)"
+  ],
+  "writes": [
+   "relaunchETH (line 1932)",
+   "registry (line 1937)",
+   "pendingRegistry (line 1938)",
+   "registrySwapReadyAt (line 1939)"
+  ],
+  "value": "sends native to the OUTGOING `registry` (line 1933)",
+  "edges": [
+   "registry.call (CauldronHook.sol:1933), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner-only step two, refused before the deadline at `registrySwapReadyAt` (CauldronHook.sol:1929) \u2014 reusing the RegistryAlreadySet error for a timing condition. The whole native reserve is flushed to the OUTGOING registry first, zeroed before the send at `relaunchETH` (CauldronHook.sol:1932), and a failed send reverts the entire swap at `SendFailed` (CauldronHook.sol:1934). The per-asset reserves in `relaunchAsset` (CauldronHook.sol:1685) are NOT flushed, so a non-native reserve survives the controller change and can then only be pulled by the NEW registry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1958,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1959)",
+  "reads": [
+   "registry (line 1959)"
+  ],
+  "writes": [
+   "collection (line 1960)",
+   "mintBaseline (line 1963)",
+   "creditEpoch (line 1966)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ICauldronCollection.totalMinted (CauldronHook.sol:1965), UNTRUSTED, out-of-cluster",
+   "CauldronHook._wireLiquidator (CauldronHook.sol:1969), TRUSTED, in-cluster"
+  ],
+  "reachability": "Registry-only, once per summon or relaunch. The external `totalMinted` (CauldronHook.sol:1965) read is NOT guarded, so a collection that reverts there blocks the whole wiring. Bumping `creditEpoch` (CauldronHook.sol:1966) namespaces credit so the previous generation's balances cannot mint the new collection, and the baseline anchors the rising curve at position zero even for a continued collection.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1980,
+  "authority": "internal (callers: CauldronHook.setCollection, CauldronHook.setPerpEngine)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "perpEngine (line 1981)",
+   "perpEngine (line 1982)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICollectionLiquidator.setLiquidatorMinter (CauldronHook.sol:1982), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; reached from `_wireLiquidator` (CauldronHook.sol:1969) and `_wireLiquidator` (CauldronHook.sol:2014). Best-effort: the try/catch at `ICollectionLiquidator` (CauldronHook.sol:1982) means a collection that does not grant the hook this right cannot brick a summon, and equally means a silent failure to wire badges.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1986,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:1987)",
+  "reads": [
+   "registry (line 1987)"
+  ],
+  "writes": [
+   "vault (line 1988)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only, unvalidated. `vault` (CauldronHook.sol:1988) is a payee: the native floor share is sent there at `routeSplit` (CauldronHook.sol:1354), and clearing it to zero reroutes that share to the legacy buffer or the reserve at `vault` (CauldronHook.sol:1336).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 1992,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:1993)",
+  "reads": [
+   "registry (line 1993)"
+  ],
+  "writes": [
+   "quest (line 1994)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:1993), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry, unvalidated. The quest contract is called mid-swap with ignored result at `quest` (CauldronHook.sol:907), but with NO gas cap \u2014 unlike the seeder and perp calls \u2014 so a hostile quest can burn the swapper's remaining gas.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2001,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2002)",
+  "reads": [
+   "registry (line 2002)"
+  ],
+  "writes": [
+   "seeder (line 2003)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2002), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry, unvalidated. Setting it turns on the in-swap poke at `s` (CauldronHook.sol:1052); clearing it to zero turns the in-swap nudge off at `s` (CauldronHook.sol:1049) without disabling the seeder's own permissionless path.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2009,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2010)",
+  "reads": [
+   "registry (line 2010)",
+   "collection (line 2014)"
+  ],
+  "writes": [
+   "perpEngine (line 2011)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2010), TRUSTED, out-of-cluster",
+   "CauldronHook._wireLiquidator (CauldronHook.sol:2014), TRUSTED, in-cluster"
+  ],
+  "reachability": "Owner or registry, unvalidated. This single slot controls four behaviours: the in-swap sweep at `perpEngine` (CauldronHook.sol:945), the perp fee route at `perpEngine` (CauldronHook.sol:1465), the open-positions interlock at `perpEngine` (CauldronHook.sol:1564), and the relaunch force-close at `perpEngine` (CauldronHook.sol:1762). Zeroing it disables all four at once.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2018,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2018)",
+  "reads": [
+   "BPS (line 2019, constant)"
+  ],
+  "writes": [
+   "floorBps (line 2020)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, bounded at 100 percent by `BPS` (CauldronHook.sol:2019). It splits the post-guild fee between the floor vault and the relaunch reserve at `floorBps` (CauldronHook.sol:1290).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2025,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2026)",
+  "reads": [
+   "registry (line 2026)",
+   "guildBps (line 2028)"
+  ],
+  "writes": [
+   "guild (line 2027)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2026), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry, unvalidated. `guild` (CauldronHook.sol:2027) is the recipient of the off-the-top tribute at `guild` (CauldronHook.sol:1288) AND of 100 percent of every anti-sniper surtax at `guild` (CauldronHook.sol:1473), so this one slot can redirect the single largest fee stream at launch.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2037,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2037)",
+  "reads": [],
+  "writes": [
+   "guildBps (line 2039)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. The cap is the hard-coded deployed default at `BadParam` (CauldronHook.sol:2038), so the share can be lowered and restored but never raised above it.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2045,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2046)",
+  "reads": [
+   "registry (line 2046)"
+  ],
+  "writes": [
+   "activeProposer (line 2047)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2046), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry, unvalidated. The named address accrues a pull-only balance at `proposerOwed` (CauldronHook.sol:1262) on every NATIVE fee; address(0) disables the slice for that iteration at `prop` (CauldronHook.sol:1259).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2052,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2052)",
+  "reads": [
+   "MAX_PROPOSER_BPS (line 2053, constant)"
+  ],
+  "writes": [
+   "proposerBps (line 2054)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, capped at `MAX_PROPOSER_BPS` (CauldronHook.sol:2053) so the slice can never cannibalise the floor or the guild.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2060,
+  "authority": "anyone (each caller can only claim their own accrued balance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposerOwed (line 2061)"
+  ],
+  "writes": [
+   "proposerOwed (line 2063)"
+  ],
+  "value": "sends native to the caller via `call` (line 2064)",
+  "edges": [
+   "msg.sender.call (CauldronHook.sol:2064), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless pull. Guarded by `nonReentrant` (CauldronHook.sol:2060) and written checks-effects-interactions: the balance is zeroed at `proposerOwed` (CauldronHook.sol:2063) before the value-bearing call. An empty balance reverts `NoETHToRelease` (CauldronHook.sol:2062). The ether paid out is the hook's raw balance, which is the same balance backing `relaunchETH` (CauldronHook.sol:1654) and `legacyBuffer` (CauldronHook.sol:1065) \u2014 none of those counters is reconciled against the balance.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2070,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2070)",
+  "reads": [],
+  "writes": [
+   "volumePerNFT (line 2072)",
+   "nftPriceStep (line 2073)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only; the only bound is a non-zero base at `BadParam` (CauldronHook.sol:2071). It restates the crystal ladder that `volumePerNFT` (CauldronHook.sol:2099) prices against, in whatever unit the volume ledger currently uses.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2076,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2076)",
+  "reads": [],
+  "writes": [
+   "creditUntaggedSwaps (line 2076)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only single-slot toggle. When off, an untagged direct swap credits nobody at `creditUntaggedSwaps` (CauldronHook.sol:876) and therefore also skips the in-swap gacha, since that path only arms for an untagged buyer.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2083,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CauldronHook.sol:2084)",
+  "reads": [
+   "registry (line 2084)"
+  ],
+  "writes": [
+   "volumePerNFT (line 2086)",
+   "nftPriceStep (line 2087)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only, called from a winning proposal's parameters. A zero argument is a no-op at `_base` (CauldronHook.sol:2085) rather than an error, and it forces a FLAT ladder by zeroing the step at `nftPriceStep` (CauldronHook.sol:2087), which is how a mint-out volume target is made exact.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2091,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "curvePolicy (line 2092)",
+   "volumePerNFT (line 2094)",
+   "nftPriceStep (line 2094)",
+   "volumePerNFT (line 2099)",
+   "nftPriceStep (line 2099)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICurvePolicy.priceAt (CauldronHook.sol:2094), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Public view, and on the commit path from `nftPriceAt` (CauldronHook.sol:2238) \u2014 once per crystal, so up to 30 external calls per commit when a curve policy is wired. A policy result of zero is rejected at `c` (CauldronHook.sol:2096) because a free crystal would mint without bound, but there is no UPPER bound on what a policy may charge.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2103,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "nftCredit (line 2104)",
+   "creditEpoch (line 2104)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "External view of the current epoch's balance only; credit from a previous generation still sits in `nftCredit` (CauldronHook.sol:892) under an older epoch key and is unreadable through this getter.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2111,
+  "authority": "internal (callers: CauldronHook.crystalsReady, CauldronHook.costOfNextCrystals, CauldronHook.progress)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2112)",
+   "outstandingOf (line 2113)",
+   "collection (line 2113)",
+   "mintBaseline (line 2113)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICauldronCollection.totalMinted (CauldronHook.sol:2112), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Internal view; three callers, all views, each of which has already checked that a collection is set. The subtraction of `mintBaseline` (CauldronHook.sol:2113) is unguarded, so it underflows and reverts if the collection's minted count ever drops below the baseline recorded at wiring time.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2117,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2118)",
+   "nftCredit (line 2120)",
+   "creditEpoch (line 2120)",
+   "MAX_MINTS_PER_CALL (line 2122, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._curvePos (CauldronHook.sol:2119), TRUSTED, in-cluster",
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2123), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view for the UI. The loop is bounded by the constant at `MAX_MINTS_PER_CALL` (CauldronHook.sol:2122), so it reports at most 30 even when the player can afford more, and each iteration may make an external policy call through `nftPriceAt` (CauldronHook.sol:2123).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2131,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2132)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._curvePos (CauldronHook.sol:2133), TRUSTED, in-cluster",
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2134), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view. The loop bound is the CALLER-SUPPLIED `count` (CauldronHook.sol:2134) with no cap, so an off-chain caller can ask for an unbounded amount of work; it is a view, so the cost falls on the node answering the query, not on a transaction.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2140,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "oddsPolicy (line 2141)",
+   "maxOddsBps (line 2143)",
+   "oddsFullVolumeWei (line 2143)",
+   "ODDS_HARD_CAP_BPS (line 2145, constant)",
+   "oddsFullVolumeWei (line 2148)",
+   "maxOddsBps (line 2148)",
+   "maxOddsBps (line 2149)",
+   "oddsFullVolumeWei (line 2149)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IOddsPolicy.oddsBps (CauldronHook.sol:2143), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Public view, also called once per commit at `oddsForPlay` (CauldronHook.sol:2255) and cast to uint16 there. A zero full-play size short-circuits to the maximum at `oddsFullVolumeWei` (CauldronHook.sol:2148). The linear scale rounds DOWN at `bps` (CauldronHook.sol:2149), so a play below one ten-thousandth of the full size rolls zero odds, and any policy answer is clamped to the hard cap.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2154,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "outstandingCrystals (line 2155)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "External view over the GLOBAL counter, which spans every collection; the per-collection figure the pricing actually uses is `outstandingOf` (CauldronHook.sol:2113) and is not exposed by this getter.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2159,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2160)",
+   "collection (line 2161)",
+   "collection (line 2162)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICauldronCollection.totalMinted (CauldronHook.sol:2161), UNTRUSTED, out-of-cluster",
+   "ICauldronCollection.maxSupply (CauldronHook.sol:2162), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "External view; two external calls, neither guarded, so a reverting collection makes this revert rather than report. It ignores the reserved crystals counted at `outstandingOf` (CauldronHook.sol:2226), so it can report not-minted-out while every remaining slot is already spoken for.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2169,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2174)",
+   "nftCredit (line 2176)",
+   "creditEpoch (line 2176)",
+   "MAX_MINTS_PER_CALL (line 2178, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2174), TRUSTED, in-cluster",
+   "CauldronHook._curvePos (CauldronHook.sol:2175), TRUSTED, in-cluster",
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2179), TRUSTED, in-cluster",
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2184), TRUSTED, in-cluster"
+  ],
+  "reachability": "External view for the UI; duplicates the loop in `crystalsReady` (CauldronHook.sol:2117) and additionally prices the next unaffordable crystal at `threshold` (CauldronHook.sol:2184). Same 30-iteration bound.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2196,
+  "authority": "opener (an address flagged in isOpener)",
+  "authority_gate_quote": "if (!isOpener[msg.sender]) revert NotOpener(); (CauldronHook.sol:2201)",
+  "reads": [
+   "isOpener (line 2201)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._commitCrystals (CauldronHook.sol:2210), TRUSTED, in-cluster"
+  ],
+  "reachability": "Only an allow-listed opener may call it, which is what keeps the play size honest \u2014 `playWei` (CauldronHook.sol:2196) is supplied by the caller and feeds the odds directly, so an unrestricted caller could claim any play size. Guarded by `nonReentrant` (CauldronHook.sol:2198), which shares one guard with the resolve path and the in-swap gacha. The player is also caller-supplied, so an opener can commit on anyone's behalf and spend THAT player's credit.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2216,
+  "authority": "internal (callers: CauldronHook.commitCrystals, CauldronHook.nativeGachaStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "collection (line 2220)",
+   "outstandingOf (line 2226)",
+   "mintBaseline (line 2233)",
+   "creditEpoch (line 2234)",
+   "nftCredit (line 2235)",
+   "MAX_MINTS_PER_CALL (line 2237, constant)"
+  ],
+  "writes": [
+   "nftCredit (line 2249)",
+   "committedOf (line 2250)",
+   "pendingOf (line 2251)",
+   "outstandingCrystals (line 2252)",
+   "outstandingOf (line 2253)",
+   "batches (line 2256)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ICauldronCollection.totalMinted (CauldronHook.sol:2222), UNTRUSTED, out-of-cluster",
+   "ICauldronCollection.maxSupply (CauldronHook.sol:2223), UNTRUSTED, out-of-cluster",
+   "CauldronHook.nftPriceAt (CauldronHook.sol:2238), TRUSTED, in-cluster",
+   "CauldronHook.oddsForPlay (CauldronHook.sol:2255), TRUSTED, in-cluster"
+  ],
+  "reachability": "Shared body for the opener path and the in-swap native path. It never reverts on a sold-out collection: room is clamped to minted plus reserved at `room` (CauldronHook.sol:2227) and zero room returns zero. Pricing starts from minted PLUS reserved at `startPos` (CauldronHook.sol:2233) so concurrent commits do not share a curve slot. The affordability loop is bounded by the smaller of the caller's count and the 30-crystal constant. Five counters move together at `outstandingCrystals` (CauldronHook.sol:2252) and the batch is appended to an ever-growing array at `batches` (CauldronHook.sol:2256); nothing ever shrinks that array, only the cursor advances.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2276,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._resolveTickets (CauldronHook.sol:2281), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless keeper entrypoint, guarded by `nonReentrant` (CauldronHook.sol:2278). The gacha router calls it right after committing, and anyone may call it at any time; the caller chooses `maxCount` (CauldronHook.sol:2276), which is the loop bound.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2288,
+  "authority": "internal (callers: CauldronHook.resolveTickets, CauldronHook.nativeGachaStep)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "batchCursor (line 2292)",
+   "batches (line 2293)",
+   "batches (line 2295)",
+   "missStreak (line 2320)",
+   "pityThreshold (line 2320)"
+  ],
+  "writes": [
+   "batches.commitBlock (line 2306)",
+   "pendingOf (line 2323)",
+   "outstandingCrystals (line 2324)",
+   "outstandingOf (line 2325)",
+   "missStreak (line 2327)",
+   "opened (line 2328)",
+   "missStreak (line 2333)",
+   "batches.resolved (line 2338)",
+   "batchCursor (line 2341)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ICauldronCollection.totalMinted (CauldronHook.sol:2313), UNTRUSTED, out-of-cluster",
+   "ICauldronCollection.maxSupply (CauldronHook.sol:2314), UNTRUSTED, out-of-cluster",
+   "ICauldronCollection.mint (CauldronHook.sol:2329), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Two callers: the permissionless entry and the in-swap gacha. The outer loop walks the FIFO from `batchCursor` (CauldronHook.sol:2292) and stops without reverting at a batch committed this block at `commitBlock` (CauldronHook.sol:2296). An expired blockhash re-anchors the batch to the current block at `commitBlock` (CauldronHook.sol:2306) and breaks, preserving order; that write moves a batch FORWARD in time, so a batch can be re-anchored repeatedly. Both loops are bounded by the caller's maxCount. The roll is keccak over the commit blockhash, the player, the batch index and the ticket index at `roll` (CauldronHook.sol:2319), modulo 10000, so it is uniform only to the extent the blockhash is. A win mints through an external call at `mint` (CauldronHook.sol:2329) AFTER the three counters have been decremented, so the state is consistent before the callee runs; the same collection contract also controls whether that call reverts and unwinds the whole resolve.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2350,
+  "authority": "hook itself (self-call only)",
+  "authority_gate_quote": "if (msg.sender != address(this)) revert OnlySelf(); (CauldronHook.sol:2351)",
+  "reads": [
+   "NATIVE_COMMIT_MAX (line 2352, constant)",
+   "NATIVE_RESOLVE_MAX (line 2353, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._commitCrystals (CauldronHook.sol:2352), TRUSTED, in-cluster",
+   "CauldronHook._resolveTickets (CauldronHook.sol:2353), TRUSTED, in-cluster"
+  ],
+  "reachability": "External but self-only; the sole reachable caller is the gas-capped self `call` (CauldronHook.sol:965) at the tail of afterSwap, whose result is discarded. `nonReentrant` (CauldronHook.sol:2350) shares the guard with the commit and resolve entrypoints, so a mint callback cannot re-enter either. The play size passed in is the weighted volume computed in afterSwap, i.e. already in the ledger's unit rather than raw ether.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2359,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2360)",
+  "reads": [
+   "registry (line 2360)"
+  ],
+  "writes": [
+   "isOpener (line 2361)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2360), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry. An opener gets three powers at once: it may commit crystals for any player at `isOpener` (CauldronHook.sol:2201), its hookData tag is believed for tax tiering at `isOpener` (CauldronHook.sol:2392), and its tag is believed for fee exemption at `isOpener` (CauldronHook.sol:2384).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2369,
+  "authority": "owner or registry",
+  "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner()) revert OnlyRegistry(); (CauldronHook.sol:2370)",
+  "reads": [
+   "registry (line 2370)"
+  ],
+  "writes": [
+   "taxExempt (line 2371)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "Ownable.owner (CauldronHook.sol:2370), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner or registry. Exemption alone is not enough to dodge the fee: the swap must ALSO arrive from a trusted opener, per the conjunction at `isOpener` (CauldronHook.sol:2384), so a direct swapper cannot self-tag as exempt.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2383,
+  "authority": "internal (callers: CauldronHook._beforeSwap, CauldronHook._afterSwap)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "taxExempt (line 2384)",
+   "isOpener (line 2384)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook._taxedPlayer (CauldronHook.sol:2384), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private view on both fee legs, at `_isExemptPlayer` (CauldronHook.sol:1167) and `_isExemptPlayer` (CauldronHook.sol:990). Exemption requires BOTH a flagged player and a trusted sender, so the hookData tag is only honoured from an opener.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2391,
+  "authority": "internal (callers: CauldronHook._isExemptPlayer, CauldronHook._takeEthFee)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "isOpener (line 2392)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private view; the identity resolver used for both tiering at `_taxedPlayer` (CauldronHook.sol:1439) and exemption at `_taxedPlayer` (CauldronHook.sol:2384). A non-opener sender is always taxed as itself; an opener may name any player, and a zero decode falls back to the sender at `p` (CauldronHook.sol:2394).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2399,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2399)",
+  "reads": [],
+  "writes": [
+   "oddsFullVolumeWei (line 2400)",
+   "pityThreshold (line 2401)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and UNBOUNDED on both arguments: `oddsFullVolumeWei` (CauldronHook.sol:2400) may be set to zero, which makes every play roll the maximum odds at `oddsFullVolumeWei` (CauldronHook.sol:2148), and `pityThreshold` (CauldronHook.sol:2401) may be set to zero, which makes every ticket a forced win at `forced` (CauldronHook.sol:2320).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2406,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2406)",
+  "reads": [
+   "ODDS_HARD_CAP_BPS (line 2407, constant)"
+  ],
+  "writes": [
+   "maxOddsBps (line 2408)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, capped at `ODDS_HARD_CAP_BPS` (CauldronHook.sol:2407) so bet size alone can never guarantee a creature; only the pity counter can.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2412,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronHook.sol:2412)",
+  "reads": [
+   "MAX_WEIGHT_BPS (line 2413, constant)"
+  ],
+  "writes": [
+   "buyWeightBps (line 2414)",
+   "sellWeightBps (line 2415)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, each side capped at `MAX_WEIGHT_BPS` (CauldronHook.sol:2413). These multiply the recorded volume into crystal credit at `buyWeightBps` (CauldronHook.sol:888), so raising them accelerates mint-out for every trader at once.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronHook",
+  "line": 2443,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native via `receive` (line 2443)",
+  "edges": [],
+  "reachability": "Empty payable fallback-style receiver. It records NOTHING, deliberately: ether arriving here \u2014 including the pool manager's payouts and any stray transfer \u2014 must not be counted into `legacyBuffer` (CauldronHook.sol:1097), which is why donations have their own entrypoint. Anything sent here silently increases the raw balance behind the counters without increasing any of them.",
+  "observations": []
+ }
+]

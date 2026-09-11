@@ -1,0 +1,129 @@
+[
+ {"contract":"PoolOps","line":153,
+  "authority":"anyone directly at the linked library address; in the protocol path, igniter or owner (the gate is on the registry side)",
+  "authority_gate_quote":"if (msg.sender != owner() && msg.sender != igniter) revert NotAdmin(); (CauldronRegistry.sol:677)",
+  "reads":[],"writes":[],"value":"NONE","edges":[],
+  "observations":[],
+  "reachability":"Pure string table, delegatecalled once from `creatureFor` (CauldronRegistry.sol:687) inside `summon` (CauldronRegistry.sol:668), which only the owner or the igniter may fire. Generation 2 and later name themselves from the winning proposal instead, so the cycle at `idx` (line 154) is the gen-1 theme plus a fallback, as the header says at `creatureFor` (line 153). A direct call to the deployed library is harmless: nothing is read or written."},
+
+ {"contract":"PoolOps","line":176,
+  "authority":"internal (callers: _seedActive, _seedReserve, addToReserve)",
+  "authority_gate_quote":"UNGATED",
+  "reads":["PERMIT2 (line 177, constant)"],"writes":[],
+  "value":"NONE",
+  "edges":[
+   "IERC20.approve (PoolOps.sol:177), UNTRUSTED, out-of-cluster",
+   "IPermit2Ops.approve (PoolOps.sol:178), TRUSTED, out-of-cluster"
+  ],
+  "observations":[],
+  "reachability":"Private helper reached from every mint path in this library — `_approve` (line 732) and `_approve` (line 763) in the active seed, `_approve` (line 794) in the reserve seed and `_approve` (line 1200) in the reserve top-up. Because the library is delegatecalled the allowance granted is the REGISTRY's, to the canonical `PERMIT2` (line 126) and from there to the PositionManager, expiring 300 seconds out at `approve` (line 178). It is called with the iteration token and, on the non-native branch at `_approve` (line 763), with the quote asset — an arbitrary allowlisted ERC20."},
+
+ {"contract":"PoolOps","line":181,
+  "authority":"internal (callers: createAndSeed, createAndSeedProgressive, _greenCandle, openOrAddPair)",
+  "authority_gate_quote":"UNGATED",
+  "reads":[],"writes":[],"value":"NONE",
+  "edges":["FullMath.mulDiv (PoolOps.sol:182), TRUSTED, library"],
+  "observations":[],
+  "reachability":"Pure price helper: `ratio` (line 182) is tokenAmount·2^192/ethAmount and the Babylonian loop at `z` (line 188) takes its square root, so the result is the sqrt price for the orientation quote=currency0, token=currency1 that `deployTokenAbove` (line 682) guarantees. Callers: `_sqrtPrice` (line 221), `_sqrtPrice` (line 297), `_sqrtPrice` (line 466) and `_sqrtPrice` (line 876). It returns 0 for a zero ratio at `x` (line 185), and reverts inside FullMath when `ethAmount` (line 182) is zero (DERIVED: division by zero in mulDiv)."},
+
+ {"contract":"PoolOps","line":197,
+  "authority":"anyone directly at the linked library address; NO in-protocol caller",
+  "authority_gate_quote":"UNGATED",
+  "reads":[],"writes":[],
+  "value":"NONE directly; the quote leg is paid inside `_seedActive` (line 225)",
+  "edges":[
+   "PoolIdLibrary.toId (PoolOps.sol:219), TRUSTED, library",
+   "PoolOps._sqrtPrice (PoolOps.sol:221), TRUSTED, in-cluster",
+   "IPoolManager.initialize (PoolOps.sol:222), TRUSTED, out-of-cluster",
+   "TickMath.getTickAtSqrtPrice (PoolOps.sol:223), TRUSTED, library",
+   "PoolOps._seedActive (PoolOps.sol:225), TRUSTED, in-cluster",
+   "ReserveLib.reserveTicks (PoolOps.sol:229), TRUSTED, library",
+   "PoolOps._seedReserve (PoolOps.sol:231), TRUSTED, in-cluster"
+  ],
+  "observations":[
+   "comment at `createAndSeed` (CauldronRegistry.sol:1662) says PoolOps still exposes `createAndSeed` for reference / external callers; no code in the repo calls it — DERIVED, grep for createAndSeed outside PoolOps.sol finds only that comment, while both seed paths go through `_createPoolAndSeedWithBuy` (CauldronRegistry.sol:1732) and `createAndSeedProgressive` (CauldronRegistry.sol:1723)"
+  ],
+  "reachability":"The silent two-position seed: initialize at the contributed ratio, one full-range active position, then the out-of-range reserve. It is DEAD in the protocol path — the registry's only two seeding branches are the green candle at `_createPoolAndSeedWithBuy` (CauldronRegistry.sol:1732) and the progressive handoff at `createAndSeedProgressive` (CauldronRegistry.sol:1723) (DERIVED). Called directly at the library address it would run in the caller's own context, where the executing account holds neither the tokens nor the quote, so the mint inside `_seedActive` (line 225) fails on the transfer. Reserve placement is skipped entirely when `reserveTokens` (line 227) is zero."},
+
+ {"contract":"PoolOps","line":252,
+  "authority":"anyone directly at the linked library address; in the protocol path, anyone who can fire summon or relaunch (igniter/owner for the first, permissionless for the rebirth)",
+  "authority_gate_quote":"if (!hook.isDead(oldPoolId)) revert TokenStillAlive(); (CauldronRegistry.sol:779)",
+  "reads":["SEED_BASE_WAD (line 335, constant)","SEED_BANDWIDTH (line 346, constant)","SEED_FLOOR_WAD (line 347, constant)","SEED_MINSTEP_WAD (line 347, constant)"],
+  "writes":[],
+  "value":"sends native to the seeder at `startSeed` (line 344); the base tranche's quote leg is paid inside `_greenCandle` (line 338)",
+  "edges":[
+   "PoolIdLibrary.toId (PoolOps.sol:275), TRUSTED, library",
+   "PoolOps._sqrtPrice (PoolOps.sol:297), TRUSTED, in-cluster",
+   "IPoolManager.initialize (PoolOps.sol:298), TRUSTED, out-of-cluster",
+   "ReserveLib.reserveTicks (PoolOps.sol:300), TRUSTED, library",
+   "TickMath.getTickAtSqrtPrice (PoolOps.sol:301), TRUSTED, library",
+   "PoolOps._seedReserve (PoolOps.sol:303), TRUSTED, in-cluster",
+   "PoolOps._seedActive (PoolOps.sol:307), TRUSTED, in-cluster",
+   "PoolOps._greenCandle (PoolOps.sol:338), TRUSTED, in-cluster",
+   "IERC20.approve (PoolOps.sol:343), TRUSTED, out-of-cluster",
+   "ISeeder.startSeed (PoolOps.sol:344), UNTRUSTED, out-of-cluster"
+  ],
+  "observations":[
+   "comment at `activePositionId` (PoolOps.sol:244) says it is left 0 because there is no single active position; code sets it at `_seedActive` (PoolOps.sol:307) on the non-native branch and at `activePositionId` (PoolOps.sol:470) inside the shared candle body, so it is non-zero on both paths",
+   "comment at `registry` (PoolOps.sol:248) says the registry will call this once its wiring lands; code already calls it at `createAndSeedProgressive` (CauldronRegistry.sol:1723) whenever `seeder` (CauldronRegistry.sol:1722) and the window are set",
+   "comment at `nextSeedWindow` (CauldronRegistry.sol:1695) says the progressive path has no green-candle buy and places the reserve silently single-sided; code folds the reserve into the base tranche and buys it out at `_greenCandle` (PoolOps.sol:338)"
+  ],
+  "reachability":"Reached by delegatecall from `createAndSeedProgressive` (CauldronRegistry.sol:1723), the opt-in branch of `_seedGeneration` (CauldronRegistry.sol:1703) taken when `seeder` (CauldronRegistry.sol:1722) is set and the window is non-zero; `_seedGeneration` itself runs from `_seedGeneration` (CauldronRegistry.sol:724) under summon and from `_seedGeneration` (CauldronRegistry.sol:1065) under relaunch, and the registry arms the unlock re-entry around it at `_seedBuyUnlocked` (CauldronRegistry.sol:1721). Two shapes: a non-native quote degrades to the atomic seed and returns early at `quote` (line 296), while the native path lays a base tranche worth `SEED_BASE_WAD` (line 335) of ledger A through `_greenCandle` (line 338) and hands the remainder to the seeder at `startSeed` (line 344). The seeder is the owner-set address read from `seeder` (CauldronBase.sol:295) and it receives both an ERC20 approval and native value."},
+
+ {"contract":"PoolOps","line":375,
+  "authority":"anyone directly at the linked library address; in the protocol path, igniter/owner via summon and anyone via relaunch once the pool is dead",
+  "authority_gate_quote":"if (!hook.isDead(oldPoolId)) revert TokenStillAlive(); (CauldronRegistry.sol:779)",
+  "reads":[],"writes":[],
+  "value":"NONE directly; the whole quote tranche is spent inside `_greenCandle` (line 399)",
+  "edges":[
+   "PoolIdLibrary.toId (PoolOps.sol:397), TRUSTED, library",
+   "PoolOps._greenCandle (PoolOps.sol:399), TRUSTED, in-cluster"
+  ],
+  "observations":[],
+  "reachability":"The default seed for BOTH generation 1 and every rebirth: delegatecalled from `createAndSeedWithBuy` (CauldronRegistry.sol:1681) in `_createPoolAndSeedWithBuy` (CauldronRegistry.sol:1671), the else-branch at `_createPoolAndSeedWithBuy` (CauldronRegistry.sol:1732). It only builds the key and forwards to `_greenCandle` (line 399); the caller must already be tax-exempt on the hook and have armed `_seedBuyUnlocked` (CauldronRegistry.sol:1721), because the buy re-enters through `unlockCallback` (CauldronRegistry.sol:1758). The quote for the generation comes from `generationQuote` (CauldronRegistry.sol:1685)."},
+
+ {"contract":"PoolOps","line":448,
+  "authority":"internal (callers: createAndSeedProgressive, createAndSeedWithBuy)",
+  "authority_gate_quote":"UNGATED",
+  "reads":["BUY_SETTLE_BUFFER (line 463, constant)"],
+  "writes":[],
+  "value":"pays the quote leg of the mint inside `_seedActive` (line 471); the exact-output buy settles from the registry inside `unlock` (line 477)",
+  "edges":[
+   "FullMath.mulDiv (PoolOps.sol:462), TRUSTED, library",
+   "PoolOps._sqrtPrice (PoolOps.sol:466), TRUSTED, in-cluster",
+   "IPoolManager.initialize (PoolOps.sol:467), TRUSTED, out-of-cluster",
+   "PoolOps._seedActive (PoolOps.sol:471), TRUSTED, in-cluster",
+   "IPoolManager.unlock (PoolOps.sol:477), TRUSTED, out-of-cluster",
+   "IPoolManager.getSlot0 (PoolOps.sol:482), TRUSTED, out-of-cluster",
+   "ReserveLib.reserveTicks (PoolOps.sol:484), TRUSTED, library",
+   "PoolOps._seedReserve (PoolOps.sol:486), TRUSTED, in-cluster"
+  ],
+  "observations":[],
+  "reachability":"The shared candle body, reached from `_greenCandle` (line 338) on the hybrid path and `_greenCandle` (line 399) on the atomic one — so from `_seedGeneration` (CauldronRegistry.sol:724) under summon and `_seedGeneration` (CauldronRegistry.sol:1065) under relaunch. Sequence: fund the full-range position with `ethActive` (line 462) minus a fixed `BUY_SETTLE_BUFFER` (line 463), then buy exactly `reserveTok` (line 477) back out through the PoolManager unlock, which re-enters the registry's `unlockCallback` (CauldronRegistry.sol:1758) and lands in `executeBuy` (line 498). LIVE POOL STATE: the reserve band is placed off the POST-BUY tick read at `getSlot0` (line 482), not the launch tick, and it is sized from `bought` (line 486) — the amount the swap actually delivered. The reserve step is skipped when `reserveTok` (line 474) is zero."},
+
+ {"contract":"PoolOps","line":498,
+  "authority":"the PoolManager, through the registry's armed unlock window (the gate is on the registry side)",
+  "authority_gate_quote":"if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronRegistry.sol:1759)",
+  "reads":["MIN_SQRT_LIMIT (line 514, constant)"],
+  "writes":[],
+  "value":"sends native to the PoolManager at `settle` (line 539); ERC20 transfer of the quote to the PoolManager at `transfer` (line 564); receives the bought token at `take` (line 568)",
+  "edges":[
+   "IPoolManager.swap (PoolOps.sol:509), TRUSTED, out-of-cluster",
+   "IPoolManager.settle (PoolOps.sol:539), TRUSTED, out-of-cluster",
+   "IPoolManager.sync (PoolOps.sol:541), TRUSTED, out-of-cluster",
+   "q.call (PoolOps.sol:564), UNTRUSTED, out-of-cluster",
+   "IPoolManager.settle (PoolOps.sol:566), TRUSTED, out-of-cluster",
+   "IPoolManager.take (PoolOps.sol:568), TRUSTED, out-of-cluster"
+  ],
+  "observations":[],
+  "reachability":"Delegatecalled from `executeBuy` (CauldronRegistry.sol:1761), which only runs when the caller is the PoolManager and the registry has armed the window at `_seedBuyUnlocked` (CauldronRegistry.sol:1760); the arming happens around the seed at `_seedBuyUnlocked` (CauldronRegistry.sol:1721) and is cleared at `_seedBuyUnlocked` (CauldronRegistry.sol:1734). It serves two callers with one encoding: exact output for the reserve reseed from `unlock` (line 477) and exact input for the owner-funded prime buy from `unlock` (line 585); the sign of `amtSpecified` (line 503) selects which, and `recipient` (line 568) decides whether the token stays in the registry or goes straight out. The swap is tagged with `address(this)` (line 516) so the hook waives fees and surtax. Settlement branches on the quote at `q` (line 537): native pays with value, an ERC20 goes sync -> checked low-level transfer -> settle, and the return value is verified at `require` (line 565)."},
+
+ {"contract":"PoolOps","line":581,
+  "authority":"anyone directly at the linked library address; in the protocol path, igniter or owner (the gate is on the registry side)",
+  "authority_gate_quote":"if (msg.sender != owner() && msg.sender != igniter) revert NotAdmin(); (CauldronRegistry.sol:677)",
+  "reads":[],"writes":[],
+  "value":"spends exactly `ethIn` of the registry's native balance inside the unlock at `unlock` (line 585); the bought token goes to `recipient` (line 585)",
+  "edges":["IPoolManager.unlock (PoolOps.sol:585), TRUSTED, out-of-cluster"],
+  "observations":[],
+  "reachability":"Delegatecalled from `primeBuy` (CauldronRegistry.sol:738) during `summon` (CauldronRegistry.sol:668), funded by the separately tracked `primeBuyEth` (CauldronBase.sol:267) that the prime funder deposited. It is a thin wrapper: the negative amount at `ethIn` (line 585) makes the unlock body an EXACT-INPUT swap, so `executeBuy` (line 498) spends precisely that much and sends the token to the wallet the registry names. The registry must have armed the unlock window first, as `_seedBuyUnlocked` (CauldronRegistry.sol:1760) refuses otherwise."}
+]

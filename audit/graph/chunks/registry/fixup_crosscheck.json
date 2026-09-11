@@ -1,0 +1,16 @@
+[
+ {
+  "contract": "CauldronRegistry",
+  "line": 516,
+  "edges": [
+   "IERC721.transferFrom (CauldronRegistry.sol:524), TRUSTED, out-of-cluster",
+   "IERC721.transferFrom (CauldronRegistry.sol:525), TRUSTED, out-of-cluster",
+   "ISeeder.seeding (CauldronRegistry.sol:536), TRUSTED, out-of-cluster",
+   "ISeeder.withdrawAll (CauldronRegistry.sol:537), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (CauldronRegistry.sol:543), TRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronRegistry.sol:544), TRUSTED, out-of-cluster",
+   "to.call (CauldronRegistry.sol:548), UNTRUSTED, out-of-cluster"
+  ],
+  "value": "ERC721 ownership of the active position is moved to the successor at `transferFrom` (line 524) and the reserve position at `transferFrom` (line 525) - the positions themselves are never withdrawn; ERC20 transfer of `tok` to the successor (line 544); sends the whole native balance to `to` (line 548)"
+ }
+]

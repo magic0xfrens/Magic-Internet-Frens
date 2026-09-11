@@ -1,0 +1,98 @@
+[
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 24,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `registry`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration consumed by the engine, not implemented here. Called from `currentToken` (PerpEngine.sol:445) in the constructor, from `currentToken` (PerpEngine.sol:484) to build the pool key, from `currentToken` (PerpEngine.sol:1049) when re-arming, and from `currentToken` (PerpEngine.sol:1559), `currentToken` (PerpEngine.sol:1653) and `currentToken` (PerpEngine.sol:1661) on the token-inventory paths. The implementation lives in CauldronRegistry, outside this cluster.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 28,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `registry`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. The engine reads it in `generationQuote` (PerpEngine.sol:1034) to decide whether a quote rotation has happened, and in `generationQuote` (PerpEngine.sol:1307) where a divergence from the cached quote is treated as death. The doc comment at `quote` (PerpEngine.sol:25) calls it a mapping getter rather than a convenience getter.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 29,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `registry`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Read in `currentGeneration` (PerpEngine.sol:444) at construction, in `currentGeneration` (PerpEngine.sol:1025) to decide whether a sync is due, and in `currentGeneration` (PerpEngine.sol:1307) inside the death test.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 30,
+  "authority": "anyone (declaration only; the engine calls it on the immutable `registry`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Read once, in `lastSummonAt` (PerpEngine.sol:1283), where the open guard refuses until `warmup` (PerpEngine.sol:1283) seconds have passed since the summon.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 31,
+  "authority": "anyone (declaration only)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declared but never called anywhere in this cluster: grep over the five cluster files finds `generationPoolId` (PerpEngine.sol:31) only at its declaration. DERIVED: the engine derives the pool id itself from `_key` (PerpEngine.sol:482) instead.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 32,
+  "authority": "anyone (declaration only)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declared but never called in this cluster: `generationToken` (PerpEngine.sol:32) appears only at its declaration; the engine uses `currentToken` (PerpEngine.sol:484) and its own `syncedToken` (PerpEngine.sol:1264) instead. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 33,
+  "authority": "anyone (declaration only)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declared but never called in this cluster: `claimByBurn` (PerpEngine.sol:33) appears only at its declaration. The inventory migration uses the capacity-aware twin instead, encoded by signature string in `claimByBurnUpTo` (PerpSwapLib.sol:135). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+  "line": 34,
+  "authority": "anyone (declaration only)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration matching what the migration actually invokes: `migrateInventory` (PerpSwapLib.sol:128) builds the call by signature string at `claimByBurnUpTo` (PerpSwapLib.sol:135) via a low-level call on the registry, so the interface entry itself is never used for dispatch. DERIVED.",
+  "observations": []
+ }
+]

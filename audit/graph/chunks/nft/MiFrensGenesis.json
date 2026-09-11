@@ -1,0 +1,730 @@
+[
+ {
+  "contract": "IRegistrySummon (declared in MiFrensGenesis.sol)",
+  "line": 16,
+  "authority": "declaration only (no body); the sole in-cluster caller is MiFrensGenesis.igniteCauldron, which holds the gate; the implementing registry is out of cluster",
+  "authority_gate_quote": "if (minted < GENESIS_SUPPLY) revert NotSoldOut(); (MiFrensGenesis.sol:578)",
+  "reads": [],
+  "writes": [],
+  "value": "receives native - declared `payable` (line 16)",
+  "edges": [],
+  "reachability": "Reached only from `igniteCauldron` (MiFrensGenesis.sol:575), which forwards the contract's entire balance at `summon` (MiFrensGenesis.sol:585). The callee's own authority check is out of cluster; on this side the call is guarded by the sellout test at `NotSoldOut` (MiFrensGenesis.sol:578) and the one-shot `finalized` flag (MiFrensGenesis.sol:583).",
+  "observations": []
+ },
+ {
+  "contract": "IRegistrySummon (declared in MiFrensGenesis.sol)",
+  "line": 17,
+  "authority": "declaration only (no body); no call site exists in this cluster",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declared but never invoked by any cluster file: the only non-comment occurrence of the selector's sibling is the call to `summon` (MiFrensGenesis.sol:585), and `summoned` (MiFrensGenesis.sol:17) itself appears only in this declaration. DERIVED (grep of every cluster file for the identifier).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensDividendHook (declared in MiFrensGenesis.sol)",
+  "line": 21,
+  "authority": "declaration only (no body); the only in-cluster caller is MiFrensGenesis._update, and the address it is called on is whatever `setDividend` wired",
+  "authority_gate_quote": "if (from != address(0) && dividend != address(0)) (MiFrensGenesis.sol:693)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Invoked from the ERC721 `_update` override (MiFrensGenesis.sol:647) on every non-mint move, in a try/catch with a fixed gas stipend at `GAS_DIVIDEND_FWD` (MiFrensGenesis.sol:695). The in-cluster implementation is `onMiFrenTransfer` (MiFrensDividend.sol:464); it only acts for an enchanted id.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 227,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "LIQUIDATOR_ID_BASE (line 239, constant)"
+  ],
+  "writes": [
+   "GENESIS_SUPPLY (line 240, immutable)",
+   "MAX_SUPPLY (line 241, immutable)",
+   "PRICE (line 242, immutable)",
+   "MAX_PER_WALLET (line 243, immutable)",
+   "_base (line 244)",
+   "deployer (line 245, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only. `deployer` (MiFrensGenesis.sol:245) is fixed to the deploying address and is immutable, so every deployer-gated setter in this file is permanently bound to it and can never be rotated or renounced. The art cap is forced below the badge id range by the check at `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:239), so MiFren ids and Liquidatoor ids cannot collide. DERIVED: no function in the file writes `GENESIS_SUPPLY`, `MAX_SUPPLY`, `PRICE` or `MAX_PER_WALLET` after construction (they are immutable).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 249,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert ZeroAddress(); (MiFrensGenesis.sol:250)",
+  "reads": [
+   "deployer (line 250, immutable)",
+   "registry (line 251)"
+  ],
+  "writes": [
+   "registry (line 253)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Open to the deployer exactly once: the second call reverts on the non-zero `registry` (MiFrensGenesis.sol:251) test, so the summon target is write-once. Until it runs, `custodyTransfer` (MiFrensGenesis.sol:414) and the registry half of the gate at `registry` (MiFrensGenesis.sol:326) are unreachable, and `igniteCauldron` (MiFrensGenesis.sol:575) reverts on the zero `registry` (MiFrensGenesis.sol:576) and refuses to ignite.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 262,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "finalized (line 263)",
+   "cancelled (line 264)",
+   "minted (line 266)",
+   "GENESIS_SUPPLY (line 266, immutable)",
+   "PRICE (line 267, immutable)",
+   "MAX_PER_WALLET (line 268, immutable)",
+   "minted (line 274)"
+  ],
+  "writes": [
+   "paid (line 270)",
+   "revealed (line 278)",
+   "minted (line 282)"
+  ],
+  "value": "receives native - exact `msg.value` required (line 267)",
+  "edges": [
+   "ERC721.balanceOf (MiFrensGenesis.sol:268), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless while the presale is open: blocked once `finalized` (MiFrensGenesis.sol:263) or `cancelled` (MiFrensGenesis.sol:264) is set. Supply is capped at `GENESIS_SUPPLY` (MiFrensGenesis.sol:266) - not MAX_SUPPLY - and per-caller at `MAX_PER_WALLET` (MiFrensGenesis.sol:268), measured on current `balanceOf` (MiFrensGenesis.sol:268) rather than on lifetime purchases. Each id is marked `revealed` (MiFrensGenesis.sol:278) before it is minted, so the OG tranche never rolls a rarity. `_mint` (MiFrensGenesis.sol:279) re-enters this contract's `_update` (MiFrensGenesis.sol:647) override, where the dividend ping is skipped because from is zero.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 289,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:290)",
+  "reads": [
+   "deployer (line 290, immutable)",
+   "finalized (line 291)",
+   "cancelled (line 292)"
+  ],
+  "writes": [
+   "cancelled (line 293)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only and one-way: nothing in the file clears `cancelled` (MiFrensGenesis.sol:293), so after this call `mint` (MiFrensGenesis.sol:262) is permanently dead and only `refund` (MiFrensGenesis.sol:300) runs. It is refused after ignition by the `finalized` test (MiFrensGenesis.sol:291). DERIVED: `cancelled` is written on exactly one line in the file.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 300,
+  "authority": "anyone (pays out only to a caller with a recorded balance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "cancelled (line 301)",
+   "paid (line 302)"
+  ],
+  "writes": [
+   "paid (line 304)"
+  ],
+  "value": "sends native to `msg.sender` (line 305)",
+  "edges": [
+   "msg.sender.call (MiFrensGenesis.sol:305), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Only after the deployer sets `cancelled` (MiFrensGenesis.sol:301). Pays back exactly the caller's recorded `paid` (MiFrensGenesis.sol:302) balance, which is zeroed at `paid` (MiFrensGenesis.sol:304) before the external send, so a re-entering receiver finds nothing left; the OZ `nonReentrant` guard on the declaration (MiFrensGenesis.sol:300) blocks re-entry as well. The NFTs already minted are not burned, so the refunded ETH and the tokens both survive the cancel.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 315,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "minted (line 316)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View. Counts genesis mints written at `minted` (MiFrensGenesis.sol:282) plus volume mints written at `minted` (MiFrensGenesis.sol:478); Liquidatoor badges are not included because they increment `liquidatorMinted` (MiFrensGenesis.sol:379) instead. Burns via `burnFromVault` (MiFrensGenesis.sol:545) never decrement it. DERIVED: those are the only two writes to the counter in the file.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 320,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_SUPPLY (line 321, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of the immutable art cap set in the constructor at `MAX_SUPPLY` (MiFrensGenesis.sol:241). It bounds only the volume tranche check at `MAX_SUPPLY` (MiFrensGenesis.sol:476).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 325,
+  "authority": "internal (callers: setMinter, setVault, setDividend)",
+  "authority_gate_quote": "if (msg.sender != deployer && msg.sender != address(registry)) revert NotAuthorized(); (MiFrensGenesis.sol:326)",
+  "reads": [
+   "deployer (line 326, immutable)",
+   "registry (line 326)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Applied to `setMinter` (MiFrensGenesis.sol:333), `setVault` (MiFrensGenesis.sol:338) and `setDividend` (MiFrensGenesis.sol:343). Both holders are permanent: `deployer` (MiFrensGenesis.sol:245) is immutable and `registry` (MiFrensGenesis.sol:253) is write-once, so this gate cannot be rotated, renounced or dead-ended. DERIVED: no other function in the file writes either slot.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 333,
+  "authority": "deployer or registry",
+  "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:333)",
+  "reads": [],
+  "writes": [
+   "minter (line 334)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Re-settable with no zero check, so the volume-mint right at `minter` (MiFrensGenesis.sol:475) can be moved to any address at any time, including after ignition.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 338,
+  "authority": "deployer or registry",
+  "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:338)",
+  "reads": [],
+  "writes": [
+   "vault (line 339)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Grants the burn right checked at `vault` (MiFrensGenesis.sol:546); re-settable per iteration, again with no zero check.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 343,
+  "authority": "deployer or registry",
+  "authority_gate_quote": "external onlyDeployerOrRegistry (MiFrensGenesis.sol:343)",
+  "reads": [],
+  "writes": [
+   "dividend (line 344)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Gate held by the modifier at `onlyDeployerOrRegistry` (MiFrensGenesis.sol:325). Sets the address pinged on every non-mint transfer at `dividend` (MiFrensGenesis.sol:693); setting it to zero silently disables the enchantment break.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 351,
+  "authority": "deployer, registry, or the wired minter (the volume hook)",
+  "authority_gate_quote": "if (msg.sender != deployer && msg.sender != address(registry) && msg.sender != minter) revert NotAuthorized(); (MiFrensGenesis.sol:352)",
+  "reads": [
+   "deployer (line 352, immutable)",
+   "registry (line 352)",
+   "minter (line 352)"
+  ],
+  "writes": [
+   "liquidatorMinter (line 353)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Three holders, the third of which is itself settable: whoever holds `minter` (MiFrensGenesis.sol:352) can hand the badge-mint right on. Confers the only authority accepted at `liquidatorMinter` (MiFrensGenesis.sol:378).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 357,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:358)",
+  "reads": [
+   "deployer (line 358, immutable)"
+  ],
+  "writes": [
+   "liquidatorURI (line 359)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only metadata base used by the badge branch of `liquidatorURI` (MiFrensGenesis.sol:628).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 365,
+  "authority": "liquidatorMinter (the wired PerpEngine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensGenesis._mintLiquidator (MiFrensGenesis.sol:366), TRUSTED, in-cluster"
+  ],
+  "reachability": "Thin wrapper; the authority check lives in the callee at `liquidatorMinter` (MiFrensGenesis.sol:378). Passes an empty stats struct so the `_liqStats` write (MiFrensGenesis.sol:382) is skipped.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 370,
+  "authority": "liquidatorMinter (the wired PerpEngine)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensGenesis._mintLiquidator (MiFrensGenesis.sol:374), TRUSTED, in-cluster"
+  ],
+  "reachability": "Same gate as the bare variant, in the callee at `liquidatorMinter` (MiFrensGenesis.sol:378); the caller-supplied stats are recorded verbatim at `_liqStats` (MiFrensGenesis.sol:382) with no validation of victim, size or price.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 377,
+  "authority": "internal (callers: mintLiquidator, mintLiquidatorWithStats)",
+  "authority_gate_quote": "if (msg.sender != liquidatorMinter) revert OnlyLiquidatorMinter(); (MiFrensGenesis.sol:378)",
+  "reads": [
+   "liquidatorMinter (line 378)",
+   "LIQUIDATOR_ID_BASE (line 379, constant)",
+   "liquidatorMinted (line 379)"
+  ],
+  "writes": [
+   "liquidatorMinted (line 379)",
+   "isLiquidatoor (line 380)",
+   "_liqStats (line 382)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Badge ids are `LIQUIDATOR_ID_BASE` plus a counter (MiFrensGenesis.sol:379) and are uncapped - nothing here compares against `MAX_SUPPLY` (MiFrensGenesis.sol:476). Because the constructor refuses a cap at or above `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:239), badge ids can never overlap art ids. Each badge is a full ERC721Votes token, so it carries a vote through the self-delegation at `_delegate` (MiFrensGenesis.sol:660). The ERC721 mint itself happens at `_mint` (MiFrensGenesis.sol:383), which re-enters the `_update` override (MiFrensGenesis.sol:647).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 388,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_liqStats (line 389)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of whatever the badge minter recorded at `_liqStats` (MiFrensGenesis.sol:382); returns a zeroed struct for ids that were minted through the bare `mintLiquidator` (MiFrensGenesis.sol:365) path or that are not badges at all.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 393,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:394)",
+  "reads": [
+   "deployer (line 394, immutable)"
+  ],
+  "writes": [
+   "liquidatorRenderer (line 395)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only. Points the badge branch of `tokenURI` (MiFrensGenesis.sol:626) at an arbitrary contract whose code is called on every badge metadata read.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 399,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "isLiquidatoor (line 400)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View over the flag written at `isLiquidatoor` (MiFrensGenesis.sol:380).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 414,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != address(registry)) revert NotAuthorized(); (MiFrensGenesis.sol:415)",
+  "reads": [
+   "registry (line 415)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only move with no owner approval: `_transfer` (MiFrensGenesis.sol:416) checks only that `from` is the current owner. It routes through the `_update` override (MiFrensGenesis.sol:647), so it breaks the enchantment, moves the vote and sets `everMoved` (MiFrensGenesis.sol:702) exactly like a market transfer. No burn happens here, so the collection count is unchanged.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 423,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:424)",
+  "reads": [
+   "deployer (line 424, immutable)"
+  ],
+  "writes": [
+   "finalizer (line 425)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only. Writing a non-zero `finalizer` (MiFrensGenesis.sol:425) converts ignition from permissionless to single-address, enforced at `finalizer` (MiFrensGenesis.sol:581); it can be set back to zero at any time before ignition.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 429,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:432)",
+  "reads": [
+   "deployer (line 432, immutable)"
+  ],
+  "writes": [
+   "mode (line 433)",
+   "renderer (line 434)",
+   "_base (line 435)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only, unlimited re-settable. An empty string leaves `_base` (MiFrensGenesis.sol:435) untouched, but `mode` (MiFrensGenesis.sol:433) and `renderer` (MiFrensGenesis.sol:434) are always overwritten, so passing a zero renderer with Renderer mode falls back to the baseURI branch at `renderer` (MiFrensGenesis.sol:633).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 439,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:440)",
+  "reads": [
+   "deployer (line 440, immutable)"
+  ],
+  "writes": [
+   "rarityCumBps (line 442)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only. The require at `cum` (MiFrensGenesis.sol:441) enforces ascending cumulative bps ending at 10000, but nothing pins the odds at reveal time: a token minted under one ladder is rolled against whatever `rarityCumBps` (MiFrensGenesis.sol:553) holds when `_reveal` runs.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 446,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:447)",
+  "reads": [
+   "deployer (line 447, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only, capped at 10 percent by the require at `bps` (MiFrensGenesis.sol:448). The receiver and rate land in the inherited ERC2981 storage through `_setDefaultRoyalty` (MiFrensGenesis.sol:449), which this file never reads back.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 455,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "transferValidator (line 456)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of the slot written at `transferValidator` (MiFrensGenesis.sol:468) and consulted on every move at `transferValidator` (MiFrensGenesis.sol:654).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 460,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure constant pair advertising the validator entry point; it returns the selector of `validateTransfer` (MiFrensGenesis.sol:461) and reads no state.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 465,
+  "authority": "deployer",
+  "authority_gate_quote": "if (msg.sender != deployer) revert NotAuthorized(); (MiFrensGenesis.sol:466)",
+  "reads": [
+   "transferValidator (line 467)"
+  ],
+  "writes": [
+   "transferValidator (line 468)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployer-only and freely re-settable, including to zero. A non-zero value makes every mint, transfer and burn call out to that address first at `validateTransfer` (MiFrensGenesis.sol:656), so a validator that reverts halts the whole collection - including the vault burn at `_burn` (MiFrensGenesis.sol:547) and the registry move at `_transfer` (MiFrensGenesis.sol:416). DERIVED: `_update` is the single ERC721 chokepoint, and the validator call precedes the super call.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 474,
+  "authority": "minter (the wired volume hook)",
+  "authority_gate_quote": "if (msg.sender != minter) revert OnlyMinter(); (MiFrensGenesis.sol:475)",
+  "reads": [
+   "minter (line 475)",
+   "minted (line 476)",
+   "MAX_SUPPLY (line 476, immutable)",
+   "minted (line 477)"
+  ],
+  "writes": [
+   "minted (line 478)",
+   "mintBlockOf (line 480)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the address in `minter` (MiFrensGenesis.sol:475) reaches this, and only while `minted` is below `MAX_SUPPLY` (MiFrensGenesis.sol:476). The id is `minted` plus one (MiFrensGenesis.sol:477), so this tranche continues the same numbering the presale used and a never-sold-out genesis leaves ids that a volume mint will then occupy. Rarity is not rolled here: only the mint block is committed at `mintBlockOf` (MiFrensGenesis.sol:480). The token itself is created at `_mint` (MiFrensGenesis.sol:481).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 487,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensGenesis._reveal (MiFrensGenesis.sol:488), TRUSTED, in-cluster"
+  ],
+  "reachability": "Wrapper; the ownership gate is in the callee at `ownerOf` (MiFrensGenesis.sol:516). A genesis id is already flagged at `revealed` (MiFrensGenesis.sol:278) so the call is a no-op for the OG tranche.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 507,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensGenesis._reveal (MiFrensGenesis.sol:512), TRUSTED, in-cluster"
+  ],
+  "reachability": "Batch wrapper bounded at fifty ids by the check at `BadBatch` (MiFrensGenesis.sol:511); every element still passes the per-token ownership gate at `ownerOf` (MiFrensGenesis.sol:516), so one id the caller does not own reverts the whole batch.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 515,
+  "authority": "internal (callers: reveal, revealBatch); the caller must own the token",
+  "authority_gate_quote": "if (ownerOf(tokenId) != msg.sender) revert OnlyMinter(); (MiFrensGenesis.sol:516)",
+  "reads": [
+   "revealed (line 517)",
+   "mintBlockOf (line 518)"
+  ],
+  "writes": [
+   "mintBlockOf (line 533)",
+   "rarityOf (line 538)",
+   "revealed (line 539)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ERC721.ownerOf (MiFrensGenesis.sol:516), TRUSTED, out-of-cluster",
+   "MiFrensGenesis._rollRarity (MiFrensGenesis.sol:537), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reached from the single-token wrapper at `_reveal` (MiFrensGenesis.sol:488) or the batch wrapper at `_reveal` (MiFrensGenesis.sol:512). Reverts while `block.number` is not past the committed block (MiFrensGenesis.sol:519); once the hash has aged out, it rewrites `mintBlockOf` (MiFrensGenesis.sol:533) and returns without setting `revealed`, so the token stays revealable and the caller must come back. The seed mixes only the block hash, the id and this contract's address at `_rollRarity` (MiFrensGenesis.sol:537), all known to the caller once the block is mined. DERIVED: the re-anchor branch is the one path that writes state and still leaves the token unrevealed.",
+  "observations": [
+   "comment at `keeper` (MiFrensGenesis.sol:531) says the holder or a keeper can call reveal again after a re-anchor; code at `ownerOf` (MiFrensGenesis.sol:516) rejects every caller that is not the current owner, so no keeper can"
+  ]
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 545,
+  "authority": "vault",
+  "authority_gate_quote": "if (msg.sender != vault) revert OnlyVault(); (MiFrensGenesis.sol:546)",
+  "reads": [
+   "vault (line 546)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the address wired at `vault` (MiFrensGenesis.sol:339). The burn does not touch `minted` (MiFrensGenesis.sol:478), so the counter that gates new mints is monotonic and a burned id is never re-issued; the ERC721 balance and the counter therefore diverge by exactly the number of burns. DERIVED: no line in the file decrements the counter.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 550,
+  "authority": "internal (callers: _reveal)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "rarityCumBps (line 553)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called only from the reveal path at `_rollRarity` (MiFrensGenesis.sol:537). Walks the four cumulative buckets at `rarityCumBps` (MiFrensGenesis.sol:553) and falls through to tier zero, so a ladder whose last entry is below 10000 silently returns the common tier.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 575,
+  "authority": "anyone, unless a finalizer is wired - then only that address",
+  "authority_gate_quote": "if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized(); (MiFrensGenesis.sol:581)",
+  "reads": [
+   "registry (line 576)",
+   "finalized (line 577)",
+   "minted (line 578)",
+   "GENESIS_SUPPLY (line 578, immutable)",
+   "finalizer (line 581)"
+  ],
+  "writes": [
+   "finalized (line 583)"
+  ],
+  "value": "sends native to `registry` (line 585)",
+  "edges": [
+   "IRegistrySummon.summon (MiFrensGenesis.sol:585), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "One-shot: `finalized` (MiFrensGenesis.sol:583) is set before the external call and is never cleared, and the OZ `nonReentrant` guard on the declaration (MiFrensGenesis.sol:575) blocks re-entry. It forwards the full `balance` (MiFrensGenesis.sol:584), which is every ETH `mint` collected, to a registry address that the deployer chose - there is no other withdrawal path in the file. The sellout test reads the same `minted` (MiFrensGenesis.sol:578) counter that volume mints increment. Setting it also permanently blocks `cancelPresale` (MiFrensGenesis.sol:289) and therefore `refund` (MiFrensGenesis.sol:300).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 594,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "minted (line 595)",
+   "GENESIS_SUPPLY (line 595, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View mirroring the ignition condition at `GENESIS_SUPPLY` (MiFrensGenesis.sol:578).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 599,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "minted (line 600)",
+   "GENESIS_SUPPLY (line 600, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View. Saturates at zero rather than underflowing when `minted` (MiFrensGenesis.sol:600) has passed the genesis cap via volume mints.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 610,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "GENESIS_SUPPLY (line 611, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure id comparison against the immutable `GENESIS_SUPPLY` (MiFrensGenesis.sol:611); id zero is excluded. Badge ids start at `LIQUIDATOR_ID_BASE` (MiFrensGenesis.sol:379) and so are never genesis.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 617,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensGenesis.isGenesis (MiFrensGenesis.sol:618), TRUSTED, in-cluster"
+  ],
+  "reachability": "View helper over `isGenesis` (MiFrensGenesis.sol:610).",
+  "observations": [
+   "comment at `rarity` (MiFrensGenesis.sol:615) says the non-genesis branch reports the rolled rarity tier; code at `isGenesis` (MiFrensGenesis.sol:618) returns a fixed string for every non-genesis id and never reads `rarityOf` (MiFrensGenesis.sol:538)"
+  ]
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 621,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "isLiquidatoor (line 624)",
+   "liquidatorRenderer (line 625)",
+   "liquidatorURI (line 628)",
+   "GENESIS_SUPPLY (line 632, immutable)",
+   "revealed (line 632)",
+   "unrevealedURI (line 632)",
+   "mode (line 633)",
+   "renderer (line 633)",
+   "_base (line 636)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICollectionRenderer.tokenURI (MiFrensGenesis.sol:626), UNTRUSTED, out-of-cluster",
+   "ICollectionRenderer.tokenURI (MiFrensGenesis.sol:634), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "View, but it calls out to two deployer-settable contracts: the badge renderer at `liquidatorRenderer` (MiFrensGenesis.sol:625) and the art renderer at `renderer` (MiFrensGenesis.sol:633). Reverts for an unowned id at `_requireOwned` (MiFrensGenesis.sol:622). Only ids above `GENESIS_SUPPLY` (MiFrensGenesis.sol:632) can show the placeholder, so an unrevealed genesis id is impossible by construction. Both string branches concatenate the id through `toString` (MiFrensGenesis.sol:628) and `toString` (MiFrensGenesis.sol:636).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 647,
+  "authority": "internal (callers: ERC721 _mint, _burn, _transfer and the public transfer entry points)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "transferValidator (line 654)",
+   "dividend (line 693)",
+   "GAS_DIVIDEND_MIN (line 694, constant)",
+   "GAS_DIVIDEND_FWD (line 695, constant)",
+   "GENESIS_SUPPLY (line 701, immutable)",
+   "everMoved (line 701)"
+  ],
+  "writes": [
+   "everMoved (line 702)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "ITransferValidator.validateTransfer (MiFrensGenesis.sol:656), UNTRUSTED, out-of-cluster",
+   "ERC721._update (MiFrensGenesis.sol:658), TRUSTED, out-of-cluster",
+   "IMiFrensDividendHook.onMiFrenTransfer (MiFrensGenesis.sol:695), UNTRUSTED, in-cluster"
+  ],
+  "reachability": "The single chokepoint for every id movement in this collection, reached from `_mint` (MiFrensGenesis.sol:279), `_mint` (MiFrensGenesis.sol:383), `_mint` (MiFrensGenesis.sol:481), `_transfer` (MiFrensGenesis.sol:416), `_burn` (MiFrensGenesis.sol:547) and the inherited public transfer functions. Order is: the external validator first at `validateTransfer` (MiFrensGenesis.sol:656), then the ERC721 state change at `_update` (MiFrensGenesis.sol:658), then the `delegates` read (MiFrensGenesis.sol:659) and self-delegation at `_delegate` (MiFrensGenesis.sol:660), then the dividend ping, then the `everMoved` write (MiFrensGenesis.sol:702) - so the dividend is called after ownership has already moved. A caller who leaves less than `GAS_DIVIDEND_MIN` (MiFrensGenesis.sol:694) is reverted rather than allowed to starve the child call, and the child gets a fixed `GAS_DIVIDEND_FWD` stipend (MiFrensGenesis.sol:695) inside a try/catch, so a reverting dividend cannot brick a transfer. The `everMoved` flag is set only for ids at or below `GENESIS_SUPPLY` (MiFrensGenesis.sol:701).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 707,
+  "authority": "internal (callers: ERC721 batch-mint plumbing)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ERC721._increaseBalance (MiFrensGenesis.sol:711), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Diamond resolution only; it forwards to the inherited implementation at `_increaseBalance` (MiFrensGenesis.sol:711) and no code in this file calls it directly. DERIVED: the identifier appears nowhere else in the file.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensGenesis",
+  "line": 715,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ERC2981.supportsInterface (MiFrensGenesis.sol:716), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "View. Adds the creator-token id to whatever the inherited chain answers at `supportsInterface` (MiFrensGenesis.sol:716).",
+  "observations": []
+ }
+]

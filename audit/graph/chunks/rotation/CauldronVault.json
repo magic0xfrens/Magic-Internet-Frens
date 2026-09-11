@@ -1,0 +1,140 @@
+[
+ {
+  "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+  "line": 7,
+  "authority": "anyone (declaration only; the implementation is whatever collection address the vault was constructed with)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. The vault calls it once, to check the redeemer really owns the id: `ownerOf` (CauldronVault.sol:97), inside `redeem` (CauldronVault.sol:94). The target is the immutable `collection` (CauldronVault.sol:34) fixed at construction (CauldronVault.sol:66); in production that address comes from `deployVault` (CauldronRegistry.sol:1189) or the sibling path at `generationVault` (CauldronRegistry.sol:1166). DERIVED: no other call site for this selector exists inside the cluster.",
+  "observations": []
+ },
+ {
+  "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+  "line": 8,
+  "authority": "anyone (declaration only; the implementation is whatever collection address the vault was constructed with)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called from `totalMinted` (CauldronVault.sol:56) inside `outstanding` (CauldronVault.sol:55), which is the denominator of every floor figure the vault reports and the supply count `crystallizeCollection` reads through `outstanding` (PoolOps.sol:1363). The callee is not `view`-enforced by the vault beyond the interface's own `view` marker, so a collection that reverts here makes `floorPerNFT` (CauldronVault.sol:77) and `redeem` (CauldronVault.sol:94) revert too. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+  "line": 9,
+  "authority": "anyone (declaration only; in practice the vault is the only caller and the collection must gate it to the vault)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Invoked at `burnFromVault` (CauldronVault.sol:107) after the vault has already incremented `redeemed` (CauldronVault.sol:106) and before it pays out at `call` (CauldronVault.sol:109). Reaching it needs `closed` to be false (CauldronVault.sol:95) and a non-zero per-NFT `amount` (CauldronVault.sol:101). DERIVED: the burn authority lives on the collection side, not here.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 55,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "floorOffset (line 57, immutable)",
+   "redeemed (line 58)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IBurnableCollection.totalMinted (CauldronVault.sol:56), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view, no gate. It is the denominator for `floorPerNFT` (CauldronVault.sol:77) and for the payout `amount` (CauldronVault.sol:100), and it is read cross-contract at teardown by `outstanding` (PoolOps.sol:1363) to size the dying collection's entitlement. Both subtractions are saturating (`eligible` at CauldronVault.sol:57 and the ternary at CauldronVault.sol:58), so a collection whose `totalMinted` sits below `floorOffset` (CauldronVault.sol:57) reads as zero rather than reverting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 65,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "collection (line 66, immutable)",
+   "registry (line 67, immutable)",
+   "floorOffset (line 68, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. In production the deployer is the factory: `deployVault` (CauldronRegistry.sol:1189) on the MiFrens continuation path, and the sibling assignment at `generationVault` (CauldronRegistry.sol:1166) on the fresh-collection path. All three fields are immutable, so the collection address, the registry that may `close` (CauldronVault.sol:116) the vault, and the genesis tranche boundary can never be changed afterwards. No zero-address or code-length check is performed on `collection` (CauldronVault.sol:66) or on `registry` (CauldronVault.sol:67).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 72,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "`receive` receives native (line 72)",
+  "edges": [],
+  "reachability": "Bare payable fallback-style entry: any address may push ETH in, and the only effect is the `Deposited` event (CauldronVault.sol:73). Nothing here checks `closed` (CauldronVault.sol:51), so a vault already closed by `close` (CauldronVault.sol:116) still accepts deposits that no `redeem` (CauldronVault.sol:94) can ever pay out. Every wei that arrives raises `floorPerNFT` (CauldronVault.sol:77), which divides this contract's `balance` by the outstanding count (CauldronVault.sol:80).",
+  "observations": [
+   "comment at `hook` (CauldronVault.sol:71) says fees flow in here from the hook; code at `setVault` (CauldronRegistry.sol:1171) wires the hook's vault to address(0) on the fresh-collection path and again at `setVault` (CauldronRegistry.sol:1195) on the continuation path, so the hook never sends here"
+  ]
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 77,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronVault.outstanding (CauldronVault.sol:78), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view. Divides this contract's own native balance by `outstanding` (CauldronVault.sol:78); returns 0 when `n` is zero (CauldronVault.sol:79) rather than dividing by zero. The division at `balance` (CauldronVault.sol:80) floors, so the remainder stays in the vault and accrues to the survivors.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 94,
+  "authority": "anyone (must own the NFT)",
+  "authority_gate_quote": "if (collection.ownerOf(tokenId) != msg.sender) revert NotOwner(); (CauldronVault.sol:97)",
+  "reads": [
+   "closed (line 95)",
+   "floorOffset (line 96, immutable)",
+   "collection (line 97, immutable)"
+  ],
+  "writes": [
+   "redeemed (line 106)"
+  ],
+  "value": "`call` sends native to the redeemer (line 109)",
+  "edges": [
+   "IBurnableCollection.ownerOf (CauldronVault.sol:97), TRUSTED, in-cluster",
+   "CauldronVault.outstanding (CauldronVault.sol:99), TRUSTED, in-cluster",
+   "IBurnableCollection.burnFromVault (CauldronVault.sol:107), TRUSTED, in-cluster",
+   "msg.sender.call (CauldronVault.sol:109), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "External, `nonReentrant`, callable by the NFT's owner. Three state conditions must hold: the vault is not `closed` (CauldronVault.sol:95), the id is above the genesis tranche `floorOffset` (CauldronVault.sol:96), and the computed `amount` is non-zero (CauldronVault.sol:101). Effects precede the external calls: `redeemed` is incremented (CauldronVault.sol:106) and the NFT burned at `burnFromVault` (CauldronVault.sol:107) before the payout at `call` (CauldronVault.sol:109), and the OpenZeppelin `nonReentrant` guard covers the whole body. With the shipped unified-floor wiring the vault holds no ETH, so the zero branch at `UnifiedFloorActive` (CauldronVault.sol:102) is the reachable outcome.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronVault",
+  "line": 116,
+  "authority": "registry (the immutable address fixed at construction)",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronVault.sol:117)",
+  "reads": [
+   "registry (line 117, immutable)"
+  ],
+  "writes": [
+   "closed (line 118)"
+  ],
+  "value": "`registry` receives the whole native balance (line 121)",
+  "edges": [
+   "registry.call (CauldronVault.sol:121), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached during relaunch: `seedFunding` calls `close` on the dying generation's vault inside a try/catch (PoolOps.sol:1013), and that library runs under the registry's own delegatecall so `msg.sender` at the gate (CauldronVault.sol:117) is the registry. `closed` is set before the transfer (CauldronVault.sol:118), the sweep is the entire `balance` (CauldronVault.sol:119), and a recipient that rejects the ETH reverts at `TransferFailed` (CauldronVault.sol:122) \u2014 swallowed by the try/catch around `close` (PoolOps.sol:1013). Idempotent in effect: a second call leaves `swept` at zero and skips the transfer (CauldronVault.sol:120).",
+  "observations": []
+ }
+]

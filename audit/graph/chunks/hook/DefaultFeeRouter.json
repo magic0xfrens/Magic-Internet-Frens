@@ -1,0 +1,17 @@
+[
+ {
+  "contract": "DefaultFeeRouter",
+  "line": 21,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "BPS (line 26, constant)",
+   "BPS (line 28, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "External `pure` (DefaultFeeRouter.sol:23) with no storage and no calls, so it is callable by anyone and can only return numbers. It is reached from the hook's fee path only if the timelock points `feeRouter` (CauldronHook.sol:1277) at this contract; the hook then calls it inside a try/catch at `route` (CauldronHook.sol:1279) and discards the result unless the three parts sum exactly to the fee. `toGuild` (DefaultFeeRouter.sol:26) and `toFloor` (DefaultFeeRouter.sol:28) are floor-divided by the constant, and `toRelaunch` (DefaultFeeRouter.sol:29) takes the remainder so the sum is exact by construction.",
+  "observations": []
+ }
+]

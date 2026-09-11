@@ -1,0 +1,8 @@
+{
+ "deployBrew((string,string,address,address,uint256,uint8,string,address,address,uint96))": "19f0024c",
+ "deployVault(address,address,uint256)": "a295887a",
+ "liquidatorRenderer()": "9cfb3a16",
+ "owner()": "8da5cb5b",
+ "setLiquidatorRenderer(address)": "f67f06dd",
+ "transferOwnership(address)": "f2fde38b"
+}

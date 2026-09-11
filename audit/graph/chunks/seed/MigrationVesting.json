@@ -1,0 +1,270 @@
+[
+ {
+  "contract": "MigrationVesting",
+  "line": 114,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MIN_WINDOW (line 120, constant)",
+   "MAX_WINDOW (line 120, constant)"
+  ],
+  "writes": [
+   "registry (line 121, immutable)",
+   "vestWindow (line 122)",
+   "stakerOracle (line 123)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment. The initial window is bounded by the same constants the setter uses, at `MIN_WINDOW` (MigrationVesting.sol:120) and `MAX_WINDOW` (MigrationVesting.sol:120). `registry` (MigrationVesting.sol:121) is immutable, so the escrow can never be re-pointed at a different registry; `stakerOracle` (MigrationVesting.sol:123) and `vestWindow` (MigrationVesting.sol:122) both remain owner-tunable. Ownership is handed to `_owner` (MigrationVesting.sol:119), documented as the timelock at `Governance` (MigrationVesting.sol:111); since the base is OpenZeppelin Ownable the owner can also renounce, which would freeze both setters.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 135,
+  "authority": "anyone (a holder migrating their own balance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE at this frame; `_pullAndVest` (line 141) pulls the dead-gen token in and `_release` (line 144) pays the live token out",
+  "edges": [
+   "MigrationVesting._pullAndVest (MigrationVesting.sol:141), TRUSTED, in-cluster",
+   "MigrationVesting._release (MigrationVesting.sol:144), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless self-service: it always migrates `msg.sender`'s own balance because the holder argument is fixed at `_pullAndVest` (MigrationVesting.sol:141). Preconditions are an allowance to this escrow on the dead token, checked implicitly at `transferFrom` (MigrationVesting.sol:178), and a non-zero amount at `ZeroAmount` (MigrationVesting.sol:140). The trailing `_release` (MigrationVesting.sol:144) is what makes an instant-tier migration a single transaction; for a vesting grant it moves nothing, and unlike the strict path at `NothingToClaim` (MigrationVesting.sol:208) it does not revert when nothing is due. Reentrancy is blocked by `nonReentrant` (MigrationVesting.sol:137), which matters because the payout at `transfer` (MigrationVesting.sol:230) calls an arbitrary token.",
+  "observations": [
+   "comment at `escrowed` (MigrationVesting.sol:134) says the return equals `amount` 1:1; code at `delta` (MigrationVesting.sol:187) lowers it to the measured balance delta whenever the delta is smaller"
+  ]
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 153,
+  "authority": "anyone (keeper)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 156, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE at this frame; each iteration's pull and mint happen inside `_pullAndVest` (line 162)",
+  "edges": [
+   "IVestingRegistry.generationToken (MigrationVesting.sol:156), TRUSTED, in-cluster",
+   "IERC20.balanceOf (MigrationVesting.sol:158), UNTRUSTED, out-of-cluster",
+   "IERC20.allowance (MigrationVesting.sol:159), UNTRUSTED, out-of-cluster",
+   "MigrationVesting._pullAndVest (MigrationVesting.sol:162), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless. Anyone can book a grant for any address in `holders` (MigrationVesting.sol:153) \u2014 the only consent is that address's ERC20 allowance, read at `allowance` (MigrationVesting.sol:159) and min-ed against the balance at `amt` (MigrationVesting.sol:160). The loop is bounded only by the caller-supplied array length at `holders` (MigrationVesting.sol:154), and `generationToken` (MigrationVesting.sol:156) is re-read on every iteration rather than hoisted. Grants are booked but not swept: the comment at `claimFor` (MigrationVesting.sol:152) points holders at the separate claim entry points.",
+  "observations": [
+   "comment at `skipped` (MigrationVesting.sol:150) says a holder with no balance or allowance is skipped and the batch never reverts; code at `ZeroAmount` (MigrationVesting.sol:188) reverts the whole loop from inside `_pullAndVest` (MigrationVesting.sol:169) when the measured delta is zero, and `NoBalanceOrAllowance` (MigrationVesting.sol:178) reverts it when the pull returns false"
+  ]
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 169,
+  "authority": "internal (callers: startVest, vestBatch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 173, immutable)",
+   "registry (line 180, immutable)",
+   "registry (line 181, immutable)",
+   "registry (line 184, immutable)",
+   "vestWindow (line 190)",
+   "_grants (line 191)"
+  ],
+  "writes": [
+   "_grants (line 191)"
+  ],
+  "value": "ERC20 pull of the dead-gen token from the holder at `transferFrom` (line 178); the live-gen token arrives from the registry's reserve at `claimByBurn` (line 184)",
+  "edges": [
+   "IVestingRegistry.generationToken (MigrationVesting.sol:173), TRUSTED, in-cluster",
+   "IERC20.transferFrom (MigrationVesting.sol:178), UNTRUSTED, out-of-cluster",
+   "IVestingRegistry.currentGeneration (MigrationVesting.sol:180), TRUSTED, in-cluster",
+   "IVestingRegistry.generationToken (MigrationVesting.sol:181), TRUSTED, in-cluster",
+   "IERC20.balanceOf (MigrationVesting.sol:183), UNTRUSTED, out-of-cluster",
+   "IVestingRegistry.claimByBurn (MigrationVesting.sol:184), TRUSTED, in-cluster",
+   "IERC20.balanceOf (MigrationVesting.sol:186), UNTRUSTED, out-of-cluster",
+   "MigrationVesting._isInstant (MigrationVesting.sol:190), TRUSTED, in-cluster"
+  ],
+  "reachability": "The only writer of grant state. Reached from `_pullAndVest` (MigrationVesting.sol:141) for the caller's own balance and from `_pullAndVest` (MigrationVesting.sol:162) for any approved address. Ordering is pull-then-migrate-then-book: the dead tokens land here at `transferFrom` (MigrationVesting.sol:178) before the registry burns them, and the credited amount is measured rather than trusted, by bracketing the call with `before` (MigrationVesting.sol:183) and `delta` (MigrationVesting.sol:186). The schedule is snapshotted at book time \u2014 `vestWindow` (MigrationVesting.sol:190) is copied into the grant, and the pinned `token` (MigrationVesting.sol:192) is the live token at this instant, so a later relaunch cannot repoint an existing grant. Each call PUSHES a new grant at `_grants` (MigrationVesting.sol:191), so the per-holder array length is caller-growable.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 206,
+  "authority": "anyone (pays only the caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transfer of each grant's pinned token to the caller, performed by `_release` (line 207)",
+  "edges": [
+   "MigrationVesting._release (MigrationVesting.sol:207), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless but self-directed: the beneficiary is fixed to `msg.sender` at `_release` (MigrationVesting.sol:207). Reverts with `NothingToClaim` (MigrationVesting.sol:208) when nothing is currently vested, which is the only difference from the silent release at `_release` (MigrationVesting.sol:144). Guarded by `nonReentrant` (MigrationVesting.sol:206) because the payout at `transfer` (MigrationVesting.sol:230) hands control to an arbitrary token.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 213,
+  "authority": "anyone (keeper; funds go to the named holder)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transfer of each grant's pinned token to the named holder, performed by `_release` (line 214)",
+  "edges": [
+   "MigrationVesting._release (MigrationVesting.sol:214), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless keeper convenience. The recipient is the `holder` (MigrationVesting.sol:214) argument, and `_release` (MigrationVesting.sol:221) pays that same address, so a caller can never redirect someone else's vested tokens. Reverts with `NothingToClaim` (MigrationVesting.sol:215) if the holder has nothing due, so a batch keeper must filter with `claimable` (MigrationVesting.sol:265) first.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 221,
+  "authority": "internal (callers: startVest, claim, claimFor)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants (line 222)",
+   "_grants.released (line 226)",
+   "_grants.token (line 230)",
+   "_grants.released (line 233)",
+   "_grants.total (line 233)"
+  ],
+  "writes": [
+   "_grants.released (line 228)",
+   "_grants (line 222)"
+  ],
+  "value": "ERC20 transfer of each grant's own pinned token to `holder` at `transfer` (line 230)",
+  "edges": [
+   "MigrationVesting._vestedOf (MigrationVesting.sol:225), TRUSTED, in-cluster",
+   "IERC20.transfer (MigrationVesting.sol:230), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached from `_release` (MigrationVesting.sol:144), `_release` (MigrationVesting.sol:207) and `_release` (MigrationVesting.sol:214); all three outer entries carry nonReentrant. Effects precede the interaction within each iteration: `released` (MigrationVesting.sol:228) is raised to the vested amount before the token call at `transfer` (MigrationVesting.sol:230), but the boolean return of that call is not checked. The loop is bounded by the holder's open-grant count, grown one entry per deposit at `_grants` (MigrationVesting.sol:191), and it prunes in place with a swap-pop at `gs` (MigrationVesting.sol:236) and `pop` (MigrationVesting.sol:237) \u2014 the index is only advanced in the else branch at `i` (MigrationVesting.sol:239), so the swapped-in element is re-examined. Grants holding different tokens are paid separately because the token is read per grant at `token` (MigrationVesting.sol:230).",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 245,
+  "authority": "internal (callers: _release, claimable, locked)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants.window (line 246)",
+   "_grants.total (line 246)",
+   "_grants.start (line 247)",
+   "_grants.window (line 248)",
+   "_grants.total (line 249)",
+   "_grants.window (line 249)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure schedule read over one grant, called at `_vestedOf` (MigrationVesting.sol:225), `_vestedOf` (MigrationVesting.sol:268) and `_vestedOf` (MigrationVesting.sol:276). A zero `window` (MigrationVesting.sol:246) means fully vested immediately \u2014 the instant tier. Otherwise it is linear from the deposit timestamp at `start` (MigrationVesting.sol:247), saturating at `window` (MigrationVesting.sol:248). The pro-rata division at `total` (MigrationVesting.sol:249) truncates, so rounding always favours the escrow over the beneficiary until the window closes, at which point the full `total` (MigrationVesting.sol:248) is returned.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 252,
+  "authority": "internal (callers: _pullAndVest)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "stakerOracle (line 253)",
+   "stakerOracle (line 256)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IStakerOracle.isInstant (MigrationVesting.sol:256), UNTRUSTED, in-cluster"
+  ],
+  "reachability": "Called once per deposit at `_isInstant` (MigrationVesting.sol:190) to decide whether the new grant gets a zero window. An unset oracle short-circuits to false at `stakerOracle` (MigrationVesting.sol:253), so the safe default is that everybody vests. The external call at `isInstant` (MigrationVesting.sol:256) goes to an owner-controlled address and is wrapped in try/catch, so a revert is read as not-instant at `catch` (MigrationVesting.sol:257); an oracle that returns true for everyone would make every grant instant. DERIVED: the try/catch swallows an out-of-gas from a griefing oracle only to the extent the 63/64 rule leaves gas to continue.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 265,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants (line 266)",
+   "_grants.released (line 268)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MigrationVesting._vestedOf (MigrationVesting.sol:268), TRUSTED, in-cluster"
+  ],
+  "reachability": "Read-only aggregate over one holder's open grants, iterating `gs` (MigrationVesting.sol:267) with the same caller-growable bound the release loop uses at `gs` (MigrationVesting.sol:223). It mirrors what a `claim` (MigrationVesting.sol:206) would move right now, summing vested-minus-released at `released` (MigrationVesting.sol:268). Drained grants are pruned by the release path, so this never counts a closed grant.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 273,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants (line 274)",
+   "_grants.total (line 276)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MigrationVesting._vestedOf (MigrationVesting.sol:276), TRUSTED, in-cluster"
+  ],
+  "reachability": "Read-only aggregate over the same array as `claimable` (MigrationVesting.sol:265), iterating at `gs` (MigrationVesting.sol:275). It reports total-minus-vested at `total` (MigrationVesting.sol:276), which counts the still-unvested portion INCLUDING amounts already released \u2014 it does not subtract `released` (MigrationVesting.sol:268) the way the claimable side does, because a released amount is by definition already vested.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 281,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants (line 282)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Length of the per-holder grant array at `_grants` (MigrationVesting.sol:282). It shrinks as grants are pruned at `pop` (MigrationVesting.sol:237), so it counts OPEN grants only and is the bound a caller needs before iterating `grantAt` (MigrationVesting.sol:286).",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 286,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_grants (line 287)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Indexed read of one open grant at `_grants` (MigrationVesting.sol:287); an out-of-range index reverts on the array bounds check. Because the release path prunes by swap-pop at `gs` (MigrationVesting.sol:236), indices are not stable across claims, so an off-chain reader must re-read `grantCount` (MigrationVesting.sol:281) between calls.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 296,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (MigrationVesting.sol:296)",
+  "reads": [
+   "MIN_WINDOW (line 297, constant)",
+   "MAX_WINDOW (line 297, constant)"
+  ],
+  "writes": [
+   "vestWindow (line 298)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, bounded on both sides at `MIN_WINDOW` (MigrationVesting.sol:297) and `MAX_WINDOW` (MigrationVesting.sol:297), so the owner can neither make vesting effectively instant nor stretch it past 14 days. It affects FUTURE grants only, because the value is snapshotted into each grant at `vestWindow` (MigrationVesting.sol:190). The owner is the OpenZeppelin Ownable owner set at `Ownable` (MigrationVesting.sol:119) and can be transferred or renounced.",
+  "observations": []
+ },
+ {
+  "contract": "MigrationVesting",
+  "line": 303,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (MigrationVesting.sol:303)",
+  "reads": [],
+  "writes": [
+   "stakerOracle (line 304)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and unbounded: any address, including zero, can be installed at `stakerOracle` (MigrationVesting.sol:304). It is the one knob that decides whether a new deposit vests at all, since `_isInstant` (MigrationVesting.sol:190) gives a zero window to anyone the oracle blesses. There is no timelock or event-delay here beyond whatever the owner contract imposes, and no validation that the target implements `isInstant` (MigrationVesting.sol:256) \u2014 a non-conforming address simply reverts into the catch and everybody vests.",
+  "observations": []
+ }
+]

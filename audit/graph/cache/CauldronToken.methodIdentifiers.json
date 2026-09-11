@@ -1,0 +1,16 @@
+{
+ "TOTAL_SUPPLY()": "902d55a5",
+ "allowance(address,address)": "dd62ed3e",
+ "approve(address,uint256)": "095ea7b3",
+ "balanceOf(address)": "70a08231",
+ "birthBlock()": "bba4b31e",
+ "burn(address,uint256)": "9dc29fac",
+ "decimals()": "313ce567",
+ "generation()": "17219522",
+ "name()": "06fdde03",
+ "registry()": "7b103999",
+ "symbol()": "95d89b41",
+ "totalSupply()": "18160ddd",
+ "transfer(address,uint256)": "a9059cbb",
+ "transferFrom(address,address,uint256)": "23b872dd"
+}

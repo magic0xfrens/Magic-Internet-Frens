@@ -1,0 +1,503 @@
+[
+ {
+  "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+  "line": 15,
+  "authority": "declaration only (no body); in-cluster callers are _play, openReady and playChurn, all reachable by anyone; the hook holds its own gate",
+  "authority_gate_quote": "if (_locked != 1) revert Reentrancy(); (CauldronGachaRouter.sol:178)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called at `commitCrystals` (CauldronGachaRouter.sol:326), `commitCrystals` (CauldronGachaRouter.sol:360) and `commitCrystals` (CauldronGachaRouter.sol:387). The router always passes `msg.sender` as the player, so it cannot credit a third party, and the size argument is whatever the router computed - a raw notional on the swap paths and a curve-unit figure on the ready path. The implementation and its authority check are out of cluster.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+  "line": 16,
+  "authority": "declaration only (no body); in-cluster callers are _play, openReady and playChurn",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called immediately after each commit at `resolveTickets` (CauldronGachaRouter.sol:327), `resolveTickets` (CauldronGachaRouter.sol:361) and `resolveTickets` (CauldronGachaRouter.sol:388), always bounded by the constant at `MAX_MINTS_PER_CALL` (CauldronGachaRouter.sol:327). Its return value is discarded on every call site.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+  "line": 17,
+  "authority": "declaration only (no body); in-cluster caller is openReady",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read once per call at `crystalsReady` (CauldronGachaRouter.sol:346) to size the batch, then clamped by the router.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+  "line": 18,
+  "authority": "declaration only (no body); in-cluster caller is openReady",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `costOfNextCrystals` (CauldronGachaRouter.sol:351); its result is treated as already being in the hook's curve unit and is divided by the buy weight to produce the play size at `playWei` (CauldronGachaRouter.sol:353).",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronHookGacha (declared in CauldronGachaRouter.sol)",
+  "line": 19,
+  "authority": "declaration only (no body); in-cluster caller is openReady",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `buyWeightBps` (CauldronGachaRouter.sol:352); a zero answer makes the router pass the raw credit through unscaled at `creditToOpen` (CauldronGachaRouter.sol:353).",
+  "observations": []
+ },
+ {
+  "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+  "line": 23,
+  "authority": "declaration only (no body); in-cluster caller is _key",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read on every swap path through `currentToken` (CauldronGachaRouter.sol:218) to build currency1 of the pool key, so the router follows the live generation with no rewiring.",
+  "observations": []
+ },
+ {
+  "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+  "line": 25,
+  "authority": "declaration only (no body); in-cluster caller is _quote",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `currentGeneration` (CauldronGachaRouter.sol:205) purely to index the quote lookup.",
+  "observations": []
+ },
+ {
+  "contract": "IRegistryCurrent (declared in CauldronGachaRouter.sol)",
+  "line": 29,
+  "authority": "declaration only (no body); in-cluster caller is _quote",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `generationQuote` (CauldronGachaRouter.sol:205). Its answer decides both the currency0 of the key at `_quote` (CauldronGachaRouter.sol:217) and, through the zero test, whether the router settles native or ERC20 at `isNative` (CauldronGachaRouter.sol:414).",
+  "observations": []
+ },
+ {
+  "contract": "IQuoteOracleView (declared in CauldronGachaRouter.sol)",
+  "line": 37,
+  "authority": "declaration only (no body); in-cluster caller is _playInCurveUnits",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called inside a try/catch at `usdPerRawUnit` (CauldronGachaRouter.sol:139) on an owner-settable address. A revert or a zero answer both fall back to the unconverted size at `playWei` (CauldronGachaRouter.sol:143), so the oracle can only ever reduce a player's odds, never block the play.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 99,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronGachaRouter.sol:99)",
+  "reads": [],
+  "writes": [
+   "oracle (line 100)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, freely re-settable, no zero check and no code check: the address lands in `oracle` (CauldronGachaRouter.sol:100) and is then called on every swap-path play at `usdPerRawUnit` (CauldronGachaRouter.sol:139). The owner slot is the OZ Ownable one, so it can also be transferred or renounced from outside this file.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 120,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:121), TRUSTED, in-cluster"
+  ],
+  "reachability": "View wrapper so a frontend can display the same number the chain will roll at `_playInCurveUnits` (CauldronGachaRouter.sol:326).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 136,
+  "authority": "internal (callers: playInCurveUnits, _play, playChurn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "oracle (line 137)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IQuoteOracleView.usdPerRawUnit (CauldronGachaRouter.sol:139), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:139), TRUSTED, in-cluster"
+  ],
+  "reachability": "With `oracle` (CauldronGachaRouter.sol:137) unset the size passes through unchanged. Otherwise the raw size is multiplied by the oracle's factor and divided by 1e18 at `f` (CauldronGachaRouter.sol:141), so the result is only in the hook's unit if the oracle's scaling matches; the quote asked for is the generation's own quote at `_quote` (CauldronGachaRouter.sol:139), not native ETH. Rounds down, and a zero factor is treated as `cannot judge` (CauldronGachaRouter.sol:140).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 177,
+  "authority": "internal (callers: play, playLiq, openReady, playChurn)",
+  "authority_gate_quote": "if (_locked != 1) revert Reentrancy(); (CauldronGachaRouter.sol:178)",
+  "reads": [
+   "_locked (line 178)"
+  ],
+  "writes": [
+   "_locked (line 179)",
+   "_locked (line 181)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Wraps all four external entry points. It is NOT applied to `unlockCallback` (CauldronGachaRouter.sol:398), which is reached re-entrantly from the pool manager while the flag is already set, so the guard admits that one nested frame by design.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 184,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "poolManager (line 187, immutable)",
+   "hook (line 188, immutable)",
+   "hookAddr (line 189, immutable)",
+   "registry (line 190, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only, with no zero checks on any of the four wired addresses. All four are immutable, so the pool manager, hook and registry cannot be re-pointed; only `oracle` (CauldronGachaRouter.sol:100) and the OZ owner are mutable afterwards. The owner comes from the constructor argument at `Ownable` (CauldronGachaRouter.sol:185).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 204,
+  "authority": "internal (callers: _key, _playInCurveUnits, playChurn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 205, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IRegistryCurrent.generationQuote (CauldronGachaRouter.sol:205), TRUSTED, in-cluster",
+   "IRegistryCurrent.currentGeneration (CauldronGachaRouter.sol:205), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two chained registry views on every call. The answer is re-read per call rather than cached, so a rotation that rewrites the generation's quote changes which asset `_pullQuote` (CauldronGachaRouter.sol:271) demands from the very next caller, and a play that is in flight in the same block can be pointed at a different pool than the sender expected. DERIVED: nothing in this file stores the quote.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 215,
+  "authority": "internal (callers: _play, unlockCallback, _churn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "POOL_FEE (line 219, constant)",
+   "TICK_SPACING (line 220, constant)",
+   "hookAddr (line 221, immutable)",
+   "registry (line 218, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:217), TRUSTED, in-cluster",
+   "IRegistryCurrent.currentToken (CauldronGachaRouter.sol:218), TRUSTED, in-cluster"
+  ],
+  "reachability": "Rebuilds the pool key from live registry state on every entry. The quote is placed in currency0 at `_quote` (CauldronGachaRouter.sol:217) and the iteration token in currency1 at `currentToken` (CauldronGachaRouter.sol:218) with no comparison between the two addresses, so the ordering rests entirely on the registry's own admission rule.",
+  "observations": [
+   "comment at `currency0` (CauldronGachaRouter.sol:210) states as an invariant that the quote always sorts into currency0; code at `Currency` (CauldronGachaRouter.sol:217) assigns the two currencies by role and never compares the addresses, so the property is enforced elsewhere, not here"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 233,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native when the generation's quote is native - declared `payable` (line 235)",
+  "edges": [
+   "CauldronGachaRouter._play (CauldronGachaRouter.sol:239), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless entry point guarded by `nonReentrant` (CauldronGachaRouter.sol:236). Passes an empty hint array, so no perp liquidation is attempted at `_play` (CauldronGachaRouter.sol:239).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 248,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native when the generation's quote is native - declared `payable` (line 257)",
+  "edges": [
+   "CauldronGachaRouter._play (CauldronGachaRouter.sol:261), TRUSTED, in-cluster"
+  ],
+  "reachability": "Same permissionless path as the plain play, guarded by `nonReentrant` (CauldronGachaRouter.sol:258); the caller-supplied hint list is forwarded untouched into the swap's hookData at `liqHints` (CauldronGachaRouter.sol:408). The array is unbounded here - only the hook limits how many hints it will process. DERIVED: no length check exists in this file.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 271,
+  "authority": "internal (callers: _play, playChurn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native `msg.value` on the native branch (line 274); ERC20 pull of `q` from the caller into this router (line 277)",
+  "edges": [
+   "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:277), TRUSTED, in-cluster"
+  ],
+  "reachability": "Enforces exactly one funding form: value with no `quoteIn` (CauldronGachaRouter.sol:273) when the quote is native, or an allowance pull with no value at `msg.value` (CauldronGachaRouter.sol:276) otherwise. It returns the REQUESTED amount at `quoteIn` (CauldronGachaRouter.sol:278) rather than a measured balance delta, so a fee-on-transfer quote would credit the player more than actually arrived. DERIVED: no balance is read before or after the pull.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 281,
+  "authority": "internal (callers: play, playLiq)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 301, immutable)",
+   "hook (line 326, immutable)",
+   "MAX_MINTS_PER_CALL (line 327, constant)"
+  ],
+  "writes": [],
+  "value": "ERC20 pull of the iteration token from the caller at `_safeTransferFrom` (line 298); ERC20 refund of the unused token to `msg.sender` (line 331); quote paid back to `msg.sender` (line 338)",
+  "edges": [
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:292), TRUSTED, in-cluster",
+   "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:294), TRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransferFrom (CauldronGachaRouter.sol:298), TRUSTED, in-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:326), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:327), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:326), TRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:331), TRUSTED, in-cluster",
+   "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:338), TRUSTED, in-cluster"
+  ],
+  "reachability": "Body of both public play paths. It pulls the two inputs, then enters the pool manager through `unlock` (CauldronGachaRouter.sol:301), which calls back into `unlockCallback` (CauldronGachaRouter.sol:398) where the swaps run. Slippage on the sell leg is checked only when something was sold, at `sellEthGross` (CauldronGachaRouter.sol:318); the buy leg's minimum is enforced inside the callback instead. The gacha commit and resolve happen before any payout, so the two token sends at `_safeTransfer` (CauldronGachaRouter.sol:331) and `_payQuote` (CauldronGachaRouter.sol:338) are the last actions and the hook cannot be re-entered through a hostile recipient while state is half-written. The play size reported to the hook is the ETH-equivalent notional `playWei` (CauldronGachaRouter.sol:322), converted for the curve, while the event reports the raw notional.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 345,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "hook (line 346, immutable)",
+   "MAX_MINTS_PER_CALL (line 347, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ICauldronHookGacha.crystalsReady (CauldronGachaRouter.sol:346), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.costOfNextCrystals (CauldronGachaRouter.sol:351), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.buyWeightBps (CauldronGachaRouter.sol:352), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:360), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:361), UNTRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless and payment-free: it opens crystals the caller already earned, clamped to the constant at `MAX_MINTS_PER_CALL` (CauldronGachaRouter.sol:347) and to the caller's own `maxCount` (CauldronGachaRouter.sol:348), and returns early when nothing is ready at `ready` (CauldronGachaRouter.sol:349). No value moves in this function at all; the size handed to the hook is derived from the hook's own curve at `creditToOpen` (CauldronGachaRouter.sol:353) and is deliberately not passed through the oracle conversion.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 368,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_LOOPS (line 377, constant)",
+   "poolManager (line 379, immutable)",
+   "hook (line 387, immutable)",
+   "MAX_MINTS_PER_CALL (line 388, constant)"
+  ],
+  "writes": [],
+  "value": "receives native when the quote is native - declared `payable` (line 370); leftover quote paid back to `msg.sender` (line 390)",
+  "edges": [
+   "CauldronGachaRouter._quote (CauldronGachaRouter.sol:374), TRUSTED, in-cluster",
+   "CauldronGachaRouter._pullQuote (CauldronGachaRouter.sol:375), TRUSTED, in-cluster",
+   "ICauldronHookGacha.commitCrystals (CauldronGachaRouter.sol:387), UNTRUSTED, in-cluster",
+   "ICauldronHookGacha.resolveTickets (CauldronGachaRouter.sol:388), UNTRUSTED, in-cluster",
+   "CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:387), TRUSTED, in-cluster",
+   "CauldronGachaRouter._payQuote (CauldronGachaRouter.sol:390), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless, guarded by `nonReentrant` (CauldronGachaRouter.sol:371) and bounded by the constant at `MAX_LOOPS` (CauldronGachaRouter.sol:377). It requires a buy-side amount at `spend` (CauldronGachaRouter.sol:376) - there is no sell-only churn - and enters the pool manager at `unlock` (CauldronGachaRouter.sol:379) with the churn tag, so the callback runs `_churn` (CauldronGachaRouter.sol:401). The reported volume is the sum of both directions of every loop, so a single deposit is credited as a multiple of itself; the payout at `_payQuote` (CauldronGachaRouter.sol:390) is the last action.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 398,
+  "authority": "poolManager (re-entered during unlock)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronGachaRouter.sol:399)",
+  "reads": [
+   "poolManager (line 399, immutable)",
+   "poolManager (line 422, immutable)",
+   "poolManager (line 436, immutable)"
+  ],
+  "writes": [],
+  "value": "the pool manager pays the swap output to the player at `_take` (line 431); the sell output is taken to this router at `_take` (line 444)",
+  "edges": [
+   "CauldronGachaRouter._churn (CauldronGachaRouter.sol:401), TRUSTED, in-cluster",
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:404), TRUSTED, in-cluster",
+   "CauldronGachaRouter._limit (CauldronGachaRouter.sol:424), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:430), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:431), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:443), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:444), TRUSTED, in-cluster"
+  ],
+  "reachability": "Only the pool manager can enter, and only while one of the four entry points holds the lock; the caller check at `poolManager` (CauldronGachaRouter.sol:399) is the whole gate, and the payload is trusted because the manager echoes back exactly what the router encoded. The key is rebuilt here at `_key` (CauldronGachaRouter.sol:404) rather than passed in, so a mid-transaction registry change would swap the pool between the outer call and this frame. Buy-leg slippage is enforced at `outAmount` (CauldronGachaRouter.sol:428); the sell leg has no minimum here and is checked by the caller instead. The swap's hookData carries the player and the hint list at `hookData` (CauldronGachaRouter.sol:408), so volume is credited to the player rather than to the router. Price limits come from the extreme constants at `_limit` (CauldronGachaRouter.sol:424), i.e. the pool bounds, not a price the caller chose.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 451,
+  "authority": "internal (callers: unlockCallback)",
+  "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotPoolManager(); (CauldronGachaRouter.sol:399)",
+  "reads": [
+   "poolManager (line 467, immutable)",
+   "poolManager (line 481, immutable)"
+  ],
+  "writes": [],
+  "value": "leftover iteration token sent to the player at `_safeTransfer` (line 497)",
+  "edges": [
+   "CauldronGachaRouter._key (CauldronGachaRouter.sol:452), TRUSTED, in-cluster",
+   "CauldronGachaRouter._limit (CauldronGachaRouter.sol:469), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:474), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:475), TRUSTED, in-cluster",
+   "CauldronGachaRouter._settle (CauldronGachaRouter.sol:488), TRUSTED, in-cluster",
+   "CauldronGachaRouter._take (CauldronGachaRouter.sol:489), TRUSTED, in-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:497), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reached only through the tagged branch of the callback at `_churn` (CauldronGachaRouter.sol:401), so it inherits the pool-manager gate. The loop at `loops` (CauldronGachaRouter.sol:465) runs at most ten iterations and each one performs up to two swaps with NO slippage minimum anywhere - the only protection is the loop bound and the price limits at `_limit` (CauldronGachaRouter.sol:469). The final sell is skipped by the index test at `loops` (CauldronGachaRouter.sol:480) so the run ends holding the quote, and any token dust is pushed to the player at `_safeTransfer` (CauldronGachaRouter.sol:497). Both directions are added into the same `playWei` accumulator (CauldronGachaRouter.sol:490), so the credited volume counts the round trip twice.",
+  "observations": [
+   "comment at `hookData` (CauldronGachaRouter.sol:453) is the churn encoding of the player alone; code at `hookData` (CauldronGachaRouter.sol:408) encodes a second word for the play path, so the two paths hand the hook different payload shapes"
+  ]
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 501,
+  "authority": "internal (callers: unlockCallback, _churn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure constants returned at `zeroForOne` (CauldronGachaRouter.sol:502): the minimum and maximum usable square-root prices, i.e. no price limit at all. Every swap in the file uses them, so the callers rely on explicit minimum-output checks instead.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 505,
+  "authority": "internal (callers: unlockCallback, _churn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 507, immutable)",
+   "poolManager (line 509, immutable)",
+   "poolManager (line 510, immutable)",
+   "poolManager (line 511, immutable)"
+  ],
+  "writes": [],
+  "value": "sends native to the pool manager at `settle` (line 507); ERC20 sent to the pool manager at `_safeTransfer` (line 510)",
+  "edges": [
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:510), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two settlement shapes selected by the `isNative` flag the caller computed (CauldronGachaRouter.sol:506): value-bearing settle for native, or sync then transfer then settle for an ERC20 quote. The native branch spends this contract's balance, which includes anything the open `receive` (CauldronGachaRouter.sol:552) has accumulated, not only the current caller's value. DERIVED: the function takes an amount, not a per-caller accounting entry.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 515,
+  "authority": "internal (callers: unlockCallback, _churn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "poolManager (line 516, immutable)"
+  ],
+  "writes": [],
+  "value": "the pool manager pays `to` at `take` (line 516)",
+  "edges": [],
+  "reachability": "Zero-amount no-op at `amount` (CauldronGachaRouter.sol:516). The destination is either the player directly or this router, chosen by each call site.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 525,
+  "authority": "internal (callers: _play, playChurn)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `to` (line 528); ERC20 sent to `to` at `_safeTransfer` (line 531)",
+  "edges": [
+   "to.call (CauldronGachaRouter.sol:528), UNTRUSTED, out-of-cluster",
+   "CauldronGachaRouter._safeTransfer (CauldronGachaRouter.sol:531), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pays the player back in whatever the generation's quote is. The native branch forwards all remaining gas to an arbitrary recipient at `call` (CauldronGachaRouter.sol:528); it is only ever reached after the gacha state has already been committed, and every caller is wrapped by the guard at `_locked` (CauldronGachaRouter.sol:178). A rejecting recipient reverts the whole play at `RefundFailed` (CauldronGachaRouter.sol:529) rather than losing the refund.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 535,
+  "authority": "internal (callers: _play, _churn, _settle, _payQuote)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transfer of `token` to `to` (line 537)",
+  "edges": [
+   "token.call (CauldronGachaRouter.sol:537), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Raw call with a decoded-boolean check at `data` (CauldronGachaRouter.sol:538), so both standard and non-standard ERC20s are handled. The token address always comes from the pool key or the generation quote, never directly from a caller argument. DERIVED: every call site passes a currency unwrapped from the key or the quote.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 541,
+  "authority": "internal (callers: _pullQuote, _play)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transferFrom of `token` from `from` to `to` (line 543)",
+  "edges": [
+   "token.call (CauldronGachaRouter.sol:543), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Pulls the caller's quote or token using the router's allowance; the same decoded-boolean check at `data` (CauldronGachaRouter.sol:544) applies. Both call sites pass `msg.sender` as the source, so the allowance cannot be spent on behalf of a third party. DERIVED: the two call sites are the pull at `_safeTransferFrom` (CauldronGachaRouter.sol:277) and the one at `_safeTransferFrom` (CauldronGachaRouter.sol:298).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 547,
+  "authority": "owner",
+  "authority_gate_quote": "external onlyOwner (CauldronGachaRouter.sol:547)",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `to` (line 548)",
+  "edges": [
+   "to.call (CauldronGachaRouter.sol:548), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner-only sweep of the contract's native balance to any address, with no accounting and no cap: it can move value that arrived through the open `receive` (CauldronGachaRouter.sol:552) or any native dust left by a settlement. It has no reentrancy guard, but it holds no per-user accounting to corrupt. DERIVED: the router stores no per-player balances.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronGachaRouter",
+  "line": 552,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native - declared `payable` (line 552)",
+  "edges": [],
+  "reachability": "Open and empty, so any address can push ETH in. Such a balance is indistinguishable from a player's value once inside, and it is spendable by the native settle branch at `settle` (CauldronGachaRouter.sol:507) and by the owner at `rescueETH` (CauldronGachaRouter.sol:547).",
+  "observations": []
+ }
+]

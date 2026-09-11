@@ -1,0 +1,228 @@
+[
+ {
+  "contract": "ICauldronFactory (declared in CauldronBase.sol)",
+  "line": 25,
+  "authority": "anyone (declaration only; the implementation CauldronFactory.deployBrew carries no caller check)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration consumed through the `factory` storage slot (CauldronBase.sol:222), which the registry calls at `deployBrew` (CauldronRegistry.sol:1151) inside `_deployCollection` (CauldronRegistry.sol:1135) — reached from `summon` (CauldronRegistry.sol:668) via `_deployCollection` (CauldronRegistry.sol:743) and from `relaunch` (CauldronRegistry.sol:767) via `_deployCollection` (CauldronRegistry.sol:1075). The implementation `deployBrew` (CauldronFactory.sol:63) has no sender check, so a third party may deploy an unrelated brew from it; only the registry-held `factory` (CauldronBase.sol:222) pointer decides which deployment the protocol adopts.",
+  "observations": []
+ },
+ {
+  "contract": "ICauldronFactory (declared in CauldronBase.sol)",
+  "line": 26,
+  "authority": "anyone (declaration only; the implementation CauldronFactory.deployVault carries no caller check)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called by the registry at `deployVault` (CauldronRegistry.sol:1189) inside `_continueMiFrens` (CauldronRegistry.sol:1184), which `relaunch` reaches at `_continueMiFrens` (CauldronRegistry.sol:1073) when the iteration continues the MiFrens collection. The implementation `deployVault` (CauldronFactory.sol:99) is ungated; the `registry` argument, not `msg.sender`, fixes who may later close the vault.",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensContinuable (declared in CauldronBase.sol)",
+  "line": 32,
+  "authority": "deployer or registry (gate held by the implementation)",
+  "authority_gate_quote": "onlyDeployerOrRegistry (MiFrensGenesis.sol:333)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Reached from `setMinter` (CauldronRegistry.sol:1193) in `_continueMiFrens` (CauldronRegistry.sol:1184), itself called from `relaunch` at `_continueMiFrens` (CauldronRegistry.sol:1073); the registry passes the hook as the new minter. The gate sits on the collection side: `setMinter` (MiFrensGenesis.sol:333).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensContinuable (declared in CauldronBase.sol)",
+  "line": 33,
+  "authority": "deployer or registry (gate held by the implementation)",
+  "authority_gate_quote": "onlyDeployerOrRegistry (MiFrensGenesis.sol:338)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Reached from `setVault` (CauldronRegistry.sol:1192) in `_continueMiFrens` (CauldronRegistry.sol:1184) right after the vault is deployed at `deployVault` (CauldronRegistry.sol:1189). Two different implementations answer this selector: `setVault` (MiFrensGenesis.sol:338) is deployer-or-registry gated, while the per-brew `setVault` (CauldronCollection.sol:286) accepts the configurator or the deployer.",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensContinuable (declared in CauldronBase.sol)",
+  "line": 34,
+  "authority": "anyone (view on the implementation)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: no call through `IMiFrensContinuable` (CauldronBase.sol:31) reaches it from the registry or the facet — DERIVED, grep for `.totalMinted()` in CauldronRegistry.sol and cauldron/RedemptionExt.sol returns no call site. The live supply reads the protocol actually makes go through the separately declared `IColMinted` (PoolOps.sol:51), called at `totalMinted` (PoolOps.sol:1303), `totalMinted` (PoolOps.sol:1407) and `totalMinted` (PoolOps.sol:1430). The implementation is `totalMinted` (MiFrensGenesis.sol:315).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensContinuable (declared in CauldronBase.sol)",
+  "line": 38,
+  "authority": "registry (gate held by the implementation)",
+  "authority_gate_quote": "if (msg.sender != address(registry)) revert NotAuthorized(); (MiFrensGenesis.sol:415)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called under delegatecall from the facet at `custodyTransfer` (RedemptionExt.sol:92) when an OG fren is redeemed into the treasury, and at `custodyTransfer` (RedemptionExt.sol:125) when a treasury fren is bought back out; because the facet is delegatecalled, `address(this)` is the registry, which is what the implementation's gate `custodyTransfer` (MiFrensGenesis.sol:414) requires. The per-brew collection implements the same selector with a deployer gate at `custodyTransfer` (CauldronCollection.sol:394).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensContinuable (declared in CauldronBase.sol)",
+  "line": 41,
+  "authority": "anyone (public mapping getter on the implementation)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "No caller in the registry or the facet reaches this declaration — DERIVED, grep for `everMoved` across the source tree hits only the declaration, the implementation `everMoved` (MiFrensGenesis.sol:406), its writer `everMoved` (MiFrensGenesis.sol:702), a separate declaration `everMoved` (MiFrensDividend.sol:12) and its one consumer `everMoved` (MiFrensDividend.sol:449).",
+  "observations": [
+   "comment at `everMoved` (CauldronBase.sol:41) says the flag is `used to gate the paid re-enchant (original OGs are grandfathered free)`; the only code that gates on it is `everMoved` (MiFrensDividend.sol:449), which reaches it through its own interface declaration `everMoved` (MiFrensDividend.sol:12), not through this one"
+  ]
+ },
+ {
+  "contract": "IVaultClose (declared in CauldronBase.sol)",
+  "line": 45,
+  "authority": "registry (gate held by the implementation)",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronVault.sol:117)",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to the registry from the vault at `close` (CauldronVault.sol:116)",
+  "edges": [],
+  "reachability": "This declaration has no call site: it is imported by the registry at `IVaultClose` (CauldronRegistry.sol:27) and never used — DERIVED, grep for `IVaultClose` finds only the declaration and that import. The dying vault is actually closed through the duplicate declaration `IVaultCloseOps` (PoolOps.sol:70), called inside a try/catch at `close` (PoolOps.sol:1013) from `seedFunding` (PoolOps.sol:1000).",
+  "observations": []
+ },
+ {
+  "contract": "IPerpSync (declared in CauldronBase.sol)",
+  "line": 51,
+  "authority": "anyone (the implementation has no sender check)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called best-effort inside a try/catch from `syncGeneration` (CauldronRegistry.sol:1097) in `_perpHousekeep` (CauldronRegistry.sol:1094), which `relaunch` runs twice — `_perpHousekeep` (CauldronRegistry.sol:801) before the old pool is drained and `_perpHousekeep` (CauldronRegistry.sol:1085) after the newborn is seeded — and from the facet at `syncGeneration` (RedemptionExt.sol:540). The implementation `syncGeneration` (PerpEngine.sol:1024) is permissionless but refuses while the book is open at `openCount` (PerpEngine.sol:1036).",
+  "observations": []
+ },
+ {
+  "contract": "IPerpSync (declared in CauldronBase.sol)",
+  "line": 55,
+  "authority": "anyone (public state-variable getter on the implementation)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "No registry or facet code calls this declaration — DERIVED, grep for `openCount` finds no occurrence in CauldronRegistry.sol or cauldron/RedemptionExt.sol. The open-position count is read instead by the hook through its own declarations, at `openCount` (CauldronHook.sol:1564) and `openCount` (CauldronHook.sol:1791); the state itself is `openCount` (PerpEngine.sol:332).",
+  "observations": [
+   "comment at `relaunch` (CauldronBase.sol:52) says `relaunch` MUST see zero here before it returns; `relaunch` (CauldronRegistry.sol:767) never reads the count — its only perp step is the try/catch `syncGeneration` (CauldronRegistry.sol:1097), whose failure is swallowed, and the zero-open-positions check lives in the hook at `openCount` (CauldronHook.sol:1791)"
+  ]
+ },
+ {
+  "contract": "ICollectionLedger (declared in CauldronBase.sol)",
+  "line": 59,
+  "authority": "anyone (public state-variable getter on the implementation)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Reached through the `collectionLedger` storage slot (CauldronBase.sol:216), read at `totalEntitled` (CauldronRegistry.sol:1030) inside `relaunch` (CauldronRegistry.sol:767) when the newborn's reserve is sized to cover the legacy entitlement. The implementation is the public counter `totalEntitled` (CollectionLedger.sol:59). PoolOps declares the same selector again at `totalEntitled` (PoolOps.sol:48).",
+  "observations": []
+ },
+ {
+  "contract": "IPositionManager (declared in CauldronBase.sol)",
+  "line": 67,
+  "authority": "anyone (the external v4 PositionManager authorizes per position internally)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native at `modifyLiquidities` (line 67)",
+  "edges": [],
+  "reachability": "The registry stores the PositionManager address in `positionManager` (CauldronBase.sol:285) and writes it in its constructor at `positionManager` (CauldronRegistry.sol:166); every actual call casts that address to the duplicate declaration `IPositionManagerOps` (PoolOps.sol:31) before use — `modifyLiquidities` (PoolOps.sol:761), `modifyLiquidities` (PoolOps.sol:764), `modifyLiquidities` (PoolOps.sol:809), `modifyLiquidities` (PoolOps.sol:932), `modifyLiquidities` (PoolOps.sol:1135), `modifyLiquidities` (PoolOps.sol:1173) and `modifyLiquidities` (PoolOps.sol:1211) — so no call is made through this declaration itself (DERIVED). The registry does use the stored address directly as an ERC721 at `positionManager` (CauldronRegistry.sol:524).",
+  "observations": []
+ },
+ {
+  "contract": "IPositionManager (declared in CauldronBase.sol)",
+  "line": 68,
+  "authority": "anyone (view on the external v4 PositionManager)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Same shape as the sibling declaration: the calls the protocol makes are through `nextTokenId` (PoolOps.sol:756) and `nextTokenId` (PoolOps.sol:808), typed as `IPositionManagerOps` (PoolOps.sol:31); the id is read immediately before the mint so the position NFT the PositionManager is about to issue can be recorded. Nothing calls this declaration (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IPositionManager (declared in CauldronBase.sol)",
+  "line": 69,
+  "authority": "anyone (view on the external v4 PositionManager)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Live liquidity is read through the duplicate declaration at `getPositionLiquidity` (PoolOps.sol:914), `getPositionLiquidity` (PoolOps.sol:1120), `getPositionLiquidity` (PoolOps.sol:1159), `getPositionLiquidity` (PoolOps.sol:1241) and `getPositionLiquidity` (PoolOps.sol:1285); nothing calls this declaration (DERIVED). The interface comment at `IPositionManager` (CauldronBase.sol:66) explains the local redeclaration: the v4-periphery interface drags a lower solc pin into this unit.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronBase",
+  "line": 376,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "genesisShares (line 377)",
+   "genesisReserveOutstanding (line 379)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Public view inherited by BOTH children of this base, so it answers on the registry (selector floorPerFren() is present in the compiled CauldronBase method identifiers) and, under delegatecall, on the facet against the registry's storage. Internal readers: the re-enchant price at `floorPerFren` (CauldronRegistry.sol:342), the OG redemption amount at `floorPerFren` (RedemptionExt.sol:86), the 2x buy-back price at `floorPerFren` (RedemptionExt.sol:121), the ratchet event at `floorPerFren` (RedemptionExt.sol:183) and the facet view at `floorPerFren` (RedemptionExt.sol:649). Returns 0 before `summon` writes `genesisShares` (line 377), since the divisor guard at `shares` (line 378) short-circuits.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronBase",
+  "line": 386,
+  "authority": "internal (callers: RedemptionExt.redeemOgFren, RedemptionExt.buyOgFren, CauldronRegistry.recycleCollectionNFT)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "redemptionPaused (line 387)",
+   "emergencyReadyAt (line 387)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Internal guard compiled into both children. Reached on the facet at `_redeemBlocked` (RedemptionExt.sol:79) — the first statement of the OG redemption — and on the registry at `_redeemBlocked` (CauldronRegistry.sol:1511) in the collection recycle path. It blocks only while the circuit breaker is on AND no emergency is armed: `emergencyReadyAt` (line 387) being non-zero forces the exit open, which the registry comment at `_redeemBlocked` (CauldronRegistry.sol:370) restates.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronBase",
+  "line": 390,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Abstract base constructor, run as part of whichever child is being deployed: `CauldronRegistry` (CauldronRegistry.sol:57) and the facet `RedemptionExt` (RedemptionExt.sol:62), which declares no constructor of its own. It passes `msg.sender` to the OpenZeppelin Ownable constructor at `Ownable` (line 390), so the owner slot is the deploying account; the registry constructor then writes the rest of the wiring, e.g. `positionManager` (CauldronRegistry.sol:166). The facet's own owner slot is never used at runtime because the facet only ever executes under delegatecall against the registry's storage, as its header states at `delegatecall` (RedemptionExt.sol:23).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronBase",
+  "line": 417,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronBase.sol:417)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Overrides the inherited Ownable entry point on both children (selector renounceOwnership() is present in the compiled CauldronBase method identifiers). It is `view` and unconditionally reverts at `RenounceDisabled` (line 418), so the owner can only ever transfer ownership; the doc block explains the dead-end at `renounceOwnership` (line 417). Because the modifier runs first, a non-owner caller reverts with the Ownable error instead.",
+  "observations": []
+ }
+]

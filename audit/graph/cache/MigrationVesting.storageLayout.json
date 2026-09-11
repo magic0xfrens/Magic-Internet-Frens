@@ -1,0 +1,118 @@
+{
+ "storage": [
+  {
+   "astId": 40022,
+   "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+   "label": "_owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 20824,
+   "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+   "label": "vestWindow",
+   "offset": 20,
+   "slot": "0",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 20828,
+   "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+   "label": "stakerOracle",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_contract(IStakerOracle)20803"
+  },
+  {
+   "astId": 20853,
+   "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+   "label": "_grants",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_mapping(t_address,t_array(t_struct(Grant)20846_storage)dyn_storage)"
+  }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_array(t_struct(Grant)20846_storage)dyn_storage": {
+   "encoding": "dynamic_array",
+   "label": "struct MigrationVesting.Grant[]",
+   "numberOfBytes": "32",
+   "base": "t_struct(Grant)20846_storage"
+  },
+  "t_contract(IStakerOracle)20803": {
+   "encoding": "inplace",
+   "label": "contract IStakerOracle",
+   "numberOfBytes": "20"
+  },
+  "t_mapping(t_address,t_array(t_struct(Grant)20846_storage)dyn_storage)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => struct MigrationVesting.Grant[])",
+   "numberOfBytes": "32",
+   "value": "t_array(t_struct(Grant)20846_storage)dyn_storage"
+  },
+  "t_struct(Grant)20846_storage": {
+   "encoding": "inplace",
+   "label": "struct MigrationVesting.Grant",
+   "numberOfBytes": "128",
+   "members": [
+    {
+     "astId": 20837,
+     "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+     "label": "token",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_address"
+    },
+    {
+     "astId": 20839,
+     "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+     "label": "total",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 20841,
+     "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+     "label": "released",
+     "offset": 0,
+     "slot": "2",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 20843,
+     "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+     "label": "start",
+     "offset": 0,
+     "slot": "3",
+     "type": "t_uint64"
+    },
+    {
+     "astId": 20845,
+     "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+     "label": "window",
+     "offset": 8,
+     "slot": "3",
+     "type": "t_uint64"
+    }
+   ]
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  },
+  "t_uint64": {
+   "encoding": "inplace",
+   "label": "uint64",
+   "numberOfBytes": "8"
+  }
+ }
+}

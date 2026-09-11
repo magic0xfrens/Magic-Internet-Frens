@@ -1,0 +1,176 @@
+[
+ {
+  "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+  "line": 5,
+  "authority": "anyone (declaration only; the implementation is the owner-chosen aggregator address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called once per uncached price read, at `decimals` (QuoteOracle.sol:249), inside a try whose `catch` (QuoteOracle.sol:251) arm returns 0. The address comes from the `aggregator` stored by setFeed (QuoteOracle.sol:141) and is arbitrary, so this is an untrusted external call; a feed reporting more than 18 decimals takes the dividing branch at `feedDec` (QuoteOracle.sol:258).",
+  "observations": []
+ },
+ {
+  "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+  "line": 6,
+  "authority": "anyone (declaration only; the implementation is the owner-chosen aggregator or sequencer feed)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, with two call sites, both wrapped in try/catch: the price feed at `latestRoundData` (QuoteOracle.sol:231) and the sequencer uptime feed at `latestRoundData` (QuoteOracle.sol:328). Only the answer and its timestamp are bound from the first tuple, at `answer` (QuoteOracle.sol:234), and only the uptime flag and its start from the second, at `startedAt` (QuoteOracle.sol:329); the round ids are never compared, so a stale round that still reports a recent timestamp is accepted.",
+  "observations": []
+ },
+ {
+  "contract": "IERC20Decimals (declared in QuoteOracle.sol)",
+  "line": 13,
+  "authority": "anyone (declaration only; the implementation is the quote token being configured)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, used on the two configuration paths when the owner passes 0 for the decimals argument: `decimals` (QuoteOracle.sol:138) in setFeed and `decimals` (QuoteOracle.sol:155) in setPegged. Neither call is wrapped in try/catch, so a token without this selector makes the configuration call revert rather than storing a wrong value. Native ETH short-circuits to 18 before the call on both paths, at `quote` (QuoteOracle.sol:138) and at `d` (QuoteOracle.sol:155).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 110,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": ["owner (line 111)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment and takes the `owner` (QuoteOracle.sol:111) as a parameter rather than using the deployer, so a deploy script can hand it straight to the timelock. No zero check: an oracle deployed with a zero owner has every setter permanently unreachable and answers only from whatever `feeds` (QuoteOracle.sol:97) already holds, which for a fresh deployment is nothing. `gracePeriod` keeps its declaration default (QuoteOracle.sol:104) and `sequencerUptime` stays unset (QuoteOracle.sol:101), which is the configuration for a chain with no sequencer feed.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 114,
+  "authority": "internal (callers: transferOwnership, setFeed, setPegged, setBounds, setSequencer)",
+  "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
+  "reads": ["owner (line 115)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The only gate in this contract. It guards every write: `transferOwnership` (QuoteOracle.sol:119), the `onlyOwner` on setFeed (QuoteOracle.sol:133), `setPegged` (QuoteOracle.sol:153), `setBounds` (QuoteOracle.sol:175) and `setSequencer` (QuoteOracle.sol:182). All three read paths are outside it — `usdPerRawUnit` (QuoteOracle.sol:202), `cachedUsdPerRawUnit` (QuoteOracle.sol:305) and `priceable` (QuoteOracle.sol:316) — so anyone may read, and anyone may pay to refresh the cache.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 119,
+  "authority": "owner (documented as the timelock)",
+  "authority_gate_quote": "external onlyOwner (QuoteOracle.sol:119)",
+  "reads": [],
+  "writes": ["owner (line 119)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, single-step, with no zero check on the destination at `transferOwnership` (QuoteOracle.sol:119): ownership can be moved to an address that cannot act, which freezes every feed, peg, bound and sequencer setting at its current value while the read paths keep answering from the frozen configuration in `feeds` (QuoteOracle.sol:97).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 131,
+  "authority": "owner (documented as the timelock)",
+  "authority_gate_quote": "onlyOwner (QuoteOracle.sol:133)",
+  "reads": ["feeds (line 140)", "feeds.minUsd (line 141)", "feeds.maxUsd (line 141)"],
+  "writes": ["feeds (line 141)"],
+  "value": "NONE",
+  "edges": ["IERC20Decimals.decimals (QuoteOracle.sol:138), UNTRUSTED, in-cluster"],
+  "reachability": "Owner-only. It rejects a zero `heartbeat` (QuoteOracle.sol:135) but performs no check at all on the aggregator address, so address(0) is storable and is exactly the value the price path reads as 'no feed' at `aggregator` (QuoteOracle.sol:208) — setting it is therefore also how a feed is removed. The struct is rebuilt wholesale at `Feed` (QuoteOracle.sol:141): the previous bounds are carried across from `ex` (QuoteOracle.sol:140), but the pegged flag is forced back to false in that same literal, so re-pointing a pegged asset at a feed silently un-pegs it. When the decimals argument is 0 the value is read from the token itself at `decimals` (QuoteOracle.sol:138).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 153,
+  "authority": "owner (documented as the timelock)",
+  "authority_gate_quote": "function setPegged(address quote, uint8 dec) external onlyOwner { (QuoteOracle.sol:153)",
+  "reads": [],
+  "writes": ["feeds (line 158)"],
+  "value": "NONE",
+  "edges": ["IERC20Decimals.decimals (QuoteOracle.sol:155), UNTRUSTED, in-cluster"],
+  "reachability": "Owner-only. It writes a whole `Feed` (QuoteOracle.sol:158) with a zero aggregator, heartbeat 1 and the pegged flag true, which makes the price path return at its first branch, `pegged` (QuoteOracle.sol:207), without any external call — so the pegged result can neither revert nor go stale. Unlike setFeed it does not carry the previous bounds across: both are written as zero in that same `feeds` literal (QuoteOracle.sol:158), and on the pegged branch they are never consulted anyway. Decimals are read from the token when the argument is 0, at `decimals` (QuoteOracle.sol:155), and a wrong value here scales every price for that asset by a power of ten at `quoteDecimals` (QuoteOracle.sol:207).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 175,
+  "authority": "owner (documented as the timelock)",
+  "authority_gate_quote": "function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner { (QuoteOracle.sol:175)",
+  "reads": [],
+  "writes": ["feeds.minUsd (line 177)", "feeds.maxUsd (line 178)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. The only ordering check leaves an open upper side legal, at `maxUsd` (QuoteOracle.sol:176). The two fields are written in place on whatever Feed already exists — `minUsd` (QuoteOracle.sol:177) and `maxUsd` (QuoteOracle.sol:178) — so calling this for an unconfigured quote creates a bounds-only entry whose aggregator is still zero. The values are compared against `perWhole` (QuoteOracle.sol:267), which is the feed answer normalised to 1e18 per WHOLE token rather than per raw unit, so the band's units are whole-token USD regardless of the token's own decimals.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 182,
+  "authority": "owner (documented as the timelock)",
+  "authority_gate_quote": "function setSequencer(address feed, uint32 grace) external onlyOwner { (QuoteOracle.sol:182)",
+  "reads": [],
+  "writes": ["sequencerUptime (line 183)", "gracePeriod (line 184)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, and global rather than per-quote: one uptime feed gates every priced asset through `_sequencerOk` (QuoteOracle.sol:209). Setting `sequencerUptime` (QuoteOracle.sol:183) to zero disables the check entirely, which is the branch taken at `s` (QuoteOracle.sol:322). `gracePeriod` (QuoteOracle.sol:184) is overwritten unconditionally with no bound, so a very large grace makes every priced quote read as unusable until it elapses.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 202,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["feeds (line 203)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "QuoteOracle._sequencerOk (QuoteOracle.sol:209), TRUSTED, in-cluster",
+   "IAggregatorV3.latestRoundData (QuoteOracle.sol:231), UNTRUSTED, in-cluster",
+   "IAggregatorV3.decimals (QuoteOracle.sol:249), UNTRUSTED, in-cluster"
+  ],
+  "reachability": "Ungated external view. Reached directly by `usdPerRawUnit` (TreasuryGovernor.sol:786) when a rotation target is admitted, and re-entered from inside this contract through `this.` at `usdPerRawUnit` (QuoteOracle.sol:308) and at `usdPerRawUnit` (QuoteOracle.sol:317). Every failure mode degrades to a 0 return rather than a revert: no `aggregator` (QuoteOracle.sol:208); a sequencer that is not healthy, at `_sequencerOk` (QuoteOracle.sol:209); a feed that reverts, caught at `catch` (QuoteOracle.sol:236); a non-positive `answer` (QuoteOracle.sol:239); a zero or future `updatedAt` (QuoteOracle.sol:245); an answer older than the `heartbeat` (QuoteOracle.sol:246); a decimals call that reverts, caught at `catch` (QuoteOracle.sol:251); and an answer below `minUsd` (QuoteOracle.sol:267) or above `maxUsd` (QuoteOracle.sol:268). The pegged branch returns before any of that, at `pegged` (QuoteOracle.sol:207). Scaling is applied before the decimals division so the result keeps 1e18 precision, at `factor` (QuoteOracle.sol:277).",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 305,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["cache (line 306)", "cache.at (line 307)", "TTL (line 307, constant)", "cache.factor (line 307)"],
+  "writes": ["cache.at (line 309)", "cache.factor (line 310)"],
+  "value": "NONE",
+  "edges": ["QuoteOracle.usdPerRawUnit (QuoteOracle.sol:308), TRUSTED, in-cluster"],
+  "reachability": "Ungated and state-changing, so any caller may pay to refresh any quote's cache. Two in-tree consumers reach it by low-level call rather than typed call — `cachedUsdPerRawUnit` (CauldronHook.sol:745) and `cachedUsdPerRawUnit` (QuoteRotator.sol:568) — and both treat a failed call as a 0 factor. The fresh read is an external self-call at `usdPerRawUnit` (QuoteOracle.sol:308), so a revert inside it would propagate out of here; every branch of that callee returns 0 instead. A 0 refresh is discarded by the guard at `fresh` (QuoteOracle.sol:310) and the previous value is returned at `factor` (QuoteOracle.sol:311), so an asset that has never priced successfully returns 0 until one refresh succeeds.",
+  "observations": [
+   "comment at `cached` (QuoteOracle.sol:283) says the constant is how long a cached price stays good; code at `c` (QuoteOracle.sol:309) stamps the timestamp on every call, including one whose refresh came back unusable, so the window restarts with no good answer and the early-return branch at `factor` (QuoteOracle.sol:307) then serves the old value for another full period"
+  ]
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 316,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": ["QuoteOracle.usdPerRawUnit (QuoteOracle.sol:317), TRUSTED, in-cluster"],
+  "reachability": "Ungated external view that re-enters this contract through `this.` at `usdPerRawUnit` (QuoteOracle.sol:317) and reports only whether the factor is non-zero. DERIVED: no Solidity caller of this selector exists in the source tree outside test code; the priceability question is asked instead through the raw factor at `usdPerRawUnit` (TreasuryGovernor.sol:786). Because it calls a function that never reverts, it is total for every input.",
+  "observations": []
+ },
+ {
+  "contract": "QuoteOracle",
+  "line": 320,
+  "authority": "internal (callers: usdPerRawUnit)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["sequencerUptime (line 321)", "gracePeriod (line 338)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": ["IAggregatorV3.latestRoundData (QuoteOracle.sol:328), UNTRUSTED, in-cluster"],
+  "reachability": "Single caller: `_sequencerOk` (QuoteOracle.sol:209), on the non-pegged path only, so a pegged asset is never gated on the sequencer — the pegged branch returns first at `pegged` (QuoteOracle.sol:207). An unset feed returns true at `s` (QuoteOracle.sol:322). Every other outcome is a refusal: a non-zero uptime answer at `up` (QuoteOracle.sol:332), a zero or future `startedAt` (QuoteOracle.sol:335), an elapsed time not yet past `gracePeriod` (QuoteOracle.sol:338), or a feed that reverts, at `catch` (QuoteOracle.sol:339). A refusal makes the price unusable, which the caching layer converts into keeping the last good value at `fresh` (QuoteOracle.sol:310).",
+  "observations": []
+ }
+]

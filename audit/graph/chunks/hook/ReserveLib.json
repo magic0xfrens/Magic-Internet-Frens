@@ -1,0 +1,65 @@
+[
+ {
+  "contract": "ReserveLib",
+  "line": 27,
+  "authority": "internal (callers: ReserveLib.reserveTicks)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure helper, inlined into every importer. In-tree the only call site is `_alignDown` (ReserveLib.sol:55) inside `reserveTicks` (ReserveLib.sol:50); the library itself is imported by PoolOps, outside this cluster (DERIVED). Integer division truncates toward zero, so the negative branch subtracts one to floor toward minus infinity.",
+  "observations": []
+ },
+ {
+  "contract": "ReserveLib",
+  "line": 34,
+  "authority": "internal (callers: ReserveLib.reserveTicks)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure helper, reached from `_alignUp` (ReserveLib.sol:59) inside `reserveTicks` (ReserveLib.sol:50). Mirrors the down-alignment: the positive branch adds one so the result rounds toward plus infinity.",
+  "observations": []
+ },
+ {
+  "contract": "ReserveLib",
+  "line": 50,
+  "authority": "internal (callers: out-of-cluster PoolOps)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "ReserveLib._alignDown (ReserveLib.sol:55), TRUSTED, library",
+   "ReserveLib._alignUp (ReserveLib.sol:59), TRUSTED, library"
+  ],
+  "reachability": "Pure tick math with no state and no external calls. Nothing in this cluster calls `reserveTicks` (ReserveLib.sol:50); the callers are in PoolOps and RedemptionExt, outside the cluster (DERIVED). `tickUpper` (ReserveLib.sol:55) is the launch tick less the ceiling offset aligned down, `tickLower` (ReserveLib.sol:59) is the minimum usable aligned tick, and a degenerate ordering collapses to a one-spacing band at `tickUpper` (ReserveLib.sol:64).",
+  "observations": []
+ },
+ {
+  "contract": "ReserveLib",
+  "line": 75,
+  "authority": "internal (callers: out-of-cluster PoolOps)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure. No caller inside this cluster (DERIVED). It forwards to the v4-periphery helper at `LiquidityAmounts` (ReserveLib.sol:80) with the two tick prices from `TickMath` (ReserveLib.sol:81) and `TickMath` (ReserveLib.sol:82); those symbols live under lib/ and so are not edges the graph can resolve. Rounding is whatever `getLiquidityForAmount1` (ReserveLib.sol:80) does, which the doc comment states is DOWN.",
+  "observations": []
+ },
+ {
+  "contract": "ReserveLib",
+  "line": 96,
+  "authority": "internal (callers: out-of-cluster PoolOps)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure inverse of the sizing helper; no in-cluster caller (DERIVED). Zero liquidity short-circuits at `liquidity` (ReserveLib.sol:101); otherwise it reads two tick prices via `TickMath` (ReserveLib.sol:102) and `TickMath` (ReserveLib.sol:103) and divides by the Q96 scale with `FullMath` (ReserveLib.sol:105), which truncates (rounds down).",
+  "observations": []
+ }
+]

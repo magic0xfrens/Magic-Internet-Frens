@@ -1,0 +1,10 @@
+[
+ {
+  "contract": "RedemptionExt",
+  "line": 280,
+  "observations": [
+   "comment at `DRAINED` (RedemptionExt.sol:252) describes a dust threshold below which the primary position counts as drained for the purpose of redenominating the generation; code at `migrationMandateSpent` (RedemptionExt.sol:504) decides redenomination purely from the governor's mandate flag, and the constant declared at `PRIMARY_DRAINED_DUST` (RedemptionExt.sol:258) is read nowhere in the file",
+   "comment at `relaunch` (RedemptionExt.sol:441) locates the registry's only other write of the generation's recorded quote at line 917 of that file; code puts that write at `generationQuote` (CauldronRegistry.sol:982), and line 917 of the registry is unrelated"
+  ]
+ }
+]

@@ -1,0 +1,32 @@
+[
+ {
+  "contract": "IVestingRegistry (declared in MigrationVesting.sol)", "line": 14,
+  "authority": "anyone (declaration only; the registry's public generation counter)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Read once per deposit at `currentGeneration` (MigrationVesting.sol:180) to learn which token the escrow is about to receive, immediately before `generationToken` (MigrationVesting.sol:181) resolves the address that gets pinned into the grant at `token` (MigrationVesting.sol:192). DERIVED: the registry advances the same counter during a relaunch, so a deposit and a rebirth in the same block pin whichever token the counter shows at that instant.",
+  "observations": []
+ },
+ {
+  "contract": "IVestingRegistry (declared in MigrationVesting.sol)", "line": 15,
+  "authority": "anyone (declaration only; the registry's generation-to-token map)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called at `generationToken` (MigrationVesting.sol:156) inside the batch loop, at `generationToken` (MigrationVesting.sol:173) to resolve the dead token, and at `generationToken` (MigrationVesting.sol:181) to resolve the live one. A zero result is rejected at `BadGen` (MigrationVesting.sol:174) for the dead side; the live side at line 181 is NOT checked for zero.",
+  "observations": []
+ },
+ {
+  "contract": "IVestingRegistry (declared in MigrationVesting.sol)", "line": 16,
+  "authority": "the registry's claimGate (this escrow) or the perp engine",
+  "authority_gate_quote": "msg.sender != claimGate && msg.sender != hook.perpEngine() (CauldronRegistry.sol:1234)",
+  "reads": [], "writes": [],
+  "value": "ERC20 transfer of the live-generation token from the registry's reserve to this escrow, driven by the call at `claimByBurn` (line 184)",
+  "edges": [],
+  "reachability": "Declaration only; the single call site is `claimByBurn` (MigrationVesting.sol:184) inside `_pullAndVest` (MigrationVesting.sol:169). The registry burns the CALLER's dead-gen balance, so the escrow must already hold the pulled tokens from `transferFrom` (MigrationVesting.sol:178) — the registry checks that at `balanceOf` (CauldronRegistry.sol:1239). The gate at `claimGate` (CauldronRegistry.sol:1234) is what makes this escrow the only route for ordinary holders; the escrow itself never checks that it is the configured gate. DERIVED: if the registry's gate points elsewhere, every call here reverts and the escrow is left holding the dead tokens it already pulled in — the revert unwinds the pull too, since it is the same transaction.",
+  "observations": []
+ }
+]

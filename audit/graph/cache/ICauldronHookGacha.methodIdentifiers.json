@@ -1,0 +1,7 @@
+{
+ "buyWeightBps()": "530782b8",
+ "commitCrystals(address,uint256,uint256)": "b40b3c81",
+ "costOfNextCrystals(uint256)": "224a342c",
+ "crystalsReady(address)": "ad12c7ac",
+ "resolveTickets(uint256)": "ea930a1d"
+}

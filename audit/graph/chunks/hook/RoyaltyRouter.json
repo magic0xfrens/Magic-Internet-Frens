@@ -1,0 +1,46 @@
+[
+ {
+  "contract": "ILegacyBuffer (declared in RoyaltyRouter.sol)",
+  "line": 5,
+  "authority": "interface declaration (no body in this cluster)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. The single in-cluster call site is `fundLegacyBuffer` (RoyaltyRouter.sol:33), which dispatches to the implementation at `hook` (RoyaltyRouter.sol:33) \u2014 that implementation is `fundLegacyBuffer` (CauldronHook.sol:1096), which is itself permissionless and payable.",
+  "observations": []
+ },
+ {
+  "contract": "RoyaltyRouter",
+  "line": 27,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "hook (line 29, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Constructor; the deployer in the tree is CauldronFactory, which creates one router per collection (DERIVED). The only validation is `require` (RoyaltyRouter.sol:28) rejecting the zero address, after which `hook` (RoyaltyRouter.sol:29) is immutable and cannot be re-pointed.",
+  "observations": []
+ },
+ {
+  "contract": "RoyaltyRouter",
+  "line": 32,
+  "authority": "anyone (any address that sends ether here)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "hook (line 33, immutable)"
+  ],
+  "writes": [],
+  "value": "receives native, gated on `value` (line 33); sends native to `hook` (line 33)",
+  "edges": [
+   "ILegacyBuffer.fundLegacyBuffer (RoyaltyRouter.sol:33), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reached by any plain ether transfer to this address; in the intended flow that is an EIP-2981 marketplace royalty payment. The whole balance of the incoming call is forwarded in the same transaction by `fundLegacyBuffer` (RoyaltyRouter.sol:33), which credits the hook's `legacyBuffer` (CauldronHook.sol:1097). The forward is not guarded, so the hook's own gas and revert behaviour is inherited by the royalty payer.",
+  "observations": [
+   "comment at `hook` (RoyaltyRouter.sol:20) says the router forwards atomically and that if the hook forward ever fails the `ETH` (RoyaltyRouter.sol:21) stays here, recoverable by re-pointing; code at `fundLegacyBuffer` (RoyaltyRouter.sol:33) makes that forward an unguarded external call, so a failing hook reverts the whole receive and nothing is retained in this contract"
+  ]
+ }
+]

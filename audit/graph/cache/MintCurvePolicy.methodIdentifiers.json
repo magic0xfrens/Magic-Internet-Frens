@@ -1,0 +1,8 @@
+{
+ "base()": "5001f3b5",
+ "knee()": "65a701c0",
+ "priceAt(uint256,uint256,uint256)": "b681e648",
+ "spread()": "5c25c76c",
+ "supply()": "047fc9aa",
+ "totalToMintOut()": "fcd0ffa9"
+}

@@ -1,0 +1,4 @@
+{
+ "custodyTransfer(address,address,uint256)": "f1ed93c2",
+ "ownerOf(uint256)": "6352211e"
+}

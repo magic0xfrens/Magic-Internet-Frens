@@ -1,0 +1,33 @@
+[
+ {
+  "contract": "PerpStakerOracle",
+  "line": 24,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "perpVault (line 25, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pins the vault it reads. There is no validation that `_perpVault` (PerpStakerOracle.sol:24) is a PerpVault, and the address is immutable, so a mis-wired deploy is replaced by pointing the consumer at a new oracle rather than by fixing this one. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpStakerOracle",
+  "line": 29,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "perpVault (line 30, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IPerpShares.ethShareOf (PerpStakerOracle.sol:30), TRUSTED, out-of-cluster",
+   "IPerpShares.tokShareOf (PerpStakerOracle.sol:30), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "A pure read used by the migration vesting contract to decide whether a wallet gets its allocation at once. True when the wallet holds a live share on either side at `ethShareOf` (PerpStakerOracle.sol:30). Both calls are typed and un-caught, so a reverting vault makes every membership test revert; and the test is instantaneous, so one block of staked shares is enough to qualify. DERIVED.",
+  "observations": []
+ }
+]

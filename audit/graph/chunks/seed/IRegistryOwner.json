@@ -1,0 +1,14 @@
+[
+ {
+  "contract": "IRegistryOwner (declared in CauldronSeeder.sol)",
+  "line": 23,
+  "authority": "anyone (declaration only; the implementing getter is the registry's Ownable owner)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only, no body. The seeder casts its immutable `registry` (CauldronSeeder.sol:252) to this interface and calls `owner` (CauldronSeeder.sol:252) inside `fundPrime` (CauldronSeeder.sol:251), admitting the registry's owner as the second prime-budget admin next to the immutable `deployer` (CauldronSeeder.sol:79). DERIVED: the implementing contract is outside this cluster, so a revert or a self-destructed registry here makes `fundPrime` (CauldronSeeder.sol:251) unreachable for that admin.",
+  "observations": []
+ }
+]

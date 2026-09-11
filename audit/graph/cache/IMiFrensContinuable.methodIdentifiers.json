@@ -1,0 +1,7 @@
+{
+ "custodyTransfer(address,address,uint256)": "f1ed93c2",
+ "everMoved(uint256)": "06ded602",
+ "setMinter(address)": "fca3b5aa",
+ "setVault(address)": "6817031b",
+ "totalMinted()": "a2309ff8"
+}

@@ -1,0 +1,13 @@
+[
+ {"contract":"PerpSwapLib","line":52,"edges":[
+  "IPoolManager.swap (PerpSwapLib.sol:76), TRUSTED, out-of-cluster",
+  "PerpSwapLib._settle (PerpSwapLib.sol:89), TRUSTED, in-cluster",
+  "IPoolManager.take (PerpSwapLib.sol:90), TRUSTED, out-of-cluster",
+  "PerpSwapLib._settle (PerpSwapLib.sol:94), TRUSTED, in-cluster",
+  "IPoolManager.take (PerpSwapLib.sol:95), TRUSTED, out-of-cluster"]},
+ {"contract":"PerpSwapLib","line":101,"edges":[
+  "IPoolManager.settle (PerpSwapLib.sol:104), TRUSTED, out-of-cluster",
+  "IPoolManager.sync (PerpSwapLib.sol:106), TRUSTED, out-of-cluster",
+  "c.call (PerpSwapLib.sol:111), UNTRUSTED, out-of-cluster",
+  "IPoolManager.settle (PerpSwapLib.sol:115), TRUSTED, out-of-cluster"]}
+]

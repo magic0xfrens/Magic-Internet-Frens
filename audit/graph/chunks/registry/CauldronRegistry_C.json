@@ -1,0 +1,127 @@
+[
+ {
+  "contract": "CauldronRegistry", "line": 767,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["summoned (line 772)", "currentGeneration (line 774)", "currentToken (line 775)", "generationPoolId (line 776)", "hook (line 779)", "lastSummonAt (line 783)", "minLifetime (line 783)", "governor (line 787)", "RELAUNCH_TAIL_RESERVE (line 821, constant)", "RELAUNCH_TICKETS (line 822, constant)", "genesisMode (line 844)", "genesisBaseURI (line 845)", "genesisRenderer (line 846)", "nftMaxSupply (line 847)", "allowedQuote (line 897)", "generationPoolKey (line 951)", "generationVault (line 953)", "genesisPending (line 1001)", "genesisReserveOutstanding (line 1003)", "collectionLedger (line 1024)", "generationCollection (line 1027)", "mifrens (line 1072)"],
+  "writes": ["currentGeneration (line 839)", "lastSummonAt (line 840)", "currentToken (line 917)", "generationToken (line 918)", "generationQuote (line 982)", "generationProposer (line 987)", "generationParent (line 988)", "genesisReserveOutstanding (line 1001)", "genesisPending (line 1002)"],
+  "value": "receives the recovered quote and token of the dying generation through `_removeLiquidity` (line 804); burns the recovered dead-generation tokens with `burn` (line 811); pulls the hook reserves and the dying vault inside `seedFunding` (line 948); pays the whole funded amount into the newborn pool through `_seedGeneration` (line 1065)",
+  "edges": [
+   "CauldronHook.isDead (CauldronRegistry.sol:779), TRUSTED, out-of-cluster",
+   "ICauldronGovernor.hasProposals (CauldronRegistry.sol:787), TRUSTED, out-of-cluster",
+   "CauldronRegistry._perpHousekeep (CauldronRegistry.sol:801), TRUSTED, in-cluster",
+   "CauldronRegistry._removeLiquidity (CauldronRegistry.sol:804), TRUSTED, in-cluster",
+   "CauldronToken.burn (CauldronRegistry.sol:811), TRUSTED, in-cluster",
+   "CauldronHook.resolveTickets (CauldronRegistry.sol:822), TRUSTED, out-of-cluster",
+   "ICauldronGovernor.winner (CauldronRegistry.sol:849), TRUSTED, out-of-cluster",
+   "LaunchLib.displayName (CauldronRegistry.sol:913), TRUSTED, library",
+   "CauldronRegistry._deployToken (CauldronRegistry.sol:916), TRUSTED, in-cluster",
+   "PoolOps.seedFunding (CauldronRegistry.sol:948), TRUSTED, library",
+   "ICauldronGovernor.markConsumed (CauldronRegistry.sol:977), TRUSTED, out-of-cluster",
+   "CauldronHook.setActiveProposer (CauldronRegistry.sol:989), TRUSTED, out-of-cluster",
+   "CauldronRegistry._flushLegacyAtRelaunch (CauldronRegistry.sol:1025), TRUSTED, in-cluster",
+   "PoolOps.crystallizeCollection (CauldronRegistry.sol:1026), TRUSTED, library",
+   "ICollectionLedger.totalEntitled (CauldronRegistry.sol:1030), TRUSTED, out-of-cluster",
+   "CauldronRegistry._seedGeneration (CauldronRegistry.sol:1065), TRUSTED, in-cluster",
+   "CauldronRegistry._continueMiFrens (CauldronRegistry.sol:1073), TRUSTED, in-cluster",
+   "CauldronRegistry._deployCollection (CauldronRegistry.sol:1075), TRUSTED, in-cluster",
+   "CauldronHook.setNftCurveFrom (CauldronRegistry.sol:1080), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Permissionless in the caller dimension but heavily state-gated. Four preconditions must hold before anything moves: the machine must have been ignited (`summoned` CauldronRegistry.sol:772), the hook must judge the live pool dead (`isDead` CauldronRegistry.sol:779), the grace clock must have expired (`minLifetime` CauldronRegistry.sol:783), and a governor must be wired AND holding proposals (`hasProposals` CauldronRegistry.sol:787). The generation counter advances at `currentGeneration` CauldronRegistry.sol:839 and the grace clock restarts at `lastSummonAt` CauldronRegistry.sol:840, before the new token exists. The proposer-supplied quote is narrowed twice and never allowed to revert: the allowlist re-check at `allowedQuote` CauldronRegistry.sol:897, then the mining fallback inside `_deployToken` CauldronRegistry.sol:916, then the funding narrowing in `seedFunding` CauldronRegistry.sol:948. `markConsumed` CauldronRegistry.sol:977 is placed after the only remaining revert, the zero-funding check at `totalETH` CauldronRegistry.sol:976, so the fatal window in which a revert would roll the consumption back is short. The quote actually achieved is recorded at `generationQuote` CauldronRegistry.sol:982 and the funding figure it is denominated in comes from the PRIMARY pair's currency0 at `generationPoolKey` CauldronRegistry.sol:951, not from the generation-quote mapping. Reserve sizing folds the pending OG share in at `genesisPending` CauldronRegistry.sol:1001, clamps three ways at `newActive` CauldronRegistry.sol:1016, CauldronRegistry.sol:1043 and CauldronRegistry.sol:1056, and only then splits supply at `newReserve` CauldronRegistry.sol:1057. Iteration two branches into the continuation path at `mifrens` CauldronRegistry.sol:1072; every other iteration deploys a fresh collection at `_deployCollection` CauldronRegistry.sol:1075. Two sub-calls are gas-capped against the tail reserve, the ticket drain at `RELAUNCH_TAIL_RESERVE` CauldronRegistry.sol:821 and the perp force-close at `RELAUNCH_TAIL_RESERVE` CauldronRegistry.sol:1125.",
+  "observations": [
+   "comment at `Permissionless` CauldronRegistry.sol:759 says anyone can call once the pool is confirmed dead; code at `hasProposals` CauldronRegistry.sol:787 additionally requires a wired governor holding proposals, and `minLifetime` CauldronRegistry.sol:783 additionally requires the grace period to have elapsed.",
+   "comment at `NEVER` CauldronRegistry.sol:797 says a revert in the force-close step can never brick the rebirth; code at `forceClosePerps` CauldronRegistry.sol:1126 makes that call without a try/catch, and the note at `WRAPPED` CauldronRegistry.sol:1107 states the opposite, that letting it revert rolls the whole rebirth back.",
+   "comment at `CREATE` CauldronRegistry.sol:915 says the new generation's token is deployed with plain CREATE; code reached from `_deployToken` CauldronRegistry.sol:916 deploys it with CREATE2 from a mined salt at `salt` PoolOps.sol:707, using plain CREATE only in the unmined fallback at `CauldronToken` PoolOps.sol:718."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1094,
+  "authority": "internal (callers: relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["hook (line 1096)", "RELAUNCH_TAIL_RESERVE (line 1125, constant)", "hook (line 1126)"],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CauldronHook.perpEngine (CauldronRegistry.sol:1096), TRUSTED, out-of-cluster",
+   "IPerpSync.syncGeneration (CauldronRegistry.sol:1097), TRUSTED, out-of-cluster",
+   "CauldronHook.forceClosePerps (CauldronRegistry.sol:1126), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private, reached only from the two calls inside the rebirth at `_perpHousekeep` CauldronRegistry.sol:801 and CauldronRegistry.sol:1085. The two branches are not symmetric in failure handling: the sync branch swallows everything in a try/catch at `syncGeneration` CauldronRegistry.sol:1097, while the force-close branch calls `forceClosePerps` CauldronRegistry.sol:1126 bare, so a revert there propagates and rolls the whole relaunch back. Both are gas-capped, the close against `RELAUNCH_TAIL_RESERVE` CauldronRegistry.sol:1125, and the engine address is read off the hook rather than stored here (`perpEngine` CauldronRegistry.sol:1096). When the cap check fails because `g` CauldronRegistry.sol:1125 is below the reserve, the close is skipped entirely and the rebirth continues with the book untouched (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1135,
+  "authority": "internal (callers: summon, relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["nftMaxSupply (line 1149)", "factory (line 1151)", "hook (line 1155)", "royaltyDividend (line 1161)", "royaltyBps (line 1162)"],
+  "writes": ["generationCollection (line 1165)", "generationVault (line 1166)"],
+  "value": "NONE",
+  "edges": [
+   "ICauldronFactory.deployBrew (CauldronRegistry.sol:1151), TRUSTED, out-of-cluster",
+   "CauldronHook.setCollection (CauldronRegistry.sol:1167), TRUSTED, out-of-cluster",
+   "CauldronHook.setVault (CauldronRegistry.sol:1171), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private; reached from ignition at `_deployCollection` CauldronRegistry.sol:743 and from every non-continuation rebirth at CauldronRegistry.sol:1075. It cannot revert on missing metadata because an empty base URI falls back to a literal at `baseURI` CauldronRegistry.sol:1147 and a zero cap falls back to `nftMaxSupply` CauldronRegistry.sol:1149. The factory call at `deployBrew` CauldronRegistry.sol:1151 is NOT wrapped, so a broken or unset factory reverts the whole rebirth (DERIVED). The hook is then repointed at the new collection (`setCollection` CauldronRegistry.sol:1167) and its vault sink is deliberately zeroed (`setVault` CauldronRegistry.sol:1171), routing the floor share into the token buyback instead.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1184,
+  "authority": "internal (callers: relaunch)",
+  "authority_gate_quote": "UNGATED",
+  "reads": ["mifrens (line 1185)", "factory (line 1189)", "genesisShares (line 1189)", "hook (line 1193)"],
+  "writes": ["generationCollection (line 1190)", "generationVault (line 1191)"],
+  "value": "NONE",
+  "edges": [
+   "ICauldronFactory.deployVault (CauldronRegistry.sol:1189), TRUSTED, out-of-cluster",
+   "IMiFrensContinuable.setVault (CauldronRegistry.sol:1192), TRUSTED, out-of-cluster",
+   "IMiFrensContinuable.setMinter (CauldronRegistry.sol:1193), TRUSTED, out-of-cluster",
+   "CauldronHook.setCollection (CauldronRegistry.sol:1194), TRUSTED, out-of-cluster",
+   "CauldronHook.setVault (CauldronRegistry.sol:1195), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private and reachable exactly once in the machine's life, from the iteration-two branch at `_continueMiFrens` CauldronRegistry.sol:1073, which requires `mifrens` CauldronRegistry.sol:1072 to be wired. No new collection is deployed; only a fresh floor vault at `deployVault` CauldronRegistry.sol:1189, whose offset is `genesisShares` CauldronRegistry.sol:1189 so the forged tranche cannot draw the OG floor. It then takes over the canonical collection by pointing its minter at the hook (`setMinter` CauldronRegistry.sol:1193), which requires this registry to already hold that authority on the collection (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1225,
+  "authority": "anyone (holders of a previous generation's token); blocked for ordinary callers while a vesting gate is set",
+  "authority_gate_quote": "if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) { (CauldronRegistry.sol:1234)",
+  "reads": ["currentGeneration (line 1229)", "claimGate (line 1234)", "hook (line 1234)", "generationToken (line 1237)", "currentGeneration (line 1243)", "positionManager (line 1245)", "generationReservePositionId (line 1246)", "generationPoolKey (line 1246)", "reserveTickLower (line 1246)", "reserveTickUpper (line 1246)"],
+  "writes": [],
+  "value": "burns the caller's previous-generation balance and releases the same amount of the live token out of the reserve position, both inside `migrateOne` (line 1244)",
+  "edges": [
+   "CauldronHook.perpEngine (CauldronRegistry.sol:1234), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (CauldronRegistry.sol:1239), TRUSTED, out-of-cluster",
+   "PoolOps.migrateOne (CauldronRegistry.sol:1244), TRUSTED, library"
+  ],
+  "reachability": "Open to any holder of a strictly earlier generation (`currentGeneration` CauldronRegistry.sol:1229). When a vesting escrow is configured the direct path is closed to everyone except the escrow itself and the perp engine (`claimGate` CauldronRegistry.sol:1234). The source generation must be known (`prevToken` CauldronRegistry.sol:1238) and the caller must actually hold the amount (`balanceOf` CauldronRegistry.sol:1239). It deliberately carries no reentrancy guard, which is what lets the engine migrate its inventory while the rebirth already holds the lock (`migrateOne` CauldronRegistry.sol:1244). The release is strict: a reserve that cannot cover the amount reverts and un-burns atomically.",
+  "observations": [
+   "comment at `claimTokens` CauldronRegistry.sol:44 names the migration entry point as claimTokens(gen); code exposes it as `claimByBurn` CauldronRegistry.sol:1225 and `claimByBurnUpTo` CauldronRegistry.sol:1263, and no function of the documented name exists in this file."
+  ]
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1263,
+  "authority": "anyone (holders of a previous generation's token); blocked for ordinary callers while a vesting gate is set",
+  "authority_gate_quote": "if (claimGate != address(0) && msg.sender != claimGate && msg.sender != hook.perpEngine()) { (CauldronRegistry.sol:1268)",
+  "reads": ["currentGeneration (line 1267)", "claimGate (line 1268)", "hook (line 1268)", "generationToken (line 1271)", "currentGeneration (line 1278)", "positionManager (line 1280)", "generationReservePositionId (line 1281)", "generationPoolKey (line 1281)", "reserveTickLower (line 1281)", "reserveTickUpper (line 1281)"],
+  "writes": [],
+  "value": "burns up to the caller's balance of the previous generation and releases the same amount of the live token out of the reserve, inside `migrateUpTo` (line 1279)",
+  "edges": [
+   "CauldronHook.perpEngine (CauldronRegistry.sol:1268), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (CauldronRegistry.sol:1274), TRUSTED, out-of-cluster",
+   "PoolOps.migrateUpTo (CauldronRegistry.sol:1279), TRUSTED, library"
+  ],
+  "reachability": "Same gating as the strict form: an earlier generation only (`currentGeneration` CauldronRegistry.sol:1267) and the escrow exemption at `claimGate` CauldronRegistry.sol:1268. The difference is the sizing: the request is first clamped to the caller's balance at `bal` CauldronRegistry.sol:1275 and then, inside `migrateUpTo` CauldronRegistry.sol:1279, to whatever the reserve can actually deliver, so it returns a partial fill instead of reverting. It exists so the perp engine's whole-book sync cannot revert inside its own try/catch (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 1300,
+  "authority": "anyone (free for any MiFren holder, otherwise a fee is required)",
+  "authority_gate_quote": "if (msg.value < AUTO_MIGRATE_FEE) revert Fee(); (CauldronRegistry.sol:1306)",
+  "reads": ["mifrens (line 1305)"],
+  "writes": ["autoMigrate (line 1308)"],
+  "value": "receives native: the opt-in fee is required only when the caller holds no fren, checked at `AUTO_MIGRATE_FEE` (line 1306), and any ether sent stays in this registry",
+  "edges": ["IERC721.balanceOf (CauldronRegistry.sol:1305), TRUSTED, out-of-cluster"],
+  "reachability": "Open to anyone. The fren check is skipped entirely when `mifrens` CauldronRegistry.sol:1305 is unset, in which case everyone pays. Overpayment is not refunded: the comparison at `msg` CauldronRegistry.sol:1306 is a minimum, and no change is returned (DERIVED). The flag written at `autoMigrate` CauldronRegistry.sol:1308 is the only thing that authorises a keeper to burn that wallet's old-generation balance later, and it is revocable at `autoMigrate` CauldronRegistry.sol:1329.",
+  "observations": []
+ }
+]

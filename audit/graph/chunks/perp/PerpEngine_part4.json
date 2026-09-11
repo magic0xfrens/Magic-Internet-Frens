@@ -1,0 +1,411 @@
+[
+ {
+  "contract": "PerpEngine",
+  "line": 1550,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1550)",
+  "reads": [],
+  "writes": [
+   "plv (line 1552)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 1551)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:1551), TRUSTED, in-cluster"
+  ],
+  "reachability": "Owner-only, share-less donation into the ETH-side PLV: it raises `plv` (PerpEngine.sol:1552) with no shares minted anywhere, so the value is permanently non-withdrawable by the donor and simply lifts the vault's share price. Community capital is meant to arrive through `deposit` (PerpVault.sol:187) instead.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1558,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1558)",
+  "reads": [
+   "registry (line 1559, immutable)"
+  ],
+  "writes": [
+   "plvToken (line 1560)"
+  ],
+  "value": "ERC20 `transferFrom` of the generation token from the owner (line 1559)",
+  "edges": [
+   "IPerpRegistry.currentToken (PerpEngine.sol:1559), TRUSTED, out-of-cluster",
+   "IERC20.transferFrom (PerpEngine.sol:1559), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Token-side twin of the ETH donation. The pull uses the registry's LIVE `currentToken` (PerpEngine.sol:1559) rather than the engine's armed `syncedToken` (PerpEngine.sol:1264), and the return value is NOT checked here - unlike `_pull` (PerpVault.sol:226) and `_safeTransfer` (PerpEngine.sol:1536) - so a token that returns false instead of reverting would credit `plvToken` (PerpEngine.sol:1560) without moving anything. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1564,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "insuranceEth (line 1566)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 1565)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:1565), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless top-up of the bad-debt buffer, with no modifiers at all. It is the only ungated way to raise `insuranceEth` (PerpEngine.sol:1566) directly; the other source is the fee carve at `insuranceEth` (PerpEngine.sol:1366). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1574,
+  "authority": "hook",
+  "authority_gate_quote": "if (msg.sender != hookAddr) revert OnlyHook(); (PerpEngine.sol:1611)",
+  "reads": [],
+  "writes": [],
+  "value": "receives native `payable` (line 1574)",
+  "edges": [
+   "PerpEngine._creditPerp (PerpEngine.sol:1574), TRUSTED, in-cluster"
+  ],
+  "reachability": "The BUY-side native fee credit. The hook selects between this and its sell-side twin by trade direction at `creditPerpFee` (CauldronHook.sol:1203). It deliberately carries no nesting guard because the hook calls it mid-unlock during the engine's own swap; the gate itself lives in the private callee at `hookAddr` (PerpEngine.sol:1611).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1579,
+  "authority": "hook",
+  "authority_gate_quote": "if (msg.sender != hookAddr) revert OnlyHook(); (PerpEngine.sol:1611)",
+  "reads": [],
+  "writes": [],
+  "value": "receives native `payable` (line 1579)",
+  "edges": [
+   "PerpEngine._creditPerp (PerpEngine.sol:1579), TRUSTED, in-cluster"
+  ],
+  "reachability": "The SELL-side native fee credit, selected by the hook at `creditPerpFeeToken` (CauldronHook.sol:1203). Its value lands in the segregated token-staker pot at `tokYieldEth` (PerpEngine.sol:1621) rather than in the PLV.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1600,
+  "authority": "hook",
+  "authority_gate_quote": "if (msg.sender != hookAddr) revert OnlyHook(); (PerpEngine.sol:1601)",
+  "reads": [
+   "hookAddr (line 1601, immutable)",
+   "quote (line 1604)"
+  ],
+  "writes": [
+   "plv (line 1606)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 1605)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:1605), TRUSTED, in-cluster"
+  ],
+  "reachability": "The ERC20 fee path, reached through the hook's route at `creditPerpFeeAsset` (CauldronHook.sol:1204). It is PULL rather than push - the hook approves and this transfers - because a bare balance could not be told apart from a stray donation. It refuses any asset that is not exactly the current `quote` (PerpEngine.sol:1604) and refuses the zero address. Unlike the native pair it has no side split: both buy and sell fees land in `plv` (PerpEngine.sol:1606), which the doc at `creditPerpFeeAssetToken` (PerpEngine.sol:1597) records as a deferred redistribution between staker classes.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1610,
+  "authority": "hook (private; callers: creditPerpFee, creditPerpFeeToken)",
+  "authority_gate_quote": "if (msg.sender != hookAddr) revert OnlyHook(); (PerpEngine.sol:1611)",
+  "reads": [
+   "hookAddr (line 1611, immutable)"
+  ],
+  "writes": [
+   "plv (line 1619)",
+   "tokYieldEth (line 1621)",
+   "tokYieldCumulative (line 1622)"
+  ],
+  "value": "receives native `msg.value` (line 1617)",
+  "edges": [],
+  "reachability": "Pure accounting, no external call, which is why it is safe to nest inside a swap. It credits `msg.value` (PerpEngine.sol:1617) - NATIVE wei - to either `plv` (PerpEngine.sol:1619) or the token-staker pot, and bumps the monotonic marker `tokYieldCumulative` (PerpEngine.sol:1622) that the vault folds into its per-share accumulator. There is no check that the book is currently native-denominated, so under an ERC20 quote these counters would be raised by native value while payouts leave through `_pushQuote` (PerpEngine.sol:213) in the ERC20. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1633,
+  "authority": "vault",
+  "authority_gate_quote": "onlyVault (PerpEngine.sol:1633)",
+  "reads": [],
+  "writes": [
+   "plv (line 1635)"
+  ],
+  "value": "receives the quote through `_pullQuote` (line 1634)",
+  "edges": [
+   "PerpEngine._pullQuote (PerpEngine.sol:1634), TRUSTED, in-cluster"
+  ],
+  "reachability": "The deposit leg of the community PLV. Called at `fundFromVault` (PerpVault.sol:206) after the vault has already minted shares, forwarding native value only when the quote is native. It has no nesting guard, so it is callable while a sweep holds the lock; it makes no external call beyond the pull. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1641,
+  "authority": "vault",
+  "authority_gate_quote": "onlyVault (PerpEngine.sol:1641)",
+  "reads": [
+   "plv (line 1642)"
+  ],
+  "writes": [
+   "plv (line 1643)"
+  ],
+  "value": "sends the quote to `to` through `_sendEth` (line 1643)",
+  "edges": [
+   "PerpEngine._sendEth (PerpEngine.sol:1643), TRUSTED, in-cluster"
+  ],
+  "reachability": "The only way staked ETH-side principal leaves. It is bounded by FREE capital at `plv` (PerpEngine.sol:1642) - lent capital in `longOiEth` (PerpEngine.sol:466) cannot be pulled and returns only as positions settle, which is what the vault's queue exists to absorb. Called from `withdrawPlvTo` (PerpVault.sol:259) and `withdrawPlvTo` (PerpVault.sol:302). The push is the reverting kind, so a recipient that rejects the transfer fails the withdrawal.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1647,
+  "authority": "vault",
+  "authority_gate_quote": "onlyVault (PerpEngine.sol:1647)",
+  "reads": [
+   "tokYieldEth (line 1648)"
+  ],
+  "writes": [
+   "tokYieldEth (line 1649)"
+  ],
+  "value": "sends the quote to `to` through `_sendEth` (line 1649)",
+  "edges": [
+   "PerpEngine._sendEth (PerpEngine.sol:1649), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pays an attributed short-side reward out of the segregated pot, never out of `plv` (PerpEngine.sol:1646). Reached from `withdrawTokYieldTo` (PerpVault.sol:368). Because the pot is only ever decremented by an attributed claim, yield credited while no token shares existed can never be drained from here. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1652,
+  "authority": "vault",
+  "authority_gate_quote": "onlyVault (PerpEngine.sol:1652)",
+  "reads": [
+   "registry (line 1653, immutable)"
+  ],
+  "writes": [
+   "plvToken (line 1654)"
+  ],
+  "value": "ERC20 `transferFrom` of the generation token from the vault (line 1653)",
+  "edges": [
+   "IPerpRegistry.currentToken (PerpEngine.sol:1653), TRUSTED, out-of-cluster",
+   "IERC20.transferFrom (PerpEngine.sol:1653), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "The token-side deposit leg, called at `fundTokenFromVault` (PerpVault.sol:357) after the vault has pulled from the depositor and approved this engine. Like the owner-funded twin it does not check the transfer's return value at `transferFrom` (PerpEngine.sol:1653). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1658,
+  "authority": "vault",
+  "authority_gate_quote": "onlyVault (PerpEngine.sol:1658)",
+  "reads": [
+   "plvToken (line 1659)",
+   "registry (line 1661, immutable)"
+  ],
+  "writes": [
+   "plvToken (line 1660)"
+  ],
+  "value": "ERC20 transfer of the generation token to `to` via `_safeTransfer` (line 1661)",
+  "edges": [
+   "IPerpRegistry.currentToken (PerpEngine.sol:1661), TRUSTED, out-of-cluster",
+   "PerpEngine._safeTransfer (PerpEngine.sol:1661), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pays free inventory out, bounded by `plvToken` (PerpEngine.sol:1659); lent inventory returns only as shorts buy back. Called from `withdrawPlvTokenTo` (PerpVault.sol:392) and `withdrawPlvTokenTo` (PerpVault.sol:409). It pays in the registry's CURRENT token, so after a relaunch a queued token claim is settled in the new generation's token. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1665,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1665)",
+  "reads": [],
+  "writes": [
+   "openFeeBps (line 1667)",
+   "ogDiscountBps (line 1667)",
+   "liqPenaltyBps (line 1667)",
+   "divShareBps (line 1667)",
+   "keeperBps (line 1667)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Fee configuration behind a single owner call. Every field is range-checked at `BadParam` (PerpEngine.sol:1666): the open fee and liquidation penalty cap at 2000 bps, the rest at BPS. Changes are immediate and apply to positions already open, because `liqPenaltyBps` (PerpEngine.sol:1199) and `keeperBps` (PerpEngine.sol:1201) are read at settlement time, not at open. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1669,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1669)",
+  "reads": [],
+  "writes": [
+   "warmup (line 1692)",
+   "maxLeverageCeiling (line 1692)",
+   "maintenanceBps (line 1692)",
+   "maxNotionalBps (line 1693)",
+   "maxOiBps (line 1693)",
+   "fundingRateBpsPerDay (line 1693)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Risk configuration. Two bounds matter beyond the obvious: the warmup floor at `MIN_TWAP` (PerpEngine.sol:1674) keeps positions from existing while the mark would still be spot, and the funding-rate ceiling at `_fundingBpsDay` (PerpEngine.sol:1691) keeps the signed step arithmetic in `_pokeFunding` (PerpEngine.sol:732) inside int256 - an unbounded rate would either invert the funding direction or revert every path that pokes funding. Raising `maintenanceBps` (PerpEngine.sol:1692) makes already-open positions liquidatable immediately. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1706,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1706)",
+  "reads": [],
+  "writes": [
+   "tierDepthWei (line 1707)",
+   "tierLeverage (line 1707)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Replaces both leverage tier arrays wholesale. The only invariant enforced is the length relation at `levs` (PerpEngine.sol:1707), which is exactly what `tierLeverage` (PerpEngine.sol:701) needs to index i+1 safely; the depths themselves are not required to be sorted, and the loop takes the LAST matching tier rather than the largest. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1720,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1722)",
+  "reads": [],
+  "writes": [
+   "dividend (line 1724)",
+   "treasury (line 1725)",
+   "nftBeneficiary (line 1726)",
+   "markSource (line 1727)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "One setter for all four outbound addresses, folded together for size headroom. `markSource` (PerpEngine.sol:1727) is the most consequential: it replaces the tick every mark, funding and liquidation decision is built from, via `_currentTick` (PerpEngine.sol:534). Setting it to zero restores the primary-pool tick, and a source that reverts or returns a malformed answer also degrades to that, so the failure mode is soft. There is no timelock or validation on any of the four. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1730,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1730)",
+  "reads": [],
+  "writes": [
+   "twapWindow (line 1732)",
+   "maxLiqBps (line 1732)",
+   "maxFundingBps (line 1732)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The three hardening knobs, all range-checked at `BadParam` (PerpEngine.sol:1731): the averaging window between `MIN_TWAP` (PerpEngine.sol:1731) and two hours, and both bps caps at BPS. `twapWindow` (PerpEngine.sol:1732) directly trades manipulation resistance against mark lag, and is read on every `twapTick` (PerpEngine.sol:638).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1751,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1751)",
+  "reads": [
+   "vault (line 1752)"
+  ],
+  "writes": [
+   "vault (line 1753)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IPerpVaultStake.hasStakers (PerpEngine.sol:1752), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Rotates the role that controls the working-capital surface. The drain guard asks the OUTGOING vault whether anyone still owns value, at `hasStakers` (PerpEngine.sol:1752), rather than testing engine balances - so unownable residue cannot latch the guard permanently. Note the call is typed and un-caught, so the incumbent vault can block its own replacement by reverting; and while `vault` (PerpEngine.sol:1752) is zero the guard is skipped entirely.",
+  "observations": [
+   "comment at `PLV` (PerpEngine.sol:1738) says a wired vault may only be re-pointed while the PLV is empty on all three counters; the code at `hasStakers` (PerpEngine.sol:1752) instead asks the vault whether it has stakers, and a later note at `residues` (PerpEngine.sol:1744) explains why the balance test was replaced."
+  ]
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1757,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1757)",
+  "reads": [],
+  "writes": [
+   "vaultYieldBps (line 1759)",
+   "insuranceBps (line 1759)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Sets how much of every routed fee is retained inside the engine instead of leaving to dividend and treasury. The only check is that the pair sums to at most BPS at `_yieldBps` (PerpEngine.sol:1758), so the owner can route 100 percent of fees to LP yield and insurance, or 0 percent. Both are read on every fee at `vaultYieldBps` (PerpEngine.sol:1353). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1763,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1763)",
+  "reads": [],
+  "writes": [
+   "maxUtilBps (line 1765)",
+   "insuranceFloor (line 1765)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Utilization ceiling plus the insurance circuit breaker. Both only bite while a vault is wired, because the checks sit inside the `vault` (PerpEngine.sol:792) branch of the open paths. `insuranceFloor` (PerpEngine.sol:1765) has no upper bound, so a large value pauses opens indefinitely; it is also the configured half of the skim protection at `insuranceFloor` (PerpEngine.sol:1787). DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1768,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1768)",
+  "reads": [],
+  "writes": [
+   "minCollateral (line 1770)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The anti-dust floor, capped at one ether at `_minCollateral` (PerpEngine.sol:1769). It is compared against collateral NET of the open fee at `minCollateral` (PerpEngine.sol:786), so the effective minimum deposit is higher than the configured number by the fee. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1784,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (PerpEngine.sol:1784)",
+  "reads": [
+   "longOiEth (line 1786)",
+   "shortOiToken (line 1786)",
+   "maintenanceBps (line 1786)",
+   "BPS (line 1786, constant)",
+   "insuranceFloor (line 1787)",
+   "insuranceEth (line 1788)"
+  ],
+  "writes": [
+   "insuranceEth (line 1789)"
+  ],
+  "value": "sends the quote to `to` through `_sendEth` (line 1790)",
+  "edges": [
+   "PerpEngine._quoteEth (PerpEngine.sol:1786), TRUSTED, in-cluster",
+   "PerpEngine._sendEth (PerpEngine.sol:1790), TRUSTED, in-cluster"
+  ],
+  "reachability": "The only owner path that removes value from the engine, and it can reach only the buffer: `plv` (PerpEngine.sol:1774) and `plvToken` (PerpEngine.sol:1774) are untouched. What is protected is the GREATER of the configured floor and a risk minimum scaled to live open interest at `riskMin` (PerpEngine.sol:1786) - which values the short side at SPOT through `_quoteEth` (PerpEngine.sol:1786) while liquidations use the mark. The destination is arbitrary but non-zero at `to` (PerpEngine.sol:1785), and the push is the reverting kind. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1802,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "positions (line 1805)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "PerpEngine._quoteMark (PerpEngine.sol:1808), TRUSTED, in-cluster",
+   "PerpEngine._underwater (PerpEngine.sol:1810), TRUSTED, in-cluster"
+  ],
+  "reachability": "Frontend snapshot of one position: mark value, the figure it is compared against (debt for a long, backing for a short, per `debtOrBackingEth` (PerpEngine.sol:1809)), and the same liquidation verdict the engine itself uses at `_underwater` (PerpEngine.sol:1810). Returns all-zero for a closed id at `trader` (PerpEngine.sol:1806).",
+  "observations": []
+ },
+ {
+  "contract": "PerpEngine",
+  "line": 1813,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native via `receive` (line 1813)",
+  "edges": [],
+  "reachability": "A bare payable fallback with no accounting. Native value can therefore enter the engine without touching `plv` (PerpEngine.sol:304), `insuranceEth` (PerpEngine.sol:223) or `tokYieldEth` (PerpEngine.sol:311) - which is required, because pool settlement returns native change to the contract during a swap, but it also means a direct send is an unattributed donation that no counter tracks. DERIVED.",
+  "observations": []
+ }
+]

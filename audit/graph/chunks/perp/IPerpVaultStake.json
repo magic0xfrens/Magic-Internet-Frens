@@ -1,0 +1,14 @@
+[
+ {
+  "contract": "IPerpVaultStake (declared in PerpEngine.sol)",
+  "line": 47,
+  "authority": "anyone (declaration only; the engine calls it on `vault`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called in exactly one place: `hasStakers` (PerpEngine.sol:1752), the owner-only re-point guard on `setVault` (PerpEngine.sol:1751). The implementation is `hasStakers` (PerpVault.sol:156). Because the call is typed and unguarded, a `vault` (PerpEngine.sol:1752) address without this function makes the guard revert rather than fall through. DERIVED.",
+  "observations": []
+ }
+]

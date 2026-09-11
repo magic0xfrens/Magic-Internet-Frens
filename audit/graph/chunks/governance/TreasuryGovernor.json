@@ -1,0 +1,464 @@
+[
+ {
+  "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+  "line": 5,
+  "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `getPastVotes` (TreasuryGovernor.sol:5) has no body here. It is called once, in vote at `getPastVotes` (TreasuryGovernor.sol:412), against the proposal's stored `snapshot` (TreasuryGovernor.sol:412), and a zero result reverts `NoVotingPower` (TreasuryGovernor.sol:413). The callee is the immutable set at `mifrens` (TreasuryGovernor.sol:322), so a deployment that wires a contract without this selector makes every vote revert (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+  "line": 6,
+  "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `getVotes` (TreasuryGovernor.sol:6) has no body here. It is called once, as the proposal-threshold gate `getVotes` (TreasuryGovernor.sol:365), where a live balance below `PROPOSAL_THRESHOLD` (TreasuryGovernor.sol:365) reverts BelowProposalThreshold. Unlike the ballot weight it is read LIVE, not at a snapshot, so threshold power can be borrowed for the length of one transaction (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+  "line": 15,
+  "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `getPastTotalSupply` (TreasuryGovernor.sol:15) has no body here. It is the quorum denominator, called once at `getPastTotalSupply` (TreasuryGovernor.sol:735) inside the pass test, measured at the proposal's `snapshot` (TreasuryGovernor.sol:735) and scaled by `QUORUM_BPS` (TreasuryGovernor.sol:735). Every path that decides an outcome runs through it: `_passed` (TreasuryGovernor.sol:483) in execute, `_passed` (TreasuryGovernor.sol:600) in the winner scan, `_passed` (TreasuryGovernor.sol:611) and the public `passing` (TreasuryGovernor.sol:745), so a reverting or missing implementation blocks execution entirely.",
+  "observations": []
+ },
+ {
+  "contract": "IRegistryQuotes (declared in TreasuryGovernor.sol)",
+  "line": 19,
+  "authority": "anyone (declaration only, no body; dispatched on the immutable registry address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `allowedQuote` (TreasuryGovernor.sol:19) has no body here. It is called twice on the immutable `registry` (TreasuryGovernor.sol:323): once when a rotation target is named at `allowedQuote` (TreasuryGovernor.sol:369) and again when the envelope is installed at `allowedQuote` (TreasuryGovernor.sol:494), both reverting QuoteNotAllowed. The implementation is the registry's public mapping `allowedQuote` (CauldronRegistry.sol:303), writable only through the owner-gated `setAllowedQuote` (CauldronRegistry.sol:290) \u2014 so the allowlist is outside the reach of any vote here.",
+  "observations": []
+ },
+ {
+  "contract": "IQuotePrice (declared in TreasuryGovernor.sol)",
+  "line": 24,
+  "authority": "anyone (declaration only, no body; dispatched on the guardian-set quoteOracle address)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only: `usdPerRawUnit` (TreasuryGovernor.sol:24) has no body here. It is called once, at `usdPerRawUnit` (TreasuryGovernor.sol:786), and only when the target is non-native and an oracle is wired; a zero price reverts `QuoteNotPriceable` (TreasuryGovernor.sol:786). The address is the mutable `quoteOracle` (TreasuryGovernor.sol:784), which the guardian may repoint at any contract via `setQuoteOracle` (TreasuryGovernor.sol:791), so this call is to an address an admin controls (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 266,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Unrestricted pure helper with no storage access and no caller inside this file; it exists for user interfaces that must translate a spend budget into the share of the position it converts. Both arguments are caller-supplied, so the loop trip count `n` (TreasuryGovernor.sol:268) is spendBps divided by sliceBps and is bounded only by the uint16 range \u2014 up to 65535 iterations when `sliceBps` (TreasuryGovernor.sol:268) is 1, which is a caller-paid cost in a view call (DERIVED). Each step multiplies before dividing at `rem` (TreasuryGovernor.sol:272), truncating toward zero, so the remaining share rounds DOWN and the reported conversion at `rem` (TreasuryGovernor.sol:274) rounds UP (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 312,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAINNET_VOTING (line 328, constant)",
+   "MAINNET_LIFETIME (line 329, constant)",
+   "MAINNET_COOLDOWN (line 330, constant)",
+   "MAINNET_EXEC_WINDOW (line 331, constant)",
+   "MIN_VOTING (line 334, constant)",
+   "MIN_COOLDOWN (line 335, constant)",
+   "MIN_EXEC_WINDOW (line 336, constant)"
+  ],
+  "writes": [
+   "mifrens (line 322, immutable)",
+   "registry (line 323, immutable)",
+   "guardian (line 324)",
+   "VOTING_PERIOD (line 343, immutable)",
+   "ENVELOPE_LIFETIME (line 344, immutable)",
+   "COOLDOWN (line 345, immutable)",
+   "EXECUTION_WINDOW (line 346, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Runs once at deployment and is the only writer of every timing parameter. Zero arguments fall back to the mainnet defaults at `MAINNET_VOTING` (TreasuryGovernor.sol:328) and its three siblings; unless `testnet` (TreasuryGovernor.sol:333) is passed, the one-day floors at `MIN_VOTING` (TreasuryGovernor.sol:334), `MIN_COOLDOWN` (TreasuryGovernor.sol:335) and `MIN_EXEC_WINDOW` (TreasuryGovernor.sol:336) apply, and in BOTH modes a lifetime shorter than the execution window reverts `BadTiming` (TreasuryGovernor.sol:341). No floor exists on `ENVELOPE_LIFETIME` (TreasuryGovernor.sol:344) itself beyond that coherence test, and neither `mifrens` (TreasuryGovernor.sol:322) nor `registry` (TreasuryGovernor.sol:323) nor `guardian` (TreasuryGovernor.sol:324) is checked for zero or for code, so a mis-wired deployment is only detectable later: a zero guardian dead-ends `cancel` (TreasuryGovernor.sol:516), `setGuardian` (TreasuryGovernor.sol:523) and `setQuoteOracle` (TreasuryGovernor.sol:791) forever (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 364,
+  "authority": "voter/holder (live MiFrens voting power of at least PROPOSAL_THRESHOLD)",
+  "authority_gate_quote": "if (mifrens.getVotes(msg.sender) < PROPOSAL_THRESHOLD) revert BelowProposalThreshold(); (TreasuryGovernor.sol:365)",
+  "reads": [
+   "mifrens (line 365, immutable)",
+   "PROPOSAL_THRESHOLD (line 365, constant)",
+   "MAX_ENVELOPE_BPS (line 366, constant)",
+   "registry (line 369, immutable)",
+   "envelope.active (line 386)",
+   "envelope.expiry (line 386)",
+   "lastEnvelopeAt (line 387)",
+   "COOLDOWN (line 387, immutable)",
+   "proposalCount (line 389)",
+   "VOTING_PERIOD (line 393, immutable)"
+  ],
+  "writes": [
+   "proposalCount (line 389)",
+   "proposals (line 390)",
+   "proposals[id].quote (line 391)",
+   "proposals[id].maxTotalBps (line 392)",
+   "proposals[id].votingEndsAt (line 393)",
+   "proposals[id].snapshot (line 396)",
+   "proposals[id].forVotes (line 397)",
+   "proposals[id].againstVotes (line 398)",
+   "proposals[id].executed (line 400)",
+   "proposals[id].cancelled (line 401)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IVotes721.getVotes (TreasuryGovernor.sol:365), TRUSTED, out-of-cluster",
+   "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:369), TRUSTED, out-of-cluster",
+   "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:370), TRUSTED, in-cluster"
+  ],
+  "reachability": "Open to any holder whose LIVE power clears `PROPOSAL_THRESHOLD` (TreasuryGovernor.sol:365) \u2014 five MiFrens \u2014 with no deposit and no per-address cap, so proposal ids grow permissionlessly. The budget must be non-zero and at most `MAX_ENVELOPE_BPS` (TreasuryGovernor.sol:366), the destination must be on the registry allowlist `allowedQuote` (TreasuryGovernor.sol:369) and priceable `_requirePriceable` (TreasuryGovernor.sol:370). Two envelope-level gates follow: a live, unexpired envelope reverts `ProposalActive` (TreasuryGovernor.sol:386) and a recent one reverts `CooldownActive` (TreasuryGovernor.sol:387), which is why exhausting an envelope clears `active` (TreasuryGovernor.sol:718). Voting power is frozen at `snapshot` (TreasuryGovernor.sol:396), the current block, and the window closes at `votingEndsAt` (TreasuryGovernor.sol:393); several proposals may be open simultaneously and are resolved by `winner` (TreasuryGovernor.sol:558).",
+  "observations": [
+   "comment `active` (TreasuryGovernor.sol:362) says a proposal occupies the only active slot for three days; code `envelope` (TreasuryGovernor.sol:386) refuses only while an ENVELOPE is live and `proposalCount` (TreasuryGovernor.sol:389) increments without limit, so any number of proposals can be open at once."
+  ]
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 406,
+  "authority": "voter/holder (one ballot per address per proposal, weight from the proposal's snapshot block)",
+  "authority_gate_quote": "if (w == 0) revert NoVotingPower(); (TreasuryGovernor.sol:413)",
+  "reads": [
+   "proposals (line 407)",
+   "proposals[id].votingEndsAt (line 408)",
+   "hasVoted (line 410)",
+   "proposals[id].snapshot (line 412)",
+   "mifrens (line 412, immutable)",
+   "proposals[id].forVotes (line 423)",
+   "_leadId (line 424)",
+   "_leadVotes (line 434)",
+   "_openVotedAt (line 444)",
+   "VOTING_PERIOD (line 444, immutable)",
+   "EXECUTION_WINDOW (line 444, immutable)"
+  ],
+  "writes": [
+   "hasVoted (line 415)",
+   "proposals[id].forVotes (line 416)",
+   "proposals[id].againstVotes (line 416)",
+   "_leadVotes (line 428)",
+   "_leadId (line 432)",
+   "_openVotedAt (line 439)",
+   "_openVotedAt (line 466)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IVotes721.getPastVotes (TreasuryGovernor.sol:412), TRUSTED, out-of-cluster",
+   "TreasuryGovernor._dead (TreasuryGovernor.sol:443), TRUSTED, in-cluster"
+  ],
+  "reachability": "Permissionless per holder. A nonexistent id reverts `UnknownProposal` (TreasuryGovernor.sol:408), a closed window reverts `VotingClosed` (TreasuryGovernor.sol:409) and a repeat ballot reverts `AlreadyVoted` (TreasuryGovernor.sol:410); weight is checkpointed at `getPastVotes` (TreasuryGovernor.sol:412), so tokens bought after the proposal opened carry none. Ballots are one-way: `hasVoted` (TreasuryGovernor.sol:415) is set before the tally moves and there is no un-vote. This is the only writer of the leader hint, in five branches: growth of the incumbent at `_leadVotes` (TreasuryGovernor.sol:428), first-ever support at `_leadId` (TreasuryGovernor.sol:432), overtaking at `_leadId` (TreasuryGovernor.sol:440), retirement of a hint that is `_dead` (TreasuryGovernor.sol:443) and older than one full lifetime at `_leadId` (TreasuryGovernor.sol:460), and dating an untracked live rival at `_openVotedAt` (TreasuryGovernor.sol:466). Against-votes never touch the hint, which is consistent with `winner` (TreasuryGovernor.sol:558) ranking on FOR-votes alone.",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 478,
+  "authority": "anyone (permissionless once the proposal has closed, passed, and is the winner)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals (line 479)",
+   "proposals[id].votingEndsAt (line 480)",
+   "proposals[id].executed (line 482)",
+   "proposals[id].cancelled (line 482)",
+   "EXECUTION_WINDOW (line 491, immutable)",
+   "registry (line 494, immutable)",
+   "proposals[id].quote (line 494)",
+   "proposals[id].maxTotalBps (line 503)",
+   "ENVELOPE_LIFETIME (line 505, immutable)",
+   "envelope.expiry (line 510)"
+  ],
+  "writes": [
+   "proposals[id].executed (line 500)",
+   "envelope (line 501)",
+   "envelope.quote (line 502)",
+   "envelope.maxTotalBps (line 503)",
+   "envelope.movedBps (line 504)",
+   "envelope.expiry (line 505)",
+   "envelope.active (line 506)",
+   "envelope.movedPrimaryBps (line 507)",
+   "lastEnvelopeAt (line 509)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "TreasuryGovernor._passed (TreasuryGovernor.sol:483), TRUSTED, in-cluster",
+   "TreasuryGovernor.winner (TreasuryGovernor.sol:488), TRUSTED, in-cluster",
+   "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:494), TRUSTED, out-of-cluster",
+   "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:498), TRUSTED, in-cluster"
+  ],
+  "reachability": "No caller gate at all \u2014 anyone may install a mandate the guild approved. State gates, in order: the id must exist `UnknownProposal` (TreasuryGovernor.sol:480), the vote must have closed `VotingOpen` (TreasuryGovernor.sol:481), it must be neither executed nor cancelled `AlreadyExecuted` (TreasuryGovernor.sol:482), it must clear quorum and the against-tally `_passed` (TreasuryGovernor.sol:483), it must BE the leader `winner` (TreasuryGovernor.sol:488), it must be inside `EXECUTION_WINDOW` (TreasuryGovernor.sol:491) of its close, and both the allowlist `allowedQuote` (TreasuryGovernor.sol:494) and the price feed `_requirePriceable` (TreasuryGovernor.sol:498) are re-checked against current state. The write is a wholesale struct replacement at `envelope` (TreasuryGovernor.sol:501), so both spend counters restart at `movedBps` (TreasuryGovernor.sol:504) and `movedPrimaryBps` (TreasuryGovernor.sol:507) even if a previous envelope was still live, and `lastEnvelopeAt` (TreasuryGovernor.sol:509) starts the cooldown that blocks the next proposal. Downstream this is what the registry's rotation path reads through allowance (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 516,
+  "authority": "guardian",
+  "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:517)",
+  "reads": [
+   "guardian (line 517)",
+   "envelope.active (line 519)",
+   "proposals[id].executed (line 519)"
+  ],
+  "writes": [
+   "proposals[id].cancelled (line 518)",
+   "envelope.active (line 519)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the address in `guardian` (TreasuryGovernor.sol:517) reaches this; everyone else reverts NotGuardian. It accepts ANY id, including one never proposed and one whose vote is still open, and writes `cancelled` (TreasuryGovernor.sol:518) unconditionally; a later proposal that draws that id overwrites the whole struct at `proposals` (TreasuryGovernor.sol:390), so a pre-marked slot does not persist (DERIVED). The live envelope is only stood down when the cancelled proposal is the one that installed it, via the `executed` (TreasuryGovernor.sol:519) test, and `lastEnvelopeAt` (TreasuryGovernor.sol:509) is NOT rewound, so the cooldown from the cancelled envelope still runs against the next `propose` (TreasuryGovernor.sol:364) (DERIVED). The guardian can stop but cannot start or redirect a rotation: no path here writes `quote` (TreasuryGovernor.sol:502) or `maxTotalBps` (TreasuryGovernor.sol:503).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 523,
+  "authority": "guardian",
+  "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:524)",
+  "reads": [
+   "guardian (line 524)"
+  ],
+  "writes": [
+   "guardian (line 525)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Self-rotating role: only the current `guardian` (TreasuryGovernor.sol:524) may name the next one at `guardian` (TreasuryGovernor.sol:525), with no zero-check, no two-step handover and no event. Passing address zero renounces the role permanently and dead-ends `cancel` (TreasuryGovernor.sol:516), `setQuoteOracle` (TreasuryGovernor.sol:791) and this setter, since no transaction can originate from address zero (DERIVED). Nothing else in the contract can restore it \u2014 the constructor at `guardian` (TreasuryGovernor.sol:324) is the only other writer.",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 558,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "_leadId (line 562)",
+   "proposals (line 563)",
+   "proposalCount (line 566)",
+   "proposals[i].votingEndsAt (line 597)",
+   "EXECUTION_WINDOW (line 597, immutable)",
+   "proposals[i].executed (line 598)",
+   "proposals[i].cancelled (line 598)",
+   "proposals[i].forVotes (line 601)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "TreasuryGovernor._executable (TreasuryGovernor.sol:563), TRUSTED, in-cluster",
+   "TreasuryGovernor._passed (TreasuryGovernor.sol:600), TRUSTED, in-cluster"
+  ],
+  "reachability": "Public view and the selector `winner` (TreasuryGovernor.sol:488) that execute gates on, so it sits on the only path that installs an envelope. Fast path: the hint `_leadId` (TreasuryGovernor.sol:562) is returned when `_executable` (TreasuryGovernor.sol:563) accepts it. Otherwise it walks ids downward from `proposalCount` (TreasuryGovernor.sol:566) and stops at the first proposal whose window closed more than `EXECUTION_WINDOW` (TreasuryGovernor.sol:597) ago, so the scan spans only proposals from the last voting period plus execution window; within that span the number of proposals is unbounded and grows with permissionless filing (DERIVED). Ranking is on FOR-votes alone at `forVotes` (TreasuryGovernor.sol:601) with a strict comparison, so a tie keeps the LOWER id encountered last in the downward walk, and a zero return means no proposal is currently executable.",
+  "observations": [
+   "comment `execute` (TreasuryGovernor.sol:538) cites the gate at line 273 and comment `MAX_WINNER_SCAN` (TreasuryGovernor.sol:550) describes a positional bound; code `execute` (TreasuryGovernor.sol:478) is declared far from that line and the loop is bounded instead by the time test at `break` (TreasuryGovernor.sol:597), with no such constant declared."
+  ]
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 607,
+  "authority": "internal (callers: winner)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals[hint].votingEndsAt (line 608)",
+   "proposals[hint].executed (line 608)",
+   "proposals[hint].cancelled (line 608)",
+   "EXECUTION_WINDOW (line 610, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "TreasuryGovernor._passed (TreasuryGovernor.sol:611), TRUSTED, in-cluster"
+  ],
+  "reachability": "Private; the single call site is the fast path in `_executable` (TreasuryGovernor.sol:563). It is the one definition of executability: unknown, executed or cancelled proposals fail at `votingEndsAt` (TreasuryGovernor.sol:608), a still-open vote fails at `votingEndsAt` (TreasuryGovernor.sol:609), a stale one fails at `EXECUTION_WINDOW` (TreasuryGovernor.sol:610), and the remainder must clear `_passed` (TreasuryGovernor.sol:611). Because it is a superset of the scan's own tests, trusting the hint can only elect a proposal the scan would also accept, though not necessarily the highest-voted one unless the hint is maintained as a maximum (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 626,
+  "authority": "internal (callers: vote)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals[lead].executed (line 627)",
+   "proposals[lead].cancelled (line 627)",
+   "proposals[lead].votingEndsAt (line 628)",
+   "EXECUTION_WINDOW (line 628, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private; reached only from the hint-retirement branch at `_dead` (TreasuryGovernor.sol:443). It is monotone: `executed` (TreasuryGovernor.sol:627) and `cancelled` (TreasuryGovernor.sol:627) are one-way flags and the deadline at `EXECUTION_WINDOW` (TreasuryGovernor.sol:628) only recedes, so a true answer can never become false. An id that was never proposed reads dead because `votingEndsAt` (TreasuryGovernor.sol:628) is zero (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 643,
+  "authority": "anyone (the registry rotation path is the production caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "envelope (line 644)",
+   "envelope.active (line 645)",
+   "envelope.expiry (line 645)",
+   "envelope.movedBps (line 646)",
+   "envelope.maxTotalBps (line 646)",
+   "envelope.quote (line 647)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Unrestricted view, and the contract's main outward-facing surface: the registry's rotation facet reads it at `allowance` (RedemptionExt.sol:303) and refuses to rotate when the remainder is zero. Three no-envelope cases collapse to the same answer \u2014 inactive or expired at `active` (TreasuryGovernor.sol:645) and exhausted at `movedBps` (TreasuryGovernor.sol:646) \u2014 so the REMAINDER is the liveness flag while `quote` (TreasuryGovernor.sol:647) cannot be, address zero being a legitimate native destination. The remainder is a bps budget, not an asset amount, and it is also consumed internally by `allowance` (TreasuryGovernor.sol:700).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 681,
+  "authority": "anyone (the registry rotation path is the production caller)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "envelope (line 682)",
+   "envelope.maxTotalBps (line 683)",
+   "envelope.movedPrimaryBps (line 683)",
+   "BPS_ONE (line 683, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Unrestricted view with one production consumer: the rotation facet redenominates a generation on it at `migrationMandateSpent` (RedemptionExt.sol:504), and only when the slice came from the primary leg. It returns true only when the guild budgeted at least one whole position `BPS_ONE` (TreasuryGovernor.sol:683) AND that budget has been spent out of the generation's own position `movedPrimaryBps` (TreasuryGovernor.sol:683), so secondary-leg slices counted in `movedBps` (TreasuryGovernor.sol:708) can never declare a migration complete. Because slices take a share of CURRENT liquidity, a spent budget does not mean a drained position (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 697,
+  "authority": "registry",
+  "authority_gate_quote": "if (msg.sender != registry) revert NotGuardian(); (TreasuryGovernor.sol:698)",
+  "reads": [
+   "registry (line 698, immutable)",
+   "envelope (line 699)",
+   "envelope.maxTotalBps (line 718)"
+  ],
+  "writes": [
+   "envelope.movedBps (line 708)",
+   "envelope.movedPrimaryBps (line 709)",
+   "envelope.active (line 718)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "TreasuryGovernor.allowance (TreasuryGovernor.sol:700), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reachable only from the immutable `registry` (TreasuryGovernor.sol:698); the production call is the rotation facet booking a slice at `consume` (RedemptionExt.sol:437), AFTER the liquidity has moved, so a reverted slice burns no budget. The remainder from `allowance` (TreasuryGovernor.sol:700) is the liveness test and the bound: zero remaining or an oversized slice reverts `BadParam` (TreasuryGovernor.sol:707), which keeps `movedBps` (TreasuryGovernor.sol:708) at or below maxTotalBps and both counters inside uint16 (DERIVED). The primary-leg share is booked separately at `movedPrimaryBps` (TreasuryGovernor.sol:709) \u2014 the caller asserts which leg it came from, this contract cannot check it (DERIVED) \u2014 and exhaustion stands the envelope down at `active` (TreasuryGovernor.sol:718) so it stops blocking `ProposalActive` (TreasuryGovernor.sol:386). The counters are bps of a moving position, never token amounts, and nothing here verifies a balance.",
+  "observations": [
+   "comment `Registry` (TreasuryGovernor.sol:690) says the function is registry-only; code `registry` (TreasuryGovernor.sol:698) checks the registry but reverts with the guardian's error `NotGuardian` (TreasuryGovernor.sol:698).",
+   "comment `propose` (TreasuryGovernor.sol:711) cites the proposal gate at line 322 and comment `cancel` (TreasuryGovernor.sol:712) cites line 409; code puts that gate at `envelope` (TreasuryGovernor.sol:386) and declares `cancel` (TreasuryGovernor.sol:516)."
+  ]
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 724,
+  "authority": "internal (callers: execute, winner, _executable, passing)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals[id].forVotes (line 725)",
+   "proposals[id].againstVotes (line 725)",
+   "mifrens (line 735, immutable)",
+   "proposals[id].snapshot (line 735)",
+   "QUORUM_BPS (line 735, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IVotes721.getPastTotalSupply (TreasuryGovernor.sol:735), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Private, reached from `_passed` (TreasuryGovernor.sol:483) in execute, `_passed` (TreasuryGovernor.sol:600) in the scan, `_passed` (TreasuryGovernor.sol:611) in the executability test and `_passed` (TreasuryGovernor.sol:746) in the public view. Two conditions: a strict majority at `forVotes` (TreasuryGovernor.sol:725), so a tie fails, and a quorum of `QUORUM_BPS` (TreasuryGovernor.sol:735) \u2014 ten percent \u2014 of the supply measured at the proposal's own `snapshot` (TreasuryGovernor.sol:735), not live, so minting or burning after the vote opens cannot move the bar. The comparison at `forVotes` (TreasuryGovernor.sol:736) is inclusive, and the division at `need` (TreasuryGovernor.sol:735) truncates, so the effective quorum rounds DOWN (DERIVED).",
+  "observations": [
+   "comment `vote` (TreasuryGovernor.sol:729) says quorum is read at the same timepoint the vote weighs ballots and points at line 384; code weighs ballots at `getPastVotes` (TreasuryGovernor.sol:412) and reads the denominator at `getPastTotalSupply` (TreasuryGovernor.sol:735)."
+  ]
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 739,
+  "authority": "internal (callers: none in this file)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals (line 740)",
+   "proposals[id].executed (line 741)",
+   "proposals[id].cancelled (line 741)",
+   "proposals[id].votingEndsAt (line 741)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Private and unreferenced: no call site exists for `_settled` (TreasuryGovernor.sol:739) anywhere in the file, so it is unreachable from every external entry and contributes no runtime behaviour (DERIVED). Had it been used it would report a proposal as settled once `executed` (TreasuryGovernor.sol:741) or `cancelled` (TreasuryGovernor.sol:741) is set or its window has closed \u2014 a WEAKER condition than `_executable` (TreasuryGovernor.sol:607) and a different one from `_dead` (TreasuryGovernor.sol:626).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 745,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "proposals (line 746)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "TreasuryGovernor._passed (TreasuryGovernor.sol:746), TRUSTED, in-cluster"
+  ],
+  "reachability": "Unrestricted view for interfaces: it answers whether `_passed` (TreasuryGovernor.sol:746) holds right now, with no timing test at all, so it reports on an open vote and on a long-stale one alike. An id that was never proposed reads false because both tallies are zero and the majority test at `forVotes` (TreasuryGovernor.sol:725) fails first (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 782,
+  "authority": "internal (callers: propose, execute)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "quoteOracle (line 784)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IQuotePrice.usdPerRawUnit (TreasuryGovernor.sol:786), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Internal, reached from `_requirePriceable` (TreasuryGovernor.sol:370) when a target is named and again from `_requirePriceable` (TreasuryGovernor.sol:498) when the envelope is installed. Two exemptions make it a no-op: a native destination returns at `quote` (TreasuryGovernor.sol:783) and an unset oracle returns at `o` (TreasuryGovernor.sol:785). Otherwise it calls out to the guardian-controlled `quoteOracle` (TreasuryGovernor.sol:784) and treats a zero price as fatal `QuoteNotPriceable` (TreasuryGovernor.sol:786); a reverting oracle propagates and blocks both proposing and executing, and a guardian able to repoint `setQuoteOracle` (TreasuryGovernor.sol:791) therefore controls whether any non-native mandate can be installed (DERIVED).",
+  "observations": [
+   "comment `setQuoteAllowed` (TreasuryGovernor.sol:753) names the registry's allowlist setter; code in the registry declares it as `setAllowedQuote` (CauldronRegistry.sol:290) and writes the mapping at `allowedQuote` (CauldronRegistry.sol:303)."
+  ]
+ },
+ {
+  "contract": "TreasuryGovernor",
+  "line": 791,
+  "authority": "guardian",
+  "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:792)",
+  "reads": [
+   "guardian (line 792)"
+  ],
+  "writes": [
+   "quoteOracle (line 793)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the current `guardian` (TreasuryGovernor.sol:792) may write `quoteOracle` (TreasuryGovernor.sol:793), with no zero-check and no code-check, and it may be rewritten any number of times. Because the stored address is called during both `_requirePriceable` (TreasuryGovernor.sol:370) and `_requirePriceable` (TreasuryGovernor.sol:498), the holder of this setter can make any non-native quote unproposable and unexecutable, or clear the slot to skip the check entirely at `o` (TreasuryGovernor.sol:785) (DERIVED).",
+  "observations": [
+   "comment `Timelock` (TreasuryGovernor.sol:789) says the oracle is timelock-set, and comment `timelock` (TreasuryGovernor.sol:48) says only the timelock adds assets; code gates this setter on `guardian` (TreasuryGovernor.sol:792) and the allowlist on the registry owner at `setAllowedQuote` (CauldronRegistry.sol:290)."
+  ]
+ }
+]

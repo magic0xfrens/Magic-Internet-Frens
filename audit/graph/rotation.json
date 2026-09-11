@@ -1,1165 +1,2490 @@
-[
-  {
-    "contract": "QuoteRotator",
-    "signature": "constructor(address _registry, IPoolManager _poolManager)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "deployer",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": ["registry (line 96, immutable)", "poolManager (line 97, immutable)", "owner (line 98)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "deploy-time only (DeployRotationStack.s.sol:214 / DeployLaunchpad.s.sol:476 region)",
-    "line": 95
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function transferOwnership(address to) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner (the treasury/timelock)",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)"],
-    "writes": ["owner (line 131)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct call to the deployed QuoteRotator by owner. No zero-address check: owner may be set to address(0), permanently disabling setVenue/setPlan/cancelPlan/setKeeperBps/setArbParams/setMaxArbNotionalUsd and the owner half of withdraw.",
-    "line": 131
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function setVenue(PoolKey calldata route, bool allowed) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)"],
-    "writes": ["allowedVenue[id] (line 188)"],
-    "value": "NONE",
-    "edges": ["PoolIdLibrary.toId (QuoteRotator.sol:187), TRUSTED, out-of-cluster"],
-    "reachability": "direct, owner only. NOTE: allowedVenue is read ONLY by rotateStep (:295) and isVenueAllowed (:194). It is NOT read by swapOnce or arbStep.",
-    "line": 186
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function isVenueAllowed(PoolKey calldata route) external view returns (bool)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "anyone",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["allowedVenue (line 194)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["PoolIdLibrary.toId (QuoteRotator.sol:194), TRUSTED, out-of-cluster"],
-    "reachability": "PERMISSIONLESS view",
-    "line": 193
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function setPlan(address from, address to, uint128 totalIn, uint128 sliceIn, uint256 minRate, uint32 interval) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)", "registry (line 614, via _allowed)"],
-    "writes": ["plan (lines 227-237, whole struct overwritten; doneIn/gotOut/lastStepAt reset to 0)"],
-    "value": "NONE",
-    "edges": ["_allowed (QuoteRotator.sol:225), in-cluster", "registry.staticcall allowedQuote(address) (QuoteRotator.sol:613-614), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "direct, owner only. Overwrites a plan in flight with no guard on doneIn/gotOut of the previous plan.",
-    "line": 212
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function cancelPlan() external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["plan.doneIn, plan.gotOut (line 245)"],
-    "writes": ["plan (line 246, delete)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. Leaves any converted proceeds in the rotator; only withdraw (:489) gets them out.",
-    "line": 244
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function setKeeperBps(uint16 bps) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)"],
-    "writes": ["keeperBps (line 251)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. Bound: if (bps > 100) revert BadConfig(); (line 250) -> [0, 100] bps = 0..1%",
-    "line": 249
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function nextSliceSize() public view returns (uint256)",
-    "visibility": "public",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "anyone",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["plan.totalIn (line 261)", "plan.doneIn (line 261,267)", "plan.lastStepAt (line 266)", "plan.interval (line 266)", "plan.sliceIn (line 268)", "plan.from (line 269)", "address(this).balance / IERC20.balanceOf (line 608 via _balanceOf)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["_balanceOf (QuoteRotator.sol:269), in-cluster", "IERC20(asset).balanceOf (QuoteRotator.sol:608), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "PERMISSIONLESS view; also called internally by rotateStep (:284)",
-    "line": 259
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function rotateStep(PoolKey calldata route) external returns (uint256 out)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE (permissionless keeper)",
-    "authority_gate_quote": "UNGATED (no msg.sender check anywhere in the body; the only gates are plan existence :282, TooSoon :285, allowlist :286, pair-shape :287, curated venue :295)",
-    "reads": ["plan.totalIn (line 282)", "plan.to (line 286)", "plan.from (line 287)", "allowedVenue (line 295)", "plan.minRate (line 306)", "keeperBps (line 312)"],
-    "writes": ["plan.lastStepAt (line 300)", "plan.doneIn (line 301)", "plan.gotOut (line 310)"],
-    "value": "ERC20 or native `plan.to` OUT to msg.sender at line 313 (_send, keeper fee = out*keeperBps/1e4); `plan.from` OUT to the PoolManager at lines 570/573 (_settle)",
-    "edges": [
-      "nextSliceSize (QuoteRotator.sol:284), in-cluster",
-      "_allowed -> registry.staticcall allowedQuote (QuoteRotator.sol:286 -> 613), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_routeMatches (QuoteRotator.sol:287), in-cluster",
-      "PoolIdLibrary.toId (QuoteRotator.sol:295), TRUSTED, out-of-cluster",
-      "_swap -> poolManager.unlock (QuoteRotator.sol:303 -> 505), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "unlockCallback -> poolManager.swap (QuoteRotator.sol:520), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "route.hooks (invoked by PoolManager inside this contract's unlock), UNTRUSTED unless curated, EXTERNAL-CALL, out-of-cluster",
-      "_settle -> poolManager.settle/sync + token.transfer (QuoteRotator.sol:531 -> 568-575), UNTRUSTED token, EXTERNAL-CALL, out-of-cluster",
-      "poolManager.take (QuoteRotator.sol:532), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_send -> to.call{value:} or token.transfer (QuoteRotator.sol:313 -> 578-586), UNTRUSTED (msg.sender), EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "PERMISSIONLESS. Direct external call on the deployed QuoteRotator. No registry forwarder involved. Requires an owner-set plan (:212) AND an owner-curated venue (:186). Effects (lastStepAt/doneIn) are written BEFORE the external swap (:300-301), the keeper fee is paid AFTER (:313) with no reentrancy guard on the contract.",
-    "line": 280
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external onlyRegistry returns (uint256 out)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyRegistry"],
-    "authority": "the CauldronRegistry address ONLY (immutable `registry`)",
-    "authority_gate_quote": "if (msg.sender != registry) revert NotOwner(); (QuoteRotator.sol:122)",
-    "reads": ["registry (line 122)"],
-    "writes": [],
-    "value": "`from` OUT to the PoolManager at lines 570/573 (_settle); `to` IN via poolManager.take (line 532)",
-    "edges": [
-      "_allowed -> registry.staticcall allowedQuote (QuoteRotator.sol:339 -> 613), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_routeMatches (QuoteRotator.sol:340), in-cluster",
-      "_swap -> poolManager.unlock (QuoteRotator.sol:341 -> 505), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "route.hooks (invoked by PoolManager inside this contract's unlock), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "Reached ONLY through RedemptionExt.rotateSliceFrom (RedemptionExt.sol:352) executing under delegatecall as the registry, which is itself reached through the registry forwarders CauldronRegistry.rotateSlice (:235) / CauldronRegistry.rotateSliceFrom (:259). Both forwarders are PERMISSIONLESS. `route` and `minOut` are attacker-supplied calldata all the way down; allowedVenue is NOT consulted on this path.",
-    "line": 331
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function setArbParams(address oracle, uint16 keeperBps, uint256 minProfitUsd) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)"],
-    "writes": ["quoteOracle (line 379)", "arbKeeperBps (line 380)", "minArbProfitUsd (line 381)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. Bound: if (keeperBps > 2000) revert BadConfig(); (line 378) -> [0,2000] bps = 0..20%. `oracle` may be set to address(0) with no check, which makes _usd return 0 (line 466) and every arbStep revert NoRoute (line 445). `minProfitUsd` has no floor.",
-    "line": 377
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
-    "reads": ["owner (line 127)"],
-    "writes": ["maxArbNotionalUsd (line 388)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. 0 = unbounded (checked at line 449).",
-    "line": 387
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function arbStep(PoolKey calldata cheap, PoolKey calldata dear, uint256 amountIn) external returns (uint256 profitUsd)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE (permissionless keeper)",
-    "authority_gate_quote": "UNGATED (no msg.sender check; gates are amountIn!=0 :429, currency1 match :434, currency0 differ :435, both priceable :445, notional cap :449, profit :450/453)",
-    "reads": ["quoteOracle (line 465, via _usd)", "maxArbNotionalUsd (line 449)", "minArbProfitUsd (line 453)", "arbKeeperBps (line 458)"],
-    "writes": [],
-    "value": "`cheap.currency0` OUT to the PoolManager at line 563 (_settle); `dear.currency0` IN via poolManager.take (line 564); `dear.currency0` OUT to msg.sender at line 459 (_send, keeperCut)",
-    "edges": [
-      "poolManager.unlock (QuoteRotator.sol:438), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_arbCallback -> poolManager.swap x2 (QuoteRotator.sol:546, 556), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "cheap.hooks and dear.hooks (invoked by PoolManager inside this contract's unlock), UNTRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_usd -> quoteOracle.call cachedUsdPerRawUnit(address) (QuoteRotator.sol:443,444 -> 467), TRUSTED-tier component, EXTERNAL-CALL (non-static, state-writing), in-cluster (QuoteOracle)",
-      "_settle (QuoteRotator.sol:563), in-cluster",
-      "poolManager.take (QuoteRotator.sol:564), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_send -> msg.sender (QuoteRotator.sol:459), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "PERMISSIONLESS, direct on the deployed QuoteRotator. Spends the rotator's OWN balance of cheap.currency0. NO allowedVenue check on either PoolKey (contrast rotateStep:295). NO _allowed() check on inQuote or outQuote. Both `hooks` fields are attacker-chosen.",
-    "line": 425
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _usd(address quote, uint256 raw) internal returns (uint256)",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only (arbStep)",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["quoteOracle (line 465)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["o.call(abi.encodeWithSignature(\"cachedUsdPerRawUnit(address)\", quote)) (QuoteRotator.sol:467-469), EXTERNAL-CALL, in-cluster (QuoteOracle:305)"],
-    "reachability": "arbStep only (:443, :444). Returns 0 on: unset oracle (:466), call failure or short returndata (:470), zero factor (:472). Formula: (raw * f) / 1e18 (line 472).",
-    "line": 464
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function withdraw(address asset, address to, uint256 amount) external",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "the immutable `registry` OR QuoteRotator.owner",
-    "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:490)",
-    "reads": ["registry (line 490)", "owner (line 490)"],
-    "writes": [],
-    "value": "ANY `asset` (native or ERC20), ANY `amount`, to ANY non-zero `to` — moved at line 492 via _send -> to.call{value:} (581) or token.transfer (593)",
-    "edges": ["_send (QuoteRotator.sol:492), in-cluster", "to.call{value: amount} (QuoteRotator.sol:581), UNTRUSTED, EXTERNAL-CALL, out-of-cluster", "_safeTransfer -> token.call transfer (QuoteRotator.sol:593), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "Two callers. (1) OWNER directly — unrestricted asset/to/amount sweep. (2) REGISTRY, only from RedemptionExt.rotateSliceFrom (RedemptionExt.sol:353) with to hard-coded to address(this) and amount = the swapOnce return; that path is PERMISSIONLESS to trigger but its parameters are not caller-controlled. Only guard on the value: if (to == address(0)) revert BadConfig(); (line 491). No balance/accounting check.",
-    "line": 489
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _swap(PoolKey calldata route, address from, address to, uint256 size) internal returns (uint256 out)",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only (rotateStep, swapOnce)",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["poolManager (line 505)"],
-    "writes": [],
-    "value": "drives the unlock; the actual movement happens in unlockCallback",
-    "edges": ["poolManager.unlock (QuoteRotator.sol:505), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "rotateStep (:303), swapOnce (:341). Direction is derived as `zeroForOne = Currency.unwrap(route.currency0) == from` (line 504).",
-    "line": 500
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "the PoolManager ONLY",
-    "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotOwner(); (QuoteRotator.sol:510)",
-    "reads": ["poolManager (line 510)"],
-    "writes": [],
-    "value": "settles `from` OUT (line 531 -> 570/573) and takes `to` IN (line 532)",
-    "edges": [
-      "_arbCallback (QuoteRotator.sol:515), in-cluster",
-      "poolManager.swap (QuoteRotator.sol:520), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "key.hooks (called by the PoolManager during swap), UNTRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_settle (QuoteRotator.sol:531), in-cluster",
-      "poolManager.take (QuoteRotator.sol:532), TRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "PoolManager re-entry during rotateStep/swapOnce/arbStep. Payload discriminator: uint8 kind at data[:32] (line 514); kind==1 routes to _arbCallback (515). sqrtPriceLimitX96 is pinned to the extremes (line 525) so the pool price bound never binds — the ONLY price protection on this path is the caller/plan-supplied minOut.",
-    "line": 509
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _arbCallback(bytes calldata data) internal returns (bytes memory)",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only (unlockCallback, kind==1)",
-    "authority_gate_quote": "n/a internal; parent gate is QuoteRotator.sol:510",
-    "reads": [],
-    "writes": [],
-    "value": "settles cheap.currency0 OUT (line 563), takes dear.currency0 IN (line 564)",
-    "edges": [
-      "poolManager.swap x2 (QuoteRotator.sol:546, 556), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "cheap.hooks / dear.hooks, UNTRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "_settle (QuoteRotator.sol:563), in-cluster",
-      "poolManager.take (QuoteRotator.sol:564), TRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "arbStep -> poolManager.unlock -> unlockCallback (kind 1). Leg 1 hardcodes zeroForOne:true and MIN_SQRT_PRICE+1 (548); leg 2 hardcodes zeroForOne:false and MAX_SQRT_PRICE-1 (558). Both legs assume the QUOTE is currency0 in both PoolKeys; nothing verifies that.",
-    "line": 541
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _settle(address cur, uint256 amount) internal",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["poolManager (lines 570, 572, 574)"],
-    "writes": [],
-    "value": "native wei OUT at line 570 (poolManager.settle{value: amount}()); ERC20 OUT at line 573 (_safeTransfer to poolManager)",
-    "edges": ["poolManager.settle{value:} (QuoteRotator.sol:570), TRUSTED, EXTERNAL-CALL, out-of-cluster", "poolManager.sync (QuoteRotator.sol:572), TRUSTED, EXTERNAL-CALL, out-of-cluster", "_safeTransfer (QuoteRotator.sol:573), in-cluster", "poolManager.settle (QuoteRotator.sol:574), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "unlockCallback (:531), _arbCallback (:563)",
-    "line": 568
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _send(address cur, address to, uint256 amount) internal",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": [],
-    "writes": [],
-    "value": "native wei OUT at line 581 (to.call{value: amount}(\"\")); ERC20 OUT at line 584 (_safeTransfer)",
-    "edges": ["to.call{value: amount} (QuoteRotator.sol:581), UNTRUSTED, EXTERNAL-CALL, out-of-cluster", "_safeTransfer (QuoteRotator.sol:584), in-cluster"],
-    "reachability": "rotateStep keeper fee (:313), arbStep keeper cut (:459), withdraw (:492). The native branch forwards ALL remaining gas to an arbitrary `to`, and rotateStep/arbStep have no reentrancy guard.",
-    "line": 578
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _safeTransfer(address token, address to, uint256 amount) internal",
-    "visibility": "internal",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": [],
-    "writes": [],
-    "value": "ERC20 OUT at line 593",
-    "edges": ["token.call(IERC20.transfer.selector,...) (QuoteRotator.sol:593), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "_settle (:573), _send (:584). Return value checked at line 594.",
-    "line": 591
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _routeMatches(PoolKey calldata route, address from, address to) internal pure returns (bool)",
-    "visibility": "internal",
-    "mutability": "pure",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "rotateStep (:287), swapOnce (:340). Checks ONLY currency0/currency1 (line 604); `fee`, `tickSpacing` and `hooks` are unconstrained by this function.",
-    "line": 597
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _balanceOf(address asset) internal view returns (uint256)",
-    "visibility": "internal",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["address(this).balance or IERC20(asset).balanceOf(address(this)) (line 608)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["IERC20(asset).balanceOf (QuoteRotator.sol:608), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "nextSliceSize (:269)",
-    "line": 607
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "function _allowed(address quote) internal view returns (bool)",
-    "visibility": "internal",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["registry (line 614)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["registry.staticcall(allowedQuote(address)) (QuoteRotator.sol:613-614), TRUSTED, EXTERNAL-CALL, out-of-cluster (CauldronBase.sol:321 mapping)"],
-    "reachability": "setPlan (:225), rotateStep (:286), swapOnce (:339). Native address(0) short-circuits to true (line 612). A failed staticcall degrades to false (line 615).",
-    "line": 611
-  },
-  {
-    "contract": "QuoteRotator",
-    "signature": "receive() external payable",
-    "visibility": "external",
-    "mutability": "payable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": [],
-    "value": "native wei IN (unaccounted — no counter, no event)",
-    "edges": [],
-    "reachability": "PERMISSIONLESS. Anyone may send ETH; it is indistinguishable from rotation proceeds and is spendable by nextSliceSize/_balanceOf (:269, :608) and by owner withdraw (:489).",
-    "line": 618
-  },
-
-  {
-    "contract": "QuoteOracle",
-    "signature": "constructor(address _owner)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "deployer",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": ["owner (line 111)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "deploy only",
-    "line": 110
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function transferOwnership(address to) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteOracle.owner (documented as the timelock, QuoteOracle.sol:123)",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
-    "reads": ["owner (line 115)"],
-    "writes": ["owner (line 119)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. No zero check.",
-    "line": 119
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function setFeed(address quote, address aggregator, uint32 heartbeat, uint8 quoteDecimals) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteOracle.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
-    "reads": ["feeds[quote].minUsd/.maxUsd (line 140-141)"],
-    "writes": ["feeds[quote] (line 141, whole struct; sets pegged=false)"],
-    "value": "NONE",
-    "edges": ["IERC20Decimals(quote).decimals() (QuoteOracle.sol:138), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "direct, owner only. Bound: if (heartbeat == 0) revert BadConfig(); (line 135). `aggregator` may be address(0) with no check — that makes usdPerRawUnit return 0 at line 208. Does NOT clear `cache[quote]`, so a stale cached factor survives a feed swap.",
-    "line": 131
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function setPegged(address quote, uint8 dec) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteOracle.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
-    "reads": [],
-    "writes": ["feeds[quote] (line 158, whole struct; pegged=true, aggregator=0, heartbeat=1, minUsd=0, maxUsd=0 — bounds are WIPED)"],
-    "value": "NONE",
-    "edges": ["IERC20Decimals(quote).decimals() (QuoteOracle.sol:155), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "direct, owner only. Does NOT clear cache[quote].",
-    "line": 153
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteOracle.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
-    "reads": [],
-    "writes": ["feeds[quote].minUsd (line 177)", "feeds[quote].maxUsd (line 178)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. Bound: if (maxUsd != 0 && minUsd > maxUsd) revert BadConfig(); (line 176). Bounds are compared against `perWhole` (USD per WHOLE token at 1e18) at lines 267-268, and are ignored on the pegged path (early return line 207).",
-    "line": 175
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function setSequencer(address feed, uint32 grace) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "QuoteOracle.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
-    "reads": [],
-    "writes": ["sequencerUptime (line 183)", "gracePeriod (line 184)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. No bound on `grace`.",
-    "line": 182
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function usdPerRawUnit(address quote) external view returns (uint256 factor)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["feeds[quote] (line 203)", "sequencerUptime (line 321 via _sequencerOk)", "gracePeriod (line 338)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": [
-      "f.aggregator.latestRoundData() (QuoteOracle.sol:231), UNTRUSTED, EXTERNAL-CALL, out-of-cluster (try/catch, line 236)",
-      "f.aggregator.decimals() (QuoteOracle.sol:249), UNTRUSTED, EXTERNAL-CALL, out-of-cluster (try/catch, line 252)",
-      "_sequencerOk -> sequencerUptime.latestRoundData() (QuoteOracle.sol:328), UNTRUSTED, EXTERNAL-CALL, out-of-cluster (try/catch, line 339)"
-    ],
-    "reachability": "PERMISSIONLESS view. Called externally by TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:587), CauldronGachaRouter._playInCurveUnits (CauldronGachaRouter.sol:138), and internally via `this.` from cachedUsdPerRawUnit (:308) and priceable (:317).",
-    "line": 202
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function cachedUsdPerRawUnit(address quote) external returns (uint256)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["cache[quote].at (line 307)", "cache[quote].factor (lines 307, 311)"],
-    "writes": ["cache[quote].at (line 309, written on EVERY refresh including a failed one)", "cache[quote].factor (line 310, written ONLY when fresh > 0)"],
-    "value": "NONE",
-    "edges": ["this.usdPerRawUnit(quote) (QuoteOracle.sol:308), EXTERNAL-CALL to self (propagates reverts), in-cluster"],
-    "reachability": "PERMISSIONLESS and STATE-WRITING. Callers: CauldronHook._toUsd (CauldronHook.sol:708-710, raw `call`, failure -> 0) and QuoteRotator._usd (QuoteRotator.sol:467-469, raw `call`, failure -> 0). Anyone can call it directly to advance cache[quote].at without refreshing cache[quote].factor when the feed is unusable.",
-    "line": 305
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function priceable(address quote) external view returns (bool)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["this.usdPerRawUnit(quote) (QuoteOracle.sol:317), EXTERNAL-CALL to self, in-cluster"],
-    "reachability": "PERMISSIONLESS view. `grep -rn priceable --include=*.sol` finds NO on-chain caller of QuoteOracle.priceable anywhere outside QuoteOracle.sol itself — TreasuryGovernor uses usdPerRawUnit directly (TreasuryGovernor.sol:587).",
-    "line": 316
-  },
-  {
-    "contract": "QuoteOracle",
-    "signature": "function _sequencerOk() internal view returns (bool)",
-    "visibility": "internal",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a internal",
-    "reads": ["sequencerUptime (line 321)", "gracePeriod (line 338)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["s.latestRoundData() (QuoteOracle.sol:328), UNTRUSTED, EXTERNAL-CALL, out-of-cluster (try/catch, line 339)"],
-    "reachability": "usdPerRawUnit (:209). Returns true when unset (line 322). Returns false on: up != 0 (332), startedAt == 0 or in the future (335), within grace (338), any revert (339-341). NOTE: it is called AFTER the pegged early-return (line 207), so a pegged asset is priced even while the sequencer is down.",
-    "line": 320
-  },
-  {
-    "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
-    "signature": "interface IAggregatorV3 { function decimals() external view returns (uint8); function latestRoundData() external view returns (uint80,int256,uint256,uint256,uint80); }",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Implemented on testnet by MockAggregator (MockAggregator.sol:84 latestRoundData, :40 decimals as a public constant). Note: `answeredInRound` and `roundId` are returned but NEVER read by QuoteOracle (destructured away at lines 232 and 329).",
-    "line": 4
-  },
-  {
-    "contract": "IERC20Decimals (declared in QuoteOracle.sol)",
-    "signature": "interface IERC20Decimals { function decimals() external view returns (uint8); }",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "setFeed (:138), setPegged (:155). Non-view in effect: a malicious quote token controls the decimals stored, and the stored value drives the 10**quoteDecimals divisor at lines 207 and 277.",
-    "line": 12
-  },
-
-  {
-    "contract": "RedemptionExt",
-    "signature": "function redeemOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 amount)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "the owner of MiFren `mifrenTokenId` (ids 1..genesisShares)",
-    "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != msg.sender) revert NotOwnerOf(); (RedemptionExt.sol:79)",
-    "reads": ["redemptionPaused/emergencyReadyAt (line 74, _redeemBlocked)", "summoned (line 75)", "genesisShares (line 78)", "mifrens (line 79)", "genesisReserveOutstanding (line 81 via floorPerFren, line 86)", "currentGeneration (line 89)", "generationReservePositionId[g] (line 92)", "generationPoolKey[g] (line 92)", "reserveTickLower/Upper[g] (line 93)"],
-    "writes": ["genesisReserveOutstanding (line 86)"],
-    "value": "the CURRENT GENERATION TOKEN out, pulled from the reserve LP to msg.sender (PoolOps.claimFromReserve, RedemptionExt.sol:90-94). NEVER a quote asset.",
-    "edges": [
-      "IMiFrensContinuable(mifrens).custodyTransfer (RedemptionExt.sol:87), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "PoolOps.claimFromReserve (RedemptionExt.sol:90, PoolOps.sol:1132), TRUSTED (delegatecall library), out-of-cluster"
-    ],
-    "reachability": "PERMISSIONLESS for any OG holder, through the registry forwarder CauldronRegistry.redeemOgFren (CauldronRegistry.sol:1336) -> _forwardToExt (:1404) -> delegatecall. Pays in `generationToken[currentGeneration]` from the reserve position of the PRIMARY pool (generationPoolKey[g]); rotation never touches that position.",
-    "line": 73
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function buyTreasuryOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 paid)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "ANYONE (buys a treasury-held fren)",
-    "authority_gate_quote": "UNGATED as to caller; only state gates: if (!summoned) revert NotSummoned(); (:111) and if (IERC721(mifrens).ownerOf(mifrenTokenId) != address(this)) revert NotOwnerOf(); (:114)",
-    "reads": ["summoned (line 111)", "genesisShares (line 112)", "mifrens (line 114)", "genesisReserveOutstanding/genesisShares (line 116 via floorPerFren)", "currentGeneration (line 161 via _pullGrow)", "generationToken[g] (line 162)"],
-    "writes": ["genesisReserveOutstanding (line 177, via _pullGrow)"],
-    "value": "the CURRENT GENERATION TOKEN in, pulled from msg.sender by transferFrom (RedemptionExt.sol:162) and added to the reserve LP (line 163). NEVER a quote asset.",
-    "edges": [
-      "_pullGrow (RedemptionExt.sol:119), in-cluster",
-      "IERC20(generationToken[g]).transferFrom (RedemptionExt.sol:162), UNTRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "PoolOps.addToReserve (RedemptionExt.sol:163, PoolOps.sol:1172), TRUSTED, out-of-cluster",
-      "IMiFrensContinuable(mifrens).custodyTransfer (RedemptionExt.sol:120), TRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.buyTreasuryOgFren (CauldronRegistry.sol:1342) -> _forwardToExt.",
-    "line": 110
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function donateToReserve(uint256 amount) external nonReentrant",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED (only if (!summoned) revert NotSummoned(); :132 and if (amount == 0) revert BadConfig(); :133)",
-    "reads": ["summoned (line 132)", "currentGeneration (line 161)", "generationToken[g] (line 162)"],
-    "writes": ["genesisReserveOutstanding (line 177)"],
-    "value": "CURRENT GENERATION TOKEN in from msg.sender (line 162)",
-    "edges": ["_pullGrow (RedemptionExt.sol:134), in-cluster"],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.donateToReserve (CauldronRegistry.sol:1348) -> _forwardToExt.",
-    "line": 131
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function materializeLegacyReserve() external nonReentrant returns (uint256 added)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "ANYONE (keeper)",
-    "authority_gate_quote": "UNGATED (only if (!summoned) revert NotSummoned(); :143)",
-    "reads": ["summoned (line 143)", "currentGeneration (line 144)", "hook (line 148)", "collectionLedger (line 149)", "mifrens (line 149)", "genesisShares (line 149)", "generationCollection[g] (line 149)", "generationToken[g] (line 150)", "generationReservePositionId/PoolKey/TickLower/TickUpper (line 151)"],
-    "writes": ["genesisPending (line 153)"],
-    "value": "the hook's held live-buyback TOKENS moved into the reserve LP (PoolOps.materializeLegacy, PoolOps.sol:1310)",
-    "edges": ["PoolOps.materializeLegacy (RedemptionExt.sol:146, PoolOps.sol:1310), TRUSTED, out-of-cluster"],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.materializeLegacyReserve (CauldronRegistry.sol:1354) -> _forwardToExt.",
-    "line": 142
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function _pullGrow(address from, uint256 amount) private returns (uint256 added)",
-    "visibility": "private",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a private",
-    "reads": ["currentGeneration (line 161)", "generationToken[g] (line 162)", "generationReservePositionId[g], generationPoolKey[g], reserveTickLower/Upper[g] (lines 165-166)", "genesisReserveOutstanding (line 177-178)"],
-    "writes": ["genesisReserveOutstanding (line 177)"],
-    "value": "generationToken IN via transferFrom (line 162)",
-    "edges": ["IERC20(generationToken[g]).transferFrom (RedemptionExt.sol:162), UNTRUSTED, EXTERNAL-CALL, out-of-cluster", "PoolOps.addToReserve (RedemptionExt.sol:163), TRUSTED, out-of-cluster"],
-    "reachability": "buyTreasuryOgFren (:119), donateToReserve (:134). Guard: if (added == 0) revert NoBalance(); (line 176).",
-    "line": 160
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function setRotationWiring(address rotator, address governor) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "the REGISTRY's Ownable owner (the governance timelock), because it runs under delegatecall against the registry's storage",
-    "authority_gate_quote": "Ownable.onlyOwner -> `_checkOwner()` -> `if (owner() != _msgSender()) revert OwnableUnauthorizedAccount(_msgSender());` (@openzeppelin Ownable). Declared: `function setRotationWiring(address rotator, address governor) external onlyOwner` (RedemptionExt.sol:246)",
-    "reads": ["_owner (Ownable slot)"],
-    "writes": ["quoteRotator (RedemptionExt.sol:248 -> CauldronBase slot 50)", "treasuryGovernor (RedemptionExt.sol:249 -> CauldronBase slot 51)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Registry forwarder CauldronRegistry.setRotationWiring (CauldronRegistry.sol:269) -> _forwardToExt (:1404) -> delegatecall. Guard: if (rotator == address(0) || governor == address(0)) revert NotConfigured(); (line 247). Deliberately NOT one-shot (comment :235-239).",
-    "line": 246
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function rotateSlice(uint16 sliceBps, uint256 minOut, PoolKey calldata route) external returns (uint256 moved, uint256 positionId)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["(delegates to rotateSliceFrom)"],
-    "writes": ["(delegates to rotateSliceFrom)"],
-    "value": "see rotateSliceFrom",
-    "edges": ["rotateSliceFrom (RedemptionExt.sol:260), in-cluster"],
-    "reachability": "PERMISSIONLESS. Registry forwarder CauldronRegistry.rotateSlice (CauldronRegistry.sol:235, selector 0x36f8a134) -> _forwardToExt -> delegatecall. Hard-codes fromLeg = 0 (the primary pool).",
-    "line": 255
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function rotateSliceFrom(uint8 fromLeg, uint16 sliceBps, uint256 minOut, PoolKey calldata route) public returns (uint256 moved, uint256 positionId)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE — explicitly permissionless (comment RedemptionExt.sol:281-286)",
-    "authority_gate_quote": "UNGATED. The only gates are: `if (rot == address(0)) revert RotationNotWired();` (:279), `if (gov == address(0)) revert RotationNotWired();` (:288), `if (toQuote == address(0)) revert NoRotationApproved();` (:293), `if (sliceBps > remaining) revert BadConfig();` (:294), `if (!allowedQuote[toQuote]) revert NotConfigured();` (:298), `if (sliceBps == 0 || sliceBps > MAX_SLICE_BPS) revert BadConfig();` (:302), `if (fromQuote == toQuote) revert BadConfig();` (:335), `if (quoteOut == 0 || tokenOut == 0) revert BadConfig();` (:347)",
-    "reads": [
-      "quoteRotator (line 278)",
-      "treasuryGovernor (line 287)",
-      "allowedQuote[toQuote] (line 298)",
-      "currentGeneration (line 304)",
-      "generationToken[gen] (line 305)",
-      "generationQuote[gen] (line 323, when fromLeg == 0)",
-      "generationPositionId[gen] (line 324)",
-      "generationPoolKey[gen] (line 325)",
-      "generationLegs[gen][fromLeg-1] (lines 327-330, when fromLeg != 0)",
-      "positionManager (lines 340, 359, 610)",
-      "poolManager (line 359)",
-      "hook (lines 360, 372, 447)",
-      "generationPoolId[gen] (line 372)",
-      "generationLegs[gen] (line 585, via _recordLeg)"
-    ],
-    "writes": [
-      "generationLegs[gen][i].positionId or push (RedemptionExt.sol:588 / 590, via _recordLeg :384)",
-      "generationQuote[gen] (RedemptionExt.sol:413) — ONLY when allowance() returns address(0) after consume"
-    ],
-    "value": "quote asset `fromQuote` OUT of the source LP into the registry (PoolOps.removePartial :339); `fromQuote` OUT of the registry to the rotator (PoolOps.sendAsset :351); `toQuote` IN from the rotator (IQuoteRotator.withdraw :353); `toQuote` + generation token IN to the destination LP (PoolOps.openOrAddPair :358)",
-    "edges": [
-      "ITreasuryGovernor(gov).allowance() (RedemptionExt.sol:289), TRUSTED, EXTERNAL-CALL, out-of-cluster (TreasuryGovernor.sol:511)",
-      "PoolOps.removePartial (RedemptionExt.sol:339, PoolOps.sol:890), TRUSTED, out-of-cluster",
-      "PoolOps.sendAsset (RedemptionExt.sol:351, PoolOps.sol:1070), TRUSTED, out-of-cluster",
-      "IQuoteRotator(rot).swapOnce (RedemptionExt.sol:352), TRUSTED-by-wiring, EXTERNAL-CALL, in-cluster (QuoteRotator.sol:331)",
-      "IQuoteRotator(rot).withdraw (RedemptionExt.sol:353), TRUSTED-by-wiring, EXTERNAL-CALL, in-cluster (QuoteRotator.sol:489)",
-      "PoolOps.openOrAddPair (RedemptionExt.sol:358, PoolOps.sol:829), TRUSTED, out-of-cluster",
-      "IHookVolume(hook).linkVolume (RedemptionExt.sol:372, CauldronHook.sol:1516), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "ITreasuryGovernor(gov).consume (RedemptionExt.sol:387, TreasuryGovernor.sol:521), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "ITreasuryGovernor(gov).allowance() second read (RedemptionExt.sol:411), TRUSTED, EXTERNAL-CALL, out-of-cluster",
-      "hook.perpEngine() (RedemptionExt.sol:447), TRUSTED, EXTERNAL-CALL, out-of-cluster (CauldronHook.sol:289)",
-      "IPerpSync(eng).syncGeneration() (RedemptionExt.sol:448, PerpEngine.sol:975), TRUSTED, EXTERNAL-CALL wrapped in try/catch, out-of-cluster",
-      "route.hooks (reached via QuoteRotator.swapOnce -> poolManager.unlock -> swap), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"
-    ],
-    "reachability": "PERMISSIONLESS. Registry forwarder CauldronRegistry.rotateSliceFrom (CauldronRegistry.sol:259, selector 0x28e60cba) -> _forwardToExt (:1404) -> delegatecall. Caller supplies fromLeg, sliceBps (bounded 1..2500 by MAX_SLICE_BPS :484 and further by PoolOps.MAX_ROTATION_BPS = 5000 at PoolOps.sol:898), minOut (UNBOUNDED — 0 is accepted), and the full PoolKey route (fee/tickSpacing/hooks unconstrained; allowedVenue is NOT consulted because swapOnce skips it). NOT nonReentrant.",
-    "line": 266
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount) external onlyOwner returns (uint256 positionId)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "would be the registry's Ownable owner — BUT UNREACHABLE",
-    "authority_gate_quote": "Ownable.onlyOwner (declared at RedemptionExt.sol:515)",
-    "reads": ["allowedQuote[quote] (line 518)", "currentGeneration (line 519)", "generationToken[gen] (line 526)", "generationPoolId[gen] (line 536)"],
-    "writes": ["none (the position id is returned and dropped; no leg is recorded)"],
-    "value": "`quote` + generation token IN to a pool via PoolOps.openOrAddPair (line 522)",
-    "edges": ["PoolOps.openOrAddPair (RedemptionExt.sol:522), TRUSTED, out-of-cluster", "IHookVolume(hook).linkVolume (RedemptionExt.sol:536), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "UNREACHABLE. VERIFIED: selector 0xf9314b6a is present in out/RedemptionExt.sol/RedemptionExt.json methodIdentifiers but ABSENT from out/CauldronRegistry.sol/CauldronRegistry.json; CauldronRegistry declares `receive()` and NO `fallback()` (CauldronRegistry.sol:535, :1361), so there is no dispatcher entry. A direct call to a deployed RedemptionExt runs against its own empty storage. test/functional/F20_FacetReachability.t.sol:122-132 asserts this is intended dead code.",
-    "line": 513
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function floorClaimableNow() external view returns (bool claimable, uint256 perFren)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["genesisReserveOutstanding/genesisShares (line 557 via floorPerFren)", "currentGeneration (line 558)", "summoned (line 559)", "poolManager (line 560)", "generationPoolId[g] (line 560)", "reserveTickUpper[g] (line 561)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["StateLibrary.getSlot0(poolManager, generationPoolId[g]) (RedemptionExt.sol:560), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.floorClaimableNow (CauldronRegistry.sol:1371, non-view stub) -> _forwardToExtView (:1394) -> _forwardToExt. Reads ONLY the PRIMARY pool's tick — a rotated leg's price is invisible to it.",
-    "line": 556
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function legCount(uint256 gen) external view returns (uint256)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["generationLegs[gen].length (line 570)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.legCount (CauldronRegistry.sol:1376) -> _forwardToExtView.",
-    "line": 569
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function legAt(uint256 gen, uint256 i) external view returns (address quote, uint256 positionId, PoolKey memory key)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["generationLegs[gen][i] (line 579)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "PERMISSIONLESS through CauldronRegistry.legAt (CauldronRegistry.sol:1381) -> _forwardToExtView.",
-    "line": 574
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private",
-    "visibility": "private",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a private",
-    "reads": ["generationLegs[gen] (lines 585-588)"],
-    "writes": ["generationLegs[gen][i].positionId (line 588)", "generationLegs[gen].push (line 590)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "rotateSliceFrom (:384). Upsert keyed on `quote`. The array is UNBOUNDED — it grows once per distinct destination quote per generation, and recoverLegs (:607) loops it.",
-    "line": 584
-  },
-  {
-    "contract": "RedemptionExt",
-    "signature": "function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE in principle — but there is no registry dispatcher entry",
-    "authority_gate_quote": "UNGATED (no msg.sender check, no nonReentrant, no summoned check)",
-    "reads": ["generationLegs[gen] (line 608)", "generationToken[gen] (line 609)", "positionManager (line 610)"],
-    "writes": ["generationLegs[gen] — swap-and-pop on each successful leg (lines 619-620)"],
-    "value": "each leg's quote + the generation token OUT of the leg's LP into the registry (PoolOps.removeAll, line 616)",
-    "edges": ["PoolOps.removeAll (RedemptionExt.sol:616, PoolOps.sol:1101), TRUSTED, out-of-cluster, wrapped in try/catch (line 616/622)"],
-    "reachability": "NOT dispatcher-routable: selector 0x03ebe66e is in RedemptionExt's ABI but NOT in CauldronRegistry's (VERIFIED against out/*.json), and the registry has no fallback. The ONLY reachable path is CauldronRegistry._removeLiquidity's raw `ext.delegatecall(abi.encodeWithSelector(RECOVER_LEGS, gen))` at CauldronRegistry.sol:1556-1557, whose result is swallowed if the call fails (`if (ok && ret.length >= 64)`, :1558). RECOVER_LEGS is computed at CauldronRegistry.sol:60 as bytes4(keccak256(\"recoverLegs(uint256)\")); VERIFIED with `cast sig` = 0x03ebe66e, matching the comment at :1553. _removeLiquidity is reached from relaunch() (permissionless once dead).",
-    "line": 607
-  },
-  {
-    "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
-    "signature": "interface ITreasuryGovernor { function allowance() external view returns (address quote, uint16 remainingBps); function consume(uint16 bps) external; }",
-    "visibility": "external",
-    "mutability": "view / nonpayable",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Implemented by TreasuryGovernor.allowance (TreasuryGovernor.sol:511) and TreasuryGovernor.consume (:521, registry-gated at :522). Called at RedemptionExt.sol:289, :387, :411.",
-    "line": 42
-  },
-  {
-    "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
-    "signature": "interface IQuoteRotator { function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external returns (uint256); function withdraw(address asset, address to, uint256 amount) external; }",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Implemented by QuoteRotator.swapOnce (:331, onlyRegistry) and QuoteRotator.withdraw (:489, registry-or-owner). Called at RedemptionExt.sol:352 and :353. NOTE: the interface omits rotateStep/arbStep, so the registry never advances a Plan.",
-    "line": 47
-  },
-  {
-    "contract": "IHookVolume (declared in RedemptionExt.sol)",
-    "signature": "interface IHookVolume { function linkVolume(PoolId primary, PoolId secondary) external; }",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Implemented by CauldronHook.linkVolume (CauldronHook.sol:1516). Registry-gated (`if (msg.sender != registry) revert OnlyRegistry();` :1517), refuses while perps are open (`revert PerpsOpen()` :1519), capped at MAX_SIBLINGS (:1527), idempotent (:1529-1531). Called at RedemptionExt.sol:372 and :536.",
-    "line": 53
-  },
-
-  {
-    "contract": "CauldronRegistry",
-    "signature": "function rotateSlice(uint16, uint256, PoolKey calldata) external returns (uint256, uint256)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["redemptionExt (CauldronRegistry.sol:1405)"],
-    "writes": ["(whatever RedemptionExt.rotateSliceFrom writes, in registry storage)"],
-    "value": "see RedemptionExt.rotateSliceFrom",
-    "edges": ["_forwardToExt -> delegatecall(redemptionExt) (CauldronRegistry.sol:236 -> 1409), TRUSTED (frozen at deploy), in-cluster"],
-    "reachability": "PERMISSIONLESS ENTRYPOINT. selector 0x36f8a134, VERIFIED present in out/CauldronRegistry.sol/CauldronRegistry.json.",
-    "line": 235
-  },
-  {
-    "contract": "CauldronRegistry",
-    "signature": "function rotateSliceFrom(uint8, uint16, uint256, PoolKey calldata) external returns (uint256, uint256)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["redemptionExt (CauldronRegistry.sol:1405)"],
-    "writes": ["(whatever RedemptionExt.rotateSliceFrom writes)"],
-    "value": "see RedemptionExt.rotateSliceFrom",
-    "edges": ["_forwardToExt -> delegatecall(redemptionExt) (CauldronRegistry.sol:263 -> 1409), TRUSTED, in-cluster"],
-    "reachability": "PERMISSIONLESS ENTRYPOINT. selector 0x28e60cba, VERIFIED present in out/CauldronRegistry.sol/CauldronRegistry.json. This is the ONLY write the treasury UI issues per the comment at :251-254.",
-    "line": 259
-  },
-  {
-    "contract": "CauldronRegistry",
-    "signature": "function setRotationWiring(address, address) external",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "no gate ON THE STUB; the facet body enforces onlyOwner (RedemptionExt.sol:246)",
-    "authority_gate_quote": "UNGATED at CauldronRegistry.sol:269 — `function setRotationWiring(address, address) external { _forwardToExt(); }`. The effective gate is Ownable.onlyOwner inside the delegatecalled body.",
-    "reads": ["redemptionExt (CauldronRegistry.sol:1405)"],
-    "writes": ["quoteRotator (slot 50)", "treasuryGovernor (slot 51)"],
-    "value": "NONE",
-    "edges": ["_forwardToExt -> delegatecall(redemptionExt) (CauldronRegistry.sol:269 -> 1409), TRUSTED, in-cluster"],
-    "reachability": "Owner-only in effect. selector 0xde74eafb, VERIFIED present in both ABIs.",
-    "line": 269
-  },
-  {
-    "contract": "CauldronRegistry",
-    "signature": "function setAllowedQuote(address quote, bool allowed, uint256 scale) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "registry Ownable owner (the governance timelock)",
-    "authority_gate_quote": "Ownable.onlyOwner (declared CauldronRegistry.sol:271)",
-    "reads": [],
-    "writes": ["allowedQuote[quote] (CauldronRegistry.sol:284)", "quoteScale[quote] (CauldronRegistry.sol:286, only when allowed)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Owner only. Guards: `if (quote == address(0) && !allowed) revert NativeQuoteRequired();` (:272) and `if (allowed && uint160(quote) >= uint160(QUOTE_WATERMARK)) revert QuoteAboveWatermark();` (:283). NOTE: de-listing does NOT clear quoteScale.",
-    "line": 271
-  },
-  {
-    "contract": "CauldronRegistry",
-    "signature": "function _forwardToExt() private",
-    "visibility": "private",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "internal only",
-    "authority_gate_quote": "n/a private; guard is `if (ext == address(0)) revert NotConfigured();` (CauldronRegistry.sol:1406)",
-    "reads": ["redemptionExt (line 1405)"],
-    "writes": [],
-    "value": "N/A (delegatecall — the facet moves value in the registry's own context)",
-    "edges": ["delegatecall(gas(), ext, ...) (CauldronRegistry.sol:1409), TRUSTED (set once and frozen by setRedemptionExt :179-187), in-cluster"],
-    "reachability": "Every facet stub: :236, :263, :269, :1337, :1343, :1349, :1355, and via _forwardToExtView :1395. Bubbles returndata/revert verbatim (:1410-1413).",
-    "line": 1404
-  },
-
-  {
-    "contract": "CauldronVault",
-    "signature": "constructor(address _collection, address _registry, uint256 _floorOffset)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "the CauldronFactory",
-    "authority_gate_quote": "UNGATED (deployed from CauldronFactory.sol:75 and :103)",
-    "reads": [],
-    "writes": ["collection (line 66, immutable)", "registry (line 67, immutable)", "floorOffset (line 68, immutable)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "CauldronFactory.deployBrew (CauldronFactory.sol:75) and CauldronFactory.deployVault (:103), both driven by the registry's _deployCollection (CauldronRegistry.sol:1119 / :1142).",
-    "line": 65
-  },
-  {
-    "contract": "CauldronVault",
-    "signature": "function outstanding() public view returns (uint256)",
-    "visibility": "public",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["collection (line 56)", "floorOffset (line 57)", "redeemed (line 58)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": ["collection.totalMinted() (CauldronVault.sol:56), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "PERMISSIONLESS view; also read by PoolOps.crystallizeCollection at death (see CauldronVault.sol:93 comment).",
-    "line": 55
-  },
-  {
-    "contract": "CauldronVault",
-    "signature": "receive() external payable",
-    "visibility": "external",
-    "mutability": "payable",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": [],
-    "value": "NATIVE WEI IN — the only asset this contract can ever receive (line 72-74)",
-    "edges": [],
-    "reachability": "PERMISSIONLESS. The hook's floor share arrives here via FeeRouteLib.routeSplit (CauldronHook.sol:1318), but ONLY when _feeAsset == address(0) (CauldronHook.sol:1306-1315 diverts every non-native fee to relaunchAsset instead).",
-    "line": 72
-  },
-  {
-    "contract": "CauldronVault",
-    "signature": "function floorPerNFT() public view returns (uint256)",
-    "visibility": "public",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["outstanding() (line 78)", "address(this).balance (line 80)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "PERMISSIONLESS view. NATIVE-ONLY BY CONSTRUCTION: `return address(this).balance / n;` (line 80).",
-    "line": 77
-  },
-  {
-    "contract": "CauldronVault",
-    "signature": "function redeem(uint256 tokenId) external nonReentrant returns (uint256 amount)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "the owner of collection `tokenId` (ids > floorOffset)",
-    "authority_gate_quote": "if (collection.ownerOf(tokenId) != msg.sender) revert NotOwner(); (CauldronVault.sol:97)",
-    "reads": ["closed (line 95)", "floorOffset (line 96)", "collection (line 97)", "outstanding() (line 99)", "address(this).balance (lines 100, 102)"],
-    "writes": ["redeemed (line 106)"],
-    "value": "NATIVE WEI OUT to msg.sender at line 109 — `(bool ok, ) = msg.sender.call{value: amount}(\"\");`",
-    "edges": ["collection.ownerOf (CauldronVault.sol:97), TRUSTED, EXTERNAL-CALL, out-of-cluster", "collection.burnFromVault (CauldronVault.sol:107), TRUSTED, EXTERNAL-CALL, out-of-cluster", "msg.sender.call{value:} (CauldronVault.sol:109), UNTRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "PERMISSIONLESS for an eligible holder, direct on the deployed vault. Pays ONLY native ETH; there is no ERC20 path in this contract at all. Reverts UnifiedFloorActive() when the balance is zero (line 102).",
-    "line": 94
-  },
-  {
-    "contract": "CauldronVault",
-    "signature": "function close() external nonReentrant returns (uint256 swept)",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["nonReentrant"],
-    "authority": "the immutable `registry` ONLY",
-    "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronVault.sol:117)",
-    "reads": ["registry (line 117)", "address(this).balance (line 119)"],
-    "writes": ["closed (line 118)"],
-    "value": "NATIVE WEI OUT to the registry at line 121 — `(bool ok, ) = registry.call{value: swept}(\"\");`",
-    "edges": ["registry.call{value:} (CauldronVault.sol:121), TRUSTED, EXTERNAL-CALL, out-of-cluster"],
-    "reachability": "Only from PoolOps.seedFunding's `try IVaultCloseOps(oldVault).close()` (PoolOps.sol:998), reached from CauldronRegistry.relaunch (:921-923). Failure is swallowed by that try/catch. `closed = true` is set BEFORE the send (line 118), so a failing send reverts the whole close.",
-    "line": 116
-  },
-  {
-    "contract": "IBurnableCollection (declared in CauldronVault.sol)",
-    "signature": "interface IBurnableCollection { function ownerOf(uint256 tokenId) external view returns (address); function totalMinted() external view returns (uint256); function burnFromVault(uint256 tokenId) external; }",
-    "visibility": "external",
-    "mutability": "view / nonpayable",
-    "modifiers": [],
-    "authority": "n/a (interface)",
-    "authority_gate_quote": "n/a",
-    "reads": [],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "Implemented by CauldronCollection (deployed by CauldronFactory.sol:75).",
-    "line": 6
-  },
-
-  {
-    "contract": "MockAggregator",
-    "signature": "constructor(string memory desc, int256 initialAnswer)",
-    "visibility": "public",
-    "mutability": "nonpayable",
-    "modifiers": [],
-    "authority": "deployer",
-    "authority_gate_quote": "UNGATED",
-    "reads": [],
-    "writes": ["owner (line 55)", "description (line 56)", "_answer (line 57)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "deploy only (testnet fixture)",
-    "line": 54
-  },
-  {
-    "contract": "MockAggregator",
-    "signature": "function transferOwnership(address to) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "MockAggregator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
-    "reads": ["owner (line 61)"],
-    "writes": ["owner (line 65)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only",
-    "line": 65
-  },
-  {
-    "contract": "MockAggregator",
-    "signature": "function peg(int256 answer) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "MockAggregator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
-    "reads": ["owner (line 61)", "_round (line 70)"],
-    "writes": ["_answer (line 69)", "_round (line 70)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. NO bound on `answer` — an owner can set any price, and QuoteOracle's only defence is setBounds (QuoteOracle.sol:267-268), which is not set by default.",
-    "line": 68
-  },
-  {
-    "contract": "MockAggregator",
-    "signature": "function setStale(bool s) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "MockAggregator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
-    "reads": ["owner (line 61)"],
-    "writes": ["stale (line 76)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. When true, latestRoundData returns startedAt = updatedAt = 1 (line 91), which QuoteOracle rejects at line 246.",
-    "line": 76
-  },
-  {
-    "contract": "MockAggregator",
-    "signature": "function setDown(bool d) external onlyOwner",
-    "visibility": "external",
-    "mutability": "nonpayable",
-    "modifiers": ["onlyOwner"],
-    "authority": "MockAggregator.owner",
-    "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
-    "reads": ["owner (line 61)"],
-    "writes": ["down (line 82)"],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "direct, owner only. When true, latestRoundData reverts (`require(!down, \"feed: down\")`, line 89) — the exact case QuoteOracle catches at line 236.",
-    "line": 82
-  },
-  {
-    "contract": "MockAggregator",
-    "signature": "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
-    "visibility": "external",
-    "mutability": "view",
-    "modifiers": [],
-    "authority": "ANYONE",
-    "authority_gate_quote": "UNGATED",
-    "reads": ["down (line 89)", "stale (line 91)", "_round (line 92)", "_answer (line 92)"],
-    "writes": [],
-    "value": "NONE",
-    "edges": [],
-    "reachability": "PERMISSIONLESS view, called by QuoteOracle.usdPerRawUnit (:231) and _sequencerOk (:328). `updatedAt` is block.timestamp when not stale (line 91) — never actually stale in wall-clock terms.",
-    "line": 84
+{
+ "cluster": "rotation",
+ "source_root": "/tmp/blind-final/contracts/solidity",
+ "generated": "2026-09-11T13:24:25",
+ "files": {
+  "cauldron/QuoteRotator.sol": 720,
+  "cauldron/QuoteOracle.sol": 345,
+  "cauldron/RedemptionExt.sol": 813,
+  "cauldron/CauldronVault.sol": 127,
+  "cauldron/MockAggregator.sol": 95,
+  "cauldron/MockQuoteToken.sol": 29
+ },
+ "nodes": [
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 7,
+   "kind": "function",
+   "name": "ownerOf",
+   "signature": "function ownerOf(uint256 tokenId) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation is whatever collection address the vault was constructed with)",
+   "edges": [],
+   "observations": [],
+   "reachability": "Declaration only. The vault calls it once, to check the redeemer really owns the id: `ownerOf` (CauldronVault.sol:97), inside `redeem` (CauldronVault.sol:94). The target is the immutable `collection` (CauldronVault.sol:34) fixed at construction (CauldronVault.sol:66); in production that address comes from `deployVault` (CauldronRegistry.sol:1189) or the sibling path at `generationVault` (CauldronRegistry.sol:1166). DERIVED: no other call site for this selector exists inside the cluster.",
+   "writes": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "totalMinted",
+   "signature": "function totalMinted() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation is whatever collection address the vault was constructed with)",
+   "edges": [],
+   "observations": [],
+   "reachability": "Declaration only. Called from `totalMinted` (CauldronVault.sol:56) inside `outstanding` (CauldronVault.sol:55), which is the denominator of every floor figure the vault reports and the supply count `crystallizeCollection` reads through `outstanding` (PoolOps.sol:1363). The callee is not `view`-enforced by the vault beyond the interface's own `view` marker, so a collection that reverts here makes `floorPerNFT` (CauldronVault.sol:77) and `redeem` (CauldronVault.sol:94) revert too. DERIVED.",
+   "writes": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "IBurnableCollection (declared in CauldronVault.sol)",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "burnFromVault",
+   "signature": "function burnFromVault(uint256 tokenId) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; in practice the vault is the only caller and the collection must gate it to the vault)",
+   "edges": [],
+   "observations": [],
+   "reachability": "Declaration only. Invoked at `burnFromVault` (CauldronVault.sol:107) after the vault has already incremented `redeemed` (CauldronVault.sol:106) and before it pays out at `call` (CauldronVault.sol:109). Reaching it needs `closed` to be false (CauldronVault.sol:95) and a non-zero per-NFT `amount` (CauldronVault.sol:101). DERIVED: the burn authority lives on the collection side, not here.",
+   "writes": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 55,
+   "kind": "function",
+   "name": "outstanding",
+   "signature": "function outstanding() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0d646e0906c5012ba7bf40d629873d99737c5b17",
+   "body_lines": [
+    55,
+    59
+   ],
+   "value": "NONE",
+   "authority": "anyone",
+   "edges": [
+    "IBurnableCollection.totalMinted (CauldronVault.sol:56), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "reachability": "Public view, no gate. It is the denominator for `floorPerNFT` (CauldronVault.sol:77) and for the payout `amount` (CauldronVault.sol:100), and it is read cross-contract at teardown by `outstanding` (PoolOps.sol:1363) to size the dying collection's entitlement. Both subtractions are saturating (`eligible` at CauldronVault.sol:57 and the ternary at CauldronVault.sol:58), so a collection whose `totalMinted` sits below `floorOffset` (CauldronVault.sol:57) reads as zero rather than reverting.",
+   "writes": [],
+   "reads": [
+    "floorOffset (line 57, immutable)",
+    "redeemed (line 58)"
+   ],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 65,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _collection, address _registry, uint256 _floorOffset)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f2d444b70eecd32607a0a3d708d52aa9a58c2329",
+   "body_lines": [
+    65,
+    69
+   ],
+   "value": "NONE",
+   "authority": "deployer",
+   "edges": [],
+   "observations": [],
+   "reachability": "Runs once at deployment. In production the deployer is the factory: `deployVault` (CauldronRegistry.sol:1189) on the MiFrens continuation path, and the sibling assignment at `generationVault` (CauldronRegistry.sol:1166) on the fresh-collection path. All three fields are immutable, so the collection address, the registry that may `close` (CauldronVault.sol:116) the vault, and the genesis tranche boundary can never be changed afterwards. No zero-address or code-length check is performed on `collection` (CauldronVault.sol:66) or on `registry` (CauldronVault.sol:67).",
+   "writes": [
+    "collection (line 66, immutable)",
+    "registry (line 67, immutable)",
+    "floorOffset (line 68, immutable)"
+   ],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 72,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "ca70d925e4a0e2cc62709e0ccdd9fe799abcc050",
+   "body_lines": [
+    72,
+    74
+   ],
+   "value": "`receive` receives native (line 72)",
+   "authority": "anyone",
+   "edges": [],
+   "observations": [
+    "comment at `hook` (CauldronVault.sol:71) says fees flow in here from the hook; code at `setVault` (CauldronRegistry.sol:1171) wires the hook's vault to address(0) on the fresh-collection path and again at `setVault` (CauldronRegistry.sol:1195) on the continuation path, so the hook never sends here"
+   ],
+   "reachability": "Bare payable fallback-style entry: any address may push ETH in, and the only effect is the `Deposited` event (CauldronVault.sol:73). Nothing here checks `closed` (CauldronVault.sol:51), so a vault already closed by `close` (CauldronVault.sol:116) still accepts deposits that no `redeem` (CauldronVault.sol:94) can ever pay out. Every wei that arrives raises `floorPerNFT` (CauldronVault.sol:77), which divides this contract's `balance` by the outstanding count (CauldronVault.sol:80).",
+   "writes": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 77,
+   "kind": "function",
+   "name": "floorPerNFT",
+   "signature": "function floorPerNFT() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "91aefcfbf99a875f76fa0f0af8b82432227ec5ca",
+   "body_lines": [
+    77,
+    81
+   ],
+   "value": "NONE",
+   "authority": "anyone",
+   "edges": [
+    "CauldronVault.outstanding (CauldronVault.sol:78), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "reachability": "Public view. Divides this contract's own native balance by `outstanding` (CauldronVault.sol:78); returns 0 when `n` is zero (CauldronVault.sol:79) rather than dividing by zero. The division at `balance` (CauldronVault.sol:80) floors, so the remainder stays in the vault and accrues to the survivors.",
+   "writes": [],
+   "reads": [],
+   "authority_gate_quote": "UNGATED"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 94,
+   "kind": "function",
+   "name": "redeem",
+   "signature": "function redeem(uint256 tokenId) external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "ee57e8ad4560680318165e58e4ca4c75bc362379",
+   "body_lines": [
+    94,
+    112
+   ],
+   "value": "`call` sends native to the redeemer (line 109)",
+   "authority": "anyone (must own the NFT)",
+   "edges": [
+    "IBurnableCollection.ownerOf (CauldronVault.sol:97), TRUSTED, in-cluster",
+    "CauldronVault.outstanding (CauldronVault.sol:99), TRUSTED, in-cluster",
+    "IBurnableCollection.burnFromVault (CauldronVault.sol:107), TRUSTED, in-cluster",
+    "msg.sender.call (CauldronVault.sol:109), UNTRUSTED, out-of-cluster"
+   ],
+   "observations": [],
+   "reachability": "External, `nonReentrant`, callable by the NFT's owner. Three state conditions must hold: the vault is not `closed` (CauldronVault.sol:95), the id is above the genesis tranche `floorOffset` (CauldronVault.sol:96), and the computed `amount` is non-zero (CauldronVault.sol:101). Effects precede the external calls: `redeemed` is incremented (CauldronVault.sol:106) and the NFT burned at `burnFromVault` (CauldronVault.sol:107) before the payout at `call` (CauldronVault.sol:109), and the OpenZeppelin `nonReentrant` guard covers the whole body. With the shipped unified-floor wiring the vault holds no ETH, so the zero branch at `UnifiedFloorActive` (CauldronVault.sol:102) is the reachable outcome.",
+   "writes": [
+    "redeemed (line 106)"
+   ],
+   "reads": [
+    "closed (line 95)",
+    "floorOffset (line 96, immutable)",
+    "collection (line 97, immutable)"
+   ],
+   "authority_gate_quote": "if (collection.ownerOf(tokenId) != msg.sender) revert NotOwner(); (CauldronVault.sol:97)"
+  },
+  {
+   "contract": "CauldronVault",
+   "file": "cauldron/CauldronVault.sol",
+   "line": 116,
+   "kind": "function",
+   "name": "close",
+   "signature": "function close() external nonReentrant returns (uint256 swept)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "815ee286cfbc3f75a274d33aa6c0ccad5238bb32",
+   "body_lines": [
+    116,
+    125
+   ],
+   "value": "`registry` receives the whole native balance (line 121)",
+   "authority": "registry (the immutable address fixed at construction)",
+   "edges": [
+    "registry.call (CauldronVault.sol:121), TRUSTED, out-of-cluster"
+   ],
+   "observations": [],
+   "reachability": "Reached during relaunch: `seedFunding` calls `close` on the dying generation's vault inside a try/catch (PoolOps.sol:1013), and that library runs under the registry's own delegatecall so `msg.sender` at the gate (CauldronVault.sol:117) is the registry. `closed` is set before the transfer (CauldronVault.sol:118), the sweep is the entire `balance` (CauldronVault.sol:119), and a recipient that rejects the ETH reverts at `TransferFailed` (CauldronVault.sol:122) \u2014 swallowed by the try/catch around `close` (PoolOps.sol:1013). Idempotent in effect: a second call leaves `swept` at zero and skips the transfer (CauldronVault.sol:120).",
+   "writes": [
+    "closed (line 118)"
+   ],
+   "reads": [
+    "registry (line 117, immutable)"
+   ],
+   "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronVault.sol:117)"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 54,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(string memory desc, int256 initialAnswer)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "58a898c22142ea1b66dd5a9b7d0397239313558c",
+   "body_lines": [
+    54,
+    58
+   ],
+   "edges": [],
+   "authority": "deployer",
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Runs once at deployment; whoever deploys becomes `owner` (MockAggregator.sol:55) and therefore holds every setter on this feed. The initial price is taken verbatim into `_answer` (MockAggregator.sol:57) with no sign or range check, and `_round` keeps its declaration default of 1 (MockAggregator.sol:44). This contract is a testnet stand-in wired into `QuoteOracle` through `setFeed` (QuoteOracle.sol:131); on that path it is the aggregator the oracle calls.",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "owner (line 55)",
+    "description (line 56)",
+    "_answer (line 57)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 60,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    60,
+    63
+   ],
+   "edges": [],
+   "authority": "internal (callers: transferOwnership, peg, setStale, setDown)",
+   "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (MockAggregator.sol:61)",
+   "reachability": "The single gate on this contract. Applied to `transferOwnership` (MockAggregator.sol:65), `peg` (MockAggregator.sol:68), `setStale` (MockAggregator.sol:76) and `setDown` (MockAggregator.sol:82). `latestRoundData` (MockAggregator.sol:84) is deliberately outside it. The owner slot can be moved but never zeroed by a dedicated path, so it can be renounced only by pointing `transferOwnership` at a dead address (MockAggregator.sol:65).",
+   "reads": [
+    "owner (line 61)"
+   ],
+   "observations": [],
+   "writes": [],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 65,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    65,
+    65
+   ],
+   "edges": [],
+   "authority": "owner",
+   "authority_gate_quote": "external onlyOwner (MockAggregator.sol:65)",
+   "reachability": "Owner-only via the modifier at `onlyOwner` (MockAggregator.sol:60). No zero check on the destination, so `owner` (MockAggregator.sol:65) can be set to address(0) and every setter on this feed becomes unreachable \u2014 the price then freezes at whatever `_answer` (MockAggregator.sol:57) last held while keeps stamping it with the current block time at `ts` (MockAggregator.sol:91).",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "owner (line 65)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 68,
+   "kind": "function",
+   "name": "peg",
+   "signature": "function peg(int256 answer) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "be96bcaa2b238857b6ed34533d8df74e9bb1a737",
+   "body_lines": [
+    68,
+    72
+   ],
+   "edges": [],
+   "authority": "owner",
+   "authority_gate_quote": "function peg(int256 answer) external onlyOwner { (MockAggregator.sol:68)",
+   "reachability": "Owner-only. Sets the raw 8-decimal answer into `_answer` (MockAggregator.sol:69) with no bound check; a negative or zero value is accepted here and is rejected downstream instead, by `answer` (QuoteOracle.sol:239). Because the returned `_round` and answer carry a fresh timestamp (MockAggregator.sol:92), one `peg` call is enough to make the oracle's heartbeat check at `heartbeat` (QuoteOracle.sol:246) pass indefinitely.",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "_answer (line 69)",
+    "_round (line 70)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 76,
+   "kind": "function",
+   "name": "setStale",
+   "signature": "function setStale(bool s) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "5e9ccf569b2b1bd8ae4440fb332cde1c452676c1",
+   "body_lines": [
+    76,
+    76
+   ],
+   "edges": [],
+   "authority": "owner",
+   "authority_gate_quote": "function setStale(bool s) external onlyOwner { stale = s; } (MockAggregator.sol:76)",
+   "reachability": "Owner-only switch read by `stale` (MockAggregator.sol:91): when set, the feed reports `ts` of 1 for both `startedAt` and `updatedAt`, which drives `QuoteOracle.usdPerRawUnit` into its staleness branch at `heartbeat` (QuoteOracle.sol:246) and makes it return 0. On the cached path that 0 is discarded and the last good factor survives, at `fresh` (QuoteOracle.sol:310).",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "stale (line 76)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 82,
+   "kind": "function",
+   "name": "setDown",
+   "signature": "function setDown(bool d) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "87c1a72f9aee3d4ae5bebf045140f48af8f8e872",
+   "body_lines": [
+    82,
+    82
+   ],
+   "edges": [],
+   "authority": "owner",
+   "authority_gate_quote": "function setDown(bool d) external onlyOwner { down = d; } (MockAggregator.sol:82)",
+   "reachability": "Owner-only switch read by `down` (MockAggregator.sol:89): when set, `latestRoundData` reverts instead of answering. That exercises the oracle's try/catch at `catch` (QuoteOracle.sol:236) and, when this feed is used as the sequencer uptime feed, the one at `catch` (QuoteOracle.sol:339).",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "down (line 82)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockAggregator",
+   "file": "cauldron/MockAggregator.sol",
+   "line": 84,
+   "kind": "function",
+   "name": "latestRoundData",
+   "signature": "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "fb8de40244947552a57cb454fb1bd0ba10e49719",
+   "body_lines": [
+    88,
+    93
+   ],
+   "edges": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Ungated view, the surface `QuoteOracle` consumes: called through the typed interface at `latestRoundData` (QuoteOracle.sol:231) for a priced quote and at `latestRoundData` (QuoteOracle.sol:328) when this contract is wired as the sequencer uptime feed. It reverts rather than returning when `down` is set (MockAggregator.sol:89); otherwise both timestamps are the same `ts` value (MockAggregator.sol:92), so `startedAt` and `updatedAt` can never disagree.",
+   "reads": [
+    "down (line 89)",
+    "stale (line 91)",
+    "_round (line 92)",
+    "_answer (line 92)"
+   ],
+   "observations": [
+    "comment at `updatedAt` (MockAggregator.sol:27) says it returns block.timestamp rather than the moment peg was called; code at `ts` (MockAggregator.sol:91) returns block.timestamp only while `stale` is false, and returns the epoch value 1 otherwise"
+   ],
+   "writes": [],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 20,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(string memory name_, string memory symbol_, uint8 dec_) ERC20(name_, symbol_)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "ERC20(name_, symbol_)"
+   ],
+   "body_sha1": "d60d39d29fe31e4e5486d411c76e8413654705d6",
+   "body_lines": [
+    20,
+    22
+   ],
+   "edges": [],
+   "authority": "deployer",
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Runs once at deployment. The decimal count is stored immutably at `_decimals` (MockQuoteToken.sol:21), so the value `QuoteOracle` reads through `IERC20Decimals` at `decimals` (QuoteOracle.sol:138) and at `decimals` (QuoteOracle.sol:155) can never change afterwards. Name and symbol go to the OpenZeppelin base through the `ERC20` constructor modifier (MockQuoteToken.sol:20).",
+   "reads": [],
+   "observations": [],
+   "writes": [
+    "_decimals (line 21, immutable)"
+   ],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 24,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() public view override returns (uint8)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "ab51d70be60d35cb72c28b1c5d1bbe8bdb227645",
+   "body_lines": [
+    24,
+    24
+   ],
+   "edges": [],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Ungated view overriding the base implementation. It is what `setFeed` reads when the caller passes 0 for the decimals argument, at `decimals` (QuoteOracle.sol:138), and likewise `setPegged` at `decimals` (QuoteOracle.sol:155) \u2014 so a quote registered with a zero decimals argument inherits this value into `f.quoteDecimals` and thence into the divisor at `quoteDecimals` (QuoteOracle.sol:277).",
+   "reads": [
+    "_decimals (line 24, immutable)"
+   ],
+   "observations": [],
+   "writes": [],
+   "value": "NONE"
+  },
+  {
+   "contract": "MockQuoteToken",
+   "file": "cauldron/MockQuoteToken.sol",
+   "line": 27,
+   "kind": "function",
+   "name": "mint",
+   "signature": "function mint(address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8cfddcead2898ea5bf3e7029e15bf202af53fb6f",
+   "body_lines": [
+    27,
+    27
+   ],
+   "edges": [
+    "ERC20._mint (MockQuoteToken.sol:27), TRUSTED, out-of-cluster"
+   ],
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Completely ungated: any address may call `mint` for any amount to any recipient (MockQuoteToken.sol:27). Supply and balances are the OpenZeppelin base's storage, written inside `_mint`; nothing in this contract caps either. The contract header states this is testnet-only and must never reach mainnet, and the registry's allowlist is what decides whether such a token is usable as a quote at all, via `setAllowedQuote` (CauldronRegistry.sol:290).",
+   "reads": [],
+   "observations": [],
+   "writes": [],
+   "value": "mints ERC20 balance via `_mint` to an arbitrary recipient (line 27)"
+  },
+  {
+   "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 5,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() external view returns (uint8)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "reachability": "Declaration only. Called once per uncached price read, at `decimals` (QuoteOracle.sol:249), inside a try whose `catch` (QuoteOracle.sol:251) arm returns 0. The address comes from the `aggregator` stored by setFeed (QuoteOracle.sol:141) and is arbitrary, so this is an untrusted external call; a feed reporting more than 18 decimals takes the dividing branch at `feedDec` (QuoteOracle.sol:258).",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone (declaration only; the implementation is the owner-chosen aggregator address)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "IAggregatorV3 (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 6,
+   "kind": "function",
+   "name": "latestRoundData",
+   "signature": "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "reachability": "Declaration only, with two call sites, both wrapped in try/catch: the price feed at `latestRoundData` (QuoteOracle.sol:231) and the sequencer uptime feed at `latestRoundData` (QuoteOracle.sol:328). Only the answer and its timestamp are bound from the first tuple, at `answer` (QuoteOracle.sol:234), and only the uptime flag and its start from the second, at `startedAt` (QuoteOracle.sol:329); the round ids are never compared, so a stale round that still reports a recent timestamp is accepted.",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone (declaration only; the implementation is the owner-chosen aggregator or sequencer feed)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "IERC20Decimals (declared in QuoteOracle.sol)",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 13,
+   "kind": "function",
+   "name": "decimals",
+   "signature": "function decimals() external view returns (uint8)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "reachability": "Declaration only, used on the two configuration paths when the owner passes 0 for the decimals argument: `decimals` (QuoteOracle.sol:138) in setFeed and `decimals` (QuoteOracle.sol:155) in setPegged. Neither call is wrapped in try/catch, so a token without this selector makes the configuration call revert rather than storing a wrong value. Native ETH short-circuits to 18 before the call on both paths, at `quote` (QuoteOracle.sol:138) and at `d` (QuoteOracle.sol:155).",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone (declaration only; the implementation is the quote token being configured)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 110,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a3d95789c041d7e50a491e8203c298afb299c871",
+   "body_lines": [
+    110,
+    112
+   ],
+   "reads": [],
+   "reachability": "Runs once at deployment and takes the `owner` (QuoteOracle.sol:111) as a parameter rather than using the deployer, so a deploy script can hand it straight to the timelock. No zero check: an oracle deployed with a zero owner has every setter permanently unreachable and answers only from whatever `feeds` (QuoteOracle.sol:97) already holds, which for a fresh deployment is nothing. `gracePeriod` keeps its declaration default (QuoteOracle.sol:104) and `sequencerUptime` stays unset (QuoteOracle.sol:101), which is the configuration for a chain with no sequencer feed.",
+   "authority_gate_quote": "UNGATED",
+   "authority": "deployer",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": [
+    "owner (line 111)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 114,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    114,
+    117
+   ],
+   "reads": [
+    "owner (line 115)"
+   ],
+   "reachability": "The only gate in this contract. It guards every write: `transferOwnership` (QuoteOracle.sol:119), the `onlyOwner` on setFeed (QuoteOracle.sol:133), `setPegged` (QuoteOracle.sol:153), `setBounds` (QuoteOracle.sol:175) and `setSequencer` (QuoteOracle.sol:182). All three read paths are outside it \u2014 `usdPerRawUnit` (QuoteOracle.sol:202), `cachedUsdPerRawUnit` (QuoteOracle.sol:305) and `priceable` (QuoteOracle.sol:316) \u2014 so anyone may read, and anyone may pay to refresh the cache.",
+   "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteOracle.sol:115)",
+   "authority": "internal (callers: transferOwnership, setFeed, setPegged, setBounds, setSequencer)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 119,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    119,
+    119
+   ],
+   "reads": [],
+   "reachability": "Owner-only, single-step, with no zero check on the destination at `transferOwnership` (QuoteOracle.sol:119): ownership can be moved to an address that cannot act, which freezes every feed, peg, bound and sequencer setting at its current value while the read paths keep answering from the frozen configuration in `feeds` (QuoteOracle.sol:97).",
+   "authority_gate_quote": "external onlyOwner (QuoteOracle.sol:119)",
+   "authority": "owner (documented as the timelock)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": [
+    "owner (line 119)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 131,
+   "kind": "function",
+   "name": "setFeed",
+   "signature": "function setFeed(address quote, address aggregator, uint32 heartbeat, uint8 quoteDecimals) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "6ab697f40eb729fdf9d2d0d7587f58c0c28b8ae0",
+   "body_lines": [
+    134,
+    143
+   ],
+   "reads": [
+    "feeds (line 140)",
+    "feeds.minUsd (line 141)",
+    "feeds.maxUsd (line 141)"
+   ],
+   "reachability": "Owner-only. It rejects a zero `heartbeat` (QuoteOracle.sol:135) but performs no check at all on the aggregator address, so address(0) is storable and is exactly the value the price path reads as 'no feed' at `aggregator` (QuoteOracle.sol:208) \u2014 setting it is therefore also how a feed is removed. The struct is rebuilt wholesale at `Feed` (QuoteOracle.sol:141): the previous bounds are carried across from `ex` (QuoteOracle.sol:140), but the pegged flag is forced back to false in that same literal, so re-pointing a pegged asset at a feed silently un-pegs it. When the decimals argument is 0 the value is read from the token itself at `decimals` (QuoteOracle.sol:138).",
+   "authority_gate_quote": "onlyOwner (QuoteOracle.sol:133)",
+   "authority": "owner (documented as the timelock)",
+   "value": "NONE",
+   "edges": [
+    "IERC20Decimals.decimals (QuoteOracle.sol:138), UNTRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "writes": [
+    "feeds (line 141)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 153,
+   "kind": "function",
+   "name": "setPegged",
+   "signature": "function setPegged(address quote, uint8 dec) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "f350555eee92c0d4c37fbdf869c8dc227ea35657",
+   "body_lines": [
+    153,
+    160
+   ],
+   "reads": [],
+   "reachability": "Owner-only. It writes a whole `Feed` (QuoteOracle.sol:158) with a zero aggregator, heartbeat 1 and the pegged flag true, which makes the price path return at its first branch, `pegged` (QuoteOracle.sol:207), without any external call \u2014 so the pegged result can neither revert nor go stale. Unlike setFeed it does not carry the previous bounds across: both are written as zero in that same `feeds` literal (QuoteOracle.sol:158), and on the pegged branch they are never consulted anyway. Decimals are read from the token when the argument is 0, at `decimals` (QuoteOracle.sol:155), and a wrong value here scales every price for that asset by a power of ten at `quoteDecimals` (QuoteOracle.sol:207).",
+   "authority_gate_quote": "function setPegged(address quote, uint8 dec) external onlyOwner { (QuoteOracle.sol:153)",
+   "authority": "owner (documented as the timelock)",
+   "value": "NONE",
+   "edges": [
+    "IERC20Decimals.decimals (QuoteOracle.sol:155), UNTRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "writes": [
+    "feeds (line 158)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 175,
+   "kind": "function",
+   "name": "setBounds",
+   "signature": "function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "7d782ef0ad4579e76c0d541b940249c75e0c4155",
+   "body_lines": [
+    175,
+    180
+   ],
+   "reads": [],
+   "reachability": "Owner-only. The only ordering check leaves an open upper side legal, at `maxUsd` (QuoteOracle.sol:176). The two fields are written in place on whatever Feed already exists \u2014 `minUsd` (QuoteOracle.sol:177) and `maxUsd` (QuoteOracle.sol:178) \u2014 so calling this for an unconfigured quote creates a bounds-only entry whose aggregator is still zero. The values are compared against `perWhole` (QuoteOracle.sol:267), which is the feed answer normalised to 1e18 per WHOLE token rather than per raw unit, so the band's units are whole-token USD regardless of the token's own decimals.",
+   "authority_gate_quote": "function setBounds(address quote, uint128 minUsd, uint128 maxUsd) external onlyOwner { (QuoteOracle.sol:175)",
+   "authority": "owner (documented as the timelock)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": [
+    "feeds.minUsd (line 177)",
+    "feeds.maxUsd (line 178)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 182,
+   "kind": "function",
+   "name": "setSequencer",
+   "signature": "function setSequencer(address feed, uint32 grace) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "843385e03d62d793b1b1bf4f30b6aa8656924ceb",
+   "body_lines": [
+    182,
+    186
+   ],
+   "reads": [],
+   "reachability": "Owner-only, and global rather than per-quote: one uptime feed gates every priced asset through `_sequencerOk` (QuoteOracle.sol:209). Setting `sequencerUptime` (QuoteOracle.sol:183) to zero disables the check entirely, which is the branch taken at `s` (QuoteOracle.sol:322). `gracePeriod` (QuoteOracle.sol:184) is overwritten unconditionally with no bound, so a very large grace makes every priced quote read as unusable until it elapses.",
+   "authority_gate_quote": "function setSequencer(address feed, uint32 grace) external onlyOwner { (QuoteOracle.sol:182)",
+   "authority": "owner (documented as the timelock)",
+   "value": "NONE",
+   "edges": [],
+   "observations": [],
+   "writes": [
+    "sequencerUptime (line 183)",
+    "gracePeriod (line 184)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 202,
+   "kind": "function",
+   "name": "usdPerRawUnit",
+   "signature": "function usdPerRawUnit(address quote) external view returns (uint256 factor)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0f59720908f9bab9418aa26cf1475b2c4b1da4da",
+   "body_lines": [
+    202,
+    278
+   ],
+   "reads": [
+    "feeds (line 203)"
+   ],
+   "reachability": "Ungated external view. Reached directly by `usdPerRawUnit` (TreasuryGovernor.sol:786) when a rotation target is admitted, and re-entered from inside this contract through `this.` at `usdPerRawUnit` (QuoteOracle.sol:308) and at `usdPerRawUnit` (QuoteOracle.sol:317). Every failure mode degrades to a 0 return rather than a revert: no `aggregator` (QuoteOracle.sol:208); a sequencer that is not healthy, at `_sequencerOk` (QuoteOracle.sol:209); a feed that reverts, caught at `catch` (QuoteOracle.sol:236); a non-positive `answer` (QuoteOracle.sol:239); a zero or future `updatedAt` (QuoteOracle.sol:245); an answer older than the `heartbeat` (QuoteOracle.sol:246); a decimals call that reverts, caught at `catch` (QuoteOracle.sol:251); and an answer below `minUsd` (QuoteOracle.sol:267) or above `maxUsd` (QuoteOracle.sol:268). The pegged branch returns before any of that, at `pegged` (QuoteOracle.sol:207). Scaling is applied before the decimals division so the result keeps 1e18 precision, at `factor` (QuoteOracle.sol:277).",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone",
+   "value": "NONE",
+   "edges": [
+    "QuoteOracle._sequencerOk (QuoteOracle.sol:209), TRUSTED, in-cluster",
+    "IAggregatorV3.latestRoundData (QuoteOracle.sol:231), UNTRUSTED, in-cluster",
+    "IAggregatorV3.decimals (QuoteOracle.sol:249), UNTRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 305,
+   "kind": "function",
+   "name": "cachedUsdPerRawUnit",
+   "signature": "function cachedUsdPerRawUnit(address quote) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a6f4890eed507ed8682a41bc3e7ff5ee650d940b",
+   "body_lines": [
+    305,
+    312
+   ],
+   "reads": [
+    "cache (line 306)",
+    "cache.at (line 307)",
+    "TTL (line 307, constant)",
+    "cache.factor (line 307)"
+   ],
+   "reachability": "Ungated and state-changing, so any caller may pay to refresh any quote's cache. Two in-tree consumers reach it by low-level call rather than typed call \u2014 `cachedUsdPerRawUnit` (CauldronHook.sol:745) and `cachedUsdPerRawUnit` (QuoteRotator.sol:568) \u2014 and both treat a failed call as a 0 factor. The fresh read is an external self-call at `usdPerRawUnit` (QuoteOracle.sol:308), so a revert inside it would propagate out of here; every branch of that callee returns 0 instead. A 0 refresh is discarded by the guard at `fresh` (QuoteOracle.sol:310) and the previous value is returned at `factor` (QuoteOracle.sol:311), so an asset that has never priced successfully returns 0 until one refresh succeeds.",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone",
+   "value": "NONE",
+   "edges": [
+    "QuoteOracle.usdPerRawUnit (QuoteOracle.sol:308), TRUSTED, in-cluster"
+   ],
+   "observations": [
+    "comment at `cached` (QuoteOracle.sol:283) says the constant is how long a cached price stays good; code at `c` (QuoteOracle.sol:309) stamps the timestamp on every call, including one whose refresh came back unusable, so the window restarts with no good answer and the early-return branch at `factor` (QuoteOracle.sol:307) then serves the old value for another full period"
+   ],
+   "writes": [
+    "cache.at (line 309)",
+    "cache.factor (line 310)"
+   ]
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 316,
+   "kind": "function",
+   "name": "priceable",
+   "signature": "function priceable(address quote) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "cbf040f37bb4c9e0d6b28b6ef0467439bd598362",
+   "body_lines": [
+    316,
+    318
+   ],
+   "reads": [],
+   "reachability": "Ungated external view that re-enters this contract through `this.` at `usdPerRawUnit` (QuoteOracle.sol:317) and reports only whether the factor is non-zero. DERIVED: no Solidity caller of this selector exists in the source tree outside test code; the priceability question is asked instead through the raw factor at `usdPerRawUnit` (TreasuryGovernor.sol:786). Because it calls a function that never reverts, it is total for every input.",
+   "authority_gate_quote": "UNGATED",
+   "authority": "anyone",
+   "value": "NONE",
+   "edges": [
+    "QuoteOracle.usdPerRawUnit (QuoteOracle.sol:317), TRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "QuoteOracle",
+   "file": "cauldron/QuoteOracle.sol",
+   "line": 320,
+   "kind": "function",
+   "name": "_sequencerOk",
+   "signature": "function _sequencerOk() internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "58c04a8cd4f7b3363c0726114574316d1aa3986e",
+   "body_lines": [
+    320,
+    342
+   ],
+   "reads": [
+    "sequencerUptime (line 321)",
+    "gracePeriod (line 338)"
+   ],
+   "reachability": "Single caller: `_sequencerOk` (QuoteOracle.sol:209), on the non-pegged path only, so a pegged asset is never gated on the sequencer \u2014 the pegged branch returns first at `pegged` (QuoteOracle.sol:207). An unset feed returns true at `s` (QuoteOracle.sol:322). Every other outcome is a refusal: a non-zero uptime answer at `up` (QuoteOracle.sol:332), a zero or future `startedAt` (QuoteOracle.sol:335), an elapsed time not yet past `gracePeriod` (QuoteOracle.sol:338), or a feed that reverts, at `catch` (QuoteOracle.sol:339). A refusal makes the price unusable, which the caching layer converts into keeping the last good value at `fresh` (QuoteOracle.sol:310).",
+   "authority_gate_quote": "UNGATED",
+   "authority": "internal (callers: usdPerRawUnit)",
+   "value": "NONE",
+   "edges": [
+    "IAggregatorV3.latestRoundData (QuoteOracle.sol:328), UNTRUSTED, in-cluster"
+   ],
+   "observations": [],
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 95,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _registry, IPoolManager _poolManager)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "fa5670abdbf2678a0132c10d4faae6d67d4526cc",
+   "body_lines": [
+    95,
+    99
+   ],
+   "reads": [],
+   "reachability": "Runs once at deployment. It fixes the two immutables that can never be re-pointed \u2014 the `registry` (QuoteRotator.sol:96) that alone may call swapOnce, and the `poolManager` (QuoteRotator.sol:97) that alone may call back into unlockCallback \u2014 and makes the deployer the first `owner` (QuoteRotator.sol:98). No zero checks on either address. Everything else starts at its declaration default: `keeperBps` (QuoteRotator.sol:85), `rotationSlipBps` (QuoteRotator.sol:373), `arbKeeperBps` (QuoteRotator.sol:419), `minArbProfitUsd` (QuoteRotator.sol:424) and `maxArbNotionalUsd` (QuoteRotator.sol:437), while `quoteOracle` (QuoteRotator.sol:415) and every entry of `allowedVenue` (QuoteRotator.sol:179) start unset, so the contract ships with no route it will execute through.",
+   "authority": "deployer",
+   "authority_gate_quote": "UNGATED",
+   "edges": [],
+   "value": "NONE",
+   "writes": [
+    "registry (line 96, immutable)",
+    "poolManager (line 97, immutable)",
+    "owner (line 98)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 121,
+   "kind": "modifier",
+   "name": "onlyRegistry",
+   "signature": "modifier onlyRegistry()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1bf133b40dd818623a221a880ba7a4a14ea91c8b",
+   "body_lines": [
+    121,
+    124
+   ],
+   "reads": [
+    "registry (line 122, immutable)"
+   ],
+   "reachability": "Applied to exactly one function, `onlyRegistry` (QuoteRotator.sol:337). The address it compares against is immutable, set at `registry` (QuoteRotator.sol:96), so this authority cannot be transferred or revoked. The caller that satisfies it is the registry executing `swapOnce` (RedemptionExt.sol:376) under delegatecall, where `address(this)` is the registry itself.",
+   "authority": "internal (callers: swapOnce)",
+   "authority_gate_quote": "if (msg.sender != registry) revert NotOwner(); (QuoteRotator.sol:122)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 126,
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "signature": "modifier onlyOwner()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b117783558df125470ebdea18998e748e06075b4",
+   "body_lines": [
+    126,
+    129
+   ],
+   "reads": [
+    "owner (line 127)"
+   ],
+   "reachability": "The configuration gate, held by the treasury rather than by the registry. It guards `transferOwnership` (QuoteRotator.sol:131), `setVenue` (QuoteRotator.sol:186), the `onlyOwner` on setPlan (QuoteRotator.sol:219), `cancelPlan` (QuoteRotator.sol:244), `setKeeperBps` (QuoteRotator.sol:249), `setRotationSlipBps` (QuoteRotator.sol:378), `setArbParams` (QuoteRotator.sol:448) and `setMaxArbNotionalUsd` (QuoteRotator.sol:458). It is deliberately NOT on the execution paths: `rotateStep` (QuoteRotator.sol:280) and `arbStep` (QuoteRotator.sol:496) are permissionless, `onlyRegistry` (QuoteRotator.sol:337) gates swapOnce, and the check at `registry` (QuoteRotator.sol:590) lets withdraw accept either.",
+   "authority": "internal (callers: transferOwnership, setVenue, setPlan, cancelPlan, setKeeperBps, setRotationSlipBps, setArbParams, setMaxArbNotionalUsd)",
+   "authority_gate_quote": "if (msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:127)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 131,
+   "kind": "function",
+   "name": "transferOwnership",
+   "signature": "function transferOwnership(address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "9238f865e66ff8e7edd7717566cbf462d9572f60",
+   "body_lines": [
+    131,
+    131
+   ],
+   "reads": [],
+   "reachability": "Owner-only, single-step, no zero check at `transferOwnership` (QuoteRotator.sol:131). Transferring to an unusable address freezes the venue allowlist, the plan, every bps parameter and the owner half of the check at `owner` (QuoteRotator.sol:590); the registry half of withdraw and the registry-gated `onlyRegistry` (QuoteRotator.sol:337) keep working, because they key off the immutable `registry` (QuoteRotator.sol:96) instead.",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "external onlyOwner (QuoteRotator.sol:131)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [
+    "owner (line 131)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 186,
+   "kind": "function",
+   "name": "setVenue",
+   "signature": "function setVenue(PoolKey calldata route, bool allowed) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "481063b2315876b51829a284e8947cc6d61fd5ba",
+   "body_lines": [
+    186,
+    190
+   ],
+   "reads": [],
+   "reachability": "Owner-only curation of the execution venues. The key is the hash of the whole PoolKey, computed at `toId` (QuoteRotator.sol:187), so fee, tickSpacing and hooks are all pinned and listing one pool on a pair does not list the others. The mapping written at `allowedVenue` (QuoteRotator.sol:188) is the gate every spending path consults: `allowedVenue` (QuoteRotator.sol:295) in rotateStep, `allowedVenue` (QuoteRotator.sol:355) in swapOnce, and `allowedVenue` (QuoteRotator.sol:516) for both legs of arbStep. An empty allowlist therefore makes all three revert, which is the documented fail-closed default.",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "function setVenue(PoolKey calldata route, bool allowed) external onlyOwner { (QuoteRotator.sol:186)",
+   "edges": [
+    "PoolIdLibrary.toId (QuoteRotator.sol:187), TRUSTED, library"
+   ],
+   "value": "NONE",
+   "writes": [
+    "allowedVenue (line 188)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 193,
+   "kind": "function",
+   "name": "isVenueAllowed",
+   "signature": "function isVenueAllowed(PoolKey calldata route) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "d0a398226f7c3cac16d95ebefa357300bca72b41",
+   "body_lines": [
+    193,
+    195
+   ],
+   "reads": [
+    "allowedVenue (line 194)"
+   ],
+   "reachability": "Ungated view. Hashes the supplied key with `toId` (QuoteRotator.sol:194) and reports the flag, which is the same lookup the execution paths make at `allowedVenue` (QuoteRotator.sol:295). Offered so a keeper can check a route before spending gas on it; nothing in the contract calls it.",
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "PoolIdLibrary.toId (QuoteRotator.sol:194), TRUSTED, library"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 212,
+   "kind": "function",
+   "name": "setPlan",
+   "signature": "function setPlan( address from, address to, uint128 totalIn, uint128 sliceIn, uint256 minRate, uint32 interval ) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "116a5be534e3045b8795b3309c79cc3fc9b39cf2",
+   "body_lines": [
+    219,
+    239
+   ],
+   "reads": [],
+   "reachability": "Owner-only. There is exactly ONE plan slot, so this overwrites any rotation already in flight \u2014 including its `doneIn` and `gotOut` progress, which are reset to zero in the same literal at `plan` (QuoteRotator.sol:227). Config checks: the pair must differ and the slice must fit the total, at `sliceIn` (QuoteRotator.sol:220); a zero `minRate` (QuoteRotator.sol:222) is refused because it would accept any fill; and the destination must be on the registry's allowlist, checked here through `_allowed` (QuoteRotator.sol:225) and again at execution time at `_allowed` (QuoteRotator.sol:286). `interval` is not bounded (QuoteRotator.sol:235), and the venue allowlist is a separate decision entirely, made at `setVenue` (QuoteRotator.sol:186).",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "onlyOwner (QuoteRotator.sol:219)",
+   "edges": [
+    "QuoteRotator._allowed (QuoteRotator.sol:225), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "writes": [
+    "plan (line 227)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 244,
+   "kind": "function",
+   "name": "cancelPlan",
+   "signature": "function cancelPlan() external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "cdb80c9bcda8248c0a109d9666af64b26897149c",
+   "body_lines": [
+    244,
+    247
+   ],
+   "reads": [
+    "plan.doneIn (line 245)",
+    "plan.gotOut (line 245)"
+   ],
+   "reachability": "Owner-only abort. It emits the progress from `doneIn` (QuoteRotator.sol:245) and then clears the whole struct at `plan` (QuoteRotator.sol:246), which makes nextSliceSize return 0 at `totalIn` (QuoteRotator.sol:261) and rotateStep revert at `NoPlan` (QuoteRotator.sol:282). It moves no assets: whatever the plan already converted stays in this contract until `withdraw` (QuoteRotator.sol:589) sweeps it, and the record of how much that was is destroyed with the struct.",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "function cancelPlan() external onlyOwner { (QuoteRotator.sol:244)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [
+    "plan (line 246)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 249,
+   "kind": "function",
+   "name": "setKeeperBps",
+   "signature": "function setKeeperBps(uint16 bps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "432c8ced91491e7c550662ac4747375692065060",
+   "body_lines": [
+    249,
+    252
+   ],
+   "reads": [],
+   "reachability": "Owner-only, capped at 1% by the check at `BadConfig` (QuoteRotator.sol:250). The value written to `keeperBps` (QuoteRotator.sol:251) is read only by `keeperBps` (QuoteRotator.sol:312), where it is applied to the slice's OUTPUT, so it is a share of what the rotation produced rather than of the treasury. Changing it takes effect on the next slice of an already-running plan; nothing snapshots it into the plan.",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "function setKeeperBps(uint16 bps) external onlyOwner { (QuoteRotator.sol:249)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [
+    "keeperBps (line 251)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 259,
+   "kind": "function",
+   "name": "nextSliceSize",
+   "signature": "function nextSliceSize() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "7fc6c6dc998716374cca2d212d527f9ae81713a3",
+   "body_lines": [
+    259,
+    271
+   ],
+   "reads": [
+    "plan (line 260)",
+    "plan.totalIn (line 261)",
+    "plan.doneIn (line 261)",
+    "plan.lastStepAt (line 266)",
+    "plan.interval (line 266)",
+    "plan.sliceIn (line 268)",
+    "plan.from (line 269)"
+   ],
+   "reachability": "Public view and the size oracle for `nextSliceSize` (QuoteRotator.sol:284). It returns 0 \u2014 which rotateStep turns into TooSoon \u2014 when there is no plan or `doneIn` has reached the total (QuoteRotator.sol:261) and when the `interval` has not elapsed (QuoteRotator.sol:266). A first slice is due immediately because the timer only applies once `lastStepAt` is non-zero (QuoteRotator.sol:266). The result is clamped twice: to what the plan has left at `left` (QuoteRotator.sol:267) and to what this contract actually holds at `held` (QuoteRotator.sol:270), so a plan can be scheduled for more than the balance and will simply step in smaller pieces. Holding zero of the source asset makes it return 0, which is indistinguishable from TooSoon at the call site.",
+   "authority": "anyone",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "QuoteRotator._balanceOf (QuoteRotator.sol:269), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 280,
+   "kind": "function",
+   "name": "rotateStep",
+   "signature": "function rotateStep(PoolKey calldata route) external returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4c406345d7f6978ae58cd6b7d8722a0a90d0a7cb",
+   "body_lines": [
+    280,
+    316
+   ],
+   "reads": [
+    "plan (line 281)",
+    "plan.totalIn (line 282)",
+    "plan.to (line 286)",
+    "plan.from (line 287)",
+    "allowedVenue (line 295)",
+    "plan.minRate (line 306)",
+    "WAD (line 306, constant)",
+    "keeperBps (line 312)",
+    "BPS (line 312, constant)"
+   ],
+   "reachability": "Permissionless external entry. State that must hold: a plan exists, checked at `totalIn` (QuoteRotator.sol:282), a slice is due and non-zero at `size` (QuoteRotator.sol:285), the destination is still allowlisted at `_allowed` (QuoteRotator.sol:286), the supplied key trades the plan's pair at `_routeMatches` (QuoteRotator.sol:287), and the key is curated at `allowedVenue` (QuoteRotator.sol:295). Effects are written before the external call \u2014 the timestamp at `lastStepAt` (QuoteRotator.sol:300) and the progress at `doneIn` (QuoteRotator.sol:301) \u2014 which matters because the swap re-enters this contract through `unlockCallback` (QuoteRotator.sol:609) and the keeper payment at the end calls an arbitrary address. There is no reentrancy guard anywhere in this contract. The price floor is the governed rate, computed at `minRate` (QuoteRotator.sol:306) from the amount actually sent, and the received amount is recorded rather than assumed at `gotOut` (QuoteRotator.sol:310). The keeper fee is taken from the output AFTER the floor check, at `fee` (QuoteRotator.sol:312), so the plan's recorded `gotOut` is larger than what the treasury keeps. Both the size cast at `doneIn` (QuoteRotator.sol:301) and the output cast at `gotOut` (QuoteRotator.sol:310) narrow a uint256 to uint128.",
+   "authority": "anyone (permissionless keeper; the caller chooses only the venue, from the curated list)",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "QuoteRotator.nextSliceSize (QuoteRotator.sol:284), TRUSTED, in-cluster",
+    "QuoteRotator._allowed (QuoteRotator.sol:286), TRUSTED, in-cluster",
+    "QuoteRotator._routeMatches (QuoteRotator.sol:287), TRUSTED, in-cluster",
+    "PoolIdLibrary.toId (QuoteRotator.sol:295), TRUSTED, library",
+    "QuoteRotator._swap (QuoteRotator.sol:303), TRUSTED, in-cluster",
+    "QuoteRotator._send (QuoteRotator.sol:313), TRUSTED, in-cluster"
+   ],
+   "value": "`_send` pays the keeper a share of the plan's `to` asset (line 313); the swap legs settle and take inside `_swap` (line 303)",
+   "writes": [
+    "plan.lastStepAt (line 300)",
+    "plan.doneIn (line 301)",
+    "plan.gotOut (line 310)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 331,
+   "kind": "function",
+   "name": "swapOnce",
+   "signature": "function swapOnce( PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut ) external onlyRegistry returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyRegistry"
+   ],
+   "body_sha1": "191f7e192ec92794d64433c64578d0646d4c04d9",
+   "body_lines": [
+    337,
+    368
+   ],
+   "reads": [
+    "allowedVenue (line 355)"
+   ],
+   "reachability": "The single-shot conversion used by the live rotation. The only caller is the facet running as the registry: `swapOnce` (RedemptionExt.sol:376), reached from `rotateSliceFrom` (CauldronRegistry.sol:262) through the delegatecall forwarder at `_forwardToExt` (CauldronRegistry.sol:1451). The authority gate is held HERE, by `onlyRegistry` (QuoteRotator.sol:121) against the immutable address; the registry side contributes the size and the envelope, not the authority. Preconditions: a non-zero `amountIn` (QuoteRotator.sol:338), an allowlisted destination at `_allowed` (QuoteRotator.sol:339), a key on the right pair at `_routeMatches` (QuoteRotator.sol:340), and a curated key at `allowedVenue` (QuoteRotator.sol:355). The accepted price is the LARGER of the caller's bound and the oracle-derived floor, at `floor` (QuoteRotator.sol:366), so a caller may tighten but never loosen it \u2014 and because `_oracleFloor` returns 0 when either leg is unpriceable, an unwired or silent oracle leaves the caller's own bound standing alone, at `_oracleFloor` (QuoteRotator.sol:365). Note the input asset must already have been sent here: nothing in this function pulls it, and `_settle` (QuoteRotator.sol:668) pays the pool out of this contract's balance.",
+   "authority": "registry (the immutable address; the gate is on THIS side, not the registry's)",
+   "authority_gate_quote": "external onlyRegistry (QuoteRotator.sol:337)",
+   "edges": [
+    "QuoteRotator._allowed (QuoteRotator.sol:339), TRUSTED, in-cluster",
+    "QuoteRotator._routeMatches (QuoteRotator.sol:340), TRUSTED, in-cluster",
+    "PoolIdLibrary.toId (QuoteRotator.sol:355), TRUSTED, library",
+    "QuoteRotator._swap (QuoteRotator.sol:356), TRUSTED, in-cluster",
+    "QuoteRotator._oracleFloor (QuoteRotator.sol:365), TRUSTED, in-cluster"
+   ],
+   "value": "the swap legs settle and take inside `_swap` (line 356); proceeds stay in this contract until `withdraw` (line 589) moves them",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 378,
+   "kind": "function",
+   "name": "setRotationSlipBps",
+   "signature": "function setRotationSlipBps(uint16 bps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "fc16675eba117013a5b97d7068b1bcdc10358ea2",
+   "body_lines": [
+    378,
+    381
+   ],
+   "reads": [],
+   "reachability": "Owner-only, capped at 20% by the check at `BadConfig` (QuoteRotator.sol:379). The value written to `rotationSlipBps` (QuoteRotator.sol:380) widens the oracle floor used by swapOnce, at `rotationSlipBps` (QuoteRotator.sol:407). It has no effect on the plan path, whose floor comes from the governed `minRate` (QuoteRotator.sol:306) instead, and none on arbStep, which compares USD totals directly at `outUsd` (QuoteRotator.sol:550).",
+   "authority": "owner (the treasury)",
+   "authority_gate_quote": "function setRotationSlipBps(uint16 bps) external onlyOwner { (QuoteRotator.sol:378)",
+   "edges": [],
+   "value": "NONE",
+   "writes": [
+    "rotationSlipBps (line 380)"
+   ],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 398,
+   "kind": "function",
+   "name": "_oracleFloor",
+   "signature": "function _oracleFloor(address from, address to, uint256 amountIn) internal returns (uint256)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4c3d5cbbee642a168ac739e75c32a6d547b890fd",
+   "body_lines": [
+    401,
+    408
+   ],
+   "reads": [
+    "rotationSlipBps (line 407)",
+    "BPS (line 407, constant)"
+   ],
+   "reachability": "Single caller: `_oracleFloor` (QuoteRotator.sol:365). Not a view \u2014 it goes through `_usd` (QuoteRotator.sol:402), which calls the oracle's state-changing cached read. It fails OPEN: an unset oracle, an unpriceable source at `inUsd` (QuoteRotator.sol:403) or an unpriceable destination at `perUnitTo` (QuoteRotator.sol:405) each return 0, and the caller then relies on its own bound. Both legs are valued in USD first, so no decimals factor is needed here; the destination is priced per 1e18 raw units at `perUnitTo` (QuoteRotator.sol:404) and the fair amount divides by that at `fair` (QuoteRotator.sol:406). Every division truncates, so the floor rounds in the treasury's disfavour by at most one unit before the slippage haircut at `rotationSlipBps` (QuoteRotator.sol:407) is applied.",
+   "authority": "internal (callers: swapOnce)",
+   "authority_gate_quote": "UNGATED",
+   "edges": [
+    "QuoteRotator._usd (QuoteRotator.sol:402), TRUSTED, in-cluster",
+    "QuoteRotator._usd (QuoteRotator.sol:404), TRUSTED, in-cluster"
+   ],
+   "value": "NONE",
+   "writes": [],
+   "observations": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 448,
+   "kind": "function",
+   "name": "setArbParams",
+   "signature": "function setArbParams(address oracle, uint16 keeperBps, uint256 minProfitUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "1aad41925b0bf89d9294d646688ee0974210e637",
+   "body_lines": [
+    448,
+    453
+   ],
+   "observations": [],
+   "authority": "owner (the treasury)",
+   "value": "NONE",
+   "reads": [],
+   "reachability": "Owner-only. The only bound is the 20% ceiling on the keeper share at `keeperBps` (QuoteRotator.sol:449); the oracle address written to `quoteOracle` (QuoteRotator.sol:450) is unchecked, and setting it to zero makes the helper return 0 at `o` (QuoteRotator.sol:566) \u2014 which makes arbStep revert at `inUsd` (QuoteRotator.sol:533) and makes the swapOnce floor fail open at `inUsd` (QuoteRotator.sol:403). `minArbProfitUsd` (QuoteRotator.sol:452) is written with no floor, so zero is storable and every profitable-by-one-wei arb becomes executable.",
+   "edges": [],
+   "authority_gate_quote": "external onlyOwner (QuoteRotator.sol:448)",
+   "writes": [
+    "quoteOracle (line 450)",
+    "arbKeeperBps (line 451)",
+    "minArbProfitUsd (line 452)"
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 458,
+   "kind": "function",
+   "name": "setMaxArbNotionalUsd",
+   "signature": "function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "4122b0064ff4ef699d07f167d98a795c9d996ed8",
+   "body_lines": [
+    458,
+    460
+   ],
+   "observations": [
+    "comment at `cap` (QuoteRotator.sol:455) says this tunes the per-call notional cap; code at `spentThisBlock` (QuoteRotator.sol:546) accumulates the spend across every call in the same block and compares the running total, so the number bounds a block rather than a call"
+   ],
+   "authority": "owner (the treasury)",
+   "value": "NONE",
+   "reads": [],
+   "reachability": "Owner-only, entirely unvalidated: the value lands in `maxArbNotionalUsd` (QuoteRotator.sol:459) and zero is an explicit opt-out that skips the whole accounting block at `maxArbNotionalUsd` (QuoteRotator.sol:544).",
+   "edges": [],
+   "authority_gate_quote": "function setMaxArbNotionalUsd(uint256 maxNotionalUsd) external onlyOwner { (QuoteRotator.sol:458)",
+   "writes": [
+    "maxArbNotionalUsd (line 459)"
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 496,
+   "kind": "function",
+   "name": "arbStep",
+   "signature": "function arbStep(PoolKey calldata cheap, PoolKey calldata dear, uint256 amountIn) external returns (uint256 profitUsd)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "94501c0095811a454e480eabbb9a201e5616d3d7",
+   "body_lines": [
+    499,
+    562
+   ],
+   "observations": [
+    "comment at `None` (QuoteRotator.sol:488) says no capital is needed because only the net delta settles; code at `_settle` (QuoteRotator.sol:663) settles the full spent amount of the cheap pool's currency0 out of this contract's own balance, and takes the dear pool's currency0 separately at `take` (QuoteRotator.sol:664) \u2014 the two are different assets, so they do not net"
+   ],
+   "authority": "anyone (permissionless keeper)",
+   "value": "`_send` pays the keeper a cut of the received quote (line 559); the two swap legs settle and take inside the unlock at `unlock` (line 526)",
+   "reads": [
+    "allowedVenue (line 516)",
+    "maxArbNotionalUsd (line 544)",
+    "arbBlock (line 545)",
+    "arbUsdThisBlock (line 546)",
+    "minArbProfitUsd (line 553)",
+    "arbKeeperBps (line 558)",
+    "BPS (line 558, constant)"
+   ],
+   "reachability": "Permissionless external entry that spends this contract's own balance. Shape checks first: both pools must share currency1, at `currency1` (QuoteRotator.sol:505); the two quotes must differ, at `inQuote` (QuoteRotator.sol:506); BOTH keys must be curated, at `allowedVenue` (QuoteRotator.sol:516); and the destination quote must be on the registry's allowlist, at `_allowed` (QuoteRotator.sol:523). The quote side of each pool is assumed to be currency0 \u2014 read that way at `cheap` (QuoteRotator.sol:501) and at `dear` (QuoteRotator.sol:502) \u2014 which is the same watermark assumption the seeding path makes. Both legs execute in one `unlock` (QuoteRotator.sol:526) and only then is the trade judged: both legs must be priceable at `outUsd` (QuoteRotator.sol:533), the running block notional must stay under the cap at `spentThisBlock` (QuoteRotator.sol:547), the trade must be profitable at `outUsd` (QuoteRotator.sol:550), and the profit must clear the floor at `minArbProfitUsd` (QuoteRotator.sol:553). Effects-after-interaction throughout: the per-block counter at `arbUsdThisBlock` (QuoteRotator.sol:548) is written after the swaps have already run, and the keeper payment at `keeperCut` (QuoteRotator.sol:559) calls an arbitrary address with no reentrancy guard anywhere in this contract. The keeper cut is computed from the profit share of the received amount, so it truncates toward zero at `keeperCut` (QuoteRotator.sol:558).",
+   "edges": [
+    "PoolIdLibrary.toId (QuoteRotator.sol:516), TRUSTED, library",
+    "QuoteRotator._allowed (QuoteRotator.sol:523), TRUSTED, in-cluster",
+    "IPoolManager.unlock (QuoteRotator.sol:526), TRUSTED, out-of-cluster",
+    "QuoteRotator._usd (QuoteRotator.sol:531), TRUSTED, in-cluster",
+    "QuoteRotator._usd (QuoteRotator.sol:532), TRUSTED, in-cluster",
+    "QuoteRotator._send (QuoteRotator.sol:559), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": [
+    "arbBlock (line 545)",
+    "arbUsdThisBlock (line 545)",
+    "arbUsdThisBlock (line 548)"
+   ]
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 564,
+   "kind": "function",
+   "name": "_usd",
+   "signature": "function _usd(address quote, uint256 raw) internal returns (uint256)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "6e3173fd126054b000038b076748e1e7768a1b77",
+   "body_lines": [
+    564,
+    573
+   ],
+   "observations": [],
+   "authority": "internal (callers: _oracleFloor, arbStep)",
+   "value": "NONE",
+   "reads": [
+    "quoteOracle (line 565)"
+   ],
+   "reachability": "Three call sites: `_usd` (QuoteRotator.sol:402) and `_usd` (QuoteRotator.sol:404) for the swapOnce floor, and `_usd` (QuoteRotator.sol:531) and `_usd` (QuoteRotator.sol:532) for the arb's profit test. It is state-changing because the oracle entry point it hits is, which is why `_oracleFloor` (QuoteRotator.sol:398) cannot be a view either. Totality is by construction: an unset oracle returns 0 at `o` (QuoteRotator.sol:566), and a revert, a codeless address or a short return all degrade to 0 at `ret` (QuoteRotator.sol:570) rather than propagating. The selector is built by hand from a string at `abi` (QuoteRotator.sol:568), so it is not checked against any interface at compile time. The final multiply-then-divide at `f` (QuoteRotator.sol:572) truncates.",
+   "edges": [
+    "o.call (QuoteRotator.sol:567), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 589,
+   "kind": "function",
+   "name": "withdraw",
+   "signature": "function withdraw(address asset, address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "433ac0bc8cf3e87a2b90ff908a175ac34f3b9cf7",
+   "body_lines": [
+    589,
+    594
+   ],
+   "observations": [
+    "comment at `Owner` (QuoteRotator.sol:582) says this is owner-only; code at `registry` (QuoteRotator.sol:590) accepts the registry as well, as the later note at `rotateSlice` (QuoteRotator.sol:586) describes"
+   ],
+   "authority": "registry or owner (either satisfies the check; the gate is on this side)",
+   "value": "`_send` moves the named asset \u2014 native or ERC20 \u2014 to an arbitrary destination (line 592)",
+   "reads": [
+    "registry (line 590, immutable)",
+    "owner (line 590)"
+   ],
+   "reachability": "Two authorities share one entry. The registry half is what the live rotation uses, at `withdraw` (RedemptionExt.sol:377), pulling the converted proceeds back in the same transaction that produced them; the owner half is the treasury's dust sweep. The only validation is a non-zero destination at `BadConfig` (QuoteRotator.sol:591) \u2014 amount, asset and recipient are otherwise unconstrained, and nothing here consults `plan` (QuoteRotator.sol:77), so a withdrawal can take the very balance a live plan was scheduled against. `nextSliceSize` absorbs that by clamping to the held balance at `held` (QuoteRotator.sol:270) rather than reverting.",
+   "edges": [
+    "QuoteRotator._send (QuoteRotator.sol:592), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "if (msg.sender != registry && msg.sender != owner) revert NotOwner(); (QuoteRotator.sol:590)",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 600,
+   "kind": "function",
+   "name": "_swap",
+   "signature": "function _swap(PoolKey calldata route, address from, address to, uint256 size) internal returns (uint256 out)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f34a1eb452cff668f90ad920e8e0709b56d7ad9e",
+   "body_lines": [
+    603,
+    607
+   ],
+   "observations": [],
+   "authority": "internal (callers: rotateStep, swapOnce)",
+   "value": "the actual transfers happen in the callback this opens, at `unlock` (line 605)",
+   "reads": [
+    "poolManager (line 605, immutable)"
+   ],
+   "reachability": "Reached from `_swap` (QuoteRotator.sol:303) and `_swap` (QuoteRotator.sol:356), both of which have already checked the venue and the pair. Direction is derived, not supplied: the swap is zeroForOne exactly when the pool's currency0 is the asset being sold, at `zeroForOne` (QuoteRotator.sol:604). The payload is tagged with a leading 0 so the shared callback can tell it from an arb payload, at `unlock` (QuoteRotator.sol:605), and the single returned word is decoded as the amount received at `out` (QuoteRotator.sol:606).",
+   "edges": [
+    "IPoolManager.unlock (QuoteRotator.sol:605), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 609,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "14d51a88ced1f9d71dead37634c26f9fe22e0f92",
+   "body_lines": [
+    609,
+    634
+   ],
+   "observations": [],
+   "authority": "poolManager (the immutable address)",
+   "value": "pays the pool through `_settle` (line 631) and receives the bought asset through `take` (line 632)",
+   "reads": [
+    "poolManager (line 610, immutable)",
+    "poolManager (line 620)"
+   ],
+   "reachability": "Reachable only while the pool manager is unlocked, and only from the manager itself \u2014 the gate at `poolManager` (QuoteRotator.sol:610) is an address equality, so no other caller can drive it. One entry point serves two payload shapes, distinguished by a leading tag decoded at `kind` (QuoteRotator.sol:614) before the rest of the calldata is interpreted; tag 1 hands off to the arb path at `_arbCallback` (QuoteRotator.sol:615). The rotation path swaps exact-input (the negative amountSpecified at `amountSpecified` (QuoteRotator.sol:624)) with the price limit pinned to the extreme tick at `sqrtPriceLimitX96` (QuoteRotator.sol:625), so the pool imposes no price bound at all and the entire protection is the caller's own floor. The key used here is the one that arrived in the payload, decoded at `key` (QuoteRotator.sol:617), which the callers have already matched against the allowlist. The amount received is read from the delta at `amount1` (QuoteRotator.sol:630), the input is paid at `_settle` (QuoteRotator.sol:631), and the output is pulled at `take` (QuoteRotator.sol:632) \u2014 settle before take, so the contract is never left owing the manager at the end.",
+   "edges": [
+    "QuoteRotator._arbCallback (QuoteRotator.sol:615), TRUSTED, in-cluster",
+    "IPoolManager.swap (QuoteRotator.sol:620), TRUSTED, out-of-cluster",
+    "BalanceDeltaLibrary.amount1 (QuoteRotator.sol:630), TRUSTED, library",
+    "QuoteRotator._settle (QuoteRotator.sol:631), TRUSTED, in-cluster",
+    "IPoolManager.take (QuoteRotator.sol:632), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "if (msg.sender != address(poolManager)) revert NotOwner(); (QuoteRotator.sol:610)",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 641,
+   "kind": "function",
+   "name": "_arbCallback",
+   "signature": "function _arbCallback(bytes calldata data) internal returns (bytes memory)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ada8027e6ecd2f033797af5e85fdbad8e463de9a",
+   "body_lines": [
+    641,
+    666
+   ],
+   "observations": [
+    "comment at `capital` (QuoteRotator.sol:637) says no capital is required because the token bought on the cheap side is sold on the dear side within the same lock; code at `_settle` (QuoteRotator.sol:663) still pays the cheap pool's currency0 in full from this contract's balance, and only the TOKEN leg nets \u2014 the two quote legs are different assets"
+   ],
+   "authority": "internal (callers: unlockCallback)",
+   "value": "settles the spent quote out of this contract at `_settle` (line 663) and receives the sold quote at `take` (line 664)",
+   "reads": [
+    "poolManager (line 646, immutable)",
+    "poolManager (line 656)",
+    "poolManager (line 664)"
+   ],
+   "reachability": "Single caller: the tag-1 branch at `_arbCallback` (QuoteRotator.sol:615), so it inherits the pool-manager-only gate at `poolManager` (QuoteRotator.sol:610) and runs inside the unlock opened at `unlock` (QuoteRotator.sol:526). Direction is hard-coded rather than derived: leg one sets `zeroForOne` true (QuoteRotator.sol:648) and leg two sets `zeroForOne` false (QuoteRotator.sol:658), which only makes sense because arbStep already required both pools to share currency1 and to differ in currency0. Leg two sells exactly what leg one produced, read at `got` (QuoteRotator.sol:652), so the token nets to zero and no inventory is left behind. Both legs pin `sqrtPriceLimitX96` (QuoteRotator.sol:648) to the extreme tick, and so does the second at `sqrtPriceLimitX96` (QuoteRotator.sol:658), so neither swap is price-bounded; the only economic check is the USD comparison the caller makes afterwards at `outUsd` (QuoteRotator.sol:550).",
+   "edges": [
+    "IPoolManager.swap (QuoteRotator.sol:646), TRUSTED, out-of-cluster",
+    "BalanceDeltaLibrary.amount0 (QuoteRotator.sol:651), TRUSTED, library",
+    "BalanceDeltaLibrary.amount1 (QuoteRotator.sol:652), TRUSTED, library",
+    "IPoolManager.swap (QuoteRotator.sol:656), TRUSTED, out-of-cluster",
+    "BalanceDeltaLibrary.amount0 (QuoteRotator.sol:661), TRUSTED, library",
+    "QuoteRotator._settle (QuoteRotator.sol:663), TRUSTED, in-cluster",
+    "IPoolManager.take (QuoteRotator.sol:664), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 668,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(address cur, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2a326bf188290320115041c684c56e4a17c654ce",
+   "body_lines": [
+    668,
+    676
+   ],
+   "observations": [],
+   "authority": "internal (callers: unlockCallback, _arbCallback)",
+   "value": "sends native to the pool manager at `settle` (line 670); ERC20 to the pool manager at `_safeTransfer` (line 673)",
+   "reads": [
+    "poolManager (line 670, immutable)",
+    "poolManager (line 672)",
+    "poolManager (line 674)"
+   ],
+   "reachability": "Two callers, both inside an unlock: `_settle` (QuoteRotator.sol:631) for a rotation slice and `_settle` (QuoteRotator.sol:663) for the arb's input leg. Address(0) means native and is paid by attaching value to the settle call at `settle` (QuoteRotator.sol:670); anything else follows the v4 sync-transfer-settle sequence at `sync` (QuoteRotator.sol:672) and `settle` (QuoteRotator.sol:674). Both branches pay out of this contract's own balance, so the assets must already be here \u2014 `swapOnce` (QuoteRotator.sol:331) is called only after the registry has sent them, at `sendAsset` (RedemptionExt.sol:375). A shortfall surfaces as a failed transfer at `_safeTransfer` (QuoteRotator.sol:673) or as an unbalanced delta when the manager relocks.",
+   "edges": [
+    "IPoolManager.settle (QuoteRotator.sol:670), TRUSTED, out-of-cluster",
+    "IPoolManager.sync (QuoteRotator.sol:672), TRUSTED, out-of-cluster",
+    "QuoteRotator._safeTransfer (QuoteRotator.sol:673), TRUSTED, in-cluster",
+    "IPoolManager.settle (QuoteRotator.sol:674), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 678,
+   "kind": "function",
+   "name": "_send",
+   "signature": "function _send(address cur, address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3c23397744ecbea6198e4aed3c906354a81599ea",
+   "body_lines": [
+    678,
+    686
+   ],
+   "observations": [],
+   "authority": "internal (callers: rotateStep, arbStep, withdraw)",
+   "value": "sends native to an arbitrary recipient at `call` (line 681); ERC20 transfer at `_safeTransfer` (line 684)",
+   "reads": [],
+   "reachability": "The single outbound value path. Three callers: the keeper fee at `_send` (QuoteRotator.sol:313), the arb keeper cut at `_send` (QuoteRotator.sol:559), and the custody sweep at `_send` (QuoteRotator.sol:592). A zero `amount` returns without doing anything (QuoteRotator.sol:679). The native branch forwards all remaining gas to an address the caller supplied \u2014 `msg.sender` on both keeper paths \u2014 at `call` (QuoteRotator.sol:681), and a failure reverts the whole transaction at `TransferFailed` (QuoteRotator.sol:682), so a keeper contract that rejects ETH cannot merely forfeit its fee, it undoes the slice.",
+   "edges": [
+    "to.call (QuoteRotator.sol:681), UNTRUSTED, out-of-cluster",
+    "QuoteRotator._safeTransfer (QuoteRotator.sol:684), TRUSTED, in-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 691,
+   "kind": "function",
+   "name": "_safeTransfer",
+   "signature": "function _safeTransfer(address token, address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0865e1c386910a90ce16b19a796b424a848daef7",
+   "body_lines": [
+    691,
+    695
+   ],
+   "observations": [
+    "comment at `CHECKED` (QuoteRotator.sol:688) says an unchecked transfer would report success while nothing moved; code at `ret` (QuoteRotator.sol:694) accepts an empty return as success, which is also what a call to an address with no code produces \u2014 no code-length check is made"
+   ],
+   "authority": "internal (callers: _settle, _send)",
+   "value": "ERC20 transfer of the named token to the recipient at `transfer` (line 693)",
+   "reads": [],
+   "reachability": "Called from `_safeTransfer` (QuoteRotator.sol:673) to pay the pool manager and from `_safeTransfer` (QuoteRotator.sol:684) to pay a recipient. The token address originates from the plan, from the caller's PoolKey or from a withdraw argument, so it is arbitrary code invoked with a hand-built selector at `selector` (QuoteRotator.sol:693). Success requires the call to succeed AND either return nothing or decode to true, at `ok` (QuoteRotator.sol:694).",
+   "edges": [
+    "token.call (QuoteRotator.sol:693), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 697,
+   "kind": "function",
+   "name": "_routeMatches",
+   "signature": "function _routeMatches(PoolKey calldata route, address from, address to) internal pure returns (bool)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "9a73e9a8d944ab6a5553cee642de543e03eee47e",
+   "body_lines": [
+    701,
+    705
+   ],
+   "observations": [],
+   "authority": "internal (callers: rotateStep, swapOnce)",
+   "value": "NONE",
+   "reads": [],
+   "reachability": "Pure pair check used at `_routeMatches` (QuoteRotator.sol:287) and `_routeMatches` (QuoteRotator.sol:340). It compares only the two currencies, in either order, at `c0` (QuoteRotator.sol:704) \u2014 fee, tickSpacing and hooks are untouched, which is exactly why both call sites follow it with the PoolId lookup at `allowedVenue` (QuoteRotator.sol:295) and `allowedVenue` (QuoteRotator.sol:355).",
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 707,
+   "kind": "function",
+   "name": "_balanceOf",
+   "signature": "function _balanceOf(address asset) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f57b621ffd3e3bef07d74d33057c77936ba20efe",
+   "body_lines": [
+    707,
+    709
+   ],
+   "observations": [],
+   "authority": "internal (callers: nextSliceSize)",
+   "value": "NONE",
+   "reads": [],
+   "reachability": "Single caller: `_balanceOf` (QuoteRotator.sol:269), where it clamps the slice to what is actually held. Address(0) reads this contract's native balance and anything else is an external call to the token at `balanceOf` (QuoteRotator.sol:708); that call is not wrapped, so a token that reverts on balanceOf makes `nextSliceSize` (QuoteRotator.sol:259) revert and blocks the plan entirely rather than returning 0.",
+   "edges": [
+    "IERC20.balanceOf (QuoteRotator.sol:708), UNTRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 711,
+   "kind": "function",
+   "name": "_allowed",
+   "signature": "function _allowed(address quote) internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "61dc8300311e03ee3db62fc77e6866b1bb5a6752",
+   "body_lines": [
+    711,
+    716
+   ],
+   "observations": [],
+   "authority": "internal (callers: setPlan, rotateStep, swapOnce, arbStep)",
+   "value": "NONE",
+   "reads": [
+    "registry (line 714, immutable)"
+   ],
+   "reachability": "The allowlist bridge, consulted at `_allowed` (QuoteRotator.sol:225), `_allowed` (QuoteRotator.sol:286), `_allowed` (QuoteRotator.sol:339) and `_allowed` (QuoteRotator.sol:523). Native is allowed unconditionally without any call, at `quote` (QuoteRotator.sol:712); everything else is a hand-built staticcall into the registry's public mapping getter at `registry` (QuoteRotator.sol:714). It fails CLOSED \u2014 a reverting call, a short return or a false answer all read as not allowed at `ok` (QuoteRotator.sol:715) \u2014 which is the opposite direction from the oracle helper `_usd` (QuoteRotator.sol:564).",
+   "edges": [
+    "registry.staticcall (QuoteRotator.sol:714), TRUSTED, out-of-cluster"
+   ],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "QuoteRotator",
+   "file": "cauldron/QuoteRotator.sol",
+   "line": 718,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    718,
+    718
+   ],
+   "observations": [],
+   "authority": "anyone",
+   "value": "`receive` receives native with no accounting (line 718)",
+   "reads": [],
+   "reachability": "An empty payable receiver with no event and no bookkeeping at `receive` (QuoteRotator.sol:718). It is required for the native leg of the machinery: the registry sends ETH here before a native-source rotation at `sendAsset` (RedemptionExt.sol:375), and the pool manager pays native output into this contract at `take` (QuoteRotator.sol:632). Anything that lands here is indistinguishable from rotation proceeds and is reachable only through `withdraw` (QuoteRotator.sol:589) or as the source balance a plan step consumes at `_balanceOf` (QuoteRotator.sol:269).",
+   "edges": [],
+   "authority_gate_quote": "UNGATED",
+   "writes": []
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 45,
+   "kind": "function",
+   "name": "allowance",
+   "signature": "function allowance() external view returns (address quote, uint16 remainingBps)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation is the address stored in treasuryGovernor)",
+   "reachability": "Declaration only, called once per rotation slice at `allowance` (RedemptionExt.sol:303), before any liquidity moves. Its second return value is the envelope's liveness flag: zero remaining means absent, expired or spent, and the caller reverts there at `remaining` (RedemptionExt.sol:317). The implementation is `allowance` (TreasuryGovernor.sol:643). The destination address it returns is used verbatim as the rotation target and is re-checked against the registry allowlist at `allowedQuote` (RedemptionExt.sol:322).",
+   "authority_gate_quote": "UNGATED",
+   "observations": [
+    "comment at `registration` (RedemptionExt.sol:43) describes the hook's generation-volume registration; code at `ITreasuryGovernor` (RedemptionExt.sol:44) declares the treasury envelope interface instead, and the generation-volume registration is the separate `linkVolume` (RedemptionExt.sol:59)"
+   ]
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 46,
+   "kind": "function",
+   "name": "consume",
+   "signature": "function consume(uint16 bps, bool fromPrimary) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation gates on its own caller)",
+   "reachability": "Declaration only, invoked at `consume` (RedemptionExt.sol:437) AFTER the liquidity has been removed, swapped and redeployed, so a reverted slice burns no envelope. The second argument tells the governor whether the slice came out of the primary position, passed as the comparison at `fromLeg` (RedemptionExt.sol:437). The implementation is `consume` (TreasuryGovernor.sol:697).",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "ITreasuryGovernor (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 49,
+   "kind": "function",
+   "name": "migrationMandateSpent",
+   "signature": "function migrationMandateSpent() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation is the address stored in treasuryGovernor)",
+   "reachability": "Declaration only, and the single input to the redenomination decision: it is consulted at `migrationMandateSpent` (RedemptionExt.sol:504), and only when the slice came out of the primary position. A true answer rewrites the generation's recorded quote at `generationQuote` (RedemptionExt.sol:505) and re-points the perp engine in the same transaction at `syncGeneration` (RedemptionExt.sol:540). The implementation is `migrationMandateSpent` (TreasuryGovernor.sol:681).",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 53,
+   "kind": "function",
+   "name": "swapOnce",
+   "signature": "function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation gates on its own caller)",
+   "reachability": "Declaration only, called at `swapOnce` (RedemptionExt.sol:376) immediately after the quote side has been pushed to the rotator at `sendAsset` (RedemptionExt.sol:375). The implementation is `swapOnce` (QuoteRotator.sol:331) and it holds the authority gate itself, at `registry` (QuoteRotator.sol:122) \u2014 this facet runs as the registry under delegatecall, which is what satisfies it. The floor argument passed here is the caller's, and the rotator raises it to its own oracle floor at `floor` (QuoteRotator.sol:366).",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "IQuoteRotator (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 55,
+   "kind": "function",
+   "name": "withdraw",
+   "signature": "function withdraw(address asset, address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation gates on its own caller)",
+   "reachability": "Declaration only, called at `withdraw` (RedemptionExt.sol:377) to pull the converted proceeds straight back into the registry, so nothing is left parked in the rotator between the swap and the redeploy. The implementation is `withdraw` (QuoteRotator.sol:589), whose gate accepts the registry as well as its own owner, at `registry` (QuoteRotator.sol:590). The amount requested is exactly what the swap reported, so a rotator holding a leftover balance of the same asset does not release it here.",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "IHookVolume (declared in RedemptionExt.sol)",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 59,
+   "kind": "function",
+   "name": "linkVolume",
+   "signature": "function linkVolume(PoolId primary, PoolId secondary) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "writes": [],
+   "reads": [],
+   "edges": [],
+   "value": "NONE",
+   "authority": "anyone (declaration only; the implementation gates on its own caller)",
+   "reachability": "Declaration only, with two call sites, both passing the generation's primary pool id first: `linkVolume` (RedemptionExt.sol:396) inside the sliced rotation and `linkVolume` (RedemptionExt.sol:628) inside completeRotation. The implementation is `linkVolume` (CauldronHook.sol:1562); it is registry-only at `OnlyRegistry` (CauldronHook.sol:1563) and additionally refuses while any perp position is open, at `PerpsOpen` (CauldronHook.sol:1565) \u2014 which is what guarantees the book is empty when the rotation re-points the engine at `syncGeneration` (RedemptionExt.sol:540).",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 78,
+   "kind": "function",
+   "name": "redeemOgFren",
+   "signature": "function redeemOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "3bab551edf6c15ab7b0b57c08103c878b7f113fa",
+   "body_lines": [
+    78,
+    106
+   ],
+   "writes": [
+    "genesisReserveOutstanding (line 91)"
+   ],
+   "reads": [
+    "summoned (line 80)",
+    "genesisShares (line 83)",
+    "mifrens (line 84)",
+    "genesisReserveOutstanding (line 91)",
+    "currentGeneration (line 94)",
+    "positionManager (line 96)",
+    "generationReservePositionId (line 97)",
+    "generationPoolKey (line 97)",
+    "reserveTickLower (line 98)",
+    "reserveTickUpper (line 98)"
+   ],
+   "edges": [
+    "CauldronBase._redeemBlocked (RedemptionExt.sol:79), TRUSTED, out-of-cluster",
+    "IERC721.ownerOf (RedemptionExt.sol:84), UNTRUSTED, out-of-cluster",
+    "CauldronBase.floorPerFren (RedemptionExt.sol:86), TRUSTED, out-of-cluster",
+    "IMiFrensContinuable.custodyTransfer (RedemptionExt.sol:92), UNTRUSTED, out-of-cluster",
+    "PoolOps.claimFromReserve (RedemptionExt.sol:95), TRUSTED, library"
+   ],
+   "value": "`claimFromReserve` pays the redeemer in the generation's token out of the out-of-range reserve position (line 95)",
+   "authority": "anyone holding a genesis MiFren (the gate is on the facet side, under the registry's delegatecall)",
+   "reachability": "Reached only through the registry's thin stub at `redeemOgFren` (CauldronRegistry.sol:1383), which delegatecalls the full calldata into this facet at `delegatecall` (CauldronRegistry.sol:1456); every gate is therefore evaluated HERE, against the registry's storage and with the registry as address(this). Preconditions: redemption not circuit-broken at `_redeemBlocked` (RedemptionExt.sol:79), the machine summoned at `summoned` (RedemptionExt.sol:80), the id inside the genesis tranche at `genesisShares` (RedemptionExt.sol:83), caller ownership at `ownerOf` (RedemptionExt.sol:84), and a non-zero floor at `F` (RedemptionExt.sol:87). Ordering is effects-then-interaction: the accounting debit at `genesisReserveOutstanding` (RedemptionExt.sol:91) and the custody move at `custodyTransfer` (RedemptionExt.sol:92) both precede the liquidity pull at `claimFromReserve` (RedemptionExt.sol:95), and a short delivery unwinds everything at `NoBalance` (RedemptionExt.sol:104) with a fixed 1e12 tolerance. The `nonReentrant` guard uses the registry's own slot because the facet shares its layout.",
+   "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != msg.sender) revert NotOwnerOf(); (RedemptionExt.sol:84)",
+   "observations": [
+    "comment at `debit` (RedemptionExt.sol:88) says the reserve accounting is debited first; code at `genesisReserveOutstanding` (RedemptionExt.sol:91) debits only when the recorded reserve is at least the floor and otherwise skips the debit while still paying out"
+   ]
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 115,
+   "kind": "function",
+   "name": "buyTreasuryOgFren",
+   "signature": "function buyTreasuryOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 paid)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "651a1088830fba041932a3add0066e4d13076b93",
+   "body_lines": [
+    115,
+    127
+   ],
+   "writes": [],
+   "reads": [
+    "summoned (line 116)",
+    "genesisShares (line 117)",
+    "mifrens (line 119)",
+    "mifrens (line 125)",
+    "currentGeneration (line 126)"
+   ],
+   "edges": [
+    "IERC721.ownerOf (RedemptionExt.sol:119), UNTRUSTED, out-of-cluster",
+    "CauldronBase.floorPerFren (RedemptionExt.sol:121), TRUSTED, out-of-cluster",
+    "RedemptionExt._pullGrow (RedemptionExt.sol:124), TRUSTED, in-cluster",
+    "IMiFrensContinuable.custodyTransfer (RedemptionExt.sol:125), UNTRUSTED, out-of-cluster"
+   ],
+   "value": "`_pullGrow` collects twice the live floor in the generation's token from the buyer (line 124)",
+   "authority": "anyone (the facet holds the checks; reached through the registry forwarder)",
+   "reachability": "Reached through the registry stub at `buyTreasuryOgFren` (CauldronRegistry.sol:1389) and its delegatecall at `_forwardToExt` (CauldronRegistry.sol:1451). There is no caller allowlist \u2014 the gating condition is that the registry itself currently custodies the fren, at `ownerOf` (RedemptionExt.sol:119), which only happens after a redemption moved it there at `custodyTransfer` (RedemptionExt.sol:92). Price is twice the LIVE floor read at `floorPerFren` (RedemptionExt.sol:121), so it moves between the quote and the transaction; the payment is pulled and added to the reserve before the fren moves, at `_pullGrow` (RedemptionExt.sol:124). The value written into the event is the amount actually ADDED to the reserve rather than the amount charged, at `_pullGrow` (RedemptionExt.sol:124).",
+   "authority_gate_quote": "if (IERC721(mifrens).ownerOf(mifrenTokenId) != address(this)) revert NotOwnerOf(); (RedemptionExt.sol:119)",
+   "observations": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 136,
+   "kind": "function",
+   "name": "donateToReserve",
+   "signature": "function donateToReserve(uint256 amount) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "7e56d9d17184310d43f2964e30d1dfd7cd87413e",
+   "body_lines": [
+    136,
+    140
+   ],
+   "writes": [],
+   "reads": [
+    "summoned (line 137)"
+   ],
+   "edges": [
+    "RedemptionExt._pullGrow (RedemptionExt.sol:139), TRUSTED, in-cluster"
+   ],
+   "value": "`_pullGrow` pulls the caller's generation tokens into the reserve (line 139)",
+   "authority": "anyone",
+   "reachability": "Permissionless, reached through the registry stub at `donateToReserve` (CauldronRegistry.sol:1395). Only two conditions: the machine is `summoned` (RedemptionExt.sol:137) and the `amount` is non-zero (RedemptionExt.sol:138). The caller must have approved the registry for the generation token first, because the pull is a plain transferFrom at `transferFrom` (RedemptionExt.sol:167). The registry documents this as the route paid re-enchant fees take, at `donateToReserve` (CauldronRegistry.sol:340).",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 147,
+   "kind": "function",
+   "name": "materializeLegacyReserve",
+   "signature": "function materializeLegacyReserve() external nonReentrant returns (uint256 added)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "d329fb3e1a65c40a58867893d8e2244bfcd5e723",
+   "body_lines": [
+    147,
+    160
+   ],
+   "writes": [
+    "genesisPending (line 158)"
+   ],
+   "reads": [
+    "summoned (line 148)",
+    "currentGeneration (line 149)",
+    "positionManager (line 152)",
+    "hook (line 152)",
+    "collectionLedger (line 153)",
+    "mifrens (line 153)",
+    "genesisShares (line 153)",
+    "generationCollection (line 153)",
+    "generationToken (line 154)",
+    "generationReservePositionId (line 155)",
+    "generationPoolKey (line 155)",
+    "reserveTickLower (line 155)",
+    "reserveTickUpper (line 155)",
+    "genesisPending (line 158)"
+   ],
+   "edges": [
+    "PoolOps.materializeLegacy (RedemptionExt.sol:151), TRUSTED, library"
+   ],
+   "value": "`materializeLegacy` moves the hook's held buyback tokens into the shared reserve position (line 151)",
+   "authority": "anyone (keeper or frontend)",
+   "reachability": "Permissionless, reached through the registry stub at `materializeLegacyReserve` (CauldronRegistry.sol:1401). The only precondition is `summoned` (RedemptionExt.sol:148); with nothing pending the library returns zero and the event is skipped at `added` (RedemptionExt.sol:159). Everything else happens inside the library call, which is handed the reserve position by reference at `ReserveRef` (RedemptionExt.sol:155) and the ledger and collection addresses at `collectionLedger` (RedemptionExt.sol:153). The genesis share of what was deposited is accumulated locally at `genesisPending` (RedemptionExt.sol:158), which is the counter a later crystallisation draws on.",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 165,
+   "kind": "function",
+   "name": "_pullGrow",
+   "signature": "function _pullGrow(address from, uint256 amount) private returns (uint256 added)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e75f90d6fe77a920616f507a0f64bf5888044fd4",
+   "body_lines": [
+    165,
+    184
+   ],
+   "writes": [
+    "genesisReserveOutstanding (line 182)"
+   ],
+   "reads": [
+    "currentGeneration (line 166)",
+    "generationToken (line 167)",
+    "positionManager (line 169)",
+    "generationReservePositionId (line 170)",
+    "generationPoolKey (line 170)",
+    "reserveTickLower (line 171)",
+    "reserveTickUpper (line 171)",
+    "genesisReserveOutstanding (line 182)"
+   ],
+   "edges": [
+    "IERC20.transferFrom (RedemptionExt.sol:167), UNTRUSTED, out-of-cluster",
+    "PoolOps.addToReserve (RedemptionExt.sol:168), TRUSTED, library",
+    "CauldronBase.floorPerFren (RedemptionExt.sol:183), TRUSTED, out-of-cluster"
+   ],
+   "value": "ERC20 `transferFrom` pulls the generation token from the payer into the registry (line 167)",
+   "authority": "internal (callers: buyTreasuryOgFren, donateToReserve)",
+   "reachability": "Private; two callers, `_pullGrow` (RedemptionExt.sol:124) and `_pullGrow` (RedemptionExt.sol:139). The pull is a raw transferFrom whose boolean is checked at `transferFrom` (RedemptionExt.sol:167), so a token that returns false reverts rather than silently succeeding; a fee-on-transfer token would still over-report, because the amount requested and not the amount received is what is passed on at `amount` (RedemptionExt.sol:171). The interaction precedes the effect here \u2014 tokens are pulled, then deposited, then the counter is raised at `genesisReserveOutstanding` (RedemptionExt.sol:182) \u2014 and the pay-for-nothing guard at `added` (RedemptionExt.sol:181) is what makes a deposit that maps to zero liquidity revert instead of keeping the payment. The returned value is the amount ADDED, which the callers use in place of the amount charged.",
+   "authority_gate_quote": "UNGATED",
+   "observations": []
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 260,
+   "kind": "function",
+   "name": "setRotationWiring",
+   "signature": "function setRotationWiring(address rotator, address governor) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "704f917df702dbee18d0426a443f3a6753adb93f",
+   "body_lines": [
+    260,
+    265
+   ],
+   "authority": "owner (the registry's own owner slot; the gate is on the FACET side, the registry stub is ungated)",
+   "writes": [
+    "quoteRotator (line 262)",
+    "treasuryGovernor (line 263)"
+   ],
+   "value": "NONE",
+   "authority_gate_quote": "external onlyOwner (RedemptionExt.sol:260)",
+   "observations": [
+    "comment at `sliceBps` (RedemptionExt.sol:210) documents the slice, floor and route parameters of a rotation call; code at `setRotationWiring` (RedemptionExt.sol:260) is the next declaration after that block and takes a rotator and a governor instead"
+   ],
+   "reads": [],
+   "edges": [],
+   "reachability": "Reached through the registry's stub at `setRotationWiring` (CauldronRegistry.sol:272), which carries no modifier of its own and simply delegatecalls at `_forwardToExt` (CauldronRegistry.sol:1451); the authority check therefore runs here, against the registry's inherited owner slot, because the facet shares the registry's layout. Both addresses are rejected if zero at `NotConfigured` (RedemptionExt.sol:261) and neither is checked for code. It is deliberately re-callable, so a rotator or governor can be replaced. Until it has run, `quoteRotator` (RedemptionExt.sol:292) is zero and every rotation slice reverts with the wiring error rather than the governance one."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 269,
+   "kind": "function",
+   "name": "rotateSlice",
+   "signature": "function rotateSlice( uint16 sliceBps, uint256 minOut, PoolKey calldata route ) external returns (uint256 moved, uint256 positionId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "60533d31111f24200eb06ee72d9a3c6858239f98",
+   "body_lines": [
+    273,
+    275
+   ],
+   "authority": "anyone (permissionless within the approved envelope)",
+   "writes": [],
+   "value": "all value movement happens in the call it forwards to, at `rotateSliceFrom` (line 274)",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [],
+   "edges": [
+    "RedemptionExt.rotateSliceFrom (RedemptionExt.sol:274), TRUSTED, in-cluster"
+   ],
+   "reachability": "The three-argument form, reached through the registry stub at `rotateSlice` (CauldronRegistry.sol:238). It hard-codes the source leg to the primary position at `rotateSliceFrom` (RedemptionExt.sol:274) and adds no checks of its own \u2014 every gate, including the envelope, lives in the callee. The treasury frontend issues the four-argument form instead, which the registry also stubs at `rotateSliceFrom` (CauldronRegistry.sol:262)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 280,
+   "kind": "function",
+   "name": "rotateSliceFrom",
+   "signature": "function rotateSliceFrom( uint8 fromLeg, uint16 sliceBps, uint256 minOut, PoolKey calldata route ) public returns (uint256 moved, uint256 positionId)",
+   "visibility": "public",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c41631f88ccbae7bc68307748372cd075c3dd24f",
+   "body_lines": [
+    285,
+    546
+   ],
+   "authority": "anyone (permissionless; the destination and the ceiling come from the governance envelope, not from the caller)",
+   "writes": [
+    "generationQuote (line 505)"
+   ],
+   "value": "`sendAsset` pushes the removed quote side to the rotator (line 375); `withdraw` pulls the converted asset back (line 377); `openOrAddPair` deploys both sides into the destination pair (line 382)",
+   "authority_gate_quote": "UNGATED",
+   "observations": [
+    "comment at `DRAINED` (RedemptionExt.sol:252) describes a dust threshold below which the primary position counts as drained for the purpose of redenominating the generation; code at `migrationMandateSpent` (RedemptionExt.sol:504) decides redenomination purely from the governor's mandate flag, and the constant declared at `PRIMARY_DRAINED_DUST` (RedemptionExt.sol:258) is read nowhere in the file",
+    "comment at `relaunch` (RedemptionExt.sol:441) locates the registry's only other write of the generation's recorded quote at line 917 of that file; code puts that write at `generationQuote` (CauldronRegistry.sol:982), and line 917 of the registry is unrelated"
+   ],
+   "reads": [
+    "quoteRotator (line 292)",
+    "treasuryGovernor (line 301)",
+    "allowedQuote (line 322)",
+    "MAX_SLICE_BPS (line 326, constant)",
+    "currentGeneration (line 328)",
+    "generationToken (line 329)",
+    "generationQuote (line 347)",
+    "generationPositionId (line 348)",
+    "generationPoolKey (line 349)",
+    "generationLegs (line 351)",
+    "positionManager (line 364)",
+    "poolManager (line 383)",
+    "hook (line 385)",
+    "generationPoolId (line 396)",
+    "hook (line 432)",
+    "hook (line 539)"
+   ],
+   "edges": [
+    "ITreasuryGovernor.allowance (RedemptionExt.sol:303), TRUSTED, in-cluster",
+    "PoolOps.removePartial (RedemptionExt.sol:363), TRUSTED, library",
+    "PoolOps.sendAsset (RedemptionExt.sol:375), TRUSTED, library",
+    "IQuoteRotator.swapOnce (RedemptionExt.sol:376), TRUSTED, in-cluster",
+    "IQuoteRotator.withdraw (RedemptionExt.sol:377), TRUSTED, in-cluster",
+    "PoolOps.openOrAddPair (RedemptionExt.sol:382), TRUSTED, library",
+    "IHookVolume.linkVolume (RedemptionExt.sol:396), TRUSTED, in-cluster",
+    "RedemptionExt._recordLeg (RedemptionExt.sol:423), TRUSTED, in-cluster",
+    "ITreasuryGovernor.consume (RedemptionExt.sol:437), TRUSTED, in-cluster",
+    "ITreasuryGovernor.migrationMandateSpent (RedemptionExt.sol:504), TRUSTED, in-cluster",
+    "CauldronHook.perpEngine (RedemptionExt.sol:539), TRUSTED, out-of-cluster",
+    "IPerpSync.syncGeneration (RedemptionExt.sol:540), TRUSTED, out-of-cluster"
+   ],
+   "reachability": "The whole rotation, in one transaction, reached through the registry stub at `rotateSliceFrom` (CauldronRegistry.sol:262) and its delegatecall at `_forwardToExt` (CauldronRegistry.sol:1451), so it runs on the registry's storage and custody with no caller allowlist anywhere. Five state conditions gate it: the rotator is wired at `rot` (RedemptionExt.sol:293); the governor is wired at `gov` (RedemptionExt.sol:302); the envelope has room left, judged on the REMAINDER rather than on the destination address, at `remaining` (RedemptionExt.sol:317) and again at `BadConfig` (RedemptionExt.sol:318); the destination is still allowlisted at `allowedQuote` (RedemptionExt.sol:322); and the slice is within the per-call ceiling at `MAX_SLICE_BPS` (RedemptionExt.sol:326). The source leg is the caller's choice \u2014 the primary position at `generationQuote` (RedemptionExt.sol:347) or a recorded leg at `generationLegs` (RedemptionExt.sol:351) \u2014 and a leg may not rotate into itself, at `fromQuote` (RedemptionExt.sol:359). Sequence: remove a share of the chosen position at `removePartial` (RedemptionExt.sol:363), refusing a one-sided result at `tokenOut` (RedemptionExt.sol:371); send the quote side out and swap it at `swapOnce` (RedemptionExt.sol:376), where the rotator raises the floor to its own oracle bound; pull the proceeds straight back at `withdraw` (RedemptionExt.sol:377); redeploy at `openOrAddPair` (RedemptionExt.sol:382); register the sibling pool for volume at `linkVolume` (RedemptionExt.sol:396), which itself refuses while any perp position is open; record the leg by QUOTE, with the DESTINATION pair rather than the venue key, at `_recordLeg` (RedemptionExt.sol:423); and only then book the envelope at `consume` (RedemptionExt.sol:437), so a reverted slice spends nothing. The generation's recorded denomination flips only when the slice came out of the primary AND the migration mandate is spent, at `migrationMandateSpent` (RedemptionExt.sol:504), and the perp engine is re-pointed best-effort in the same call at `syncGeneration` (RedemptionExt.sol:540), whose failure is swallowed. The token side never leaves the registry; the destination pair is built with the same fee and spacing constants as the primary, at `TICK_SPACING` (RedemptionExt.sol:390)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 605,
+   "kind": "function",
+   "name": "completeRotation",
+   "signature": "function completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount) external onlyOwner returns (uint256 positionId)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "bebfb565e9d44717e7c20c1b95714df2c70689fa",
+   "body_lines": [
+    609,
+    631
+   ],
+   "authority": "owner (the gate is on the facet side) \u2014 but see reachability: no registry forwarder exists",
+   "writes": [],
+   "value": "`openOrAddPair` deploys the named quote amount and token amount out of the registry's custody into the pair (line 614)",
+   "authority_gate_quote": "onlyOwner (RedemptionExt.sol:607)",
+   "observations": [],
+   "reads": [
+    "allowedQuote (line 610)",
+    "currentGeneration (line 611)",
+    "poolManager (line 615)",
+    "positionManager (line 616)",
+    "hook (line 617)",
+    "generationToken (line 618)",
+    "generationPoolId (line 628)",
+    "hook (line 628)"
+   ],
+   "edges": [
+    "PoolOps.openOrAddPair (RedemptionExt.sol:614), TRUSTED, library",
+    "IHookVolume.linkVolume (RedemptionExt.sol:628), TRUSTED, in-cluster"
+   ],
+   "reachability": "DERIVED: this selector has no stub on the registry \u2014 the forwarders are declared one by one and the registry has no catch-all, as the note at `fallback` (CauldronRegistry.sol:1408) states \u2014 so it cannot be reached on the registry's storage and custody at all. Called directly on a deployed facet it runs against that contract's own empty storage, where `allowedQuote` (RedemptionExt.sol:610) is false for every asset and the check reverts before anything moves. Were it reachable, the gate would be the registry's owner slot via `onlyOwner` (RedemptionExt.sol:607), the amounts would be taken from whatever the registry holds at `openOrAddPair` (RedemptionExt.sol:614), and the sibling pool would be registered for volume at `linkVolume` (RedemptionExt.sol:628). The same three steps already run inline inside the sliced rotation at `openOrAddPair` (RedemptionExt.sol:382)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 648,
+   "kind": "function",
+   "name": "floorClaimableNow",
+   "signature": "function floorClaimableNow() external view returns (bool claimable, uint256 perFren)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9d6bcc8ce9db6a413608a84b1689a9b9d3cdcfdc",
+   "body_lines": [
+    648,
+    654
+   ],
+   "authority": "anyone",
+   "writes": [],
+   "value": "NONE",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [
+    "currentGeneration (line 650)",
+    "summoned (line 651)",
+    "poolManager (line 652)",
+    "generationPoolId (line 652)",
+    "reserveTickUpper (line 653)"
+   ],
+   "edges": [
+    "CauldronBase.floorPerFren (RedemptionExt.sol:649), TRUSTED, out-of-cluster",
+    "StateLibrary.getSlot0 (RedemptionExt.sol:652), TRUSTED, library"
+   ],
+   "reachability": "Read-only, reached through the registry's view stub at `floorClaimableNow` (CauldronRegistry.sol:1418), which routes to the same delegatecall at `_forwardToExtView` (CauldronRegistry.sol:1441) \u2014 so it is declared non-view on the registry side and served by eth_call. It reads spot from the PRIMARY pool at `getSlot0` (RedemptionExt.sol:652) and reports claimable only while the tick sits above the reserve band at `reserveTickUpper` (RedemptionExt.sol:653). Note it always reads the primary key even after a completed rotation has flipped `generationQuote` (RedemptionExt.sol:505), which is consistent with the reserve itself staying in the launch pair. An unsummoned machine or a zero floor short-circuits at `summoned` (RedemptionExt.sol:651)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 661,
+   "kind": "function",
+   "name": "legCount",
+   "signature": "function legCount(uint256 gen) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "9822da989af6d7a3edde9f38fc620498db347c6b",
+   "body_lines": [
+    661,
+    663
+   ],
+   "authority": "anyone",
+   "writes": [],
+   "value": "NONE",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [
+    "generationLegs (line 662)"
+   ],
+   "edges": [],
+   "reachability": "Read-only, reached through the registry's view stub at `legCount` (CauldronRegistry.sol:1423) and the shared delegatecall at `_forwardToExtView` (CauldronRegistry.sol:1441). It reports the live length of `generationLegs` (RedemptionExt.sol:662), which shrinks as the recovery loop pops entries at `legs` (RedemptionExt.sol:747), so it is a count of OUTSTANDING legs rather than of legs ever opened. It is also the upper bound a caller needs before choosing the source leg index at `fromLeg` (RedemptionExt.sol:351)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 666,
+   "kind": "function",
+   "name": "legAt",
+   "signature": "function legAt(uint256 gen, uint256 i) external view returns (address quote, uint256 positionId, PoolKey memory key)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5afb5cbb7eb904ad5b929467bca20356d14c7c88",
+   "body_lines": [
+    670,
+    673
+   ],
+   "authority": "anyone",
+   "writes": [],
+   "value": "NONE",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [
+    "generationLegs (line 671)"
+   ],
+   "edges": [],
+   "reachability": "Read-only, reached through the registry's view stub at `legAt` (CauldronRegistry.sol:1428). It indexes `generationLegs` (RedemptionExt.sol:671) with no bounds check of its own, so an out-of-range index reverts on the array access rather than returning empty. The returned key is the DESTINATION pair the liquidity sits in, which is what the recovery loop hands to `removeAll` (RedemptionExt.sol:736); note that the leg index used by a rotation is one-based, because index zero names the primary at `fromLeg` (RedemptionExt.sol:346)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 676,
+   "kind": "function",
+   "name": "_recordLeg",
+   "signature": "function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8d5b85c18af4a026860dd2e710c81b49c33511f0",
+   "body_lines": [
+    676,
+    684
+   ],
+   "authority": "internal (callers: rotateSliceFrom)",
+   "writes": [
+    "generationLegs.positionId (line 680)",
+    "generationLegs.legs (line 682)"
+   ],
+   "value": "NONE",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [
+    "generationLegs (line 677)",
+    "generationLegs.quote (line 680)"
+   ],
+   "edges": [],
+   "reachability": "Private, single caller: `_recordLeg` (RedemptionExt.sol:423). It is an UPSERT keyed on the quote asset \u2014 the scan bounded by `n` (RedemptionExt.sol:679) walks every existing leg and, on a match, overwrites only the position id and returns at `positionId` (RedemptionExt.sol:680), leaving the stored key untouched. A fresh quote is appended at `legs` (RedemptionExt.sol:682) and only that path emits the event. The loop is bounded by the number of DISTINCT quotes a generation has rotated into, which the same push is what grows, so repeated slices into one pair add no iterations."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 699,
+   "kind": "function",
+   "name": "recoverLegs",
+   "signature": "function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut)",
+   "visibility": "public",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cac662339040ee882a1e967945a1ce70b843ae72",
+   "body_lines": [
+    699,
+    753
+   ],
+   "authority": "anyone (public and ungated) \u2014 reached in practice only through the registry's relaunch delegatecall",
+   "writes": [
+    "legProceeds (line 743)",
+    "generationLegs.legs (line 746)",
+    "generationLegs.legs (line 747)"
+   ],
+   "value": "`removeAll` unwinds each leg's position, delivering both sides into the registry (line 736)",
+   "authority_gate_quote": "UNGATED",
+   "observations": [
+    "comment at `rebirth` (RedemptionExt.sol:690) says it is safe to call directly afterwards for a generation whose rebirth predates this; code on the registry declares no stub for this selector and reaches it only through the internal delegatecall at `RECOVER_LEGS` (CauldronRegistry.sol:1607), so a direct call lands on the facet's own empty storage instead of the registry's"
+   ],
+   "reads": [
+    "generationLegs (line 700)",
+    "generationToken (line 701)",
+    "positionManager (line 702)",
+    "generationPoolKey (line 730)",
+    "legProceeds (line 743)"
+   ],
+   "edges": [
+    "PoolOps.removeAll (RedemptionExt.sol:736), TRUSTED, library"
+   ],
+   "reachability": "Invoked during relaunch by `_removeLiquidity`, which builds the selector at compile time and delegatecalls the facet at `delegatecall` (CauldronRegistry.sol:1607), adding the two returned figures to the rebirth's recovery totals at `ethRecovered` (CauldronRegistry.sol:1610); that call site swallows failure. The denomination test matches each leg against the PRIMARY pool's own currency0 at `matchQuote` (RedemptionExt.sol:730) rather than against the possibly-flipped `generationQuote` (RedemptionExt.sol:505), so only same-asset proceeds are added to the returned sum and foreign ones are booked at `legProceeds` (RedemptionExt.sol:743). The loop walks the array backwards from its length at `legs` (RedemptionExt.sol:732) and each success does a swap-and-pop at `legs` (RedemptionExt.sol:746), so a leg moved down into the current slot is not revisited in this pass; a leg whose unwind reverts is left recorded by the per-leg `catch` (RedemptionExt.sol:749) and can be retried. The token side of every leg is the same asset and always aggregates at `tokenOut` (RedemptionExt.sol:739)."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 757,
+   "kind": "function",
+   "name": "legProceedsOf",
+   "signature": "function legProceedsOf(address asset) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "bfb0294c1f4fec68b57be7f90a59c88c86b8a909",
+   "body_lines": [
+    757,
+    759
+   ],
+   "authority": "anyone",
+   "writes": [],
+   "value": "NONE",
+   "authority_gate_quote": "UNGATED",
+   "observations": [],
+   "reads": [
+    "legProceeds (line 758)"
+   ],
+   "edges": [],
+   "reachability": "Read-only accessor for the booked foreign proceeds written at `legProceeds` (RedemptionExt.sol:743). DERIVED: the registry deliberately declares no stub for it, as stated at `legProceedsOf` (CauldronRegistry.sol:284), and the registry has no catch-all, per the note at `fallback` (CauldronRegistry.sol:1408) \u2014 so on the registry's storage the balance is observable only from the events emitted at `LegProceedsBooked` (RedemptionExt.sol:744) and at `LegProceedsSwept` (RedemptionExt.sol:803), or by reading the slot directly. A direct call to the deployed facet returns that contract's own empty mapping."
+  },
+  {
+   "contract": "RedemptionExt",
+   "file": "cauldron/RedemptionExt.sol",
+   "line": 794,
+   "kind": "function",
+   "name": "sweepLegProceeds",
+   "signature": "function sweepLegProceeds(address asset, address to) external onlyOwner returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "0c3687441f4eb237bd6d61f5eddeff3ae817de43",
+   "body_lines": [
+    794,
+    804
+   ],
+   "authority": "owner (the registry's own owner slot; the gate is on the FACET side, the registry stub is ungated)",
+   "writes": [
+    "legProceeds (line 801)"
+   ],
+   "value": "`sendAsset` moves the whole booked balance of the asset to an owner-chosen destination (line 802)",
+   "authority_gate_quote": "external onlyOwner (RedemptionExt.sol:794)",
+   "observations": [],
+   "reads": [
+    "legProceeds (line 796)"
+   ],
+   "edges": [
+    "PoolOps.sendAsset (RedemptionExt.sol:802), TRUSTED, library"
+   ],
+   "reachability": "Reached through the registry's ungated stub at `sweepLegProceeds` (CauldronRegistry.sol:282), so the owner check runs here against the registry's inherited owner slot. It refuses a zero destination at `BadConfig` (RedemptionExt.sol:795) and a zero balance at `NoBalance` (RedemptionExt.sol:797); the booking is cleared BEFORE the transfer at `legProceeds` (RedemptionExt.sol:801), so a recipient that re-enters cannot read the same balance twice. It always moves the FULL booked amount \u2014 there is no partial sweep \u2014 and the destination is unconstrained, including a destination that is not the treasury."
   }
-]
+ ]
+}

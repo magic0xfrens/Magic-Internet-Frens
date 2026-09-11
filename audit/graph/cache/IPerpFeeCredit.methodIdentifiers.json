@@ -1,0 +1,5 @@
+{
+ "creditPerpFee()": "9205e1b2",
+ "creditPerpFeeAsset(address,uint256)": "7c68e372",
+ "creditPerpFeeToken()": "9caddd24"
+}

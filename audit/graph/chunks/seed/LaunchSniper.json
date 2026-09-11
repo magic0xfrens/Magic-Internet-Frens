@@ -1,0 +1,97 @@
+[
+ {
+  "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)", "line": 8,
+  "authority": "the presale's finalizer, if one is set; otherwise anyone once the presale is sold out",
+  "authority_gate_quote": "if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized(); (MiFrensGenesis.sol:581)",
+  "reads": [], "writes": [],
+  "value": "NONE at the declaration; the implementation forwards the presale's whole native balance to the registry at `summon` (MiFrensGenesis.sol:585)",
+  "edges": [],
+  "reachability": "Declaration only; the single call site in this cluster is `igniteCauldron` (LaunchSniper.sol:70), and the implementation is `igniteCauldron` (MiFrensGenesis.sol:575). It is one-shot — `finalized` (MiFrensGenesis.sol:583) is set before the summon and re-entry is rejected at `AlreadyFinalized` (MiFrensGenesis.sol:577) — and it requires the tranche to be sold out at `minted` (MiFrensGenesis.sol:578). For the atomic launch to work the presale's `finalizer` (MiFrensGenesis.sol:581) must be this sniper, otherwise any bot can ignite first and the buy loses its block-0 privilege.",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensGenesisFinalize (declared in LaunchSniper.sol)", "line": 9,
+  "authority": "anyone (declaration only; a view on the presale)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; read once at `soldOut` (LaunchSniper.sol:67) as a precondition, reverting with `NotSoldOut` (LaunchSniper.sol:67) otherwise. The implementation at `soldOut` (MiFrensGenesis.sol:594) compares `minted` (MiFrensGenesis.sol:595) against the genesis supply, i.e. exactly the same condition the ignition itself re-checks, so this check is advisory rather than load-bearing.",
+  "observations": []
+ },
+ {
+  "contract": "IRegistryCurrent (declared in LaunchSniper.sol)", "line": 13,
+  "authority": "anyone (declaration only; the registry's public live-token pointer)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only; read at `currentToken` (LaunchSniper.sol:71) immediately after ignition so the sniper learns the freshly deployed token address. The registry writes that slot during a summon at `currentToken` (CauldronRegistry.sol:692) and again at every rebirth at `currentToken` (CauldronRegistry.sol:917). DERIVED: the address is a constructor-time parameter of the call, so pointing it at a hostile contract only affects which token the sniper forwards.",
+  "observations": []
+ },
+ {
+  "contract": "IGachaPlay (declared in LaunchSniper.sol)", "line": 17,
+  "authority": "anyone (declaration only; the router's play is permissionless and payable)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "receives native at the call site — the whole message value is forwarded at `play` (line 76)",
+  "edges": [],
+  "reachability": "Declaration only; the single call site is `play` (LaunchSniper.sol:76), which forwards the entire message value and relies on the router tagging the swap with the sniper so the hook's exemption applies. The exemption itself needs `taxExempt` (CauldronHook.sol:2384) AND `isOpener` (CauldronHook.sol:2384) — the latter is set for the ROUTER, the former for the tagged player. DERIVED: this local declaration is the only definition of the selector; nothing in the repo implements a four-argument play.",
+  "observations": [
+   "comment at `router` (LaunchSniper.sol:74) says the router tags the swap with this contract as the player; code declares a four-argument `play` (LaunchSniper.sol:17) while the router's entry point at `play` (CauldronGachaRouter.sol:233) takes five arguments, so the two selectors differ"
+  ]
+ },
+ {
+  "contract": "LaunchSniper", "line": 47,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only. `Ownable` (LaunchSniper.sol:47) installs `_owner` (LaunchSniper.sol:47) as the sole authority over both `launch` (LaunchSniper.sol:58) and `sweep` (LaunchSniper.sol:86). DERIVED: OpenZeppelin Ownable also exposes transfer and renounce, so this authority can rotate or dead-end; there is no other stored configuration, every target address is supplied per call.",
+  "observations": []
+ },
+ {
+  "contract": "LaunchSniper", "line": 58,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (LaunchSniper.sol:65)",
+  "reads": [], "writes": [],
+  "value": "receives native — `launch` is payable (line 58) and rejects zero at `NoValue` (line 66); the entire message value is forwarded to the router at `play` (line 76); ERC20 transfer of the bought token to the airdrop wallet at `transfer` (line 80)",
+  "edges": [
+   "IMiFrensGenesisFinalize.soldOut (LaunchSniper.sol:67), UNTRUSTED, in-cluster",
+   "IMiFrensGenesisFinalize.igniteCauldron (LaunchSniper.sol:70), UNTRUSTED, in-cluster",
+   "IRegistryCurrent.currentToken (LaunchSniper.sol:71), UNTRUSTED, in-cluster",
+   "IGachaPlay.play (LaunchSniper.sol:76), UNTRUSTED, in-cluster",
+   "IERC20.balanceOf (LaunchSniper.sol:79), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (LaunchSniper.sol:80), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner-only, one shot in practice because `igniteCauldron` (LaunchSniper.sol:70) can only succeed once. Every counterparty is a call argument, not stored state: `presale` (LaunchSniper.sol:59), `registry` (LaunchSniper.sol:60), `gachaRouter` (LaunchSniper.sol:61) and `airdropWallet` (LaunchSniper.sol:62) are all owner-supplied, so the only trust anchor is the owner. Ordering is ignite, then read the token, then buy, then forward — the forwarded amount is measured from this contract's balance at `balanceOf` (LaunchSniper.sol:79), not from the router's return value, so any token already sitting here is swept out with the purchase. Slippage protection is the caller's `minGnomeOut` (LaunchSniper.sol:63); no deadline is imposed. There is no reentrancy guard, but the only state is the ERC20 balance read at line 79.",
+  "observations": []
+ },
+ {
+  "contract": "LaunchSniper", "line": 86,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (LaunchSniper.sol:86)",
+  "reads": [], "writes": [],
+  "value": "sends native to the owner at `call` (line 88); ERC20 transfer of the named token to the owner at `transfer` (line 91)",
+  "edges": [
+   "Ownable.owner (LaunchSniper.sol:88), TRUSTED, out-of-cluster",
+   "owner.call (LaunchSniper.sol:88), UNTRUSTED, out-of-cluster",
+   "Ownable.owner (LaunchSniper.sol:91), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (LaunchSniper.sol:91), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (LaunchSniper.sol:91), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Owner-only escape hatch with no amount argument: the zero address selects the whole native balance at `balance` (LaunchSniper.sol:88), any other address sweeps that token's entire balance at `balanceOf` (LaunchSniper.sol:91). The recipient is always the current `owner` (LaunchSniper.sol:88), so the destination rotates with ownership. The native leg is a raw `call` (LaunchSniper.sol:88) forwarding all gas and is required to succeed at `require` (LaunchSniper.sol:89); the token leg's boolean return is not checked.",
+  "observations": []
+ },
+ {
+  "contract": "LaunchSniper", "line": 95,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [], "writes": [],
+  "value": "receives native — `receive` is payable (line 95)",
+  "edges": [],
+  "reachability": "Open ether sink with no bookkeeping; it exists so a router refund can land, per the note at `Recover` (LaunchSniper.sol:85). Anything received is recoverable only by the owner through `sweep` (LaunchSniper.sol:86), and while a `launch` (LaunchSniper.sol:58) is mid-flight any ether pushed here is NOT part of the forwarded amount, which is fixed to the message value at `play` (LaunchSniper.sol:76).",
+  "observations": []
+ }
+]

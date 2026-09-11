@@ -1,0 +1,525 @@
+[
+ {
+  "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+  "line": 8,
+  "authority": "declaration only (no body); in-cluster callers are pending, pendingToken, isEnchanted, _castSpell and _claim",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The ownership oracle for every gate in this contract: read at `ownerOf` (MiFrensDividend.sol:308), `ownerOf` (MiFrensDividend.sol:387) and `ownerOf` (MiFrensDividend.sol:531) to authorise a claim or a cast, and at `ownerOf` (MiFrensDividend.sol:257) to decide whether an enchantment is still live. The address it is called on is the immutable collection at `mifrens` (MiFrensDividend.sol:176).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+  "line": 9,
+  "authority": "declaration only (no body); in-cluster caller is the constructor",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read once at `GENESIS_SUPPLY` (MiFrensDividend.sol:177) to fix the free-enchant tranche size; the result must be non-zero at `s` (MiFrensDividend.sol:178).",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+  "line": 10,
+  "authority": "declaration only (no body); in-cluster caller is the constructor",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read once at `MAX_SUPPLY` (MiFrensDividend.sol:181) to fix the eligibility cap, floored at the genesis size at `m` (MiFrensDividend.sol:182). Because it is captured at deploy, a collection whose cap later changed would not be followed - in the collection this cluster ships, the value is immutable.",
+  "observations": []
+ },
+ {
+  "contract": "IMiFrensShares (declared in MiFrensDividend.sol)",
+  "line": 12,
+  "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `everMoved` (MiFrensDividend.sol:449) and only for ids at or below the free tranche: a genesis fren that has never moved returns early and pays nothing, everything else falls through to the fee.",
+  "observations": []
+ },
+ {
+  "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+  "line": 18,
+  "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `enchantFee` (MiFrensDividend.sol:450); a zero answer makes the enchant free at `fee` (MiFrensDividend.sol:451). The registry can therefore switch the fee on and off for every future caster without any call into this contract.",
+  "observations": []
+ },
+ {
+  "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+  "line": 19,
+  "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Read at `currentToken` (MiFrensDividend.sol:452) to decide which asset the fee is charged in, so the fee follows the live generation's token and a zero answer makes the enchant free at `tok` (MiFrensDividend.sol:453).",
+  "observations": []
+ },
+ {
+  "contract": "IReserveRegistry (declared in MiFrensDividend.sol)",
+  "line": 20,
+  "authority": "declaration only (no body); in-cluster caller is _collectEnchantFee",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Called at `donateToReserve` (MiFrensDividend.sol:457) after an approve for the exact fee, so the fee leaves this contract in the same transaction it arrived. A registry that does not pull the approved amount would leave the tokens sitting here with no path out. DERIVED: no other function in the file moves an arbitrary asset balance that is not credited to an accumulator.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 175,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "mifrens (line 176, immutable)",
+   "SHARES (line 180, immutable)",
+   "MAX_TOKEN (line 182, immutable)",
+   "treasury (line 183, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IMiFrensShares.GENESIS_SUPPLY (MiFrensDividend.sol:177), TRUSTED, in-cluster",
+   "IMiFrensShares.MAX_SUPPLY (MiFrensDividend.sol:181), TRUSTED, in-cluster"
+  ],
+  "reachability": "Deployment only, and it calls straight into the collection address it is handed at `mifrens` (MiFrensDividend.sol:176) with no code check. Four immutables are fixed here; the only mutable authorities afterwards are `registry` (MiFrensDividend.sol:192) and `funder` (MiFrensDividend.sol:202), both one-time and both held by `treasury` (MiFrensDividend.sol:183). The treasury address is also the sweep destination when nobody is enchanted, so the same address that wires the contract receives undistributable fees.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 189,
+  "authority": "treasury",
+  "authority_gate_quote": "if (msg.sender != treasury) revert NotOwner(); (MiFrensDividend.sol:190)",
+  "reads": [
+   "treasury (line 190, immutable)",
+   "registry (line 191)"
+  ],
+  "writes": [
+   "registry (line 192)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "One-time: a second call reverts on the non-zero `registry` (MiFrensDividend.sol:191) test, so the fee route is fixed forever once wired, and it cannot be unwired if the registry later misbehaves. Until it is set, the fee path at `reg` (MiFrensDividend.sol:447) returns immediately and every enchant is free.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 199,
+  "authority": "treasury",
+  "authority_gate_quote": "if (msg.sender != treasury) revert NotOwner(); (MiFrensDividend.sol:200)",
+  "reads": [
+   "treasury (line 200, immutable)",
+   "funder (line 201)"
+  ],
+  "writes": [
+   "funder (line 202)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "One-time: the non-zero test at `funder` (MiFrensDividend.sol:201) makes it unrepeatable, so the single address allowed to append to the basket is permanent. Until set, the basket funder check at `funder` (MiFrensDividend.sol:278) rejects everyone, which means a non-ETH fee has no way in at all.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 235,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "residual (line 237)",
+   "activeShares (line 238)",
+   "treasury (line 240, immutable)",
+   "ACC (line 245, constant)",
+   "activeShares (line 245)",
+   "accPerShare (line 246)",
+   "activeShares (line 247)",
+   "ACC (line 247, constant)"
+  ],
+  "writes": [
+   "totalDeposited (line 236)",
+   "residual (line 239)",
+   "residual (line 241)",
+   "accPerShare (line 246)",
+   "residual (line 247)"
+  ],
+  "value": "receives native - declared `payable` (line 235); sends native to `treasury` (line 240)",
+  "edges": [
+   "treasury.call (MiFrensDividend.sol:240), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Open to any sender, so the ETH accumulator cannot be poisoned by an unexpected funder - every wei simply becomes everyone's. With nobody enchanted the whole balance including carried `residual` (MiFrensDividend.sol:237) is pushed to the treasury, and a rejecting treasury re-banks it at `residual` (MiFrensDividend.sol:241) rather than reverting the fee-paying swap. Otherwise the deposit is divided by the live `activeShares` (MiFrensDividend.sol:245) and the division dust is carried at `residual` (MiFrensDividend.sol:247). `totalDeposited` (MiFrensDividend.sol:236) counts the raw value only, so it is not reduced by a treasury sweep and does not track the claimable pot. The external call happens after `residual` is zeroed but before the accumulator branch returns, and this function has no reentrancy guard - a hostile treasury re-entering would find `residual` already zero. DERIVED: the sweep branch returns immediately after the call.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 255,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_TOKEN (line 256, immutable)",
+   "enchantedBy (line 257)",
+   "accPerShare (line 258)",
+   "debtOf (line 258)",
+   "ACC (line 258, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:257), TRUSTED, in-cluster"
+  ],
+  "reachability": "View. Returns zero for an id outside the eligibility cap at `MAX_TOKEN` (MiFrensDividend.sol:256) and for any fren whose caster is no longer its owner at `enchantedBy` (MiFrensDividend.sol:257), which is the same liveness test the claim path uses. It reverts for a non-existent id because the collection's ownerOf does.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 273,
+  "authority": "funder (the hook), wired once by the treasury",
+  "authority_gate_quote": "if (msg.sender != funder) revert NotOwner(); (MiFrensDividend.sol:278)",
+  "reads": [
+   "funder (line 278)",
+   "activeShares (line 280)",
+   "knownAsset (line 281)",
+   "assets (line 282)",
+   "MAX_ASSETS (line 282, constant)",
+   "ACC (line 287, constant)",
+   "activeShares (line 287)"
+  ],
+  "writes": [
+   "knownAsset (line 283)",
+   "assets (line 284)",
+   "accPerShareOf (line 287)"
+  ],
+  "value": "ERC20 pull of `asset` from the funder into this contract (line 286)",
+  "edges": [
+   "MiFrensDividend._pull (MiFrensDividend.sol:286), TRUSTED, in-cluster"
+  ],
+  "reachability": "Only the wired funder can append to the basket, and the list is hard-capped at `MAX_ASSETS` (MiFrensDividend.sol:282) with no removal path anywhere in the file. Refuses to take a deposit when nobody is enchanted at `activeShares` (MiFrensDividend.sol:280), so unlike the ETH path there is no sweep and the caller keeps the fee. The accumulator is credited with the REQUESTED amount at `amount` (MiFrensDividend.sol:287), not with a measured balance change, so a fee-on-transfer or rebasing asset would credit holders more than actually arrived; the division also rounds down and the remainder is silently retained by the contract with no residual carry, unlike the ETH branch. DERIVED: no balance is read before or after `_pull`.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 292,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_TOKEN (line 293, immutable)",
+   "enchantedBy (line 294)",
+   "accPerShareOf (line 295)",
+   "debtOfAsset (line 295)",
+   "ACC (line 295, constant)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:294), TRUSTED, in-cluster"
+  ],
+  "reachability": "View, mirroring the ETH one per asset. It will underflow and revert rather than return zero if a debt marker ever exceeded the accumulator at `accPerShareOf` (MiFrensDividend.sol:295); the code keeps markers at or below the accumulator everywhere they are written. DERIVED: every write of `debtOfAsset` assigns the current accumulator value.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 299,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "assets (line 299)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "View of the basket length, which is the bound of every loop over `assets` (MiFrensDividend.sol:299).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 307,
+  "authority": "holder of token who is also its caster",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:308)",
+  "reads": [
+   "enchantedBy (line 309)",
+   "assets (line 318)",
+   "assets (line 320)",
+   "accPerShareOf (line 321)",
+   "debtOfAsset (line 321)",
+   "ACC (line 321, constant)",
+   "accPerShareOf (line 323)"
+  ],
+  "writes": [
+   "debtOfAsset (line 323)",
+   "owedAsset (line 326)"
+  ],
+  "value": "ERC20 push of `a` to `msg.sender` (line 325)",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:308), TRUSTED, in-cluster",
+   "MiFrensDividend._tryPush (MiFrensDividend.sol:325), TRUSTED, in-cluster"
+  ],
+  "reachability": "Two gates: current ownership at `ownerOf` (MiFrensDividend.sol:308) and a live enchantment by that same caller at `enchantedBy` (MiFrensDividend.sol:309), so a buyer cannot claim what the previous owner accrued. The per-asset debt marker is advanced at `debtOfAsset` (MiFrensDividend.sol:323) BEFORE the push, and a failed push banks the amount at `owedAsset` (MiFrensDividend.sol:326) instead of reverting, so one hostile token cannot block the other legs and nothing is paid twice. The loop is bounded by the basket length at `n` (MiFrensDividend.sol:318), which only the funder can grow. This path does not touch `totalClaimed` (MiFrensDividend.sol:522), which counts ETH only.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 333,
+  "authority": "anyone (pays only the caller's own banked balance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "owedAsset (line 334)"
+  ],
+  "writes": [
+   "owedAsset (line 336)"
+  ],
+  "value": "ERC20 push of `asset` to `msg.sender` (line 340)",
+  "edges": [
+   "MiFrensDividend._tryPush (MiFrensDividend.sol:340), TRUSTED, in-cluster"
+  ],
+  "reachability": "Ungated because it can only pay out `owedAsset` (MiFrensDividend.sol:334) for the caller's own address, zeroed at `owedAsset` (MiFrensDividend.sol:336) before the push and guarded by nonReentrant on the declaration at `withdrawOwedToken` (MiFrensDividend.sol:333). Unlike the claim loop this one reverts on a failed transfer at `TransferFailed` (MiFrensDividend.sol:340), which rolls the zeroing back so the balance stays banked. A zero balance is a silent no-op.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 347,
+  "authority": "internal (callers: fundToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transferFrom into this contract, encoded at `transferFrom` (line 349)",
+  "edges": [
+   "asset.call (MiFrensDividend.sol:348), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Raw call so a non-standard token is handled, with the result checked at `ret` (MiFrensDividend.sol:351) and a revert on failure. The asset address comes from the funder's argument, so the funder chooses which contract this calls into; it is the same address that is then appended to the iterated basket at `assets` (MiFrensDividend.sol:284).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 356,
+  "authority": "internal (callers: claimTokens, withdrawOwedToken)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "ERC20 transfer of `asset` to `to` (line 358)",
+  "edges": [
+   "asset.call (MiFrensDividend.sol:357), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Reports failure instead of throwing, which is what lets the claim loop at `_tryPush` (MiFrensDividend.sol:325) survive one bad asset. It forwards all remaining gas to the token contract, so a token that consumes the whole budget can still make a claim run out of gas; both callers hold the nonReentrant guard.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 365,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "MAX_TOKEN (line 366, immutable)",
+   "enchantedBy (line 367)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:367), TRUSTED, in-cluster"
+  ],
+  "reachability": "View of the same liveness test the pay paths use at `enchantedBy` (MiFrensDividend.sol:367). It does not mean the fren is counted in `activeShares` (MiFrensDividend.sol:397): a fren whose transfer hook was skipped reads as not-enchanted here while still occupying a share.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 375,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensDividend._castSpell (MiFrensDividend.sol:376), TRUSTED, in-cluster"
+  ],
+  "reachability": "Wrapper; the whole gate is in the callee at `ownerOf` (MiFrensDividend.sol:387).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 380,
+  "authority": "holder of token",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "MiFrensDividend._castSpell (MiFrensDividend.sol:382), TRUSTED, in-cluster"
+  ],
+  "reachability": "Unbounded batch: the loop at `n` (MiFrensDividend.sol:381) is sized by the caller's own array, and every element re-runs the per-token gate, so the only cost of a long list is the caller's gas. Each element may pull an enchant fee, so one transaction can charge the caller several fees.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 385,
+  "authority": "internal (callers: castSpell, castMany); the caller must own the token",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:387)",
+  "reads": [
+   "MAX_TOKEN (line 386, immutable)",
+   "enchantedBy (line 388)",
+   "accPerShare (line 401)",
+   "debtOf (line 401)",
+   "ACC (line 401, constant)",
+   "accPerShare (line 403)",
+   "assets (line 427)",
+   "assets (line 429)",
+   "accPerShareOf (line 430)",
+   "debtOfAsset (line 432)",
+   "ACC (line 433, constant)"
+  ],
+  "writes": [
+   "activeShares (line 397)",
+   "owed (line 401)",
+   "debtOf (line 403)",
+   "owedAsset (line 433)",
+   "debtOfAsset (line 435)",
+   "enchantedBy (line 437)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:387), TRUSTED, in-cluster",
+   "MiFrensDividend._collectEnchantFee (MiFrensDividend.sol:396), TRUSTED, in-cluster"
+  ],
+  "reachability": "Reachable by any current owner of an id within the cap at `MAX_TOKEN` (MiFrensDividend.sol:386). Two branches: a fresh join pays the fee first and then increments `activeShares` (MiFrensDividend.sol:397); a stale one - a fren whose transfer hook did not run - settles the PREVIOUS caster's ETH into `owed` (MiFrensDividend.sol:401) and their basket into `owedAsset` (MiFrensDividend.sol:433) and re-points without changing the count, so the share count stays balanced either way. Re-casting for an id you already hold returns at `cur` (MiFrensDividend.sol:389) before any fee. The debt markers for ETH and for every basket asset are set to the current accumulators at `debtOf` (MiFrensDividend.sol:403) and `debtOfAsset` (MiFrensDividend.sol:435), so earning starts now with no back-pay - but only for assets in the list at the time of the cast. DERIVED: the marker loop is bounded by the same basket the funder controls.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 445,
+  "authority": "internal (callers: _castSpell)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "registry (line 446)",
+   "SHARES (line 449, immutable)"
+  ],
+  "writes": [],
+  "value": "ERC20 transferFrom of `tok` from the caster into this contract (line 455); ERC20 approve of `reg` for the fee (line 456)",
+  "edges": [
+   "IMiFrensShares.everMoved (MiFrensDividend.sol:449), TRUSTED, in-cluster",
+   "IReserveRegistry.enchantFee (MiFrensDividend.sol:450), UNTRUSTED, in-cluster",
+   "IReserveRegistry.currentToken (MiFrensDividend.sol:452), UNTRUSTED, in-cluster",
+   "IERC20.approve (MiFrensDividend.sol:456), UNTRUSTED, out-of-cluster",
+   "IReserveRegistry.donateToReserve (MiFrensDividend.sol:457), UNTRUSTED, in-cluster"
+  ],
+  "reachability": "Four independent early exits make the fee optional: no registry at `reg` (MiFrensDividend.sol:447), an unmoved original genesis id at `SHARES` (MiFrensDividend.sol:449), a zero fee at `fee` (MiFrensDividend.sol:451), or no live token at `tok` (MiFrensDividend.sol:453). The pull at `transferFrom` (MiFrensDividend.sol:455) is a typed call whose boolean return is required, so a token that returns nothing reverts the enchant. The amount, the asset and the destination are all chosen by the registry between the read and the transfer, and the approve return value is not checked at `approve` (MiFrensDividend.sol:456). Whatever is pulled is immediately handed on at `donateToReserve` (MiFrensDividend.sol:457); if that call does not take the tokens they stay here uncredited to anyone.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 464,
+  "authority": "the MiFrens collection",
+  "authority_gate_quote": "if (msg.sender != address(mifrens)) revert NotCollection(); (MiFrensDividend.sol:465)",
+  "reads": [
+   "mifrens (line 465, immutable)",
+   "enchantedBy (line 466)",
+   "accPerShare (line 468)",
+   "debtOf (line 468)",
+   "ACC (line 468, constant)",
+   "assets (line 482)",
+   "assets (line 484)",
+   "accPerShareOf (line 485)",
+   "debtOfAsset (line 486)",
+   "ACC (line 488, constant)"
+  ],
+  "writes": [
+   "owed (line 468)",
+   "owedAsset (line 488)",
+   "debtOfAsset (line 489)",
+   "activeShares (line 493)",
+   "enchantedBy (line 494)",
+   "debtOf (line 495)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the collection can call it, and it is invoked from that contract's transfer chokepoint at `onMiFrenTransfer` (MiFrensGenesis.sol:695) inside a try/catch with a fixed gas stipend - so a revert or an out-of-gas here is swallowed by the caller and the transfer still settles, leaving the fren counted in `activeShares` (MiFrensDividend.sol:493) with a stale caster. A fren that was never enchanted returns at `cur` (MiFrensDividend.sol:467), which is why badge ids and un-cast frens are free no-ops. Both the ETH entitlement at `owed` (MiFrensDividend.sol:468) and each basket leg at `owedAsset` (MiFrensDividend.sol:488) are settled to the LEAVER before the share is released, because after the decrement the leaver's share can no longer be computed. There is no eligibility-cap check here, unlike the claim and cast paths.",
+  "observations": [
+   "comment at `MAX_ASSETS` (MiFrensDividend.sol:480) says the basket cap is four because this loop runs under the collection's forwarded gas budget; code at `MAX_ASSETS` (MiFrensDividend.sol:124) sets the cap to three"
+  ]
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 502,
+  "authority": "holder of token who is also its caster",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `msg.sender` (line 538)",
+  "edges": [
+   "MiFrensDividend._claim (MiFrensDividend.sol:503), TRUSTED, in-cluster"
+  ],
+  "reachability": "Wrapper carrying the nonReentrant guard at `claim` (MiFrensDividend.sol:502); the gates are in the callee at `ownerOf` (MiFrensDividend.sol:531).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 507,
+  "authority": "holder of token who is also its caster",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+  "reads": [],
+  "writes": [],
+  "value": "sends native to `msg.sender` (line 538)",
+  "edges": [
+   "MiFrensDividend._claim (MiFrensDividend.sol:513), TRUSTED, in-cluster"
+  ],
+  "reachability": "Unbounded batch sized by the caller's own array at `n` (MiFrensDividend.sol:512); every element re-checks ownership and enchantment, and each one performs its own native send inside the single nonReentrant frame declared at `nonReentrant` (MiFrensDividend.sol:509). One id the caller does not own reverts the whole batch.",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 518,
+  "authority": "anyone (pays only the caller's own banked balance)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "owed (line 519)"
+  ],
+  "writes": [
+   "owed (line 521)",
+   "totalClaimed (line 522)"
+  ],
+  "value": "sends native to `msg.sender` (line 523)",
+  "edges": [
+   "msg.sender.call (MiFrensDividend.sol:523), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Ungated but self-limited: it pays only `owed` (MiFrensDividend.sol:519) for the caller, zeroed at `owed` (MiFrensDividend.sol:521) before the send, and the send is wrapped by nonReentrant at `withdrawOwed` (MiFrensDividend.sol:518). A rejecting recipient reverts at `TransferFailed` (MiFrensDividend.sol:524), rolling back the zeroing so nothing is lost. This is the only other writer of `totalClaimed` (MiFrensDividend.sol:522).",
+  "observations": []
+ },
+ {
+  "contract": "MiFrensDividend",
+  "line": 529,
+  "authority": "internal (callers: claim, claimMany); the caller must own the token and be its caster",
+  "authority_gate_quote": "if (mifrens.ownerOf(tokenId) != msg.sender) revert NotOwner(); (MiFrensDividend.sol:531)",
+  "reads": [
+   "MAX_TOKEN (line 530, immutable)",
+   "enchantedBy (line 532)",
+   "accPerShare (line 534)",
+   "debtOf (line 534)",
+   "ACC (line 534, constant)",
+   "accPerShare (line 535)"
+  ],
+  "writes": [
+   "debtOf (line 535)",
+   "totalClaimed (line 537)"
+  ],
+  "value": "sends native to `msg.sender` (line 538)",
+  "edges": [
+   "IMiFrensShares.ownerOf (MiFrensDividend.sol:531), TRUSTED, in-cluster",
+   "msg.sender.call (MiFrensDividend.sol:538), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Three gates - the cap at `MAX_TOKEN` (MiFrensDividend.sol:530), current ownership at `ownerOf` (MiFrensDividend.sol:531), and a live enchantment by the caller at `enchantedBy` (MiFrensDividend.sol:532) - so exactly one address can ever claim a given id and only for the window it was enchanted. The debt marker is advanced at `debtOf` (MiFrensDividend.sol:535) before the send, so a re-entering recipient would compute zero; both public wrappers also hold the nonReentrant guard. The payout is integer-divided by the scale at `ACC` (MiFrensDividend.sol:534), so sub-wei dust stays in the accumulator rather than being lost.",
+  "observations": []
+ }
+]

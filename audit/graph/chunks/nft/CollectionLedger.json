@@ -1,0 +1,141 @@
+[
+ {
+  "contract": "CollectionLedger",
+  "line": 72,
+  "authority": "deployer",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [
+   "registry (line 74, immutable)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Deployment only. `registry` (CollectionLedger.sol:74) is immutable and non-zero, so the single authority over this cap table is fixed at deploy and can never be rotated, renounced or dead-ended.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 77,
+  "authority": "internal (callers: credit, redeem, buyback, crystallize)",
+  "authority_gate_quote": "if (msg.sender != registry) revert OnlyRegistry(); (CollectionLedger.sol:78)",
+  "reads": [
+   "registry (line 78, immutable)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "The only gate in the file, applied to `credit` (CollectionLedger.sol:106), `redeem` (CollectionLedger.sol:117), `buyback` (CollectionLedger.sol:130) and `crystallize` (CollectionLedger.sol:143). Every number in this contract is therefore whatever the registry asserts; the ledger holds no tokens and verifies nothing against a balance.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 86,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "crystallized (line 87)",
+   "frozenSupply (line 87)",
+   "retired (line 88)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pure view. Before death the supply term is the caller-supplied `mintedNow` argument (CollectionLedger.sol:87) rather than anything this contract can verify; after `crystallized` (CollectionLedger.sol:87) is set it switches to the snapshot in `frozenSupply` (CollectionLedger.sol:87). Saturates at zero at `supply` (CollectionLedger.sol:89) so retired can exceed supply without reverting.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 94,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [
+   "entitledTokens (line 97)"
+  ],
+  "writes": [],
+  "value": "NONE",
+  "edges": [
+   "CollectionLedger.outstanding (CollectionLedger.sol:95), TRUSTED, in-cluster"
+  ],
+  "reachability": "Pure view; integer division at `entitledTokens` (CollectionLedger.sol:97) rounds the per-NFT floor DOWN, and returns zero when `n` (CollectionLedger.sol:96) is zero instead of dividing by zero.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 106,
+  "authority": "registry",
+  "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:106)",
+  "reads": [
+   "entitledTokens (line 110)"
+  ],
+  "writes": [
+   "entitledTokens (line 108)",
+   "totalEntitled (line 109)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only. The single increase path for a generation's pot: both `entitledTokens` (CollectionLedger.sol:108) and the global `totalEntitled` (CollectionLedger.sol:109) move by the same amount, so the stated sum invariant is preserved. Nothing is transferred here - the tokens the number represents sit in the registry's reserve, so the counter is backed only by the registry's own discipline. DERIVED: the contract makes no external call and holds no balance.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 117,
+  "authority": "registry",
+  "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:117)",
+  "reads": [
+   "entitledTokens (line 120)",
+   "retired (line 122)"
+  ],
+  "writes": [
+   "entitledTokens (line 121)",
+   "retired (line 122)",
+   "totalEntitled (line 123)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "CollectionLedger.outstanding (CollectionLedger.sol:118), TRUSTED, in-cluster",
+   "CollectionLedger.floorPerNFT (CollectionLedger.sol:124), TRUSTED, in-cluster"
+  ],
+  "reachability": "Registry-only. Pays one NFT's share, computed by the same rounding-down division as the view at `payout` (CollectionLedger.sol:120), then debits both counters by exactly that amount at `entitledTokens` (CollectionLedger.sol:121) and `totalEntitled` (CollectionLedger.sol:123) and increments `retired` (CollectionLedger.sol:122). The rounding remainder stays in the pot, so the per-NFT floor of the survivors can only rise. Reverts when nothing is outstanding at `n` (CollectionLedger.sol:119). The caller-supplied `mintedNow` sizes the divisor, so a registry that passes a larger count pays less per NFT and one that passes a smaller count pays more. DERIVED: `mintedNow` is never validated in this file.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 130,
+  "authority": "registry",
+  "authority_gate_quote": "external onlyRegistry (CollectionLedger.sol:130)",
+  "reads": [
+   "retired (line 132)"
+  ],
+  "writes": [
+   "entitledTokens (line 133)",
+   "retired (line 134)",
+   "totalEntitled (line 135)"
+  ],
+  "value": "NONE",
+  "edges": [
+   "CollectionLedger.floorPerNFT (CollectionLedger.sol:136), TRUSTED, in-cluster"
+  ],
+  "reachability": "Registry-only, and refused unless something is retired at `retired` (CollectionLedger.sol:132), so the un-retire at `retired` (CollectionLedger.sol:134) cannot underflow. Credits the full `paid` amount (CollectionLedger.sol:133) while returning one NFT to the outstanding set, which raises the floor whenever paid exceeds the current per-NFT share; the ledger itself never checks the two-times-floor rule the comment attributes to the registry.",
+  "observations": []
+ },
+ {
+  "contract": "CollectionLedger",
+  "line": 143,
+  "authority": "registry",
+  "authority_gate_quote": "onlyRegistry (CollectionLedger.sol:145)",
+  "reads": [
+   "crystallized (line 147)",
+   "entitledTokens (line 154)"
+  ],
+  "writes": [
+   "crystallized (line 148)",
+   "frozenSupply (line 149)",
+   "entitledTokens (line 151)",
+   "totalEntitled (line 152)"
+  ],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Registry-only and one-time per generation, enforced at `crystallized` (CollectionLedger.sol:147). It freezes the supply term used by `frozenSupply` (CollectionLedger.sol:87) to whatever `mintedAtDeath` the registry passes - a zero there makes the generation's outstanding count zero forever, which makes the floor view return zero at `n` (CollectionLedger.sol:96) and the redeem path revert at `n` (CollectionLedger.sol:119) while the pot keeps its balance. The optional final credit moves both counters together at `totalEntitled` (CollectionLedger.sol:152). DERIVED: no function in the file clears `crystallized` or rewrites `frozenSupply`.",
+  "observations": []
+ }
+]

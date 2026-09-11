@@ -1,0 +1,23 @@
+{
+ "MAX_LINK_BYTES()": "ca9de12d",
+ "MAX_NAME_BYTES()": "680c60c7",
+ "MAX_NFT_SUPPLY()": "b5077f44",
+ "MAX_SYMBOL_BYTES()": "8a4940f2",
+ "MAX_URI_BYTES()": "718a60ee",
+ "VOTING_PERIOD()": "b1610d7e",
+ "displayName(uint256)": "5814595f",
+ "getProposal(uint256)": "c7f758a8",
+ "hasProposals()": "47fabb5f",
+ "hasVoted(uint256,address)": "43859632",
+ "markConsumed(uint256)": "1c3c3e03",
+ "mifrens()": "dd8de7ba",
+ "owner()": "8da5cb5b",
+ "proposalCount()": "da35c664",
+ "propose(string,string,uint8,string,address,string,string,uint256,uint256,address)": "1e8901ff",
+ "registry()": "7b103999",
+ "renounceOwnership()": "715018a6",
+ "setRegistry(address)": "a91ee0dc",
+ "transferOwnership(address)": "f2fde38b",
+ "vote(uint256)": "0121b93f",
+ "winner()": "dfbf53ae"
+}

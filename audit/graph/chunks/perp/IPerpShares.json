@@ -1,0 +1,26 @@
+[
+ {
+  "contract": "IPerpShares (declared in PerpStakerOracle.sol)",
+  "line": 8,
+  "authority": "anyone (declaration only; the oracle calls it on the immutable `perpVault`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called at `ethShareOf` (PerpStakerOracle.sol:30); the implementation is the public mapping getter `ethShareOf` (PerpVault.sol:95). Because it reads LIVE shares, a wallet that has fully queued its exit reads zero here even though `pendingEthOf` (PerpVault.sol:97) still owes it. DERIVED.",
+  "observations": []
+ },
+ {
+  "contract": "IPerpShares (declared in PerpStakerOracle.sol)",
+  "line": 9,
+  "authority": "anyone (declaration only; the oracle calls it on the immutable `perpVault`)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Declaration only. Called at `tokShareOf` (PerpStakerOracle.sol:30); the implementation is the public mapping getter `tokShareOf` (PerpVault.sol:101).",
+  "observations": []
+ }
+]

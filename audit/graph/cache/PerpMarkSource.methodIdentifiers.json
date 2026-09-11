@@ -1,0 +1,15 @@
+{
+ "MAX_POOLS()": "81358498",
+ "addPool((address,address,uint24,int24,address))": "5bef1040",
+ "armed()": "2f411093",
+ "owner()": "8da5cb5b",
+ "poolCount()": "f525cb68",
+ "poolManager()": "dc4c90d3",
+ "pools(uint256)": "ac4afa38",
+ "primary()": "c6dbdf61",
+ "removePool((address,address,uint24,int24,address))": "1932bf21",
+ "renounceOwnership()": "715018a6",
+ "setPrimary((address,address,uint24,int24,address))": "3f923c5c",
+ "transferOwnership(address)": "f2fde38b",
+ "weightedTick()": "5e7b451d"
+}

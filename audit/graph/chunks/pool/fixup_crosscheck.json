@@ -1,0 +1,48 @@
+[
+ {"contract":"PoolOps","line":252,"edges":[
+  "PoolIdLibrary.toId (PoolOps.sol:275), TRUSTED, library",
+  "PoolOps._sqrtPrice (PoolOps.sol:297), TRUSTED, in-cluster",
+  "IPoolManager.initialize (PoolOps.sol:298), TRUSTED, out-of-cluster",
+  "ReserveLib.reserveTicks (PoolOps.sol:300), TRUSTED, library",
+  "TickMath.getTickAtSqrtPrice (PoolOps.sol:301), TRUSTED, library",
+  "PoolOps._seedReserve (PoolOps.sol:303), TRUSTED, in-cluster",
+  "PoolOps._seedActive (PoolOps.sol:307), TRUSTED, in-cluster",
+  "PoolOps._greenCandle (PoolOps.sol:338), TRUSTED, in-cluster",
+  "IERC20.approve (PoolOps.sol:343), UNTRUSTED, out-of-cluster",
+  "ISeeder.startSeed (PoolOps.sol:344), UNTRUSTED, out-of-cluster"]},
+ {"contract":"PoolOps","line":1147,"edges":[
+  "ReserveLib.liquidityForTokenOut (PoolOps.sol:1156), TRUSTED, library",
+  "IPositionManagerOps.getPositionLiquidity (PoolOps.sol:1159), TRUSTED, out-of-cluster",
+  "IERC20.balanceOf (PoolOps.sol:1163), UNTRUSTED, out-of-cluster",
+  "IPositionManagerOps.modifyLiquidities (PoolOps.sol:1173), TRUSTED, out-of-cluster",
+  "IERC20.balanceOf (PoolOps.sol:1175), UNTRUSTED, out-of-cluster"]},
+ {"contract":"PoolOps","line":1187,"edges":[
+  "ReserveLib.liquidityForTokenOut (PoolOps.sol:1196), TRUSTED, library",
+  "PoolOps._approve (PoolOps.sol:1200), TRUSTED, in-cluster",
+  "IERC20.balanceOf (PoolOps.sol:1201), UNTRUSTED, out-of-cluster",
+  "IPositionManagerOps.modifyLiquidities (PoolOps.sol:1211), TRUSTED, out-of-cluster",
+  "IERC20.balanceOf (PoolOps.sol:1214), UNTRUSTED, out-of-cluster"]},
+ {"contract":"PoolOps","line":1248,"edges":[
+  "ICauldronBurn.burn (PoolOps.sol:1251), UNTRUSTED, out-of-cluster",
+  "PoolOps.claimFromReserve (PoolOps.sol:1252), TRUSTED, in-cluster"]},
+ {"contract":"PoolOps","line":1274,"edges":[
+  "IAutoFlag.autoMigrate (PoolOps.sol:1280), TRUSTED, out-of-cluster",
+  "IERC20.balanceOf (PoolOps.sol:1281), UNTRUSTED, out-of-cluster",
+  "ReserveLib.tokenOutForLiquidity (PoolOps.sol:1284), TRUSTED, library",
+  "IPositionManagerOps.getPositionLiquidity (PoolOps.sol:1285), TRUSTED, out-of-cluster",
+  "PoolOps.migrateOne (PoolOps.sol:1288), TRUSTED, in-cluster"]},
+ {"contract":"PoolOps","line":1325,"edges":[
+  "ILegacyHookOps.legacyRegistry (PoolOps.sol:1332), TRUSTED, out-of-cluster",
+  "ILegacyHookOps.sweepLegacyReserve (PoolOps.sol:1333), TRUSTED, out-of-cluster",
+  "PoolOps.addToReserve (PoolOps.sol:1336), TRUSTED, in-cluster",
+  "ICauldronBurn.burn (PoolOps.sol:1340), UNTRUSTED, out-of-cluster",
+  "PoolOps.doLegacyNote (PoolOps.sol:1342), TRUSTED, in-cluster"]},
+ {"contract":"PoolOps","line":1419,"edges":[
+  "ICollectionOps.ownerOf (PoolOps.sol:1429), TRUSTED, out-of-cluster",
+  "IColMinted.totalMinted (PoolOps.sol:1430), TRUSTED, out-of-cluster",
+  "ILedgerOps.floorPerNFT (PoolOps.sol:1431), TRUSTED, out-of-cluster",
+  "IERC20.transferFrom (PoolOps.sol:1433), UNTRUSTED, out-of-cluster",
+  "PoolOps.addToReserve (PoolOps.sol:1434), TRUSTED, in-cluster",
+  "ILedgerOps.buyback (PoolOps.sol:1435), TRUSTED, out-of-cluster",
+  "ICollectionOps.custodyTransfer (PoolOps.sol:1436), TRUSTED, out-of-cluster"]}
+]

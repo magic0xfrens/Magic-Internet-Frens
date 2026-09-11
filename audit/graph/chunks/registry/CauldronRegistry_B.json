@@ -1,0 +1,225 @@
+[
+ {
+  "contract": "CauldronRegistry", "line": 451,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency timelocked nonReentrant (CauldronRegistry.sol:451)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)", "generationToken (line 453)", "emergencyAdmin (line 454, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "ERC20 transfer of the generation token `tok` to the emergency admin (line 454); sends native to `emergencyAdmin` (line 456)",
+  "edges": [
+   "CauldronRegistry._removeLiquidity (CauldronRegistry.sol:452), TRUSTED, in-cluster",
+   "IERC20.transfer (CauldronRegistry.sol:454), TRUSTED, out-of-cluster",
+   "emergencyAdmin.call (CauldronRegistry.sol:456), TRUSTED, out-of-cluster"
+  ],
+  "reachability": "Break-glass LP pull. Requires the emergency admin (`emergencyAdmin` CauldronRegistry.sol:346) and a prior arming consumed by `_consumeTimelock` CauldronRegistry.sol:388. It tears down the whole generation through `_removeLiquidity` CauldronRegistry.sol:452, which also unwinds the seeder and the rotated legs, then pushes both sides out: the token at `tok` CauldronRegistry.sol:454 and the ether at `emergencyAdmin` CauldronRegistry.sol:456. Effects precede the two external sends, and `nonReentrant` CauldronRegistry.sol:451 covers the whole call.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 464,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency timelocked nonReentrant (CauldronRegistry.sol:464)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)", "emergencyAdmin (line 466, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "sends the registry's whole native balance to `emergencyAdmin` (line 466); ERC20 transfer of the caller-named `token` to the admin (line 469)",
+  "edges": [
+   "emergencyAdmin.call (CauldronRegistry.sol:466), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (CauldronRegistry.sol:469), UNTRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronRegistry.sol:469), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "Emergency-admin only, armed and timelocked through `_consumeTimelock` CauldronRegistry.sol:388. A zero `token` CauldronRegistry.sol:465 sweeps the native balance; anything else is treated as an ERC20 and the token address is fully caller-chosen, so the external calls at `token` CauldronRegistry.sol:469 can reach arbitrary code. No return value is checked on the ERC20 transfer (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 481,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:481)",
+  "reads": ["emergencyAdmin (line 346, immutable)"],
+  "writes": ["successor (line 482)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Pointer only, not timelocked and not bounded: `successor` CauldronRegistry.sol:482 may be any address, including one with no code. The custody move that uses it is separately armed at `successor` CauldronRegistry.sol:517, so holders still get the forced-open exit window before value can follow the pointer.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 500,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:500)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)", "emergencyAdmin (line 346, immutable)"],
+  "writes": ["emergencyReadyAt (line 391)", "claimGate (line 502)"],
+  "value": "NONE",
+  "edges": ["CauldronRegistry._consumeTimelock (CauldronRegistry.sol:501), TRUSTED, in-cluster"],
+  "reachability": "Asymmetric gate: the restricting direction consumes an arming at `_consumeTimelock` CauldronRegistry.sol:501, while clearing `claimGate` CauldronRegistry.sol:502 back to zero is immediate. A non-zero gate closes the three instant 1:1 paths, tested at `claimGate` CauldronRegistry.sol:1234, CauldronRegistry.sol:1268 and CauldronRegistry.sol:1348.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 516,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency timelocked nonReentrant (CauldronRegistry.sol:516)",
+  "reads": ["emergencyReadyAt (line 389)", "emergencyDelay (line 390, immutable)", "successor (line 517)", "currentGeneration (line 519)", "generationPositionId (line 522)", "generationReservePositionId (line 523)", "positionManager (line 524)", "seeder (line 535)", "generationToken (line 541)"],
+  "writes": ["emergencyReadyAt (line 391)"],
+  "value": "ERC721 ownership transfer of the two live positions out of `positionManager` (line 524); ERC20 transfer of `tok` to the successor (line 544); sends the whole native balance to `to` (line 548)",
+  "edges": [
+   "ISeeder.seeding (CauldronRegistry.sol:536), TRUSTED, out-of-cluster",
+   "ISeeder.withdrawAll (CauldronRegistry.sol:537), TRUSTED, out-of-cluster",
+   "IERC20.balanceOf (CauldronRegistry.sol:543), TRUSTED, out-of-cluster",
+   "IERC20.transfer (CauldronRegistry.sol:544), TRUSTED, out-of-cluster",
+   "to.call (CauldronRegistry.sol:548), UNTRUSTED, out-of-cluster"
+  ],
+  "reachability": "The largest single custody move in the contract, reachable only by the emergency admin with an armed, elapsed timelock (`_consumeTimelock` CauldronRegistry.sol:388). It requires a pointer set beforehand (`to` CauldronRegistry.sol:518). Liquidity is handed over as position-NFT ownership rather than withdrawn, by the two ERC721 transferFrom calls at `activeId` CauldronRegistry.sol:524 and `reserveId` CauldronRegistry.sol:525, so a progressive generation whose active id is zero contributes nothing there and is instead unwound through `withdrawAll` CauldronRegistry.sol:537. The final native send targets a fully admin-chosen address at `to` CauldronRegistry.sol:548, and it happens after every effect (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 554,
+  "authority": "anyone",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "receives native through `receive` (line 554)",
+  "edges": [],
+  "reachability": "A bare payable `receive` CauldronRegistry.sol:554 with an empty body, so any address may push ether in; the hook's reserve pulls, the vault close and the seeder teardown all land here. This contract declares NO fallback, which is why every facet function needs an explicit stub such as `redeemOgFren` CauldronRegistry.sol:1383.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 561,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:561)",
+  "reads": [],
+  "writes": ["governor (line 562)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, unbounded and replaceable: `governor` CauldronRegistry.sol:562 accepts any address including zero. Relaunch reads it twice, for the liveness gate at `governor` CauldronRegistry.sol:787 and for the winning spec at `winner` CauldronRegistry.sol:849, so a swapped governor changes what the next rebirth launches.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 566,
+  "authority": "emergencyAdmin",
+  "authority_gate_quote": "onlyEmergency (CauldronRegistry.sol:566)",
+  "reads": ["emergencyAdmin (line 346, immutable)"],
+  "writes": ["minLifetime (line 567)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Emergency-admin only and unbounded in both directions: `minLifetime` CauldronRegistry.sol:567 takes any value, including zero (removing the grace period entirely) or a value large enough to make the check at `minLifetime` CauldronRegistry.sol:783 unsatisfiable in practice (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 571,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:571)",
+  "reads": [],
+  "writes": ["factory (line 572)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only with no validation on `factory` CauldronRegistry.sol:572. It is called from inside the rebirth at `deployBrew` CauldronRegistry.sol:1151 and at `deployVault` CauldronRegistry.sol:1189, both outside any try/catch, so the configured factory is on the critical path of every relaunch (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 576,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:576)",
+  "reads": [],
+  "writes": ["nftMaxSupply (line 578)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, bounded to 1..MAX_NFT_SUPPLY at `MAX_NFT_SUPPLY` CauldronRegistry.sol:577 before writing `nftMaxSupply` CauldronRegistry.sol:578. The same ceiling is re-applied to the proposer's requested supply inside the rebirth at `MAX_NFT_SUPPLY` CauldronRegistry.sol:908, this time by clamping rather than reverting.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 583,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:583)",
+  "reads": [],
+  "writes": ["royaltyDividend (line 585)", "royaltyBps (line 586)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only. Capped at 1000 bps at `_bps` CauldronRegistry.sol:584, then stored in `royaltyDividend` CauldronRegistry.sol:585 and `royaltyBps` CauldronRegistry.sol:586. Both are only consumed when a brew's collection is deployed, at `royaltyReceiver` CauldronRegistry.sol:1161, so a change applies to future collections only (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 591,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:593)",
+  "reads": [],
+  "writes": ["genesisMode (line 595)", "genesisBaseURI (line 596)", "genesisRenderer (line 597)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, no bound on the string length or the renderer address (`genesisBaseURI` CauldronRegistry.sol:596, `genesisRenderer` CauldronRegistry.sol:597). These three are the defaults a rebirth loads at `genesisMode` CauldronRegistry.sol:844 before the winning proposal overwrites them at `mode` CauldronRegistry.sol:900, so after iteration one they matter only as the values used when a spec leaves them empty (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 607,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:609)",
+  "reads": ["summoned (line 611)"],
+  "writes": ["mifrens (line 614)", "genesisBonusBps (line 615)", "genesisShares (line 616)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and pre-ignition only: it reverts once `summoned` CauldronRegistry.sol:611 is set. The bonus is capped at 3000 bps at `_bonusBps` CauldronRegistry.sol:612 and both other fields must be non-zero at `_shares` CauldronRegistry.sol:613. `genesisShares` CauldronRegistry.sol:616 becomes the divisor of the live floor in `floorPerFren` CauldronBase.sol:376 and the OG/forged split boundary used throughout redemption.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 622,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:622)",
+  "reads": ["summoned (line 623)"],
+  "writes": ["airdropWallet (line 626)", "airdropReserve (line 627)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only, pre-ignition only (`summoned` CauldronRegistry.sol:623), non-zero wallet required at `_wallet` CauldronRegistry.sol:624 and capped at 20 percent of supply at `_amount` CauldronRegistry.sol:625. The reserve is paid out exactly once, off-LP, during ignition at `airdropReserve` CauldronRegistry.sol:715.",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 631,
+  "authority": "owner",
+  "authority_gate_quote": "onlyOwner (CauldronRegistry.sol:631)",
+  "reads": ["summoned (line 632)"],
+  "writes": ["primeFunder (line 633)"],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Owner-only and pre-ignition only (`summoned` CauldronRegistry.sol:632). `primeFunder` CauldronRegistry.sol:633 is the sole gate on both prime-buy entries, at `primeFunder` CauldronRegistry.sol:642 and CauldronRegistry.sol:648, and it can never be changed after ignition (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 641,
+  "authority": "primeFunder",
+  "authority_gate_quote": "if (msg.sender != primeFunder) revert NotAdmin(); (CauldronRegistry.sol:642)",
+  "reads": ["primeFunder (line 642)", "primeBuyEth (line 643)"],
+  "writes": ["primeBuyEth (line 643)"],
+  "value": "receives native, accumulated into `primeBuyEth` (line 643)",
+  "edges": [],
+  "reachability": "Only the configured funder may pay in (`primeFunder` CauldronRegistry.sol:642). The balance accrues in `primeBuyEth` CauldronRegistry.sol:643 as a counter alongside the registry's real ether balance, and it is spent in one shot during ignition at `primeBuyEth` CauldronRegistry.sol:732. With `primeFunder` CauldronRegistry.sol:633 unset the function is unreachable, since the zero address cannot call (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 647,
+  "authority": "primeFunder",
+  "authority_gate_quote": "if (msg.sender != primeFunder) revert NotAdmin(); (CauldronRegistry.sol:648)",
+  "reads": ["primeFunder (line 648)", "primeBuyEth (line 649)"],
+  "writes": ["primeBuyEth (line 650)"],
+  "value": "sends native equal to `amt` back to the funder (line 651)",
+  "edges": ["msg.sender.call (CauldronRegistry.sol:651), UNTRUSTED, out-of-cluster"],
+  "reachability": "Funder-only reclaim. The counter is zeroed at `primeBuyEth` CauldronRegistry.sol:650 before the send at `amt` CauldronRegistry.sol:651, so the ordering is effects-then-interaction even though there is no reentrancy guard here. The amount paid out is the COUNTER, not a measured balance, and it is paid from whatever ether the registry holds (DERIVED).",
+  "observations": []
+ },
+ {
+  "contract": "CauldronRegistry", "line": 668,
+  "authority": "owner or igniter",
+  "authority_gate_quote": "if (msg.sender != owner() && msg.sender != igniter) revert NotAdmin(); (CauldronRegistry.sol:677)",
+  "reads": ["igniter (line 677)", "summoned (line 678)", "genesisBonusBps (line 703)", "genesisShares (line 703)", "airdropReserve (line 713)", "airdropWallet (line 713)", "primeBuyEth (line 732)", "primeFunder (line 736)", "poolManager (line 738)", "generationPoolKey (line 738)", "genesisMode (line 743)", "genesisBaseURI (line 743)", "genesisRenderer (line 743)", "nftMaxSupply (line 743)"],
+  "writes": ["summoned (line 681)", "currentGeneration (line 682)", "lastSummonAt (line 683)", "currentToken (line 692)", "generationToken (line 693)", "genesisSharePerFren (line 705)", "genesisReserveOutstanding (line 706)", "primeBuyEth (line 734)", "_seedBuyUnlocked (line 737)", "_seedBuyUnlocked (line 739)"],
+  "value": "receives native as the entire genesis pairing, which `_seedGeneration` places into the pool (line 724); ERC20 transfer of the freshly minted token to `airdropWallet` (line 715); spends the accumulated prime ether inside `primeBuy` (line 738)",
+  "edges": [
+   "Ownable.owner (CauldronRegistry.sol:677), TRUSTED, out-of-cluster",
+   "PoolOps.creatureFor (CauldronRegistry.sol:687), TRUSTED, library",
+   "LaunchLib.displayName (CauldronRegistry.sol:688), TRUSTED, library",
+   "CauldronRegistry._deployToken (CauldronRegistry.sol:691), TRUSTED, in-cluster",
+   "IERC20.transfer (CauldronRegistry.sol:715), TRUSTED, out-of-cluster",
+   "CauldronRegistry._seedGeneration (CauldronRegistry.sol:724), TRUSTED, in-cluster",
+   "PoolOps.primeBuy (CauldronRegistry.sol:738), TRUSTED, library",
+   "CauldronRegistry._deployCollection (CauldronRegistry.sol:743), TRUSTED, in-cluster"
+  ],
+  "reachability": "The one-time ignition. Two callers are accepted, the owner and the delegated igniter, at `igniter` CauldronRegistry.sol:677; it is one-shot either way because `summoned` CauldronRegistry.sol:681 is set immediately and re-entry is refused at `summoned` CauldronRegistry.sol:678. Non-zero msg.value is mandatory at `InsufficientETH` CauldronRegistry.sol:679. Generation one is always native-quoted: nothing writes `generationQuote` here, and the mapping's zero default is what the pool is built against (DERIVED). The genesis bonus is sized only if both `genesisBonusBps` CauldronRegistry.sol:703 and the share count are non-zero, fixing `genesisSharePerFren` CauldronRegistry.sol:705 for the life of the machine. The active band is the fixed 80 percent constant at `GEN1_ACTIVE_TOKENS` CauldronRegistry.sol:711 and the reserve is the remainder minus the airdrop. The prime buy runs AFTER the seed so it hits the intended starting price, with the callback window opened and closed around it at `_seedBuyUnlocked` CauldronRegistry.sol:737 and CauldronRegistry.sol:739.",
+  "observations": [
+   "comment at `CREATE` CauldronRegistry.sol:690 says the generation token is deployed with plain CREATE; code reached from `_deployToken` CauldronRegistry.sol:691 deploys it with CREATE2 from a mined salt at `salt` PoolOps.sol:707, using plain CREATE only in the unmined fallback at `CauldronToken` PoolOps.sol:718."
+  ]
+ }
+]

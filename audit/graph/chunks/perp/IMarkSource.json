@@ -1,0 +1,14 @@
+[
+ {
+  "contract": "IMarkSource (declared in PerpEngine.sol)",
+  "line": 42,
+  "authority": "anyone (declaration only; only its 4-byte selector is used)",
+  "authority_gate_quote": "UNGATED",
+  "reads": [],
+  "writes": [],
+  "value": "NONE",
+  "edges": [],
+  "reachability": "Only the selector is taken from this declaration: `weightedTick` (PerpEngine.sol:537) is loaded into scratch memory and dispatched by hand-rolled `staticcall` (PerpEngine.sol:542), so the engine never makes a typed call. The implementation this points at is `weightedTick` (PerpMarkSource.sol:158). A revert, a self-destructed source or any return that is not exactly one word degrades to the primary pool tick at `getSlot0` (PerpEngine.sol:551).",
+  "observations": []
+ }
+]
