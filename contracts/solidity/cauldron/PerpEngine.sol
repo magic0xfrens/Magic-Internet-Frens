@@ -45,6 +45,8 @@ interface IMarkSource {
 /// @dev Just enough of {PerpVault} to ask whether anyone still has value in it.
 interface IPerpVaultStake {
     function hasStakers() external view returns (bool);
+    /// @dev Does the QUOTE-denominated side still hold anyone's value?
+    function hasQuoteStake() external view returns (bool);
 }
 
 interface IPerpHook {
@@ -268,7 +270,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint32 internal constant MIN_TWAP = 1 seconds;      // shortest mark we'll trust (fast L2: sub-second blocks → even 1s spans many blocks)
                                                         // (floor for a tunable window)
     struct Observation { uint32 ts; int56 tickCumulative; }
-    Observation[OBS_CARDINALITY] public observations;
+    //  `internal`, not `public` (EIP-170). The auto-generated array getter cost
+    //  a dispatcher entry plus a bounds-checked struct return, and NOTHING read it
+    //  — not a test, script, indexer or frontend (verified by grep). Everything
+    //  anyone actually wants from the ring is already exposed by {twapTick} and
+    //  {markSqrtPriceX96}; the raw slots are readable from storage off-chain. Same
+    //  trade already made for `lastTick`, `maxUtilBps` and the tier arrays.
+    Observation[OBS_CARDINALITY] internal observations;
     uint16 internal obsIndex;          // next slot to write
     int56 internal tickCumulative;     // Σ tick·dt up to lastObsTs
     uint32 internal lastObsTs;         // last time tickCumulative was INTEGRATED
@@ -1602,6 +1610,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // Only the asset this book is denominated in; anything else cannot be
         // credited to a plv/tokYield figure measured in the quote.
         if (asset != quote || asset == address(0)) revert BadParam();
+        _pullIntoPlv(amount);
+    }
+
+    /// @dev The body {creditPerpFeeAsset} and {fundFromVault} shared byte for byte
+    ///      (EIP-170). Pull the quote in, bank it as ETH-side PLV, announce it.
+    function _pullIntoPlv(uint256 amount) private {
         _pullQuote(msg.sender, amount);
         plv += amount;
         emit VaultFunded(true, amount);
@@ -1631,22 +1645,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         explicit so a non-native quote can be pulled; for a native book
     ///         it must equal msg.value.
     function fundFromVault(uint256 amount) external payable onlyVault {
-        _pullQuote(msg.sender, amount);
-        plv += amount;
-        emit VaultFunded(true, amount);
+        _pullIntoPlv(amount);
     }
     /// @notice The PerpVault pulls FREE ETH (≤ plv) back out to pay a withdrawal.
     ///         Lent-out ETH (longOiEth) can't be pulled — it returns as positions
     ///         close, which is what the vault's utilization cap + queue manage.
     function withdrawPlvTo(uint256 amount, address to) external onlyVault notNested nonReentrant {
         if (amount > plv) revert PlvInsufficient();
-        plv -= amount; _sendEth(to, amount); emit VaultWithdrawn(true, amount, to);
+        plv -= amount; _vaultPaid(amount, to);
+    }
+    /// @dev The tail the two quote-side vault pulls share, byte for byte (EIP-170).
+    ///      Kept AFTER the counter is debited so the CEI order of both callers is
+    ///      exactly what it was: effects, then the single external send.
+    function _vaultPaid(uint256 amount, address to) private {
+        _sendEth(to, amount); emit VaultWithdrawn(true, amount, to);
     }
     /// @notice The PerpVault pulls a token staker's accrued short-side ETH reward
     ///         out of the segregated `tokYieldEth` pot (never touches `plv`).
     function withdrawTokYieldTo(uint256 amount, address to) external onlyVault notNested nonReentrant {
         if (amount > tokYieldEth) revert PlvInsufficient();
-        tokYieldEth -= amount; _sendEth(to, amount); emit VaultWithdrawn(true, amount, to);
+        tokYieldEth -= amount; _vaultPaid(amount, to);
     }
     /// @notice The PerpVault routes a depositor's TOKEN into the short inventory.
     function fundTokenFromVault(uint256 amount) external onlyVault {
