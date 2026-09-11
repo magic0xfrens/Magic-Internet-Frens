@@ -205,6 +205,57 @@ contract TreasuryGovernor {
     ///  executed. Refusing costs a scan; it never costs a wrong winner.
     uint64 private _openVotedAt;
 
+    /// @dev How many mandates the bench below can hold.
+    uint256 internal constant BENCH_SLOTS = 8;
+
+    /// @dev The proposals {winner}'s fallback may choose from. Appended after
+    ///      `_openVotedAt`, so no existing storage slot moves.
+    ///
+    ///  ── THE TIME BOUND WAS NOT ENOUGH, BECAUSE THE HINT IS PINNABLE ───────
+    ///  The reverse scan below is bounded by TIME rather than by position, which
+    ///  is the right shape and fixed the flood the positional version had. It
+    ///  still spans every proposal filed in the last VOTING_PERIOD +
+    ///  EXECUTION_WINDOW, and `propose` has no per-proposal cooldown — so during
+    ///  the exact window in which the guild is trying to install an envelope
+    ///  (no envelope active, cooldown elapsed: the only window in which `propose`
+    ///  is open at all) a stranger holding PROPOSAL_THRESHOLD MiFrens can file
+    ///  arbitrarily many and make the scan arbitrarily expensive. `execute` gates
+    ///  on `id != winner()`, so an over-budget scan is an un-executable mandate.
+    ///
+    ///  The fast path was supposed to make that irrelevant, and it is PINNABLE.
+    ///  `_leadVotes` is lowered in exactly one branch — case (4) in {vote} — which
+    ///  requires `block.timestamp > _openVotedAt + VOTING_PERIOD +
+    ///  EXECUTION_WINDOW`. Case (5) rewrites `_openVotedAt` on ANY FOR-vote for a
+    ///  live untracked proposal. So one junk filing plus one FOR-vote every six
+    ///  days — gas only, one MiFren — keeps case (4) permanently out of reach:
+    ///  `_leadId` stays pointed at a corpse, no later proposal can ever take the
+    ///  hint, and EVERY {winner} call falls through to the scan the attacker is
+    ///  also inflating. The two halves feed each other.
+    ///
+    ///  The fallback therefore stops being over the proposal list. This is the
+    ///  same shape as {CauldronGovernor._bench}, and it fits here for the same
+    ///  reason it fits there: entry is by FOR-VOTES, which cost MiFrens, rather
+    ///  than by position or recency, which cost gas. A proposal nobody supported
+    ///  can never enter, and it could never have won either — `_passed` needs
+    ///  `forVotes > againstVotes` AND quorum. Displacing an incumbent means
+    ///  out-voting the weakest one still alive; executed, cancelled, stale and
+    ///  empty slots count as weight 0 and are reclaimed first, so the bench
+    ///  self-cleans as envelopes are installed and age out.
+    ///
+    ///  WHAT DIFFERS FROM THE SIBLING: a brew mandate is stockpiled indefinitely,
+    ///  so over there the bench is the ONLY memory. Here a proposal is dead six
+    ///  days after it is filed, so the bench is only ever holding the handful of
+    ///  proposals that could still be executed — eight slots is generous, not
+    ///  tight, and a ninth simultaneously-executable passed proposal with more
+    ///  votes than all eight is not a state this governor can reach in practice.
+    ///
+    ///  The pinnable hint is LEFT AS IS on purpose. With an O(BENCH_SLOTS)
+    ///  fallback, pinning it costs eight cold reads instead of one — a gas
+    ///  regression a stranger pays for in votes, not a denial. Its maximality
+    ///  invariant is unchanged and still carries the fast path, so the cheaper
+    ///  path keeps working for everyone who is not being attacked.
+    uint256[BENCH_SLOTS] private _bench;
+
     // ── Guardrails. Constants rather than settable: a governor that can vote to
     //    weaken its own limits does not have limits.
     //  ── TIMING IS IMMUTABLE PER DEPLOYMENT, NOT CONSTANT ────────────────
@@ -466,7 +517,28 @@ contract TreasuryGovernor {
                 _openVotedAt = uint64(block.timestamp);
             }
         }
+        if (support) _benchRecord(id, p.forVotes);
         emit Voted(id, msg.sender, support, w);
+    }
+
+    /// @dev Keep `id` on the bench if it out-weighs the weakest mandate already
+    ///      there. See {_bench}. O(BENCH_SLOTS), and only on a FOR-vote.
+    function _benchRecord(uint256 id, uint256 votes) private {
+        uint256 weakSlot;
+        uint256 weakVotes = type(uint256).max;
+        for (uint256 i; i < BENCH_SLOTS; ++i) {
+            uint256 b = _bench[i];
+            if (b == id) return;                       // already tracked
+            uint256 v;
+            if (b != 0) {
+                Proposal storage q = proposals[b];
+                //  Anything that can never be executed again is dead weight, not
+                //  a mandate — same monotone test the hint retires on.
+                if (!_dead(q)) v = q.forVotes;
+            }
+            if (v < weakVotes) { weakVotes = v; weakSlot = i; }
+        }
+        if (votes > weakVotes) _bench[weakSlot] = id;
     }
 
     /**
@@ -489,6 +561,26 @@ contract TreasuryGovernor {
         //  And a stale winner cannot be installed months later into a market
         //  nobody voted about.
         if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) revert VotingClosed();
+        //  ── THE GATES `propose` ENFORCES MUST HOLD HERE TOO (:387-388) ──────
+        //  `propose` refuses while an envelope is live and inside COOLDOWN of the
+        //  last one; `execute` checked NEITHER, and `id != winner()` does not
+        //  cover it. Proposals compete rather than queue, so two can pass in the
+        //  same window. Execute the leader: an envelope is installed and
+        //  `lastEnvelopeAt` is stamped. The loser is now the leader — the winner
+        //  is executed, so `_executable` drops it — and executing THAT one
+        //  overwrites the live envelope with a second mandate, with `movedBps`
+        //  and `movedPrimaryBps` reset to zero. Two full envelopes' worth of the
+        //  treasury moves inside one cooldown, which is precisely the budget
+        //  COOLDOWN exists to bound, and the guild voted for one of them as an
+        //  alternative to the other rather than in addition to it.
+        //
+        //  Same errors as `propose`, so a UI that already maps them needs no
+        //  change. A guardian `cancel` does not reopen the window: it clears
+        //  `active` but not `lastEnvelopeAt`, which is exactly how `propose`
+        //  already behaves after a cancel, and an emergency stop that let a
+        //  second envelope straight through would not be a stop.
+        if (envelope.active && block.timestamp < envelope.expiry) revert ProposalActive();
+        if (lastEnvelopeAt != 0 && block.timestamp < lastEnvelopeAt + COOLDOWN) revert CooldownActive();
         // Re-checked, because the timelock may have de-listed the asset during
         // the vote and the allowlist is the guardrail that must not be stale.
         if (!IRegistryQuotes(registry).allowedQuote(p.quote)) revert QuoteNotAllowed();
@@ -572,7 +664,6 @@ contract TreasuryGovernor {
         if (hint != 0 && _executable(proposals[hint])) return hint;
 
         uint256 bestVotes;
-        uint256 n = proposalCount;
         //  BOUNDED BY TIME, NOT BY POSITION — and the difference is a bug I put
         //  here and took back out.
         //
@@ -599,15 +690,17 @@ contract TreasuryGovernor {
         //  read, but it is paid for per proposal AND it ages out — where the
         //  original was a permanent brick and the positional fix silently
         //  discarded live mandates.
-        for (uint256 i = n; i >= 1; --i) {
-            Proposal storage p = proposals[i];
-            //  Everything at or before this point closed too long ago to be
-            //  executable, so nothing older can win.
-            if (block.timestamp > p.votingEndsAt + EXECUTION_WINDOW) break;
-            if (p.executed || p.cancelled) continue;
-            if (block.timestamp < p.votingEndsAt) continue;               // still open
-            if (!_passed(p)) continue;
-            if (p.forVotes > bestVotes) { bestVotes = p.forVotes; best = i; }
+        //  ...AND TIME WAS STILL NOT ENOUGH. The window above is six days wide and
+        //  `propose` has no per-proposal cooldown, so a stranger can fill it. The
+        //  fallback now walks the bench — eight slots, entry priced in FOR-votes —
+        //  and is O(1) in the proposal count no matter what anyone files. See
+        //  {_bench}.
+        for (uint256 i; i < BENCH_SLOTS; ++i) {
+            uint256 id = _bench[i];
+            if (id == 0) continue;
+            Proposal storage p = proposals[id];
+            if (!_executable(p)) continue;
+            if (p.forVotes > bestVotes) { bestVotes = p.forVotes; best = id; }
         }
     }
 
