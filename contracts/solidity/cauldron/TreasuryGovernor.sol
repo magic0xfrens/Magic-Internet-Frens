@@ -520,8 +520,17 @@ contract TreasuryGovernor {
         emit Cancelled(id, msg.sender);
     }
 
+    /// @notice Hand the guardian seat to someone else.
+    ///
+    ///  ZERO IS REFUSED. The guardian is the SOLE caller of {cancel} (:518) and
+    ///  of {setQuoteOracle}, so setting it to the zero address does not "disable
+    ///  the guardian" — it dead-ends both controls permanently, with no way to
+    ///  appoint a replacement because this setter is itself guardian-only. A
+    ///  deployment that genuinely wants no emergency stop must say so by never
+    ///  appointing one, not by burning the seat after the fact.
     function setGuardian(address g) external {
         if (msg.sender != guardian) revert NotGuardian();
+        if (g == address(0)) revert BadParam();
         guardian = g;
     }
 
@@ -705,6 +714,31 @@ contract TreasuryGovernor {
         //  every slice of it reverted. `allowance` already returns 0 remaining
         //  for all three no-envelope cases, so the remainder is the honest flag.
         if (left == 0 || bps > left) revert BadParam();
+        //  ── A MIGRATION MANDATE MAY ONLY BE SPENT ON THE MIGRATION ─────────
+        //  Splitting the counters (`movedBps` for every slice, `movedPrimaryBps`
+        //  only for the generation's own position) fixed a stranger REDENOMINATING
+        //  the generation off a dust leg — but it opened the mirror image, which is
+        //  a denial rather than a theft. `rotateSliceFrom` is permissionless and
+        //  the caller picks `fromLeg`, so anyone could spend a voted 10,000-bps
+        //  MIGRATION envelope entirely out of a secondary leg: `movedBps` reaches
+        //  `maxTotalBps`, `active` goes false on the line below, and
+        //  `movedPrimaryBps` — the only counter {migrationMandateSpent} reads — is
+        //  still zero. The migration the guild voted for can then never complete
+        //  under that envelope, and {COOLDOWN} (7 days) blocks the replacement.
+        //  Gas-only, repeatable at every envelope.
+        //
+        //  Reachable, narrowly: `_recordLeg` plus the `fromQuote == toQuote` revert
+        //  in `RedemptionExt.rotateSliceFrom` mean a secondary leg in a DIFFERENT
+        //  quote must already exist, so a first migration is safe and every one
+        //  after it is not.
+        //
+        //  A full-position mandate is therefore exclusive: while it is outstanding,
+        //  the envelope buys primary slices and nothing else. Rebalancing between
+        //  legs stays available under any PARTIAL envelope (`maxTotalBps < BPS_ONE`),
+        //  which is every envelope that is not a migration, and resumes the moment
+        //  the migration is spent. `BadParam` rather than a new error so the
+        //  frontend's existing revert mapping is unchanged.
+        if (!fromPrimary && e.maxTotalBps >= BPS_ONE) revert BadParam();
         e.movedBps += bps;
         if (fromPrimary) e.movedPrimaryBps += bps;
         //  ── A SPENT ENVELOPE MUST STOP BLOCKING GOVERNANCE (red-team R-05) ──
