@@ -57,6 +57,10 @@ contract QuoteRotator {
     error NoRoute();
     error TransferFailed();
     error ArbTooLarge();
+    /// @notice The oracle is wired but cannot value one leg of this rotation, so
+    ///         there is no floor to enforce. Raised rather than proceeding —
+    ///         see {swapOnce}.
+    error NotPriceable();
 
     /// @notice A scheduled conversion. Amounts are in the assets' OWN units, so
     ///         nothing here needs a common numeraire.
@@ -353,7 +357,7 @@ contract QuoteRotator {
         //
         //  Keyed by PoolId, so listing a pair does not list every pool on it.
         if (!allowedVenue[PoolIdLibrary.toId(route)]) revert NoRoute();
-        out = _swap(route, from, to, amountIn);
+
         //  ── AND THE FLOOR CANNOT COME FROM THE CALLER ALONE ─────────────────
         //  `rotateSliceFrom` is permissionless and takes `minOut` from whoever
         //  calls it, so the caller supplying 0 disarmed the only price guard.
@@ -362,7 +366,30 @@ contract QuoteRotator {
         //  a bound the attacker picks is not a bound. The caller may still demand
         //  MORE than the oracle floor (tightening is always safe); it may not
         //  demand less.
+        //  COMPUTED BEFORE THE SWAP. The floor depends only on `amountIn`, so a
+        //  rotation that cannot be priced is refused without touching the pool at
+        //  all — no liquidity moved, no gas spent on a fill that must be rejected.
         uint256 floor = _oracleFloor(from, to, amountIn);
+        //  ── AND AN UNPRICEABLE PAIR MUST FAIL SAFE, NOT FAIL OPEN ───────────
+        //  {_oracleFloor} returns 0 for "cannot value this", and 0 is also the
+        //  floor that lets ANY fill through. So the one state in which the floor
+        //  matters most — the oracle is down, or the destination quote has no feed
+        //  — was exactly the state in which it silently stopped existing, leaving
+        //  this permissionless path guarded by a `minOut` the caller supplies. The
+        //  frontend signs a flat 1-unit minimum, so in practice that is no guard at
+        //  all: the same shape as the venue drain, with the venue allowlist as the
+        //  only remaining protection.
+        //
+        //  The naive repair — zeroing a stale cache entry — is worse, and was
+        //  measured to be: it does not make the floor safe, it deletes it. The
+        //  honest answer is that a rotation nobody can price does not happen.
+        //
+        //  NO oracle wired is a different statement from "the oracle declines":
+        //  a deployment that never set one is bounded by `minOut` by design and
+        //  nothing here can invent a price for it, so that case is untouched.
+        if (floor == 0 && quoteOracle != address(0)) revert NotPriceable();
+
+        out = _swap(route, from, to, amountIn);
         if (out < (minOut > floor ? minOut : floor)) revert SlippageTooHigh();
         emit Rotated(from, to, amountIn, out, msg.sender);
     }
@@ -399,9 +426,19 @@ contract QuoteRotator {
         internal
         returns (uint256)
     {
-        uint256 inUsd = _usd(from, amountIn);
+        //  ── LIVE, NOT CACHED ────────────────────────────────────────────────
+        //  {_usd} reads `QuoteOracle.cachedUsdPerRawUnit`, which keeps its LAST
+        //  GOOD factor when a refresh comes back empty (`if (fresh > 0) c.factor =
+        //  fresh; return c.factor;`, QuoteOracle.sol:308-310). That is right for
+        //  volume accounting — a stale price beats a zero, which would read as "no
+        //  trading" and push a live generation toward death — and wrong here, where
+        //  a price frozen at whatever it was when the feed died is precisely what an
+        //  attacker wants the floor computed from. `usdPerRawUnit` is the uncached
+        //  view and returns 0 the moment the feed stops answering, which the caller
+        //  now treats as a refusal rather than as "no floor".
+        uint256 inUsd = _usdLive(from, amountIn);
         if (inUsd == 0) return 0;
-        uint256 perUnitTo = _usd(to, 1e18);   // USD per 1e18 raw units of `to`
+        uint256 perUnitTo = _usdLive(to, 1e18);   // USD per 1e18 raw units of `to`
         if (perUnitTo == 0) return 0;
         uint256 fair = (inUsd * 1e18) / perUnitTo;
         return (fair * (BPS - rotationSlipBps)) / BPS;
@@ -561,6 +598,21 @@ contract QuoteRotator {
         emit Arbed(spent, received, profitUsd, msg.sender);
     }
 
+    /// @dev UNCACHED valuation. See {_oracleFloor} for why the floor may not use
+    ///      the cache. Staticcall, so it cannot be made to write anything, and a
+    ///      reverting or absent feed decodes to 0 rather than bubbling — the caller
+    ///      turns that 0 into a refusal.
+    function _usdLive(address quote, uint256 raw) internal view returns (uint256) {
+        address o = quoteOracle;
+        if (o == address(0)) return 0;
+        (bool ok, bytes memory ret) = o.staticcall(
+            abi.encodeWithSignature("usdPerRawUnit(address)", quote)
+        );
+        if (!ok || ret.length < 32) return 0;
+        uint256 f = abi.decode(ret, (uint256));
+        return f == 0 ? 0 : (raw * f) / 1e18;
+    }
+
     function _usd(address quote, uint256 raw) internal returns (uint256) {
         address o = quoteOracle;
         if (o == address(0)) return 0;
@@ -689,6 +741,13 @@ contract QuoteRotator {
     ///      instead of reverting, and an unchecked transfer would report success
     ///      while nothing moved.
     function _safeTransfer(address token, address to, uint256 amount) internal {
+        //  A CODELESS ADDRESS IS NOT A TOKEN. `call` to an account with no code
+        //  returns success with EMPTY return data, and the check below accepts
+        //  empty as "a non-standard token that returns nothing" — so a transfer to
+        //  an address that holds no contract reported success while nothing moved.
+        //  Reachable from the allowlist side (an allowed "quote" that was never
+        //  deployed, or was self-destructed) and from any sink address.
+        if (token.code.length == 0) revert TransferFailed();
         (bool ok, bytes memory ret) =
             token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
         if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert TransferFailed();
