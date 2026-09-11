@@ -291,6 +291,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      share one clock, which is what let a stale tick poison the mark.
     ///      Packs into the same slot as the four fields above (16+56+32+24+32 bits).
     uint32 internal lastRingTs;
+    /// @dev When the observation ring was last WIPED ({syncGeneration}). A wiped
+    ///      ring reports a mark off one second of history: measured, the same 10 s
+    ///      push moved the mark tick 1929 on a warm ring and 54545 on a fresh one,
+    ///      still `ok == true`, because the fallback in {twapTick} only asks for
+    ///      MIN_TWAP (1 s). The 24h open-warmup covers the COLD start but is read
+    ///      off `registry.lastSummonAt()`, which a mid-generation quote rotation
+    ///      does not move — so opens stayed live against the collapsed mark.
+    ///      {_guardOpen} re-arms off this instead. (red-team H-4)
+    uint32 internal ringArmedAt;
 
     // ── per-timestamp liquidation throttle ──
     // Keyed on block.timestamp, not block.number: on Arbitrum/Orbit block.number
@@ -1066,6 +1075,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         obsIndex = 1;
         lastObsTs = uint32(block.timestamp);
         lastRingTs = uint32(block.timestamp);
+        ringArmedAt = uint32(block.timestamp);
         lastTick = _currentTick();
         observations[0] = Observation(uint32(block.timestamp), 0);
 
@@ -1289,6 +1299,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
     function _guardOpen(uint8 leverage) internal view {
         if (block.timestamp < registry.lastSummonAt() + warmup) revert NotWarm();
+        //  ── AND AGAIN AFTER THE RING IS WIPED (red-team H-4) ──────────────
+        //  The line above arms off the SUMMON, which a mid-generation quote
+        //  rotation does not move; {syncGeneration} nevertheless deletes the
+        //  whole observation ring, after which `twapTick`'s oldest-entry
+        //  fallback trusts as little as MIN_TWAP (1 s) of history. No position
+        //  may be opened until the ring genuinely spans `twapWindow` again.
+        if (block.timestamp < uint256(ringArmedAt) + twapWindow) revert NotWarm();
         if (_isDead()) revert TokenDead(); // no leverage into a death
         if (leverage < 1 || leverage > maxLeverage()) revert BadLeverage();
     }
