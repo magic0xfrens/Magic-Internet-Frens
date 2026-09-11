@@ -1391,16 +1391,12 @@ app.get("/floor/history", async (c) => {
 });
 
 // Per-generation LEGACY collection floors (recycle / buy-2x rollup) + recent log.
-app.get("/collection-floors", async (c) => {
-  const rows = await db.select().from(schema.collectionFloor)
-    .orderBy(desc(schema.collectionFloor.id)).limit(200);
-  const recent = await db.select().from(schema.collectionFloorEvent)
-    .orderBy(desc(schema.collectionFloorEvent.ts)).limit(100);
-  return c.json({
-    floors: rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, s(v)]))),
-    events: recent.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, s(v)]))),
-  });
-});
+//  `/collection-floors` WAS REGISTERED TWICE. Hono serves the first match, so
+//  this second handler — raw `collectionFloor` / `collectionFloorEvent` rows,
+//  a completely different response shape — was unreachable from the moment it
+//  was added. The live one is the chain-reading, cached handler above, which is
+//  what the panel consumes; two registrations of one path is a coin-flip about
+//  which response a client gets, so the dead one is gone rather than renamed.
 
 // Proposer flywheel leaderboard (fee earned per iteration proposer).
 app.get("/proposers", async (c) => {
