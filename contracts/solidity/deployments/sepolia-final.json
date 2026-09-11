@@ -1,7 +1,7 @@
 {
   "_status": "SUPERSEDED",
-  "_canonical": "deployments/sepolia.json (repository root)",
-  "_note": "SUPERSEDED \u2014 DO NOT DEPLOY FROM THIS FILE. Historical sepolia cycle-verification round. The CANONICAL record is ../../deployments/sepolia.json (repo root) \u2014 the file scripts/sync-deploy.mjs actually reads and propagates to the frontend, indexer and scripts. Kept only as a deployment history; the deploy scripts read environment variables, not this file.",
+  "_canonical": "indexer/deployments/round.json",
+  "_note": "SUPERSEDED - DO NOT DEPLOY FROM THIS FILE. Historical sepolia cycle-verification round. The canonical manifest is indexer/deployments/round.json (round 38). Read by indexer/ponder.config.ts:17 and by the frontend at src/config/cauldron.ts:10, src/config/perp.ts, src/config/quotes.ts and src/config/presale.ts (all `import round from \".../indexer/deployments/round.json\"`). It lives inside indexer/ because `railway up` only uploads that directory. Nothing in the build reads this file; the deploy scripts take their addresses from environment variables (HOOK/PRESALE/GACHA/...), so these values have no on-chain effect and are kept only as deployment history. NOTE: an earlier pass pointed this marker at the repo-root deployments/sepolia.json; that file is itself superseded round-20 data and is NOT canonical.",
   "MiFrensPresale": "0xb1d4cba4Cb1631fF86ba756119Ade6977ff8f424",
   "CauldronHook": "0xebCD538770d297b56b60BA8c4FE8D8ea29321044",
   "CauldronRegistry": "0x4Cdb936e0224651a7Ab47acdC34babF8ae433eD4",

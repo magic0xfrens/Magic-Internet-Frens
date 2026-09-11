@@ -1,7 +1,7 @@
 {
   "_status": "SUPERSEDED",
-  "_canonical": "deployments/sepolia.json (repository root)",
-  "_note": "SUPERSEDED \u2014 DO NOT DEPLOY FROM THIS FILE. Historical sepolia round (pre-rotation stack). The CANONICAL record is ../../deployments/sepolia.json (repo root) \u2014 the file scripts/sync-deploy.mjs actually reads and propagates to the frontend, indexer and scripts. Nothing in the build reads this file; the deploy scripts take their addresses from environment variables (HOOK/PRESALE/REGISTRY/...), so these values have no on-chain effect and are kept only as a deployment history.",
+  "_canonical": "indexer/deployments/round.json",
+  "_note": "SUPERSEDED - DO NOT DEPLOY FROM THIS FILE. Historical sepolia round (pre-rotation stack). The canonical manifest is indexer/deployments/round.json (round 38). Read by indexer/ponder.config.ts:17 and by the frontend at src/config/cauldron.ts:10, src/config/perp.ts, src/config/quotes.ts and src/config/presale.ts (all `import round from \".../indexer/deployments/round.json\"`). It lives inside indexer/ because `railway up` only uploads that directory. Nothing in the build reads this file; the deploy scripts take their addresses from environment variables (HOOK/PRESALE/GACHA/...), so these values have no on-chain effect and are kept only as deployment history. NOTE: an earlier pass pointed this marker at the repo-root deployments/sepolia.json; that file is itself superseded round-20 data and is NOT canonical.",
   "network": "sepolia",
   "chainId": 11155111,
   "_historicalNote": "Canonical autonomous Cauldron launchpad. Includes the TAKE_PAIR relaunch fix (verified live: full presale->summon->relaunch cycle).",

@@ -1,5 +1,8 @@
 {
-  "_comment": "CANONICAL Cauldron deployment (Sepolia). SINGLE SOURCE OF TRUTH. After a new deploy: edit this file, then run `node scripts/sync-deploy.mjs` to propagate to the frontend, indexer, scripts, and .env.local — and it prints the Railway env command.",
+  "_status": "SUPERSEDED",
+  "_canonical": "indexer/deployments/round.json",
+  "_note": "SUPERSEDED - DO NOT DEPLOY FROM THIS FILE, AND DO NOT TRUST ITS OLD HEADER. This file used to declare itself \"CANONICAL ... SINGLE SOURCE OF TRUTH\"; that was false by the time it was audited. It carries ROUND 20 while the live system runs ROUND 38, and the two agree on nothing except poolManager and positionManager. The canonical manifest is indexer/deployments/round.json. Read by indexer/ponder.config.ts:17 and by the frontend at src/config/cauldron.ts:10, src/config/perp.ts, src/config/quotes.ts and src/config/presale.ts (all `import round from \".../indexer/deployments/round.json\"`). It lives inside indexer/ because `railway up` only uploads that directory. Nothing in the build reads THIS file. Its only reader is scripts/sync-deploy.mjs, which docs/protocol/11-OPERATIONS.md:215 marks stale and which appears in no package.json script or CI job. That script is also actively dangerous now: it rewrites addresses INTO src/config/cauldron.ts and indexer/ponder.config.ts, both of which import the canonical manifest instead - so running it would either no-op with \"no match\" warnings or overwrite the correct wiring with round-20 addresses. Kept, not deleted, as deployment history.",
+  "_historicalComment": "CANONICAL Cauldron deployment (Sepolia). SINGLE SOURCE OF TRUTH. After a new deploy: edit this file, then run `node scripts/sync-deploy.mjs` to propagate to the frontend, indexer, scripts, and .env.local \u2014 and it prints the Railway env command.",
   "round": 20,
   "chainId": 11155111,
   "indexerUrl": "https://mifrens-indexer-app-production.up.railway.app",
