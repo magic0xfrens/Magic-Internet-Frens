@@ -10,7 +10,7 @@ import { usePoll } from "@/hooks/usePoll";
  *
  * ── WHAT THIS REPLACES ────────────────────────────────────────────────────
  * The previous UI drove a three-step flow — `registry.beginRotation`, then
- * `rotator.setPlan`, then `registry.completeRotation`. Two of those three do not
+ * `rotator.setPlan`, then `registry.completeRotation`. None of those three is
  * exist as callable entrypoints:
  *
  *   • `beginRotation` is not defined in any contract in the repo.

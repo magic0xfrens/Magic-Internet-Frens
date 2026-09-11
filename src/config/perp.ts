@@ -70,23 +70,16 @@ export const PERP_ABI = [
     { name: "to", type: "address", indexed: true },
     { name: "badgeId", type: "uint256", indexed: false },
   ] },
+  //  reads — RE-SYNCED against contracts/solidity/out. `openFeeBps()`,
+  //  `ogDiscountBps()` and `stats()` were declared here but exist on no compiled
+  //  contract; nothing called them (every stat comes from Ponder), so they were
+  //  dead selectors waiting to be wired up by someone who trusted the ABI.
   // reads
   { type: "function", name: "maxLeverage", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
   { type: "function", name: "activeEthDepth", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "openFeeBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "ogDiscountBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "warmup", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "plv", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "plvToken", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  {
-    type: "function", name: "stats", stateMutability: "view", inputs: [],
-    outputs: [
-      { name: "longOi", type: "uint256" }, { name: "shortOiEth", type: "uint256" },
-      { name: "plvEth", type: "uint256" }, { name: "plvTok", type: "uint256" },
-      { name: "depthEth", type: "uint256" }, { name: "maxLev", type: "uint8" },
-      { name: "markSqrt", type: "uint160" }, { name: "fundingIdx", type: "int256" }, { name: "dead", type: "bool" },
-    ],
-  },
   {
     type: "function", name: "positions", stateMutability: "view", inputs: [{ type: "uint256" }],
     outputs: [

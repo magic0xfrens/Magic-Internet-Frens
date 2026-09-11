@@ -91,7 +91,6 @@ export const REGISTRY_ABI = [
   { type: "function", name: "floorPerFren", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   // Re-enchant fee for a MOVED fren (= enchantFeeMultBps × floor). OGs are free.
   { type: "function", name: "enchantFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "genesisSharePerFren", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "genesisReserveOutstanding", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "genesisShares", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   // Protection circuit-breaker: redemption is paused. Included so viem decodes the
@@ -101,7 +100,6 @@ export const REGISTRY_ABI = [
   // floor (NFT → treasury), or buy a treasury-held one for 2× floor (grows the floor).
   { type: "function", name: "recycleCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "buyCollectionNFT", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "collectionLedger", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   // Quote asset per generation + the treasury-curated allowlist (0 = native ETH).
   { type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "allowedQuote", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "bool" }] },
@@ -136,7 +134,6 @@ export const HOOK_ABI = [
   { type: "function", name: "pendingOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "committedOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "missStreak", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "pityThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "oddsForPlay", stateMutability: "view", inputs: [{ name: "playWei", type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "costOfNextCrystals", stateMutability: "view", inputs: [{ name: "count", type: "uint256" }], outputs: [{ type: "uint256" }] },
   // Mana progress toward the next crystal: (banked toward next, its price, whole ready).
@@ -165,10 +162,15 @@ export const HOOK_ABI = [
 /** CollectionLedger — the per-collection legacy-floor cap table (r28). Each past
  *  volume collection keeps a token entitlement, redeemable from the shared reserve,
  *  that moons with the machine. floorPerNFT rises via 2× buybacks + live buyback. */
+//  RE-SYNCED against contracts/solidity/out. `floorPerNFT(uint256)` and
+//  `outstanding(uint256)` were removed: the ledger implements the TWO-argument
+//  forms (`floorPerNFT(uint256,uint256)` = 0x269f17ef,
+//  `outstanding(uint256,uint256)` = 0x7a605f78) and nothing called the one-arg
+//  shapes. A declared selector nothing implements is how the perp opens stayed
+//  broken for a whole release.
 export const LEDGER_ABI = [
   { type: "function", name: "floorPerNFT", stateMutability: "view", inputs: [{ name: "gen", type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "entitledTokens", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "outstanding", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "crystallized", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] },
   // Live-buyback accumulator for the CURRENT collection (folds into its floor at death).
   { type: "function", name: "pending", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
@@ -178,8 +180,6 @@ export const LEDGER_ABI = [
 /** Hook reads for the live buyback progress bar. */
 export const HOOK_LEGACY_ABI = [
   { type: "function", name: "legacyBuffer", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "legacyThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "legacyBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
 /** CauldronGovernor — proposals + votes (for the governance panel). */
@@ -292,7 +292,6 @@ export const TOKEN_ABI = [
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "dead", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
-  { type: "function", name: "isAlive", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 

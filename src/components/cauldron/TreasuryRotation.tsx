@@ -15,8 +15,8 @@ import {
  * ── WHY THIS IS TWO SURFACES AND NOT THREE STEPS ──────────────────────────
  * The previous version drove `beginRotation` → `setPlan` → `completeRotation`
  * as a wizard. Two of those three are not callable: `beginRotation` does not
- * exist in any contract, and `completeRotation` lives in `RedemptionExt` behind
- * a registry that forwards only six selectors and has no fallback. The flow
+ * exist in any contract, and `completeRotation` has since been removed from
+ * `RedemptionExt` entirely, along with its `RotationCompleted` event. The flow
  * could never have worked against any deployment.
  *
  * The real shape of the thing is not a wizard. `RedemptionExt.rotateSlice` does

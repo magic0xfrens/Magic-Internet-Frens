@@ -55,13 +55,9 @@ export const RegistryAbi = [
     ],
     anonymous: false,
   },
-  {
-    type: "event",
-    name: "UnclaimedBurned", // NOT EMITTED BY ANY CONTRACT — see indexer/src/index.ts
-    inputs: [
-      { name: "gen", type: "uint256", indexed: true },
-      { name: "amount", type: "uint256", indexed: false },
-    ],
-    anonymous: false,
-  },
+  //  NO `UnclaimedBurned`. The event exists in no compiled artifact (verified
+  //  against contracts/solidity/out: 333 events, none with this name), so the
+  //  filter could never fire and `iteration.burned` was a permanent 0 served as
+  //  an indexed statistic. A dead entry left "just in case" is the bug itself.
+  
 ] as const;

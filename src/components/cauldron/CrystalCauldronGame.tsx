@@ -95,14 +95,16 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
 
   const { data: opened, refetch: refOpened } = useReadContract({ ...hook, functionName: "opened", args: address ? [address] : undefined, ...qEnabled });
   const { data: miss, refetch: refMiss } = useReadContract({ ...hook, functionName: "missStreak", args: address ? [address] : undefined, ...qEnabled });
-  const { data: pity } = useReadContract({ ...hook, functionName: "pityThreshold" });
   const { data: prog, refetch: refProg } = useReadContract({ ...hook, functionName: "progress", args: address ? [address] : undefined, ...qEnabled });
   const spinWei = parseEther((stake * loops).toFixed(18));
   const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [spinWei], query: { placeholderData: (p) => p } });
 
   const openedN = opened != null ? Number(opened as bigint) : 0;
   const missN = miss != null ? Number(miss as bigint) : 0;
-  const pityN = pity != null ? Number(pity as bigint) : 8;
+  //  The hook exposes no `pityThreshold()` — it is in no compiled artifact, so
+  //  the read always failed and this always fell through to 8. Stating the
+  //  constant is honest; a read that cannot succeed only looks like live data.
+  const pityN = 8;
   const winPct = oddsBps != null ? Number(oddsBps as bigint) / 100 : 0;
   const pityLeft = Math.max(pityN - missN, 0);
   const [inMana, manaThreshold] = (prog as [bigint, bigint, bigint] | undefined) ?? [0n, 0n, 0n];
