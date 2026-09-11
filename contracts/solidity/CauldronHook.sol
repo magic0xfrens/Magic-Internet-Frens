@@ -1014,7 +1014,27 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      us. Driving it off the caller's key let an attacker point the hook's
     ///      own ETH at a book they priced and control.
     function _maybeLegacyBuyback(PoolId id, PoolKey calldata key) private {
-        if (legacyRegistry == address(0) || legacyBuffer < legacyThreshold) return;
+        if (legacyRegistry == address(0) || legacyBuffer == 0) return;
+        PoolKey memory live = _liveKey;
+        //  DENOMINATION MATCH, AND AN EXIT WHEN IT FAILS (red-team X1/X4a). The
+        //  buffer is spent as raw units of `live.currency0`; if it is holding
+        //  anything else — a native royalty on an ERC20 generation, or a balance
+        //  left over from the quote it was funded in before a rotation — spending
+        //  it would pay the WRONG asset out of the relaunch reserve. Roll it into
+        //  the reserve for the asset it actually is instead, which both stops the
+        //  drain and gives the value an exit (`releaseRelaunchETH` /
+        //  `releaseRelaunchAsset`). Checked BEFORE the threshold so a stranded
+        //  sub-threshold balance still drains rather than sitting forever.
+        if (legacyBufferAsset != Currency.unwrap(live.currency0)) {
+            uint256 stale = legacyBuffer;
+            legacyBuffer = 0;
+            //  (no event: this contract is ON the EIP-170 ceiling. The move is
+            //  fully observable from the public `legacyBuffer`,
+            //  `legacyBufferAsset`, `relaunchETH` and `relaunchAsset` getters.)
+            _creditFor(legacyBufferAsset, stale);
+            return;
+        }
+        if (legacyBuffer < legacyThreshold) return;
         //  ETH-LAYOUT ONLY, for now. `legacyBuyStep` hardcodes `zeroForOne: true`
         //  and settles with `settle{value:}`. On a pool whose iteration token
         //  sorts to currency0, `zeroForOne: true` swaps TOKEN OUT — it would
@@ -1026,7 +1046,6 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  `legacyRegistry` is unset. Generalising the swap direction and the
         //  settle path is tracked in docs/QUOTE_ASSET_PLAN.md §5.
         if (!quoteIsCurrency0[id]) return;
-        PoolKey memory live = _liveKey;
         // Only ever fire on (and into) the protocol's own live pool.
         if (Currency.unwrap(live.currency1) == address(0)) return; // not wired yet
         if (PoolId.unwrap(id) != PoolId.unwrap(live.toId())) return;
@@ -1073,7 +1092,20 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // here. All bookkeeping stays on this side, which keeps every public
         // getter the indexer reads exactly where it was.
         _inSelfBuy = true;
-        (uint256 spent, uint256 got) = LegacyBuyLib.buyStep(poolManager, key, amt);
+        //  THE SPENDER'S DENOMINATION MUST MATCH THE BUFFER'S (X1/X4a). The
+        //  only caller gates on this as well, but the gate belongs HERE too:
+        //  this is the function that actually hands the number to the swap, and
+        //  a future caller that forgets would re-open a Critical. Reverting is
+        //  contained — the sole call site is the result-ignored self-call, and
+        //  the revert rolls back the `legacyBuffer = 0` above.
+        address q = Currency.unwrap(key.currency0);
+        if (legacyBufferAsset != q) revert BadParam();
+
+        //  Hand the library the counter that ALREADY claims part of this
+        //  contract's currency0 balance, so the buy clamps to the free remainder
+        //  and can never move reserve balance without debiting it (X1/X4a).
+        (uint256 spent, uint256 got) =
+            LegacyBuyLib.buyStep(poolManager, key, amt, q == address(0) ? relaunchETH : relaunchAsset[q]);
         _inSelfBuy = false;
 
         // Return the unspent remainder to the buffer so it funds the next buy
@@ -1095,6 +1127,15 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         the empty `receive()` because the hook receives raw ETH internally
     ///         (fee takes) that must NOT be double-counted into the buffer.
     function fundLegacyBuffer() external payable {
+        //  REJECT VALUE THIS BUFFER CANNOT SPEND (red-team X1/X4a — Critical).
+        //  The buffer is spent as raw units of the live pool's currency0. Native
+        //  wei may therefore only enter it when that currency IS native, and
+        //  never on top of a buffer already denominated in something else.
+        //  Reverting (rather than silently keeping the wei) is the point: an
+        //  accepted-but-unspendable donation had NO exit at any privilege level.
+        if (Currency.unwrap(_liveKey.currency0) != address(0)
+            || (legacyBuffer != 0 && legacyBufferAsset != address(0))) revert BadParam();
+        legacyBufferAsset = address(0);
         legacyBuffer += msg.value;
     }
 
@@ -1211,9 +1252,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      site: this hook is against the EIP-170 ceiling, and the sites that
     ///      credit the reserve are exactly the sites where getting the
     ///      denomination wrong is unrecoverable.
-    function _creditReserve(uint256 amount) private {
+    function _creditReserve(uint256 amount) private { _creditFor(_feeAsset, amount); }
+
+    /// @dev Same, for a residual whose denomination is NOT the current `_feeAsset`
+    ///      — the stale buyback buffer after a quote rotation (X1/X4a).
+    function _creditFor(address a, uint256 amount) private {
         if (amount == 0) return;
-        address a = _feeAsset;
         if (a == address(0)) relaunchETH += amount;
         else relaunchAsset[a] += amount;
     }
@@ -1315,14 +1359,19 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  other than the live quote keeps its old route: it stays in the
         //  floor/relaunch split below, where `_creditReserve` denominates it
         //  correctly.
+        //  NEVER MIX TWO DENOMINATIONS IN ONE BALANCE (red-team X1/X4a): if the
+        //  buffer is still holding the previous quote, this share keeps its old
+        //  route (floor/relaunch, where `_creditReserve` denominates it right).
         if (_feeAsset == Currency.unwrap(_liveKey.currency0)
-            && legacyRegistry != address(0) && legacyBps > 0) {
+            && legacyRegistry != address(0) && legacyBps > 0
+            && (legacyBuffer == 0 || legacyBufferAsset == _feeAsset)) {
             uint256 want = ((feeAmount - wantGuild) * legacyBps) / BPS;
             uint256 fromFloor = want > wantFloor ? wantFloor : want;
             wantFloor -= fromFloor;
             uint256 fromRelaunch = want - fromFloor;
             if (fromRelaunch > wantRelaunch) fromRelaunch = wantRelaunch;
             wantRelaunch -= fromRelaunch;
+            legacyBufferAsset = _feeAsset;
             legacyBuffer += fromFloor + fromRelaunch;
         }
 
@@ -1338,7 +1387,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
                 toFloor = 0;
                 //  Same native-only rule as the buyback carve above: the buffer is
                 //  spent as ether, so only ether may be booked into it.
-                if (_feeAsset == address(0) && legacyRegistry != address(0)) legacyBuffer += wantFloor;
+                if (_feeAsset == address(0) && legacyRegistry != address(0)
+                    && (legacyBuffer == 0 || legacyBufferAsset == address(0))) {
+                    legacyBufferAsset = address(0);
+                    legacyBuffer += wantFloor;
+                }
                 else wantRelaunch += wantFloor; // no vault + no buyback → fold into relaunch
             } else if (_feeAsset != address(0)) {
                 //  NON-NATIVE FLOOR (audit Q-01 floor corollary). CauldronVault
@@ -2397,6 +2450,24 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  when quotes were generalised. Splitting the two denominations is what
     ///  lets that line stay removed safely.
     mapping(address => uint256) public relaunchAsset;
+
+    /// @notice The asset `legacyBuffer` is DENOMINATED in (address(0) = native wei).
+    ///
+    ///  ── WHY THIS EXISTS (red-team X1/X4a — Critical) ───────────────────────
+    ///  `legacyBuffer` was a bare integer. It was funded in native wei by the
+    ///  permissionless `fundLegacyBuffer()` (royalties) and spent by
+    ///  {LegacyBuyLib.buyStep} as raw units of the LIVE pool's currency0 —
+    ///  whatever that currency is. On an ERC20-quoted generation the two
+    ///  disagreed: 0.02 ETH of donated wei became 2e16 raw units of a 6-decimal
+    ///  stable, i.e. 20 billion tokens. Where the hook held less, the buy
+    ///  reverted forever behind the result-ignored self-call and the feature went
+    ///  silently dead with no reset path at any privilege level; where it held
+    ///  more, the buy paid for the donation out of `relaunchAsset[q]` — a
+    ///  holder-facing reserve — without debiting that counter.
+    ///
+    ///  Appended at the END of storage on purpose: inserting it next to
+    ///  `legacyBuffer` would shift every slot after it.
+    address public legacyBufferAsset;
 
     receive() external payable {}
 }
