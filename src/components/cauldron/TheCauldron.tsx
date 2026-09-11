@@ -10,6 +10,7 @@ import PerpPanel from "@/components/cauldron/PerpPanel";
 import StakePanel from "@/components/cauldron/StakePanel";
 import TradingChart from "@/components/cauldron/TradingChart";
 import { formatEther } from "viem";
+import { useSignMessage } from "wagmi";
 import { useCauldronMachine, type Proposal, type Phase, type MigratableBalance } from "@/hooks/useCauldronMachine";
 import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
@@ -330,11 +331,20 @@ const PROPOSAL_BRAND: Record<string, { logo: string; banner: string; accent: str
   MIF: { logo: "/mifrens-logo.svg", banner: "/mifrens-frens-banner.png", accent: "#d5fd51", logoBg: "#2A1F54" },
 };
 
+/** sha256 hex of a string, or "none" — the server digests the same way. */
+async function sha256Hex(v?: string): Promise<string> {
+  if (!v) return "none";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { name: string; ticker: string; gen: string; genNum: number; phase: Phase; col: string; collection?: string }) {
   const fallback = BREW_BRAND[ticker?.toUpperCase?.() ?? ""];
   const [uploaded, setUploaded] = useState<{ logo?: string; banner?: string }>({});
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const { signMessageAsync } = useSignMessage();
 
   // Load any uploaded PFP/banner for this iteration (survives reindex).
   useEffect(() => {
@@ -360,13 +370,30 @@ function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { na
     };
     inp.click();
   };
+  //  THE BRANDING WRITE IS SIGNED. This row IS the live profile image and
+  //  banner, and the route used to take it from anyone at all. The signature
+  //  commits to the CONTENT (sha256 of each image), the generation and a
+  //  timestamp, so it cannot be replayed onto another image or another gen.
+  //  Must match `brandMessage` in api/brand.ts byte for byte.
   const save = async () => {
     setSaving(true);
     try {
-      await fetch("/api/brand", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gen: genNum, logo: uploaded.logo, banner: uploaded.banner }) });
+      const ts = Date.now();
+      const message = [
+        "Cauldron brand update",
+        `gen: ${genNum}`,
+        `logo: ${await sha256Hex(uploaded.logo)}`,
+        `banner: ${await sha256Hex(uploaded.banner)}`,
+        "website: none",
+        `issued: ${ts}`,
+      ].join("\n");
+      const sig = await signMessageAsync({ message });
+      const r = await fetch("/api/brand", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gen: genNum, logo: uploaded.logo, banner: uploaded.banner, ts, sig }) });
+      if (!r.ok) { setSaveErr(((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? "save failed"); return; }
+      setSaveErr(null);
       setEditing(false);
-    } catch { /* ignore */ } finally { setSaving(false); }
+    } catch (e) { setSaveErr((e as Error).message?.slice(0, 80) ?? "save failed"); } finally { setSaving(false); }
   };
 
   return (
@@ -382,6 +409,7 @@ function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { na
           <button onClick={() => pickFile("logo")}>Upload PFP</button>
           <button onClick={() => pickFile("banner")}>Upload banner</button>
           <button className="tc-profile__save" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          {saveErr && <span className="tc-mono tc-dim" style={{ color: "#ff6b6b" }}>{saveErr}</span>}
         </div>
       )}
       <div className="tc-profile__logo" style={{ boxShadow: `0 0 0 3px #171226, 0 0 22px ${col}55` }}>
