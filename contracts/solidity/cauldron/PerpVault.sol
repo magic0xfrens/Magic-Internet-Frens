@@ -85,9 +85,20 @@ contract PerpVault is ReentrancyGuard {
     //
     //      ONE ASSET AT A TIME. This side holds exactly one denomination, the
     //      engine's current `quote`. {PerpEngine.syncGeneration} refuses to adopt
-    //      a new quote while `plv != 0`, so the asset cannot change underneath a
-    //      staker: the vault must be drained first, and a queue left against zero
-    //      backing is written down to zero by {_haircut} before then.
+    //      a new quote while {hasQuoteStake} is true, so the asset cannot change
+    //      underneath a staker: the vault must be drained first, and a queue left
+    //      against zero backing is written down to zero by {_haircut} before then.
+    //
+    //  ── THE INVARIANT WAS NOT ENFORCEABLE AS WRITTEN (red-team H-2) ───────
+    //  It used to cite `plv != 0` as the engine's guard. That is the WEAKEST
+    //  possible reading of "drained": `openCount == 0` forces `longOiEth == 0`,
+    //  so `totalEth() == plv` and `plv == 0` is EXACTLY the moment a queued exit
+    //  has zero backing — the guard passed precisely when this side was at its
+    //  most stale. Measured: an 8 ETH queue survived a rotation and took 100% of
+    //  a 1000 USDG depositor. And the write-down the second clause relies on
+    //  never persisted: {claimPendingEth} zeroed the entry and then reverted on
+    //  the very next line, rolling it back. Both halves are now real — the engine
+    //  asks {hasQuoteStake}, and the write-down returns instead of reverting.
     //
     //  Anything added here must hold that invariant or convert explicitly.
     // ── ETH side ──
@@ -155,6 +166,18 @@ contract PerpVault is ReentrancyGuard {
     ///  answer, so it answers it here.
     function hasStakers() external view returns (bool) {
         return (ethShares | tokShares | pendingEth | pendingTok) != 0;
+    }
+
+    /// @notice Does the QUOTE-denominated (ETH) side still hold anyone's value —
+    ///         live shares or an unclaimed queued exit?
+    ///
+    ///  {PerpEngine.syncGeneration} asks this before adopting a NEW quote. The
+    ///  token side is deliberately excluded: `tokShares`/`pendingTok` are counts
+    ///  of the generation's TOKEN, which a quote rotation does not redenominate,
+    ///  and blocking on them would make rotation unrunnable for no safety gain.
+    ///  Their quote-denominated reward pot (`tokYieldEth`) is checked engine-side.
+    function hasQuoteStake() external view returns (bool) {
+        return (ethShares | pendingEth) != 0;
     }
 
     // ── asset bases (what backs LIVE shares, net of queued exits) ────────────
@@ -293,7 +316,15 @@ contract PerpVault is ReentrancyGuard {
         //  Share any shortfall across the whole queue before paying (see {_haircut}).
         uint256 capped = _haircut(owed, engine.totalEth(), pendingEth);
         if (capped < owed) { pendingEth -= (owed - capped); pendingEthOf[msg.sender] = capped; owed = capped; }
-        if (owed == 0) revert ZeroAmount();
+        //  ── THE WRITE-DOWN HAS TO SURVIVE THE CALL (red-team H-2) ─────────
+        //  This was `revert ZeroAmount()`, which rolled back the two assignments
+        //  on the line above. A queue standing against ZERO backing therefore
+        //  kept its full nominal forever: `pendingEth` could never reach zero,
+        //  the side could never be drained, and the invariant documented at
+        //  :86-90 was a property the code could not deliver. Returning banks the
+        //  zero instead, so a worthless claim is recognised as worthless and the
+        //  vault can be emptied and reopened in the new quote.
+        if (owed == 0) { emit ClaimEth(msg.sender, 0); return 0; }
         uint256 free = engine.freeEth();
         paid = owed <= free ? owed : free;
         if (paid == 0) revert ZeroAmount();

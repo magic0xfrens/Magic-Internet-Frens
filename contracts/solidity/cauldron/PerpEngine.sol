@@ -356,6 +356,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         reverted). Claimed via {claimPayout}. This is what stops one hostile
     ///         trader from freezing every settlement path. (Audit H-04.)
     mapping(address => uint256) public payoutOwed;
+    /// @dev Σ of every unclaimed {payoutOwed} entry. The mapping itself cannot be
+    ///      enumerated, so {syncGeneration}'s rotation guard reads this aggregate to
+    ///      learn whether anyone is still owed the OLD quote.
+    ///
+    ///      `internal` (EIP-170): this variable is NEW — nothing has ever read it, so
+    ///      no ABI entry is removed and no frontend string is broken. Per-user
+    ///      `payoutOwed` stays public, which is what a claimant actually needs; the
+    ///      aggregate is readable from storage off-chain, the same trade already made
+    ///      for `lastTick`, `maxUtilBps`, `observations` and the tier arrays.
+    uint256 internal payoutOwedTotal;
 
     // ── Enumerable open set — lets ANY swap (any interface) scan + liquidate
     //    underwater positions without a hint. O(1) add/remove (swap-and-pop).
@@ -1113,7 +1123,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  Only ever bites on a LIVE ROTATION: a relaunch clamps its quote to
         //  native (red-team B-05), so the rebirth path sees `newQuote == quote`
         //  and never reaches this line.
-        if (newQuote != quote && plv != 0) revert VaultStaked();
+        if (newQuote != quote) {
+            //  ── ENUMERATE THE WHOLE SET, NOT JUST `plv` (red-team H-1) ────
+            //  Every counter below is a BARE COUNT of the quote asset and each is
+            //  paid out through `_sendEth`/`_pushQuote`, i.e. in whatever `quote`
+            //  says TODAY. Naming only `plv` let `tokYieldEth`, `insuranceEth`
+            //  and the `payoutOwed` book survive the flip at their old nominal
+            //  and then claim that many units of the NEW asset. Measured: a
+            //  1e18-wei `tokYieldEth` pulled 1e18 of the ERC20 backing `plv`,
+            //  leaving the engine holding 999e18 against a 1000e18 claim while
+            //  1.5 ETH sat native and permanently unpayable.
+            if ((plv | tokYieldEth | insuranceEth | payoutOwedTotal) != 0) revert VaultStaked();
+            //  ...AND the vault's own quote-side claims (red-team H-2). `plv == 0`
+            //  does NOT mean the vault is empty: `openCount == 0` forces
+            //  `longOiEth == 0`, so `totalEth() == plv` and `plv == 0` is EXACTLY
+            //  when a queued exit is worst-backed — the old guard passed precisely
+            //  when a stale 8 ETH queue was standing, and that queue then took
+            //  100% of the first deposit made in the new asset. Drain first, which
+            //  is what PerpVault's own invariant note (:86-90) always claimed.
+            if (vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) revert VaultStaked();
+        }
         quote = newQuote;
 
         syncedGeneration = gen;
@@ -1427,7 +1456,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             );
             ok = called && (ret.length == 0 || abi.decode(ret, (bool)));
         }
-        if (!ok) { unchecked { payoutOwed[to] += amount; } emit PayoutOwed(to, amount); }
+        if (!ok) { unchecked { payoutOwed[to] += amount; payoutOwedTotal += amount; } emit PayoutOwed(to, amount); }
     }
 
     /// @notice Withdraw a settlement payout that could not be pushed to you (your
@@ -1436,6 +1465,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         amount = payoutOwed[msg.sender];
         if (amount == 0) revert ZeroValue();
         payoutOwed[msg.sender] = 0;                     // effects before interaction
+        payoutOwedTotal -= amount;
         _pushQuote(msg.sender, amount);
     }
     /// @dev LONG bad debt: `plv` already booked the reduced repayment, so ADD the
