@@ -107,16 +107,18 @@ contract X2a_MigrationMandateStarvation is Test {
     function test_X2a_legSlicesCannotStarveTheMigrationMandate() public {
         _installFullMigrationEnvelope();
 
-        // THE ATTACK: spend the guild's migration budget out of a secondary leg.
-        bool first  = _trySecondaryLegSlice(2500);
-        bool second = _trySecondaryLegSlice(2500);
+        // THE ATTACK: spend the guild's whole migration budget out of a secondary
+        // leg. The slices still RUN — leg-to-leg rebalancing is authorised under
+        // this envelope and rotating a leg home to ether is a normal move — they
+        // simply meter against their own budget now.
+        for (uint256 i; i < 4; ++i) {
+            assertTrue(_trySecondaryLegSlice(2500), "secondary rebalancing still works");
+        }
+        assertFalse(_trySecondaryLegSlice(1), "and is still bounded by what the guild voted");
 
-        assertFalse(first,  "FIXED: a full migration mandate refuses a secondary-leg slice");
-        assertFalse(second, "FIXED: and refuses every retry");
-
-        // Nothing was taken out of the envelope, so the migration is still fundable.
-        assertEq(_remaining(), 10_000, "the whole envelope survives the attempt");
-        assertFalse(gov.migrationMandateSpent(), "and is not yet spent");
+        // The migration's own budget is untouched by all of it.
+        assertEq(_remaining(), 10_000, "FIXED: the voted migration budget survives intact");
+        assertFalse(gov.migrationMandateSpent(), "not yet spent - but still spendABLE");
 
         // ...and the honest path still completes it, under the very same envelope.
         _spendFromPrimary();

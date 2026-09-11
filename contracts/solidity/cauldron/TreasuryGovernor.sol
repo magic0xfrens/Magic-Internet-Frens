@@ -652,8 +652,28 @@ contract TreasuryGovernor {
     function allowance() public view returns (address quote, uint16 remainingBps) {
         Envelope storage e = envelope;
         if (!e.active || block.timestamp >= e.expiry) return (address(0), 0);
-        if (e.movedBps >= e.maxTotalBps) return (address(0), 0);
-        return (e.quote, e.maxTotalBps - e.movedBps);
+        //  ── A MIGRATION MANDATE REPORTS ITS OWN PROGRESS, NOT THE SHARED SUM ─
+        //  `movedBps` counts EVERY slice, including ones taken out of a secondary
+        //  leg by a permissionless caller who is not executing the migration. So
+        //  reporting `maxTotalBps - movedBps` let a stranger spend a voted
+        //  10,000-bps migration envelope entirely out of a side pool: the remainder
+        //  reached 0, {consume} read that as "no envelope", the envelope
+        //  deactivated, and `movedPrimaryBps` — the only counter
+        //  {migrationMandateSpent} reads — was still zero. The migration could then
+        //  never complete, and COOLDOWN (7 days) blocked the replacement. Gas only,
+        //  repeatable at every envelope.
+        //
+        //  A full-position mandate therefore meters against the position it is
+        //  about. Leg-to-leg rebalancing stays available under the same envelope
+        //  (it is authorised, and rotating a leg home to ether is a normal move) —
+        //  {consume} bounds it separately — it simply can no longer eat the budget
+        //  the guild voted for the migration.
+        //
+        //  Partial envelopes are unchanged: below a whole position there is no
+        //  migration to protect and one shared budget is the honest accounting.
+        uint16 spent = e.maxTotalBps >= BPS_ONE ? e.movedPrimaryBps : e.movedBps;
+        if (spent >= e.maxTotalBps) return (address(0), 0);
+        return (e.quote, e.maxTotalBps - spent);
     }
 
     /// @notice Did the guild's mandate cover the WHOLE position, and is it spent?
@@ -713,32 +733,26 @@ contract TreasuryGovernor {
         //  perfectly valid envelope was indistinguishable from no envelope and
         //  every slice of it reverted. `allowance` already returns 0 remaining
         //  for all three no-envelope cases, so the remainder is the honest flag.
-        if (left == 0 || bps > left) revert BadParam();
-        //  ── A MIGRATION MANDATE MAY ONLY BE SPENT ON THE MIGRATION ─────────
-        //  Splitting the counters (`movedBps` for every slice, `movedPrimaryBps`
-        //  only for the generation's own position) fixed a stranger REDENOMINATING
-        //  the generation off a dust leg — but it opened the mirror image, which is
-        //  a denial rather than a theft. `rotateSliceFrom` is permissionless and
-        //  the caller picks `fromLeg`, so anyone could spend a voted 10,000-bps
-        //  MIGRATION envelope entirely out of a secondary leg: `movedBps` reaches
-        //  `maxTotalBps`, `active` goes false on the line below, and
-        //  `movedPrimaryBps` — the only counter {migrationMandateSpent} reads — is
-        //  still zero. The migration the guild voted for can then never complete
-        //  under that envelope, and {COOLDOWN} (7 days) blocks the replacement.
-        //  Gas-only, repeatable at every envelope.
+        if (left == 0) revert BadParam();
+        //  ── AND A SECONDARY LEG SPENDS ITS OWN BUDGET, NOT THE MIGRATION'S ──
+        //  `left` is now the budget for the thing this slice actually is (see
+        //  {allowance}). A primary slice is bounded by it. A secondary slice is
+        //  bounded by the SHARED total instead, so leg-to-leg rebalancing is still
+        //  capped by what the guild voted and still cannot run forever — it just
+        //  cannot starve the migration, because the primary's remaining budget is
+        //  tracked separately and nothing a stranger does reduces it.
         //
-        //  Reachable, narrowly: `_recordLeg` plus the `fromQuote == toQuote` revert
-        //  in `RedemptionExt.rotateSliceFrom` mean a secondary leg in a DIFFERENT
-        //  quote must already exist, so a first migration is safe and every one
-        //  after it is not.
-        //
-        //  A full-position mandate is therefore exclusive: while it is outstanding,
-        //  the envelope buys primary slices and nothing else. Rebalancing between
-        //  legs stays available under any PARTIAL envelope (`maxTotalBps < BPS_ONE`),
-        //  which is every envelope that is not a migration, and resumes the moment
-        //  the migration is spent. `BadParam` rather than a new error so the
-        //  frontend's existing revert mapping is unchanged.
-        if (!fromPrimary && e.maxTotalBps >= BPS_ONE) revert BadParam();
+        //  Reachable, narrowly, which is why this was a High and not a Critical:
+        //  `_recordLeg` upserts by quote and `fromQuote == toQuote` reverts
+        //  BadConfig, so a secondary leg in a DIFFERENT quote must already exist. A
+        //  generation's FIRST migration could not be starved; every one after it
+        //  could.
+        uint16 cap = e.maxTotalBps;
+        if (fromPrimary) {
+            if (bps > left) revert BadParam();
+        } else if (e.movedBps >= cap || bps > cap - e.movedBps) {
+            revert BadParam();
+        }
         e.movedBps += bps;
         if (fromPrimary) e.movedPrimaryBps += bps;
         //  ── A SPENT ENVELOPE MUST STOP BLOCKING GOVERNANCE (red-team R-05) ──
@@ -749,7 +763,10 @@ contract TreasuryGovernor {
         //  leaving the guild unable to even FILE a correction to a bad rotation.
         //  `allowance()` already reported this envelope as finished; this makes
         //  the stored state agree with what it reports.
-        if (e.movedBps >= e.maxTotalBps) e.active = false;
+        //  DEACTIVATION FOLLOWS THE SAME COUNTER {allowance} REPORTS: a migration
+        //  envelope is finished when the MIGRATION is finished, not when a stranger
+        //  has spent the shared total on side pools.
+        if (cap >= BPS_ONE ? e.movedPrimaryBps >= cap : e.movedBps >= cap) e.active = false;
         emit EnvelopeConsumed(bps, e.movedBps);
     }
 
