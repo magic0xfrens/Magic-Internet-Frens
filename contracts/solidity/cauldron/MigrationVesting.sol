@@ -67,6 +67,8 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     error NoBalanceOrAllowance();
     error WindowOutOfRange();
     error NothingToClaim();
+    error TooManyGrants();
+    error OwnershipCannotBeRenounced();
 
     // --- immutables ---
     IVestingRegistry public immutable registry;
@@ -82,6 +84,36 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
 
     uint64 public constant MIN_WINDOW = 1 hours;
     uint64 public constant MAX_WINDOW = 14 days;
+
+    //  ── THE GRANT ARRAY IS THE ONLY EXIT, SO ITS LENGTH MUST NOT BE A WEAPON
+    //     (blind red-team X5g) ────────────────────────────────────────────────
+    //  `_release` walks `_grants[holder]` with no bound, and it is the ONLY way
+    //  tokens leave this escrow ({claim} and {claimFor} both go through it). The
+    //  loop prunes as it goes, so a run that exceeds the block gas limit reverts
+    //  WITHOUT partial progress — the beneficiary's whole migrated balance is
+    //  locked forever, not merely delayed.
+    //
+    //  And the length was settable by a stranger. {vestBatch} is permissionless
+    //  and books a grant for any holder with an allowance on this escrow — which
+    //  every holder who has migrated once has, because the standard UX is an
+    //  infinite approval. `amt = min(balance, allowance)`, so DUSTING a victim
+    //  with one wei of the dead-gen token (no permission needed) converts into
+    //  one more `Grant`. Measured: 2,000 forced grants put `claimFor` over a
+    //  30,000,000-gas block.
+    //
+    //  Two constants close it. MAX_GRANTS bounds the array absolutely, so the
+    //  loop is bounded by construction and can always run. MAX_BATCH_GRANTS is
+    //  the smaller slice a THIRD PARTY may occupy, so the remaining
+    //  MAX_GRANTS - MAX_BATCH_GRANTS slots are reachable only by the holder's own
+    //  {startVest}: a spammer can never consume the headroom a holder needs to
+    //  migrate, and can never revert the keeper batch either (it skips).
+
+    /// @notice Hard ceiling on one beneficiary's open grants. `_release` therefore
+    ///         iterates at most this many entries and can always complete.
+    uint256 public constant MAX_GRANTS = 64;
+    /// @notice The slice of {MAX_GRANTS} the permissionless {vestBatch} may fill.
+    ///         The rest is reserved for the holder's own {startVest}.
+    uint256 public constant MAX_BATCH_GRANTS = 32;
 
     /// @notice One linear release booked at a single deposit.
     /// @dev `token` is pinned per-grant because the LIVE token at deposit becomes
@@ -150,11 +182,17 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     ///         Best-effort — a holder with no balance/allowance is skipped, never
     ///         reverting the batch. Grants are booked, NOT auto-claimed (the holder
     ///         or a keeper calls {claim} / {claimFor} to sweep vested instant tiers).
+    ///
+    ///  A holder already holding {MAX_BATCH_GRANTS} open grants is SKIPPED rather
+    ///  than reverted (blind red-team X5g): this path is permissionless, so it must
+    ///  never be able to fill the array a beneficiary's only exit walks, and it must
+    ///  never let one uncooperative entry kill the whole keeper batch.
     function vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant {
         for (uint256 i; i < holders.length; ++i) {
             address h = holders[i];
             address dead = registry.generationToken(fromGen);
             if (dead == address(0)) revert BadGen();
+            if (_grants[h].length >= MAX_BATCH_GRANTS) continue; // third parties get a sub-cap
             uint256 bal = IERC20(dead).balanceOf(h);
             uint256 allow = IERC20(dead).allowance(h, address(this));
             uint256 amt = bal < allow ? bal : allow;
@@ -172,6 +210,10 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     {
         address dead = registry.generationToken(fromGen);
         if (dead == address(0)) revert BadGen();
+        //  THE INVARIANT `_release` DEPENDS ON. Checked here, in the one place
+        //  that can push, so no caller — present or future — can grow the array
+        //  past what a single bounded loop can walk.
+        if (_grants[holder].length >= MAX_GRANTS) revert TooManyGrants();
 
         // Pull the dead-gen tokens in. The registry's claimByBurn will burn them
         // FROM this escrow and pay the live token TO this escrow.
@@ -303,5 +345,17 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     function setStakerOracle(address _oracle) external onlyOwner {
         stakerOracle = IStakerOracle(_oracle);
         emit StakerOracleSet(_oracle);
+    }
+
+    /// @notice DISABLED (blind red-team X5g). `Ownable` ships a live
+    ///         `renounceOwnership()`, and this escrow's owner is the only party who
+    ///         can ever call {setVestWindow} or {setStakerOracle}. Renouncing would
+    ///         permanently freeze the vest window and — worse — pin the instant-tier
+    ///         oracle forever, so a later-compromised or simply wrong oracle could
+    ///         never be unset even though {setStakerOracle}'s whole purpose is
+    ///         "swappable so the criteria can evolve without redeploying". There is
+    ///         no upside to renouncing here: the owner cannot touch escrowed funds.
+    function renounceOwnership() public pure override {
+        revert OwnershipCannotBeRenounced();
     }
 }
