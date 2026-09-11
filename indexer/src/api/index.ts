@@ -575,10 +575,15 @@ const LEDGER_READ = [
   { type: "function", name: "totalEntitled", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 const COL_MINTED = [{ type: "function", name: "totalMinted", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }] as const;
+//  ONLY `legacyBuffer()` EXISTS. Verified against contracts/solidity/out:
+//  CauldronHook implements legacyBuffer() (0xb5b67321) but NOT legacyThreshold()
+//  or legacyBps() — the threshold and the split are internal, written once by
+//  `setLegacyBuyback(address,uint256,uint256)`. Declaring getters for them meant
+//  two reads that always reverted, and the blanket `.catch(() => 0n)` below
+//  turned each revert into a confident `0`: the panel showed a 0 ETH threshold
+//  and 0% progress while ETH was visibly piling up in the buffer.
 const HOOK_LEGACY = [
   { type: "function", name: "legacyBuffer", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "legacyThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "legacyBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const REG_CURGEN = [
@@ -591,8 +596,15 @@ let colFloorCache: { at: number; v: unknown } = { at: 0, v: null };
 app.get("/collection-floors", async (c) => {
   if (Date.now() - colFloorCache.at < 5000 && colFloorCache.v) return c.json(colFloorCache.v);
   try {
+    //  A read that FAILED and a read that returned zero are different facts.
+    //  Collapsing them with `.catch(() => 0n)` is what hid the two dead legacy
+    //  getters for a whole release, so a failure is still soft (the route keeps
+    //  answering) but it is now NAMED, and the response says so.
+    const failedReads: string[] = [];
     const rd = async (a: `0x${string}`, abi: readonly unknown[], fn: string, args: unknown[] = []) =>
-      (await perpClient.readContract({ address: a, abi: abi as never, functionName: fn as never, args: args as never }).catch(() => 0n)) as bigint;
+      (await perpClient
+        .readContract({ address: a, abi: abi as never, functionName: fn as never, args: args as never })
+        .catch(() => { failedReads.push(fn); return 0n; })) as bigint;
     const curGen = Number(await rd(REGISTRY, REG_CURGEN, "currentGeneration"));
     // live token symbol (for "N $GNOME" labels) — read server-side so the browser
     // stays RPC-free (the reason the panel's own reads were flaky → 0% shown).
@@ -602,9 +614,8 @@ app.get("/collection-floors", async (c) => {
     const ticker = curToken && curToken !== ZERO
       ? await perpClient.readContract({ address: curToken, abi: SYMBOL_ABI, functionName: "symbol" }).catch(() => "") as string
       : "";
-    const [buffer, threshold, bps, liveEntitled] = await Promise.all([
-      rd(HOOK, HOOK_LEGACY, "legacyBuffer"), rd(HOOK, HOOK_LEGACY, "legacyThreshold"),
-      rd(HOOK, HOOK_LEGACY, "legacyBps"),
+    const [buffer, liveEntitled] = await Promise.all([
+      rd(HOOK, HOOK_LEGACY, "legacyBuffer"),
       curGen > 0 ? rd(LEDGER_ADDR, LEDGER_READ, "entitledTokens", [BigInt(curGen)]) : Promise.resolve(0n),
     ]);
     // LIVE collection is now redeemable (post-unify): read its per-NFT floor at the
@@ -642,19 +653,21 @@ app.get("/collection-floors", async (c) => {
       liveFloorPerNFT,   // token redeemable per LIVE creature NFT right now
       liveOutstanding,   // entitled (redeemable) live NFTs
       bufferEth: Number(buffer) / 1e18,
-      //  `legacyThreshold` and `legacyBps` are INTERNAL on the hook, so these
-      //  reads revert and `rd` yields 0 — which made the panel report a 0 ETH
-      //  threshold and 0% progress while ETH was visibly accumulating in the
-      //  buffer. The values are deploy-time configuration, so they come from the
-      //  manifest exactly like `deathThresholdEth` does, and the chain read is
-      //  kept as the preferred source for the day those getters become public.
-      thresholdEth: threshold > 0n ? Number(threshold) / 1e18 : LEGACY_THRESHOLD_ETH,
-      bufferPct: (() => {
-        const t = threshold > 0n ? Number(threshold) / 1e18 : LEGACY_THRESHOLD_ETH;
-        return t > 0 ? Math.min(100, (Number(buffer) / 1e18 / t) * 100) : 0;
-      })(),
-      legacyBps: bps > 0n ? Number(bps) : LEGACY_BPS,
+      //  DEPLOY-TIME CONFIGURATION, FROM THE MANIFEST — not from the chain.
+      //  The hook exposes no getter for either (see HOOK_LEGACY above), so there
+      //  is nothing to prefer a chain read to; pretending otherwise is what
+      //  produced a confident 0. `thresholdSource` says where the number came
+      //  from so a consumer never has to guess whether it is live.
+      thresholdEth: LEGACY_THRESHOLD_ETH,
+      legacyBps: LEGACY_BPS,
+      thresholdSource: "manifest" as const,
+      bufferPct: LEGACY_THRESHOLD_ETH > 0
+        ? Math.min(100, (Number(buffer) / 1e18 / LEGACY_THRESHOLD_ETH) * 100)
+        : 0,
       past,
+      //  Empty unless a chain read actually failed. A caller that sees a 0 here
+      //  knows it is a real 0; a caller that sees a name knows it is not.
+      failedReads,
     };
     colFloorCache = { at: Date.now(), v };
     return c.json(v);
