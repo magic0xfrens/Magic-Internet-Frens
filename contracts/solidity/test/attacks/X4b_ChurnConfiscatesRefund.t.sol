@@ -47,11 +47,13 @@ contract X4bHook {
 contract X4bPoolManager {
     X4bToken public brew;
     uint256 public fillBps = 10_000;
+    uint256 public sellFillBps = 10_000;
     bool public isNativeQuote;
     X4bToken public quoteToken;
 
     constructor(X4bToken _brew) { brew = _brew; }
     function setFill(uint256 b) external { fillBps = b; }
+    function setSellFill(uint256 b) external { sellFillBps = b; }
     function setQuote(bool native_, X4bToken q) external { isNativeQuote = native_; quoteToken = q; }
 
     function unlock(bytes calldata data) external returns (bytes memory) {
@@ -66,7 +68,8 @@ contract X4bPoolManager {
             uint256 filled = (want * fillBps) / 10_000;      // quote consumed
             return toBalanceDelta(-int128(int256(filled)), int128(int256(filled * 2)));
         }
-        return toBalanceDelta(int128(int256(want / 2)), -int128(int256(want)));
+        uint256 taken = (want * sellFillBps) / 10_000;   // creature token consumed
+        return toBalanceDelta(int128(int256(taken / 2)), -int128(int256(taken)));
     }
     function sync(Currency) external {}
     function settle() external payable returns (uint256) { return msg.value; }
@@ -235,6 +238,24 @@ contract X4b_ChurnConfiscatesRefund is Test {
         assertEq(address(router).balance, 0, "router holds no quote afterwards");
         assertEq(brew.balanceOf(PLAYER), 1.2 ether, "the final buy's tokens reach the player");
         emit log_named_uint("multi-loop partial-fill refunded", refunded);
+    }
+
+    /// SELL-LEG PARTIAL FILL: the tokens the pool declined to buy are the
+    /// player's too. `tokBal = 0` used to drop them from the end-of-churn sweep.
+    function test_partialFill_on_the_sell_leg_still_sweeps_the_unsold_tokens() public {
+        CauldronGachaRouter router = _router(regNative);
+        pm.setQuote(true, X4bToken(address(0)));
+        pm.setFill(10_000);
+        pm.setSellFill(6_000);
+        vm.deal(PLAYER, 1 ether);
+        vm.prank(PLAYER);
+        router.playChurn{value: 1 ether}(0, 2, 0);
+        // loop0 buy: 1.0 ETH -> 2.0 tok. The sell consumes only 1.2 tok (0.8
+        // survives) and returns 0.6 ETH. loop1 buy: 0.6 ETH -> 1.2 tok, so all
+        // 2.0 tok must reach the player.
+        assertEq(brew.balanceOf(PLAYER), 2 ether, "unsold creature tokens reach the player");
+        assertEq(brew.balanceOf(address(router)), 0, "no creature tokens stranded in the router");
+        emit log_named_uint("sell-leg partial fill, tokens to player", brew.balanceOf(PLAYER));
     }
 
     receive() external payable {}

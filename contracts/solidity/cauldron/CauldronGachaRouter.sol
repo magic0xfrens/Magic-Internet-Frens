@@ -501,7 +501,11 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
                 _take(eth, address(this), outE);
                 playWei += outE;
                 ethBal += outE;
-                tokBal = 0;
+                //  Same debit on the SELL side (audit X4b sweep). A partial fill
+                //  here leaves creature tokens sitting in this contract, and
+                //  zeroing dropped them from the sweep below, so the player's
+                //  unsold tokens never reached them either.
+                tokBal -= inG;
             }
             unchecked { ++i; }
         }
