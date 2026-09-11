@@ -1,7 +1,10 @@
 {
+  "_status": "SUPERSEDED",
+  "_canonical": "deployments/sepolia.json (repository root)",
+  "_note": "SUPERSEDED \u2014 DO NOT DEPLOY FROM THIS FILE. Historical 'v7' sepolia round (its own note called itself CANONICAL; three files in this directory each did, which is the footgun this header closes). The CANONICAL record is ../../deployments/sepolia.json (repo root) \u2014 the file scripts/sync-deploy.mjs actually reads and propagates to the frontend, indexer and scripts. Kept only as a deployment history; the deploy scripts read environment variables, not this file.",
   "network": "sepolia",
   "chainId": 11155111,
-  "note": "CANONICAL v7 (AUDITED + overflow fix + ERC-721C ROYALTIES \u2192 genesis dividend). All collections are creator tokens (ERC2981 5% \u2192 dividend, settable transferValidator for enforcement). gen-1 GNOME live.",
+  "_historicalNote": "CANONICAL v7 (AUDITED + overflow fix + ERC-721C ROYALTIES \u2192 genesis dividend). All collections are creator tokens (ERC2981 5% \u2192 dividend, settable transferValidator for enforcement). gen-1 GNOME live.",
   "deployedAt": "2026-08-20",
   "MiFrensPresale": "0x66ab0548468c3c32742a015a2796155b1ea7133d",
   "CauldronHook": "0x4f44adc0cec3a48ccff17242b7ad336a707cd0cc",
