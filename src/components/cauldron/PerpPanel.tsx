@@ -139,6 +139,10 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
   //  ones. So it is a control, like every DEX, and the number is shown.
   const [slipBps, setSlipBps] = useState(PERP_SLIPPAGE_BPS);
   const [slipOpen, setSlipOpen] = useState(false);
+  //  A TEXT BUFFER, not a number. Binding an <input> straight to a parsed number
+  //  eats the keystroke mid-decimal — typing "12.5" reparses "12." to 12 and the
+  //  cursor jumps. Keep what was typed, and derive bps from it.
+  const [slipText, setSlipText] = useState(String(PERP_SLIPPAGE_BPS / 100));
   const slipRef = useRef<HTMLSpanElement | null>(null);
   //  Close on an outside click. A popover that traps you is worse than no
   //  popover — the same rule the asset picker follows.
@@ -378,6 +382,11 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           color: #8f83b8; font-family: "DM Mono", monospace; font-size: 10px; transition: all 0.15s ease; }
         .pp-chip:hover { color: #efe9dd; border-color: rgba(255,255,255,0.22); }
         .pp-chip--on { background: rgba(213,253,81,0.12); border-color: rgba(213,253,81,0.5); color: #d5fd51; }
+        .pp-slip-input { width: 44px; padding: 5px 4px; border-radius: 8px; text-align: center;
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          color: #efe9dd; font-family: "DM Mono", monospace; font-size: 10px; outline: none; }
+        .pp-slip-input:focus { border-color: rgba(213,253,81,0.5); }
+        .pp-slip-pct { font-family: "DM Mono", monospace; font-size: 10px; color: #8f83b8; }
         .pp-pop-note { display: block; margin-top: 9px; padding-top: 8px;
           border-top: 1px solid rgba(255,255,255,0.07); font-family: "DM Sans", sans-serif;
           font-size: 9.5px; line-height: 1.5; color: #8f83b8; }
@@ -521,8 +530,25 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
                     <span className="pp-pop-opts">
                       {[1, 3, 5, 10, 15].map((sp) => (
                         <button key={sp} className={`pp-chip ${slipBps === sp * 100 ? "pp-chip--on" : ""}`}
-                          onClick={() => { setSlipBps(sp * 100); setSlipOpen(false); }}>{sp}%</button>
+                          onClick={() => { setSlipBps(sp * 100); setSlipText(String(sp)); }}>{sp}%</button>
                       ))}
+                      {/*  CUSTOM. The presets cover the common cases; this is for
+                           the one they do not — a pool thin enough that even 15%
+                           cannot fill. Capped at 90%, which is `floorFrom`'s own
+                           clamp: past that a "floor" stops bounding anything. */}
+                      <input
+                        className="pp-slip-input"
+                        inputMode="decimal"
+                        aria-label="Max slippage percent"
+                        value={slipText}
+                        onChange={(e) => {
+                          const t = e.target.value.replace(/[^0-9.]/g, "");
+                          setSlipText(t);
+                          const v = Number(t);
+                          if (Number.isFinite(v) && v > 0) setSlipBps(Math.min(9000, Math.round(v * 100)));
+                        }}
+                      />
+                      <span className="pp-slip-pct">%</span>
                     </span>
                     <span className="pp-pop-note">
                       A brew&rsquo;s pool is thin, so a larger open pays real price impact.
