@@ -37,6 +37,11 @@ interface IHookCurve {
 interface ICurveCalibration {
     function supply() external view returns (uint256);
 }
+/// @notice The live flat-ladder base a proposal's `volumePerNFT` will replace.
+///         See {CURVE_BAND}.
+interface IHookCurveBase {
+    function volumePerNFT() external view returns (uint256);
+}
 
 contract CauldronGovernor is ICauldronGovernor, Ownable {
     // -----------------------------------------------------------------------
@@ -59,6 +64,8 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     error SupplyOutOfRange();
     error VotingClosed();
     error FieldTooLong();
+    /// @dev A proposal's `volumePerNFT` sits outside {CURVE_BAND} of the live ladder.
+    error CurveOutOfRange();
 
     /// @notice Hard bound on a proposal's collection size. MUST stay well below the
     ///         collections' `LIQUIDATOR_ID_BASE` (1e6), because the collection
@@ -96,6 +103,46 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     ///  proposal and freezes nothing, while a revert inside `relaunch()` would roll
     ///  back `markConsumed` and end the protocol.
     uint256 public constant MIN_NFT_SUPPLY = 100;
+
+    /// @notice How far a proposal's `volumePerNFT` may sit either side of the LIVE
+    ///         hook curve's base, as a divisor/multiplier. `volumePerNFT == 0` still
+    ///         means "leave the current curve alone" (CauldronHook.setNftCurveFrom
+    ///         returns early on 0) and is always accepted; any non-zero value must
+    ///         land in [live / CURVE_BAND, live * CURVE_BAND].
+    ///
+    ///  ── THE TWIN OF {MIN_NFT_SUPPLY} (red-team T-2) ─────────────────────────
+    ///  `nftSupply` got both bounds; `volumePerNFT` had NONE. It flows from here
+    ///  straight through `CauldronRegistry.sol:1134` into
+    ///  `CauldronHook.setNftCurveFrom`, which sets `volumePerNFT = _base` and
+    ///  `nftPriceStep = 0` — a FLAT ladder, so the whole collection mints out for
+    ///  `_base * nftSupply` of weighted buy credit. `_base = 1` is a valid,
+    ///  winnable proposal: with no {MintCurvePolicy} wired, `nftPriceAt(k)` falls
+    ///  through to `volumePerNFT + k * nftPriceStep` = 1 wei per fren, and the
+    ///  entire collection — every dividend share and the whole claim on a floor
+    ///  funded by `floorBps` of that generation's fee revenue — is minted out by
+    ///  the first trader through the pool for less than the gas.
+    ///
+    ///  WHY A RELATIVE BAND AND NOT AN ABSOLUTE FLOOR. The credit this figure is
+    ///  compared against is re-denominated: `setDeathThreshold` restates the whole
+    ///  ladder into USD-at-1e18 when a `quoteOracle` is wired
+    ///  (CauldronHook.sol:1796), and a generation may be quoted in a 6-decimal
+    ///  asset. An absolute floor in wei would be three orders of magnitude wrong
+    ///  in either of those worlds. The live curve base is by construction already
+    ///  in whatever units the live `nftCredit` ledger uses, so anchoring to it is
+    ///  the only denomination-safe bound available at the proposal boundary.
+    ///
+    ///  WHY 1000. `nftSupply` itself may legitimately move across the full
+    ///  [100, 100_000] range, and a proposer holding the mint-out TARGET
+    ///  (`base * supply`) constant must be able to move the base by exactly that
+    ///  1000x. The band is therefore as wide as any honest proposal needs and no
+    ///  wider: at the shipped 0.02 ether base it still refuses anything under
+    ///  0.00002 ether per fren, and 1 wei is twelve orders of magnitude outside.
+    ///
+    ///  Unconstrained when the hook is not reachable or reports a zero base, for
+    ///  the same reason {_calibratedSupply} degrades that way: a governor that
+    ///  cannot take proposals is a dead machine, and every bound here is a
+    ///  refusal of ONE proposal, never a revert inside `relaunch()`.
+    uint256 public constant CURVE_BAND = 1000;
 
     /// @notice How long a proposal accepts votes before it may be launched. Without
     ///         a deadline, `winner()` is the live leader and a whale can flip the
@@ -308,17 +355,33 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     ///      accessors degrades to "unconstrained" instead of making {propose}
     ///      unreachable — a governor that cannot take proposals is a dead machine.
     function _calibratedSupply() private view returns (uint256) {
-        address r = registry;
-        if (r == address(0)) return 0;
-        (bool ok, bytes memory ret) = r.staticcall(abi.encodeWithSelector(IRegistryHook.hook.selector));
-        if (!ok || ret.length < 32) return 0;
-        address h = abi.decode(ret, (address));
+        address h = _liveHook();
         if (h == address(0)) return 0;
-        (ok, ret) = h.staticcall(abi.encodeWithSelector(IHookCurve.curvePolicy.selector));
+        (bool ok, bytes memory ret) = h.staticcall(abi.encodeWithSelector(IHookCurve.curvePolicy.selector));
         if (!ok || ret.length < 32) return 0;
         address p = abi.decode(ret, (address));
         if (p == address(0)) return 0;
         (ok, ret) = p.staticcall(abi.encodeWithSelector(ICurveCalibration.supply.selector));
+        if (!ok || ret.length < 32) return 0;
+        return abi.decode(ret, (uint256));
+    }
+
+    /// @dev The live hook, or address(0) if the registry does not answer `hook()`.
+    ///      Raw staticcall for the reason spelled out on {_calibratedSupply}.
+    function _liveHook() private view returns (address) {
+        address r = registry;
+        if (r == address(0)) return address(0);
+        (bool ok, bytes memory ret) = r.staticcall(abi.encodeWithSelector(IRegistryHook.hook.selector));
+        if (!ok || ret.length < 32) return address(0);
+        return abi.decode(ret, (address));
+    }
+
+    /// @dev The live flat-ladder base a proposal's `volumePerNFT` would replace, or 0
+    ///      if the hook is unreachable or reports no base. See {CURVE_BAND}.
+    function _liveCurveBase() private view returns (uint256) {
+        address h = _liveHook();
+        if (h == address(0)) return 0;
+        (bool ok, bytes memory ret) = h.staticcall(abi.encodeWithSelector(IHookCurveBase.volumePerNFT.selector));
         if (!ok || ret.length < 32) return 0;
         return abi.decode(ret, (uint256));
     }
@@ -393,6 +456,17 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             //  and fixture working unchanged.
             uint256 calibrated = _calibratedSupply();
             if (calibrated != 0 && nftSupply != calibrated) revert SupplyOutOfRange();
+        }
+        //  AND THE PRICE OF A FREN, NOT JUST HOW MANY THERE ARE (red-team T-2).
+        //  `volumePerNFT` had no bound at all: 1 wei per fren minted the whole
+        //  collection — its dividends and its claim on the generation's floor —
+        //  out for less than the gas. See {CURVE_BAND} for why the band is
+        //  relative to the live curve rather than an absolute floor in wei.
+        if (volumePerNFT != 0) {
+            uint256 live = _liveCurveBase();
+            if (live != 0 && (volumePerNFT < live / CURVE_BAND || volumePerNFT > live * CURVE_BAND)) {
+                revert CurveOutOfRange();
+            }
         }
         // The quote must be one the treasury has vetted. Checked HERE so a pool
         // nobody would want can never reach a vote; re-checked at consumption
