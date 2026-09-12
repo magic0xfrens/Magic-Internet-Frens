@@ -559,14 +559,31 @@ contract QuoteRotator {
         //  into something no vote ever sanctioned, needing only a price feed.
         if (!_allowed(outQuote)) revert NotAllowedQuote();
 
+        //  ── BOTH LEGS MUST BE PROVABLY PRICEABLE BEFORE ANY SWAP RUNS ───────
+        //  `arbStep`'s legs execute with NO `sqrtPriceLimit`, so the USD comparison
+        //  below is its ONLY loss guard — and it is also the keeper's pay basis and
+        //  the unit of the per-block notional cap. All three used the CACHED oracle
+        //  reader, which retains its last good factor through an outage: the zero
+        //  test below passes on a price that is arbitrarily wrong, and the treasury
+        //  buys and sells against it. This is the one path with no slippage bound
+        //  at all, so it needs the strictest price, not the cheapest.
+        //
+        //  Pre-flight rather than post-unlock, and AFTER every existing check so no
+        //  revert ordering another test relies on changes: a trade that must be
+        //  refused should not touch the pools first.
+        if (_usdLive(inQuote, 1e18) == 0 || _usdLive(outQuote, 1e18) == 0) revert NotPriceable();
+
         (uint256 spent, uint256 received) =
             abi.decode(poolManager.unlock(abi.encode(uint8(1), cheap, dear, amountIn)), (uint256, uint256));
 
         //  Judge in USD, since the legs are different assets. Both must be
         //  priceable — an unpriceable leg means we cannot tell profit from loss,
         //  and guessing with treasury funds is not an option.
-        uint256 inUsd = _usd(inQuote, spent);
-        uint256 outUsd = _usd(outQuote, received);
+        //  LIVE, not cached — see the pre-flight above. The cached reader is now
+        //  unused in this contract, and that is the intended end state: everything
+        //  here MOVES VALUE, so every price it acts on must fail closed.
+        uint256 inUsd = _usdLive(inQuote, spent);
+        uint256 outUsd = _usdLive(outQuote, received);
         if (inUsd == 0 || outUsd == 0) revert NoRoute();
         // Per-call notional bound (0 = off). Checked here rather than before the
         // unlock so it reuses the USD figure already computed; an over-cap arb
@@ -613,16 +630,11 @@ contract QuoteRotator {
         return f == 0 ? 0 : (raw * f) / 1e18;
     }
 
-    function _usd(address quote, uint256 raw) internal returns (uint256) {
-        address o = quoteOracle;
-        if (o == address(0)) return 0;
-        (bool ok, bytes memory ret) = o.call(
-            abi.encodeWithSignature("cachedUsdPerRawUnit(address)", quote)
-        );
-        if (!ok || ret.length < 32) return 0;
-        uint256 f = abi.decode(ret, (uint256));
-        return f == 0 ? 0 : (raw * f) / 1e18;
-    }
+    //  `_usd` (the CACHED reader) REMOVED. Its only remaining callers were
+    //  `arbStep`'s two legs, and `QuoteOracle.cachedUsdPerRawUnit` deliberately
+    //  retains its last good factor through a feed outage — correct for volume and
+    //  death detection, wrong for anything that spends. Nothing in this contract
+    //  may price with it, so it is gone rather than left as a loaded gun.
 
     // -----------------------------------------------------------------------
     // Custody

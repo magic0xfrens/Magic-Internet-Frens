@@ -277,7 +277,13 @@ contract QuoteOracle {
         factor = (perWhole * 1e18) / (10 ** f.quoteDecimals);
     }
 
-    struct Cached { uint256 factor; uint64 at; }
+    /// @param factor  last USABLE price per raw unit, retained through outages.
+    /// @param at      when that factor was last SUCCESSFULLY refreshed. THE
+    ///                FRESHNESS SIGNAL — see {cachedUsdPerRawUnit}.
+    /// @param triedAt when a refresh was last ATTEMPTED, successful or not. Only
+    ///                throttles the retry; says nothing about the price. Packs into
+    ///                the same slot as `at`, so no other state moves.
+    struct Cached { uint256 factor; uint64 at; uint64 triedAt; }
     mapping(address => Cached) public cache;
 
     /// @dev How long a cached price stays good.
@@ -302,12 +308,36 @@ contract QuoteOracle {
      *  accounting a stale price is far better than a zero, because zero reads as
      *  "no trading" and would push a live generation toward death.
      */
+    ///  ── A FAILED REFRESH MUST NOT LOOK LIKE A FRESH ONE ──────────────────
+    ///  `c.at = uint64(block.timestamp)` ran BEFORE the `fresh > 0` test, so it
+    ///  advanced on every call whether the feed answered or not. Combined with
+    ///  `if (fresh > 0) c.factor = fresh` — which retains the last good factor —
+    ///  that gave a dead, out-of-band or sequencer-grace feed a price that is both
+    ///  STALE and PERMANENTLY SELF-CERTIFYING: the early return above kept handing
+    ///  out the pre-death factor for another full TTL, forever, and every freshness
+    ///  check a consumer could write against `c.at` passed.
+    ///
+    ///  Neither half is the bug on its own, which is why fixing one alone was
+    ///  measured NOT to work: zeroing the factor (or only patching the timestamp)
+    ///  flips a timestamp assertion and leaves the stale price in service, and
+    ///  actually zeroing it makes `QuoteRotator._oracleFloor` return 0 — i.e. NO
+    ///  floor at all — which is worse than the staleness. Retention is RIGHT for
+    ///  the fail-open readers: volume feeds death detection, and a zero there reads
+    ///  as "no trading" and pushes a live generation toward a rebirth that cannot
+    ///  be undone.
+    ///
+    ///  So the factor is still retained and `at` now means what a reader assumes it
+    ///  means: the last time this price was actually CONFIRMED. Fail-closed
+    ///  consumers can test `cache(q).at + TTL >= block.timestamp` and refuse.
+    ///  `triedAt` keeps the retry throttled to once per TTL, so a feed outage costs
+    ///  the same gas as before rather than taxing every swap with a dead read.
     function cachedUsdPerRawUnit(address quote) external returns (uint256) {
         Cached storage c = cache[quote];
         if (block.timestamp <= c.at + TTL && c.factor != 0) return c.factor;
+        if (c.factor != 0 && block.timestamp <= uint256(c.triedAt) + TTL) return c.factor;
+        c.triedAt = uint64(block.timestamp);
         uint256 fresh = this.usdPerRawUnit(quote);
-        c.at = uint64(block.timestamp);
-        if (fresh > 0) c.factor = fresh;
+        if (fresh > 0) { c.factor = fresh; c.at = uint64(block.timestamp); }
         return c.factor;
     }
 

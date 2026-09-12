@@ -109,7 +109,7 @@ contract X2c_OracleFloorFailsSafe is Test {
         _killFeed();
         vm.warp(block.timestamp + 365 days);
 
-        (uint256 cachedFactor,) = oracle.cache(Q);
+        (uint256 cachedFactor,,) = oracle.cache(Q);
         assertGt(cachedFactor, 0, "the cache still holds the pre-death factor...");
         assertFalse(oracle.priceable(Q), "...while the asset genuinely cannot be valued");
 

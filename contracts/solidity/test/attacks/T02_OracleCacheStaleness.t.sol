@@ -68,7 +68,7 @@ contract T02_OracleCacheStaleness is Test {
         }
 
         uint256 aYearLater = oracle.cachedUsdPerRawUnit(NATIVE);
-        (uint256 f, uint64 at) = oracle.cache(NATIVE);
+        (uint256 f, uint64 at,) = oracle.cache(NATIVE);
         console2.log("factor a YEAR later   :", aYearLater);
         console2.log("cache.at (reported)   :", at);
         console2.log("block.timestamp       :", vm.getBlockTimestamp());
@@ -76,11 +76,19 @@ contract T02_OracleCacheStaleness is Test {
 
         assertEq(aYearLater, good, "the year-old price is still being served");
         assertEq(f, good, "cache.factor never degraded");
-        // The tell: the stored timestamp is the last ATTEMPT, not the last
-        // SUCCESS, so nothing on-chain or off-chain can measure the real age.
-        assertLe(
+        //  ── INVERTED: THIS WAS THE DEFECT, AND IT IS FIXED ─────────────────
+        //  The tell used to be that the stored timestamp was the last ATTEMPT, not
+        //  the last SUCCESS, so a dead feed re-certified its own stale price every
+        //  time anyone traded and nothing on-chain or off-chain could measure the
+        //  real age. `c.at` now advances ONLY on a successful refresh (`triedAt`
+        //  carries the retry throttle), so the retained factor — which the two
+        //  assertions above confirm is still served, deliberately, for volume and
+        //  death detection — is now PROVABLY stale to any reader that wants to
+        //  refuse it. That is what lets `arbStep` and the rotation floor fail
+        //  closed while the death path keeps failing open.
+        assertGt(
             vm.getBlockTimestamp() - at, oracle.TTL(),
-            "cache.at reports the price as fresh, though it is a year old"
+            "FIXED: cache.at reports the true age, so a year-old price reads as stale"
         );
         bool reached = true;
         assertTrue(reached, "T02 cache-never-expires reached its assertions");

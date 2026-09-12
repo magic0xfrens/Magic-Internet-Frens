@@ -173,12 +173,18 @@ contract T02_StaleFloorSandwich is YBase {
         ethFeed.setDown(true);
         _warp(30 days);
         uint256 served = oracle.cachedUsdPerRawUnit(address(0));
-        (, uint64 at) = oracle.cache(address(0));
+        (, uint64 at,) = oracle.cache(address(0));
 
         console2.log("venue price, true (USDG/ETH) :", fairPrice);
         console2.log("oracle still serves (USD*1e18/wei):", served);
         console2.log("cache age the oracle reports (s) :", vm.getBlockTimestamp() - at);
-        assertLe(vm.getBlockTimestamp() - at, oracle.TTL(), "reported fresh, 30 days old");
+        //  INVERTED: this asserted the defect. `c.at` advanced on every ATTEMPT, so
+        //  a dead feed re-certified its own stale price whenever anyone traded. It
+        //  now advances only on a successful refresh, so the retained factor (still
+        //  served, deliberately, for volume and death detection) is PROVABLY stale
+        //  to any reader that wants to refuse it — which is what lets the rotation
+        //  floor and `arbStep` fail closed while the death path keeps failing open.
+        assertGt(vm.getBlockTimestamp() - at, oracle.TTL(), "FIXED: the reported age is the true age");
         assertFalse(oracle.priceable(address(0)), "and priceable() disagrees with the cache");
 
         _approve();
@@ -197,26 +203,25 @@ contract T02_StaleFloorSandwich is YBase {
         console2.log("attacker ETH deployed        :", spentEth);
         console2.log("venue price after the push   :", pushedPrice);
 
-        (uint256 moved,) = registry.rotateSlice(2500, 0, _venue());
+        //  ── INVERTED: THE SANDWICH NO LONGER HAS A FILL TO EAT ──────────────
+        //  This used to succeed: the frozen cache served a pre-death price, the
+        //  floor was computed from it, and a pushed venue could fill the slice just
+        //  above that stale floor while the attacker unwound against the treasury's
+        //  own fill. Two changes close it, and either alone would have left a hole.
+        //  `_oracleFloor` now values through the UNCACHED reader, so a dead feed
+        //  reports 0 rather than the factor frozen at the moment it died; and
+        //  `swapOnce` treats "no floor" as a refusal rather than as permission,
+        //  since 0 was both "cannot price" and "accept any fill". The rotation is
+        //  refused outright and no treasury liquidity moves at all.
+        uint256 treasuryUsdgBefore = usdg.balanceOf(address(registry));
+        vm.expectRevert(QuoteRotator.NotPriceable.selector);
+        registry.rotateSlice(2500, 0, _venue());
 
-        // The attacker unwinds against the treasury's own fill.
-        vm.prank(attacker);
-        usdg.transfer(address(this), grabbed);
-        uint256 back = _pushUp(grabbed, attacker);
-
-        console2.log("slice filled at (USDG)       :", moved);
-        console2.log("attacker ETH recovered       :", back);
-
-        assertGt(moved, 0, "the rotation executed where the CONTROL reverted");
-        // The floor is documented to permit `rotationSlipBps` = 3%. Measure the
-        // shortfall it actually permitted.
-        uint256 shortfallBps = 10_000 - (pushedPrice * 10_000) / fairPrice;
-        console2.log("shortfall vs true market, bps:", shortfallBps);
-        assertGt(shortfallBps, 300 * 10, "the real tolerance is >10x the documented 3%");
-        assertGt(back, spentEth, "the attacker is net-ETH-positive on the round trip");
-
-        bool reached = true;
-        assertTrue(reached, "T02 stale-floor sandwich reached its assertions");
+        assertEq(
+            usdg.balanceOf(address(registry)), treasuryUsdgBefore,
+            "FIXED: an unpriceable pair fills nothing, so there is nothing to sandwich"
+        );
+        emit log_string("T02: frozen cache + pushed venue now refuses instead of filling");
     }
 }
 
@@ -224,5 +229,12 @@ contract FVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
     function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev HARNESS GAP, not a protocol finding. `TreasuryGovernor._passed` reads
+    ///      `getPastTotalSupply` for its quorum denominator (that IS the real vote
+    ///      source's API — `MiFrensGenesis` implements it, and F10's identically
+    ///      named mock has it). This one had only `totalSupply`, so every
+    ///      `execute` in this file reverted with an unrecognized selector and both
+    ///      tests failed for a reason that had nothing to do with what they assert.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }

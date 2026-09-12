@@ -460,24 +460,29 @@ contract S09_ArbStepGovernance is Test {
      *  purpose; only `arbStep`'s matters for this lead.
      */
     function test_S09_E_REFUTED_AnUnpriceableLegFailsClosed() public {
+        //  SELECTOR UPDATED, PROPERTY UNCHANGED AND NOW STRONGER. This expected the
+        //  generic `NoRoute` raised AFTER the swap by `inUsd == 0 || outUsd == 0`.
+        //  `arbStep` now pre-flights both legs through the UNCACHED reader and
+        //  refuses `NotPriceable` BEFORE the unlock — a named error for the actual
+        //  reason, and no pool interaction at all for a trade that must be rejected.
         // Destination unpriceable.
         oracle.set(address(usdg), 0);
         vm.prank(ATTACKER);
-        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        vm.expectRevert(QuoteRotator.NotPriceable.selector);
         rot.arbStep(cheap, dear, ARB_IN);
 
         // Source unpriceable.
         oracle.set(address(usdg), USD_PER_USDG);
         oracle.set(NATIVE, 0);
         vm.prank(ATTACKER);
-        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        vm.expectRevert(QuoteRotator.NotPriceable.selector);
         rot.arbStep(cheap, dear, ARB_IN);
 
         // Oracle removed entirely.
         oracle.set(NATIVE, USD_PER_ETH);
         rot.setArbParams(address(0), 1000, 5e18);
         vm.prank(ATTACKER);
-        vm.expectRevert(QuoteRotator.NoRoute.selector);
+        vm.expectRevert(QuoteRotator.NotPriceable.selector);
         rot.arbStep(cheap, dear, ARB_IN);
 
         // And nothing moved in any of the three.
@@ -573,12 +578,19 @@ contract S09Registry {
     function set(address q, bool v) external { allowedQuote[q] = v; }
 }
 
-/// @dev The oracle surface `QuoteRotator._usd` (:528-537) low-level-calls.
+/// @dev The oracle surface `QuoteRotator` low-level-calls. BOTH readers, now:
+///      `arbStep` was moved off `cachedUsdPerRawUnit` (which retains its last good
+///      factor through a feed outage) onto the uncached `usdPerRawUnit`, and this
+///      mock implemented only the former — so every arb here refused `NotPriceable`
+///      until this was widened. A harness gap, not a protocol finding.
 contract S09Oracle {
     mapping(address => uint256) public factor;
     function set(address quote, uint256 f) external { factor[quote] = f; }
     function cachedUsdPerRawUnit(address quote) external returns (uint256) {
         factor[quote]; // non-view on purpose: matches the real oracle, which caches
+        return factor[quote];
+    }
+    function usdPerRawUnit(address quote) external view returns (uint256) {
         return factor[quote];
     }
 }
