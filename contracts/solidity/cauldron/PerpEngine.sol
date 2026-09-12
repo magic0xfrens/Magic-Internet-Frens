@@ -570,17 +570,6 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         return u == 1e18 ? wei18 : (wei18 * u) / 1e18;
     }
 
-    /// @dev `10**decimals()` of `q`, read defensively. A token without `decimals()`,
-    ///      or one answering nonsense, is treated as 18 — the same fail-soft rule the
-    ///      rest of the quote plumbing uses, because guessing wrong here must not be
-    ///      able to brick an adoption.
-    function _unitOf(address q) private view returns (uint256) {
-        if (q == address(0)) return 1e18;
-        (bool ok, bytes memory ret) = q.staticcall(abi.encodeWithSignature("decimals()"));
-        if (!ok || ret.length < 32) return 1e18;
-        uint256 d = abi.decode(ret, (uint256));
-        return d > 36 ? 1e18 : 10 ** d;
-    }
 
     /**
      * @dev The tick the whole mark is built from.
@@ -1228,7 +1217,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  buffer in the new asset yet. A pause, not a brick.
             uint256 sweep = plv + tokYieldEth + insuranceEth;
             plv = 0; tokYieldEth = 0; insuranceEth = 0;
-            if (sweep != 0 && treasury != address(0)) _payOut(treasury, sweep);
+            if (sweep != 0 && treasury != address(0)) {
+                //  DELIBERATELY NOT `_payOut`. That credits `payoutOwed` when the
+                //  push fails — booking an OLD-asset amount that {claimPayout} would
+                //  then pay out in the NEW one, which is the exact redenomination
+                //  this block exists to prevent. A treasury that cannot accept the
+                //  sweep leaves the value as engine residue owned by nobody, which
+                //  is inert and cannot mispay anyone. Capped gas so a reverting
+                //  treasury cannot burn the adoption's budget either.
+                _tryPush(treasury, sweep, true); // retired either way — see above
+            }
             //  ── THE MARK SOURCE MUST NOT SURVIVE THE ROTATION (red-team T02) ──
             //  {PerpMarkSource.primary} stays armed on the OLD pair, and the engine
             //  is not its owner so it cannot re-point it. Measured position-value
@@ -1242,7 +1240,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  engine with no mark source wired.
             markSource = address(0);
             //  And the decimals the thresholds are compared in (see {_q}).
-            quoteUnit = _unitOf(newQuote);
+            quoteUnit = PerpSwapLib.unitOf(newQuote); // read defensively; 18 on any bad answer
         }
         quote = newQuote;
 
@@ -1542,19 +1540,33 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      cannot consume the settlement's budget either.
     function _payOut(address to, uint256 amount) internal {
         if (amount == 0) return;
-        bool ok;
+        if (!_tryPush(to, amount, true)) {
+            unchecked { payoutOwed[to] += amount; payoutOwedTotal += amount; }
+            emit PayoutOwed(to, amount);
+        }
+    }
+
+    /// @dev Push the quote to `to` and REPORT failure instead of reverting. Shared
+    ///      by all three pushes that must survive a hostile recipient: {_payOut},
+    ///      the rotation sweep, and {retirePayout}.
+    ///
+    ///  `capped` bounds the NATIVE forward to the 30k settlement budget so a
+    ///  recipient cannot eat a liquidation's — or an adoption's — gas.
+    ///  {retirePayout} passes false, because a recipient that merely overran that
+    ///  budget should be PAID at the last chance rather than written off.
+    ///
+    ///  The ERC20 leg has the same griefing surface by a different mechanism: a
+    ///  blacklistable token (true of most tokenized equities) can make one recipient
+    ///  permanently unpayable, and a non-standard token returns false rather than
+    ///  reverting. Both are reported, so the credit-instead-of-revert guarantee
+    ///  holds whatever the book is denominated in.
+    function _tryPush(address to, uint256 amount, bool capped) private returns (bool ok) {
         if (_quoteIsNative()) {
-            (ok, ) = to.call{value: amount, gas: 30_000}("");
+            if (capped) { (ok, ) = to.call{value: amount, gas: 30_000}(""); }
+            else { (ok, ) = to.call{value: amount}(""); }
         } else {
-            //  The same griefing surface exists for an ERC20 quote, by a
-            //  different mechanism: a blacklistable token (true of most
-            //  tokenized equities) can make one recipient permanently
-            //  unpayable, and a non-standard token returns false rather than
-            //  reverting. Both are caught here so the credit-instead-of-revert
-            //  guarantee holds whatever the book is denominated in.
             ok = PerpSwapLib.tryTransfer(quote, to, amount);
         }
-        if (!ok) { unchecked { payoutOwed[to] += amount; payoutOwedTotal += amount; } emit PayoutOwed(to, amount); }
     }
 
     /// @notice Retire a settlement payout its recipient cannot accept, so one
@@ -1580,18 +1592,35 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  the R-09 `plv` dust — where it can never again veto a rotation.
     ///
     ///  Deliberately NOT a drop of the counter from the guard: that counter is
-    ///  load-bearing for the redenomination fix (e964d54). And deliberately pure
-    ///  BOOKKEEPING — it makes no external call, so it cannot be reentered and
-    ///  needs no guard. The last-chance payment attempt lives where it already
-    ///  did: {claimPayout} pushes at FULL gas (not the 30k settlement budget) and
-    ///  stays open to the recipient right up until the timelock retires the entry,
-    ///  so a recipient that merely overran that budget is never written off
-    ///  without having had a working way to collect.
-    function retirePayout(address to) external onlyOwner {
+    ///  load-bearing for the redenomination fix (e964d54).
+    ///
+    ///  ── AND PERMISSIONLESS WHILE THE ENGINE IS DIVERGED (S01 liveness) ────
+    ///  This was `onlyOwner` outright, which quietly narrowed a liveness promise:
+    ///  `payoutOwedTotal` is the one counter that can still REFUSE a quote
+    ///  adoption, so one wei owed to a refusing sink put a diverged engine's
+    ///  recovery behind a privileged key — and
+    ///  {S01_PerpQuoteDeadlock.test_invariant_divergedEngineIsPermissionlesslyRecoverable}
+    ///  promises that "nothing privileged should be required to put it right".
+    ///  So while `quote` disagrees with the generation's quote — exactly when this
+    ///  entry is what stands between the engine and recovery — ANYONE may call it.
+    ///  Once the engine is back in step it is owner-only again, which is where the
+    ///  griefing surface would otherwise live.
+    ///  No `nonReentrant`: both effects below land BEFORE the push, so a recipient
+    ///  reentering this finds `payoutOwed[to] == 0` and reverts, and the asset branch
+    ///  is chosen before any external code runs — a reentrant adoption cannot change
+    ///  what gets sent. Strict CEI is the guard.
+    function retirePayout(address to) external {
         uint256 amount = payoutOwed[to];
         if (amount == 0) revert ZeroValue();
-        payoutOwed[to] = 0;
+        if (quote == registry.generationQuote(registry.currentGeneration())) _checkOwner();
+        payoutOwed[to] = 0;                     // effects before interaction
         payoutOwedTotal -= amount;
+        //  ONE LAST PUSH AT FULL GAS — not the 30k settlement budget that stranded
+        //  it — so a recipient that merely overran that budget is genuinely PAID
+        //  here instead of written off. Only an outright revert loses the claim, and
+        //  that wei then stays in the engine as residue owned by nobody, where it
+        //  can never again veto a rotation.
+        _tryPush(to, amount, false); // retired either way — never re-arm the counter
         //  No dedicated event (EIP-170): the owner is a timelock, which emits its
         //  own CallExecuted for this exact calldata, and `payoutOwed(to)` going to
         //  zero alongside `payoutOwedTotal` is the on-chain record. An indexer has

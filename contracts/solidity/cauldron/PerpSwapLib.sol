@@ -30,6 +30,18 @@ import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
 library PerpSwapLib {
     uint256 internal constant Q96X = 0x1000000000000000000000000;
 
+    /// @notice `10**decimals()` of `q`, read defensively; 1e18 for native or for any
+    ///         token that has no `decimals()` or answers nonsense. Here for EIP-170:
+    ///         the encode + staticcall + decode is ~120 B and {PerpEngine} calls it
+    ///         once, on the cold rotation path.
+    function unitOf(address q) external view returns (uint256) {
+        if (q == address(0)) return 1e18;
+        (bool ok, bytes memory ret) = q.staticcall(abi.encodeWithSignature("decimals()"));
+        if (!ok || ret.length < 32) return 1e18;
+        uint256 d = abi.decode(ret, (uint256));
+        return d > 36 ? 1e18 : 10 ** d;
+    }
+
     /// @notice tick -> sqrtPriceX96.
     ///
     ///  Here for EIP-170 headroom, and it is the single biggest win available:

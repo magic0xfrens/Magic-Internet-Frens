@@ -95,6 +95,11 @@ contract X3iPayoutVetoStrandsQuote is Test {
     /// The timelock retiring the unclaimable entry. Pure bookkeeping — no push, so
     /// it cannot be reentered, and the value goes nowhere the owner can reach.
     function _retire() internal returns (bool ok) {
+        //  A STRANGER, deliberately — not the owner. While the engine's quote
+        //  disagrees with its generation's, this entry is the only thing standing
+        //  between the engine and recovery, and S01's liveness invariant promises
+        //  nothing privileged is needed to put that right.
+        vm.prank(address(0xC0FFEE));
         try perp.retirePayout(address(refuser)) { ok = true; } catch { ok = false; }
     }
 
@@ -125,11 +130,11 @@ contract X3iPayoutVetoStrandsQuote is Test {
         bool syncedAfterRetire = _rotateAndSync();
         bool retireAgain = _retire();
 
-        assertTrue(retired, "the timelock can retire an entry its recipient cannot accept");
+        assertTrue(retired, "ANYONE can retire a blocking entry while the engine is diverged");
         assertEq(perp.payoutOwed(address(refuser)), 0, "the stranded entry is gone");
         assertEq(perp.payoutOwedTotal(), 0, "and so is the veto");
         assertTrue(syncedAfterRetire, "the rotation now ADOPTS");
         assertEq(perp.quote(), address(newQuote), "engine follows its generation");
-        assertFalse(retireAgain, "retiring nothing reverts - no silent no-op");
+        assertFalse(retireAgain, "nothing left to retire - and once recovered it is owner-only again");
     }
 }

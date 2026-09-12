@@ -247,18 +247,23 @@ contract S01_PerpQuoteDeadlock is YBase {
 
         assertEq(registry.generationQuote(1), address(usdg), "generation followed the liquidity");
 
-        //  ── AMENDED BY R-08 ─────────────────────────────────────────────────
-        //  This asserted the engine ADOPTS in the same call. It does — but only
-        //  when doing so cannot mispay anyone. `_bootPerp` seeds 60 ETH of `plv`,
-        //  and `plv` is a bare counter paid out through `_pushQuote` in whatever
-        //  `quote` names today, so adopting here would re-denominate that capital
-        //  into an asset the engine does not hold. {syncGeneration} refuses while
-        //  `plv != 0` (R-08), and the engine PARKS instead: diverged reads dead,
-        //  so it sells no leverage and its book is force-closeable by anyone.
-        //  Route B is still refuted — nothing is stranded and no keeper race
-        //  exists — the safe outcome is simply "park", not "adopt".
-        assertEq(perp.quote(), address(0), "a funded engine keeps the asset it can pay in");
-        vm.expectRevert(PerpEngine.VaultStaked.selector);
+        //  ── RE-AMENDED BY X8-01: THE ORIGINAL ASSERTION IS TRUE AGAIN ───────
+        //  R-08 weakened this from "adopts" to "parks", because `plv` is a bare
+        //  counter paid out in whatever `quote` names today and adopting would have
+        //  re-denominated the 60 ETH `_bootPerp` donates into an asset the engine
+        //  does not hold. Adoption no longer does that: it SWEEPS the old-asset
+        //  counters to the treasury IN THE OLD ASSET (before the flip) and zeroes
+        //  them, so there is nothing left to re-denominate. `_bootPerp` funds through
+        //  `fundPlv`, which is documented as a SHARE-LESS PERMANENT DONATION by the
+        //  owner — so the treasury is precisely where that capital belongs, and no
+        //  staker exists to mispay. (Staker capital arrives via the vault, and
+        //  `hasStakers()` still refuses the flip while any of it is present.)
+        //
+        //  So Route B is refuted in its strongest form: the engine never diverges.
+        assertEq(perp.quote(), address(usdg), "the engine re-points in the SAME call");
+        assertEq(perp.plv(), 0, "its old-asset PLV was swept, not re-denominated");
+        assertEq(perp.insuranceEth(), 0, "and neither was the old-asset buffer");
+        vm.expectRevert(PerpEngine.AlreadySynced.selector);
         perp.syncGeneration();
     }
 
@@ -375,10 +380,20 @@ contract S01_PerpQuoteDeadlock is YBase {
         perp.forceCloseAllDead();
         assertEq(perp.openCount(), 0, "and so does the rest of the book");
 
-        //  Adoption waits for the quote-side capital to leave (R-08); the engine
-        //  parks, inert, until then. See the note on the invariant above.
-        vm.expectRevert(PerpEngine.VaultStaked.selector);
+        //  ── AND ADOPTION NO LONGER WAITS EITHER (X8-01) ──────────────────────
+        //  This expected `VaultStaked`: the flip used to be refused while the engine
+        //  held any quote-side capital. That refusal was unreachable-zero in practice
+        //  — `insuranceEth` cannot be driven to zero once the deploy arms its floor —
+        //  so it froze healthy engines rather than protecting them. The flip now
+        //  sweeps the old-asset counters to the treasury in the OLD asset and zeroes
+        //  them. This POC's thesis was "NO reachable call that can correct it"; it is
+        //  now false in BOTH stages, which is the whole point.
         perp.syncGeneration();
+        assertEq(
+            perp.quote(), registry.generationQuote(registry.currentGeneration()),
+            "a stranger re-pointed the engine: no owner, no wait"
+        );
+        assertEq(perp.plv(), 0, "the old-asset PLV was swept, not re-denominated");
         assertEq(_lockedCollateral(), 0, "no collateral is left locked");
         assertTrue(true, "reached");
     }
@@ -498,26 +513,50 @@ contract S01_PerpQuoteDeadlock is YBase {
         perp.forceCloseAllDead();
         assertEq(perp.openCount(), 0, "LIVENESS: the book must be drainable by anyone");
 
-        //  ── RECOVERY IS TWO-STAGE AFTER R-08, AND BOTH STAGES MATTER ────────
-        //  Stage 1 (above) is the one that was BROKEN: the book could not be
-        //  drained at all, so the engine went on marking and selling leverage
-        //  against a pool the treasury had emptied, forever. Anyone can now do it.
+        //  ── RECOVERY IS ONE PERMISSIONLESS STAGE AGAIN (X8-01) ──────────────
+        //  Stage 1 (above) was the originally-broken half: the book could not be
+        //  drained at all. Anyone can now do it.
         //
-        //  Stage 2 — adopting the new quote — waits for the engine's quote-side
-        //  capital to leave, because `plv` is a bare counter paid out in whatever
-        //  `quote` names and re-pointing it would mispay every staker (R-08).
-        //  `_bootPerp` seeds 60 ETH here, so the engine PARKS. That is safe and
-        //  bounded, not a new deadlock: parked means diverged-reads-dead, which is
-        //  exactly what made stage 1 work, and the refusal lifts on a drain or on
-        //  the next relaunch (which clamps the quote back to native, B-05).
-        vm.expectRevert(PerpEngine.VaultStaked.selector);
+        //  Stage 2 used to expect `VaultStaked` — adoption was refused while the
+        //  engine held quote-side capital, and the note here called that "safe and
+        //  bounded". It was neither. `insuranceEth` cannot be driven to zero once
+        //  `skimInsurance`'s floor is armed (DeployPerp sets 0.05 ether) and the
+        //  engine simultaneously REQUIRES the buffer above that floor, so the refusal
+        //  was PERMANENT: the engine stayed parked for the rest of the generation and
+        //  this invariant's promise was quietly false.
+        //
+        //  Adoption now sweeps the old-asset counters to the treasury IN THE OLD
+        //  ASSET and zeroes them, so nothing is re-denominated. `_bootPerp` donates
+        //  through `fundPlv`, documented as SHARE-LESS and PERMANENT, so no staker is
+        //  mispaid; staker capital comes through the vault and `hasStakers()` still
+        //  refuses the flip while any of it is present.
+        //
+        //  NOTHING PRIVILEGED, INCLUDING THE PAYOUT BOOK. `payoutOwedTotal` is the
+        //  one counter that can still refuse a flip, and {PerpEngine.retirePayout}
+        //  is permissionless exactly while the engine is diverged — i.e. whenever a
+        //  stranded payout is what stands between it and recovery. See
+        //  X3i_PayoutVetoStrandsQuote, where a stranger clears it.
         perp.syncGeneration();
+        assertEq(
+            perp.quote(), registry.generationQuote(gen),
+            "LIVENESS: re-pointable by ANYONE, with no wait and no owner"
+        );
+        assertEq(perp.plv(), 0, "old-asset PLV swept, not re-denominated");
 
-        //  INERT WHILE PARKED — otherwise the park would be the hole.
+        //  AND THE RECOVERED ENGINE WILL NOT TAKE THE OLD ASSET. It is USDG-quoted
+        //  now, so this native-value open is refused by `_pullQuote` (`BadParam`)
+        //  before it reaches any other gate — which is the point: recovery re-points
+        //  the engine at ONE asset and it accepts only that one. `TokenDead` no
+        //  longer applies precisely because the engine is healthy again.
+        //
+        //  The other half of "no cheap leverage off the back of a recovery" — that
+        //  `syncGeneration` wipes the TWAP ring and `_guardOpen` refuses `NotWarm`
+        //  until it spans `twapWindow` again — is asserted directly, on a correctly
+        //  funded open, in X3d_RingResetCollapsesTwap.
         address late = address(0xDEADFEE);
         vm.deal(late, 1 ether);
         vm.prank(late, late);
-        vm.expectRevert(PerpEngine.TokenDead.selector);
+        vm.expectRevert(PerpEngine.BadParam.selector);
         perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         //  Sentinel: no branch above may skip the assertions (audit rule - a
         //  Foundry test that asserts nothing still reports PASS).
