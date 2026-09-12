@@ -90,7 +90,13 @@ function badgeArt(tokenId: number, liquidator?: string, real?: Kill): string {
   return liquidatoorBadgeSVG(badgeStats(tokenId, liquidator, real));
 }
 
-export default function LiquidatoorBadges() {
+/**
+ * `variant` picks the chrome, not the data:
+ *  - "page" — the full section in My MiFrens (serif title + blurb, wide grid).
+ *  - "rail" — a 340px side-rail card that matches PerpPanel's .pp-card, with the
+ *    panel's mono eyebrow instead of the big title and a tighter tile grid.
+ */
+export default function LiquidatoorBadges({ variant = "page" }: { variant?: "page" | "rail" }) {
   const { isConnected, walletAddress } = useWallet();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,6 +176,15 @@ export default function LiquidatoorBadges() {
     }
   }, [isConnected, walletAddress]);
 
+  // Escape closes the enlarged badge — the lightbox covers the page, so the only
+  // other way out is finding the × or the backdrop.
+  useEffect(() => {
+    if (!big) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setBig(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [big]);
+
   useEffect(() => { load(); }, [load]);
   // after a claim confirms, the credit is 0 and a fresh badge is owned → refresh both
   useEffect(() => { if (claimed) { refetchOwed(); load(); } }, [claimed, refetchOwed, load]);
@@ -177,7 +192,7 @@ export default function LiquidatoorBadges() {
   if (!isConnected) return null;
 
   return (
-    <div className="lqb">
+    <div className={`lqb${variant === "rail" ? " lqb--rail" : ""}`}>
       <style>{`
         .lqb { margin-top: 22px; }
         .lqb__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
@@ -210,6 +225,23 @@ export default function LiquidatoorBadges() {
         .lqb__claim { align-self: center; padding: 9px 18px; border-radius: var(--r-sm); background: linear-gradient(90deg, #ff4d6d, #f5c542); border: none; color: #17112f; font-family: "Fredoka", sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 4px 18px rgba(255,77,109,0.4); transition: transform .15s, box-shadow .15s; }
         .lqb__claim:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(255,77,109,0.55); }
         .lqb__claim:disabled { opacity: 0.6; cursor: default; }
+
+        /* ── rail variant — wears PerpPanel's card chrome so it lines up with the
+           open-position ticket above it (same radius, padding, fill, border) ── */
+        .lqb--rail { margin-top: 0; border-radius: var(--r-md); padding: 16px;
+          background: rgba(23,18,42,0.34); border: 1px solid rgba(255,255,255,0.06); }
+        .lqb--rail .lqb__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .lqb--rail .lqb__title { font-family: "DM Mono", monospace; font-size: 9px; font-weight: 400;
+          letter-spacing: 0.16em; text-transform: uppercase; color: #8f83b8; gap: 8px; }
+        .lqb--rail .lqb__title span { font-size: 8.5px; padding: 2px 7px; }
+        .lqb--rail .lqb__sub { display: none; }
+        .lqb--rail .lqb__grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 9px; }
+        .lqb--rail .lqb__meta { padding: 7px 8px 8px; }
+        .lqb--rail .lqb__id { font-size: 11px; }
+        .lqb--rail .lqb__gen { font-size: 8.5px; }
+        .lqb--rail .lqb__flag { font-size: 7px; padding: 2px 6px; top: 6px; left: 6px; }
+        .lqb--rail .lqb__empty { padding: 16px 12px; font-size: 11px; line-height: 1.55; }
+        .lqb--rail .lqb__claim { padding: 7px 12px; font-size: 11.5px; box-shadow: 0 3px 12px rgba(255,77,109,0.32); }
       `}</style>
 
       <div className="lqb__head">

@@ -8,6 +8,7 @@ import CreatureModal from "@/components/wizards/CreatureModal";
 import FrenSprite from "@/components/shared/FrenSprite";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { frenFromSeed } from "@/data/frens";
+import { resolveTokenArt } from "@/lib/tokenArt";
 
 /**
  * ForgedCreatures — the iteration-token NFTs the connected wallet forged through
@@ -45,29 +46,6 @@ const RENDERER_ABI = [
   { type: "function", name: "render", stateMutability: "view", inputs: [{ type: "uint256" }, { type: "bool" }], outputs: [{ type: "string" }] },
 ] as const;
 
-const ipfs = (u?: string) => (u && u.startsWith("ipfs://") ? u.replace("ipfs://", "https://ipfs.io/ipfs/") : u);
-
-/** Resolve a token's art from its ERC-721 tokenURI. Handles on-chain data-URI
- *  JSON (revealed renderer output) AND hosted JSON metadata (an http/ipfs URI
- *  points at a METADATA document, not an image — we must fetch it and read
- *  `.image`, e.g. the shared sealed-crystal endpoint). */
-async function resolveTokenArt(uri: string): Promise<{ image?: string; name?: string }> {
-  try {
-    if (uri.startsWith("data:application/json;base64,")) {
-      const j = JSON.parse(atob(uri.slice("data:application/json;base64,".length)));
-      return { image: ipfs(j.image), name: j.name };
-    }
-    if (uri.startsWith("data:application/json,")) {
-      const j = JSON.parse(decodeURIComponent(uri.slice("data:application/json,".length)));
-      return { image: ipfs(j.image), name: j.name };
-    }
-    if (uri.startsWith("http") || uri.startsWith("ipfs")) {
-      const meta = await fetch(ipfs(uri) as string, { signal: AbortSignal.timeout(6000) }).then((r) => r.json());
-      return { image: ipfs(meta.image), name: meta.name };
-    }
-  } catch { /* ignore */ }
-  return {};
-}
 
 export default function ForgedCreatures() {
   const { isConnected, walletAddress } = useWallet();

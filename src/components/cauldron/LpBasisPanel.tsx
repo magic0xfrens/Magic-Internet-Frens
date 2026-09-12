@@ -183,9 +183,29 @@ function CompositionRing({ priced, totalUsd, basisSymbol, assetCount }: {
   );
 }
 
-function amountLabel(h: QuoteHolding) {
-  const a = h.amount;
+/**
+ * The figure to put on a row: what this asset is worth to the treasury, idle
+ * and deployed together.
+ *
+ * The row used to print the IDLE balance beside an "in LP" pill. Those are
+ * different facts, and for a working treasury the idle one is dust —
+ * `rotateSlice` removes, swaps and redeploys in a single transaction, so value
+ * at rest is the exception. Measured on the live deployment: 321 wei idle
+ * against a position worth ~0.5 ETH.
+ */
+function rowAmount(h: QuoteHolding) {
+  return amountLabel(h, h.totalAmount);
+}
+
+function amountLabel(h: QuoteHolding, override?: number) {
+  const a = override ?? h.amount;
   if (a === 0) return `0 ${h.asset.symbol}`;
+  //  A FIXED 4dp CEILING RENDERS SMALL HOLDINGS AS ZERO.
+  //  Testnet balances live well below 0.0001 ETH, so the panel printed "0 ETH"
+  //  beside a row it had just decided was worth showing — the same "looks broken,
+  //  is merely small" failure as the $0 total. Below the ceiling, fall back to
+  //  significant digits so the figure is always distinguishable from nothing.
+  if (a < 0.0001) return `${a.toPrecision(2)} ${h.asset.symbol}`;
   const dp = a < 1 ? 4 : a < 1000 ? 2 : 0;
   return `${a.toLocaleString(undefined, { maximumFractionDigits: dp })} ${h.asset.symbol}`;
 }
@@ -288,6 +308,7 @@ export function LpBasisView({
                   //  saying there is none. Show the idle figure only when there
                   //  is one to show.
                   const inLp = h.liquidity > 0n;
+                  const shown = h.totalAmount;
                   return (
                     <li key={h.asset.address} className="tc-lpbasis__row">
                       <span
@@ -301,9 +322,7 @@ export function LpBasisView({
                       </span>
                       <span className="tc-lpbasis__amt tc-mono tc-dim">
                         {inLp && <em className="tc-lpbasis__lp">in LP</em>}
-                        {h.raw > 0n
-                          ? amountLabel(h)
-                          : inLp ? "" : `0 ${h.asset.symbol}`}
+                        {shown > 0 ? rowAmount(h) : `0 ${h.asset.symbol}`}
                       </span>
                       <span className="tc-lpbasis__pct tc-mono">
                         {h.share !== null ? pct(h.share) : <span className="tc-dim">unpriced</span>}

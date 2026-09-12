@@ -29,8 +29,51 @@ export function useCauldronSwap() {
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
-  const { isLoading: confirming, isSuccess: confirmed, data: receipt } =
-    useWaitForTransactionReceipt({ hash: txHash, chainId: CAULDRON.chainId });
+  const {
+    isLoading: confirming,
+    isSuccess: mined,
+    isError: waitFailed,
+    error: waitError,
+    data: receipt,
+  } = useWaitForTransactionReceipt({
+    hash: txHash,
+    chainId: CAULDRON.chainId,
+    //  NEVER SPIN FOREVER. With no timeout viem polls for a receipt
+    //  indefinitely, so a dropped or replaced transaction — or one of the public
+    //  RPCs in the rotation deciding to rate-limit `eth_getTransactionReceipt` —
+    //  left the button reading "Buying..." with no end state and no way back
+    //  except a page reload. Ten Sepolia blocks is long enough that a healthy
+    //  transaction has landed, and the copy below says "may still land" rather
+    //  than "failed", because a timeout is OUR ignorance, not a verdict.
+    timeout: 120_000,
+  });
+
+  /**
+   * A RECEIPT IS NOT A SUCCESS.
+   *
+   *  `useWaitForTransactionReceipt` resolves perfectly happily for a transaction
+   *  that REVERTED — the receipt simply carries `status: "reverted"` — so
+   *  `isSuccess` means "mined", not "worked". Passing it through as `confirmed`
+   *  made the widget show "Done ✓" and refresh its telemetry after a buy that
+   *  reverted on the slippage floor: the single most misleading thing a trading
+   *  widget can say. {CrystalCauldronGame} already checked
+   *  `rcpt.status === "reverted"` on its own direct call; this is the same check,
+   *  moved to where every consumer of this hook inherits it.
+   */
+  const reverted = mined && receipt?.status === "reverted";
+  const confirmed = mined && receipt?.status === "success";
+
+  /** Why the last transaction did not confirm — "" while nothing is wrong.
+   *  Distinguishes the two outcomes a caller must NOT conflate: the chain
+   *  rejected the trade (actionable — raise the tolerance) versus we lost track
+   *  of it (not actionable — go look). */
+  const failReason = reverted
+    ? "Reverted on-chain. The pool could not fill above your minimum \u2014 raise Max slippage (the gear) and try again."
+    : waitFailed
+      ? (/timed out|timeout/i.test(waitError?.message ?? "")
+          ? "Could not confirm within 2 minutes. The transaction may still land \u2014 check the explorer before retrying."
+          : "Lost track of the transaction (it may have been replaced or the RPC dropped it). Check the explorer before retrying.")
+      : "";
 
   /** Buy with `ethIn` ETH; `minOut` = minimum token out (wei); `openMax` crystals.
    *  `liqHint` (optional) is the id of a perp position to auto-liquidate if this
@@ -193,5 +236,12 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync],
   );
 
-  return { buy, sell, spin, reveal, revealMany, openReady, approveToken, txHash, receipt, isPending, confirming, confirmed, reset };
+  return {
+    buy, sell, spin, reveal, revealMany, openReady, approveToken,
+    txHash, receipt, isPending, confirming, confirmed,
+    //  Exposed so no caller has to re-derive "mined but reverted" and get it
+    //  wrong the way this hook did.
+    reverted, failed: reverted || waitFailed, failReason,
+    reset,
+  };
 }

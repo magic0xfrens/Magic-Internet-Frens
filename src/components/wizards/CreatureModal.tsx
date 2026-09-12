@@ -5,19 +5,11 @@ import { CAULDRON, COLLECTION_ABI, VAULT_ABI } from "@/config/cauldron";
 import { nftTokenUrl, NETWORK_SHORT } from "@/config/chains";
 import FrenSprite from "@/components/shared/FrenSprite";
 import { frenFromSeed } from "@/data/frens";
+import { resolveTokenArt as resolveArt } from "@/lib/tokenArt";
 
 const RARITY = ["Common", "Rare", "Epic", "Ultra", "Legendary"];
 const RARITY_COL = ["#8f83b8", "#5ac8fa", "#c07cff", "#f5c542", "#d5fd51"];
 
-const ipfs = (u?: string) => (u && u.startsWith("ipfs://") ? u.replace("ipfs://", "https://ipfs.io/ipfs/") : u);
-async function resolveArt(uri: string): Promise<{ image?: string; name?: string }> {
-  try {
-    if (uri.startsWith("data:application/json;base64,")) { const j = JSON.parse(atob(uri.slice(29))); return { image: ipfs(j.image), name: j.name }; }
-    if (uri.startsWith("data:application/json,")) { const j = JSON.parse(decodeURIComponent(uri.slice(22))); return { image: ipfs(j.image), name: j.name }; }
-    if (uri.startsWith("http") || uri.startsWith("ipfs")) { const m = await fetch(ipfs(uri) as string, { signal: AbortSignal.timeout(6000) }).then((r) => r.json()); return { image: ipfs(m.image), name: m.name }; }
-  } catch { /* ignore */ }
-  return {};
-}
 
 export interface CreatureRef {
   collection: Address;

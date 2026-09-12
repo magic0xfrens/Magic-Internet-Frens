@@ -39,8 +39,16 @@ export interface QuoteHolding {
   asset: QuoteAsset;
   /** Raw balance, in the asset's own units. */
   raw: bigint;
-  /** Human amount in the asset's own units. */
+  /** Human IDLE amount in the asset's own units — what is NOT deployed. */
   amount: number;
+  /** Raw quote-side amount this asset has deployed in the generation's live
+   *  positions, in the asset's own units. */
+  lpRaw: bigint;
+  /** Human deployed amount. For a healthy treasury this is essentially all of
+   *  it: `rotateSlice` redeploys in the same transaction it removes in. */
+  lpAmount: number;
+  /** Idle + deployed. The figure `usd` is derived from. */
+  totalAmount: number;
   /** USD value, or null when no usable price exists for this asset. */
   usd: number | null;
   /** Share of the priced total, 0..1 — null when this asset is unpriced. */
@@ -75,6 +83,9 @@ interface TreasuryRow {
   usd: number | null;
   share: number | null;
   liquidity?: string;
+  lpRaw?: string;
+  lpAmount?: number;
+  totalAmount?: number;
   isBasis: boolean;
 }
 
@@ -112,6 +123,12 @@ export function useLpComposition(generation: number): LpComposition {
           asset: quoteMeta(h.address as Address),
           raw: BigInt(h.raw ?? "0"),
           amount: h.amount ?? 0,
+          lpRaw: BigInt(h.lpRaw ?? "0"),
+          lpAmount: h.lpAmount ?? 0,
+          //  Fall back to the idle amount when the endpoint predates the LP
+          //  valuation, so an older indexer degrades to the previous behaviour
+          //  instead of reporting every holding as zero.
+          totalAmount: h.totalAmount ?? h.amount ?? 0,
           usd: h.usd,
           share: h.share,
           liquidity: BigInt(h.liquidity ?? "0"),

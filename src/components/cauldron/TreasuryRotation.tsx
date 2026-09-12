@@ -386,7 +386,16 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             disabled={!target || !!busy}
             onClick={govern}
           >
-            {busy === "govern" ? "Proposing…" : `Propose rotation into ${to.symbol}`}
+            {/*  WITH NO DESTINATION PICKED, `to` falls back to NATIVE_QUOTE and
+                 the button read "Propose rotation into ETH" — on a generation
+                 whose basis IS ETH, i.e. a rotation into the asset it is
+                 already in. The button is disabled, so it was only ever
+                 misleading, but it named the one action that cannot be taken. */}
+            {busy === "govern"
+              ? "Proposing…"
+              : target
+                ? `Propose rotation into ${to.symbol}`
+                : "Pick a destination above"}
           </button>
         </>
       ) : (

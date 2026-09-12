@@ -19,6 +19,31 @@ const EMPTY_VAULT: VaultState = { assetsEth: 0, assetsTok: 0, ethShares: 0, tokS
 const EMPTY_POS: VaultPosition = { redeemable: 0, instant: 0, pending: 0, shares: 0n, ethReward: 0 };
 
 /**
+ * PerpVault's virtual-shares offset (`OFFSET`, PerpVault.sol:64).
+ *
+ *  Shares are minted at 1e6x assets as ERC-4626-style inflation protection
+ *  (`shares = amount * (ethShares + 1e6) / (assetsEth + 1)`, PerpVault.sol:225),
+ *  so raw assets-per-share is ~1e-6 AT PAR, not ~1.
+ */
+const SHARE_OFFSET = 1e6;
+
+/**
+ * Assets per share, normalised so 1.0 means PAR.
+ *
+ *  ── WHY THE PANEL READ "Share price 0.0000" ────────────────────────────────
+ *  Unnormalised, a healthy vault's share price is 1e-6, which `toFixed(4)`
+ *  renders as exactly "0.0000" — and {StakePanel} derives vault yield as
+ *  `(sharePrice - 1) * 100`, so the same number also reported -99.9999%: a vault
+ *  that had just been funded claiming it had lost everything. Measured live on
+ *  r40: `assetsEth` 5e17 against `ethShares` 5e23, precisely the offset.
+ *
+ *  1.0 = par is the convention the rest of this file already assumes — it is
+ *  what {EMPTY_VAULT} falls back to.
+ */
+const sharePrice = (assets: number, shares: number): number =>
+  shares > 0 ? (assets / shares) * SHARE_OFFSET : 1;
+
+/**
  * usePerpVault — the Community PLV staking brain. READS (vault totals, your
  * position) come from Ponder (/perp-vault/:user), so the browser stays RPC-free.
  * Writes (deposit/withdraw/claim) go straight to the wallet. Your token balance +
@@ -64,7 +89,15 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
         if (!alive) return;
         const pos = (p?: RawPos): VaultPosition =>
           ({ redeemable: p?.redeemable ?? 0, instant: p?.instant ?? 0, pending: p?.pending ?? 0, shares: BigInt(p?.shares ?? "0"), ethReward: p?.ethReward ?? 0 });
-        if (d.vault) setVault(d.vault);
+        //  SHARE PRICE IS DERIVED HERE, NOT TRUSTED FROM THE WIRE (see
+        //  {sharePrice}). The endpoint's own `ethSharePrice`/`tokSharePrice` were
+        //  raw assets/shares and read 0.0000 on screen; deriving locally means
+        //  the panel is correct against every indexer build, old or new, instead
+        //  of waiting on a redeploy to stop lying.
+        if (d.vault) setVault({ ...d.vault,
+          ethSharePrice: sharePrice(d.vault.assetsEth, d.vault.ethShares),
+          tokSharePrice: sharePrice(d.vault.assetsTok, d.vault.tokShares),
+        });
         if (d.eth) setEthPos(pos(d.eth));
         if (d.token) setTokPos(pos(d.token));
       } catch { /* keep last */ }

@@ -20,10 +20,26 @@ interface PerpPanelProps {
   generation?: number; // current iteration (for the Ponder reads)
   onTraded?: () => void; // called after a position opens/closes → refresh chart
   chart?: ReactNode;   // the price/heatmap chart — rendered LEFT of the open-position ticket
+  badges?: ReactNode;  // liquidatoor trophies — fills the right rail under the ticket
 }
 
 const MAINTENANCE = 0.15; // mirrors PerpEngine.maintenanceBps (1500)
-const QUICK = [0.01, 0.05, 0.1, 0.25];
+/**
+ * Fallback size ladder, used ONLY before the engine's depth is known.
+ *
+ *  ── WHY THE CHIPS ARE NO LONGER A FIXED LADDER ─────────────────────────────
+ *  This ladder was the whole reason perps looked broken from the frontend. The
+ *  engine caps one position at `maxNotionalBps` of the POOL's depth
+ *  (PerpEngine._checkNotional, :1471); on r40 that was 5% of 0.2513 E = 0.0126 E
+ *  of notional, i.e. 0.0063 E of collateral at 2x. Every one of these four
+ *  presets is larger than that, so a trader clicking ANY of them — which is how
+ *  a trader picks a size — got "Size too big for pool depth", and there was no
+ *  affordance anywhere offering a size that would actually fill.
+ *  The live chips below are fractions of the real ceiling instead, so a preset
+ *  is openable by construction and the ladder shrinks and grows with the pool.
+ */
+const QUICK_FALLBACK = [0.01, 0.05, 0.1, 0.25];
+const QUICK_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 function compact(n: number): string {
   if (!Number.isFinite(n) || n === 0) return "0";
@@ -41,7 +57,7 @@ const gwei = (p: number) => (p > 0 ? `${(p * 1e9).toFixed(2)} gw` : "—");
  * PnL, health, and the liquidation price. Gated to a graceful "activates on
  * deploy" state until the PerpEngine address is configured.
  */
-export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded, chart }: PerpPanelProps) {
+export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded, chart, badges }: PerpPanelProps) {
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const perp = usePerpEngine(generation);
@@ -165,6 +181,35 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
   const maxCollByNotional = lev > 0 && notionalCap > 0 ? notionalCap / lev : Infinity;
   // the tighter of the two ceilings is what the trader can actually open
   const maxCollateral = Math.min(maxCollByLiquidity, maxCollByNotional);
+  /*  WHICH CEILING BINDS — and it matters, because the two have DIFFERENT
+      remedies and the panel used to imply they had the same one. The vault
+      ceiling lifts when somebody stakes; the notional ceiling is 5% of the
+      UNISWAP POOL's depth and staking cannot touch it. A trader looking at
+      "Total value locked 2.013 Ξ" in the stake panel and then at "Size too big
+      for pool depth" reasonably concludes more stake will help. It will not:
+      measured live, depth was 0.2513 Ξ against 0.5 Ξ of vault ETH, so the cap
+      was 0.0126 Ξ of notional no matter how much was staked. */
+  const bindingCap: "notional" | "liquidity" =
+    maxCollByNotional <= maxCollByLiquidity ? "notional" : "liquidity";
+  //  Shown as the headroom, not just as an error after the fact. 4dp because
+  //  on a thin pool the honest answer is often 0.006 Ξ.
+  const maxCollLabel = Number.isFinite(maxCollateral) ? maxCollateral.toFixed(4) : "—";
+
+  /*  Presets that can actually be opened. Fractions of the live ceiling while we
+      know it; the fixed ladder only while depth is still unknown (first paint,
+      or the engine reporting no depth at all). Floored at the engine's dust
+      filter so a chip can never propose a size that reverts DustPosition. */
+  const quickSizes = useMemo(() => {
+    if (!Number.isFinite(maxCollateral) || maxCollateral <= 0) {
+      return QUICK_FALLBACK.map((q) => ({ label: String(q), value: q, pct: "" }));
+    }
+    return QUICK_FRACTIONS.map((f) => {
+      const value = maxCollateral * f;
+      //  4 decimals: on a thin pool the honest sizes are 0.0016-0.0063 E, and
+      //  fewer digits would round distinct chips into the same number.
+      return { label: value.toFixed(4), value, pct: f === 1 ? "MAX" : `${f * 100}%` };
+    });
+  }, [maxCollateral]);
   const blocked = overLiquidity || overNotional || wouldLiquidateOnOpen;
 
   // React to the tx settling: success → refresh the chart + positions; revert or
@@ -194,7 +239,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
       // (would revert BadLeverage on _checkNotional). Notional is the tighter cap.
       if (overNotional) {
         const msg = maxCollByNotional >= 0.0001
-          ? `Position too big for pool depth — max ~${compact(notionalCap)} Ξ notional (${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of depth). Try ~${compact(maxCollByNotional)} Ξ at ${lev}×, or lower leverage.`
+          ? `Position too big for POOL depth — one position is capped at ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of the Uniswap pool's ${compact(stats.depthEth)} Ξ, i.e. ~${compact(notionalCap)} Ξ notional. Try ~${compact(maxCollByNotional)} Ξ at ${lev}×, or lower leverage. Staking in the vault does NOT raise this cap — it is the pool's liquidity, not the vault's.`
           : `The pool is too thin to open a position right now — depth ${compact(stats.depthEth)} Ξ. Wait for more liquidity.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
@@ -246,18 +291,21 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         .pp-toast__ic { font-size: 15px; margin-top: 1px; }
         .pp-toast__x { margin-left: auto; cursor: pointer; opacity: 0.6; background: none; border: none; color: inherit; font-size: 15px; }
         @keyframes pp-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
-        /* Stacked on narrow screens — chart, then the ticket, then the book.
-           From 900px the ticket moves into a right rail beside the chart and
-           spans down past it, so you never scroll away from "Open position". */
+        /* Stacked on narrow screens — chart, ticket, the book, then the trophies.
+           From 900px it's two columns: chart + ticket on row 1, the book + the
+           trophies on row 2. The ticket does NOT span both rows — that's what
+           makes the chart→book seam and the ticket→trophies seam land on the
+           same line, since a grid row is as tall as its tallest cell. */
         .pp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;
-              grid-template-areas: "chart" "open" "stack"; }
+              grid-template-areas: "chart" "open" "stack" "badges"; }
         @media (min-width: 900px) {
           .pp { grid-template-columns: minmax(0, 1fr) 340px; align-items: start;
-                grid-template-areas: "chart open" "stack open"; }
+                grid-template-areas: "chart open" "stack badges"; }
         }
         .pp-chart { grid-area: chart; min-width: 0; }
         .pp-chart > .tc-perp-chart { margin-bottom: 0; }
-        .pp-open { grid-area: open; align-self: start; }
+        .pp-open { grid-area: open; align-self: start; min-width: 0; }
+        .pp-badges { grid-area: badges; align-self: start; min-width: 0; }
         .pp-stack { grid-area: stack; min-width: 0; display: grid; gap: 14px; }
         .pp-card { border-radius: var(--r-md); padding: 16px; background: rgba(23,18,42,0.34); border: 1px solid rgba(255,255,255,0.06); }
         .pp-eyebrow { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: ${C.mute}; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -267,7 +315,12 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         .pp-toggle .on--long { background: ${col}1e; color: ${col}; }
         .pp-toggle .on--short { background: ${C.red}1e; color: ${C.red}; }
         .pp-field { background: rgba(8,6,15,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-sm); padding: 11px 13px; }
-        .pp-field-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .pp-field-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+        /*  The ceiling is a CONTROL, not a footnote: the number it prints is the
+            largest size that will actually open, and clicking it fills the field. */
+        .pp-max { font: inherit; color: ${C.lime}; background: none; border: none; padding: 0; cursor: pointer;
+          text-decoration: underline; text-decoration-color: ${C.lime}55; text-underline-offset: 2px; white-space: nowrap; }
+        .pp-max:hover { text-decoration-color: ${C.lime}; }
         .pp-lbl { font-family: "DM Mono", monospace; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: ${C.mute}; }
         .pp-row { display: flex; align-items: center; gap: 8px; }
         .pp-input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 22px; color: ${C.cream}; }
@@ -276,6 +329,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         .pp-chips { display: flex; gap: 5px; margin: 8px 0; }
         .pp-chip { flex: 1; padding: 5px 0; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; cursor: pointer; transition: all 0.15s ease; }
         .pp-chip:hover { border-color: ${accent}55; color: ${C.cream}; }
+        .pp-chip__pct { display: block; font-size: 8px; letter-spacing: 0.1em; opacity: 0.6; margin-bottom: 1px; }
         .pp-chip--on { background: ${accent}18; border-color: ${accent}77; color: ${accent}; }
         .pp-lev { margin: 14px 0 4px; }
         .pp-lev-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
@@ -351,7 +405,7 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
 
       {chart && <div className="pp-chart">{chart}</div>}
 
-      {/* ── open a position — the right rail, beside the chart ── */}
+      {/* ── the right rail, beside the chart: open a position ── */}
       <div className="pp-card pp-open">
         <div className="pp-eyebrow"><span>Open position</span><span>max <b>{maxLev}×</b></span></div>
 
@@ -363,7 +417,18 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         <div className="pp-field">
           <div className="pp-field-top">
             <span className="pp-lbl">Collateral</span>
-            <span className="pp-lbl">{collateral * ethUsd > 0 ? `≈ $${(collateral * ethUsd).toFixed(2)}` : ""}</span>
+            <span className="pp-lbl">
+              {collateral * ethUsd > 0 ? `≈ $${(collateral * ethUsd).toFixed(2)} · ` : ""}
+              {Number.isFinite(maxCollateral) && maxCollateral > 0 ? (
+                <button
+                  className="pp-max"
+                  title={bindingCap === "notional"
+                    ? `Capped by POOL depth (${compact(stats.depthEth)} Ξ): one position may not exceed ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of it. Staking in the vault does not raise this — only deeper pool liquidity does.`
+                    : `Capped by what the vault can lend to ${side}s (${compact(sideCap)} Ξ). Staking in the vault raises this.`}
+                  onClick={() => setAmt(maxCollLabel)}
+                >max {maxCollLabel} Ξ</button>
+              ) : null}
+            </span>
           </div>
           <div className="pp-row">
             <input className="pp-input" inputMode="decimal" placeholder="0.0" value={amt}
@@ -372,8 +437,12 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           </div>
         </div>
         <div className="pp-chips">
-          {QUICK.map((q) => (
-            <button key={q} className={`pp-chip ${collateral === q ? "pp-chip--on" : ""}`} onClick={() => setAmt(String(q))}>{q}</button>
+          {quickSizes.map(({ label, value, pct }) => (
+            <button key={label} className={`pp-chip ${amt === label ? "pp-chip--on" : ""}`}
+              title={pct ? `${pct} of the largest position this pool will accept right now` : undefined}
+              onClick={() => setAmt(label)}>
+              {pct ? <><span className="pp-chip__pct">{pct}</span>{label}</> : label}
+            </button>
           ))}
         </div>
 
@@ -386,7 +455,10 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         </div>
 
         <div className="pp-summary">
-          <div className="pp-line"><span className="pp-line-l">Notional</span><span className={`pp-line-v ${overNotional ? "warn" : ""}`}>{notional.toFixed(4)} Ξ{stats.depthEth > 0 ? ` / ${compact(notionalCap)} max` : ""}</span></div>
+          <div className="pp-line">
+            <span className="pp-line-l">Notional <span style={{ opacity: 0.6 }}>({((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of pool depth {compact(stats.depthEth)} Ξ)</span></span>
+            <span className={`pp-line-v ${overNotional ? "warn" : ""}`}>{notional.toFixed(4)} Ξ{stats.depthEth > 0 ? ` / ${compact(notionalCap)} max` : ""}</span>
+          </div>
           <div className="pp-line"><span className="pp-line-l">Entry price</span><span className="pp-line-v">{priceUsd > 0 ? `$${priceUsd < 0.01 ? priceUsd.toPrecision(2) : priceUsd.toFixed(4)}` : gwei(spotPrice)}</span></div>
           <div className="pp-line"><span className="pp-line-l">Est. liquidation</span><span className="pp-line-v warn">{gwei(liqPrice)} <span style={{ opacity: 0.7 }}>(−{liqDeltaPct.toFixed(0)}%)</span></span></div>
           <div className="pp-line"><span className="pp-line-l">Open fee ({(feeBps / 100).toFixed(1)}% collat.)</span><span className="pp-line-v">{feeEth.toFixed(5)} Ξ</span></div>
@@ -408,6 +480,9 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           Leverage executes <b>real swaps</b> — your position moves the chart. Liquidations trigger off a manipulation-resistant TWAP mark; fees fund the OG dividend + treasury.
         </p>
       </div>
+
+      {/* proof-of-kill trophies — self-hides when there's no wallet connected */}
+      <div className="pp-badges">{badges}</div>
 
       {/* ── OI, funding, vault + positions ── */}
       <div className="pp-stack">

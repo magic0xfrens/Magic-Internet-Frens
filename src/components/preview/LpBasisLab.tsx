@@ -29,8 +29,13 @@ function hold(assetIdx: number, amount: number, usd: number | null, isBasis = fa
     usd,
     share: null, // recomputed below, exactly as the hook does
     // Fixtures represent a treasury whose value is deployed, which is the
-    // normal state — `rotateSlice` never leaves it idle for long.
+    // normal state — `rotateSlice` never leaves it idle for long. So the whole
+    // amount sits on the LP side and the idle balance is the dust, matching
+    // what the live endpoint reports.
     liquidity: amount > 0 ? 1n : 0n,
+    lpRaw: BigInt(Math.round(amount * 10 ** Math.min(asset.decimals, 9))),
+    lpAmount: amount,
+    totalAmount: amount,
     isBasis,
   };
 }

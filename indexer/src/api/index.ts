@@ -465,9 +465,52 @@ app.get("/treasury", async (c) => {
     const liq = await perpClient.readContract({
       address: POSM, abi: POSM_READ, functionName: "getPositionLiquidity", args: [posId],
     }).catch(() => 0n) as bigint;
+
+    //  ── VALUE THE POSITION, DO NOT JUST COUNT ITS L UNITS ────────────────
+    //  Everything above this line was already right, and then the USD below was
+    //  computed from the IDLE balance alone — so a treasury whose entire point
+    //  is that it holds nothing idle reported its own worth as the dust left
+    //  over. Measured live: raw = 321 wei against a position of 2.787e21 L, and
+    //  the panel printed "<$0.01 in pool".
+    //
+    //  L is not a value. Converting it needs the pool's current price and the
+    //  position's range; these positions are FULL RANGE (PoolOps._seedActive
+    //  spans MIN_TICK..MAX_TICK), which collapses the general formula to
+    //      amount0 = L * 2^96 * (sqrtMax - sqrtP) / (sqrtP * sqrtMax)
+    //  and amount0 IS the quote side, because the iteration token is mined to
+    //  sort above the quote. So this counts what BACKS the pool and excludes the
+    //  brew's own token, which is the only honest way to state it — the token
+    //  side is a claim on this same liquidity, not additional backing.
+    //
+    //  Raw units, not ether: the quote may be 6-decimal USDG. `lpEthOf` does the
+    //  same arithmetic but formatEther's it, which is correct for its native-only
+    //  caller and would be off by 10^12 here.
+    const poolId = keccak256(encodeAbiParameters(
+      [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }],
+      [key[0] as `0x${string}`, key[1] as `0x${string}`, key[2], key[3], key[4] as `0x${string}`],
+    ));
+    let lpRaw = 0n;
+    if (liq > 0n) {
+      const slot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, 6n]));
+      const rawSlot = await perpClient.readContract({
+        address: POOL_MGR, abi: EXTSLOAD, functionName: "extsload", args: [slot],
+      }).catch(() => null) as `0x${string}` | null;
+      const sqrtP = rawSlot ? BigInt(rawSlot) & ((1n << 160n) - 1n) : 0n;
+      //  sqrtP == 0 means the pool did not answer. Leave the LP side at 0 and
+      //  let `partial` surface it, rather than valuing a position at a price we
+      //  do not have.
+      if (sqrtP > 0n) {
+        const Q96 = 1n << 96n;
+        const SQRT_MAX = 1461446703485210103287273052203988822378723970342n;
+        lpRaw = (liq * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
+      }
+    }
     // currency0 is the quote in every Cauldron pair the registry opens; the
     // token is currency1 (PoolOps mines the token to sort ABOVE the quote).
-    return { generation: g, positionId: posId.toString(), quote: key[0], liquidity: liq.toString() };
+    return {
+      generation: g, positionId: posId.toString(), quote: key[0],
+      liquidity: liq.toString(), lpRaw: lpRaw.toString(),
+    };
   }));
 
   // Idle balances on the REGISTRY — what a rebirth recovered but has not yet
@@ -480,6 +523,17 @@ app.get("/treasury", async (c) => {
           functionName: "balanceOf", args: [REGISTRY],
         }).catch(() => 0n) as bigint;
 
+    // Liquidity this quote currently backs, summed across the generation's live
+    // positions, with the quote-side amount those L units represent.
+    const mine = positions.filter((p) => p && p.quote.toLowerCase() === q.address.toLowerCase());
+    const liq = mine.reduce((a, p) => a + BigInt(p!.liquidity), 0n);
+    const lpRaw = mine.reduce((a, p) => a + BigInt(p!.lpRaw), 0n);
+
+    //  THE ASSET'S VALUE IS IDLE + DEPLOYED. Pricing `raw` alone answered "what
+    //  has this treasury failed to put to work", which is ~0 for a healthy one
+    //  by design — and then presented that as the treasury's size.
+    const totalRaw = raw + lpRaw;
+
     // 0 from the oracle means CANNOT JUDGE, never "worthless" — it stays null so
     // the UI omits the asset from the split instead of drawing it at zero.
     let usd: number | null = null;
@@ -488,20 +542,20 @@ app.get("/treasury", async (c) => {
         address: oracle as `0x${string}`, abi: ORACLE_READ,
         functionName: "usdPerRawUnit", args: [q.address as `0x${string}`],
       }).catch(() => 0n) as bigint;
-      if (f > 0n) usd = (Number(raw) * Number(f)) / 1e18 / 1e18;
+      if (f > 0n) usd = (Number(totalRaw) * Number(f)) / 1e18 / 1e18;
     }
-
-    // Liquidity this quote currently backs, summed across the generation's live
-    // positions. Raw L units — comparable BETWEEN pools only via a price, which
-    // is why it is reported rather than folded into the share below.
-    const liq = positions
-      .filter((p) => p && p.quote.toLowerCase() === q.address.toLowerCase())
-      .reduce((a, p) => a + BigInt(p!.liquidity), 0n);
 
     return {
       address: q.address,
       raw: raw.toString(),                     // string: JSON has no bigint
-      amount: Number(raw) / 10 ** q.decimals,
+      amount: Number(raw) / 10 ** q.decimals,  // IDLE only, as the name says
+      //  The deployed side, reported separately so the UI can distinguish "in
+      //  the pool" from "sitting in the registry" — they mean different things
+      //  about the treasury's health, and summing them silently would hide a
+      //  failed reseed.
+      lpRaw: lpRaw.toString(),
+      lpAmount: Number(lpRaw) / 10 ** q.decimals,
+      totalAmount: Number(totalRaw) / 10 ** q.decimals,
       usd,
       liquidity: liq.toString(),
       isBasis: q.address.toLowerCase() === (basis ?? NATIVE).toLowerCase(),
@@ -519,7 +573,10 @@ app.get("/treasury", async (c) => {
       share: h.usd !== null && totalUsd > 0 ? h.usd / totalUsd : null,
     })),
     totalUsd,
-    partial: holdings.some((h) => h.usd === null && h.raw !== "0"),
+    //  An asset is "held" if it is idle OR deployed — the LP side was missing
+    //  here too, so an unpriceable quote that lived entirely in a pool was
+    //  omitted from the split WITHOUT the warning that says so.
+    partial: holdings.some((h) => h.usd === null && (h.raw !== "0" || h.lpRaw !== "0")),
   };
   treasuryCache = { at: Date.now(), v };
   return c.json(v);
@@ -1041,6 +1098,11 @@ if (process.env.HEALTH_WATCHDOG !== "0") {
   }, 30_000);
 }
 
+/** PerpVault's virtual-shares offset (`OFFSET`, PerpVault.sol:64). Shares are
+ *  minted at this multiple of assets, so any assets-per-share figure has to be
+ *  scaled by it before it means anything to a human. */
+const SHARE_OFFSET = 1e6;
+
 // Community PLV vault (staking) state + a user's position — server-side reads.
 let vaultCache: { at: number; v: { assetsEth: number; assetsTok: number; ethShares: number; tokShares: number; ethSharePrice: number; tokSharePrice: number } | null } = { at: 0, v: null };
 async function vaultState() {
@@ -1055,7 +1117,17 @@ async function vaultState() {
     ]);
     const v = {
       assetsEth: n(aEth), assetsTok: n(aTok), ethShares: n(eSh), tokShares: n(tSh),
-      ethSharePrice: eSh > 0n ? n(aEth) / n(eSh) : 1, tokSharePrice: tSh > 0n ? n(aTok) / n(tSh) : 1,
+      //  NORMALISED BY THE VAULT'S VIRTUAL-SHARE OFFSET. PerpVault mints at
+      //  OFFSET x assets (`shares = amount * (ethShares + 1e6) / (assetsEth + 1)`,
+      //  PerpVault.sol:225) as ERC-4626-style inflation protection, so raw
+      //  assets/shares is ~1e-6 at par, not ~1. Unnormalised, the frontend
+      //  rendered "Share price 0.0000" (toFixed(4) of 1e-6) and, worse, computed
+      //  vault yield as `(sharePrice - 1) * 100` = -99.9999% — a healthy vault
+      //  reporting that it had lost everything. Measured live: assetsEth 5e17
+      //  against ethShares 5e23, exactly the offset.
+      //  1.0 means par, which is the convention the client already defaults to.
+      ethSharePrice: eSh > 0n ? (n(aEth) / n(eSh)) * SHARE_OFFSET : 1,
+      tokSharePrice: tSh > 0n ? (n(aTok) / n(tSh)) * SHARE_OFFSET : 1,
     };
     vaultCache = { at: Date.now(), v };
     return v;

@@ -268,7 +268,7 @@ export function useTreasuryRotation() {
       //  reverts, nothing is stolen, and the screen states a duration that is
       //  simply not this contract's. These four come back as `number | null` so
       //  the panel can say "unknown" instead of inventing three days.
-      const secs = (fn: string) =>
+      const secs = (fn: "COOLDOWN" | "VOTING_PERIOD" | "EXECUTION_WINDOW" | "ENVELOPE_LIFETIME") =>
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: fn })
           .then((v) => Number(v as bigint))
           .catch(() => null);

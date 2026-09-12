@@ -45,6 +45,33 @@ export const CAULDRON = {
 // saying the URL was wrong. Change the manifest to change the indexer.
 export const CAULDRON_INDEXER: string = round.indexerUrl.replace(/\/+$/, "");
 
+/**
+ * The hook's trading fee, in bps — skimmed off the ETH side of EVERY swap
+ * (`CauldronHook._takeEthFee`) and routed to the floor vault / genesis dividend /
+ * relaunch reserve.
+ *
+ *  ── WHY A CONSTANT AND NOT A READ ─────────────────────────────────────────
+ *  `CauldronHook.defaultTaxBps` and `nftContract` are both `internal` (:234,
+ *  :237) and the hook is against the EIP-170 ceiling, so there is no getter to
+ *  read and no room to add one. 300 is the deployed value.
+ *
+ *  ── WHY ANY QUOTE MUST SUBTRACT IT ────────────────────────────────────────
+ *  The swap widget used to estimate output as `ethIn / spotPrice` — pure mid
+ *  price. On a buy the hook consumes this fee off the input in `beforeSwap`, so
+ *  only (1 - fee) of the ETH ever reaches the pool; the estimate was ~3% high
+ *  before price impact even entered. `minOut` derived from it therefore sat
+ *  ABOVE anything the pool could deliver, and the router's own `Slippage()`
+ *  guard (CauldronGachaRouter.sol:429) reverted every buy at the 0.5% and 1%
+ *  presets — measured on Sepolia r40: 0.05 ETH quoted 49.55M $GNOME, filled
+ *  47.61M, a 3.9% gap from fee + 1.9 ticks of impact.
+ *
+ *  NOT included here: the decaying anti-sniper surtax (`snipeSurtaxBps`), which
+ *  is zero outside a fresh pool's launch window and can reach ~99% inside it.
+ *  A trade in that window is meant to be punitive; the slippage tolerance is the
+ *  only thing standing between the trader and it, by design.
+ */
+export const TRADE_FEE_BPS = 300;
+
 /** Liquidatoor badges (OnChain Collectibles) mint into this id range on every
  *  collection, kept separate from the art tranche. A tokenId at/above this is a
  *  Liquidatoor trophy, not a creature. Mirrors LIQUIDATOR_ID_BASE on-chain. */
