@@ -54,6 +54,21 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         active = true;
         vm.createSelectFork(rpc);
 
+        //  THE GUILD MUST BE A CONTRACT (red-team X4c). {FeeRouteLib._fundGuild}
+        //  refuses to deliver the OG share to a codeless recipient on EITHER leg:
+        //  an address with no code cannot credit a holder, so ether sent there is
+        //  gone with a success signal on it, and the share is routed to the
+        //  relaunch reserve instead — which is exactly what
+        //  `test_PerpSwapFee_RoutesToStakers_OnFork` asserts must NOT happen.
+        //
+        //  `dividend` is a bare address literal, which made it an EOA and made
+        //  this fixture configure something production never does:
+        //  {MiFrensDividend} is a contract, and its `receive()` is what credits
+        //  the native dividend. Give the stand-in code so the fixture matches.
+        //  Etched AFTER `createSelectFork` on purpose — a contract deployed in
+        //  this test's constructor does not exist on the fork.
+        vm.etch(dividend, address(new PerpGuildSink()).code);
+
         address poolManager = vm.envAddress("POOL_MANAGER");
         address positionManager = vm.envAddress("POSITION_MANAGER");
         pm = IPoolManager(poolManager);
@@ -998,6 +1013,14 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
 }
 
 /// ERC721 stub whose balanceOf is always 0 (no OG discount in these tests).
+/// @notice Stands in for {MiFrensDividend} as the guild. It only has to HAVE CODE
+///         and accept a bare value transfer: {FeeRouteLib._fundGuild} delivers the
+///         native OG share with `guild.call{value:}("")`, and refuses outright if
+///         the recipient is codeless.
+contract PerpGuildSink {
+    receive() external payable {}
+}
+
 contract NoFrens {
     function balanceOf(address) external pure returns (uint256) { return 0; }
 }
