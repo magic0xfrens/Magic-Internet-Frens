@@ -250,9 +250,18 @@ contract F12_IgniteEconomicsForkTest is Test {
         uint256 dueAtStart = seeder.primePending();
         assertLt(dueAtStart, budget, "t0 must not authorise the whole budget");
 
-        // Stream to completion in steps, poking as a keeper would.
-        for (uint256 i; i < 6; i++) {
-            vm.warp(block.timestamp + WINDOW / 5);
+        // Stream to completion in steps, poking as a keeper would — ONE POKE PER BLOCK.
+        // The prime tranche is now impact-capped against the seeder's rate-limited
+        // price reference (audit Z-17), which by construction only advances between
+        // blocks: six pokes inside a single block is the grind the cap exists to stop,
+        // not the keeper behaviour this test means to model. `vm.getBlockNumber()` /
+        // `vm.getBlockTimestamp()` rather than `block.number` / `block.timestamp`
+        // because via_ir hoists those opcode reads out of the loop.
+        uint256 b0 = vm.getBlockNumber();
+        uint256 t0 = vm.getBlockTimestamp();
+        for (uint256 i; i < 60; i++) {
+            vm.roll(b0 + i + 1);
+            vm.warp(t0 + ((WINDOW + WINDOW / 5) * (i + 1)) / 60);
             seeder.poke();
         }
 
