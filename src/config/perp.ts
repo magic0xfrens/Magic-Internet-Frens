@@ -161,17 +161,41 @@ export const PERP_VAULT_ABI = [
 
 /** Human-readable explanations for the engine's revert reasons. */
 export const PERP_ERROR_HELP: Record<string, string> = {
-  NotWarm: "The market is still warming up (a short delay after launch before leverage opens). Try again shortly.",
+  NotWarm: "The market is still warming up — leverage opens once the pool's price history is long enough to be hard to manipulate. This also restarts briefly after a generation sync.",
   BadLeverage: "That leverage is too high for the current pool depth, or the position is too large for the market. Lower the size or leverage.",
   PlvInsufficient: "The liquidity vault doesn't have enough to front this leverage right now. Try a smaller size.",
   OiCapped: "Open interest on this side is at its cap. Try the other side or a smaller size.",
   TokenDead: "This token is dead (volume below the death floor). Perps are paused until it revives.",
   UtilCapped: "The vault is near full utilization — a slice stays reserved for depositors. Try a smaller size.",
-  InsurancePaused: "Trading is briefly paused by the insurance circuit-breaker. Try again shortly.",
+  InsurancePaused: "Opens are paused: the insurance buffer (which absorbs bad debt so losses do not hit the vault) is below its floor. It refills from trading fees, or anyone can top it up with fundInsurance.",
   DustPosition: "Position too small — increase the collateral.",
-  Slippage: "Price moved past your limit. Try again.",
+  //  "Try again" was actively wrong here: a retry at the same size and the same
+  //  tolerance produces the identical fill and the identical revert. The gap is
+  //  PRICE IMPACT, which is a property of the trade, so the only actions that
+  //  change the outcome are a wider tolerance or a smaller size.
+  Slippage: "The fill was worse than your Max slippage — this pool is thin, so a bigger open pays real price impact. Raise Max slippage or reduce the size.",
   Healthy: "This position isn't liquidatable.",
   ZeroValue: "Enter a collateral amount.",
+};
+
+/**
+ * Raw 4-byte selectors → error name.
+ *
+ * viem only decodes a custom error when the ABI it was given declares it, and
+ * `PERP_ABI` is a hand-written subset carrying functions, not errors. So a
+ * revert arrived as an undecodable hex blob and the panel showed the raw
+ * message — the user saw a wall of trace and no reason. Matching the selector
+ * text works whatever the ABI knows.
+ *
+ * Verified with `cast sig` against the deployed engine, not guessed.
+ */
+export const PERP_ERROR_SELECTORS: Record<string, string> = {
+  "0x949682a5": "NotWarm",
+  "0x7dd37f70": "Slippage",
+  "0xc70b811e": "InsurancePaused",
+  "0x522007a5": "BadLeverage",
+  "0x0078695a": "DustPosition",
+  "0xefba5120": "TokenDead",
 };
 
 /** Map any error (viem decoded name or message) → a friendly explanation. */
@@ -182,6 +206,11 @@ export function explainPerpError(e: unknown): string {
     if (name === key || (m?.message ?? "").includes(key) || (m?.shortMessage ?? "").includes(key)) return PERP_ERROR_HELP[key];
   }
   const raw = m?.shortMessage || m?.message || "";
+  //  SELECTOR FALLBACK. Checked before the generic branches so a decodable
+  //  reason always beats "Transaction failed".
+  for (const [sel, key] of Object.entries(PERP_ERROR_SELECTORS)) {
+    if (raw.includes(sel) && PERP_ERROR_HELP[key]) return PERP_ERROR_HELP[key];
+  }
   if (/user rejected|denied|rejected the request/i.test(raw)) return "You rejected the transaction in your wallet.";
   if (/insufficient funds/i.test(raw)) return "Insufficient ETH for this trade + gas.";
   return raw ? raw.split("\n")[0].slice(0, 140) : "Transaction failed.";

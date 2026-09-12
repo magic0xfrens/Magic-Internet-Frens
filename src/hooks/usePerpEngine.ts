@@ -43,9 +43,12 @@ const LIQ_OPEN_GAS = 3_000_000n;
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
 /** `expected × (1 - slippage)`, in the engine's own units. */
-function floorFrom(expected: number): bigint {
+function floorFrom(expected: number, slipBps: number = PERP_SLIPPAGE_BPS): bigint {
   if (!Number.isFinite(expected) || expected <= 0) return 0n;
-  return (parseEther(expected.toFixed(18)) * BigInt(10_000 - PERP_SLIPPAGE_BPS)) / 10_000n;
+  //  Clamp rather than trust: a caller-supplied tolerance must never widen past
+  //  "any price at all", which is what a 100% floor would mean.
+  const bps = Math.min(9_000, Math.max(0, Math.round(slipBps)));
+  return (parseEther(expected.toFixed(18)) * BigInt(10_000 - bps)) / 10_000n;
 }
 
 /**
@@ -196,14 +199,14 @@ export function usePerpEngine(generation = 1) {
   //
   //  The 4th argument is the collateral amount; on a native book it must equal
   //  the ETH sent.
-  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0) => {
+  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS) => {
     if (!address) throw new Error("Connect a wallet first");
     if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
     const value = parseEther(collateralEth.toFixed(18));
     const notionalEth = collateralEth * (1 - stats.openFeeBps / 10_000) * leverage;
-    const minTokenOut = floorFrom(notionalEth / spotPrice);
+    const minTokenOut = floorFrom(notionalEth / spotPrice, slipBps);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openLong",
       args: [leverage, minTokenOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
@@ -212,13 +215,13 @@ export function usePerpEngine(generation = 1) {
 
   //  A short sells the borrowed token side for ETH, so ITS floor is in ETH and
   //  tracks the notional rather than a token count.
-  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0) => {
+  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS) => {
     if (!address) throw new Error("Connect a wallet first");
     if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
     const value = parseEther(collateralEth.toFixed(18));
-    const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage);
+    const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage, slipBps);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openShort",
       args: [leverage, minEthOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { usePerpEngine, type PerpPosition } from "@/hooks/usePerpEngine";
+import { PERP_SLIPPAGE_BPS } from "@/config/perp";
 import { usePerpRekt } from "@/hooks/usePerpRekt";
 import { usePerpLiqHint } from "@/hooks/usePerpLiqHint";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
@@ -129,6 +130,14 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
   }, [perp.positions, spotPrice]);
 
   const collateral = parseFloat(amt) || 0;
+  //  ── SLIPPAGE IS THE TRADER'S, BECAUSE IMPACT SCALES WITH SIZE ─────────
+  //  The panel prices a ticket at MID and the engine fills against the real
+  //  curve, so the gap is PRICE IMPACT and it grows with the trade. Measured on
+  //  r42's pool: 0.061 ETH of notional cost ~1.5-3%, while 0.094 ETH cost ~8.6%.
+  //  No single constant can be right for both — a tight one reverts every larger
+  //  open with `Slippage()`, a loose one silently accepts a bad fill on small
+  //  ones. So it is a control, like every DEX, and the number is shown.
+  const [slipBps, setSlipBps] = useState(PERP_SLIPPAGE_BPS);
   const notional = collateral * lev;
   const feeBps = stats.openFeeBps || 690;
   const feeEth = (collateral * feeBps) / 1e4;
@@ -258,8 +267,8 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           : `The ${side} vault is fully utilized right now — no liquidity to borrow. Try the other side, or stake ${side === "long" ? "ETH" : `$${ticker}`} in the vault.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
-      if (side === "long") await perp.openLong(collateral, lev, liqHint, spotPrice);
-      else await perp.openShort(collateral, lev, liqHint, spotPrice);
+      if (side === "long") await perp.openLong(collateral, lev, liqHint, spotPrice, slipBps);
+      else await perp.openShort(collateral, lev, liqHint, spotPrice, slipBps);
     } catch (e: unknown) {
       const why = explainPerpError(e);       // decoded, human-readable reason
       setErr(why);
@@ -452,6 +461,32 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
             style={{ ["--pct" as string]: `${((lev - 1) / Math.max(1, maxLev - 1)) * 100}%` }}
             onChange={(e) => setLev(Number(e.target.value))} />
           <div className="pp-ticks">{Array.from({ length: maxLev }, (_, i) => <span key={i}>{i + 1}×</span>)}</div>
+
+          {/*  MAX SLIPPAGE. Sits with leverage because it is the same kind of
+               decision — how much of the price am I willing to give up — and
+               because a brew's pool is thin at launch, so a larger open can pay
+               real impact. The presets step up to 15%, which sounds enormous and
+               is honest: at 0.09 ETH of notional into this depth the measured
+               impact was 8.6%, and anything tighter simply cannot fill. */}
+          <div className="pp-lev-top" style={{ marginTop: 14 }}>
+            <span className="pp-lbl">Max slippage</span>
+            <span className="pp-lev-v">{(slipBps / 100).toFixed(slipBps % 100 ? 1 : 0)}%</span>
+          </div>
+          <div className="pp-ticks" style={{ gap: 6, marginTop: 6 }}>
+            {[100, 300, 500, 1000, 1500].map((b) => (
+              <button
+                key={b}
+                onClick={() => setSlipBps(b)}
+                style={{
+                  flex: 1, padding: "5px 0", borderRadius: 8, cursor: "pointer",
+                  fontFamily: '"DM Mono", monospace', fontSize: 10,
+                  background: slipBps === b ? "rgba(213,253,81,0.12)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${slipBps === b ? "rgba(213,253,81,0.45)" : "rgba(255,255,255,0.07)"}`,
+                  color: slipBps === b ? "#d5fd51" : "#8f83b8",
+                }}
+              >{b / 100}%</button>
+            ))}
+          </div>
         </div>
 
         <div className="pp-summary">
