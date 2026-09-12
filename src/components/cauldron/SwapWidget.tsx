@@ -99,16 +99,40 @@ export default function SwapWidget({
   //  transaction shape and every label that used to hardcode ether.
   const qNative = isNativeQuote(quote);
   const qGlyph = qNative ? "Ξ" : quoteSymbol;
+
+
   const [mode, setMode] = useState<"buy" | "sell">("buy");
   const [buyAmt, setBuyAmt] = useState<string>("0.05");
   const [sellAmt, setSellAmt] = useState<string>("");
   const [err, setErr] = useState<string>("");
+  const [faucetBusy, setFaucetBusy] = useState(false);
+
+
   const [slipPct, setSlipPct] = useState<number>(loadSlip);
   const [slipOpen, setSlipOpen] = useState(false);
   const slipRef = useRef<HTMLDivElement>(null);
   const { address, isConnected } = useAccount();
+
+  //  ── THE TESTNET FAUCET ────────────────────────────────────────────────
+  //  A rotation can redenominate the generation into an asset NOBODY HOLDS.
+  //  On Sepolia the quote is a MockQuoteToken whose `mint` is deliberately
+  //  public ("Anyone may mint. Testnet only"), so the honest fix for a tester
+  //  staring at a buy button they cannot use is to offer the mint — not to
+  //  explain in a docs page why trading stopped.
+  //
+  //  Chain-gated, not build-gated: this must never render against mainnet,
+  //  where the quote is a real asset and `mint` does not exist.
+  const isTestnet = CAULDRON.chainId === 11155111;
+  const { data: quoteBal, refetch: refetchQuoteBal } = useReadContract({
+    address: qNative ? undefined : (quote as Address),
+    abi: ERC20_SWAP_ABI, functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    chainId: CAULDRON.chainId,
+    query: { enabled: !qNative && !!address },
+  });
+  const needsFaucet = !qNative && isTestnet && (quoteBal ?? 0n) === 0n;
   const { openConnectModal } = useConnectModal();
-  const { buy, sell, approveToken, isPending, confirming, confirmed, failed, failReason, reset, txHash } = useCauldronSwap();
+  const { buy, sell, approveToken, isPending, confirming, confirmed, failed, failReason, reset, txHash , mintTestQuote } = useCauldronSwap();
   // The most-at-risk perp position to tag onto this swap: if our trade tips it
   // past the mark, the hook auto-liquidates it and mints us a Liquidatoor badge.
   // A buy threatens shorts, a sell threatens longs. 0n keeps the cheaper path.
@@ -305,6 +329,12 @@ export default function SwapWidget({
         .sw__input::placeholder { color: rgba(143,131,184,0.45); }
         .sw__coin { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--r-chip); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 11px; color: ${C.cream}; white-space: nowrap; }
         .sw__coin-dot { width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; font-size: 8px; }
+        .sw__faucet { width: 100%; margin-top: 7px; padding: 6px 8px; border-radius: var(--r-sm);
+          background: rgba(240,180,41,0.07); border: 1px solid rgba(240,180,41,0.28);
+          font-family: "DM Mono", monospace; font-size: 9.5px; color: #f0b429; cursor: pointer;
+          transition: all 0.15s ease; }
+        .sw__faucet:hover:not(:disabled) { background: rgba(240,180,41,0.13); }
+        .sw__faucet:disabled { opacity: 0.5; cursor: default; }
         .sw__chips { display: flex; gap: 5px; margin: 6px 0 5px; }
         .sw__chip { flex: 1; padding: 4px 0; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; cursor: pointer; transition: all 0.15s ease; }
         .sw__chip:hover { border-color: ${side}55; color: ${C.cream}; }
@@ -421,6 +451,22 @@ export default function SwapWidget({
               <input className="sw__input" inputMode="decimal" placeholder="0.0" value={buyAmt} onChange={(e) => setBuyAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
               <span className="sw__coin"><span className="sw__coin-dot" style={{ background: qNative ? "#627EEA" : "#2775CA", color: "#fff" }}>{qNative ? "Ξ" : qGlyph.slice(0, 1)}</span>{qNative ? "ETH" : quoteSymbol}</span>
             </div>
+            {needsFaucet && (
+              <button
+                className="sw__faucet"
+                disabled={faucetBusy}
+                onClick={async () => {
+                  setFaucetBusy(true);
+                  try {
+                    await mintTestQuote(quote as Address, quoteDecimals);
+                    await refetchQuoteBal();
+                  } catch (e) { setErr((e as Error).message.slice(0, 110)); }
+                  finally { setFaucetBusy(false); }
+                }}
+              >
+                {faucetBusy ? "Minting…" : `You hold no ${quoteSymbol} — mint 10,000 test ${quoteSymbol}`}
+              </button>
+            )}
           </div>
           <div className="sw__chips">
             {BUY_QUICK.map((q) => (

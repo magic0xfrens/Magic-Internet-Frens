@@ -10,6 +10,12 @@ import {
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 
+/** `MockQuoteToken.mint` — testnet quote faucet. Not present on a real asset. */
+const MOCK_MINT_ABI = [{
+  type: "function", name: "mint", stateMutability: "nonpayable",
+  inputs: [{ type: "address" }, { type: "uint256" }], outputs: [],
+}] as const;
+
 /** Generous gas limit for a hinted swap that may auto-liquidate a position
  *  (nested pool swaps + badge mint). The wallet's estimate can be far too low
  *  when the target is still healthy at submit time, so we force headroom. */
@@ -154,6 +160,28 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync, pc],
   );
 
+  /**
+   * TESTNET ONLY — mint yourself some of an ERC20 quote.
+   *
+   * `MockQuoteToken.mint` is public by design ("Anyone may mint. Testnet only").
+   * A completed rotation can redenominate a generation into an asset no tester
+   * holds, which leaves a buy button that cannot be used for a reason nothing on
+   * screen explains. Callers must gate this on the chain id — the function will
+   * simply revert against a real asset, which is the correct outcome but a poor
+   * way to find out.
+   */
+  const mintTestQuote = useCallback(
+    async (quote: Address, decimals = 18, amount = 10_000): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (chainId !== CAULDRON.chainId) await switchChainAsync({ chainId: CAULDRON.chainId });
+      return writeContractAsync({
+        address: quote, abi: MOCK_MINT_ABI, functionName: "mint",
+        args: [address, parseUnits(String(amount), decimals)],
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
   /** SPIN volume: churn `ethIn` ETH through `loops` Buy→Sell→Buy legs. Each leg
    *  is credited as Mana, so a small stake generates a multiple of itself in
    *  volume → more chances to summon a crystal. `openMax=0` opens all earned. */
@@ -284,7 +312,7 @@ export function useCauldronSwap() {
   );
 
   return {
-    buy, sell, spin, reveal, revealMany, openReady, approveToken,
+    buy, sell, spin, reveal, revealMany, openReady, approveToken, mintTestQuote,
     txHash, receipt, isPending, confirming, confirmed,
     //  Exposed so no caller has to re-derive "mined but reverted" and get it
     //  wrong the way this hook did.
