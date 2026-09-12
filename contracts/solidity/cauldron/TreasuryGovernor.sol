@@ -444,7 +444,15 @@ contract TreasuryGovernor {
             votingEndsAt: uint64(block.timestamp) + VOTING_PERIOD,
             // Voting power is frozen at the PROPOSING block, so MiFrens bought
             // or borrowed after reading this proposal carry no weight.
-            snapshot: block.number,
+            //  THE PREVIOUS BLOCK, NOT THIS ONE. The comment below has always
+            //  claimed power is frozen at the proposing block so MiFrens "bought
+            //  or borrowed after reading this proposal carry no weight" — and
+            //  `block.number` does not deliver that, because `getPastVotes` at the
+            //  CURRENT block counts every transfer that lands later in the same
+            //  block. A proposer could file, then acquire in the same block behind
+            //  their own transaction, and vote with power the proposal was supposed
+            //  to have excluded. `block.number - 1` is already sealed.
+            snapshot: block.number - 1,
             forVotes: 0,
             againstVotes: 0,
             proposer: msg.sender,
