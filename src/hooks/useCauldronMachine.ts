@@ -14,6 +14,7 @@ import {
   POOLMANAGER_ABI, POSITION_MANAGER, POSITION_MANAGER_ABI, MIFRENS_ERC721_ABI,
 } from "@/config/cauldron";
 import { useEthUsd } from "./useEthUsd";
+import { fetchCollectionBalance } from "@/lib/cauldronIndexer";
 
 
 export type Phase = "presale" | "live" | "dying" | "dead";
@@ -372,14 +373,32 @@ export function useCauldronMachine() {
   }, [address, chainId, switchChainAsync, writeContractAsync, publicClient]);
 
 
-  // Does the connected wallet hold a MiFren? (gates proposing)
+  // ── Does the connected wallet hold a MiFren? (shows the propose form) ──
+  // The indexer's ownership table answers this from the SAME deduped
+  // `/nfts/:owner` request the crystal vault and the dividend panel already
+  // make, so on the common path it costs no network at all and no RPC read.
+  const [idxMiFrens, setIdxMiFrens] = useState<number | null>(null);
+  useEffect(() => {
+    if (!address) { setIdxMiFrens(null); return; }
+    let alive = true;
+    fetchCollectionBalance(address, CAULDRON.mifrens)
+      .then((n) => { if (alive) setIdxMiFrens(n); })
+      .catch(() => { if (alive) setIdxMiFrens(null); });
+    return () => { alive = false; };
+  }, [address]);
+  //  KEPT AS A SECOND OPINION, NOT DELETED, and OR-ed rather than overridden.
+  //  A down or backfilling indexer answering "0 frens" would HIDE the propose
+  //  form from a real holder — a failure rendering as an absence, which is the
+  //  shape of bug this codebase has shipped four times. So the chain read still
+  //  runs whenever the indexer has not already said yes, and either source
+  //  saying "you hold one" is enough. The contract is the real gate either way.
   const { data: mifrenBalance } = useReadContract({
     address: CAULDRON.mifrens, abi: MIFRENS_ERC721_ABI, functionName: "balanceOf",
     args: address ? [address] : undefined,
     chainId: CAULDRON.chainId,
-    query: { enabled: !!address },
+    query: { enabled: !!address && !(idxMiFrens !== null && idxMiFrens > 0) },
   });
-  const holdsMiFren = (mifrenBalance ?? 0n) > 0n;
+  const holdsMiFren = (idxMiFrens ?? 0) > 0 || (mifrenBalance ?? 0n) > 0n;
 
   const fdv = useMemo(() => s.spotPrice * 777_000_000, [s.spotPrice]); // fully-diluted, in ETH
   // Circulating MC = spot × supply that can actually reach the market at ~spot,

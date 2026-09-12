@@ -3,7 +3,7 @@ import { parseEther, parseEventLogs, type Address } from "viem";
 import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
-import { fetchOwnedNfts } from "@/lib/cauldronIndexer";
+import { fetchGachaStats, fetchIndexerLagSec, fetchOwnedNfts, type IndexedGacha } from "@/lib/cauldronIndexer";
 import { CAULDRON, HOOK_ABI, COLLECTION_ABI } from "@/config/cauldron";
 
 /* ══════════════════════════════════════════════════════════════════
@@ -93,13 +93,47 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
   const hook = { address: CAULDRON.hook, abi: HOOK_ABI, ...rd } as const;
   const qEnabled = { query: { enabled: !!address } };
 
-  const { data: opened, refetch: refOpened } = useReadContract({ ...hook, functionName: "opened", args: address ? [address] : undefined, ...qEnabled });
+  //  ── LIFETIME TALLY FROM THE INDEXER ───────────────────────────────────
+  //  `opened` is a scoreboard, not a gate: nothing about a spin or an open is
+  //  computed from it. Ponder already counts it (gacha_player.wins, verified
+  //  equal to the hook's opened() for the live wallet), so the chain read is
+  //  demoted to a fallback that only fires when the indexer cannot answer.
+  //  `undefined` = not asked yet, `null` = asked and it failed.
+  const [gacha, setGacha] = useState<IndexedGacha | null | undefined>(undefined);
+  //  How far behind the indexer's head is. A tally drawn from a head that is
+  //  minutes old would quietly under-count a wallet that just summoned, so the
+  //  lag is shown next to the number rather than hidden behind it.
+  const [lagSec, setLagSec] = useState<number | null>(null);
+  const loadGacha = useCallback(async () => {
+    if (!address) { setGacha(undefined); return; }
+    const [g, lag] = await Promise.all([fetchGachaStats(address), fetchIndexerLagSec()]);
+    setGacha(g);
+    setLagSec(lag);
+  }, [address]);
+  useEffect(() => { void loadGacha(); }, [loadGacha]);
+
+  //  Enabled ONLY while the indexer is failing. `opened` is otherwise free.
+  const { data: opened, refetch: refOpened } = useReadContract({
+    ...hook, functionName: "opened", args: address ? [address] : undefined,
+    query: { enabled: !!address && gacha === null },
+  });
+  //  STAYS ON CHAIN. `missStreak` is the PITY counter and resets on every win;
+  //  the indexer's `misses` is a lifetime total. They were 0 and 12 for the same
+  //  wallet — swapping one for the other would draw a pity bar that is simply
+  //  false, so this read does not move.
   const { data: miss, refetch: refMiss } = useReadContract({ ...hook, functionName: "missStreak", args: address ? [address] : undefined, ...qEnabled });
+  //  STAYS ON CHAIN. The mana bar is the live gate on whether the NEXT spin can
+  //  summon, and no table records it.
   const { data: prog, refetch: refProg } = useReadContract({ ...hook, functionName: "progress", args: address ? [address] : undefined, ...qEnabled });
   const spinWei = parseEther((stake * loops).toFixed(18));
+  //  STAYS ON CHAIN. A pure function of live hook state for the stake about to be
+  //  signed; not indexed, and stale odds would misprice the spin.
   const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [spinWei], query: { placeholderData: (p) => p } });
 
-  const openedN = opened != null ? Number(opened as bigint) : 0;
+  //  null when neither source could answer → the footer says so instead of
+  //  printing a confident "0" over a wallet that has summoned creatures.
+  const openedN: number | null =
+    gacha ? gacha.wins : opened != null ? Number(opened as bigint) : null;
   const missN = miss != null ? Number(miss as bigint) : 0;
   //  The hook exposes no `pityThreshold()` — it is in no compiled artifact, so
   //  the read always failed and this always fell through to 8. Stating the
@@ -168,14 +202,14 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       // spin); else FIZZLE (not enough mana).
       setResult({ forged, won: wonIds.length, lost });
       setPhase(wonIds.length > 0 ? "summoned" : forged > 0 ? "forged" : "fizzle");
-      Promise.all([refOpened(), refMiss(), refProg()]).then(() => onBought?.()).catch(() => {});
+      Promise.all([refOpened(), refMiss(), refProg(), loadGacha()]).then(() => onBought?.()).catch(() => {});
     } catch (e: unknown) {
       setErr(friendlyErr(e, "Spin failed"));
       setPhase("idle");
     } finally {
       reset();
     }
-  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, address, refOpened, refMiss, refProg, onBought, reset]);
+  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, address, refOpened, refMiss, refProg, loadGacha, onBought, reset]);
 
   /**
    * Open EVERY sealed crystal in one transaction.
@@ -334,6 +368,11 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
   }, [collection, pub, reveal, onBought, reset]);
 
   const spinCost = (stake * ethUsd).toFixed(2);
+  //  What the two dials multiply to: the churn runs `loops` legs off the same
+  //  stake, so the VOLUME credited — the thing the odds curve actually prices —
+  //  is stake x loops, not the stake. Trimmed of float noise (0.03 * 3 is
+  //  0.09000000000000001 in binary) before it ever reaches the screen.
+  const spinVolume = Number((stake * loops).toFixed(4));
 
   const status = useMemo(() => {
     if (isPending) return action.current === "open" ? "Confirm the crack in your wallet…" : "Confirm the spin in your wallet…";
@@ -407,32 +446,38 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
         <div className="ccg-mana-bar"><div style={{ width: `${manaPct}%`, background: col }} /></div>
       </div>
 
-      {/* ── compact controls: labeled pill rows (loops + stake) ── */}
-      <div className="ccg-ctrl">
-        <span className="ccg-ctrl-lbl">Loops</span>
-        <div className="ccg-pills">
-          {LOOPS.map((l) => (
-            <button key={l} className={`ccg-pill ${loops === l ? "on" : ""}`} disabled={busy} onClick={() => setLoops(l)}>{l}×</button>
-          ))}
+      {/* ── THE MACHINE'S TWO DIALS, AND WHAT THEY MULTIPLY TO ──────────────
+           Stake and loops used to be two unlabelled-looking pill rows with the
+           odds floating below as a separate block, so nothing on screen said the
+           one thing a player needs to know: these two numbers MULTIPLY, and the
+           product is the volume that buys the chance. They are now one console —
+           spend, then multiplier, then the product and the odds it earns, in
+           reading order, sharing a border so they read as one machine. */}
+      <div className="ccg-dials">
+        <div className="ccg-dial">
+          <span className="ccg-dial-l">Stake</span>
+          <div className="ccg-pills">
+            {STAKES.map((s) => (
+              <button key={s} className={`ccg-pill ${stake === s ? "on" : ""}`} disabled={busy} onClick={() => setStake(s)}>{s}<i>Ξ</i></button>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="ccg-ctrl">
-        <span className="ccg-ctrl-lbl">Stake</span>
-        <div className="ccg-pills">
-          {STAKES.map((s) => (
-            <button key={s} className={`ccg-pill ${stake === s ? "on" : ""}`} disabled={busy} onClick={() => setStake(s)}>{s}<i>Ξ</i></button>
-          ))}
+        <div className="ccg-dial">
+          <span className="ccg-dial-l">Loops</span>
+          <div className="ccg-pills">
+            {LOOPS.map((l) => (
+              <button key={l} className={`ccg-pill ${loops === l ? "on" : ""}`} disabled={busy} onClick={() => setLoops(l)}>{l}×</button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* ── odds: one tight line (chance + bar + context) ── */}
-      <div className="ccg-odds">
-        <div className="ccg-odds-row">
-          <span>Summon chance</span>
-          <span className="ccg-odds-v" style={{ color: col }}>{winPct > 0 ? `${winPct.toFixed(0)}%` : "—"}</span>
+        <div className="ccg-yield">
+          <span className="ccg-yield-l">≈ ${spinCost} → <b>{spinVolume}Ξ</b> volume</span>
+          <span className="ccg-yield-v" style={{ color: col }}>
+            {winPct > 0 ? `${winPct.toFixed(0)}%` : "—"}<i>chance</i>
+          </span>
         </div>
         <div className="ccg-odds-bar"><div style={{ width: `${Math.min(winPct, 100)}%`, background: col }} /></div>
-        <div className="ccg-odds-sub">≈ ${spinCost} · {loops}× volume{winPct > 0 ? ` · ${winPct.toFixed(0)}% to summon` : " · grind Mana"}</div>
       </div>
 
       <button className="ccg-cta" onClick={doSpin} disabled={busy || soldOut}>
@@ -496,7 +541,13 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
             <span key={i} className={`ccg-pip ${i < missN ? "on" : ""}`} style={i < missN ? { background: col } : undefined} />
           ))}
         </div>
-        <div className="ccg-foot">Summoned lifetime: {openedN} · commit-reveal · a sealed crystal is a real NFT you can open or trade</div>
+        {/*  The COUNT stays at every height; the explanation of what a crystal is
+             is the part that folds away when the viewport is short, so the rail
+             still ends above the fold. */}
+        <div className="ccg-foot">Summoned lifetime: {openedN ?? "unavailable"}
+          {gacha && lagSec != null && lagSec > 120 && (
+            <span className="ccg-foot__prose"> · indexer {Math.floor(lagSec / 60)}m behind</span>
+          )}<span className="ccg-foot__prose"> · commit-reveal · a sealed crystal is a real NFT you can open or trade</span></div>
       </div>
     </section>
   );
@@ -505,19 +556,39 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
 const C = { void: "#0E0A1A", cream: "#f5f0e8", mute: "#8f83b8", red: "#ff4d6d", amber: "#f5c542" };
 
 const css = (col: string) => `
-  .ccg { position: relative; border-radius: var(--r-md); padding: 18px 16px 16px;
+  .ccg { position: relative; border-radius: var(--r-md); padding: clamp(12px, 1.8vh, 18px) 15px clamp(11px, 1.6vh, 16px);
     background: radial-gradient(120% 90% at 50% -10%, ${col}0e, transparent 60%), rgba(20, 14, 40, 0.55);
     border: 1px solid ${col}26; overflow: hidden; }
   .ccg-head { display: flex; align-items: baseline; justify-content: space-between; }
   .ccg-eyebrow { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; }
   .ccg-mint { font-family: "DM Mono", monospace; font-size: 9px; color: ${C.mute}; }
-  .ccg-title { font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: 20px; color: ${C.cream}; margin: 2px 0 12px; }
+  .ccg-title { font-family: "Cinzel Decorative", serif; font-weight: 700; font-size: clamp(17px, 2.2vh, 20px); color: ${C.cream}; margin: 1px 0 clamp(6px, 1.1vh, 12px); }
 
-  .ccg-stage { position: relative; height: 250px; display: grid; place-items: center; margin-bottom: 8px; border-radius: var(--r-sm); overflow: hidden; }
-  .ccg-glow { position: absolute; inset: 0; background: radial-gradient(58% 52% at 60% 60%, ${col}22, transparent 70%); transition: opacity 0.4s; }
+  /*  THE STAGE IS A FOOTPRINT, NOT A FRAME. It used to clip: "overflow:hidden"
+      plus a centred hero pulled up 22px meant the top of the plume was sliced
+      off, and the shorter the panel got the more of the wizard went with it.
+      Now the box only reserves the vertical space the layout spends; the art is
+      anchored to its FLOOR and allowed to grow past the top, over the title —
+      deliberately, because a cauldron's smoke rising into the words above it is
+      the composition. The plume dissolves into the panel (mask below) instead of
+      ending on a hard edge, so it can never collide with the eyebrow. */
+  .ccg-stage { position: relative; height: clamp(112px, 15.5vh, 196px); display: block; margin-bottom: clamp(13px, 1.9vh, 21px); border-radius: var(--r-sm); overflow: visible; }
+  .ccg-glow { position: absolute; inset: 0; background: radial-gradient(54% 48% at 50% 76%, ${col}22, transparent 70%); transition: opacity 0.4s; }
   .ccg-glow--hot { animation: ccg-glowpulse 0.9s ease-in-out infinite; }
-  .ccg-hero { position: relative; z-index: 2; max-width: 76%; max-height: 84%; object-fit: contain; object-position: top; margin-top: -22px;
+  /*  ABSOLUTE, NOT A GRID ITEM. Anchoring the art with "place-items: end" looked
+      right on paper and did the opposite in the browser: an item TALLER than its
+      grid area triggers the box-alignment overflow fallback, which resolves to
+      start — so the wizard hung DOWN over the Mana bar and the dials instead of
+      up over the title. Pinned to the stage floor here, where being oversized is
+      the point and the overflow can only go one way.
+      Centred with auto margins rather than translateX: every visual state of the
+      hero (float, brew, win) animates "transform", and a centring transform would
+      be the first thing they overwrite. */
+  .ccg-hero { position: absolute; z-index: 3; bottom: 0; left: 0; right: 0; margin: 0 auto; display: block;
+    height: 132%; width: auto; max-width: 90%; object-fit: contain;
     filter: drop-shadow(0 6px 22px rgba(0,0,0,0.5)); transition: filter 0.3s ease, transform 0.3s ease;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 15%);
     animation: ccg-float 5.5s ease-in-out infinite; will-change: transform; }
   .ccg-hero--brew { animation: ccg-brew 0.5s ease-in-out infinite; filter: drop-shadow(0 0 26px ${col}) saturate(1.22) brightness(1.07); }
   .ccg-hero--win { animation: none; transform: scale(1.03); filter: drop-shadow(0 0 42px ${col}) saturate(1.3) brightness(1.12); }
@@ -530,7 +601,9 @@ const css = (col: string) => `
   .ccg-prize-label { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 13px; color: ${col}; background: rgba(8,6,15,0.72); padding: 3px 12px; border-radius: var(--r-chip); border: 1px solid ${col}66; text-shadow: 0 0 10px ${col}; }
 
   /* spin resolution card */
+  /*  Its own radius + clip now that the stage no longer provides either. */
   .ccg-resolve { position: absolute; z-index: 4; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    border-radius: var(--r-sm); overflow: hidden;
     background: radial-gradient(70% 60% at 50% 45%, rgba(8,6,15,0.55), rgba(8,6,15,0.86)); animation: ccg-pop 0.45s cubic-bezier(.2,1.5,.4,1); }
   .ccg-resolve-crystals { display: flex; gap: 6px; margin-bottom: 2px; }
   .ccg-resolve-crystal { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 0 12px ${col}); animation: ccg-crystal-in 0.5s cubic-bezier(.2,1.6,.4,1) both; }
@@ -539,39 +612,44 @@ const css = (col: string) => `
   .ccg-resolve-sub { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 13px; color: ${C.cream}; opacity: 0.92; text-align: center; padding: 0 16px; }
   @keyframes ccg-crystal-in { from { opacity: 0; transform: translateY(14px) scale(0.5) rotate(-12deg); } to { opacity: 1; transform: none; } }
 
-  .ccg-status { text-align: center; font-family: "DM Sans", sans-serif; font-size: 12px; min-height: 17px; color: ${C.mute}; margin-bottom: 12px; }
+  .ccg-status { text-align: center; font-family: "DM Sans", sans-serif; font-size: 11.5px; min-height: 16px; color: ${C.mute}; margin-bottom: clamp(7px, 1.2vh, 12px); }
   .ccg-status--summoned, .ccg-status--opened { color: ${col}; font-weight: 700; }
   .ccg-status--fizzle { color: ${C.amber}; }
 
-  .ccg-mana { margin-bottom: 12px; }
+  .ccg-mana { margin-bottom: clamp(8px, 1.2vh, 12px); }
   .ccg-mana-top { display: flex; justify-content: space-between; font-family: "DM Mono", monospace; font-size: 9.5px; color: ${C.mute}; margin-bottom: 5px; }
   .ccg-mana-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
   .ccg-mana-bar > div { height: 100%; border-radius: 3px; transition: width 0.4s ease; box-shadow: 0 0 10px ${col}; }
 
-  /* compact labeled pill rows */
-  .ccg-ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
-  .ccg-ctrl-lbl { flex: 0 0 42px; font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: ${C.mute}; opacity: 0.85; }
-  .ccg-pills { display: flex; gap: 5px; flex: 1; }
-  .ccg-pill { flex: 1; padding: 6px 0; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); color: ${C.cream}; cursor: pointer; transition: all 0.15s; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 12.5px; line-height: 1; }
-  .ccg-pill i { font-style: normal; font-size: 9px; opacity: 0.6; margin-left: 1px; }
-  .ccg-pill:hover:not(:disabled) { border-color: ${col}66; }
-  .ccg-pill.on { background: ${col}18; border-color: ${col}; color: ${col}; }
+  /* the console: two dials + the product they buy, inside one frame */
+  .ccg-dials { border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-sm); background: rgba(8,6,15,0.34);
+    padding: 8px 9px 9px; margin-bottom: clamp(8px, 1.2vh, 12px); }
+  .ccg-dial { display: flex; align-items: center; gap: 9px; }
+  .ccg-dial + .ccg-dial { margin-top: 5px; }
+  .ccg-dial-l { flex: 0 0 34px; font-family: "DM Mono", monospace; font-size: 8.5px; letter-spacing: 0.11em; text-transform: uppercase; color: ${C.mute}; opacity: 0.8; }
+  .ccg-pills { display: flex; gap: 4px; flex: 1; }
+  .ccg-pill { flex: 1; padding: 5px 0; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); color: ${C.cream}; cursor: pointer; transition: all 0.15s; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 12px; line-height: 1; }
+  .ccg-pill i { font-style: normal; font-size: 8.5px; opacity: 0.6; margin-left: 1px; }
+  .ccg-pill:hover:not(:disabled) { border-color: ${col}66; color: ${col}; }
+  .ccg-pill.on { background: ${col}18; border-color: ${col}; color: ${col}; box-shadow: 0 0 12px ${col}22; }
   .ccg-pill:disabled { opacity: 0.5; cursor: default; }
 
-  .ccg-odds { margin: 11px 0 12px; }
-  .ccg-odds-row { display: flex; justify-content: space-between; align-items: baseline; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.mute}; margin-bottom: 5px; }
-  .ccg-odds-v { font-size: 15px; font-weight: 700; }
-  .ccg-odds-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .ccg-yield { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .ccg-yield-l { font-family: "DM Mono", monospace; font-size: 9px; color: ${C.mute}; }
+  .ccg-yield-l b { color: ${C.cream}; font-weight: 500; }
+  .ccg-yield-v { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 15px; line-height: 1; display: inline-flex; align-items: baseline; gap: 4px; }
+  .ccg-yield-v i { font-style: normal; font-family: "DM Mono", monospace; font-size: 8px; letter-spacing: 0.11em; text-transform: uppercase; color: ${C.mute}; }
+  .ccg-odds-bar { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 6px; }
   .ccg-odds-bar > div { height: 100%; border-radius: 3px; transition: width 0.3s ease; box-shadow: 0 0 10px ${col}; }
-  .ccg-odds-sub { font-family: "DM Mono", monospace; font-size: 8.5px; color: ${C.mute}; margin-top: 5px; opacity: 0.8; }
 
-  .ccg-cta { width: 100%; padding: 13px; border-radius: var(--r-sm); border: 1px solid ${col}; background: ${col}1c; color: ${col}; cursor: pointer; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s, box-shadow 0.15s; }
+  .ccg-cta { width: 100%; padding: clamp(9px, 1.5vh, 13px); border-radius: var(--r-sm); border: 1px solid ${col}; background: ${col}1c; color: ${col}; cursor: pointer; font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s, box-shadow 0.15s; }
   .ccg-cta:hover:not(:disabled) { background: ${col}30; box-shadow: 0 0 24px ${col}44; }
   .ccg-cta:disabled { opacity: 0.55; cursor: default; }
   .ccg-err { margin-top: 8px; font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.red}; text-align: center; }
 
-  .ccg-vault { margin: 14px 0 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; }
-  .ccg-vault-head { display: flex; justify-content: space-between; align-items: baseline; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.cream}; margin-bottom: 9px; }
+  .ccg-vault { margin: clamp(9px, 1.4vh, 14px) 0 clamp(8px, 1.2vh, 12px); border-top: 1px solid rgba(255,255,255,0.06); padding-top: clamp(8px, 1.2vh, 12px); }
+  .ccg-vault-head { display: flex; justify-content: space-between; align-items: baseline; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.cream}; margin-bottom: 7px; }
   .ccg-vault-n { color: ${col}; display: inline-flex; align-items: center; gap: 9px; }
   /* Sits beside the sealed count, where the number that motivates it already is. */
   .ccg-openall {
@@ -583,7 +661,7 @@ const css = (col: string) => `
   }
   .ccg-openall:hover:not(:disabled) { background: color-mix(in srgb, ${col} 24%, transparent); transform: translateY(-1px); }
   .ccg-openall:disabled { opacity: 0.4; cursor: not-allowed; }
-  .ccg-vault-empty { font-family: "DM Sans", sans-serif; font-size: 11px; color: ${C.mute}; text-align: center; padding: 10px 0; opacity: 0.8; }
+  .ccg-vault-empty { font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.mute}; text-align: center; padding: 6px 0; opacity: 0.8; }
   .ccg-vault-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .ccg-cry { position: relative; border-radius: var(--r-sm); padding: 7px; background: rgba(8,6,15,0.45); border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .ccg-cry--open { border-color: ${col}55; }
@@ -595,12 +673,29 @@ const css = (col: string) => `
   .ccg-cry-id { font-family: "DM Mono", monospace; font-size: 8px; color: ${C.mute}; opacity: 0.7; }
   .ccg-vault-tip { font-family: "DM Sans", sans-serif; font-size: 9px; color: ${C.mute}; opacity: 0.7; margin-top: 9px; text-align: center; }
 
-  .ccg-pity { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 11px; }
+  .ccg-pity { border-top: 1px solid rgba(255,255,255,0.06); padding-top: clamp(8px, 1.1vh, 11px); }
   .ccg-pity-top { display: flex; justify-content: space-between; font-family: "DM Mono", monospace; font-size: 9.5px; color: ${C.mute}; margin-bottom: 6px; }
   .ccg-pity-v { color: ${C.amber}; }
   .ccg-pity-pips { display: flex; gap: 3px; }
   .ccg-pip { flex: 1; height: 5px; border-radius: 2px; background: rgba(255,255,255,0.08); transition: background 0.3s; }
-  .ccg-foot { font-family: "DM Mono", monospace; font-size: 8px; color: ${C.mute}; opacity: 0.6; margin-top: 10px; line-height: 1.5; text-align: center; }
+  .ccg-foot { font-family: "DM Mono", monospace; font-size: 8px; color: ${C.mute}; opacity: 0.6; margin-top: 8px; line-height: 1.45; text-align: center; }
+  @media (max-height: 880px) { .ccg-foot__prose { display: none; } }
+  /*  COMPACT TIER — matches the blocks in SwapWidget and TheCauldron. The rail's
+      art and its odds numbers both stay; what gives is the whitespace BETWEEN
+      them, a few pixels a row, so the Spin button still lands above the fold on
+      a 700px page. */
+  @media (max-height: 780px) {
+    .ccg-title { margin-bottom: 5px; }
+    .ccg-status { font-size: 11px; min-height: 14px; margin-bottom: 6px; }
+    .ccg-mana { margin-bottom: 7px; }
+    .ccg-dials { padding: 6px 8px 7px; }
+    .ccg-dial + .ccg-dial { margin-top: 4px; }
+    .ccg-yield { margin-top: 6px; padding-top: 5px; }
+    .ccg-cta { padding: 8px; font-size: 14px; }
+    .ccg-vault-empty { padding: 4px 0; font-size: 10px; }
+    .ccg-pity-top { margin-bottom: 4px; }
+    .ccg-foot { margin-top: 5px; }
+  }
 
   .ccg-spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid ${col}44; border-top-color: ${col}; animation: ccg-rot 0.7s linear infinite; }
 

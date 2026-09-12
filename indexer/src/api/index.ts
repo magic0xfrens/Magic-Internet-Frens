@@ -534,8 +534,16 @@ app.get("/floor", async (c) => {
   if (Date.now() - floorCache.at < 4000 && floorCache.v) return c.json(floorCache.v);
   const ps = await presaleState();
   const mark = await markPriceEth(); // ETH per token at the TWAP mark
+  //  A READ THAT FAILED AND A READ THAT RETURNED ZERO ARE DIFFERENT FACTS.
+  //  The browser now treats this route as its PRIMARY source for the redemption
+  //  floor, so a swallowed revert here would render as a confident "0 tokens per
+  //  fren" in the genesis panel. Failures are still soft (the route keeps
+  //  answering) but they are NAMED in `failedReads`, and the client refuses to
+  //  believe a floor whose read is listed there.
+  const failedReads: string[] = [];
   const rd = async (fn: string) =>
-    (await perpClient.readContract({ address: REGISTRY, abi: REG_GENESIS, functionName: fn as never }).catch(() => 0n)) as bigint;
+    (await perpClient.readContract({ address: REGISTRY, abi: REG_GENESIS, functionName: fn as never })
+      .catch(() => { failedReads.push(fn); return 0n; })) as bigint;
   const [floorWei, reserveWei, feeWei, totalSupplyWei] = await Promise.all([
     rd("floorPerFren"), rd("genesisReserveOutstanding"), rd("enchantFee"), rd("TOTAL_SUPPLY"),
   ]);
@@ -553,6 +561,16 @@ app.get("/floor", async (c) => {
     redeemFloorEth,                                      // floor × mark = fren's live ETH value
     floorPctOfMcap,                                      // % of FDV each fren backs (rises)
     ticker: ps?.airdropTicker ?? "",
+    //  WEI, AS A STRING. `floorPerFren` above is a float in whole tokens, which
+    //  loses the low digits of a 1e18 value — fine for a chart label, wrong for
+    //  the "recycle N frens for X $TOKEN" figure, which is share × count. The
+    //  browser multiplies the exact integer instead of a rounded float.
+    floorPerFrenWei: floorWei.toString(),
+    reserveWei: reserveWei.toString(),
+    enchantFeeWei: feeWei.toString(),
+    //  Empty unless a chain read actually failed (see `rd` above). A client that
+    //  sees a name here knows the matching number is not live data.
+    failedReads,
   };
   floorCache = { at: Date.now(), v };
   return c.json(v);

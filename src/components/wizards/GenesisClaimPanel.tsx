@@ -15,7 +15,13 @@ export default function GenesisClaimPanel() {
   // Not a genesis holder → nothing to redeem.
   if (!gb.loading && gb.mifrenCount === 0 && gb.ownedGenesis.length === 0) return null;
 
-  const fmtG = (b: bigint) => Number(formatEther(b)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  //  A FLOOR NOBODY COULD READ IS NOT A FLOOR OF ZERO. When neither the indexer
+  //  nor the chain answered, `sharePerFren` is 0n by construction — printing that
+  //  would tell a holder their frens redeem for nothing. Show "—" and hold the
+  //  button until a real number arrives.
+  const floorKnown = gb.floorSource !== "none";
+  const fmtG = (b: bigint) =>
+    floorKnown ? Number(formatEther(b)).toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—";
   const redeemable = gb.unclaimedIds.length; // every owned genesis fren is redeemable
   const batch = Math.min(redeemable, gb.claimBatch);
   const more = redeemable > gb.claimBatch;
@@ -74,12 +80,15 @@ export default function GenesisClaimPanel() {
       </div>
 
       <div className="gcp__foot">
-        <button className="gcp__btn" onClick={onRedeem} disabled={gb.busy || redeemable === 0}>
+        <button className="gcp__btn" onClick={onRedeem} disabled={gb.busy || redeemable === 0 || !floorKnown}>
           {gb.busy
             ? (gb.progress ? `Recycling ${gb.progress.done + 1}/${gb.progress.total}…` : "Recycling…")
-            : `Recycle & Redeem ${more ? `${batch} of ${redeemable}` : redeemable}`}
+            : !floorKnown
+              ? "Floor unavailable"
+              : `Recycle & Redeem ${more ? `${batch} of ${redeemable}` : redeemable}`}
         </button>
-        {more && <span className="gcp__note">redeems {gb.claimBatch} at a time — repeat for the rest</span>}
+        {!floorKnown && <span className="gcp__note">the redemption floor could not be read — indexer and RPC both unreachable</span>}
+        {floorKnown && more && <span className="gcp__note">redeems {gb.claimBatch} at a time — repeat for the rest</span>}
       </div>
 
       <style>{css}</style>
