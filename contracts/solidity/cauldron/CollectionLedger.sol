@@ -59,6 +59,10 @@ contract CollectionLedger {
     uint256 public totalEntitled;
 
     event Crystallized(uint256 indexed gen, uint256 frozenSupply, uint256 entitled);
+    /// @notice A credit that would have been unclaimable was NOT accrued — see
+    ///         {isDeadEnd}. The tokens stay in the shared reserve LP as surplus
+    ///         backing for every OTHER claim instead of being booked to nobody.
+    event CreditRejected(uint256 indexed gen, uint256 tokens);
     event Credited(uint256 indexed gen, uint256 tokens, uint256 newEntitled);
     event Redeemed(uint256 indexed gen, uint256 payout, uint256 newFloor);
     event BoughtBack(uint256 indexed gen, uint256 paid, uint256 newFloor);
@@ -99,12 +103,52 @@ contract CollectionLedger {
 
     // ── Registry-driven mutations (each preserves totalEntitled == Σ) ──────────
 
+    /// @notice True once a generation can never again have an outstanding NFT: its
+    ///         supply is FROZEN (the brew died) and every one of those NFTs has been
+    ///         recycled into the treasury.
+    ///
+    ///  ── WHY THIS IS A DEAD END, NOT MERELY AN EMPTY ONE (red-team Z-19) ──────
+    ///  `outstanding == 0` makes {redeem} revert `NothingOutstanding` (:119) and
+    ///  makes {floorPerNFT} zero, which makes `PoolOps.buyCollection`'s
+    ///  `require(paid > 0, "no floor")` (PoolOps.sol:1455-1456) unsatisfiable — so
+    ///  `retired` can never come back down either. Both exits are shut.
+    ///
+    ///  It is deliberately gated on `crystallized`. While a generation is still
+    ///  ALIVE, `outstanding == 0` is temporary: the registry passes the live
+    ///  `collection.totalMinted()`, so the next forged NFT makes the pot claimable
+    ///  again. Only the frozen snapshot is permanent.
+    function isDeadEnd(uint256 gen) public view returns (bool) {
+        return crystallized[gen] && frozenSupply[gen] <= retired[gen];
+    }
+
     /// @notice Add tokens to a collection's entitlement — the LIVE buyback (fee ETH
     ///         → token) and secondary-royalty inflow both route here via the
     ///         registry. Works before OR after death. Grows the floor for every
     ///         outstanding NFT.
+    ///
+    ///  ── A DEAD-END GENERATION IS NOT CREDITED (red-team Z-19) ───────────────
+    ///  `entitledTokens` and `totalEntitled` used to grow UNCONDITIONALLY, so a
+    ///  royalty or buyback arriving after a generation was fully retired was booked
+    ///  to a bucket with no claimant — and `totalEntitled` is the figure the
+    ///  registry must keep the shared reserve LP sized to cover ("Invariant R") AND
+    ///  the figure it subtracts from every future generation's active tranche
+    ///  (CauldronRegistry.sol:1057). One trapped credit therefore taxed every later
+    ///  generation forever, with no downward adjuster anywhere in this contract.
+    ///
+    ///  IT DROPS THE CREDIT RATHER THAN REVERTING, and that is load-bearing. The
+    ///  callers are `PoolOps.doLegacyNote` (PoolOps.sol:1335, :1337), reached from
+    ///  `materializeLegacy` — which `relaunch()` calls at CauldronRegistry.sol:1538
+    ///  with no try/catch. A revert there would roll back `markConsumed` and freeze
+    ///  the machine on the same winning proposal forever (the B-05 shape). Dropping
+    ///  loses nothing real: the tokens are already sitting in the shared reserve LP,
+    ///  so declining to book them leaves them as SURPLUS backing every other claim
+    ///  instead of as a phantom liability. The event makes it observable.
     function credit(uint256 gen, uint256 tokens) external onlyRegistry {
         if (tokens == 0) revert ZeroAmount();
+        if (isDeadEnd(gen)) {
+            emit CreditRejected(gen, tokens);
+            return;
+        }
         entitledTokens[gen] += tokens;
         totalEntitled += tokens;
         emit Credited(gen, tokens, entitledTokens[gen]);
@@ -147,6 +191,15 @@ contract CollectionLedger {
         if (crystallized[gen]) revert AlreadyCrystallized();
         crystallized[gen] = true;
         frozenSupply[gen] = mintedAtDeath;
+        //  THE SAME DEAD END, ONE CALL EARLIER (red-team Z-19, twin). A generation
+        //  whose every NFT was already recycled before it died freezes at
+        //  `outstanding == 0`, so a final `extraEntitled` folded in here would be as
+        //  unclaimable as a later {credit} — and this call CANNOT revert: it runs
+        //  inside `relaunch()` (CauldronRegistry.sol:1080) with no try/catch.
+        if (extraEntitled != 0 && mintedAtDeath <= retired[gen]) {
+            emit CreditRejected(gen, extraEntitled);
+            extraEntitled = 0;
+        }
         if (extraEntitled != 0) {
             entitledTokens[gen] += extraEntitled;
             totalEntitled += extraEntitled;
