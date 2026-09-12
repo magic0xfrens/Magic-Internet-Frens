@@ -44,28 +44,30 @@ const CSS = `
 .tc-lpbasis { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px; padding: 18px 20px; margin-bottom: 18px; }
 .tc-lpbasis__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.tc-lpbasis__head h3 { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #9b93b5; }
+.tc-lpbasis__head h3 { margin: 0; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: #7d7597; }
 .tc-lpbasis__basis { display: inline-flex; align-items: center; gap: 6px; font-family: "DM Mono", ui-monospace, monospace;
   font-size: 13px; color: #efe9dd; padding: 4px 10px; border-radius: 999px;
   background: rgba(213,253,81,0.08); border: 1px solid rgba(213,253,81,0.22); }
 .tc-lpbasis__glyph { color: #d5fd51; }
-.tc-lpbasis__blurb { margin: 8px 0 14px; font-size: 11px; line-height: 1.5; }
+.tc-lpbasis__blurb { margin: 9px 0 15px; font-size: 11px; line-height: 1.55; max-width: 46ch; }
 .tc-lpbasis__blurb strong { color: #efe9dd; font-weight: 500; }
 .tc-lpbasis__skeleton, .tc-lpbasis__empty { font-size: 11px; padding: 10px 0; }
 .tc-lpbasis__bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden;
   background: rgba(255,255,255,0.05); margin-bottom: 12px; }
 .tc-lpbasis__seg { height: 100%; transition: width 240ms ease; }
-.tc-lpbasis__legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.tc-lpbasis__row { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 10px; font-size: 12px; }
+.tc-lpbasis__legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.tc-lpbasis__row { display: grid; grid-template-columns: 8px 1fr auto auto; align-items: center;
+  gap: 10px; font-size: 12px; padding: 1px 0; }
 .tc-lpbasis__dot { width: 8px; height: 8px; border-radius: 999px; }
 .tc-lpbasis__sym { display: inline-flex; align-items: center; gap: 6px; color: #efe9dd; }
 .tc-lpbasis__tag { font-style: normal; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
   color: #d5fd51; border: 1px solid rgba(213,253,81,0.3); border-radius: 999px; padding: 1px 5px; }
-.tc-lpbasis__amt { font-size: 11px; text-align: right; }
+.tc-lpbasis__amt { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 .tc-lpbasis__lp { font-style: normal; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
   color: #22D3EE; border: 1px solid rgba(34,211,238,0.3); border-radius: 999px; padding: 1px 5px; margin-right: 6px; }
-.tc-lpbasis__pct { min-width: 52px; text-align: right; color: #efe9dd; }
-.tc-lpbasis__total { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; text-align: right; }
+.tc-lpbasis__pct { min-width: 52px; text-align: right; color: #efe9dd; font-variant-numeric: tabular-nums; }
+.tc-lpbasis__total { margin-top: 13px; padding-top: 11px; border-top: 1px solid rgba(255,255,255,0.06);
+  font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 .tc-lpbasis__warn { margin: 10px 0 0; font-size: 10px; line-height: 1.5; color: #f0b429; }
 
 /* ── THE COMPOSITION RING ──────────────────────────────────────────────────
@@ -73,15 +75,23 @@ const CSS = `
    job is the split. The bar is kept for the priced-vs-unpriced nuance below;
    the ring is the at-a-glance figure, with the value in the hole so the two
    are never read apart. */
-.tc-lpbasis__viz { display: flex; align-items: center; gap: 18px; margin: 4px 0 16px; }
+.tc-lpbasis__viz { display: flex; align-items: center; gap: 20px; margin: 2px 0 18px; }
+/* The ring sits in a faint aura rather than on flat ground: this palette is
+   candle-lit, and a hard-edged donut on a dark panel reads as a chart widget
+   dropped in from another app. The glow is the same lime the basis chip uses,
+   at an opacity you notice only once it is removed. */
 .tc-lpbasis__ring { flex: 0 0 auto; position: relative; width: 124px; height: 124px; }
+.tc-lpbasis__ring::before { content: ""; position: absolute; inset: -14px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(213,253,81,0.07), transparent 68%);
+  pointer-events: none; }
 .tc-lpbasis__ring svg { transform: rotate(-90deg); display: block; }
 .tc-lpbasis__ring-seg { transition: stroke-dasharray 320ms ease; }
 .tc-lpbasis__hole { position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; text-align: center; gap: 1px; }
-.tc-lpbasis__hole b { font-family: "DM Mono", ui-monospace, monospace; font-size: 15px;
-  color: #efe9dd; line-height: 1.1; letter-spacing: -0.01em; }
-.tc-lpbasis__hole span { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #9b93b5; }
+.tc-lpbasis__hole b { font-family: "DM Mono", ui-monospace, monospace; font-size: 16px;
+  color: #efe9dd; line-height: 1.05; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.tc-lpbasis__hole span { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #7d7597; margin-top: 3px; }
 .tc-lpbasis__vizside { flex: 1 1 auto; min-width: 0; }
 @media (max-width: 420px) {
   .tc-lpbasis__viz { flex-direction: column; align-items: stretch; gap: 12px; }

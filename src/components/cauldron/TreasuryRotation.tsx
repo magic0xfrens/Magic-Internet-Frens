@@ -196,6 +196,8 @@ function Ballot({ p, leader, col, busy, onVote, onExecute, since }: {
         <span className="tr-ballot__dest tc-mono">
           <b>→ {meta.symbol}</b>
           {leader === p.id && <em className="tr-ballot__lead">leading</em>}
+          {p.open === false && !p.executed && !p.cancelled && !p.executable && !p.passed &&
+            <em className="tr-ballot__dead">rejected</em>}
           {p.executed && <em className="tr-ballot__done">executed</em>}
           {p.cancelled && <em className="tr-ballot__dead">cancelled</em>}
         </span>
@@ -204,7 +206,8 @@ function Ballot({ p, leader, col, busy, onVote, onExecute, since }: {
             ? `#${p.id}`
             : p.open === null ? "timing unknown"
               : p.open ? `closes in ${since(left)}`
-                : p.executable ? "ready to execute" : "expired"}
+                : p.executable ? "ready to execute"
+                  : p.passed ? "outvoted" : "rejected"}
         </span>
       </div>
 
@@ -642,6 +645,60 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
         <ul className="tr-log tc-mono">
           {log.map((l, i) => <li key={i}>{l}</li>)}
         </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * EXECUTED ROTATIONS — the tape, not the plan.
+ *
+ * Sits under the composition panel, which answers "what is the treasury now";
+ * this answers "how did it get there". Both come from the indexer, so the two
+ * halves of the screen can never disagree about a slice.
+ *
+ * Amounts are converted per-asset upstream: ETH is 18 decimals and USDG is 6, so
+ * a shared divisor would misreport one of them by a factor of 10^12 — the exact
+ * confusion the rotator's USD-denominated floor exists to avoid.
+ */
+export function RotationHistory({ col }: { col: string }) {
+  const gov = useRotationGovernance();
+  if (gov.loading && gov.slices.length === 0) return null;
+
+  return (
+    <section className="tc-rothist">
+      <header className="tc-rothist__head">
+        <h3 className="tc-mono">Rotations executed</h3>
+        {gov.slices.length > 0 && (
+          <span className="tc-mono tc-dim">{gov.slices.length}</span>
+        )}
+      </header>
+
+      {gov.slices.length === 0 ? (
+        <p className="tc-rothist__empty tc-mono tc-dim">
+          {gov.failed
+            ? "Indexer unreachable — history unknown."
+            : "No slice has executed yet."}
+        </p>
+      ) : (
+        <ol className="tc-rothist__list">
+          {gov.slices.map((s) => {
+            const from = quoteMeta(s.fromQuote), to = quoteMeta(s.toQuote);
+            const fmt = (n: number) =>
+              n.toLocaleString(undefined, { maximumFractionDigits: n < 1 ? 6 : 2 });
+            return (
+              <li key={s.id} className="tc-rothist__row tc-mono">
+                <span className="tc-rothist__pair">
+                  {from.symbol} <i style={{ color: col }}>→</i> {to.symbol}
+                </span>
+                <span className="tc-rothist__amt">
+                  {fmt(s.amountIn)} <span className="tc-dim">→</span> {fmt(s.amountOut)}
+                </span>
+                <span className="tc-rothist__bps tc-dim">{(s.sliceBps / 100).toFixed(0)}%</span>
+              </li>
+            );
+          })}
+        </ol>
       )}
     </section>
   );

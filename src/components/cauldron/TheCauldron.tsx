@@ -17,7 +17,7 @@ import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
-import { TreasuryRotation } from "@/components/cauldron/TreasuryRotation";
+import { TreasuryRotation, RotationHistory } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
 import BrewNotes, { useBrewNotes } from "@/components/cauldron/BrewNotes";
@@ -1103,7 +1103,12 @@ export default function TheCauldron() {
               by side: the measured state on the left, the proposal on the
               right. They collapse back to a stack under 900px. */}
           <div className="tc-treasury2">
-            <LpBasisPanel gen={m.gen} />
+            {/* The left column answers "what is the treasury now" and "how did
+                it get there"; the right is the control that changes it. */}
+            <div className="tc-treasury2__left">
+              <LpBasisPanel gen={m.gen} />
+              <RotationHistory col={col} />
+            </div>
             <TreasuryRotation gen={m.gen} col={col} />
           </div>
           <section className="tc-card tc-gov">
@@ -2134,7 +2139,8 @@ function Styles() {
     .tr-note { font-family: "DM Sans", sans-serif; font-size: 12px; line-height: 1.55; color: ${C.mute}; margin: 0 0 14px; }
     .tr-note strong { color: ${C.cream}; font-weight: 500; }
     .tr-note code, .tr-warn code { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.cream}; }
-    .tr-label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 8px; }
+    .tr-label { display: block; font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase;
+      margin: 0 0 8px; color: #7d7597; }
     /*  Envelope SIZE presets. The contract has always accepted any maxTotalBps;
         the panel hardcoded the maximum, so "move 30% into stables" could not be
         expressed at all. Labels are CONVERSION targets rather than envelope
@@ -2158,15 +2164,17 @@ function Styles() {
       padding: 8px 4px; border-radius: var(--r-sm); cursor: pointer;
       background: rgba(255,255,255,0.03); border: 1px solid rgba(245,240,232,0.09);
       color: ${C.dim}; font: 500 12px/1 "DM Sans", sans-serif; transition: all .15s ease; }
-    .tr-size em { font-style: normal; font-size: 9px; opacity: .6;
-      font-family: "DM Mono", ui-monospace, monospace; }
+    .tr-size em { font-style: normal; font-size: 9px; opacity: .55; letter-spacing: 0.04em;
+      font-family: "DM Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .tr-size.on em { opacity: .8; }
     .tr-size:hover { border-color: rgba(213,253,81,0.30); color: ${C.cream}; }
     .tr-size.on { background: rgba(213,253,81,0.10); border-color: rgba(213,253,81,0.45); color: ${C.lime}; }
     .tr-note--sub { font-size: 10.5px; opacity: .65; margin-top: -6px; }
     .tr-projection { margin: 16px 0; padding: 14px 16px; border-radius: var(--r-sm);
       background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
     .tr-proj__row { display: flex; justify-content: space-between; align-items: baseline;
-      font-family: "DM Mono", monospace; font-size: 12px; padding: 3px 0; }
+      font-family: "DM Mono", monospace; font-size: 12px; padding: 3.5px 0;
+      font-variant-numeric: tabular-nums; }
     .tr-proj__row b { color: ${C.cream}; }
     .tr-proj__note { font-family: "DM Sans", sans-serif; font-size: 11px; line-height: 1.5; margin: 10px 0 0; }
     .tr-envelope { margin: 4px 0 18px; padding: 14px 16px; border-radius: var(--r-sm);
@@ -2202,6 +2210,30 @@ function Styles() {
     .tc-treasury2 { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
       gap: 18px; align-items: start; margin-bottom: 18px; }
     .tc-treasury2 > * { min-width: 0; margin-bottom: 0; }
+    .tc-treasury2__left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .tc-treasury2__left > * { margin-bottom: 0; }
+
+    /* THE TAPE. Executed slices, under the composition they produced. */
+    .tc-rothist { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--r-md); padding: 16px 18px; }
+    .tc-rothist__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+    .tc-rothist__head h3 { margin: 0; font-size: 11px; letter-spacing: 0.13em;
+      text-transform: uppercase; color: #7d7597; }
+    .tc-rothist__empty { font-size: 11px; padding: 4px 0; }
+    .tc-rothist__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+      max-height: 260px; overflow-y: auto; }
+    .tc-rothist__row { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
+      gap: 10px; font-size: 11px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.04);
+      font-variant-numeric: tabular-nums; }
+    .tc-rothist__row:first-child { border-top: none; }
+    .tc-rothist__pair { color: ${C.cream}; }
+    .tc-rothist__pair i { font-style: normal; padding: 0 2px; }
+    .tc-rothist__amt { text-align: right; color: ${C.mute}; }
+    .tc-rothist__bps { min-width: 34px; text-align: right; }
+
+    /* A disabled ritual button kept its full lime fill, so "pick a destination
+       above" read as the primary call to action it was refusing to be. */
+    .tc-rot .tc-btn--ritual:disabled { opacity: 0.38; filter: saturate(0.5); cursor: default; }
     @media (max-width: 900px) { .tc-treasury2 { grid-template-columns: 1fr; } }
 
     /* COMPACT THE DESK when it sits in the pair. Full-width it could afford
@@ -2223,21 +2255,31 @@ function Styles() {
        Live rotation proposals with both sides of the vote. The desk used to
        offer "Propose" and nothing else, so a filed proposal simply vanished. */
     .tr-ballots { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
-    .tr-ballot { padding: 11px 13px; border-radius: var(--r-sm);
-      background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.06); }
-    .tr-ballot.is-leader { border-color: rgba(213,253,81,0.35); background: rgba(213,253,81,0.05); }
+    .tr-ballot { position: relative; padding: 12px 14px 12px 15px; border-radius: var(--r-sm);
+      background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.06);
+      transition: border-color .2s ease, background .2s ease; }
+    .tr-ballot:hover { border-color: rgba(255,255,255,0.12); }
+    /* A RAIL, NOT A WASH. Tinting the whole leading card competed with the
+       vote bar underneath it — two things saying "this one" in the same
+       colour. A 2px rail marks the leader once and leaves the bar to carry
+       the quantity. */
+    .tr-ballot.is-leader { border-color: rgba(213,253,81,0.22); }
+    .tr-ballot.is-leader::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px;
+      width: 2px; border-radius: var(--r-full); background: ${C.lime}; box-shadow: 0 0 8px rgba(213,253,81,0.45); }
     .tr-ballot__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-    .tr-ballot__dest { font-size: 13px; color: ${C.cream}; display: inline-flex; align-items: center; gap: 6px; }
+    .tr-ballot__dest { font-size: 13px; color: ${C.cream}; display: inline-flex; align-items: center; gap: 7px;
+      letter-spacing: 0.01em; }
     .tr-ballot__lead, .tr-ballot__done, .tr-ballot__dead { font-style: normal; font-size: 8.5px;
       letter-spacing: 0.07em; text-transform: uppercase; border-radius: var(--r-full); padding: 1px 6px; }
     .tr-ballot__lead { color: ${C.lime}; border: 1px solid rgba(213,253,81,0.35); }
     .tr-ballot__done { color: #22D3EE; border: 1px solid rgba(34,211,238,0.35); }
     .tr-ballot__dead { color: #9b93b5; border: 1px solid rgba(255,255,255,0.15); }
     .tr-ballot__clock { font-size: 10.5px; }
-    .tr-ballot__bar { height: 6px; border-radius: var(--r-full); margin: 9px 0 6px;
-      background: rgba(248,113,113,0.35); overflow: hidden; }
+    .tr-ballot__bar { height: 5px; border-radius: var(--r-full); margin: 11px 0 7px;
+      background: rgba(248,113,113,0.3); overflow: hidden; }
     .tr-ballot__for { height: 100%; transition: width 300ms ease; }
-    .tr-ballot__tally { display: flex; justify-content: space-between; font-size: 10.5px; color: ${C.mute}; }
+    .tr-ballot__tally { display: flex; justify-content: space-between; font-size: 10.5px; color: ${C.mute};
+      font-variant-numeric: tabular-nums; }
     .tr-ballot__tally span:first-child { color: ${C.cream}; }
     .tr-ballot__tally span:last-child { color: #f87171; }
     .tr-ballot__acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }

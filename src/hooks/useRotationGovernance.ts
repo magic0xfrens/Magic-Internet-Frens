@@ -43,7 +43,11 @@ export interface RotationProposal {
   execUntil: number | null;
   /** True while the vote is open, false once closed, null when unknown. */
   open: boolean | null;
-  /** Closed, un-executed, still inside the execution window. */
+  /** More FOR than AGAINST. Not sufficient for execution — quorum and being
+   *  the winner also apply — but enough to label a rejected proposal. */
+  passed: boolean;
+  /** The governor's own `winner()` names this proposal, so `execute` will
+   *  accept it. Anything else would revert DidNotPass. */
   executable: boolean;
   txHash: string;
 }

@@ -394,6 +394,11 @@ const TGOV_READ = [
   { type: "function", name: "EXECUTION_WINDOW", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "function", name: "COOLDOWN", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "function", name: "ENVELOPE_LIFETIME", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  //  THE CONTRACT'S OWN ANSWER for which proposal `execute` would accept. It
+  //  applies `_passed` (for > against AND a 10%-of-past-supply quorum) and the
+  //  execution window, then `execute` additionally demands `id == winner()`.
+  //  Re-deriving that off-chain would drift; asking costs one call.
+  { type: "function", name: "winner", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 /**
  * Decimals for a quote address, defaulting to 18.
@@ -1622,7 +1627,7 @@ export default app;
 app.get("/rotation/governance", async (c) => {
   const nowSec = BigInt(Math.floor(Date.now() / 1000));
 
-  const [props, slices, timing] = await Promise.all([
+  const [props, slices, timing, winnerId] = await Promise.all([
     db.select().from(schema.rotationProposal).orderBy(desc(schema.rotationProposal.createdTs)).limit(25),
     db.select().from(schema.rotationSlice).orderBy(desc(schema.rotationSlice.ts)).limit(25),
     (async () => {
@@ -1634,6 +1639,10 @@ app.get("/rotation/governance", async (c) => {
         await Promise.all([read("VOTING_PERIOD"), read("EXECUTION_WINDOW"), read("COOLDOWN"), read("ENVELOPE_LIFETIME")]);
       return { votingPeriod, executionWindow, cooldown, envelopeLifetime };
     })(),
+    (TREASURY_GOV && TREASURY_GOV !== NATIVE
+      ? perpClient.readContract({ address: TREASURY_GOV as `0x${string}`, abi: TGOV_READ, functionName: "winner" })
+          .then((v) => (v as bigint).toString()).catch(() => null)
+      : Promise.resolve(null)) as Promise<string | null>,
   ]);
 
   const vp = timing?.votingPeriod ?? null;
@@ -1661,8 +1670,14 @@ app.get("/rotation/governance", async (c) => {
       expiry: Number(p.expiry),
       createdTs: Number(p.createdTs),
       endsAt, execUntil, open,
-      executable: open === false && !p.executed && !p.cancelled
-        && (execUntil === null || now < execUntil),
+      //  DID IT WIN, not merely "has voting closed".
+      //  This previously offered "Execute" on a proposal beaten 0-1111 — a
+      //  primary button whose only outcome is a DidNotPass revert. `execute`
+      //  demands `_passed` AND `id == winner()`, so the governor's own
+      //  `winner()` is the single honest source; `passed` is reported separately
+      //  so a rejected proposal can be LABELLED rather than silently dropped.
+      passed: p.forVotes > p.againstVotes,
+      executable: winnerId !== null && winnerId === p.id && !p.executed && !p.cancelled,
       txHash: p.txHash,
     };
   });
