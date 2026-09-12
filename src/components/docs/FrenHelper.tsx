@@ -51,7 +51,7 @@ const KB: Knowledge[] = [
     id: "fees",
     keys: ["fee", "fees", "tax", "cost", "split", "swap", "trade", "percent", "3%", "how", "much", "charge", "proposer", "guild"],
     q: "What are the fees & how are they split?",
-    a: "Every swap pays a hook fee in ETH on BOTH legs (default 3%, adjustable, capped at 10%). The Uniswap LP fee tier is 0. 💰\n\nThe split, from the top of each fee:\n1. 0.5% → the PROPOSER of the live iteration (claimable, never pushed)\n2. 15% guild share → the genesis dividend\n3. 40% of the rest → the legacy buyback (market-buys the token to back the live collection's floor)\n4. what remains → the collection floor share, then the relaunch reserve\n\nNew pools also add a decaying anti-sniper surtax (peaks ~96% at block 0, gone by ~block 30) — 100% to the genesis dividend. Snipers pay the OGs.",
+    a: "Every swap pays a hook fee on BOTH legs, taken in whatever currency the pool is QUOTED in \u2014 ether, USDG or any allowed quote, not always ETH (default 3%, adjustable, capped at 10%). The Uniswap LP fee tier is 0. 💰\n\nThe split, from the top of each fee:\n1. 0.5% → the PROPOSER of the live iteration (claimable, never pushed)\n2. 15% guild share → the genesis dividend\n3. 40% of the rest → the legacy buyback (market-buys the token to back the live collection's floor)\n4. what remains → the collection floor share, then the relaunch reserve\n\nNew pools also add a decaying anti-sniper surtax (peaks ~96% at block 0, gone by ~block 30) — 100% to the genesis dividend. Snipers pay the OGs.",
   },
   {
     id: "cycle",

@@ -99,11 +99,17 @@ while [ "$REMAINING" -gt 0 ]; do
   echo "   remaining=$REMAINING"
 done
 
-# ── 4. FINALIZE -> SUMMON ───────────────────────────────────────────────────
-# `finalize` summons the pool with the presale's entire balance, so this is the
-# transaction that actually creates the market.
-say "4/5  finalize -> summon"
-cast send "$PRESALE" "finalize()" "${W[@]}" >/dev/null
+# ── 4. IGNITE -> SUMMON ─────────────────────────────────────────────────────
+# `igniteCauldron` summons the pool with the presale's entire balance, so this is
+# the transaction that actually creates the market.
+#  RENAMED ON-CHAIN: `finalize` -> `igniteCauldron`. The storage flag (`finalized`)
+#  and the `Finalized` event kept their old names, so only the CALL changed. This
+#  script still sent `finalize()`, which no longer exists and has no fallback to
+#  catch it, so `set -e` aborted the deploy here — after arming, deploying and
+#  minting out, leaving a stack with no pool. Verified against
+#  `forge inspect MiFrensGenesis methodIdentifiers`: igniteCauldron() = 0xe830840c.
+say "4/5  igniteCauldron -> summon"
+cast send "$PRESALE" "igniteCauldron()" "${W[@]}" >/dev/null
 echo "   summoned. token: $(cast call "$PRESALE" 'currentToken()(address)' --rpc-url "$R" 2>/dev/null | tail -1 || echo '(read from the registry)')"
 
 # ── 5. MANIFEST ─────────────────────────────────────────────────────────────

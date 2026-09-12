@@ -189,7 +189,7 @@ if (firstBlock !== null && applied.length > 0) {
 //  and reports no activity at all for the new one — a failure that looks like a
 //  dead protocol rather than a misconfiguration.
 //
-//  It cannot come from the broadcast: the pool does not exist until `finalize()`
+//  It cannot come from the broadcast: the pool does not exist until `igniteCauldron()`
 //  summons it, which is a later transaction than the deploy. So it is read from
 //  the registry, and this step is skipped (with a warning) when no RPC is
 //  reachable — a manifest with old addresses and a new poolId would be worse
@@ -240,7 +240,7 @@ if (applied.length > 0 && m.contracts.registry) {
         m.poolIds = [poolId];
       }
     } else {
-      console.log(`\n  NOTE: generation ${gen} has no pool yet — run finalize() to summon,`);
+      console.log(`\n  NOTE: generation ${gen} has no pool yet — run igniteCauldron() to summon,`);
       console.log("        then re-run this script so `poolIds` is updated.");
     }
   } catch (e) {

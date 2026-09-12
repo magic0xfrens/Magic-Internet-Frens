@@ -102,14 +102,14 @@ One user swap can, inside a single `PoolManager` unlock, reach five contracts:
 
 ```
 user swap
-  └─ CauldronHook.beforeSwap        → charges the ETH fee on buys
+  └─ CauldronHook.beforeSwap        → charges the fee on buys, in the pool's QUOTE currency
   └─ PoolManager executes the swap
   └─ CauldronHook.afterSwap
        ├─ legacy buyback            → a NESTED swap that buys the token back
        ├─ CauldronSeeder.pokeInSwap → streams the next liquidity sliver
        ├─ PerpEngine.sweepLiquidations → real settlement swaps, in-lock
        ├─ native gacha step         → commits + resolves crystals, may mint an NFT
-       └─ charges the ETH fee on sells
+       └─ charges the fee on sells, in the pool's QUOTE currency
 ```
 
 Every one of those side-effects is **gas-bounded and result-ignored**: it is
@@ -169,13 +169,13 @@ a trophy, not a creature.
 
 ### 3.1 Ignition
 
-`MiFrensGenesis` sells the genesis tranche. On sellout, `finalize()` forwards the
+`MiFrensGenesis` sells the genesis tranche. On sellout, `igniteCauldron()` forwards the
 **entire** contract balance to `CauldronRegistry.summon()`. There is no owner
 withdraw path — the ETH has exactly one exit, into the first pool.
 
 Two safety valves:
 
-- **`finalizer`** — optionally restricts who may call `finalize()`, so the team's
+- **`finalizer`** — optionally restricts who may call `igniteCauldron()`, so the team's
   atomic summon-and-buy cannot be front-run by a bot.
 - **`cancelPresale()` + `refund()`** — if the sale never sells out, the deployer
   can cancel and every minter reclaims 100% of the ETH they paid.

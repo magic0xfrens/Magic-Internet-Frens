@@ -29,7 +29,7 @@ export GOV_ENVELOPE_LIFETIME=7200    # 2 h    (mainnet 30 days)
 # Zero is refused at deploy, deliberately.
 export EMERGENCY_DELAY=600           # 10 min (mainnet 48 h)
 
-# Presale price, which is ALSO the pool's seed liquidity: `finalize()` summons
+# Presale price, which is ALSO the pool's seed liquidity: `igniteCauldron()` summons
 # with the presale's whole balance (MiFrensGenesis.sol:576). Pricing this too
 # cheaply is not a saving — it launches a pool too thin to open a perp against or
 # rotate, and the test then measures nothing.
