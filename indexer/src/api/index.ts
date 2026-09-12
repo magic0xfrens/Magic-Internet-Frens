@@ -256,6 +256,10 @@ const REG_READ = [
   { type: "function", name: "minLifetime", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 const HOOK_READ = [
+  //  THE LIVE DEATH TEST. `relaunch()` is gated on this view, not on any event,
+  //  so the UI must read the same thing or it can be ready on chain and refuse
+  //  in the browser.
+  { type: "function", name: "isDead", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "deathThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "relaunchETH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
@@ -963,7 +967,21 @@ app.get("/cauldron", async (c) => {
 
   const chain = col ? await brewChain(gen, col.id as `0x${string}`, p.id as `0x${string}`) : null;
   const deathEth = chain?.deathThresholdEth ?? 0;
-  const phase = p.dead ? "dead" : (deathEth > 0 && vol24hEth < deathEth ? "dying" : "live");
+
+  //  ── ASK THE HOOK, DO NOT ONLY TRUST THE STORED FLAG ──────────────────────
+  //  `pool.dead` flips on an indexed EVENT. `relaunch()` gates on
+  //  `CauldronHook.isDead(poolId)`, a live view over the 24h volume — so a brew
+  //  can be relaunchable on chain while the column still says false, and the UI
+  //  then never renders the relaunch panel (it keys off `phase === "dead"`).
+  //  Measured on r43: `isDead` true, `pool.dead` false, `relaunch()` simulating
+  //  clean, and the button absent. Reading the same source the transaction does
+  //  is the only way the two can agree.
+  const liveDead = await perpClient.readContract({
+    address: HOOK, abi: HOOK_READ, functionName: "isDead", args: [p.id as `0x${string}`],
+  }).catch(() => null) as boolean | null;
+
+  const isDead = p.dead || liveDead === true;
+  const phase = isDead ? "dead" : (deathEth > 0 && vol24hEth < deathEth ? "dying" : "live");
 
   return c.json({
     summoned: true,
@@ -973,7 +991,7 @@ app.get("/cauldron", async (c) => {
     poolId: p.id,
     name: p.name,
     ticker: p.symbol,
-    dead: p.dead,
+    dead: isDead,
     phase,
     spotPrice: p.lastPrice,
     volumeEth: p.volumeEth,
