@@ -31,7 +31,18 @@ export const PERP = {
  * on a close — which tells the engine "fill me at any price at all". `close`
  * really is reachable today, so real closes really did sign a zero floor.
  */
-export const PERP_SLIPPAGE_BPS = 100; // 1%
+//  3%, not 1%. The panel prices a ticket at MID and the engine fills against the
+//  real curve, so the floor has to cover price impact — and a brew's pool is
+//  deliberately thin at launch. Measured on r42: a 0.061 ETH notional (0.0326
+//  collateral at 2x) into 2.6 ETH of depth expected 45.4M tokens at mid and
+//  filled between 43.5M and 45.0M, i.e. ~1.5-3% of impact. At 1% every long
+//  reverted `Slippage()` while the identical short filled, which reads as "longs
+//  are broken" rather than "the floor is unreachable".
+//
+//  This does NOT weaken protection: `minTokenOut` is still enforced on chain and
+//  still bounds the fill. It only stops the UI signing a floor the pool cannot
+//  meet at any honest price.
+export const PERP_SLIPPAGE_BPS = 300; // 3%
 
 export const PERP_LIVE = PERP.engine.toLowerCase() !== "0x0000000000000000000000000000000000000000";
 

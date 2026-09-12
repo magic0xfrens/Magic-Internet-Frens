@@ -127,6 +127,26 @@ if [ "$LEAVE_UNMINTED" != "0" ]; then
 else
 say "4/5  igniteCauldron -> summon"
 cast send "$PRESALE" "igniteCauldron()" "${W[@]}" >/dev/null
+
+#  ── ADOPT THE NEW GENERATION ON THE PERP ENGINE ─────────────────────────────
+#  The engine is deployed BEFORE the summon, so `syncedToken` is still zero when
+#  the pool is born. That is not cosmetic: `PerpSwapLib.swap` derives the swap
+#  DIRECTION from `quoteIsCurrency0`, which the engine computes as
+#  `key.currency1 == syncedToken` (PerpEngine.sol:1489). With `syncedToken == 0`
+#  that is false, so the flag inverts and every "buy" is executed as a SELL —
+#  measured on r42: a long opened, received 25,038,379 raw units instead of
+#  ~4.5e25, and marked at ZERO ETH, instantly liquidatable. It does not revert,
+#  which is the dangerous part.
+#
+#  `syncGeneration()` is permissionless and refuses while any position is open,
+#  so it must run HERE, immediately after the summon and before anyone trades.
+#  It also resets the TWAP ring, so opens stay gated for `twapWindow` after it.
+if [ -n "${PERP_ENGINE:-}" ]; then
+  say "4b/5 syncGeneration on the perp engine"
+  cast send "$PERP_ENGINE" "syncGeneration()" "${W[@]}" >/dev/null \
+    && echo "   synced; perps warm up in twapWindow seconds" \
+    || echo "   WARNING: syncGeneration failed — perps will fill INVERTED until it runs"
+fi
 echo "   summoned. token: $(cast call "$PRESALE" 'currentToken()(address)' --rpc-url "$R" 2>/dev/null | tail -1 || echo '(read from the registry)')"
 fi
 
