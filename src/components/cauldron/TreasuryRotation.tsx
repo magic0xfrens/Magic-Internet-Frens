@@ -8,6 +8,7 @@ import {
   useTreasuryRotation, SLICE_BPS, ENVELOPE_BPS, SLICES_PER_ENVELOPE,
   remainingAfter, earliestCompletion, type RouteKey,
 } from "@/hooks/useTreasuryRotation";
+import { useRotationGovernance, type RotationProposal } from "@/hooks/useRotationGovernance";
 
 /**
  * THE TREASURY DESK — govern a rotation, then execute it.
@@ -162,13 +163,92 @@ function since(s: number | null): string {
   return m > 0 ? `${m}m` : `${s}s`;
 }
 
+/**
+ * THE BALLOT. One open proposal, its tally, and both ways to vote.
+ *
+ * The desk previously offered "Propose" and nothing else — no list, no tally,
+ * and crucially no AGAINST. A governance surface that can only express assent
+ * is not a vote, and `TreasuryGovernor.vote` has taken a `support` boolean all
+ * along; the UI simply never called it with `false`.
+ */
+function Ballot({ p, leader, col, busy, onVote, onExecute, since }: {
+  p: RotationProposal;
+  leader: string | null;
+  col: string;
+  busy: string | null;
+  onVote: (id: string, support: boolean) => void;
+  onExecute: (id: string) => void;
+  since: (s: number | null) => string;
+}) {
+  const meta = quoteMeta(p.quote);
+  const forV = Number(p.forVotes);
+  const againstV = Number(p.againstVotes);
+  const total = forV + againstV;
+  //  A 0/0 proposal draws an EMPTY bar, not a half-full one: with no votes cast
+  //  there is no split to show, and 50/50 would imply a contested vote.
+  const forPct = total > 0 ? (forV / total) * 100 : 0;
+  const now = Math.floor(Date.now() / 1000);
+  const left = p.endsAt === null ? null : p.endsAt - now;
+
+  return (
+    <li className={`tr-ballot ${leader === p.id ? "is-leader" : ""}`}>
+      <div className="tr-ballot__head">
+        <span className="tr-ballot__dest tc-mono">
+          <b>→ {meta.symbol}</b>
+          {leader === p.id && <em className="tr-ballot__lead">leading</em>}
+          {p.executed && <em className="tr-ballot__done">executed</em>}
+          {p.cancelled && <em className="tr-ballot__dead">cancelled</em>}
+        </span>
+        <span className="tc-dim tc-mono tr-ballot__clock">
+          {p.executed || p.cancelled
+            ? `#${p.id}`
+            : p.open === null ? "timing unknown"
+              : p.open ? `closes in ${since(left)}`
+                : p.executable ? "ready to execute" : "expired"}
+        </span>
+      </div>
+
+      <div className="tr-ballot__bar" role="img"
+           aria-label={`${forV} for, ${againstV} against`}>
+        <div className="tr-ballot__for" style={{ width: `${forPct}%`, background: col }} />
+      </div>
+      <div className="tr-ballot__tally tc-mono">
+        <span>{forV.toLocaleString()} for</span>
+        <span className="tc-dim">{p.voters} voter{p.voters === 1 ? "" : "s"}</span>
+        <span>{againstV.toLocaleString()} against</span>
+      </div>
+
+      {p.open && (
+        <div className="tr-ballot__acts">
+          <button className="tr-vote tr-vote--for" disabled={!!busy}
+                  onClick={() => onVote(p.id, true)}>
+            {busy === `vote-${p.id}-y` ? "Voting…" : "Vote for"}
+          </button>
+          <button className="tr-vote tr-vote--against" disabled={!!busy}
+                  onClick={() => onVote(p.id, false)}>
+            {busy === `vote-${p.id}-n` ? "Voting…" : "Vote against"}
+          </button>
+        </div>
+      )}
+      {p.executable && (
+        <button className="tc-btn tc-btn--ritual tr-ballot__exec" disabled={!!busy}
+                onClick={() => onExecute(p.id)}>
+          {busy === `exec-${p.id}` ? "Executing…" : `Execute — open the ${meta.symbol} envelope`}
+        </button>
+      )}
+    </li>
+  );
+}
+
 export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const pc = usePublicClient({ chainId: CAULDRON.chainId });
   const { quotes } = useAllowedQuotes();
   const liveQuote = useCurrentQuote(gen);
   const from = quoteMeta(liveQuote);
-  const { env, refresh, checkVenue, quoteSlice, rotateSlice, proposeEnvelope } = useTreasuryRotation();
+  const { env, refresh, checkVenue, quoteSlice, rotateSlice, proposeEnvelope,
+          voteEnvelope, executeEnvelope } = useTreasuryRotation();
   const { address } = useAccount();
+  const gov = useRotationGovernance();
 
   const [target, setTarget] = useState<string>("");
   const [maxSlip, setMaxSlip] = useState(1);
@@ -274,6 +354,26 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     finally { setBusy(null); }
   }
 
+  async function castVote(id: string, support: boolean) {
+    setBusy(`vote-${id}-${support ? "y" : "n"}`);
+    try {
+      await voteEnvelope(BigInt(id), support);
+      say(`Voted ${support ? "FOR" : "AGAINST"} proposal #${id}.`);
+      await refresh();
+    } catch (e) { say(`Vote failed: ${(e as Error).message.slice(0, 90)}`); }
+    finally { setBusy(null); }
+  }
+
+  async function runExecute(id: string) {
+    setBusy(`exec-${id}`);
+    try {
+      await executeEnvelope(BigInt(id));
+      say(`Executed #${id} — the envelope is open, slices can run.`);
+      await refresh();
+    } catch (e) { say(`Execute failed: ${(e as Error).message.slice(0, 90)}`); }
+    finally { setBusy(null); }
+  }
+
   async function slice() {
     if (!route) { say("No route for this pair."); return; }
     setBusy("slice");
@@ -331,6 +431,30 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             voted, not executed on a whim: pick a destination, and the guild has{" "}
             <strong>{since(env.timing.votingPeriod)}</strong> to agree.
           </p>
+
+          {/*  LIVE BALLOTS. Shown ABOVE the propose form: with concurrent
+               proposals, filing another when one is already winning splits the
+               vote, so the existing ones have to be visible first. */}
+          {gov.proposals.some((p) => p.open || p.executable) && (
+            <>
+              <label className="tc-mono tc-dim tr-label">
+                On the table now
+                {gov.proposals.filter((p) => p.open).length > 1 && " — they compete, the leader wins"}
+              </label>
+              <ul className="tr-ballots">
+                {gov.proposals.filter((p) => p.open || p.executable).map((p) => (
+                  <Ballot key={p.id} p={p} leader={gov.leader} col={col} busy={busy}
+                          onVote={castVote} onExecute={runExecute} since={since} />
+                ))}
+              </ul>
+            </>
+          )}
+          {gov.failed && (
+            // An unreachable indexer is not "no proposals" — say which it is.
+            <p className="tr-note tc-mono tc-dim">
+              Could not reach the indexer, so any live proposals are not shown here.
+            </p>
+          )}
 
           <label className="tc-mono tc-dim tr-label">Rotate into</label>
           <AssetPicker

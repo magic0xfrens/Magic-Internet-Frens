@@ -1,5 +1,5 @@
 import { ponder } from "ponder:registry";
-import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState } from "ponder:schema";
+import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/round.json";
 
@@ -655,4 +655,85 @@ ponder.on("Seeder:PrimeBought", async ({ event, context }) => {
     primeBudget: event.args.budget as bigint,
     primeTokenOut: (cur?.primeTokenOut ?? 0n) + (event.args.tokenOut as bigint),
   }, event.block.timestamp);
+});
+
+// ── TREASURY ROTATION GOVERNANCE ────────────────────────────────────────────
+// The vote that changes what the LP is denominated in, and the slices it
+// authorises. Previously indexed nowhere, so the frontend could file a proposal
+// and then had nothing to render: no tally, no AGAINST side, no executed
+// rotation. Every signature here was verified against a live Sepolia log.
+
+ponder.on("TreasuryGov:Proposed", async ({ event, context }) => {
+  await context.db.insert(rotationProposal).values({
+    id: event.args.id.toString(),
+    proposer: event.args.proposer,
+    quote: event.args.quote,
+    maxTotalBps: Number(event.args.maxTotalBps),
+    createdTs: event.block.timestamp,
+    createdBlock: event.block.number,
+    updatedTs: event.block.timestamp,
+    txHash: event.transaction.hash,
+  }).onConflictDoNothing();
+});
+
+ponder.on("TreasuryGov:Voted", async ({ event, context }) => {
+  const pid = event.args.id.toString();
+  const support = event.args.support;
+  const weight = event.args.weight;
+
+  //  THE BALLOT IS KEYED BY (proposal, voter), NOT BY TX.
+  //  `TreasuryGovernor.vote` reverts `AlreadyVoted` on a second ballot, so one
+  //  voter contributes exactly once. Keying by txHash would let a re-org replay
+  //  inflate a tally the contract itself refuses to inflate.
+  await context.db.insert(rotationVote).values({
+    id: `${pid}-${event.args.voter.toLowerCase()}`,
+    proposalId: pid,
+    voter: event.args.voter,
+    support,
+    weight,
+    ts: event.block.timestamp,
+    block: event.block.number,
+    txHash: event.transaction.hash,
+  }).onConflictDoNothing();
+
+  await context.db.update(rotationProposal, { id: pid }).set((row) => ({
+    forVotes: row.forVotes + (support ? weight : 0n),
+    againstVotes: row.againstVotes + (support ? 0n : weight),
+    voters: row.voters + 1,
+    updatedTs: event.block.timestamp,
+  }));
+});
+
+ponder.on("TreasuryGov:Executed", async ({ event, context }) => {
+  await context.db.update(rotationProposal, { id: event.args.id.toString() }).set({
+    executed: true,
+    expiry: event.args.expiry,
+    updatedTs: event.block.timestamp,
+  });
+});
+
+ponder.on("TreasuryGov:Cancelled", async ({ event, context }) => {
+  await context.db.update(rotationProposal, { id: event.args.id.toString() }).set({
+    cancelled: true,
+    updatedTs: event.block.timestamp,
+  });
+});
+
+ponder.on("RotationExec:SliceRotated", async ({ event, context }) => {
+  //  quoteIn is denominated in `from` and quoteOut in `to`. Those can be 18 and
+  //  6 decimals respectively, so they are stored raw and converted per-asset by
+  //  the API — subtracting or ratioing them here would be the exact
+  //  decimals confusion QuoteRotator was redesigned to avoid.
+  await context.db.insert(rotationSlice).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}`,
+    generation: Number(event.args.gen),
+    fromQuote: event.args.from,
+    toQuote: event.args.to,
+    quoteIn: event.args.quoteIn,
+    quoteOut: event.args.quoteOut,
+    sliceBps: Number(event.args.sliceBps),
+    ts: event.block.timestamp,
+    block: event.block.number,
+    txHash: event.transaction.hash,
+  }).onConflictDoNothing();
 });

@@ -385,6 +385,34 @@ app.get("/presale", async (c) => c.json((await presaleState()) ?? { minted: 0, s
       ───────────────────────────────────────────────────────────────────────── */
 const ROTATOR = (round.contracts as Record<string, string>).quoteRotator as `0x${string}` | undefined;
 const QUOTES = (round.quoteAssets ?? []) as { address: string; symbol: string; decimals: number }[];
+/** The treasury governor — what the LP is denominated in. Distinct from the
+ *  BREW governor at `round.contracts.governor`. */
+const TREASURY_GOV = ((round.contracts as Record<string, string>).treasuryGovernor ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`;
+const TGOV_READ = [
+  { type: "function", name: "VOTING_PERIOD", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "EXECUTION_WINDOW", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "COOLDOWN", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "ENVELOPE_LIFETIME", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+] as const;
+/**
+ * Decimals for a quote address, defaulting to 18.
+ *
+ * 18 is right for native ETH and for every ERC20 that does not say otherwise,
+ * and wrong by a factor of 10^12 for USDG — which is precisely why an UNKNOWN
+ * address must not silently take it. An address missing from the manifest is a
+ * deployment/manifest mismatch, so it is logged rather than quietly rendered as
+ * a number a trillion times too small.
+ */
+function decimalsOf(addr: string): number {
+  const a = addr.toLowerCase();
+  const hit = QUOTES.find((q) => q.address.toLowerCase() === a);
+  if (!hit) {
+    console.error(`decimalsOf: ${addr} is not in round.json quoteAssets — assuming 18`);
+    return 18;
+  }
+  return hit.decimals;
+}
 const ERC20_BAL = [{
   type: "function", name: "balanceOf", stateMutability: "view",
   inputs: [{ type: "address" }], outputs: [{ type: "uint256" }],
@@ -405,6 +433,20 @@ const REG_LP = [
   { type: "function", name: "generationPositionId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "generationPoolKey", stateMutability: "view", inputs: [{ type: "uint256" }],
     outputs: [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }] },
+  //  THE ROTATION LEGS. `generationPositionId` is the PRIMARY position only, so
+  //  everything a rotation opens is invisible to it — and a rotation is exactly
+  //  when this panel matters. Confirmed live on Sepolia: after one 25% slice,
+  //  legCount(1) = 1 and a USDG position (39263) held 182.24 USDG that the
+  //  treasury view could not see, so the panel still read "100% ETH".
+  { type: "function", name: "legCount", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "legAt", stateMutability: "view",
+    inputs: [{ type: "uint256" }, { type: "uint256" }],
+    outputs: [{ type: "address" }, { type: "uint256" },
+      { type: "tuple", components: [
+        { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+        { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+        { name: "hooks", type: "address" },
+      ] }] },
 ] as const;
 const POSM = round.contracts.positionManager as `0x${string}`;
 const POSM_READ = [{
@@ -455,13 +497,17 @@ app.get("/treasury", async (c) => {
   //
   //  Idle balances are still reported, separately and additively, because value
   //  DOES rest there between a rebirth's recovery and its reseed.
-  const positions = await Promise.all(genRows.map(async (row) => {
-    const g = row.generation;
-    const [posId, key] = await Promise.all([
-      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPositionId", args: [BigInt(g)] }).catch(() => 0n) as Promise<bigint>,
-      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPoolKey", args: [BigInt(g)] }).catch(() => null) as Promise<readonly [string, string, number, number, string] | null>,
-    ]);
-    if (!posId || !key) return null;
+  //  EVERY POOL THE GENERATION HOLDS, not just the one it was born with.
+  //  `generationPositionId` is the PRIMARY position; a rotation opens a new
+  //  position against the destination quote and records it as a LEG. Reading
+  //  only the primary meant the panel reported "100% ETH" immediately after a
+  //  rotation had moved part of the treasury into USDG — it showed the asset the
+  //  guild was leaving and omitted the one it was moving to, which is precisely
+  //  backwards for a screen whose subject is the split.
+  const valuePosition = async (
+    g: number, posId: bigint, key: readonly [string, string, number, number, string], isPrimary: boolean,
+  ) => {
+    if (!posId) return null;
     const liq = await perpClient.readContract({
       address: POSM, abi: POSM_READ, functionName: "getPositionLiquidity", args: [posId],
     }).catch(() => 0n) as bigint;
@@ -509,9 +555,34 @@ app.get("/treasury", async (c) => {
     // token is currency1 (PoolOps mines the token to sort ABOVE the quote).
     return {
       generation: g, positionId: posId.toString(), quote: key[0],
-      liquidity: liq.toString(), lpRaw: lpRaw.toString(),
+      liquidity: liq.toString(), lpRaw: lpRaw.toString(), isPrimary,
     };
-  }));
+  };
+
+  const positions = (await Promise.all(genRows.map(async (row) => {
+    const g = row.generation;
+    const [posId, key] = await Promise.all([
+      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPositionId", args: [BigInt(g)] }).catch(() => 0n) as Promise<bigint>,
+      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPoolKey", args: [BigInt(g)] }).catch(() => null) as Promise<readonly [string, string, number, number, string] | null>,
+    ]);
+    const out = key ? [await valuePosition(g, posId, key, true)] : [];
+
+    //  A deployment predating leg tracking simply reverts `legCount`, which is
+    //  caught here and reported as "primary only" — the truth for such a
+    //  deployment, and not something to fabricate legs for.
+    const n = await perpClient.readContract({
+      address: REGISTRY, abi: REG_LP, functionName: "legCount", args: [BigInt(g)],
+    }).catch(() => 0n) as bigint;
+    for (let i = 0n; i < n; i++) {
+      const leg = await perpClient.readContract({
+        address: REGISTRY, abi: REG_LP, functionName: "legAt", args: [BigInt(g), i],
+      }).catch(() => null) as readonly [string, bigint, readonly [string, string, number, number, string]] | null;
+      if (!leg) continue;
+      const [, legPosId, legKey] = leg;
+      out.push(await valuePosition(g, legPosId, legKey, false));
+    }
+    return out;
+  }))).flat();
 
   // Idle balances on the REGISTRY — what a rebirth recovered but has not yet
   // reseeded, plus anything a rotation left behind.
@@ -1511,3 +1582,99 @@ app.get("/proposers", async (c) => {
 });
 
 export default app;
+
+/**
+ * TREASURY ROTATION GOVERNANCE — live proposals, tallies, and executed slices.
+ *
+ * Proposals are CONCURRENT here, not serialised: `TreasuryGovernor.propose`
+ * refuses only while an envelope is live or inside its cooldown, because
+ * one-open-proposal-at-a-time let anyone holding the 5-MiFren threshold file
+ * junk forever and veto treasury governance for the price of gas. So this
+ * returns a LIST and marks the current leader, rather than a single "the"
+ * proposal.
+ *
+ * `open` is derived from the chain's clock, not from a stored flag: a proposal
+ * whose voting window has simply elapsed emits nothing, so a flag would never
+ * be corrected and the UI would keep offering a vote that reverts.
+ */
+app.get("/rotation/governance", async (c) => {
+  const nowSec = BigInt(Math.floor(Date.now() / 1000));
+
+  const [props, slices, timing] = await Promise.all([
+    db.select().from(schema.rotationProposal).orderBy(desc(schema.rotationProposal.createdTs)).limit(25),
+    db.select().from(schema.rotationSlice).orderBy(desc(schema.rotationSlice.ts)).limit(25),
+    (async () => {
+      if (!TREASURY_GOV || TREASURY_GOV === NATIVE) return null;
+      const read = (fn: "VOTING_PERIOD" | "EXECUTION_WINDOW" | "COOLDOWN" | "ENVELOPE_LIFETIME") => perpClient.readContract({
+        address: TREASURY_GOV as `0x${string}`, abi: TGOV_READ, functionName: fn,
+      }).then((v) => Number(v as bigint)).catch(() => null);
+      const [votingPeriod, executionWindow, cooldown, envelopeLifetime] =
+        await Promise.all([read("VOTING_PERIOD"), read("EXECUTION_WINDOW"), read("COOLDOWN"), read("ENVELOPE_LIFETIME")]);
+      return { votingPeriod, executionWindow, cooldown, envelopeLifetime };
+    })(),
+  ]);
+
+  const vp = timing?.votingPeriod ?? null;
+  const ew = timing?.executionWindow ?? null;
+
+  const rows = props.map((p) => {
+    //  The vote closes VOTING_PERIOD after creation, and stays executable for
+    //  EXECUTION_WINDOW after that. Both come from the governor's immutables;
+    //  when they cannot be read the state is reported as "unknown" rather than
+    //  guessed, because a testnet runs these in minutes and mainnet in days.
+    const endsAt = vp === null ? null : Number(p.createdTs) + vp;
+    const execUntil = endsAt === null || ew === null ? null : endsAt + ew;
+    const now = Number(nowSec);
+    const open = endsAt === null ? null : now < endsAt;
+    return {
+      id: p.id,
+      proposer: p.proposer,
+      quote: p.quote,
+      maxTotalBps: p.maxTotalBps,
+      forVotes: p.forVotes.toString(),
+      againstVotes: p.againstVotes.toString(),
+      voters: p.voters,
+      executed: p.executed,
+      cancelled: p.cancelled,
+      expiry: Number(p.expiry),
+      createdTs: Number(p.createdTs),
+      endsAt, execUntil, open,
+      executable: open === false && !p.executed && !p.cancelled
+        && (execUntil === null || now < execUntil),
+      txHash: p.txHash,
+    };
+  });
+
+  //  THE LEADER IS AMONG OPEN PROPOSALS ONLY, and ties do not count as leading.
+  //  `execute` picks the winner on chain; this is presentation, so it must not
+  //  imply a winner the contract would not agree with.
+  const live = rows.filter((r) => r.open && !r.cancelled);
+  let leader: string | null = null;
+  if (live.length > 0) {
+    const sorted = [...live].sort((a, b) => (BigInt(b.forVotes) > BigInt(a.forVotes) ? 1 : -1));
+    const top = sorted[0]!;
+    const tied = sorted.filter((r) => r.forVotes === top.forVotes).length > 1;
+    if (!tied && BigInt(top.forVotes) > BigInt(top.againstVotes)) leader = top.id;
+  }
+
+  return c.json({
+    timing,
+    leader,
+    proposals: rows,
+    slices: slices.map((s) => ({
+      id: s.id,
+      generation: s.generation,
+      fromQuote: s.fromQuote,
+      toQuote: s.toQuote,
+      // Raw, plus each side converted by ITS OWN asset's decimals — ETH is 18
+      // and USDG is 6, so a shared divisor would misreport one of them by 10^12.
+      quoteIn: s.quoteIn.toString(),
+      quoteOut: s.quoteOut.toString(),
+      amountIn: Number(s.quoteIn) / 10 ** (decimalsOf(s.fromQuote)),
+      amountOut: Number(s.quoteOut) / 10 ** (decimalsOf(s.toQuote)),
+      sliceBps: s.sliceBps,
+      ts: Number(s.ts),
+      txHash: s.txHash,
+    })),
+  });
+});

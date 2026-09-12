@@ -8,6 +8,7 @@ import { DividendAbi } from "./abis/DividendAbi";
 import { PerpEngineAbi } from "./abis/PerpEngineAbi";
 import { RegistryFloorAbi, HookFloorAbi } from "./abis/FloorAbi";
 import { SeederAbi } from "./abis/SeederAbi";
+import { TreasuryGovAbi, RotationExecAbi } from "./abis/TreasuryGovAbi";
 
 // ── SINGLE SOURCE OF TRUTH ──────────────────────────────────────────────────
 // All addresses/blocks/poolIds come from ./deployments/round.json — the SAME
@@ -41,6 +42,12 @@ const POOL_IDS = round.poolIds as `0x${string}`[];
 const LIVE_COLLECTION = (((round.contracts as Record<string, string>).collection ??
   "0x0000000000000000000000000000000000000000") as `0x${string}`);
 const SEEDER = ((round.contracts as Record<string, string>).seeder ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`;
+// The TREASURY governor — what the LP is denominated in. Distinct from GOVERNOR
+// above, which picks the next BREW. Defaults to the zero address on a manifest
+// written before rotation existed, so it registers (types resolve) and yields
+// no logs rather than failing the whole config.
+const TREASURY_GOV = ((round.contracts as Record<string, string>).treasuryGovernor ??
   "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
 export default createConfig({
@@ -134,6 +141,11 @@ export default createConfig({
       };
     })(),
     Governor: { chain: "cauldron", abi: GovernorAbi, address: GOVERNOR, startBlock },
+    // Treasury rotation: the vote, and the slices it authorises. The vote lives
+    // on the treasury governor; the EXECUTION is emitted by RedemptionExt
+    // through the registry's own address, so the two need separate entries.
+    TreasuryGov: { chain: "cauldron", abi: TreasuryGovAbi, address: TREASURY_GOV, startBlock },
+    RotationExec: { chain: "cauldron", abi: RotationExecAbi, address: REGISTRY, startBlock },
     // Launch seeding feed: stream progress + prime-buy tranches, so the frontend
     // reads them from Ponder instead of polling the seeder over public RPC.
     Seeder: { chain: "cauldron", abi: SeederAbi, address: SEEDER, startBlock },

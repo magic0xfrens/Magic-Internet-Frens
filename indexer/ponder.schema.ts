@@ -298,3 +298,65 @@ export const seedState = onchainTable("seed_state", (t) => ({
   pokes: t.integer().notNull().default(0),
   updatedAt: t.bigint().notNull().default(0n),
 }));
+
+/* ── TREASURY ROTATION GOVERNANCE ──────────────────────────────────────────
+ * What the LP is denominated in, and the vote that changes it.
+ *
+ * None of this was indexed. The app could file a proposal and then show nothing
+ * that came of it — no live vote, no tally, no way to vote AGAINST, and no
+ * record of an executed rotation. All of it existed on chain the whole time.
+ *
+ * Proposals are CONCURRENT and winner-takes-all: `TreasuryGovernor.propose`
+ * deliberately does not serialise them, because one-at-a-time handed a
+ * permanent veto to whoever filed junk fastest. Only the ENVELOPE is exclusive.
+ * So this is a table, not a singleton. */
+export const rotationProposal = onchainTable("rotation_proposal", (t) => ({
+  id: t.text().primaryKey(),                    // proposal id, decimal string
+  proposer: t.hex().notNull(),
+  quote: t.hex().notNull(),                     // destination asset
+  maxTotalBps: t.integer().notNull(),
+  forVotes: t.bigint().notNull().default(0n),
+  againstVotes: t.bigint().notNull().default(0n),
+  voters: t.integer().notNull().default(0),
+  executed: t.boolean().notNull().default(false),
+  cancelled: t.boolean().notNull().default(false),
+  /** Set on execution. The envelope's own deadline, not the vote's. */
+  expiry: t.bigint().notNull().default(0n),
+  createdTs: t.bigint().notNull(),
+  createdBlock: t.bigint().notNull(),
+  updatedTs: t.bigint().notNull().default(0n),
+  txHash: t.hex().notNull(),
+}), (table) => ({ quoteIdx: index().on(table.quote) }));
+
+/* One row per ballot. Kept separate from the tally so the UI can show WHO voted
+ * and which way, and so a re-vote can never be double-counted — the contract
+ * refuses it (`AlreadyVoted`), and the index must agree rather than accumulate. */
+export const rotationVote = onchainTable("rotation_vote", (t) => ({
+  id: t.text().primaryKey(),                    // `${proposalId}-${voter}`
+  proposalId: t.text().notNull(),
+  voter: t.hex().notNull(),
+  support: t.boolean().notNull(),
+  weight: t.bigint().notNull(),
+  ts: t.bigint().notNull(),
+  block: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}), (table) => ({ propIdx: index().on(table.proposalId), voterIdx: index().on(table.voter) }));
+
+/* Executed rotation slices — the activity feed's rotation entries. `quoteIn` is
+ * denominated in `fromQuote` and `quoteOut` in `toQuote`, which may have
+ * different decimals (ETH 18 vs USDG 6); they are NOT comparable as raw
+ * numbers and the API converts each by its own asset. */
+export const rotationSlice = onchainTable("rotation_slice", (t) => ({
+  id: t.text().primaryKey(),                    // `${txHash}-${logIndex}`
+  generation: t.integer().notNull(),
+  fromQuote: t.hex().notNull(),
+  toQuote: t.hex().notNull(),
+  quoteIn: t.bigint().notNull(),
+  quoteOut: t.bigint().notNull(),
+  sliceBps: t.integer().notNull(),
+  /** Cumulative envelope spend after this slice, from EnvelopeConsumed. */
+  movedTotalBps: t.integer().notNull().default(0),
+  ts: t.bigint().notNull(),
+  block: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}), (table) => ({ genIdx: index().on(table.generation) }));

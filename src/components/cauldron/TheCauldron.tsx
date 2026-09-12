@@ -2219,6 +2219,36 @@ function Styles() {
     .tc-treasury2 .tr-proj__note { font-size: 10.5px; margin-top: 8px; }
     .tc-treasury2 .tc-lpbasis { padding: 18px; }
 
+    /* ── BALLOTS ──────────────────────────────────────────────────────────
+       Live rotation proposals with both sides of the vote. The desk used to
+       offer "Propose" and nothing else, so a filed proposal simply vanished. */
+    .tr-ballots { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+    .tr-ballot { padding: 11px 13px; border-radius: var(--r-sm);
+      background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.06); }
+    .tr-ballot.is-leader { border-color: rgba(213,253,81,0.35); background: rgba(213,253,81,0.05); }
+    .tr-ballot__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .tr-ballot__dest { font-size: 13px; color: ${C.cream}; display: inline-flex; align-items: center; gap: 6px; }
+    .tr-ballot__lead, .tr-ballot__done, .tr-ballot__dead { font-style: normal; font-size: 8.5px;
+      letter-spacing: 0.07em; text-transform: uppercase; border-radius: var(--r-full); padding: 1px 6px; }
+    .tr-ballot__lead { color: ${C.lime}; border: 1px solid rgba(213,253,81,0.35); }
+    .tr-ballot__done { color: #22D3EE; border: 1px solid rgba(34,211,238,0.35); }
+    .tr-ballot__dead { color: #9b93b5; border: 1px solid rgba(255,255,255,0.15); }
+    .tr-ballot__clock { font-size: 10.5px; }
+    .tr-ballot__bar { height: 6px; border-radius: var(--r-full); margin: 9px 0 6px;
+      background: rgba(248,113,113,0.35); overflow: hidden; }
+    .tr-ballot__for { height: 100%; transition: width 300ms ease; }
+    .tr-ballot__tally { display: flex; justify-content: space-between; font-size: 10.5px; color: ${C.mute}; }
+    .tr-ballot__tally span:first-child { color: ${C.cream}; }
+    .tr-ballot__tally span:last-child { color: #f87171; }
+    .tr-ballot__acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+    .tr-vote { padding: 7px 10px; border-radius: var(--r-sm); cursor: pointer;
+      font: 500 11px/1 "DM Sans", sans-serif; background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1); color: ${C.dim}; transition: all .15s ease; }
+    .tr-vote:disabled { opacity: .5; cursor: default; }
+    .tr-vote--for:hover:not(:disabled) { border-color: rgba(213,253,81,0.45); color: ${C.lime}; }
+    .tr-vote--against:hover:not(:disabled) { border-color: rgba(248,113,113,0.45); color: #f87171; }
+    .tr-ballot__exec { margin-top: 10px; width: 100%; }
+
     .tr-top { display: grid; grid-template-columns: 168px 1fr; gap: 22px; align-items: start; }
     @media (max-width: 720px) { .tr-top { grid-template-columns: 1fr; } }
 
