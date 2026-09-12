@@ -101,6 +101,13 @@ const prevRound = Number(m.round ?? 0);
 //  Only overwrite what was actually redeployed. A partial redeploy must not
 //  blank the addresses it did not touch.
 const updates = {
+  //  THE TIMELOCK WAS NEVER UPDATED. It is absent from this list, so every new
+  //  round inherited the PREVIOUS round's timelock address in the canonical
+  //  manifest while the new registry was owned by the new one. Round 40 shipped
+  //  owned by 0xD15473b0 with the manifest still naming round 39's 0x00A35d18 —
+  //  and one stale predecessor also held a pending 6.888 ETH break-glass
+  //  recovery, so pointing operations at it was the worst available kind of wrong.
+  timelock: pick("TimelockController", launchpad),
   registry: pick("CauldronRegistry", launchpad),
   hook: hookFromRegistry(m0.contracts?.registry),
   governor: pick("CauldronGovernor", launchpad),
