@@ -126,21 +126,27 @@ library FeeRouteLib {
      *  rather than bricking the swap that produced the fee.
      */
     function _fundGuild(address asset, address guild, uint256 amount) private returns (bool ok) {
+        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL DELIVERY, ON EITHER BRANCH
+        //  (red-team X4c, completed on the second pass). The EVM reports
+        //  `success` for a call to an address with no code, and `fundToken`
+        //  returns nothing, so returndata cannot tell the two apart.
+        //
+        //  THE CHECK BELONGS BEFORE THE BRANCH, NOT INSIDE ONE. The first cut of
+        //  this fix guarded only the ERC20 path, which left the worse of the two
+        //  legs wide open: on the native branch `guild.call{value:}("")` to a
+        //  codeless address SUCCEEDS and the ether really leaves, so this
+        //  reported true, {routeSplit} emitted `GuildFunded`, the caller skipped
+        //  its `leftover += toGuild` reserve fallback, and the OG holders' share
+        //  was gone with a success signal on it. The ERC20 leg only mis-reported;
+        //  this one lost the money. Same shape as {_deliver} above.
+        //
+        //  Reporting false routes the share to the relaunch reserve, which HAS an
+        //  exit, and clears any allowance on the last line.
+        if (guild.code.length == 0) return false;
         if (asset == address(0)) { (ok, ) = guild.call{value: amount}(""); return ok; }
         (bool approved, ) = asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, amount));
         if (!approved) return false;
-        bytes memory r;
-        (ok, r) = guild.call(abi.encodeWithSignature("fundToken(address,uint256)", asset, amount));
-        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL PULL (red-team X4c). The EVM
-        //  reports `success` for a call to an address with no code, so a
-        //  misconfigured `guild` made this report true, made the caller emit
-        //  `GuildFunded`, and left the approval standing — while the tokens never
-        //  moved and no holder was ever credited. `fundToken` returns nothing, so
-        //  the returndata cannot distinguish it; the code check can.
-        //  Reporting false routes the share to the relaunch reserve, which HAS an
-        //  exit, and the allowance is cleared on the line below.
-        if (ok && guild.code.length == 0) ok = false;
-        r; // (returndata unused: `fundToken` has no return value)
+        (ok, ) = guild.call(abi.encodeWithSignature("fundToken(address,uint256)", asset, amount));
         // Leave no standing allowance behind if the pull did not occur.
         if (!ok) asset.call(abi.encodeWithSignature("approve(address,uint256)", guild, uint256(0)));
     }
