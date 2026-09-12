@@ -18,6 +18,29 @@ manifest), regenerates ABIs from compiled artifacts, type-checks and builds the 
 verifies post-deploy invariants. It bridges the key from `.env.recovery` into the file the existing
 scripts expect and deletes that bridge on exit, including on failure or Ctrl-C.
 
+### DEPLOY ATTEMPT 2026-09-12 — GATE 2 REFUSED, one file to classify
+
+`./scripts/auto-deploy.sh --go` ran. GATE 0 (signer, 12.4757 ETH) and GATE 1 (build, nothing over
+EIP-170) PASSED. GATE 2 refused and deployed nothing, correctly.
+
+Suite: 185 suites / **806 passed** / 7 failed / 1 skipped. This run's own regression set: **82/82**.
+Four failures are known-baseline. **Three are NEW, all in `test/attacks/S01_PerpQuoteDeadlock.t.sol`,
+and all three were `[PASS]` at baseline `1e98bb4`:**
+- `test_invariant_divergedEngineIsPermissionlesslyRecoverable` — next call did not revert as expected
+- `test_poc_routeC_unsetEngineStrandsTheQuoteWithAFullBook` — next call did not revert as expected
+- `test_refute_routeB_rotationRepointsTheEngineInTheSameCall` — a funded engine keeps the asset it can
+  pay in: `0xA4AD4f68…` != `0x0`
+
+Cause is almost certainly `1eff1d2`, which replaced the rotation guard's "revert if counters are
+non-zero" with "sweep to the treasury in the old asset, zero them, then adopt". Tests asserting the
+old refusal now see success. **Do not assume that and move on:** the first one is an INVARIANT
+asserting a diverged engine is recoverable **permissionlessly**, and the new sweep lives inside
+`syncGeneration` while `retirePayout` is **timelock-only**. If recovery now needs the timelock where
+it needed nobody, that is a genuine liveness regression and the test is right. Settle it explicitly.
+
+Everything else is ready: the deploy is one command and fully unattended (contracts → mint out →
+summon → manifest → ABIs → frontend build → Railway indexer → post-deploy verification).
+
 **Measured 2026-09-12: GATE 0 and GATE 1 PASS** (signer verified, 12.4757 ETH, build clean, nothing
 over EIP-170). **GATE 2 currently FAILS on one regression — see below.**
 
