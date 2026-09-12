@@ -63,7 +63,12 @@ export EMERGENCY_DELAY=600           # 10 min (mainnet 48 h)
 # deployer to ~1.46). Without it there is only 0.507 and this will not fit —
 # recover first. The OG allocation ratio is price-independent (bonusBps x
 # TOTAL/ACTIVE), so the mint price is purely a depth/budget decision.
-export PRESALE_PRICE=500000000000000 # 0.0005 ETH (mainnet 0.0062)
+#  0.002, not 0.0005. The pool IS the presale balance, and the perp engine caps a
+#  position at `maxNotionalBps` (5%) of pool depth — at 0.55 ETH that is a 0.027
+#  ETH max position, too small to demonstrate leverage or a liquidation. 1110 x
+#  0.002 = 2.22 ETH of depth -> ~0.11 ETH positions, and a 1 ETH buy is a ~2x
+#  move on a full-range book rather than the 39x teleport a thin banded one gave.
+export PRESALE_PRICE=2000000000000000 # 0.002 ETH (mainnet 0.0062)
 export PRESALE_MAXWALLET=1111        # (mainnet 100)
 
 # OG allocation = 17.5% of the mint price. bonusBps = target x 8000; see the
@@ -144,7 +149,11 @@ export INSURANCE_SEED_WEI=60000000000000000   # 0.06 ETH, just over the 0.05 flo
 # VENUE_USDG is deliberately UNSET: the deploy derives the USDG leg from the
 # oracle so the pool opens AT the floor's own reference price. Hardcoding it
 # encoded an ETH/USD guess that silently expired.
-export VENUE_ETH=1500000000000000000 # 1.5 ETH  (recoverable: VenueSeeder.recover)
+#  0.3, down from 1.5. That 1.5 was sized for a FULL-RANGE venue; the venue is now
+#  placed as a +/-5% band, which is ~20x more capital efficient inside the band —
+#  0.3 ETH there behaves like ~6 ETH of full-range depth, far more than a 25%
+#  rotation slice of a 2.2 ETH pool needs. Recoverable via VenueSeeder.recover.
+export VENUE_ETH=300000000000000000  # 0.3 ETH
 # export VENUE_USDG=                 # leave unset -> priced from the oracle
 # ── end TESTNET block ───────────────────────────────────────────────────────
 
