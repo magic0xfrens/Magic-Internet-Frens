@@ -284,8 +284,58 @@ contract MiFrensDividend is ReentrancyGuard {
             assets.push(asset);
         }
         _pull(asset, msg.sender, amount);
+        accountedOf[asset] += amount;
         accPerShareOf[asset] += (amount * ACC) / activeShares;
         emit TokenDeposited(asset, amount);
+    }
+
+    /// @notice ERC20 of `asset` this contract has BOOKED to holders. The difference
+    ///         between it and `balanceOf(address(this))` is value that was PUSHED
+    ///         here, which {fundToken}'s pull model structurally cannot see.
+    mapping(address => uint256) public accountedOf;
+
+    /**
+     * @notice Credit an ERC20 balance that arrived by a plain `transfer` rather than
+     *         through {fundToken}.
+     *
+     *  ── WHY THIS EXISTS (red-team Z-10) ──────────────────────────────────────
+     *  `DeployLaunchpad.s.sol:336` makes this contract the collection's EIP-2981
+     *  royalty receiver. A marketplace settling a sale in WETH or USDC pays that
+     *  royalty with a plain `transfer` — and {fundToken} is PULL-based, so it can
+     *  never adopt a balance already sitting here. Before this function, 5% of every
+     *  non-native secondary sale landed in a contract with no owner, no sweep, no
+     *  rescue and no crediting path: `accPerShareOf` stayed 0, `pendingToken`
+     *  stayed 0, and `claimTokens` / `withdrawOwedToken` left the balance untouched
+     *  at every privilege level. `RoyaltyRouter.sol:22-32` documents exactly this
+     *  hazard for its own ETH and solves it by forwarding atomically; the dividend
+     *  had no equivalent.
+     *
+     *  ── WHY THE PERMISSION SPLIT ─────────────────────────────────────────────
+     *  Appending to `assets` is the privileged act, not crediting: the list is
+     *  bounded at {MAX_ASSETS}, has no removal path, and is walked under a fixed
+     *  gas budget by {onMiFrenTransfer} — which is why {fundToken} is funder-gated
+     *  at all (audit D-1). So a NEW asset still needs the funder or the treasury.
+     *  An asset already in the basket may be adopted by ANYONE: it grows no list,
+     *  it can only pay holders, and a repair path only the hook can reach is a
+     *  repair path nobody ever calls (this codebase has shipped that mistake more
+     *  than once).
+     */
+    function adopt(address asset) external returns (uint256 delta) {
+        if (asset == address(0)) revert NotShare();
+        if (activeShares == 0) revert NotEnchanted();
+        if (!knownAsset[asset]) {
+            if (msg.sender != funder && msg.sender != treasury) revert NotOwner();
+            if (assets.length >= MAX_ASSETS) revert NotShare();
+            knownAsset[asset] = true;
+            assets.push(asset);
+        }
+        uint256 held = IERC20(asset).balanceOf(address(this));
+        uint256 booked = accountedOf[asset];
+        if (held <= booked) revert NotShare();
+        unchecked { delta = held - booked; }
+        accountedOf[asset] = held;
+        accPerShareOf[asset] += (delta * ACC) / activeShares;
+        emit TokenDeposited(asset, delta);
     }
 
     /// @notice What `tokenId` can claim of `asset` right now.
@@ -357,7 +407,16 @@ contract MiFrensDividend is ReentrancyGuard {
         (bool ok, bytes memory ret) = asset.call(
             abi.encodeWithSignature("transfer(address,uint256)", to, amount)
         );
-        return ok && (ret.length == 0 || abi.decode(ret, (bool)));
+        ok = ok && (ret.length == 0 || abi.decode(ret, (bool)));
+        //  The ONLY place an ERC20 leaves this contract, so it is the only place
+        //  {accountedOf} has to come down. Saturating rather than checked: an
+        //  accounting drift must never be able to brick a claim (the amount really
+        //  did leave, whatever the book says).
+        if (ok) {
+            uint256 a = accountedOf[asset];
+            accountedOf[asset] = a > amount ? a - amount : 0;
+        }
+        return ok;
     }
 
     /// @notice Whether a fren is currently drawing fees (spell cast + still owned
