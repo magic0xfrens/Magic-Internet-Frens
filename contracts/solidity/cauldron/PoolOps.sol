@@ -141,8 +141,31 @@ library PoolOps {
     // (spot-straddling → perps get depth + the book is continuous → no teleport,
     // smooth liquidations), placed automatically and never removed until relaunch.
     // A full-range spread is thin per tick so it barely dents the single-sided
-    // floor's near-spot anti-snipe. 15% is a sane default.
-    uint256 internal constant SEED_BASE_WAD = 0.15e18;
+    // floor's near-spot anti-snipe.
+    //
+    //  ── 100%: THE BOOK IS ALWAYS CONTINUOUS ──────────────────────────────
+    //  This was 15%, and the note above ("perps belong on ATOMIC generations")
+    //  was the whole story: a single-sided band is EXHAUSTIBLE, so a buy larger
+    //  than the streamed depth walks past the last band and the price TELEPORTS
+    //  with nothing to sell back into. Measured on r42: a 1 ETH buy into a
+    //  0.55 ETH pool moved price 39x (constant product would have capped it at
+    //  ~8x), the book above was empty, and the consequences cascaded — a 0.05
+    //  ETH short blew out to -4.4 ETH, its notional exceeded pool depth so
+    //  `LiqCapped` made it unliquidatable, and the close path could not buy back
+    //  83M tokens the pool did not have. Stakers ate the bad debt.
+    //
+    //  Laying the WHOLE of ledger A as a two-sided full-range base removes the
+    //  failure at its source: there is no last band to walk past, price impact
+    //  is bounded by x/(X+x), and there is always liquidity on both sides. The
+    //  cost is capital efficiency — a full-range spread is thinner per tick — and
+    //  that is the right trade for a pool the perp mark, the liquidation engine,
+    //  the NFT floor and the treasury rotation all read.
+    //
+    //  Anti-snipe does not depend on this: the surtax and {LaunchSniper} are the
+    //  real defences, and both are untouched. Lower this below 1e18 to bring the
+    //  streamed launch back — the machinery is intact — but anything that hosts
+    //  perps wants it at 1e18.
+    uint256 internal constant SEED_BASE_WAD = 1e18;
 
     /// @notice The themed creature (token name + symbol) for a generation, cycling
     ///         every 6. Lives HERE (a linked library) rather than the registry so
@@ -376,6 +399,12 @@ library PoolOps {
             poolManager, pm, r, token, baseTok, baseEth, reserveTokens,
             tickSpacing, ceilingOffset, quote
         );
+
+        //  NOTHING LEFT TO STREAM once the base is the whole of ledger A.
+        //  `startSeed` with a zero budget would revert `BadConfig` and take the
+        //  summon down with it, so the campaign is simply not started — which is
+        //  also the honest state: an atomic launch has no seeding campaign.
+        if (activeTokens <= baseTok || ethAmount <= baseEth) return r;
 
         IERC20(token).approve(sp.seeder, activeTokens - baseTok);
         ISeeder(sp.seeder).startSeed{value: ethAmount - baseEth}(SeederConfig({
