@@ -161,14 +161,17 @@ fi
 say "WIRE  manifest"
 MANIFEST="$ROOT/indexer/deployments/round.json"
 [ -r "$MANIFEST" ] || die "no $MANIFEST — apply-deployment.mjs should have written it."
-python3 - "$MANIFEST" <<'PY' || die "manifest is not valid JSON or is missing keys."
+python3 - "$MANIFEST" <<'PYEOF' || die "manifest is not valid JSON or is missing keys."
 import json,sys
 d=json.load(open(sys.argv[1]))
-need=["registry","hook"]
-missing=[k for k in need if not d.get(k)]
-if missing: sys.exit("manifest missing: %s" % missing)
-print("manifest ok: schema=%s registry=%s hook=%s" % (d.get("schema","?"), d["registry"], d["hook"]))
-PY
+# addresses live under "contracts", not at the top level
+c=d.get("contracts",{})
+need=["registry","hook","presale","perpEngine","timelock"]
+missing=[k for k in need if not c.get(k)]
+if missing: sys.exit("manifest contracts missing: %s" % missing)
+if not d.get("poolIds"): sys.exit("manifest has no poolIds - the pool was never summoned")
+print("manifest ok: round=%s schema=%s registry=%s hook=%s" % (d.get("round","?"), d.get("schema","?"), c["registry"], c["hook"]))
+PYEOF
 
 say "WIRE  regenerating ABIs from the compiled artifacts"
 cd "$ROOT/contracts/solidity"
@@ -192,8 +195,8 @@ npm run build > /tmp/ad-build.log 2>&1 && echo "build ok" \
   || { tail -15 /tmp/ad-build.log; die "frontend build failed."; }
 
 say "VERIFY  post-deploy invariants"
-REG=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['registry'])")
-HOOK=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['hook'])")
+REG=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['contracts']['registry'])")
+HOOK=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['contracts']['hook'])")
 ok=0; bad=0
 chk() { # name, expected, actual
   if [ "$2" = "$3" ]; then echo "  OK   $1"; ok=$((ok+1)); else echo "  FAIL $1 (want $2, got $3)"; bad=$((bad+1)); fi
@@ -229,8 +232,10 @@ python3 - "$MANIFEST" <<'PYEOF'
 import json,sys
 d=json.load(open(sys.argv[1]))
 print("\nNEW DEPLOYMENT")
-for k in ("schema","registry","hook","presale","governor","gachaRouter","dividend","perpEngine","perpVault"):
-    if d.get(k): print("  %-14s %s" % (k, d[k]))
+print("  %-16s %s" % ("round", d.get("round")))
+print("  %-16s %s" % ("schema", d.get("schema")))
+for k in sorted(d.get("contracts",{})): print("  %-16s %s" % (k, d["contracts"][k]))
+for i,pid in enumerate(d.get("poolIds",[])): print("  %-16s %s" % ("poolId[%d]"%i, pid))
 PYEOF
 echo
 echo "STILL TO DO BY HAND (deliberately not automated):"
