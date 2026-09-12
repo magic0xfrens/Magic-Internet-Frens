@@ -163,6 +163,70 @@ function since(s: number | null): string {
   return m > 0 ? `${m}m` : `${s}s`;
 }
 
+
+/** The staged state of one on-chain action. */
+export type TxState =
+  { stage: "sign" | "pending" | "done" | "error"; title: string; detail?: string; hash?: string } | null;
+
+/**
+ * TX MODAL — narrates sign -> mine -> index.
+ *
+ * Shared by every governance and rotation action, because they fail in the same
+ * three places and a user who has learned the dialog once should not meet a
+ * second one. Rendered as a portal-less fixed overlay: the panels it serves are
+ * inside a scrolling column, and an absolutely-positioned dialog would scroll
+ * away from the thing it is describing.
+ */
+export function TxModal({ tx, onClose }: { tx: TxState; onClose: () => void }) {
+  if (!tx) return null;
+  const settled = tx.stage === "done" || tx.stage === "error";
+  return (
+    <div className="tr-modal" role="dialog" aria-modal="true" aria-label={tx.title}
+         onClick={() => { if (settled) onClose(); }}>
+      <div className="tr-modal__box" onClick={(e) => e.stopPropagation()}>
+        <div className={`tr-modal__icon is-${tx.stage}`}>
+          {tx.stage === "done" ? "\u2713" : tx.stage === "error" ? "\u2715" : ""}
+        </div>
+        <h4 className="tr-modal__title">{tx.title}</h4>
+        <p className="tr-modal__detail">{tx.detail}</p>
+        {/*  THE STAGE RAIL. Three marks beat a spinner: a spinner says "waiting",
+             these say WHAT is being waited on — signing, mining and indexing fail
+             for completely different reasons. */}
+        <div className="tr-modal__rail">
+          {(["sign", "pending", "done"] as const).map((st, i) => {
+            const order = { sign: 0, pending: 1, done: 2, error: 1 }[tx.stage];
+            return (
+              <span key={st}
+                className={`tr-modal__step ${i < order ? "is-past" : i === order ? "is-now" : ""} ${tx.stage === "error" && i === 1 ? "is-err" : ""}`} />
+            );
+          })}
+        </div>
+        {tx.hash && (
+          <a className="tr-modal__link tc-mono" target="_blank" rel="noreferrer"
+             href={`https://sepolia.etherscan.io/tx/${tx.hash}`}>
+            {tx.hash.slice(0, 10)}\u2026{tx.hash.slice(-8)} \u2197
+          </a>
+        )}
+        {settled && <button className="tr-modal__close" onClick={onClose}>Close</button>}
+      </div>
+    </div>
+  );
+}
+
+/** Decode a revert into something a user can act on. */
+export function explainGovError(m: string): string {
+  if (/user rejected|denied|rejected the request/i.test(m)) return "You rejected it in your wallet.";
+  if (/NoVotingPower/i.test(m)) return "This wallet holds no MiFrens, so it has no vote. One fren = one vote.";
+  if (/AlreadyVoted/i.test(m)) return "This wallet has already voted on that proposal.";
+  if (/VotingClosed/i.test(m)) return "Voting has closed on that proposal.";
+  if (/DidNotPass/i.test(m)) return "That proposal did not win \u2014 only the leading proposal can execute.";
+  if (/SlippageTooHigh/i.test(m)) return "The venue could not fill above the oracle floor \u2014 it needs more depth, or a smaller slice.";
+  if (/NoRoute/i.test(m)) return "That venue is not curated on the rotator, so the swap has no route.";
+  if (/CooldownActive/i.test(m)) return "The envelope cooldown is still running.";
+  if (/NoRotationApproved/i.test(m)) return "No rotation is approved \u2014 the guild has to vote one first.";
+  return m.split("\n")[0].slice(0, 140) || "Transaction failed.";
+}
+
 /**
  * THE BALLOT. One open proposal, its tally, and both ways to vote.
  *
@@ -258,6 +322,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [venueOk, setVenueOk] = useState<boolean | null>(null);
+  const [tx, setTx] = useState<TxState>(null);
   //  The contract's own answer for THIS slice. null = it could not be quoted,
   //  and an unquotable slice is one we refuse to sign a floor for.
   const [expectedOut, setExpectedOut] = useState<bigint | null>(null);
@@ -420,10 +485,32 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
       }
       const slipBps = BigInt(Math.min(5_000, Math.max(0, Math.round(maxSlip * 100))));
       const minOut = (expected * (10_000n - slipBps)) / 10_000n;
-      await rotateSlice(SLICE_BPS, minOut, route, fromLeg);
-      say(`Moved one ${(SLICE_BPS / 100).toFixed(0)}% slice from ${srcMeta.symbol} into ${destMeta.symbol}.`);
+
+      //  THE SLICE IS THE SLOWEST ACTION ON THE SCREEN — remove, swap and
+      //  redeploy in one transaction — and it was the least narrated: a button
+      //  label changed and the treasury numbers moved a poll later, so the most
+      //  visibly "working" thing the protocol does looked frozen.
+      const title = `Move ${(SLICE_BPS / 100).toFixed(0)}% ${srcMeta.symbol} \u2192 ${destMeta.symbol}`;
+      setTx({ stage: "sign", title, detail: "Confirm in your wallet\u2026" });
+      const hash = (await rotateSlice(SLICE_BPS, minOut, route, fromLeg)) as `0x${string}`;
+      setTx({ stage: "pending", title, detail: "Swapping and redeploying the liquidity\u2026", hash });
+      if (pc) await pc.waitForTransactionReceipt({ hash, timeout: 120_000 });
+
+      const moved = `Moved one ${(SLICE_BPS / 100).toFixed(0)}% slice from ${srcMeta.symbol} into ${destMeta.symbol}.`;
+      setTx({ stage: "done", title, detail: moved, hash });
+      say(moved);
       await refresh();
-    } catch (e) { say(`Slice failed: ${(e as Error).message.slice(0, 90)}`); }
+      //  The tape and the composition ring both come from the indexer, which is
+      //  a poll behind the chain. Nudge twice so the slice appears without the
+      //  user reloading — this is the moment they are watching.
+      setTimeout(() => { void refresh(); }, 3_000);
+      setTimeout(() => { void refresh(); }, 8_000);
+      setTimeout(() => setTx(null), 2_500);
+    } catch (e) {
+      const why = explainGovError((e as Error).message ?? "");
+      setTx({ stage: "error", title: "Rotation slice", detail: why });
+      say(why);
+    }
     finally { setBusy(null); }
   }
 
@@ -643,6 +730,8 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
         </>
       )}
 
+      <TxModal tx={tx} onClose={() => setTx(null)} />
+
       {log.length > 0 && (
         <ul className="tr-log tc-mono">
           {log.map((l, i) => <li key={i}>{l}</li>)}
@@ -774,42 +863,7 @@ export function RotationBallots({ col }: { col: string }) {
       )}
       {note && <p className="tc-rothist__note tc-mono tc-dim">{note}</p>}
 
-      {tx && (
-        <div className="tr-modal" role="dialog" aria-modal="true" aria-label={tx.title}
-             onClick={() => { if (tx.stage === "done" || tx.stage === "error") setTx(null); }}>
-          <div className="tr-modal__box" onClick={(e) => e.stopPropagation()}>
-            <div className={`tr-modal__icon is-${tx.stage}`}>
-              {tx.stage === "done" ? "✓" : tx.stage === "error" ? "✕" : ""}
-            </div>
-            <h4 className="tr-modal__title">{tx.title}</h4>
-            <p className="tr-modal__detail">{tx.detail}</p>
-
-            {/*  THE STAGE RAIL. Three dots beat a spinner here: a spinner says
-                 "waiting", these say WHAT is being waited on, which is the part
-                 that was missing — signing, mining and indexing fail for very
-                 different reasons. */}
-            <div className="tr-modal__rail">
-              {(["sign", "pending", "done"] as const).map((st, i) => {
-                const order = { sign: 0, pending: 1, done: 2, error: 1 }[tx.stage];
-                return (
-                  <span key={st}
-                    className={`tr-modal__step ${i < order ? "is-past" : i === order ? "is-now" : ""} ${tx.stage === "error" && i === 1 ? "is-err" : ""}`} />
-                );
-              })}
-            </div>
-
-            {tx.hash && (
-              <a className="tr-modal__link tc-mono" target="_blank" rel="noreferrer"
-                 href={`https://sepolia.etherscan.io/tx/${tx.hash}`}>
-                {tx.hash.slice(0, 10)}…{tx.hash.slice(-8)} ↗
-              </a>
-            )}
-            {(tx.stage === "done" || tx.stage === "error") && (
-              <button className="tr-modal__close" onClick={() => setTx(null)}>Close</button>
-            )}
-          </div>
-        </div>
-      )}
+      <TxModal tx={tx} onClose={() => setTx(null)} />
     </section>
   );
 }

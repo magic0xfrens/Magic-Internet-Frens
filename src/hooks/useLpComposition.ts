@@ -122,7 +122,11 @@ export function useLpComposition(generation: number): LpComposition {
       return;
     }
     try {
-      const r = await fetch(`${INDEXER}/treasury`);
+      //  `fresh=1` skips the server's cache. Used for every poll here because
+      //  the endpoint's own cache is short now; the cost is a few chain reads on
+      //  a cached-by-default route, and the benefit is a composition ring that
+      //  moves when the treasury does.
+      const r = await fetch(`${INDEXER}/treasury?fresh=1`);
       if (!r.ok) throw new Error(String(r.status));
       const j = (await r.json()) as {
         basis: string; holdings: TreasuryRow[]; totalUsd: number; partial: boolean;
@@ -163,7 +167,10 @@ export function useLpComposition(generation: number): LpComposition {
 
   // The endpoint caches for 30s server-side, so polling faster than that only
   // costs the browser a round-trip and returns the identical payload.
-  usePoll(load, 30_000, !!generation);
+  //  8s, was 30s. This panel sits beside the control that changes it, so a
+  //  rotation the user just signed should be visible before they wonder whether
+  //  it worked.
+  usePoll(load, 8_000, !!generation);
 
   return state;
 }

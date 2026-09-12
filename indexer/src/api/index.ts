@@ -500,8 +500,14 @@ const LEGACY_BPS = Number((round as Record<string, unknown>).legacyBps ?? 4000);
 
 let treasuryCache: { at: number; v: unknown } = { at: 0, v: null };
 app.get("/treasury", async (c) => {
-  // 30s: balances move with trading, and nothing downstream is second-sensitive.
-  if (Date.now() - treasuryCache.at < 30_000 && treasuryCache.v) return c.json(treasuryCache.v);
+  //  6s, was 30s. "Nothing downstream is second-sensitive" stopped being true
+  //  when the rotation desk started showing the composition a slice CHANGES: a
+  //  30s server cache on top of a 30s client poll meant the ring could lag a
+  //  rotation by a minute, and the most visibly-working thing the protocol does
+  //  looked frozen. `?fresh=1` skips the cache entirely for the refresh fired
+  //  immediately after an action, so the common path stays cheap.
+  const fresh = c.req.query("fresh") === "1";
+  if (!fresh && Date.now() - treasuryCache.at < 6_000 && treasuryCache.v) return c.json(treasuryCache.v);
 
   // The live generation, from the indexed table rather than a chain read.
   const genRows = await db.select().from(schema.pool).orderBy(desc(schema.pool.generation)).limit(1);
