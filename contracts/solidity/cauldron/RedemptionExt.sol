@@ -731,7 +731,42 @@ contract RedemptionExt is CauldronBase {
     ///  its own entry below.
     function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut) {
         if (gen == 0 || gen >= currentGeneration) revert CannotClaimCurrentGen();
-        return _recoverLegs(gen);
+        (quoteOut, tokenOut) = _recoverLegs(gen);
+        _bookLegProceeds(gen, quoteOut, tokenOut);
+    }
+
+    /// @dev Book what the RETRY recovered, so the existing exit covers it.
+    ///
+    ///  ── RECOVERABLE, NOT MERELY REACHABLE ─────────────────────────────────
+    ///  `_recoverLegs` books a leg into `legProceeds` only when its asset DIFFERS
+    ///  from the primary pool's `currency0`; a leg in the MATCHING asset is returned
+    ///  to the caller instead, because the teardown path
+    ///  ({recoverLegsAtTeardown}) has a consumer for that return value — it is added
+    ///  to `ethRecovered` in `CauldronRegistry._removeLiquidity` and re-seeded into
+    ///  the new generation. A RETRY has no such consumer. So the public retry
+    ///  unwound the position, moved real value out of the pool into this contract,
+    ///  and reported it in a return value nothing could act on: `sweepLegProceeds`
+    ///  reads `legProceeds` and only `legProceeds`, so the recovered asset had no
+    ///  exit. Making the retry callable was necessary and not sufficient.
+    ///
+    ///  The TOKEN side gets the same treatment for the same reason: the teardown
+    ///  path counts it into `tokensRecovered`, and on a retry it would otherwise sit
+    ///  here permanently. Holders redeem by burning their OWN balance
+    ///  (`claimByBurn`), so nothing depends on this contract holding it.
+    ///
+    ///  Called ONLY from the retry. The teardown entry must not book, or the same
+    ///  value would be both re-seeded into the new generation AND marked sweepable.
+    function _bookLegProceeds(uint256 gen, uint256 quoteOut, uint256 tokenOut) internal {
+        if (quoteOut > 0) {
+            address q = Currency.unwrap(generationPoolKey[gen].currency0);
+            legProceeds[q] += quoteOut;
+            emit LegProceedsBooked(gen, q, quoteOut);
+        }
+        if (tokenOut > 0) {
+            address t = generationToken[gen];
+            legProceeds[t] += tokenOut;
+            emit LegProceedsBooked(gen, t, tokenOut);
+        }
     }
 
     /// @notice TEARDOWN ENTRY. Ungated on the generation, because

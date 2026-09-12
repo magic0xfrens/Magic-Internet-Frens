@@ -2,6 +2,33 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {RedemptionExt} from "../../cauldron/RedemptionExt.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+
+/// @dev Minimal ERC20 the sweep can actually move.
+contract X2bAsset {
+    mapping(address => uint256) public balanceOf;
+    function mint(address to, uint256 a) external { balanceOf[to] += a; }
+    function transfer(address to, uint256 a) external returns (bool) {
+        balanceOf[msg.sender] -= a; balanceOf[to] += a; return true;
+    }
+}
+
+/// @dev The facet with its OWN storage, so the retry's output path can be driven
+///      without a fork. `CauldronBase`'s constructor makes the deployer the owner,
+///      which is what `sweepLegProceeds` gates on.
+contract X2bExtHarness is RedemptionExt {
+    /// @dev Stand in for a generation whose legs a retry has just recovered.
+    function seedGen(uint256 gen, address quote, address token) external {
+        currentGeneration = gen + 1;
+        generationPoolKey[gen].currency0 = Currency.wrap(quote);
+        generationToken[gen] = token;
+    }
+    /// @dev Exactly what {recoverLegs} does with `_recoverLegs`' return values.
+    function bookAsRetryDoes(uint256 gen, uint256 q, uint256 t) external {
+        _bookLegProceeds(gen, q, t);
+    }
+}
 
 /**
  * X2b — a rotated treasury leg that fails to unwind during relaunch can NEVER be
@@ -102,5 +129,53 @@ contract X2b_StrandedLegNoRetry is Test {
         );
         assertFalse(ok, "completeRotation no longer exists on the facet");
         assertEq(ret.length, 0, "and there is no fallback to catch it");
+    }
+    // ── RECOVERABILITY, NOT JUST REACHABILITY ────────────────────────────────
+    //
+    //  The assertions above prove the retry ROUTES. They did not prove the value it
+    //  recovers can LEAVE, and that gap is why the forwarder fix looked complete.
+    //  `_recoverLegs` books a leg into `legProceeds` only when its asset DIFFERS
+    //  from the primary's `currency0`; the matching one is returned to the caller.
+    //  The teardown path has a consumer for that return value (`ethRecovered`,
+    //  re-seeded into the new generation). A retry has none — so a successfully
+    //  unwound leg in the matching asset was pulled out of the pool and stranded in
+    //  the contract, and `sweepLegProceeds`, which reads `legProceeds` and nothing
+    //  else, could not see it.
+
+    function test_X2b_retryProceedsAreBookedAndSweepable() public {
+        X2bExtHarness h = new X2bExtHarness();
+        X2bAsset quoteAsset = new X2bAsset();
+        X2bAsset tokenAsset = new X2bAsset();
+        h.seedGen(1, address(quoteAsset), address(tokenAsset));
+
+        // The facet holds what the unwind pulled out of the pool.
+        quoteAsset.mint(address(h), 7 ether);
+        tokenAsset.mint(address(h), 3 ether);
+
+        assertEq(h.legProceedsOf(address(quoteAsset)), 0, "nothing booked yet");
+        h.bookAsRetryDoes(1, 7 ether, 3 ether);
+
+        assertEq(h.legProceedsOf(address(quoteAsset)), 7 ether, "FIXED: the matching quote is booked");
+        assertEq(h.legProceedsOf(address(tokenAsset)), 3 ether, "FIXED: and so is the token side");
+
+        address sink = address(0x5157);
+        assertEq(h.sweepLegProceeds(address(quoteAsset), sink), 7 ether, "the existing exit covers it");
+        assertEq(quoteAsset.balanceOf(sink), 7 ether, "and the value actually leaves");
+        assertEq(h.legProceedsOf(address(quoteAsset)), 0, "booking cleared");
+
+        assertEq(h.sweepLegProceeds(address(tokenAsset), sink), 3 ether, "the token side sweeps too");
+        assertEq(tokenAsset.balanceOf(sink), 3 ether, "and lands");
+    }
+
+    /// @dev The teardown entry must NOT book: `_removeLiquidity` already counts its
+    ///      return value into `ethRecovered` and re-seeds it, so booking there would
+    ///      make the same value both re-seeded AND sweepable.
+    function test_X2b_teardownPathDoesNotDoubleBook() public {
+        X2bExtHarness h = new X2bExtHarness();
+        h.seedGen(1, address(0xAAAA), address(0xBBBB));
+        (uint256 q, uint256 t) = h.recoverLegsAtTeardown(1);
+        assertEq(q, 0, "no legs recorded, so nothing to recover");
+        assertEq(t, 0, "no legs recorded, so nothing to recover");
+        assertEq(h.legProceedsOf(address(0xAAAA)), 0, "and the teardown path never books");
     }
 }
