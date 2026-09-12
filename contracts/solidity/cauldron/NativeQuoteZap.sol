@@ -47,6 +47,22 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *  Holds nothing between calls: every path ends with the balance at zero or the
  *  transaction reverted. There is no owner, no upgrade and no privileged caller,
  *  so the worst an attacker can do with it is swap their own ether.
+ *
+ *  ── THE POOL KEY IS UNTRUSTED, DELIBERATELY ───────────────────────────────
+ *  `zap` validates only that `currency0` is native. `fee`, `tickSpacing` and —
+ *  the one worth saying out loud — `hooks` are whatever the caller passes, so a
+ *  caller can make arbitrary hook code run inside this contract's unlock. That
+ *  is acceptable HERE for reasons that are properties of this contract, not
+ *  general ones, so they are worth naming before someone adds state:
+ *    * it is stateless, and the only ether in it during the callback is the
+ *      caller's own `msg.value`;
+ *    * v4 conserves deltas, so a hook cannot hand the swapper `currency1`
+ *      without being charged for it (`_accountPoolBalanceDelta` gives the hook
+ *      the mirror-image debt, which the unlock will not close unpaid);
+ *    * `minOut` is checked after settlement, so a hostile hook can only make
+ *      the caller's own swap worse, and it reverts when it does.
+ *  Add a balance, an allowance or a privileged caller to this contract and that
+ *  reasoning stops holding — validate the key at that point.
  */
 contract NativeQuoteZap is IUnlockCallback {
     IPoolManager public immutable poolManager;
@@ -134,7 +150,21 @@ contract NativeQuoteZap is IUnlockCallback {
         //  A partial fill leaves ether here. Return it rather than keeping it:
         //  this contract is meant to hold nothing, and dust that accumulates in
         //  a permissionless helper is dust nobody can ever claim.
-        uint256 refund = c.amountIn - owed;
+        //
+        //  SATURATING, BECAUSE AN EXACT-INPUT SWAP CAN CONSUME MORE THAN IT WAS
+        //  OFFERED. `SwapMath.computeSwapStep` rounds the LP fee UP
+        //  (`mulDivRoundingUp`) on every step that reaches its tick target, while
+        //  the budget it is compared against (`amountRemainingLessFee`) was
+        //  rounded DOWN — so each crossed tick can overshoot by a wei, and
+        //  `Pool.sol:379` folds that straight back into `amount0` (:459). A plain
+        //  `c.amountIn - owed` therefore panics 0x11 on exactly the pools this
+        //  contract is FOR: the gacha router never hits it because its pool is
+        //  `fee = 0`, but a rotation venue charges a real fee, so `owed` can come
+        //  back a wei above `amountIn`.
+        //  The `settle` above would be a wei short in that case and revert first;
+        //  this keeps the arithmetic honest either way rather than relying on
+        //  which of the two fails.
+        uint256 refund = c.amountIn > owed ? c.amountIn - owed : 0;
         if (refund > 0) {
             (bool ok,) = c.payer.call{value: refund}("");
             if (!ok) revert EthReturnFailed();
@@ -142,5 +172,11 @@ contract NativeQuoteZap is IUnlockCallback {
         return abi.encode(got);
     }
 
-    receive() external payable {}
+//  NO `receive()`. It used to accept ether unconditionally, which contradicted
+//  the promise at the top of this file: there is no owner and no sweep, so
+//  anything arriving outside `zap` was stuck forever — the very "dust nobody can
+//  ever claim" the refund above exists to avoid. Nothing needs it: ether comes in
+//  through `zap`'s own `payable`, and the only ether this contract ever sends is
+//  `settle` and the refund. A stray transfer now reverts, which is the honest
+//  answer to a transfer that could never be recovered.
 }

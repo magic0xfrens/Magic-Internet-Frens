@@ -215,8 +215,14 @@ contract LedgerHandler is Test {
     function hCredit(uint256 genSeed, uint256 amt) external {
         uint256 gen = bound(genSeed, 1, 20);
         amt = bound(amt, 1, 1e28);
+        //  Z-19 again: `credit` REJECTS into a dead end — a generation that is
+        //  crystallized AND fully retired has no live share to pay, so a credit
+        //  there would be trapped forever. It emits `CreditRejected` and
+        //  returns rather than reverting (it sits on `relaunch()`'s un-caught
+        //  path, so it must never revert). The ghost mirrors the same test.
+        bool deadEnd = ledger.isDeadEnd(gen);
         ledger.credit(gen, amt);
-        ghost_in += amt;
+        if (!deadEnd) ghost_in += amt;
         _track(gen);
     }
 
@@ -240,8 +246,16 @@ contract LedgerHandler is Test {
         if (ledger.crystallized(gen)) return;
         extra = bound(extra, 0, 1e28);
         // freeze at the current live mint count (>= retired by construction)
+        //
+        //  Z-19: the ledger DROPS `extraEntitled` when the frozen supply is
+        //  already fully retired (`mintedAtDeath <= retired`), because a credit
+        //  to a generation with no live share is unclaimable by anyone — it
+        //  would be trapped forever. The ghost has to mirror that, or
+        //  conservation counts tokens the ledger never accepted. Read `retired`
+        //  BEFORE the call: `crystallize` carries it forward.
+        uint256 retiredBefore = ledger.retired(gen);
         ledger.crystallize(gen, minted[gen], extra);
-        if (extra != 0) ghost_in += extra;
+        if (extra != 0 && minted[gen] > retiredBefore) ghost_in += extra;
         _track(gen);
     }
 }
