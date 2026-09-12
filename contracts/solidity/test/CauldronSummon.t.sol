@@ -542,6 +542,13 @@ contract CauldronSummonForkTest is Test {
         // crystallizes a non-zero entitlement.
         address vault1 = registry.generationVault(1);
         assertTrue(vault1 != address(0), "gen1 vault deployed");
+        //  FUNDED AS THE HOOK (red-team Z-02). `CauldronVault.close()` now reports
+        //  the ether the PROTOCOL deposited, not `address(this).balance`: the raw
+        //  balance sized a permanent, one-shot collection entitlement and the
+        //  vault's `receive()` is open to anyone. The hook is the collection's
+        //  `minter` and the only address that funds a floor vault for real.
+        vm.deal(address(hook), 0.1 ether);
+        vm.prank(address(hook));
         (bool ok, ) = vault1.call{value: 0.1 ether}("");
         assertTrue(ok, "funded gen1 vault");
 
@@ -610,6 +617,9 @@ contract CauldronSummonForkTest is Test {
 
         // At death, crystallize only FREEZES the supply + folds the final swept
         // sizing — it never reduces the already-credited live entitlement.
+        // Topped up AS THE HOOK — see the Z-02 note above.
+        vm.deal(address(hook), 0.02 ether);
+        vm.prank(address(hook));
         (bool ok, ) = registry.generationVault(1).call{value: 0.02 ether}("");
         assertTrue(ok, "topped vault");
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)

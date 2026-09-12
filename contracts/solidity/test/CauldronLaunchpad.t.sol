@@ -482,7 +482,16 @@ contract VaultTest is Test {
         vm.startPrank(hook);
         col.mint(alice); col.mint(alice);
         vm.stopPrank();
-        // fund the floor with 2 ETH -> 1 ETH per NFT
+        // fund the floor with 2 ETH -> 1 ETH per NFT.
+        //  AS THE HOOK (red-team Z-02). The hook is the collection's `minter` and
+        //  is the only address that routes fee ether into a floor vault in
+        //  production (FeeRouteLib._move). `close()` now reports PROTOCOL-accounted
+        //  deposits rather than the raw balance, because that figure sizes the dead
+        //  collection's permanent entitlement and the open `receive()` let a
+        //  stranger set it. Funding from an arbitrary address here was a fixture
+        //  artefact; the property under test is unchanged.
+        vm.deal(hook, 2 ether);
+        vm.prank(hook);
         (bool ok,) = address(vault).call{value: 2 ether}(""); require(ok,"fund");
         assertEq(vault.floorPerNFT(), 1 ether);
 
