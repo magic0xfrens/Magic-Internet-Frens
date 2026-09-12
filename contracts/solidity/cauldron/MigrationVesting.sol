@@ -68,6 +68,7 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     error WindowOutOfRange();
     error NothingToClaim();
     error TooManyGrants();
+    error TransferFailed();
     error OwnershipCannotBeRenounced();
 
     // --- immutables ---
@@ -269,7 +270,20 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
             if (due > 0) {
                 grt.released = vested;
                 totalMoved += due;
-                IERC20(grt.token).transfer(holder, due);
+                //  CHECK THE RETURN (blind red-team X5i). This was an unchecked
+                //  `transfer` placed AFTER `grt.released` was written, so a token
+                //  that returns false instead of reverting booked the payout, emitted
+                //  `Claimed`, counted it in `totalMoved` and moved nothing. The very
+                //  next branch then PRUNED the grant, because `released >= total` —
+                //  so the claim was not merely mis-recorded, it was deleted, and the
+                //  beneficiary could not re-claim even once the token behaved again.
+                //  Reverting is what makes "write the state only on success" true:
+                //  the assignment above rolls back with it, the grant survives
+                //  untouched, and the claim stays open. Mirrors the checked
+                //  `transferFrom` in `_pullAndVest` (:220). Grant tokens are always
+                //  protocol CauldronTokens, never caller-supplied, so this cannot be
+                //  used to grief a holder's other grants.
+                if (!IERC20(grt.token).transfer(holder, due)) revert TransferFailed();
                 emit Claimed(holder, due, grt.token);
             }
             if (grt.released >= grt.total) {
