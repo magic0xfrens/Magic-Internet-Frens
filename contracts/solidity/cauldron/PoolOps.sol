@@ -178,7 +178,44 @@ library PoolOps {
         IPermit2Ops(PERMIT2).approve(token, pm, uint160(amount), uint48(block.timestamp + 300));
     }
 
+    /// @dev The smallest quote amount `_sqrtPrice` can REPRESENT for a given token
+    ///      amount. `FullMath.mulDiv(t, 2**192, q)` builds the full 512-bit product
+    ///      and reverts unless the quotient fits in 256 bits — i.e. unless
+    ///      `q > t / 2**64` — and it reverts outright on `q == 0`.
+    function _minQuoteFor(uint256 tokenAmount) private pure returns (uint256) {
+        return (tokenAmount >> 64) + 1;
+    }
+
+    /// @dev A seed amount below which this library will not price a pool at all.
+    ///      16x {_minQuoteFor} of the full supply, so it holds whatever fraction of
+    ///      the supply the active tranche happens to be. See {seedFunding}.
+    ///      Literal because a contract-level `constant` is not reachable as
+    ///      `CauldronToken.TOTAL_SUPPLY`; it is that value (CauldronToken.sol:29,
+    ///      777_000_000e18 — the only supply `CauldronRegistry:1683` ever mints)
+    ///      shifted right by 60, i.e. 673,940,065 base units of the quote:
+    ///      0.00000000067 ETH (never binds) or 673.94 USDG (673,940,070 exactly).
+    uint256 internal constant MIN_SEED_UNITS = 777_000_000e18 >> 60;
+
     function _sqrtPrice(uint256 tokenAmount, uint256 ethAmount) private pure returns (uint160) {
+        //  REPRESENTABILITY CLAMP, NOT A REVERT (audit Z-01 — High). `ethAmount`
+        //  arrives in the QUOTE's OWN base units and nothing on this path normalises
+        //  it: 42,121,254 of them is 42 gwei in ether (harmless) but 42.12 tokens in a
+        //  6-decimal quote such as the USDG the live deploy allowlists
+        //  (DeployLaunchpad.s.sol:625, :668). Below that, the `mulDiv` on the next line
+        //  reverted with empty returndata — and on the relaunch path it does so BEHIND
+        //  `CauldronRegistry:995 governor.markConsumed(winId)`, so the revert rolled the
+        //  consumption back, the same proposal won `_bestUnconsumed()` again, and every
+        //  later `relaunch()` died at the same line. A permanent, unrecoverable brick
+        //  of the whole lifecycle, with no keeper and no owner function to clear it,
+        //  because the failing input is DERIVED from protocol state.
+        //  Clamping yields the extreme (maximally cheap token) launch price, which is
+        //  the honest answer when the whole supply is being seeded against dust, and it
+        //  changes NOTHING for any amount at or above the floor. {seedFunding} refuses
+        //  to hand a sub-{MIN_SEED_UNITS} amount over in the first place; this clamp is
+        //  the backstop for the callers that do not go through it ({openOrAddPair} at
+        //  the rotation, and {createAndSeedProgressive}'s non-native degrade branch).
+        uint256 minQ = _minQuoteFor(tokenAmount);
+        if (ethAmount < minQ) ethAmount = minQ;
         uint256 ratio = FullMath.mulDiv(tokenAmount, 1 << 192, ethAmount);
         // Babylonian sqrt.
         uint256 x = ratio;
@@ -1072,20 +1109,51 @@ library PoolOps {
         //  it returns, so only branch 2 may report it: numerator and denominator
         //  then come from the same addition and cannot disagree.
         //
+        //  ── "CAN FUND" ALSO MUST NOT MEAN "HOLDS LESS THAN THE PRICE MATH CAN
+        //     EXPRESS" (audit Z-01 — High) ───────────────────────────────────
+        //  Every branch below used to answer on a bare `> 0`, and the registry's only
+        //  pre-seed solvency check is `if (totalETH == 0) revert NoLiquidityToSeed();`
+        //  (CauldronRegistry:994) — a test against ZERO, in an amount denominated in
+        //  whatever quote we pick here. The very next statement is
+        //  `governor.markConsumed(winId)`, and everything after it is on the side of
+        //  the line where, as the comment block above it says, "reverting ... is what
+        //  must never happen".
+        //
+        //  `_greenCandle` then prices the newborn with `_sqrtPrice(TOTAL_SUPPLY,
+        //  ethActive)`, which cannot represent a quote amount below
+        //  `TOTAL_SUPPLY / 2**64` = 42,121,254 BASE UNITS of that quote. In ether that
+        //  is 42 gwei and never binds; in a 6-decimal quote it is 42.12 tokens, and
+        //  `_pullAsset` will hand over exactly that kind of amount — the hook's
+        //  per-asset relaunch reserve is credited from whatever asset each swap fee
+        //  arrived in, so a guild that has traded a USDG pair lightly holds tens of
+        //  USDG there, and a dead position with zero liquidity makes `recovered == 0`
+        //  perfectly ordinary. The result was a revert behind `markConsumed`: the
+        //  consumption rolled back, the same proposal won again, and the machine could
+        //  never be reborn.
+        //
+        //  {MIN_SEED_UNITS} carries 16x headroom over that hard floor because the
+        //  binding quantity is `ethAmt * activeTok / totalTokens`, not `ethAmt`. An
+        //  amount below it is treated as NOT FUNDING — we fall through to the next
+        //  denomination, and if none qualifies we return zero so the registry reverts
+        //  `NoLiquidityToSeed` on the SAFE side of `markConsumed`, which is
+        //  recoverable by design: the proposal stays live and a later call succeeds
+        //  once the machine holds enough.
+        //
         // 1. The proposal's choice, if value already exists in that denomination.
         if (wantQuote != address(0) && (recovered == 0 || oldQuote == wantQuote)) {
             uint256 p = (oldQuote == wantQuote ? recovered : 0) + _pullAsset(hookAddr, wantQuote);
-            if (p > 0) return (wantQuote, p, 0);
+            if (p >= MIN_SEED_UNITS) return (wantQuote, p, 0);
         }
         // 2. Native — recovery counts toward it only if the dead pool WAS native,
         //    so this branch is skipped when it would abandon a non-native one.
         if (recovered == 0 || oldQuote == address(0)) {
             uint256 n = (oldQuote == address(0) ? recovered : 0) + vaultSwept + _pullEth(hookAddr);
-            if (n > 0) return (address(0), n, vaultSwept);
+            if (n >= MIN_SEED_UNITS) return (address(0), n, vaultSwept);
         }
         // 3. Last resort: the dying generation's own quote.
         if (oldQuote != address(0) && recovered > 0) {
-            return (oldQuote, recovered + _pullAsset(hookAddr, oldQuote), 0);
+            uint256 o = recovered + _pullAsset(hookAddr, oldQuote);
+            if (o >= MIN_SEED_UNITS) return (oldQuote, o, 0);
         }
         return (address(0), 0, 0);
     }
