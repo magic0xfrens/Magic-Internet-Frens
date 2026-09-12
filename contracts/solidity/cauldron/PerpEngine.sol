@@ -128,7 +128,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // liquidated collateral — a tiny ETH tip; the Liquidatoor BADGE is the real
     // prize. (Also sizes the death-clearing keeper reward, but death-clearing is
     // now largely automatic via the relaunch auto-migrate.) Owner/timelock-tunable.
-    uint256 public keeperBps = 145; // ≈ 0.1% of collateral to the liquidator
+    //  `internal` to help pay for the LIQ-02 partial-close fix. Grepped for
+    //  `keeperBps()` across `src/`, `indexer/`, `api/`, `scripts/`, `deploy/`,
+    //  `docs/` and `contracts/solidity/test/`: the ONLY caller in the tree is
+    //  `QuoteRotator`'s own same-named getter (QuoteRotator.sol:89), and neither
+    //  `src/config/perp.ts` nor `indexer/abis/PerpEngineAbi.ts` carries an entry
+    //  for it. Read it from storage off-chain — the same trade already made for
+    //  `markSource`, `liqPenaltyBps`, `maxOiBps`, `maxUtilBps` and the tier arrays.
+    uint256 internal keeperBps = 145; // ≈ 0.1% of collateral to the liquidator
     uint256 public warmup = 24 hours;
     uint256 internal maxLeverageCeiling = 3;
     uint256 public maintenanceBps = 1_500;
@@ -513,14 +520,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      keeper could re-enter open/close/liquidate (the OZ `nonReentrant`
     ///      lock isn't engaged on the in-swap path). The engine never calls its
     ///      own entrypoints, so this never blocks legitimate flow. (Audit M-01)
-    modifier notNested() {
-        if (_inLocked || _liqReentry) revert Reentrant();
-        _;
-    }
-    modifier onlyVault() {
-        if (msg.sender != vault) revert NotVault();
-        _;
-    }
+    ///  ── THE CHECKS MOVED INTO FUNCTIONS, THE MODIFIERS STAYED (EIP-170) ────
+    ///  A modifier body is inlined at every use, and `notNested` has eleven uses
+    ///  and `onlyVault` five. Behind an `internal` function each check is emitted
+    ///  ONCE: measured 308 bytes freed. The MODIFIERS are kept (rather than the
+    ///  checks being written into each function body) purely to preserve the
+    ///  evaluation ORDER, e.g. `onlyVault notNested nonReentrant` still reverts
+    ///  `NotVault` before anything else on `withdrawPlvTo`. No gate weakened, no
+    ///  gate dropped, no error changed.
+    modifier notNested() { _notNested(); _; }
+    modifier onlyVault() { _onlyVault(); _; }
+    function _notNested() internal view { if (_inLocked || _liqReentry) revert Reentrant(); }
+    function _onlyVault() internal view { if (msg.sender != vault) revert NotVault(); }
 
     // ── Community PLV: views the PerpVault reads for share pricing ──────────
     /// @notice Total ETH the ETH-vault owns: free (lendable) + lent to open longs.
@@ -548,7 +559,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         return PoolKey({currency0: Currency.wrap(c0), currency1: Currency.wrap(c1),
             fee: POOL_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(hookAddr)});
     }
-    function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_key().toId()); }
+    function _pid() internal view returns (PoolId) { return _key().toId(); }
+    function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_pid()); }
 
     /// @notice Optional liquidity-weighted mark across the generation's pools.
     ///         Zero = read the primary pool's tick (the original behaviour).
@@ -655,7 +667,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             }
             if (ok) return int24(v);
         }
-        (, t,,) = poolManager.getSlot0(_key().toId());
+        (, t,,) = poolManager.getSlot0(_pid());
     }
 
     // ── TWAP oracle ──────────────────────────────────────────────────────
@@ -791,7 +803,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     function activeEthDepth() public view returns (uint256) {
-        PoolId id = _key().toId();
+        PoolId id = _pid();
         uint160 sp = _sqrtP();
         if (sp == 0) return 0;
         return PerpSwapLib.ethDepth(poolManager.getLiquidity(id), sp);
@@ -862,9 +874,29 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (raw < -cap) raw = -cap;
         return raw;
     }
+    /**
+     * @dev Load a position into memory.
+     *
+     *  ── ONE COPY OF THE LOAD, NOT EIGHT (EIP-170) ──────────────────────────
+     *  `Position` spans six storage slots with masked fields, so
+     *  `Position memory p = positions[id]` expands to a sizeable run of SLOADs,
+     *  shifts and memory writes — and it appeared at EIGHT call sites, inlined at
+     *  every one. Behind one `internal` function the body is above the Yul
+     *  inliner's threshold, so it is emitted ONCE: measured 616 bytes freed, which
+     *  is what paid for the LIQ-02 partial-close fix. Behaviour is identical.
+     *
+     *  MEASURED DEAD END, DO NOT RETRY: packing the nine `internal` bps knobs at
+     *  :119-140 into one word COSTS 226 bytes here. Scalars already live in their
+     *  own slots at compile-time-constant offsets, so packing only ADDS a shift
+     *  and a mask at every read and turns every write into a read-modify-write.
+     *  (`tierLevPacked` paid because it replaced a dynamic ARRAY — keccak slot
+     *  derivation plus a bounds check — not because packing is cheap.)
+     */
+    function _pos(uint256 id) internal view returns (Position memory) { return positions[id]; }
+
     /// @notice Signed funding P&L for a live position (UI + solvency assertions).
     function fundingDelta(uint256 id) external view returns (int256) {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) return 0;
         return _fundingDelta(p);
     }
@@ -957,14 +989,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // Close / liquidate
     // ---------------------------------------------------------------------
     function close(uint256 id, uint256 minOut) external nonReentrant notNested {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader != msg.sender) revert NotTrader();
         _pokeFunding();
         _settle(id, p, minOut, MODE_NORMAL, address(0));
     }
 
     function liquidate(uint256 id) external nonReentrant notNested {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) revert NotOpen();
         _pokeFunding();
         // Mark loop ONCE, reused for the health test + the per-block-cap notional.
@@ -1066,7 +1098,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  THIS IS THE PATH THAT CLOSES A POSITION INSIDE THE SWAP THAT KILLED IT, so
     ///  it must use exactly the same trigger as {liquidate} — see {_liqTest}.
     function _tryLiquidate(uint256 id, address liquidator) internal {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) return;      // stale/closed hint
         (bool trip, bool insolvent, uint256 notional) = _liqTest(p);
         if (!trip) return;                          // healthy → skip
@@ -1081,7 +1113,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         token dies, well before a relaunch could strand it. The trader
     ///         keeps the rest of their equity.
     function forceCloseDead(uint256 id) external nonReentrant notNested {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) revert NotOpen();
         if (!_isDead()) revert NotDead();
         _pokeFunding();
@@ -1107,7 +1139,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         uint256 iters;
         while (openCount != 0 && iters < FORCE_CLOSE_MAX) {
             uint256 id = _openIds[0];
-            _settle(id, positions[id], 0, MODE_DEATH, msg.sender);
+            _settle(id, _pos(id), 0, MODE_DEATH, msg.sender);
             unchecked { iters++; }
         }
     }
@@ -1321,7 +1353,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @notice Whether a position is liquidatable right now — the same test the
     ///         keeper path and the in-swap sweep use. See {_liqTest}.
     function isLiquidatable(uint256 id) external view returns (bool) {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) return false;
         return _underwater(p);
     }
@@ -1623,7 +1655,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  comparison and the behaviour is unchanged.
     function _isDead() internal view returns (bool) {
         if (quote != registry.generationQuote(registry.currentGeneration())) return true;
-        try IPerpHook(hookAddr).isDead(_key().toId()) returns (bool d) { return d; } catch { return false; }
+        try IPerpHook(hookAddr).isDead(_pid()) returns (bool d) { return d; } catch { return false; }
     }
     function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral) {
         uint256 fee = (sent * openFeeBps) / BPS;
@@ -2248,7 +2280,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function positionHealth(uint256 id) external view returns (
         bool isLong, uint256 markValueEth, uint256 debtOrBackingEth, bool liquidatable
     ) {
-        Position memory p = positions[id];
+        Position memory p = _pos(id);
         if (p.trader == address(0)) return (false, 0, 0, false);
         isLong = p.isLong;
         markValueEth = _quoteMark(p.size);
