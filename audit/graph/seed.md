@@ -18,11 +18,11 @@ Source tree: `/tmp/blind-final/contracts/solidity`
 
 ## Cluster extra 1 — the seeding flow, end to end
 
-**Arming (registry owner).** `setSeeder` (CauldronRegistry.sol:309) stores the seeder and mirrors it onto the hook at `hook.setSeeder` (CauldronRegistry.sol:311); `setSeedWindow` (CauldronRegistry.sol:332) sets the stream length, bounded to 60 s … 7 days at (CauldronRegistry.sol:333). The progressive path fires only when both are set — `seeder != address(0) && nextSeedWindow > 0` (CauldronRegistry.sol:1722).
+**Arming (registry owner).** `setSeeder` (CauldronRegistry.sol:327) stores the seeder and mirrors it onto the hook at `hook.setSeeder` (CauldronRegistry.sol:329); `setSeedWindow` (CauldronRegistry.sol:350) sets the stream length, bounded to 60 s … 7 days at (CauldronRegistry.sol:351). The progressive path fires only when both are set — `seeder != address(0) && nextSeedWindow > 0` (CauldronRegistry.sol:1728).
 
-**Who funds.** Nobody funds the seeder directly. `_seedGeneration` (CauldronRegistry.sol:1703) delegatecalls `PoolOps.createAndSeedProgressive` (PoolOps.sol:252), so `address(this)` inside PoolOps *is* the registry: the registry holds ledger A and the seeder's `onlyRegistry` (CauldronSeeder.sol:145) resolves to it (PoolOps.sol:333-334).
+**Who funds.** Nobody funds the seeder directly. `_seedGeneration` (CauldronRegistry.sol:1709) delegatecalls `PoolOps.createAndSeedProgressive` (PoolOps.sol:252), so `address(this)` inside PoolOps *is* the registry: the registry holds ledger A and the seeder's `onlyRegistry` (CauldronSeeder.sol:145) resolves to it (PoolOps.sol:333-334).
 
-**PoolKey and orientation.** Built at (PoolOps.sol:268-274): `currency0 = quote` (address(0) = native ETH), `currency1 = token`, `fee = poolFee`, `tickSpacing`, `hooks = hook`. The registry passes `TICK_SPACING` and `POOL_FEE` (CauldronRegistry.sol:1726), declared as 200 and 0 at (CauldronBase.sol:158) and (CauldronBase.sol:157). The token is deployed to sort above the quote (PoolOps.sol:265). Orientation is spelled out at (SeedLib.sol:21-27): price = tokens per ETH, so **ask (token) bands sit BELOW spot** and **bid (ETH) bands sit ABOVE spot**.
+**PoolKey and orientation.** Built at (PoolOps.sol:268-274): `currency0 = quote` (address(0) = native ETH), `currency1 = token`, `fee = poolFee`, `tickSpacing`, `hooks = hook`. The registry passes `TICK_SPACING` and `POOL_FEE` (CauldronRegistry.sol:1732), declared as 200 and 0 at (CauldronBase.sol:158) and (CauldronBase.sol:157). The token is deployed to sort above the quote (PoolOps.sol:265). Orientation is spelled out at (SeedLib.sol:21-27): price = tokens per ETH, so **ask (token) bands sit BELOW spot** and **bid (ETH) bands sit ABOVE spot**.
 
 **Non-native quote.** `if (quote != address(0))` (PoolOps.sol:296) degrades the whole generation to the atomic seed and returns at (PoolOps.sol:310) — the seeder is never called, because `startSeed` asserts `msg.value == cfg.ethTotal` (CauldronSeeder.sol:179) and has no ERC20 path for the quote.
 
@@ -32,13 +32,13 @@ Source tree: `/tmp/blind-final/contracts/solidity`
 
 **How liquidity is minted.** Core, not periphery: `poolManager.modifyLiquidity` (CauldronSeeder.sol:401) for the ask band and (CauldronSeeder.sol:407) for the bid band, sized by `getLiquidityForAmount1` (CauldronSeeder.sol:389) and `getLiquidityForAmount0` (CauldronSeeder.sol:394). The optional two-sided full-range base uses `getLiquidityForAmounts` (CauldronSeeder.sol:468) and `modifyLiquidity` (CauldronSeeder.sol:477). Settlement of the net delta is `_settle` (CauldronSeeder.sol:488): token out via `IERC20(token).transfer(address(poolManager), …)` (CauldronSeeder.sol:492) + `settle()` (493); native out via `settle{value:}` (499).
 
-**Salt and position owner.** Every mint uses salt `bytes32(0)` — (CauldronSeeder.sol:402), (CauldronSeeder.sol:408), (CauldronSeeder.sol:426), (CauldronSeeder.sol:478) — so repeat placements into the same tick pair MERGE. The positions are owned by the **seeder itself**, as confirmed by the teardown lookup `getPositionInfo(pid, address(this), r.lo, r.hi, bytes32(0))` (CauldronSeeder.sol:423). `activePositionId` stays 0 for a progressive generation (PoolOps.sol:244-245, CauldronRegistry.sol:1560).
+**Salt and position owner.** Every mint uses salt `bytes32(0)` — (CauldronSeeder.sol:402), (CauldronSeeder.sol:408), (CauldronSeeder.sol:426), (CauldronSeeder.sol:478) — so repeat placements into the same tick pair MERGE. The positions are owned by the **seeder itself**, as confirmed by the teardown lookup `getPositionInfo(pid, address(this), r.lo, r.hi, bytes32(0))` (CauldronSeeder.sol:423). `activePositionId` stays 0 for a progressive generation (PoolOps.sol:244-245, CauldronRegistry.sol:1566).
 
-**Streaming.** Keeperless in-swap: the hook's `_maybePoke` (CauldronHook.sol:1047) fires a gas-bounded, result-ignored `call` (CauldronHook.sol:1052) into `pokeInSwap` (CauldronSeeder.sol:307), which is gated on `_key.hooks` (CauldronSeeder.sol:308). Fallback: permissionless `poke` (CauldronSeeder.sol:231), which opens its own unlock (234). The amount is a pure function of elapsed time — `SeedLib.deployedTargetWad` (SeedLib.sol:58) — read at (CauldronSeeder.sol:318) and again at (CauldronSeeder.sol:328).
+**Streaming.** Keeperless in-swap: the hook's `_maybePoke` (CauldronHook.sol:1083) fires a gas-bounded, result-ignored `call` (CauldronHook.sol:1088) into `pokeInSwap` (CauldronSeeder.sol:307), which is gated on `_key.hooks` (CauldronSeeder.sol:308). Fallback: permissionless `poke` (CauldronSeeder.sol:231), which opens its own unlock (234). The amount is a pure function of elapsed time — `SeedLib.deployedTargetWad` (SeedLib.sol:58) — read at (CauldronSeeder.sol:318) and again at (CauldronSeeder.sol:328).
 
 **Prime buy (ledger C).** `fundPrime` (CauldronSeeder.sol:251) takes external ETH and names `primeTo` (254). Each `poke` spends one tranche via `ACT_PRIME` (CauldronSeeder.sol:241) → `_primeStep` (CauldronSeeder.sol:286): `poolManager.swap` (287), `settle{value: owed}` (298), and `take(_key.currency1, primeTo, got)` (299) — the bought token goes straight to `primeTo`, never into this contract.
 
-**Teardown.** `withdrawAll(to)` (CauldronSeeder.sol:565) is `onlyRegistry`; the registry calls it at (CauldronRegistry.sol:537) on a successor handoff and at (CauldronRegistry.sol:1582) at relaunch, both behind `ISeeder(_seeder).seeding()` (CauldronRegistry.sol:536 / 1581). `_teardown` (CauldronSeeder.sol:417) removes every tracked range (421-429), settles (430), forwards the token balance (435) and the entire native balance (437), records both (438-439) and zeroes ledger C (449-450). `rescue(to)` (CauldronSeeder.sol:597) is the loose-funds-only hatch, reachable from `rescueSeeder` (CauldronRegistry.sol:321).
+**Teardown.** `withdrawAll(to)` (CauldronSeeder.sol:565) is `onlyRegistry`; the registry calls it at (CauldronRegistry.sol:555) on a successor handoff and at (CauldronRegistry.sol:1588) at relaunch, both behind `ISeeder(_seeder).seeding()` (CauldronRegistry.sol:554 / 1581). `_teardown` (CauldronSeeder.sol:417) removes every tracked range (421-429), settles (430), forwards the token balance (435) and the entire native balance (437), records both (438-439) and zeroes ledger C (449-450). `rescue(to)` (CauldronSeeder.sol:597) is the loose-funds-only hatch, reachable from `rescueSeeder` (CauldronRegistry.sol:339).
 
 ---
 
@@ -48,41 +48,41 @@ Source tree: `/tmp/blind-final/contracts/solidity`
 
 | variable | line | meaning |
 |---|---|---|
-| `vestWindow` | MigrationVesting.sol:78 | live linear window copied into each NEW grant |
-| `MIN_WINDOW` = 1 hours | MigrationVesting.sol:83 | lower bound on `vestWindow` |
-| `MAX_WINDOW` = 14 days | MigrationVesting.sol:84 | upper bound on `vestWindow` |
-| `Grant.token` | MigrationVesting.sol:91 | the token this grant pays in, pinned at deposit |
-| `Grant.total` | MigrationVesting.sol:92 | escrowed amount |
-| `Grant.released` | MigrationVesting.sol:93 | already withdrawn |
-| `Grant.start` | MigrationVesting.sol:94 | deposit timestamp = vest origin |
-| `Grant.window` | MigrationVesting.sol:95 | this grant's duration; 0 = instant |
-| `stakerOracle` | MigrationVesting.sol:81 | decides who gets `window = 0` |
+| `vestWindow` | MigrationVesting.sol:81 | live linear window copied into each NEW grant |
+| `MIN_WINDOW` = 1 hours | MigrationVesting.sol:86 | lower bound on `vestWindow` |
+| `MAX_WINDOW` = 14 days | MigrationVesting.sol:87 | upper bound on `vestWindow` |
+| `Grant.token` | MigrationVesting.sol:124 | the token this grant pays in, pinned at deposit |
+| `Grant.total` | MigrationVesting.sol:125 | escrowed amount |
+| `Grant.released` | MigrationVesting.sol:126 | already withdrawn |
+| `Grant.start` | MigrationVesting.sol:127 | deposit timestamp = vest origin |
+| `Grant.window` | MigrationVesting.sol:128 | this grant's duration; 0 = instant |
+| `stakerOracle` | MigrationVesting.sol:84 | decides who gets `window = 0` |
 
-Snapshotting: the window is copied at `uint64 w = _isInstant(holder) ? 0 : vestWindow;` (MigrationVesting.sol:190) and the token at (MigrationVesting.sol:192), so retuning at (MigrationVesting.sol:298) or swapping the oracle at (MigrationVesting.sol:304) never repriced an existing grant.
+Snapshotting: the window is copied at `uint64 w = _isInstant(holder) ? 0 : vestWindow;` (MigrationVesting.sol:233) and the token at (MigrationVesting.sol:235), so retuning at (MigrationVesting.sol:354) or swapping the oracle at (MigrationVesting.sol:360) never repriced an existing grant.
 
-**Claim math** — `_vestedOf` (MigrationVesting.sol:245): `window == 0 → total` (246); `elapsed = now - start` (247); `elapsed >= window → total` (248); otherwise `total * elapsed / window` (249), truncating (rounds toward the escrow). `_release` (MigrationVesting.sol:221) pays `vested - released` (226), raises `released` to `vested` (228) **before** the transfer (230), and prunes a drained grant by swap-pop (235-237).
+**Claim math** — `_vestedOf` (MigrationVesting.sol:301): `window == 0 → total` (246); `elapsed = now - start` (247); `elapsed >= window → total` (248); otherwise `total * elapsed / window` (249), truncating (rounds toward the escrow). `_release` (MigrationVesting.sol:264) pays `vested - released` (226), raises `released` to `vested` (228) **before** the transfer (230), and prunes a drained grant by swap-pop (235-237).
 
-**Who can create a grant.** `startVest` (MigrationVesting.sol:135) — anyone, for themselves only, since the holder is fixed to `msg.sender` at (MigrationVesting.sol:141). `vestBatch` (MigrationVesting.sol:153) — anyone, for ANY address in the array; the only consent is that address's ERC20 allowance, read at (MigrationVesting.sol:159). Both funnel into `_pullAndVest` (MigrationVesting.sol:169), the sole writer of `_grants` (191).
+**Who can create a grant.** `startVest` (MigrationVesting.sol:168) — anyone, for themselves only, since the holder is fixed to `msg.sender` at (MigrationVesting.sol:174). `vestBatch` (MigrationVesting.sol:191) — anyone, for ANY address in the array; the only consent is that address's ERC20 allowance, read at (MigrationVesting.sol:198). Both funnel into `_pullAndVest` (MigrationVesting.sol:208), the sole writer of `_grants` (191).
 
-**Who can revoke a grant.** Nobody. There is no revoke, claw-back, pause or sweep function in the contract; the owner's only powers are `setVestWindow` (MigrationVesting.sol:296) and `setStakerOracle` (MigrationVesting.sol:303), both of which affect FUTURE grants only. DERIVED: an escrowed balance can leave the contract only through `_release`'s transfer (MigrationVesting.sol:230), which always pays the grant's own beneficiary.
+**Who can revoke a grant.** Nobody. There is no revoke, claw-back, pause or sweep function in the contract; the owner's only powers are `setVestWindow` (MigrationVesting.sol:352) and `setStakerOracle` (MigrationVesting.sol:359), both of which affect FUTURE grants only. DERIVED: an escrowed balance can leave the contract only through `_release`'s CHECKED transfer (MigrationVesting.sol:286), which always pays the grant's own beneficiary.
 
-**Who can claim.** `claim` (MigrationVesting.sol:206) pays `msg.sender`; `claimFor` (MigrationVesting.sol:213) is permissionless but pays the named `holder` (214) — a keeper can never redirect. Both revert with `NothingToClaim` (208 / 215) when nothing is due; the auto-release inside `startVest` (144) does not.
+**Who can claim.** `claim` (MigrationVesting.sol:249) pays `msg.sender`; `claimFor` (MigrationVesting.sol:256) is permissionless but pays the named `holder` (214) — a keeper can never redirect. Both revert with `NothingToClaim` (208 / 215) when nothing is due; the auto-release inside `startVest` (144) does not.
 
-**Enforcement.** The escrow is only the exclusive route if the registry's `claimGate` points at it — `msg.sender != claimGate && msg.sender != hook.perpEngine()` (CauldronRegistry.sol:1234). The escrow never verifies that it is the configured gate.
+**Enforcement.** The escrow is only the exclusive route if the registry's `claimGate` points at it — `msg.sender != claimGate && msg.sender != hook.perpEngine()` (CauldronRegistry.sol:1252). The escrow never verifies that it is the configured gate.
 
 ---
 
 ## Cluster extra 3 — the sniper / launch flow
 
-**Who can call.** `launch` (LaunchSniper.sol:58) is `onlyOwner` (LaunchSniper.sol:65); the owner is set once at `Ownable(_owner)` (LaunchSniper.sol:47) and is transferable/renounceable. Additionally the presale must name this contract as its finalizer, or a bot can ignite first: `if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized();` (MiFrensGenesis.sol:581).
+**Who can call.** `launch` (LaunchSniper.sol:69) is `onlyOwner` (LaunchSniper.sol:76); the owner is set once at `Ownable(_owner)` (LaunchSniper.sol:58) and is transferable but NO LONGER renounceable — `renounceOwnership` reverts (LaunchSniper.sol:121). Additionally the presale must name this contract as its finalizer, or a bot can ignite first: `if (finalizer != address(0) && msg.sender != finalizer) revert NotAuthorized();` (MiFrensGenesis.sol:591).
 
-**What it does.** (1) precondition `soldOut()` (LaunchSniper.sol:67); (2) `igniteCauldron()` (LaunchSniper.sol:70) → the presale forwards its whole balance to `registry.summon{value: bal}()` (MiFrensGenesis.sol:585), which summons gen 1 and seeds the pool; (3) read the fresh token at `currentToken()` (LaunchSniper.sol:71); (4) **buy** with the entire `msg.value` through `IGachaPlay(gachaRouter).play{value: msg.value}(0, minGnomeOut, 0, openMax)` (LaunchSniper.sol:76); (5) forward the result.
+**What it does.** (1) precondition `soldOut()` (LaunchSniper.sol:78); (2) `igniteCauldron()` (LaunchSniper.sol:81) → the presale forwards its whole balance to `registry.summon{value: bal}()` (MiFrensGenesis.sol:595), which summons gen 1 and seeds the pool; (3) read the fresh token at `currentToken()` (LaunchSniper.sol:82); (4) **buy** with the entire `msg.value` through the router's real five-argument entry, `IGachaPlay(gachaRouter).play{value: msg.value}(0, 0, minGnomeOut, 0, openMax)` (LaunchSniper.sol:92); (5) forward the result.
 
-**Where the proceeds go.** The bought token is measured from this contract's own balance at `balanceOf(address(this))` (LaunchSniper.sol:79) — not from the router's return — and sent to the caller-supplied `airdropWallet` (LaunchSniper.sol:80). Anything left behind (a router ETH refund, a stray token) is recoverable only by the owner through `sweep` (LaunchSniper.sol:86), which sends to `owner()` (88 / 91). `receive()` (LaunchSniper.sol:95) accepts ether with no bookkeeping.
+**Where the proceeds go.** The bought token is measured from this contract's own balance at `balanceOf(address(this))` (LaunchSniper.sol:95) — not from the router's return — and sent to the caller-supplied `airdropWallet` (LaunchSniper.sol:96). Anything left behind (a router ETH refund, a stray token) is recoverable only by the owner through `sweep` (LaunchSniper.sol:102), which sends to `owner()` (88 / 91). `receive()` (LaunchSniper.sol:124) accepts ether with no bookkeeping.
 
-**Fee exemption.** The doc requires `setTaxExempt(launchSniper, true)` (LaunchSniper.sol:35); the hook's rule is `taxExempt[_taxedPlayer(sender, hookData)] && isOpener[sender]` (CauldronHook.sol:2384), so the ROUTER must be an opener and the SNIPER must be tax-exempt.
+**Fee exemption.** The doc requires `setTaxExempt(launchSniper, true)` (LaunchSniper.sol:45); the hook's rule is `taxExempt[_taxedPlayer(sender, hookData)] && isOpener[sender]` (CauldronHook.sol:2467), so the ROUTER must be an opener and the SNIPER must be tax-exempt.
 
-**Selector mismatch (recorded as an observation).** `IGachaPlay.play` is declared with four `uint256` arguments (LaunchSniper.sol:17) and called with four (LaunchSniper.sol:76); the only `play` in the repo is `CauldronGachaRouter.play` with five (CauldronGachaRouter.sol:233). The router declares `receive()` (CauldronGachaRouter.sol:552) but no `fallback`.
+**Selector mismatch — FIXED.** `IGachaPlay.play` now declares five `uint256` arguments (LaunchSniper.sol:22) and is called with five (LaunchSniper.sol:92), matching `CauldronGachaRouter.play` (CauldronGachaRouter.sol:234). The router still declares `receive()` (CauldronGachaRouter.sol:594) and no `fallback`, so a future drift would again revert unconditionally; the mirroring is enforced only by the note at `play` (LaunchSniper.sol:16) (DERIVED).
 
 ---
 
@@ -113,7 +113,7 @@ Token balance: **in** `transferFrom` (215), `take(currency1)` (495); **out** `tr
 
 | field | denom | increases | decreases |
 |---|---|---|---|
-| `_grants[h][i].total` (MigrationVesting.sol:92) | units of `.token` | `push` at (191) | only by pruning the whole grant at (237) |
+| `_grants[h][i].total` (MigrationVesting.sol:125) | units of `.token` | `push` at (191) | only by pruning the whole grant at (237) |
 | `_grants[h][i].released` (93) | units of `.token` | `= vested` at (228) | pruned at (237) |
 | `vestWindow` (78) | seconds | (122), (298) | (122), (298) |
 
@@ -129,7 +129,7 @@ No value-bearing storage. Native: **in** `msg.value` (66), `receive()` (95); **o
 * **`primePending` is balance-backed.** The computed want is clamped to the live balance at (CauldronSeeder.sol:273-274), so an under-funded contract asks for less rather than reverting in `settle{value:}` (298).
 * **Ledger-C counters can outlive the balance.** `primeBudget`/`primeSpent` are zeroed only in `_teardown` (449-450). `rescue` (597) sweeps the whole native balance at (600-601) and clears nothing, so after a rescue the counters read non-zero against an empty balance. Only the clamp at (273) stops that from producing an unpayable swap.
 * **`placedWad` is a schedule counter, not a deployment measure.** `_advance` sets it to the time-based target at (330) regardless of what actually minted. A band the cap declined returns `(0,0)` at (550), yields zero liquidity at (388)/(393), and mints nothing — yet `placedWad` still advances at (330). Same divergence when `_reserveRange` falls back onto an already-tracked band at (551): the step is placed into an old range rather than a fresh one adjacent to spot.
-* **Teardown returns are measured, not accounted.** `_lastEthOut`/`_lastTokenOut` come from `address(this).balance` (436) and `balanceOf` (434), and the registry adds them to `ethRecovered` at (CauldronRegistry.sol:1583) — so any unspent prime budget (ledger C) is reported to the registry as recovered ledger A.
+* **Teardown returns are measured, not accounted.** `_lastEthOut`/`_lastTokenOut` come from `address(this).balance` (436) and `balanceOf` (434), and the registry adds them to `ethRecovered` at (CauldronRegistry.sol:1589) — so any unspent prime budget (ledger C) is reported to the registry as recovered ledger A.
 * **Positions are re-read before removal.** `_teardown` reads live liquidity at `getPositionInfo` (423) and skips zero at (424), so a stale `ranges` entry costs gas but cannot corrupt the delta.
 * **Grants are delta-backed.** `_pullAndVest` brackets `claimByBurn` with `balanceOf` at (183) and (186) and clamps `escrowed` down at (187), so a grant can never exceed what actually landed. There is no aggregate solvency check: `_release` transfers at (230) without comparing the sum of open grants to `balanceOf`.
 
@@ -144,15 +144,15 @@ No value-bearing storage. Native: **in** `msg.value` (66), `receive()` (95); **o
 | `OnlyHook` | `_key.hooks` | CauldronSeeder.sol:308 | yes — rewritten every campaign at 183 | n/a | yes — zero before the first campaign |
 | `OnlyPoolManager` | `poolManager` | CauldronSeeder.sol:342 | no (immutable, 163) | no | no |
 | `lock` (reentrancy, not authority) | — | CauldronSeeder.sol:144 | — | — | held across the nested `unlock` (222) |
-| `setSeeder` (registry side) | registry owner | CauldronRegistry.sol:309 | yes | yes | — |
-| `setSeeder` (hook side) | registry **or** hook owner | CauldronHook.sol:2001-2002 | yes | yes | clearing it only disables the in-swap nudge; `poke` (231) survives |
-| `rescueSeeder` | emergency admin + timelock | CauldronRegistry.sol:321 | per the registry | per the registry | — |
-| `onlyOwner` (vesting) | Ownable owner | MigrationVesting.sol:296, 303 | yes | yes — which freezes both knobs | oracle can be set to any address including zero (304) |
-| `claimGate` (registry side) | registry | CauldronRegistry.sol:1234 | yes | — | if it points elsewhere, `_pullAndVest` (184) always reverts |
-| `onlyOwner` (sniper) | Ownable owner | LaunchSniper.sol:65, 86 | yes | yes | `sweep`'s destination follows the owner (88) |
-| presale finalizer | `finalizer` | MiFrensGenesis.sol:581 | per the presale | — | if unset, anyone may ignite |
+| `setSeeder` (registry side) | registry owner | CauldronRegistry.sol:327 | yes | yes | — |
+| `setSeeder` (hook side) | registry **or** hook owner | CauldronHook.sol:2084-2002 | yes | yes | clearing it only disables the in-swap nudge; `poke` (231) survives |
+| `rescueSeeder` | emergency admin + timelock | CauldronRegistry.sol:339 | per the registry | per the registry | — |
+| `onlyOwner` (vesting) | Ownable owner | MigrationVesting.sol:352, 303 | yes | yes — which freezes both knobs | oracle can be set to any address including zero (304) |
+| `claimGate` (registry side) | registry | CauldronRegistry.sol:1252 | yes | — | if it points elsewhere, `_pullAndVest` (184) always reverts |
+| `onlyOwner` (sniper) | Ownable owner | LaunchSniper.sol:76, 102 | yes | **no** — `renounceOwnership` reverts (LaunchSniper.sol:121) | `sweep`'s destination follows the owner (104) |
+| presale finalizer | `finalizer` | MiFrensGenesis.sol:591 | per the presale | — | if unset, anyone may ignite |
 
-Ungated (no authority check at all): `receive` (166), `poke` (231), `primePending` (265), the three views (607-609), `startVest` (135), `vestBatch` (153), `claim` (206), `claimFor` (213), the four vesting views (265, 273, 281, 286), `receive` (LaunchSniper.sol:95).
+Ungated (no authority check at all): `receive` (166), `poke` (231), `primePending` (265), the three views (607-609), `startVest` (135), `vestBatch` (153), `claim` (206), `claimFor` (213), the four vesting views (265, 273, 281, 286), `receive` (LaunchSniper.sol:124).
 
 ---
 
@@ -197,7 +197,7 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 | line | call | value | ordering |
 |---|---|---|---|
 | 67 | `presale.soldOut()` | — | precondition |
-| 70 | `presale.igniteCauldron()` | drives `summon{value:}` inside the presale (MiFrensGenesis.sol:585) | before the token read |
+| 70 | `presale.igniteCauldron()` | drives `summon{value:}` inside the presale (MiFrensGenesis.sol:595) | before the token read |
 | 71 | `registry.currentToken()` | — | must run after 70 |
 | 76 | `gachaRouter.play{value: msg.value}` | **native out, whole balance of the call** | before the balance read |
 | 79 / 80 | `balanceOf(this)` / `transfer(airdropWallet, …)` | token out | measured from balance, so pre-existing tokens are swept with it |
@@ -212,10 +212,10 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 |---|---|---|---|
 | teardown over tracked ranges | CauldronSeeder.sol:421 | `ranges.length`, read at 418, hard-capped by `MAX_RANGES = 64` (115) at the check at 544 | anyone: each poke that finds a new aligned band pushes at 553; `_placeBase` pushes one more at 476 |
 | range lookup / reservation scan | CauldronSeeder.sol:538 | same `ranges.length`; run TWICE per placement (383, 384) | same as above — up to 2 × 64 comparisons per poke |
-| batch migration | MigrationVesting.sol:154 | `holders.length`, entirely caller-supplied | the caller; there is no cap and no gas reserve |
-| release over a holder's grants | MigrationVesting.sol:223 | that holder's open-grant count | one entry per deposit at 191 — and `vestBatch` (162) lets a THIRD party push grants onto any address that has an allowance |
-| claimable sum | MigrationVesting.sol:267 | same per-holder count | same |
-| locked sum | MigrationVesting.sol:275 | same per-holder count | same |
+| batch migration | MigrationVesting.sol:192 | `holders.length`, entirely caller-supplied | the caller; there is no cap and no gas reserve |
+| release over a holder's grants | MigrationVesting.sol:266 | that holder's open-grant count | one entry per deposit at 191 — and `vestBatch` (162) lets a THIRD party push grants onto any address that has an allowance |
+| claimable sum | MigrationVesting.sol:323 | same per-holder count | same |
+| locked sum | MigrationVesting.sol:323 | same per-holder count | same |
 
 `_release` is the only mutating loop that shrinks: swap-pop at 236-237, with the index advanced only in the else branch at 239.
 
@@ -228,7 +228,7 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 * **raw token units**: `tokenTotal` (93). The `1e18` divisors at (370), (372), (466) are WAD-fraction denominators, not decimal normalisers — the contract makes **no** 18-decimals assumption about the brew token.
 * **Hard currency-orientation assumption**: currency0 = native, currency1 = the ERC20 brew token, stated at (486-487) and hard-coded — the token leg always goes through `IERC20(token)` (492) and the native leg always through `settle{value:}` (499). The only thing keeping a non-native quote away from this code is the degrade at (PoolOps.sol:296).
 * **Ticks**: `_spacing` (97) and `_bandWidth` (98) are tick counts; `SeedLib` treats the last argument as a tick offset (SeedLib.sol:80, SeedLib.sol:111) and floors every width at one spacing (SeedLib.sol:131).
-* **Seconds**: `startTs` (89), `window` (90), `Grant.start` (MigrationVesting.sol:94), `Grant.window` (95), `vestWindow` (78), bounded 1 h … 14 days (83-84).
+* **Seconds**: `startTs` (89), `window` (90), `Grant.start` (MigrationVesting.sol:127), `Grant.window` (95), `vestWindow` (78), bounded 1 h … 14 days (83-84).
 * **MigrationVesting is decimal-agnostic**: it moves a measured delta 1:1 (186-187) and never multiplies by anything but `elapsed/window` (249).
 
 ---
@@ -248,7 +248,7 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 | CauldronSeeder.sol:466 / 467 | `(total * baseWad) / 1e18` | **down** |
 | CauldronSeeder.sol:267 | `(primeBudget * placedWad) / 1e18` | **down**; the residue is recovered because the final tranche waives the dust floor at 272 |
 | CauldronSeeder.sol:464 / 465 | `(MIN_TICK / spacing) * spacing` | toward zero on both ends, so the full range is strictly inside the legal range |
-| MigrationVesting.sol:249 | `total * elapsed / window` | **down** — rounding favours the escrow until the window closes, when 248 returns the exact total |
+| MigrationVesting.sol:305 | `total * elapsed / window` | **down** — rounding favours the escrow until the window closes, when 248 returns the exact total |
 
 ---
 
@@ -261,9 +261,9 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 5. `_teardown` (417): comment at `Nothing` (CauldronSeeder.sol:57) says teardown leaves nothing stranded; code at (CauldronSeeder.sol:422) only unwinds ranges still in the tracked array, and (CauldronSeeder.sol:210) clears that array at the start of every campaign.
 6. `_reserveRange` (536): comment at `reverts` (CauldronSeeder.sol:111) says placement reverts once the range cap is hit; code at (CauldronSeeder.sol:544) instead returns a tracked same-side fallback at (CauldronSeeder.sol:551), and the later note at (CauldronSeeder.sol:509) documents that reversal.
 7. `rescue` (597): comment at `ledger` (CauldronSeeder.sol:580) says rescue only ever touches ledger A; code at (CauldronSeeder.sol:600) forwards the entire native balance, which the ledger-C note at (CauldronSeeder.sol:137) says also holds the prime budget, and the counters are zeroed only at (CauldronSeeder.sol:449).
-8. `IGachaPlay.play` (17): comment at `router` (LaunchSniper.sol:74) says the router tags the swap with this contract as the player; code declares a four-argument `play` (LaunchSniper.sol:17) while the router's entry point (CauldronGachaRouter.sol:233) takes five arguments, so the two selectors differ.
-9. `startVest` (135): comment at `escrowed` (MigrationVesting.sol:134) says the return equals `amount` 1:1; code at (MigrationVesting.sol:187) lowers it to the measured balance delta whenever the delta is smaller.
-10. `vestBatch` (153): comment at `skipped` (MigrationVesting.sol:150) says a holder with no balance or allowance is skipped and the batch never reverts; code at (MigrationVesting.sol:188) reverts the whole loop from inside `_pullAndVest` (MigrationVesting.sol:169) when the measured delta is zero, and (MigrationVesting.sol:178) reverts it when the pull returns false.
+8. `IGachaPlay.play` (22): the four-argument declaration is gone; the interface and the call site now both carry five arguments (LaunchSniper.sol:92) and match the router (CauldronGachaRouter.sol:234), and the note recording the old defect sits at `play` (LaunchSniper.sol:16).
+9. `startVest` (168): comment at `escrowed` (MigrationVesting.sol:167) says the return equals `amount` 1:1; code at `escrowed` (MigrationVesting.sol:230) lowers it to the measured balance delta whenever the delta is smaller.
+10. `vestBatch` (153): comment at `skipped` (MigrationVesting.sol:183) says a holder with no balance or allowance is skipped and the batch never reverts; code at (MigrationVesting.sol:231) reverts the whole loop from inside `_pullAndVest` (MigrationVesting.sol:208) when the measured delta is zero, and (MigrationVesting.sol:221) reverts it when the pull returns false.
 11. `SeedLib.askBand` (84): comment at `launchTick` (SeedLib.sol:78) documents the parameter as the pool tick right after `initialize`; code at (CauldronSeeder.sol:376) passes the CURRENT tick just read at (CauldronSeeder.sol:368).
 12. `SeedLib.askBand` (84): comment at `ceilingOffset` (SeedLib.sol:80) documents the last parameter as the price ceiling in ticks below launch; code at (CauldronSeeder.sol:376) passes the per-band width held in `_bandWidth` (CauldronSeeder.sol:98).
 
@@ -271,91 +271,94 @@ Ungated (no authority check at all): `receive` (166), `poke` (231), `primePendin
 
 ## I. Function inventory
 
+
 ### `cauldron/CauldronSeeder.sol`
 
 | line | signature | authority | value effect |
 |---|---|---|---|
-| 23 | `IRegistryOwner.owner() external view` | anyone (declaration) | none |
-| 144 | `modifier lock()` | internal (startSeed, poke, pokeInSwap, withdrawAll, rescue) | none |
-| 145 | `modifier onlyRegistry()` | internal (startSeed, withdrawAll, rescue) | none |
-| 159 | `constructor(address,address,address)` | deployer | none |
-| 166 | `receive() external payable` | anyone | receives native |
-| 175 | `startSeed(SeederConfig) external payable` | registry | receives native; pulls the token side (215) |
-| 231 | `poke() external` | anyone | spends native on the prime tranche via 241 → 298 |
-| 251 | `fundPrime(address) external payable` | deployer or registry owner | receives native into `primeBudget` (255) |
-| 265 | `primePending() public view` | anyone | none |
-| 286 | `_primeStep(uint256) private` | internal (unlockCallback) | native out (298); token out to `primeTo` (299) |
-| 307 | `pokeInSwap() external` | hook (`_key.hooks`) | none at this frame; settles via 412 |
-| 316 | `_pendingStep() private view` | internal (poke, pokeInSwap) | none |
-| 327 | `_advance(uint256) private` | internal (poke, pokeInSwap) | none |
-| 341 | `unlockCallback(bytes) external` | poolManager | none at this frame |
-| 363 | `_placeStep(uint256) private` | internal (unlockCallback, pokeInSwap) | none directly; 412 settles |
-| 417 | `_teardown(address) private` | internal (unlockCallback) | token out (435); **native out** (437) |
-| 462 | `_placeBase() private` | internal (_placeStep) | none directly; 480 settles |
-| 488 | `_settle(BalanceDelta) private` | internal (_placeStep, _teardown, _placeBase) | token out (492); **native out** (499); both in (495, 501) |
-| 536 | `_reserveRange(int24,int24,bool) private` | internal (_placeStep) | none |
-| 565 | `withdrawAll(address) external` | registry | none at this frame; 566 drives the sweep |
-| 597 | `rescue(address) external` | registry | token out (599); **native out** (601) |
-| 607 | `deployedWad() external view` | anyone | none |
-| 608 | `rangeCount() external view` | anyone | none |
-| 609 | `isComplete() external view` | anyone | none |
+| 23 | `owner() external view returns (address)` | anyone (declaration only; the implementing getter is the registry's Ownable owner) | NONE |
+| 144 | `modifier lock()` | internal (callers: startSeed, poke, pokeInSwap, withdrawAll, rescue) | NONE |
+| 145 | `modifier onlyRegistry()` | internal (callers: startSeed, withdrawAll, rescue) | NONE |
+| 159 | `constructor(address _registry, address _positionManager, address _poolManager)` | deployer | NONE |
+| 166 | `receive() external payable` | anyone | receives native — `receive` is payable (line 166) |
+| 175 | `startSeed(SeederConfig calldata cfg) external payable onlyRegistry lock` | registry | receives native — `startSeed` is payable (line 175) and rejects any value that differs from the declared `ethTotal` (line 179); ERC20 pull of the brew token ... |
+| 231 | `poke() external lock` | anyone | sends native indirectly — the `ACT_PRIME` unlock (line 241) re-enters `_primeStep` (line 286), which pays the PoolManager at `settle` (line 298) out of this ... |
+| 251 | `fundPrime(address to) external payable` | deployer or the registry's owner | receives native — `fundPrime` is payable (line 251) and the whole amount is added to `primeBudget` (line 255) |
+| 265 | `primePending() public view returns (uint256)` | anyone | NONE |
+| 286 | `_primeStep(uint256 ethIn) private` | internal (callers: unlockCallback) | sends native to the PoolManager at `settle` (line 298); the bought token is delivered straight to `primeTo` at `take` (line 299) |
+| 307 | `pokeInSwap() external lock` | hook (the address stored in _key.hooks at summon) | NONE at this frame; the mint's native and token legs are paid by `_settle` (line 412) |
+| 316 | `_pendingStep() private view returns (uint256)` | internal (callers: poke, pokeInSwap) | NONE |
+| 327 | `_advance(uint256 step) private` | internal (callers: poke, pokeInSwap) | NONE |
+| 341 | `unlockCallback(bytes calldata data) external returns (bytes memory)` | poolManager | NONE at this frame; the three branches move value through `_placeStep` (line 346), `_primeStep` (line 349) and `_teardown` (line 352) |
+| 363 | `_placeStep(uint256 stepWad) private` | internal (callers: unlockCallback, pokeInSwap) | NONE directly — both mints are paid or collected by `_settle` (line 412) |
+| 417 | `_teardown(address to) private` | internal (callers: unlockCallback) | ERC20 transfer of the brew token to `to` at `transfer` (line 435); sends native to `to` at `call` (line 437); pool proceeds are pulled in first by `_settle` ... |
+| 462 | `_placeBase() private` | internal (callers: _placeStep) | NONE directly — the two-sided mint is paid by `_settle` (line 480) |
+| 488 | `_settle(BalanceDelta d) private` | internal (callers: _placeStep, _teardown, _placeBase) | ERC20 transfer of the brew token to the PoolManager at `transfer` (line 492); sends native to the PoolManager at `settle` (line 499); pulls the two currencie... |
+| 536 | `_reserveRange(int24 lo, int24 hi, bool isAsk) private returns (int24, int24)` | internal (callers: _placeStep) | NONE |
+| 565 | `withdrawAll(address to) external onlyRegistry lock returns (uint256 ethOut, uint256 tokenOut)` | registry | NONE in this frame; the `ACT_WITHDRAW` unlock (line 566) re-enters `unlockCallback` (line 341) and `_teardown` (line 417) forwards both balances to the calle... |
+| 597 | `rescue(address to) external onlyRegistry lock` | registry | ERC20 transfer of the brew token to `to` at `transfer` (line 599); sends native to `to` at `call` (line 601) |
+| 607 | `deployedWad() external view returns (uint256)` | anyone | NONE |
+| 608 | `rangeCount() external view returns (uint256)` | anyone | NONE |
+| 609 | `isComplete() external view returns (bool)` | anyone | NONE |
 
 ### `cauldron/ISeeder.sol`
 
 | line | signature | authority | value effect |
 |---|---|---|---|
-| 30 | `startSeed(SeederConfig) external payable` | registry (gate on the implementation, 175) | declared payable |
-| 31 | `poke() external` | anyone | none |
-| 32 | `withdrawAll(address) external` | registry (gate at 565) | implementation forwards both balances |
-| 35 | `rescue(address) external` | registry (gate at 597) | implementation forwards both balances |
-| 36 | `isComplete() external view` | anyone | none |
-| 37 | `seeding() external view` | anyone | none |
-
-### `cauldron/SeedLib.sol`
-
-| line | signature | authority | value effect |
-|---|---|---|---|
-| 40 | `_alignDown(int24,int24) internal pure` | internal (askBand, bidBand, _bandWidth) | none |
-| 45 | `_alignUp(int24,int24) internal pure` | internal (askBand) | none |
-| 58 | `deployedTargetWad(uint64,uint64,uint256,uint256) internal pure` | internal (CauldronSeeder._pendingStep, _advance) | none |
-| 84 | `askBand(uint256,uint256,int24,int24,int24) internal pure` | internal (CauldronSeeder._placeStep) | none |
-| 111 | `bidBand(uint256,uint256,int24,int24,int24) internal pure` | internal (CauldronSeeder._placeStep) | none |
-| 128 | `_bandWidth(int24,uint256,int24) internal pure` | internal (askBand, bidBand) | none |
-| 140 | `taperWeightWad(uint256,uint256) internal pure` | internal — **no production caller** | none |
-
-### `cauldron/MigrationVesting.sol`
-
-| line | signature | authority | value effect |
-|---|---|---|---|
-| 14 | `IVestingRegistry.currentGeneration() external view` | anyone (declaration) | none |
-| 15 | `IVestingRegistry.generationToken(uint256) external view` | anyone (declaration) | none |
-| 16 | `IVestingRegistry.claimByBurn(uint256,uint256) external` | registry's `claimGate` or the perp engine | live token in to the escrow |
-| 24 | `IStakerOracle.isInstant(address) external view` | anyone (declaration) | none |
-| 114 | `constructor(address,address,uint64,address)` | deployer | none |
-| 135 | `startVest(uint256,uint256) external` | anyone (self only) | dead token in (178); live token possibly out (144 → 230) |
-| 153 | `vestBatch(uint256,address[]) external` | anyone (keeper) | dead token in per holder (178) |
-| 169 | `_pullAndVest(address,uint256,uint256) private` | internal (startVest, vestBatch) | dead token in (178); live token in (184) |
-| 206 | `claim() external` | anyone (pays caller) | token out (230) |
-| 213 | `claimFor(address) external` | anyone (pays the named holder) | token out (230) |
-| 221 | `_release(address) private` | internal (startVest, claim, claimFor) | token out (230) |
-| 245 | `_vestedOf(Grant) private view` | internal (_release, claimable, locked) | none |
-| 252 | `_isInstant(address) private view` | internal (_pullAndVest) | none |
-| 265 | `claimable(address) external view` | anyone | none |
-| 273 | `locked(address) external view` | anyone | none |
-| 281 | `grantCount(address) external view` | anyone | none |
-| 286 | `grantAt(address,uint256) external view` | anyone | none |
-| 296 | `setVestWindow(uint64) external` | owner | none |
-| 303 | `setStakerOracle(address) external` | owner | none |
+| 30 | `startSeed(SeederConfig calldata cfg) external payable` | registry (the gate lives on the implementation, CauldronSeeder.startSeed) | receives native — `startSeed` is declared payable (line 30) |
+| 31 | `poke() external` | anyone (the implementation CauldronSeeder.poke has no authority check) | NONE |
+| 32 | `withdrawAll(address to) external returns (uint256 ethOut, uint256 tokenOut)` | registry (the gate lives on the implementation, CauldronSeeder.withdrawAll) | NONE at the declaration; the implementation forwards the recovered native and token balances at `withdrawAll` (line 32) |
+| 35 | `rescue(address to) external` | registry (the gate lives on the implementation, CauldronSeeder.rescue) | NONE at the declaration; the implementation forwards the loose token and native balances at `rescue` (line 35) |
+| 36 | `isComplete() external view returns (bool)` | anyone (view) | NONE |
+| 37 | `seeding() external view returns (bool)` | anyone (view) | NONE |
 
 ### `cauldron/LaunchSniper.sol`
 
 | line | signature | authority | value effect |
 |---|---|---|---|
-| 8 | `IMiFrensGenesisFinalize.igniteCauldron() external` | presale finalizer (MiFrensGenesis.sol:581) | drives `summon{value:}` inside the presale |
-| 9 | `IMiFrensGenesisFinalize.soldOut() external view` | anyone (declaration) | none |
-| 13 | `IRegistryCurrent.currentToken() external view` | anyone (declaration) | none |
-| 17 | `IGachaPlay.play(uint256,uint256,uint256,uint256) external payable` | anyone (declaration) | whole message value forwarded at 76 |
-| 47 | `constructor(address)` | deployer | none |
-| 58 | `launch(address,address,address,address,uint256,uint256) external payable` | owner | receives native (58); forwards all of it (76); token out (80) |
-| 86 | `sweep(address) external` | owner | **native out** (88) or token out (91) |
-| 95 | `receive() external payable` | anyone | receives native |
+| 8 | `igniteCauldron() external returns (address token)` | the presale's finalizer, if one is set; otherwise anyone once the presale is sold out | NONE at the declaration; the implementation forwards the presale's whole native balance to the registry at `summon` (MiFrensGenesis.sol:595) |
+| 9 | `soldOut() external view returns (bool)` | anyone (declaration only; a view on the presale) | NONE |
+| 13 | `currentToken() external view returns (address)` | anyone (declaration only; the registry's public live-token pointer) | NONE |
+| 22 | `play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax ) external payable returns (uint256)` | declaration only (interface) | the declared entry is `payable` (line 28), so the caller's ether funds the buy |
+| 58 | `constructor(address _owner) Ownable(_owner)` | deployer | NONE |
+| 69 | `launch( address presale, address registry, address gachaRouter, address airdropWallet, uint256 minGnomeOut, uint256 openMax ) external payable onlyOwner returns (address token, uint256 gnomeBought)` | owner | forwards the ENTIRE message value into the router's buy at `play` (line 92) and pushes whatever token balance results to the airdrop wallet at `transfer` (li... |
+| 102 | `sweep(address tokenAddr) external onlyOwner` | owner | sends native to the owner at `call` (line 104); ERC20 transfer of the named token to the owner at `transfer` (line 107) |
+| 120 | `renounceOwnership() public pure override` | anyone by ABI - it always reverts | none - it reverts (DERIVED) |
+| 124 | `receive() external payable` | anyone | receives native — `receive` is payable (line 124) |
+
+### `cauldron/MigrationVesting.sol`
+
+| line | signature | authority | value effect |
+|---|---|---|---|
+| 14 | `currentGeneration() external view returns (uint256)` | anyone (declaration only; the registry's public generation counter) | NONE |
+| 15 | `generationToken(uint256 gen) external view returns (address)` | anyone (declaration only; the registry's generation-to-token map) | NONE |
+| 16 | `claimByBurn(uint256 fromGen, uint256 amount) external returns (uint256 claimedAmount)` | the registry's claimGate (this escrow) or the perp engine | ERC20 transfer of the live-generation token from the registry's reserve to this escrow, driven by the call at `claimByBurn` (line 227) |
+| 24 | `isInstant(address who) external view returns (bool)` | anyone (declaration only; the implementation is whatever address the owner set) | NONE |
+| 147 | `constructor( address _registry, address _owner, uint64 _vestWindow, address _stakerOracle ) Ownable(_owner)` | deployer | NONE |
+| 168 | `startVest(uint256 fromGen, uint256 amount) external nonReentrant returns (uint256 escrowed)` | anyone (a holder migrating their own balance) | NONE at this frame; `_pullAndVest` (line 174) pulls the dead-gen token in and `_release` (line 177) pays the live token out |
+| 191 | `vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant` | anyone (permissionless keeper batch) | each holder's dead-gen balance is pulled and escrowed inside `_pullAndVest` (line 201) |
+| 208 | `_pullAndVest(address holder, uint256 fromGen, uint256 amount) private returns (uint256 escrowed)` | private (callers: startVest, vestBatch) | pulls the holder's dead tokens into this escrow at `transferFrom` (line 221) and receives the live token from the registry's burn-and-claim at `claimByBurn` ... |
+| 249 | `claim() external nonReentrant` | anyone (pays only the caller) | ERC20 transfer of each grant's pinned token to the caller, performed by `_release` (line 250) |
+| 256 | `claimFor(address holder) external nonReentrant` | anyone (keeper; funds go to the named holder) | ERC20 transfer of each grant's pinned token to the named holder, performed by `_release` (line 257) |
+| 264 | `_release(address holder) private returns (uint256 totalMoved)` | private (callers: startVest, claim, claimFor) | pays each grant's vested-minus-released amount to the beneficiary at `transfer` (line 286) |
+| 301 | `_vestedOf(Grant storage grt) private view returns (uint256)` | internal (callers: _release, claimable, locked) | NONE |
+| 308 | `_isInstant(address who) private view returns (bool)` | internal (callers: _pullAndVest) | NONE |
+| 321 | `claimable(address holder) external view returns (uint256 total)` | anyone | NONE |
+| 329 | `locked(address holder) external view returns (uint256 total)` | anyone | NONE |
+| 337 | `grantCount(address holder) external view returns (uint256)` | anyone | NONE |
+| 342 | `grantAt(address holder, uint256 i) external view returns (Grant memory)` | anyone | NONE |
+| 352 | `setVestWindow(uint64 _window) external onlyOwner` | owner | NONE |
+| 359 | `setStakerOracle(address _oracle) external onlyOwner` | owner | NONE |
+| 372 | `renounceOwnership() public pure override` | anyone by ABI - it always reverts | none - it reverts (DERIVED) |
+
+### `cauldron/SeedLib.sol`
+
+| line | signature | authority | value effect |
+|---|---|---|---|
+| 40 | `_alignDown(int24 tick, int24 spacing) internal pure returns (int24)` | internal (callers: askBand, bidBand, _bandWidth) | NONE |
+| 45 | `_alignUp(int24 tick, int24 spacing) internal pure returns (int24)` | internal (callers: askBand) | NONE |
+| 58 | `deployedTargetWad(uint64 startTs, uint64 window, uint256 nowTs, uint256 seedFloorWad) internal pure returns (uint256 wad)` | internal (callers: CauldronSeeder._pendingStep, CauldronSeeder._advance) | NONE |
+| 84 | `askBand(uint256 i, uint256 n, int24 launchTick, int24 spacing, int24 ceilingOffset) internal pure returns (int24 lower, int24 upper)` | internal (callers: CauldronSeeder._placeStep) | NONE |
+| 111 | `bidBand(uint256 j, uint256 m, int24 launchTick, int24 spacing, int24 floorOffset) internal pure returns (int24 lower, int24 upper)` | internal (callers: CauldronSeeder._placeStep) | NONE |
+| 128 | `_bandWidth(int24 offset, uint256 n, int24 spacing) internal pure returns (int24 w)` | internal (callers: askBand, bidBand) | NONE |
+| 140 | `taperWeightWad(uint256 i, uint256 n) internal pure returns (uint256 wad)` | internal (no production caller) | NONE |

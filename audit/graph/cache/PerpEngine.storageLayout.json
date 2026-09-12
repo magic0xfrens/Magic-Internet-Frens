@@ -1,650 +1,682 @@
 {
-  "storage": [
-    {
-      "astId": 5768,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 235,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "dividend",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 237,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "treasury",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_address"
-    },
-    {
-      "astId": 240,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "nftBeneficiary",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_address"
-    },
-    {
-      "astId": 243,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "openFeeBps",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 246,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "ogDiscountBps",
-      "offset": 0,
-      "slot": "5",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 249,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "liqPenaltyBps",
-      "offset": 0,
-      "slot": "6",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 252,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "divShareBps",
-      "offset": 0,
-      "slot": "7",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 255,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "keeperBps",
-      "offset": 0,
-      "slot": "8",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 258,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "warmup",
-      "offset": 0,
-      "slot": "9",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 261,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxLeverageCeiling",
-      "offset": 0,
-      "slot": "10",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 264,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maintenanceBps",
-      "offset": 0,
-      "slot": "11",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 267,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxNotionalBps",
-      "offset": 0,
-      "slot": "12",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 270,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxOiBps",
-      "offset": 0,
-      "slot": "13",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 274,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "minCollateral",
-      "offset": 0,
-      "slot": "14",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 289,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "vault",
-      "offset": 0,
-      "slot": "15",
-      "type": "t_address"
-    },
-    {
-      "astId": 292,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "quote",
-      "offset": 0,
-      "slot": "16",
-      "type": "t_address"
-    },
-    {
-      "astId": 419,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "insuranceEth",
-      "offset": 0,
-      "slot": "17",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 423,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "vaultYieldBps",
-      "offset": 0,
-      "slot": "18",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 426,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "insuranceBps",
-      "offset": 0,
-      "slot": "19",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 430,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxUtilBps",
-      "offset": 0,
-      "slot": "20",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 433,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "insuranceFloor",
-      "offset": 0,
-      "slot": "21",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 437,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "fundingRateBpsPerDay",
-      "offset": 0,
-      "slot": "22",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 440,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "twapWindow",
-      "offset": 0,
-      "slot": "23",
-      "type": "t_uint32"
-    },
-    {
-      "astId": 443,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxLiqBps",
-      "offset": 0,
-      "slot": "24",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 446,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "maxFundingBps",
-      "offset": 0,
-      "slot": "25",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 449,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "tierDepthWei",
-      "offset": 0,
-      "slot": "26",
-      "type": "t_array(t_uint256)dyn_storage"
-    },
-    {
-      "astId": 452,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "tierLeverage",
-      "offset": 0,
-      "slot": "27",
-      "type": "t_array(t_uint8)dyn_storage"
-    },
-    {
-      "astId": 477,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "observations",
-      "offset": 0,
-      "slot": "28",
-      "type": "t_array(t_struct(Observation)472_storage)32_storage"
-    },
-    {
-      "astId": 479,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "obsIndex",
-      "offset": 0,
-      "slot": "60",
-      "type": "t_uint16"
-    },
-    {
-      "astId": 481,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "tickCumulative",
-      "offset": 2,
-      "slot": "60",
-      "type": "t_int56"
-    },
-    {
-      "astId": 483,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "lastObsTs",
-      "offset": 9,
-      "slot": "60",
-      "type": "t_uint32"
-    },
-    {
-      "astId": 485,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "lastTick",
-      "offset": 13,
-      "slot": "60",
-      "type": "t_int24"
-    },
-    {
-      "astId": 488,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "lastRingTs",
-      "offset": 16,
-      "slot": "60",
-      "type": "t_uint32"
-    },
-    {
-      "astId": 490,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "liqBlock",
-      "offset": 0,
-      "slot": "61",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 492,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "liqEthThisBlock",
-      "offset": 0,
-      "slot": "62",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 494,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "_inLocked",
-      "offset": 0,
-      "slot": "63",
-      "type": "t_bool"
-    },
-    {
-      "astId": 496,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "_liqReentry",
-      "offset": 1,
-      "slot": "63",
-      "type": "t_bool"
-    },
-    {
-      "astId": 498,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "plv",
-      "offset": 0,
-      "slot": "64",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 500,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "plvToken",
-      "offset": 0,
-      "slot": "65",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 503,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "tokYieldEth",
-      "offset": 0,
-      "slot": "66",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 506,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "tokYieldCumulative",
-      "offset": 0,
-      "slot": "67",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 508,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "fundingIndex",
-      "offset": 0,
-      "slot": "68",
-      "type": "t_int256"
-    },
-    {
-      "astId": 510,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "lastFundingAt",
-      "offset": 0,
-      "slot": "69",
-      "type": "t_uint64"
-    },
-    {
-      "astId": 532,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "positions",
-      "offset": 0,
-      "slot": "70",
-      "type": "t_mapping(t_uint256,t_struct(Position)527_storage)"
-    },
-    {
-      "astId": 535,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "nextId",
-      "offset": 0,
-      "slot": "71",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 537,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "openCount",
-      "offset": 0,
-      "slot": "72",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 542,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "badgesOwed",
-      "offset": 0,
-      "slot": "73",
-      "type": "t_mapping(t_address,t_uint256)"
-    },
-    {
-      "astId": 547,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "payoutOwed",
-      "offset": 0,
-      "slot": "74",
-      "type": "t_mapping(t_address,t_uint256)"
-    },
-    {
-      "astId": 550,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "_openIds",
-      "offset": 0,
-      "slot": "75",
-      "type": "t_array(t_uint256)dyn_storage"
-    },
-    {
-      "astId": 554,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "_openPos",
-      "offset": 0,
-      "slot": "76",
-      "type": "t_mapping(t_uint256,t_uint256)"
-    },
-    {
-      "astId": 556,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "sweepCursor",
-      "offset": 0,
-      "slot": "77",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 565,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "longOiEth",
-      "offset": 0,
-      "slot": "78",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 567,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "shortOiToken",
-      "offset": 0,
-      "slot": "79",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 569,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "syncedGeneration",
-      "offset": 0,
-      "slot": "80",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 571,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "syncedToken",
-      "offset": 0,
-      "slot": "81",
-      "type": "t_address"
-    },
-    {
-      "astId": 973,
-      "contract": "cauldron/PerpEngine.sol:PerpEngine",
-      "label": "markSource",
-      "offset": 0,
-      "slot": "82",
-      "type": "t_address"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_array(t_struct(Observation)472_storage)32_storage": {
-      "encoding": "inplace",
-      "label": "struct PerpEngine.Observation[32]",
-      "numberOfBytes": "1024",
-      "base": "t_struct(Observation)472_storage"
-    },
-    "t_array(t_uint256)dyn_storage": {
-      "encoding": "dynamic_array",
-      "label": "uint256[]",
-      "numberOfBytes": "32",
-      "base": "t_uint256"
-    },
-    "t_array(t_uint8)dyn_storage": {
-      "encoding": "dynamic_array",
-      "label": "uint8[]",
-      "numberOfBytes": "32",
-      "base": "t_uint8"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_int24": {
-      "encoding": "inplace",
-      "label": "int24",
-      "numberOfBytes": "3"
-    },
-    "t_int256": {
-      "encoding": "inplace",
-      "label": "int256",
-      "numberOfBytes": "32"
-    },
-    "t_int56": {
-      "encoding": "inplace",
-      "label": "int56",
-      "numberOfBytes": "7"
-    },
-    "t_mapping(t_address,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_mapping(t_uint256,t_struct(Position)527_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => struct PerpEngine.Position)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Position)527_storage"
-    },
-    "t_mapping(t_uint256,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_struct(Observation)472_storage": {
-      "encoding": "inplace",
-      "label": "struct PerpEngine.Observation",
-      "numberOfBytes": "32",
-      "members": [
-        {
-          "astId": 469,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "ts",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint32"
-        },
-        {
-          "astId": 471,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "tickCumulative",
-          "offset": 4,
-          "slot": "0",
-          "type": "t_int56"
-        }
-      ]
-    },
-    "t_struct(Position)527_storage": {
-      "encoding": "inplace",
-      "label": "struct PerpEngine.Position",
-      "numberOfBytes": "192",
-      "members": [
-        {
-          "astId": 512,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "trader",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_address"
-        },
-        {
-          "astId": 514,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "isLong",
-          "offset": 20,
-          "slot": "0",
-          "type": "t_bool"
-        },
-        {
-          "astId": 516,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "collateral",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint128"
-        },
-        {
-          "astId": 518,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "size",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 520,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "principal",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 522,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "openedAt",
-          "offset": 0,
-          "slot": "4",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 524,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "leverage",
-          "offset": 8,
-          "slot": "4",
-          "type": "t_uint8"
-        },
-        {
-          "astId": 526,
-          "contract": "cauldron/PerpEngine.sol:PerpEngine",
-          "label": "entryFunding",
-          "offset": 0,
-          "slot": "5",
-          "type": "t_int256"
-        }
-      ]
-    },
-    "t_uint128": {
-      "encoding": "inplace",
-      "label": "uint128",
-      "numberOfBytes": "16"
-    },
-    "t_uint16": {
-      "encoding": "inplace",
-      "label": "uint16",
-      "numberOfBytes": "2"
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint32": {
-      "encoding": "inplace",
-      "label": "uint32",
-      "numberOfBytes": "4"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    },
-    "t_uint8": {
-      "encoding": "inplace",
-      "label": "uint8",
-      "numberOfBytes": "1"
-    }
+ "storage": [
+  {
+   "astId": 6260,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "_owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 239,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "dividend",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_address"
+  },
+  {
+   "astId": 241,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "treasury",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_address"
+  },
+  {
+   "astId": 244,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "nftBeneficiary",
+   "offset": 0,
+   "slot": "3",
+   "type": "t_address"
+  },
+  {
+   "astId": 247,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "openFeeBps",
+   "offset": 0,
+   "slot": "4",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 250,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "ogDiscountBps",
+   "offset": 0,
+   "slot": "5",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 253,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "liqPenaltyBps",
+   "offset": 0,
+   "slot": "6",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 256,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "divShareBps",
+   "offset": 0,
+   "slot": "7",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 259,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "keeperBps",
+   "offset": 0,
+   "slot": "8",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 262,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "warmup",
+   "offset": 0,
+   "slot": "9",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 265,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxLeverageCeiling",
+   "offset": 0,
+   "slot": "10",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 268,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maintenanceBps",
+   "offset": 0,
+   "slot": "11",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 271,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxNotionalBps",
+   "offset": 0,
+   "slot": "12",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 274,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxOiBps",
+   "offset": 0,
+   "slot": "13",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 278,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "minCollateral",
+   "offset": 0,
+   "slot": "14",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 293,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "vault",
+   "offset": 0,
+   "slot": "15",
+   "type": "t_address"
+  },
+  {
+   "astId": 296,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "quote",
+   "offset": 0,
+   "slot": "16",
+   "type": "t_address"
+  },
+  {
+   "astId": 393,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "insuranceEth",
+   "offset": 0,
+   "slot": "17",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 397,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "vaultYieldBps",
+   "offset": 0,
+   "slot": "18",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 400,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "insuranceBps",
+   "offset": 0,
+   "slot": "19",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 404,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxUtilBps",
+   "offset": 0,
+   "slot": "20",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 407,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "insuranceFloor",
+   "offset": 0,
+   "slot": "21",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 411,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "fundingRateBpsPerDay",
+   "offset": 0,
+   "slot": "22",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 414,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "twapWindow",
+   "offset": 0,
+   "slot": "23",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 417,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxLiqBps",
+   "offset": 0,
+   "slot": "24",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 420,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "maxFundingBps",
+   "offset": 0,
+   "slot": "25",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 423,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "tierDepthWei",
+   "offset": 0,
+   "slot": "26",
+   "type": "t_array(t_uint256)dyn_storage"
+  },
+  {
+   "astId": 426,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "tierLeverage",
+   "offset": 0,
+   "slot": "27",
+   "type": "t_array(t_uint8)dyn_storage"
+  },
+  {
+   "astId": 451,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "observations",
+   "offset": 0,
+   "slot": "28",
+   "type": "t_array(t_struct(Observation)446_storage)32_storage"
+  },
+  {
+   "astId": 453,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "obsIndex",
+   "offset": 0,
+   "slot": "60",
+   "type": "t_uint16"
+  },
+  {
+   "astId": 455,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "tickCumulative",
+   "offset": 2,
+   "slot": "60",
+   "type": "t_int56"
+  },
+  {
+   "astId": 457,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "lastObsTs",
+   "offset": 9,
+   "slot": "60",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 459,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "lastTick",
+   "offset": 13,
+   "slot": "60",
+   "type": "t_int24"
+  },
+  {
+   "astId": 462,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "lastRingTs",
+   "offset": 16,
+   "slot": "60",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 465,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "ringArmedAt",
+   "offset": 20,
+   "slot": "60",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 467,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "liqBlock",
+   "offset": 0,
+   "slot": "61",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 469,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "liqEthThisBlock",
+   "offset": 0,
+   "slot": "62",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 471,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "_inLocked",
+   "offset": 0,
+   "slot": "63",
+   "type": "t_bool"
+  },
+  {
+   "astId": 473,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "_liqReentry",
+   "offset": 1,
+   "slot": "63",
+   "type": "t_bool"
+  },
+  {
+   "astId": 475,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "plv",
+   "offset": 0,
+   "slot": "64",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 477,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "plvToken",
+   "offset": 0,
+   "slot": "65",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 480,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "tokYieldEth",
+   "offset": 0,
+   "slot": "66",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 483,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "tokYieldCumulative",
+   "offset": 0,
+   "slot": "67",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 485,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "fundingIndex",
+   "offset": 0,
+   "slot": "68",
+   "type": "t_int256"
+  },
+  {
+   "astId": 487,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "lastFundingAt",
+   "offset": 0,
+   "slot": "69",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 509,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "positions",
+   "offset": 0,
+   "slot": "70",
+   "type": "t_mapping(t_uint256,t_struct(Position)504_storage)"
+  },
+  {
+   "astId": 512,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "nextId",
+   "offset": 0,
+   "slot": "71",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 514,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "openCount",
+   "offset": 0,
+   "slot": "72",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 519,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "badgesOwed",
+   "offset": 0,
+   "slot": "73",
+   "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 524,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "payoutOwed",
+   "offset": 0,
+   "slot": "74",
+   "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 529,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "strandedToken",
+   "offset": 0,
+   "slot": "75",
+   "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 532,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "payoutOwedTotal",
+   "offset": 0,
+   "slot": "76",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 535,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "_openIds",
+   "offset": 0,
+   "slot": "77",
+   "type": "t_array(t_uint256)dyn_storage"
+  },
+  {
+   "astId": 539,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "_openPos",
+   "offset": 0,
+   "slot": "78",
+   "type": "t_mapping(t_uint256,t_uint256)"
+  },
+  {
+   "astId": 541,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "sweepCursor",
+   "offset": 0,
+   "slot": "79",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 550,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "longOiEth",
+   "offset": 0,
+   "slot": "80",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 552,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "shortOiToken",
+   "offset": 0,
+   "slot": "81",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 554,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "syncedGeneration",
+   "offset": 0,
+   "slot": "82",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 556,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "syncedToken",
+   "offset": 0,
+   "slot": "83",
+   "type": "t_address"
+  },
+  {
+   "astId": 978,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "markSource",
+   "offset": 0,
+   "slot": "84",
+   "type": "t_address"
+  },
+  {
+   "astId": 982,
+   "contract": "cauldron/PerpEngine.sol:PerpEngine",
+   "label": "quoteUnit",
+   "offset": 0,
+   "slot": "85",
+   "type": "t_uint256"
   }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_array(t_struct(Observation)446_storage)32_storage": {
+   "encoding": "inplace",
+   "label": "struct PerpEngine.Observation[32]",
+   "numberOfBytes": "1024",
+   "base": "t_struct(Observation)446_storage"
+  },
+  "t_array(t_uint256)dyn_storage": {
+   "encoding": "dynamic_array",
+   "label": "uint256[]",
+   "numberOfBytes": "32",
+   "base": "t_uint256"
+  },
+  "t_array(t_uint8)dyn_storage": {
+   "encoding": "dynamic_array",
+   "label": "uint8[]",
+   "numberOfBytes": "32",
+   "base": "t_uint8"
+  },
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_int24": {
+   "encoding": "inplace",
+   "label": "int24",
+   "numberOfBytes": "3"
+  },
+  "t_int256": {
+   "encoding": "inplace",
+   "label": "int256",
+   "numberOfBytes": "32"
+  },
+  "t_int56": {
+   "encoding": "inplace",
+   "label": "int56",
+   "numberOfBytes": "7"
+  },
+  "t_mapping(t_address,t_uint256)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => uint256)",
+   "numberOfBytes": "32",
+   "value": "t_uint256"
+  },
+  "t_mapping(t_uint256,t_struct(Position)504_storage)": {
+   "encoding": "mapping",
+   "key": "t_uint256",
+   "label": "mapping(uint256 => struct PerpEngine.Position)",
+   "numberOfBytes": "32",
+   "value": "t_struct(Position)504_storage"
+  },
+  "t_mapping(t_uint256,t_uint256)": {
+   "encoding": "mapping",
+   "key": "t_uint256",
+   "label": "mapping(uint256 => uint256)",
+   "numberOfBytes": "32",
+   "value": "t_uint256"
+  },
+  "t_struct(Observation)446_storage": {
+   "encoding": "inplace",
+   "label": "struct PerpEngine.Observation",
+   "numberOfBytes": "32",
+   "members": [
+    {
+     "astId": 443,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "ts",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_uint32"
+    },
+    {
+     "astId": 445,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "tickCumulative",
+     "offset": 4,
+     "slot": "0",
+     "type": "t_int56"
+    }
+   ]
+  },
+  "t_struct(Position)504_storage": {
+   "encoding": "inplace",
+   "label": "struct PerpEngine.Position",
+   "numberOfBytes": "192",
+   "members": [
+    {
+     "astId": 489,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "trader",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_address"
+    },
+    {
+     "astId": 491,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "isLong",
+     "offset": 20,
+     "slot": "0",
+     "type": "t_bool"
+    },
+    {
+     "astId": 493,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "collateral",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_uint128"
+    },
+    {
+     "astId": 495,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "size",
+     "offset": 0,
+     "slot": "2",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 497,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "principal",
+     "offset": 0,
+     "slot": "3",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 499,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "openedAt",
+     "offset": 0,
+     "slot": "4",
+     "type": "t_uint64"
+    },
+    {
+     "astId": 501,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "leverage",
+     "offset": 8,
+     "slot": "4",
+     "type": "t_uint8"
+    },
+    {
+     "astId": 503,
+     "contract": "cauldron/PerpEngine.sol:PerpEngine",
+     "label": "entryFunding",
+     "offset": 0,
+     "slot": "5",
+     "type": "t_int256"
+    }
+   ]
+  },
+  "t_uint128": {
+   "encoding": "inplace",
+   "label": "uint128",
+   "numberOfBytes": "16"
+  },
+  "t_uint16": {
+   "encoding": "inplace",
+   "label": "uint16",
+   "numberOfBytes": "2"
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  },
+  "t_uint32": {
+   "encoding": "inplace",
+   "label": "uint32",
+   "numberOfBytes": "4"
+  },
+  "t_uint64": {
+   "encoding": "inplace",
+   "label": "uint64",
+   "numberOfBytes": "8"
+  },
+  "t_uint8": {
+   "encoding": "inplace",
+   "label": "uint8",
+   "numberOfBytes": "1"
+  }
+ }
 }

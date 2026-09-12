@@ -1,0 +1,16 @@
+NEW : pool.json  (71 nodes, 71 keys)
+OLD : pool.json  (71 nodes, 71 keys)
+
+COUNTS  added=0  removed=0  changed=1  moved=0
+
+ADDED (0)
+  (none)
+
+REMOVED (0)
+  (none)
+
+CHANGED (1)
+  ~ PoolOps.seedFunding  seedFunding(address hookAddr, address wantQuote, address oldQuote, uint256 recovered, address oldVault) extern  (line 1000)  body_sha1 edaf0da0 -> 3675e33a
+
+MOVED (0)
+  (none)

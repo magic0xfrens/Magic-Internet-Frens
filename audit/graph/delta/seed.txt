@@ -1,0 +1,21 @@
+NEW : seed.json  (66 nodes, 66 keys)
+OLD : seed.json  (64 nodes, 64 keys)
+
+COUNTS  added=3  removed=1  changed=4  moved=0
+
+ADDED (3)
+  + IGachaPlay (declared in LaunchSniper.sol).play  play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax) external pay  (line 22)
+  + LaunchSniper.renounceOwnership  renounceOwnership() public pure override  (line 120)
+  + MigrationVesting.renounceOwnership  renounceOwnership() public pure override  (line 372)
+
+REMOVED (1)
+  - IGachaPlay (declared in LaunchSniper.sol).play  play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax) external payable returns (uint2  (line 17)
+
+CHANGED (4)
+  ~ LaunchSniper.launch  launch(address presale, address registry, address gachaRouter, address airdropWallet, uint256 minGnomeOut, uin  (line 69)  body_sha1 5c5155b4 -> 29137b50
+  ~ MigrationVesting.vestBatch  vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant  (line 191)  body_sha1 02985fbe -> f7512081
+  ~ MigrationVesting._pullAndVest  _pullAndVest(address holder, uint256 fromGen, uint256 amount) private returns (uint256 escrowed)  (line 208)  body_sha1 59729410 -> 1424ba17
+  ~ MigrationVesting._release  _release(address holder) private returns (uint256 totalMoved)  (line 264)  body_sha1 751f6973 -> 11858010
+
+MOVED (0)
+  (none)

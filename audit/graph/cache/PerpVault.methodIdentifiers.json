@@ -12,6 +12,7 @@
  "ethPosition(address)": "88d0eeb4",
  "ethShareOf(address)": "3ad38733",
  "ethShares()": "671a0413",
+ "hasQuoteStake()": "1b573278",
  "hasStakers()": "0be3e562",
  "lastTokYieldCum()": "876d6b39",
  "pendingEth()": "4c0c2be5",

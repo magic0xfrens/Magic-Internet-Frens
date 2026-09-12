@@ -1,0 +1,41 @@
+NEW : hook.json  (134 nodes, 134 keys)
+OLD : hook.json  (133 nodes, 133 keys)
+
+COUNTS  added=3  removed=2  changed=10  moved=14
+
+ADDED (3)
+  + CauldronHook._creditFor  _creditFor(address a, uint256 amount) private  (line 1307)
+  + CauldronHook.renounceOwnership  renounceOwnership() public view override onlyOwner  (line 1772)
+  + LegacyBuyLib.buyStep  buyStep(IPoolManager poolManager, PoolKey calldata key, uint256 amt, uint256 encumbered) external returns (uin  (line 73)
+
+REMOVED (2)
+  - CauldronHook._defaultSurtaxBps  _defaultSurtaxBps(PoolId id) internal view returns (uint256)  (line 1376)
+  - LegacyBuyLib.buyStep  buyStep(IPoolManager poolManager, PoolKey calldata key, uint256 amt) external returns (uint256 spent, uint256   (line 50)
+
+CHANGED (10)
+  ~ CauldronHook._maybeLegacyBuyback  _maybeLegacyBuyback(PoolId id, PoolKey calldata key) private  (line 1016)  body_sha1 9420e592 -> e0220c61
+  ~ CauldronHook.legacyBuyStep  legacyBuyStep(PoolKey calldata key) external  (line 1099)  body_sha1 a8395a31 -> 84eed309
+  ~ CauldronHook.fundLegacyBuffer  fundLegacyBuffer() external payable  (line 1145)  body_sha1 a266dbe5 -> c7fb00fe
+  ~ CauldronHook.sweepLegacyReserve  sweepLegacyReserve(address token, address to) external returns (uint256 amt)  (line 1193)  body_sha1 b469ac73 -> 1cd98f15
+  ~ CauldronHook._creditReserve  _creditReserve(uint256 amount) private  (line 1303)  body_sha1 9e3f7295 -> b4cd68c8
+  ~ CauldronHook._routeEthFee  _routeEthFee(uint256 feeAmount) private  (line 1313)  body_sha1 5ad2792c -> 00d4abc0
+  ~ CauldronHook.snipeSurtaxBps  snipeSurtaxBps(PoolId id) public view returns (uint256)  (line 1466)  body_sha1 b129bdd6 -> 6179fce6
+  ~ FeeRouteLib._fundGuild  _fundGuild(address asset, address guild, uint256 amount) private returns (bool ok)  (line 128)  body_sha1 6ae6b913 -> 5de56676
+  ~ FeeRouteLib._deliver  _deliver(address asset, address to, uint256 amount, bytes4 nativeSel, bytes4 assetSel) private returns (bool o  (line 154)  body_sha1 6bcc90e6 -> 59766d93
+  ~ FeeRouteLib.deliver  deliver(address asset, address to, uint256 amount, bytes4 nativeSelector, bytes4 selector) external returns (b  (line 220)  body_sha1 573e84ca -> 7041da4c
+
+MOVED (14)
+  > ICollectionLiquidator (declared in CauldronHook.sol).setLiquidatorMinter  line 60 -> 61
+  > ILegacyNote (declared in CauldronHook.sol).noteLegacyBuy  line 66 -> 67
+  > IPerpEngineLiq (declared in CauldronHook.sol).liquidateInSwap  line 53 -> 54
+  > IPerpEngineLiq (declared in CauldronHook.sol).liquidateManyInSwap  line 54 -> 55
+  > IPerpEngineLiq (declared in CauldronHook.sol).sweepLiquidations  line 55 -> 56
+  > IPerpFeeCredit (declared in CauldronHook.sol).creditPerpFee  line 78 -> 79
+  > IPerpFeeCredit (declared in CauldronHook.sol).creditPerpFeeToken  line 79 -> 80
+  > IPerpFeeCredit (declared in CauldronHook.sol).creditPerpFeeAsset  line 82 -> 83
+  > IPerpForceClose (declared in CauldronHook.sol).forceCloseAllDead  line 71 -> 72
+  > IPerpForceClose (declared in CauldronHook.sol).openCount  line 72 -> 73
+  > IPerpOpenCount (declared in CauldronHook.sol).openCount  line 49 -> 50
+  > IQuoteOracle (declared in CauldronHook.sol).cachedUsdPerRawUnit  line 42 -> 43
+  > IRegistryQuotes (declared in CauldronHook.sol).allowedQuote  line 32 -> 33
+  > ISeederInSwap (declared in CauldronHook.sol).pokeInSwap  line 89 -> 90

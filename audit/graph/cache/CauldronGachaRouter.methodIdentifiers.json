@@ -16,6 +16,7 @@
  "registry()": "7b103999",
  "renounceOwnership()": "715018a6",
  "rescueETH(address,uint256)": "099a04e5",
+ "rescueToken(address,address,uint256)": "e5711e8b",
  "setOracle(address)": "7adbf973",
  "transferOwnership(address)": "f2fde38b",
  "unlockCallback(bytes)": "91dd7346"

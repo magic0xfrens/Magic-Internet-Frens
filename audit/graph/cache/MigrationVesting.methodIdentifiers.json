@@ -1,4 +1,6 @@
 {
+ "MAX_BATCH_GRANTS()": "c2564cdc",
+ "MAX_GRANTS()": "9c46a686",
  "MAX_WINDOW()": "deb96634",
  "MIN_WINDOW()": "52b65c4b",
  "claim()": "4e71d92d",

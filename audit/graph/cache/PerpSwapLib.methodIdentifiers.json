@@ -1,4 +1,12 @@
 {
+ "ethDepth(uint128,uint160)": "ca0150ec",
+ "ethToToken(uint256,uint256)": "f80bbedc",
  "migrateInventory(address,address,uint256)": "06d23bed",
- "swapLeg(IPoolManager,PoolKey,PerpSwapLib.Req,bool,bytes)": "58411972"
+ "quoteAt(uint256,uint256)": "dd9467fa",
+ "sqrtPriceAtTick(int24)": "65ff01fc",
+ "swapLeg(IPoolManager,PoolKey,PerpSwapLib.Req,bool,bytes)": "58411972",
+ "tryMintBadge(address,address,LiqStats)": "936c6128",
+ "tryTransfer(address,address,uint256)": "173a3886",
+ "tryTransferFrom(address,address,uint256)": "0268df0f",
+ "unitOf(address)": "4b700c58"
 }

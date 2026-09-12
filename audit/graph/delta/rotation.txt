@@ -1,0 +1,27 @@
+NEW : rotation.json  (87 nodes, 87 keys)
+OLD : rotation.json  (84 nodes, 84 keys)
+
+COUNTS  added=5  removed=2  changed=7  moved=0
+
+ADDED (5)
+  + QuoteRotator._usdLive  _usdLive(address quote, uint256 raw) internal view returns (uint256)  (line 622)
+  + RedemptionExt.claimByBurnUpTo  claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256 claimedAmount)  (line 653)
+  + RedemptionExt._bookLegProceeds  _bookLegProceeds(uint256 gen, uint256 quoteOut, uint256 tokenOut) internal  (line 759)
+  + RedemptionExt.recoverLegsAtTeardown  recoverLegsAtTeardown(uint256 gen) external returns (uint256, uint256)  (line 783)
+  + RedemptionExt._recoverLegs  _recoverLegs(uint256 gen) private returns (uint256 quoteOut, uint256 tokenOut)  (line 787)
+
+REMOVED (2)
+  - QuoteRotator._usd  _usd(address quote, uint256 raw) internal returns (uint256)  (line 564)
+  - RedemptionExt.completeRotation  completeRotation(address quote, uint256 quoteAmount, uint256 tokenAmount) external onlyOwner returns (uint256   (line 605)
+
+CHANGED (7)
+  ~ QuoteOracle.cachedUsdPerRawUnit  cachedUsdPerRawUnit(address quote) external returns (uint256)  (line 334)  body_sha1 a6f4890e -> fccb8c99
+  ~ QuoteRotator.swapOnce  swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external onlyRegi  (line 335)  body_sha1 191f7e19 -> e808982f
+  ~ QuoteRotator._oracleFloor  _oracleFloor(address from, address to, uint256 amountIn) internal returns (uint256)  (line 425)  body_sha1 4c3d5cbb -> c728012b
+  ~ QuoteRotator.arbStep  arbStep(PoolKey calldata cheap, PoolKey calldata dear, uint256 amountIn) external returns (uint256 profitUsd)  (line 533)  body_sha1 94501c00 -> 8532272f
+  ~ QuoteRotator._safeTransfer  _safeTransfer(address token, address to, uint256 amount) internal  (line 755)  body_sha1 0865e1c3 -> 80094dbc
+  ~ RedemptionExt.rotateSliceFrom  rotateSliceFrom(uint8 fromLeg, uint16 sliceBps, uint256 minOut, PoolKey calldata route) public returns (uint25  (line 280)  body_sha1 c41631f8 -> 2cbed2bd
+  ~ RedemptionExt.recoverLegs  recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut)  (line 732)  body_sha1 cac66233 -> 8783320e
+
+MOVED (0)
+  (none)

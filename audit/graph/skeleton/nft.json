@@ -1,12 +1,12 @@
 {
  "cluster": "nft",
- "source_root": "/tmp/blind-final/contracts/solidity",
- "generated": "2026-09-11T13:24:25",
+ "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
+ "generated": "2026-09-12T11:37:55",
  "files": {
-  "cauldron/MiFrensGenesis.sol": 719,
+  "cauldron/MiFrensGenesis.sol": 729,
   "cauldron/CauldronCollection.sol": 433,
   "cauldron/CollectionLedger.sol": 157,
-  "cauldron/CauldronGachaRouter.sol": 554,
+  "cauldron/CauldronGachaRouter.sol": 596,
   "cauldron/MiFrensDividend.sol": 544,
   "cauldron/MintCurvePolicy.sol": 115,
   "cauldron/CauldronFactory.sol": 106,
@@ -666,7 +666,7 @@
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 177,
+   "line": 178,
    "kind": "modifier",
    "name": "nonReentrant",
    "signature": "modifier nonReentrant()",
@@ -675,14 +675,14 @@
    "modifiers": [],
    "body_sha1": "1c7a0e6192e769f914da806e29ee59776a85059f",
    "body_lines": [
-    177,
-    182
+    178,
+    183
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 184,
+   "line": 185,
    "kind": "constructor",
    "name": "",
    "signature": "constructor(IPoolManager _poolManager, address _hook, address _registry, address _owner) Ownable(_owner)",
@@ -693,14 +693,14 @@
    ],
    "body_sha1": "0e9f47de60f7453f83e4db67ea5538d141884e30",
    "body_lines": [
-    186,
-    191
+    187,
+    192
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 204,
+   "line": 205,
    "kind": "function",
    "name": "_quote",
    "signature": "function _quote() internal view returns (address)",
@@ -709,14 +709,14 @@
    "modifiers": [],
    "body_sha1": "9340051c881d052a412b6eb73a37000d74e3742c",
    "body_lines": [
-    204,
-    206
+    205,
+    207
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 215,
+   "line": 216,
    "kind": "function",
    "name": "_key",
    "signature": "function _key() internal view returns (PoolKey memory)",
@@ -725,14 +725,14 @@
    "modifiers": [],
    "body_sha1": "48405c31fb76adcadb3b1bb9e39bab71b2583198",
    "body_lines": [
-    215,
-    223
+    216,
+    224
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 233,
+   "line": 234,
    "kind": "function",
    "name": "play",
    "signature": "function play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax) external payable nonReentrant returns (uint256 opened)",
@@ -743,14 +743,14 @@
    ],
    "body_sha1": "a9bbaab569e7544f461b64b6da64869da376a09f",
    "body_lines": [
-    238,
-    240
+    239,
+    241
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 248,
+   "line": 249,
    "kind": "function",
    "name": "playLiq",
    "signature": "function playLiq( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] calldata liqHints ) external payable nonReentrant returns (uint256 opened)",
@@ -761,14 +761,14 @@
    ],
    "body_sha1": "953290286489315e6d2becae3ff659da49bb049a",
    "body_lines": [
-    260,
-    262
+    261,
+    263
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 271,
+   "line": 272,
    "kind": "function",
    "name": "_pullQuote",
    "signature": "function _pullQuote(address q, uint256 quoteIn) private returns (uint256)",
@@ -777,14 +777,14 @@
    "modifiers": [],
    "body_sha1": "7ebdadd6bf7341ab85b52fa2dbbdaede66394aa1",
    "body_lines": [
-    271,
-    279
+    272,
+    280
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 281,
+   "line": 282,
    "kind": "function",
    "name": "_play",
    "signature": "function _play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] memory liqHints ) internal returns (uint256 opened)",
@@ -793,14 +793,14 @@
    "modifiers": [],
    "body_sha1": "a56944d67e9e13e8aee41237ee40f2edc28fdca5",
    "body_lines": [
-    291,
-    340
+    292,
+    341
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 345,
+   "line": 346,
    "kind": "function",
    "name": "openReady",
    "signature": "function openReady(uint256 maxCount) external nonReentrant returns (uint256 opened)",
@@ -811,14 +811,14 @@
    ],
    "body_sha1": "e491050c810f7fc7e45494393e403e448bb3e031",
    "body_lines": [
-    345,
-    363
+    346,
+    364
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 368,
+   "line": 369,
    "kind": "function",
    "name": "playChurn",
    "signature": "function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax) external payable nonReentrant returns (uint256 opened)",
@@ -829,14 +829,14 @@
    ],
    "body_sha1": "86efb8be392c606734760b80b6acafb66e51654d",
    "body_lines": [
-    373,
-    392
+    374,
+    393
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 398,
+   "line": 399,
    "kind": "function",
    "name": "unlockCallback",
    "signature": "function unlockCallback(bytes calldata raw) external returns (bytes memory)",
@@ -845,30 +845,30 @@
    "modifiers": [],
    "body_sha1": "f38629bcb6a78fb7a905fdc4c2021bed0ca3fdd5",
    "body_lines": [
-    398,
-    449
+    399,
+    450
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 451,
+   "line": 452,
    "kind": "function",
    "name": "_churn",
    "signature": "function _churn(ChurnData memory c) private returns (bytes memory)",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "ebfc37565bd0ae52d494aaedb672e2da164f42d3",
+   "body_sha1": "a8cffa3608aea6147b4e8193ca4b81b90525fcca",
    "body_lines": [
-    451,
-    499
+    452,
+    516
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 501,
+   "line": 518,
    "kind": "function",
    "name": "_limit",
    "signature": "function _limit(bool zeroForOne) private pure returns (uint160)",
@@ -877,14 +877,14 @@
    "modifiers": [],
    "body_sha1": "dc805e20c93fe65f7d2d721ee36478912fed8feb",
    "body_lines": [
-    501,
-    503
+    518,
+    520
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 505,
+   "line": 522,
    "kind": "function",
    "name": "_settle",
    "signature": "function _settle(Currency currency, uint256 amount, bool isNative) private",
@@ -893,14 +893,14 @@
    "modifiers": [],
    "body_sha1": "148eacaece7452442349be0c958dd5e04aac7c7d",
    "body_lines": [
-    505,
-    513
+    522,
+    530
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 515,
+   "line": 532,
    "kind": "function",
    "name": "_take",
    "signature": "function _take(Currency currency, address to, uint256 amount) private",
@@ -909,14 +909,14 @@
    "modifiers": [],
    "body_sha1": "110688771df6319f7fb550556051fbe582c8bee5",
    "body_lines": [
-    515,
-    517
+    532,
+    534
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 525,
+   "line": 542,
    "kind": "function",
    "name": "_payQuote",
    "signature": "function _payQuote(address q, address to, uint256 amount) private",
@@ -925,14 +925,14 @@
    "modifiers": [],
    "body_sha1": "ca2f7616c6576871eb6c40fc9712191605eacd9c",
    "body_lines": [
-    525,
-    533
+    542,
+    550
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 535,
+   "line": 552,
    "kind": "function",
    "name": "_safeTransfer",
    "signature": "function _safeTransfer(address token, address to, uint256 amount) private",
@@ -941,14 +941,14 @@
    "modifiers": [],
    "body_sha1": "e176d5f47c66e0115b9c20aae1600a4738364b70",
    "body_lines": [
-    535,
-    539
+    552,
+    556
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 541,
+   "line": 558,
    "kind": "function",
    "name": "_safeTransferFrom",
    "signature": "function _safeTransferFrom(address token, address from, address to, uint256 amount) private",
@@ -957,14 +957,14 @@
    "modifiers": [],
    "body_sha1": "bce748b50cafac4d9bdc0d276488ca5afd5f3af4",
    "body_lines": [
-    541,
-    545
+    558,
+    562
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 547,
+   "line": 564,
    "kind": "function",
    "name": "rescueETH",
    "signature": "function rescueETH(address to, uint256 amount) external onlyOwner",
@@ -975,14 +975,48 @@
    ],
    "body_sha1": "cab006e3f0acb6d2e4ffe44268d5ebdc5ef60b26",
    "body_lines": [
-    547,
-    550
+    564,
+    567
    ]
   },
   {
    "contract": "CauldronGachaRouter",
    "file": "cauldron/CauldronGachaRouter.sol",
-   "line": 552,
+   "line": 577,
+   "kind": "function",
+   "name": "rescueToken",
+   "signature": "function rescueToken(address token, address to, uint256 amount) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "41c782ae09d5aca899bc30acb09eb242325d9025",
+   "body_lines": [
+    577,
+    579
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 590,
+   "kind": "function",
+   "name": "renounceOwnership",
+   "signature": "function renounceOwnership() public pure override",
+   "visibility": "public",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+   "body_lines": [
+    590,
+    592
+   ]
+  },
+  {
+   "contract": "CauldronGachaRouter",
+   "file": "cauldron/CauldronGachaRouter.sol",
+   "line": 594,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -991,8 +1025,8 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    552,
-    552
+    594,
+    594
    ]
   },
   {
@@ -2228,16 +2262,16 @@
    "modifiers": [
     "nonReentrant"
    ],
-   "body_sha1": "4d33eae7c4e4611f7e68a47a619f0b98f5ba1ae1",
+   "body_sha1": "615aa0747cbdad54506f99feea34d2adbe20589b",
    "body_lines": [
     575,
-    587
+    597
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 594,
+   "line": 604,
    "kind": "function",
    "name": "soldOut",
    "signature": "function soldOut() external view returns (bool)",
@@ -2246,14 +2280,14 @@
    "modifiers": [],
    "body_sha1": "b0d7a265180a5bf8b99e87a72bfccf6e128f661c",
    "body_lines": [
-    594,
-    596
+    604,
+    606
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 599,
+   "line": 609,
    "kind": "function",
    "name": "remaining",
    "signature": "function remaining() external view returns (uint256)",
@@ -2262,14 +2296,14 @@
    "modifiers": [],
    "body_sha1": "c3b457eae2b8eea35b33b130c74dc64ba62d1d47",
    "body_lines": [
-    599,
-    601
+    609,
+    611
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 610,
+   "line": 620,
    "kind": "function",
    "name": "isGenesis",
    "signature": "function isGenesis(uint256 tokenId) public view returns (bool)",
@@ -2278,14 +2312,14 @@
    "modifiers": [],
    "body_sha1": "3a993b1378eb824f80435cc47f1d23d82c2f274f",
    "body_lines": [
-    610,
-    612
+    620,
+    622
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 617,
+   "line": 627,
    "kind": "function",
    "name": "ogTrait",
    "signature": "function ogTrait(uint256 tokenId) external view returns (string memory)",
@@ -2294,14 +2328,14 @@
    "modifiers": [],
    "body_sha1": "8a1cf83dc9df814e97b817f84c40857eb8f92266",
    "body_lines": [
-    617,
-    619
+    627,
+    629
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 621,
+   "line": 631,
    "kind": "function",
    "name": "tokenURI",
    "signature": "function tokenURI(uint256 tokenId) public view override returns (string memory)",
@@ -2310,14 +2344,14 @@
    "modifiers": [],
    "body_sha1": "8dcb8d6b27669ed4a27ac2e2b4978beddd5642d3",
    "body_lines": [
-    621,
-    637
+    631,
+    647
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 647,
+   "line": 657,
    "kind": "function",
    "name": "_update",
    "signature": "function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Votes) returns (address)",
@@ -2326,14 +2360,14 @@
    "modifiers": [],
    "body_sha1": "302b3815b596c308310152103fead37211c99791",
    "body_lines": [
-    651,
-    705
+    661,
+    715
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 707,
+   "line": 717,
    "kind": "function",
    "name": "_increaseBalance",
    "signature": "function _increaseBalance(address account, uint128 amount) internal override(ERC721, ERC721Votes)",
@@ -2342,14 +2376,14 @@
    "modifiers": [],
    "body_sha1": "3e01bc4a66fbb1bfa296c714fa66f9d1c8e82b6f",
    "body_lines": [
-    710,
-    712
+    720,
+    722
    ]
   },
   {
    "contract": "MiFrensGenesis",
    "file": "cauldron/MiFrensGenesis.sol",
-   "line": 715,
+   "line": 725,
    "kind": "function",
    "name": "supportsInterface",
    "signature": "function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981) returns (bool)",
@@ -2358,8 +2392,8 @@
    "modifiers": [],
    "body_sha1": "60f0cb66b5e355a6739e4972daca8d494486aa4f",
    "body_lines": [
-    715,
-    717
+    725,
+    727
    ]
   },
   {

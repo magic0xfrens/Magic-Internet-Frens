@@ -1,0 +1,18 @@
+NEW : nft.json  (155 nodes, 155 keys)
+OLD : nft.json  (153 nodes, 153 keys)
+
+COUNTS  added=2  removed=0  changed=2  moved=0
+
+ADDED (2)
+  + CauldronGachaRouter.rescueToken  rescueToken(address token, address to, uint256 amount) external onlyOwner  (line 577)
+  + CauldronGachaRouter.renounceOwnership  renounceOwnership() public pure override  (line 590)
+
+REMOVED (0)
+  (none)
+
+CHANGED (2)
+  ~ CauldronGachaRouter._churn  _churn(ChurnData memory c) private returns (bytes memory)  (line 452)  body_sha1 ebfc3756 -> a8cffa36
+  ~ MiFrensGenesis.igniteCauldron  igniteCauldron() external nonReentrant returns (address token)  (line 575)  body_sha1 4d33eae7 -> 615aa074
+
+MOVED (0)
+  (none)

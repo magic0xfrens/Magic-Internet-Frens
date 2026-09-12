@@ -1,274 +1,288 @@
 {
-  "storage": [
-    {
-      "astId": 1110,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "quoteOracle",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 1175,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "guardian",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 1180,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "proposals",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_uint256,t_struct(Proposal)1153_storage)"
-    },
-    {
-      "astId": 1186,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "hasVoted",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))"
-    },
-    {
-      "astId": 1188,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "proposalCount",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 1190,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "activeProposal",
-      "offset": 0,
-      "slot": "5",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 1193,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "envelope",
-      "offset": 0,
-      "slot": "6",
-      "type": "t_struct(Envelope)1168_storage"
-    },
-    {
-      "astId": 1195,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "lastEnvelopeAt",
-      "offset": 0,
-      "slot": "8",
-      "type": "t_uint64"
-    },
-    {
-      "astId": 1198,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "_leadId",
-      "offset": 0,
-      "slot": "9",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 1200,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "_leadVotes",
-      "offset": 0,
-      "slot": "10",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 1203,
-      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-      "label": "_openVotedAt",
-      "offset": 0,
-      "slot": "11",
-      "type": "t_uint64"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_mapping(t_address,t_bool)": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => bool)",
-      "numberOfBytes": "32",
-      "value": "t_bool"
-    },
-    "t_mapping(t_uint256,t_mapping(t_address,t_bool))": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => mapping(address => bool))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_address,t_bool)"
-    },
-    "t_mapping(t_uint256,t_struct(Proposal)1153_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => struct TreasuryGovernor.Proposal)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Proposal)1153_storage"
-    },
-    "t_struct(Envelope)1168_storage": {
-      "encoding": "inplace",
-      "label": "struct TreasuryGovernor.Envelope",
-      "numberOfBytes": "64",
-      "members": [
-        {
-          "astId": 1156,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "quote",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_address"
-        },
-        {
-          "astId": 1158,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "maxTotalBps",
-          "offset": 20,
-          "slot": "0",
-          "type": "t_uint16"
-        },
-        {
-          "astId": 1160,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "movedBps",
-          "offset": 22,
-          "slot": "0",
-          "type": "t_uint16"
-        },
-        {
-          "astId": 1162,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "expiry",
-          "offset": 24,
-          "slot": "0",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 1164,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "active",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_bool"
-        },
-        {
-          "astId": 1167,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "movedPrimaryBps",
-          "offset": 1,
-          "slot": "1",
-          "type": "t_uint16"
-        }
-      ]
-    },
-    "t_struct(Proposal)1153_storage": {
-      "encoding": "inplace",
-      "label": "struct TreasuryGovernor.Proposal",
-      "numberOfBytes": "160",
-      "members": [
-        {
-          "astId": 1136,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "quote",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_address"
-        },
-        {
-          "astId": 1138,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "maxTotalBps",
-          "offset": 20,
-          "slot": "0",
-          "type": "t_uint16"
-        },
-        {
-          "astId": 1140,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "votingEndsAt",
-          "offset": 22,
-          "slot": "0",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 1142,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "snapshot",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 1144,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "forVotes",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 1146,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "againstVotes",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 1148,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "proposer",
-          "offset": 0,
-          "slot": "4",
-          "type": "t_address"
-        },
-        {
-          "astId": 1150,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "executed",
-          "offset": 20,
-          "slot": "4",
-          "type": "t_bool"
-        },
-        {
-          "astId": 1152,
-          "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
-          "label": "cancelled",
-          "offset": 21,
-          "slot": "4",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_uint16": {
-      "encoding": "inplace",
-      "label": "uint16",
-      "numberOfBytes": "2"
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    }
+ "storage": [
+  {
+   "astId": 39212,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "quoteOracle",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 39277,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "guardian",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_address"
+  },
+  {
+   "astId": 39282,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "proposals",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_mapping(t_uint256,t_struct(Proposal)39255_storage)"
+  },
+  {
+   "astId": 39288,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "hasVoted",
+   "offset": 0,
+   "slot": "3",
+   "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))"
+  },
+  {
+   "astId": 39290,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "proposalCount",
+   "offset": 0,
+   "slot": "4",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 39292,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "activeProposal",
+   "offset": 0,
+   "slot": "5",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 39295,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "envelope",
+   "offset": 0,
+   "slot": "6",
+   "type": "t_struct(Envelope)39270_storage"
+  },
+  {
+   "astId": 39297,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "lastEnvelopeAt",
+   "offset": 0,
+   "slot": "8",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 39300,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "_leadId",
+   "offset": 0,
+   "slot": "9",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 39302,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "_leadVotes",
+   "offset": 0,
+   "slot": "10",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 39305,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "_openVotedAt",
+   "offset": 0,
+   "slot": "11",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 39314,
+   "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+   "label": "_bench",
+   "offset": 0,
+   "slot": "12",
+   "type": "t_array(t_uint256)8_storage"
   }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_array(t_uint256)8_storage": {
+   "encoding": "inplace",
+   "label": "uint256[8]",
+   "numberOfBytes": "256",
+   "base": "t_uint256"
+  },
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_mapping(t_address,t_bool)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => bool)",
+   "numberOfBytes": "32",
+   "value": "t_bool"
+  },
+  "t_mapping(t_uint256,t_mapping(t_address,t_bool))": {
+   "encoding": "mapping",
+   "key": "t_uint256",
+   "label": "mapping(uint256 => mapping(address => bool))",
+   "numberOfBytes": "32",
+   "value": "t_mapping(t_address,t_bool)"
+  },
+  "t_mapping(t_uint256,t_struct(Proposal)39255_storage)": {
+   "encoding": "mapping",
+   "key": "t_uint256",
+   "label": "mapping(uint256 => struct TreasuryGovernor.Proposal)",
+   "numberOfBytes": "32",
+   "value": "t_struct(Proposal)39255_storage"
+  },
+  "t_struct(Envelope)39270_storage": {
+   "encoding": "inplace",
+   "label": "struct TreasuryGovernor.Envelope",
+   "numberOfBytes": "64",
+   "members": [
+    {
+     "astId": 39258,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "quote",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_address"
+    },
+    {
+     "astId": 39260,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "maxTotalBps",
+     "offset": 20,
+     "slot": "0",
+     "type": "t_uint16"
+    },
+    {
+     "astId": 39262,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "movedBps",
+     "offset": 22,
+     "slot": "0",
+     "type": "t_uint16"
+    },
+    {
+     "astId": 39264,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "expiry",
+     "offset": 24,
+     "slot": "0",
+     "type": "t_uint64"
+    },
+    {
+     "astId": 39266,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "active",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_bool"
+    },
+    {
+     "astId": 39269,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "movedPrimaryBps",
+     "offset": 1,
+     "slot": "1",
+     "type": "t_uint16"
+    }
+   ]
+  },
+  "t_struct(Proposal)39255_storage": {
+   "encoding": "inplace",
+   "label": "struct TreasuryGovernor.Proposal",
+   "numberOfBytes": "160",
+   "members": [
+    {
+     "astId": 39238,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "quote",
+     "offset": 0,
+     "slot": "0",
+     "type": "t_address"
+    },
+    {
+     "astId": 39240,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "maxTotalBps",
+     "offset": 20,
+     "slot": "0",
+     "type": "t_uint16"
+    },
+    {
+     "astId": 39242,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "votingEndsAt",
+     "offset": 22,
+     "slot": "0",
+     "type": "t_uint64"
+    },
+    {
+     "astId": 39244,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "snapshot",
+     "offset": 0,
+     "slot": "1",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 39246,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "forVotes",
+     "offset": 0,
+     "slot": "2",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 39248,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "againstVotes",
+     "offset": 0,
+     "slot": "3",
+     "type": "t_uint256"
+    },
+    {
+     "astId": 39250,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "proposer",
+     "offset": 0,
+     "slot": "4",
+     "type": "t_address"
+    },
+    {
+     "astId": 39252,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "executed",
+     "offset": 20,
+     "slot": "4",
+     "type": "t_bool"
+    },
+    {
+     "astId": 39254,
+     "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
+     "label": "cancelled",
+     "offset": 21,
+     "slot": "4",
+     "type": "t_bool"
+    }
+   ]
+  },
+  "t_uint16": {
+   "encoding": "inplace",
+   "label": "uint16",
+   "numberOfBytes": "2"
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  },
+  "t_uint64": {
+   "encoding": "inplace",
+   "label": "uint64",
+   "numberOfBytes": "8"
+  }
+ }
 }

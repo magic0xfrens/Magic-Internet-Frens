@@ -22,7 +22,7 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 ## A. Value inventory — every field that holds or counts value
 
 **`MiFrensGenesis`** (native ETH + two supply counters)
-- native balance of the contract — denomination: wei. **+** `mint` payable, exact `PRICE * quantity` (MiFrensGenesis.sol:267). **−** `refund` send (MiFrensGenesis.sol:305); **−** `igniteCauldron` forwards `address(this).balance` in full (MiFrensGenesis.sol:584-585). No other exit exists.
+- native balance of the contract — denomination: wei. **+** `mint` payable, exact `PRICE * quantity` (MiFrensGenesis.sol:267). **−** `refund` send (MiFrensGenesis.sol:305); **−** `igniteCauldron` forwards `address(this).balance` in full (MiFrensGenesis.sol:594-585). No other exit exists.
 - `paid[buyer]` — wei. **+** MiFrensGenesis.sol:270. **−** zeroed MiFrensGenesis.sol:304.
 - `minted` — count of art tokens. **+** `m + quantity` MiFrensGenesis.sol:282 (genesis tranche); **+** `minted++` MiFrensGenesis.sol:478 (volume tranche). **No decrement anywhere**, including the burn at MiFrensGenesis.sol:547.
 - `liquidatorMinted` — count of badges. **+** `++liquidatorMinted` MiFrensGenesis.sol:379. No decrement, no cap.
@@ -52,9 +52,9 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 - `assets[]` — the iterated basket. **+** push MiFrensDividend.sol:284 only; **no removal path exists in the file**.
 
 **`CauldronGachaRouter`** (transient balances only)
-- native — **+** `msg.value` on the three payable entries (CauldronGachaRouter.sol:274) and the open `receive` (CauldronGachaRouter.sol:552). **−** `settle{value:}` CauldronGachaRouter.sol:507; **−** `_payQuote` CauldronGachaRouter.sol:528; **−** `rescueETH` CauldronGachaRouter.sol:548.
-- ERC20 — **+** pulls at CauldronGachaRouter.sol:277 and 298, plus `take` to `address(this)` at 444/475/489. **−** transfers at 331, 497, 510, 531.
-- `_locked` — reentrancy flag only (CauldronGachaRouter.sol:179, 181).
+- native — **+** `msg.value` on the three payable entries (CauldronGachaRouter.sol:275) and the open `receive` (CauldronGachaRouter.sol:594). **−** `settle{value:}` CauldronGachaRouter.sol:524; **−** `_payQuote` CauldronGachaRouter.sol:545; **−** `rescueETH` CauldronGachaRouter.sol:565; **−** `rescueToken` CauldronGachaRouter.sol:578 (ERC20, the new counterpart).
+- ERC20 — **+** pulls at CauldronGachaRouter.sol:278 and 298, plus `take` to `address(this)` at 444/475/489. **−** transfers at 331, 497, 510, 531.
+- `_locked` — reentrancy flag only (CauldronGachaRouter.sol:180, 181).
 
 **`CauldronFactory` / `MintCurvePolicy`** hold no value and no counters (`owner`, `liquidatorRenderer`; four immutables respectively).
 
@@ -63,9 +63,9 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 1. **`CollectionLedger` is entirely unbacked inside this cluster.** It holds no tokens and makes no external call (comment CollectionLedger.sol:35, and no call exists in the file). `outstanding` takes the supply term from a caller argument (`mintedNow`, CollectionLedger.sol:87) and `buyback` takes `paid` on trust (CollectionLedger.sol:130). A registry that passes a larger `mintedNow` pays less per redemption and a smaller one pays more; nothing in the ledger can detect either.
 2. **`MiFrensDividend.accPerShareOf` is credited with the requested amount** (MiFrensDividend.sol:287), not a measured balance delta; `_pull` only checks the boolean return (MiFrensDividend.sol:351). A fee-on-transfer or rebasing basket asset credits holders more than arrived, and the shortfall surfaces as a failing `_tryPush` for the last claimants (banked to `owedAsset`, MiFrensDividend.sol:326).
 3. **`totalDeposited` is not a claim on the balance.** It counts gross `msg.value` (MiFrensDividend.sol:236) including deposits immediately swept to the treasury (MiFrensDividend.sol:240), so `totalDeposited − totalClaimed` overstates what the contract owes.
-4. **`activeShares` can outlive the enchantment it counts.** `onMiFrenTransfer` is called inside a try/catch with a fixed stipend (MiFrensGenesis.sol:695); if it reverts, the fren keeps its share while `enchantedBy` points at the seller. The subsequent `_castSpell` stale branch (MiFrensDividend.sol:398-402) re-points without incrementing, which is what keeps the count balanced.
+4. **`activeShares` can outlive the enchantment it counts.** `onMiFrenTransfer` is called inside a try/catch with a fixed stipend (MiFrensGenesis.sol:705); if it reverts, the fren keeps its share while `enchantedBy` points at the seller. The subsequent `_castSpell` stale branch (MiFrensDividend.sol:398-402) re-points without incrementing, which is what keeps the count balanced.
 5. **Art counters vs live ERC721 supply.** `minted` (MiFrensGenesis.sol:282/478) and `totalMinted` (CauldronCollection.sol:210) are monotonic; burns at MiFrensGenesis.sol:547 and CauldronCollection.sol:386 reduce the live supply without reducing them, so live supply = counter − burns, and a burned id is never re-issued.
-6. **`CauldronGachaRouter._pullQuote` returns the requested amount** (CauldronGachaRouter.sol:278), not a measured delta, so the play size credited to the hook can exceed what arrived; and the native `settle` branch spends the contract's balance (CauldronGachaRouter.sol:507), which is indistinguishable from anything the open `receive` accumulated.
+6. **`CauldronGachaRouter._pullQuote` returns the requested amount** (CauldronGachaRouter.sol:279), not a measured delta, so the play size credited to the hook can exceed what arrived; and the native `settle` branch spends the contract's balance (CauldronGachaRouter.sol:524), which is indistinguishable from anything the open `receive` accumulated.
 
 ## C. Authority map
 
@@ -87,8 +87,8 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 | `registry` (dividend) | write-once | MiFrensDividend.sol:192 | no (191) — cannot be unwired if it misbehaves |
 | `funder` (dividend) | write-once | MiFrensDividend.sol:202 | no (201) — sole appender to the iterated basket |
 | `mifrens` (dividend) | immutable | MiFrensDividend.sol:176 | no; sole caller of `onMiFrenTransfer` (465) |
-| OZ `Ownable` owner (router) | constructor arg | CauldronGachaRouter.sol:185 | yes — `transferOwnership`/`renounceOwnership` are inherited; holds `setOracle` (99) and `rescueETH` (547) |
-| `poolManager` (router) | immutable | CauldronGachaRouter.sol:187 | no; sole caller of `unlockCallback` (399) |
+| OZ `Ownable` owner (router) | constructor arg | CauldronGachaRouter.sol:185 | `transferOwnership` only — `renounceOwnership` reverts (CauldronGachaRouter.sol:591); holds `setOracle` (99), `rescueETH` (564) and `rescueToken` (577) |
+| `poolManager` (router) | immutable | CauldronGachaRouter.sol:188 | no; sole caller of `unlockCallback` (399) |
 | `owner` (factory) | `msg.sender` at deploy | CauldronFactory.sol:21 | yes, single-step, **no zero check** (44) — can dead-end |
 | transfer validator | collection admin | MiFrensGenesis.sol:468 / CauldronCollection.sol:195 | yes; a hostile or reverting target halts every mint, transfer, burn and custody move |
 | **ungated** | anyone | `MiFrensGenesis.mint` (262), `refund` (300), `igniteCauldron` (575, unless a finalizer is set), `reveal`/`revealBatch` (owner-of-token), `MiFrensDividend.receive` (235), `withdrawOwed` (518), `withdrawOwedToken` (333), `castSpell`/`claim` (owner-of-token), router `play`/`playLiq`/`openReady`/`playChurn`/`receive`, `CauldronFactory.deployBrew` (63) and `deployVault` (99) | |
@@ -100,10 +100,10 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 | call site | callee | value | ordering |
 |---|---|---|---|
 | MiFrensGenesis.sol:305 | `msg.sender.call{value}` | sends wei | `paid` zeroed at 304 **before** the call; `nonReentrant` on 300 |
-| MiFrensGenesis.sol:585 | `registry.summon{value: bal}` | sends the whole balance | `finalized = true` at 583 **before**; `nonReentrant` on 575 |
-| MiFrensGenesis.sol:656 | `ITransferValidator.validateTransfer` | none | **before** the ERC721 state change at 658 |
-| MiFrensGenesis.sol:695 | `dividend.onMiFrenTransfer{gas: 260_000}` | none | **after** ownership has already moved (658); try/catch; caller must leave 320_000 gas (694) |
-| MiFrensGenesis.sol:626, 634 | `ICollectionRenderer.tokenURI` | none | view path |
+| MiFrensGenesis.sol:595 | `registry.summon{value: bal}` | sends the whole balance | `finalized = true` at 583 **before**; `nonReentrant` on 575 |
+| MiFrensGenesis.sol:666 | `ITransferValidator.validateTransfer` | none | **before** the ERC721 state change at 658 |
+| MiFrensGenesis.sol:705 | `dividend.onMiFrenTransfer{gas: 260_000}` | none | **after** ownership has already moved (658); try/catch; caller must leave 320_000 gas (694) |
+| MiFrensGenesis.sol:636, 634 | `ICollectionRenderer.tokenURI` | none | view path |
 | MiFrensGenesis.sol:279, 383, 481 / 547 / 416 | OZ `_mint` / `_burn` / `_transfer` | none | all funnel through the `_update` override (647) |
 | CauldronCollection.sol:176 | `ITransferValidator.validateTransfer` | none | **before** `super._update` (178) |
 | CauldronCollection.sol:406, 413 | `ICollectionRenderer.tokenURI` | none | view path; the art branch has no zero-address guard |
@@ -116,17 +116,17 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 | MiFrensDividend.sol:449, 450, 452, 455, 456, 457 | `everMoved`, `enchantFee`, `currentToken`, `IERC20.transferFrom`, `IERC20.approve`, `donateToReserve` | pulls then forwards the fee | all **before** `activeShares += 1` (397); `approve` return unchecked |
 | MiFrensDividend.sol:523, 538 | `msg.sender.call{value}` | sends wei | `owed`/`debtOf` written first (521 / 535); `nonReentrant` on 502/507/518 |
 | MiFrensDividend.sol:257, 294, 308, 367, 387, 531 | `mifrens.ownerOf` | none | gate reads |
-| CauldronGachaRouter.sol:301, 379 | `poolManager.unlock` | none | re-enters `unlockCallback` (398) |
-| CauldronGachaRouter.sol:422, 436, 467, 481 | `poolManager.swap` | none | inside the unlock frame |
-| CauldronGachaRouter.sol:507 | `poolManager.settle{value}` | sends wei | native quote branch |
-| CauldronGachaRouter.sol:509, 511 | `poolManager.sync` / `settle` | none | ERC20 quote branch, around the transfer at 510 |
-| CauldronGachaRouter.sol:516 | `poolManager.take` | pays `to` | destination is the player (431) or the router (444/475/489) |
+| CauldronGachaRouter.sol:302, 379 | `poolManager.unlock` | none | re-enters `unlockCallback` (398) |
+| CauldronGachaRouter.sol:423, 436, 467, 481 | `poolManager.swap` | none | inside the unlock frame |
+| CauldronGachaRouter.sol:524 | `poolManager.settle{value}` | sends wei | native quote branch |
+| CauldronGachaRouter.sol:526, 511 | `poolManager.sync` / `settle` | none | ERC20 quote branch, around the transfer at 510 |
+| CauldronGachaRouter.sol:533 | `poolManager.take` | pays `to` | destination is the player (431) or the router (444/475/489) |
 | CauldronGachaRouter.sol:139 | `IQuoteOracleView.usdPerRawUnit` | none | try/catch; failure falls back to the raw size |
-| CauldronGachaRouter.sol:205, 218 | `registry.generationQuote` / `currentGeneration` / `currentToken` | none | re-read on **every** call, never cached |
-| CauldronGachaRouter.sol:326, 327, 346, 351, 352, 360, 361, 387, 388 | hook gacha calls | none | commit/resolve happen **before** every payout |
-| CauldronGachaRouter.sol:528, 548 | `to.call{value}` | sends wei | last action of the play (338/390); `rescueETH` is unguarded but has no accounting |
-| CauldronGachaRouter.sol:537, 543 | `token.call(transfer/transferFrom)` | moves ERC20 | boolean-checked |
-| CauldronHook.sol:1627 (inbound) | `INFTContract.getHolderTaxRate` | none | out-of-cluster caller of this cluster's interface |
+| CauldronGachaRouter.sol:206, 218 | `registry.generationQuote` / `currentGeneration` / `currentToken` | none | re-read on **every** call, never cached |
+| CauldronGachaRouter.sol:327, 327, 346, 351, 352, 360, 361, 387, 388 | hook gacha calls | none | commit/resolve happen **before** every payout |
+| CauldronGachaRouter.sol:545, 565 | `to.call{value}` | sends wei | last action of the play (338/390); `rescueETH` (564) and `rescueToken` (577) are owner-only and carry no accounting of a player's in-flight funds (DERIVED) |
+| CauldronGachaRouter.sol:554, 543 | `token.call(transfer/transferFrom)` | moves ERC20 | boolean-checked |
+| CauldronHook.sol:1686 (inbound) | `INFTContract.getHolderTaxRate` | none | out-of-cluster caller of this cluster's interface |
 
 ## E. Loops and their bounds
 
@@ -138,8 +138,8 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 | MintCurvePolicy.sol:110 | `supply`, immutable (109) | the deployer; unbounded gas on a large collection, view-only |
 | MiFrensDividend.sol:319 (`claimTokens`), 428 (`_castSpell`), 483 (`onMiFrenTransfer`) | `assets.length`, capped at `MAX_ASSETS = 3` (124, 282) | only `funder`; **no removal path** |
 | MiFrensDividend.sol:382 (`castMany`), 513 (`claimMany`) | caller's own array, **unbounded** | the caller (pays their own gas) |
-| CauldronGachaRouter.sol:465 churn loop | `MAX_LOOPS = 10` (69, 377); up to 2 swaps per iteration | nobody |
-| CauldronGachaRouter.sol:408 `liqHints` | **unbounded in this file**; forwarded into hookData | the caller; only the hook limits it |
+| CauldronGachaRouter.sol:466 churn loop | `MAX_LOOPS = 10` (69, 377); up to 2 swaps per iteration | nobody |
+| CauldronGachaRouter.sol:409 `liqHints` | **unbounded in this file**; forwarded into hookData | the caller; only the hook limits it |
 
 ## F. Denomination and units
 
@@ -149,14 +149,14 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 - The enchant fee is denominated in `reg.currentToken()` (MiFrensDividend.sol:452) and the amount comes from `reg.enchantFee()` (450) — neither is converted here.
 - `CauldronGachaRouter`: `playWei` is a notional in **the quote's own raw units** (wei for native, 6 decimals for a stablecoin quote) summed from swap deltas (322, 476, 490); `_playInCurveUnits` multiplies by `usdPerRawUnit(_quote())` and divides by `1e18` (141) to reach the hook's USD-at-1e18 curve unit. With no oracle the raw size passes through (138), which is only correct while the hook's curve is ether-denominated. `openReady` deliberately skips the conversion because `costOfNextCrystals` is already in curve units (351-360).
 - `MintCurvePolicy` is unit-agnostic: "whatever the hook's credit is denominated in" (comment 55-57); it performs no scaling.
-- `rarityCumBps` and royalty `bps` are basis points; `buyWeightBps` is used as a bps divisor at CauldronGachaRouter.sol:353.
+- `rarityCumBps` and royalty `bps` are basis points; `buyWeightBps` is used as a bps divisor at CauldronGachaRouter.sol:354.
 
 ## G. `unchecked` blocks and rounding direction
 
 - MiFrensGenesis.sol:280 `unchecked { ++i; }` — loop counter bounded by `quantity`. Safe.
 - MiFrensDividend.sol:382, 513 `unchecked { ++i; }` — loop counters. Safe.
 - MiFrensDividend.sol:493 `unchecked { activeShares -= 1; }` — the only subtraction of the divisor. It is reached only when `enchantedBy[tokenId]` is non-zero (467), and every non-zero `enchantedBy` came from a fresh join that incremented the counter at 397 (the stale branch at 398 neither increments nor decrements). DERIVED: on that reasoning the counter cannot underflow, but the guard is arithmetic-free and the invariant is not asserted anywhere in the file.
-- CauldronGachaRouter.sol:494 `unchecked { ++i; }` — bounded by `MAX_LOOPS`. Safe.
+- CauldronGachaRouter.sol:511 `unchecked { ++i; }` — bounded by `MAX_LOOPS`. Safe.
 - Rounding, all **down** (truncating integer division), all in the protocol's favour or the survivors': `CollectionLedger.floorPerNFT` (97) and `redeem` (120) leave the remainder in the pot; `MiFrensDividend.receive` carries the remainder explicitly into `residual` (247) — the **only** place a remainder is preserved; `fundToken` (287), `pendingToken` (295), `claimTokens` (321), `_castSpell` (433), `onMiFrenTransfer` (488), `pending` (258) and `_claim` (534) all truncate and the dust stays in the accumulator; `MintCurvePolicy.priceAt` (99) truncates; `CauldronGachaRouter._playInCurveUnits` (141) and the buy-weight scaling (353) truncate.
 
 ## H. Comment-vs-code observations (10)
@@ -166,10 +166,10 @@ Note on `edges[]`: calls whose callee is defined only under `lib/` (OpenZeppelin
 3. `CauldronCollection.sol:99` — rarity is "Rolled at mint … and stored"; the mint stores only the block (212) and the tier is written in the reveal path (270).
 4. `CauldronCollection.sol:292` — royalty re-point is "(deployer only)"; the check at 297 also accepts the `configurator`.
 5. `CauldronCollection.sol:263` and `MiFrensGenesis.sol:531` — after a re-anchor "the holder (or a keeper) calls reveal() again"; both `_reveal` implementations reject any caller that is not the current owner (248 / 516), so no keeper can.
-6. `MiFrensGenesis.sol:615` — the non-genesis branch is described as "the rolled rarity tier"; `ogTrait` (618) returns a constant string and never reads `rarityOf`.
-7. `CauldronGachaRouter.sol:210` — "The QUOTE is always currency0 … an INVARIANT"; `_key` (217-218) assigns by role and never compares the two addresses, so the property is enforced only by the registry's admission rule.
-8. `CauldronGachaRouter.sol:453` — the churn path encodes only the player into `hookData`, while the play path encodes a second word (408); the two paths hand the hook different payload shapes.
-9. `MiFrensDividend.sol:480` — "why MAX_ASSETS is 4"; the constant is 3 (124), which is also what the note at 108-120 argues for.
+6. `MiFrensGenesis.sol:625` — the non-genesis branch is described as "the rolled rarity tier"; `ogTrait` (618) returns a constant string and never reads `rarityOf`.
+7. `CauldronGachaRouter.sol:211` — "The QUOTE is always currency0 … an INVARIANT"; `_key` (217-218) assigns by role and never compares the two addresses, so the property is enforced only by the registry's admission rule.
+8. `CauldronGachaRouter.sol:454` — the churn path encodes only the player into `hookData`, while the play path encodes a second word (408); the two paths hand the hook different payload shapes.
+9. `MiFrensDividend.sol:480` — the note now reads "why MAX_ASSETS is 3", matching the constant at `MAX_ASSETS` (MiFrensDividend.sol:124) and the enforcement at `MAX_ASSETS` (MiFrensDividend.sol:282); the earlier "is 4" mismatch is gone.
 10. (Recorded on the node) `MiFrensDividend.sol:460` describes the hook as applying to "an enchanted genesis fren", while `onMiFrenTransfer` (464) has no eligibility-cap or id check at all — badge ids and forged ids reach it and return early only because `enchantedBy` is zero (467).
 
 ## Cluster extra 1 — every holder claim path
@@ -208,11 +208,12 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 
 **Vote supply.** Every MiFren *and every Liquidatoor badge* is an `ERC721Votes` unit: `_update` (647) self-delegates on first receipt (659-661), so badge minting at 383 increases the governance electorate. Burning at 547 removes the vote with the token.
 
-## I. Function inventory (153 nodes)
+## I. Function inventory (155 nodes)
+
 
 **CauldronCollection** (`cauldron/CauldronCollection.sol`)
 
-- L133 `constructor( string memory name_, string memory symbol_, address minter_, address registry_, uint256 maxSupply_, Meta...` — **deployer (the CauldronFactory, which becomes `configurator`)** — value: NONE
+- L133 `constructor( string memory name_, string memory symbol_, address minter_, address registry_, uint256 maxSupply_, MetadataMode mode_, string memory baseURI_, address renderer_, address royaltyReceiver_, uint96 royaltyBps_ ) ERC721(name_, symbol_)` — **deployer (the CauldronFactory, which becomes `configurator`)** — value: NONE
 - L169 `function _update(address to, uint256 tokenId, address auth) internal override returns (address)` — **internal (callers: ERC721 _mint, _burn, _transfer and the inherited public transfer entry points)** — value: NONE
 - L182 `function getTransferValidator() external view returns (address)` — **anyone** — value: NONE
 - L187 `function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction)` — **anyone** — value: NONE
@@ -243,8 +244,8 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 
 - L36 `function setLiquidatorRenderer(address r) external` — **owner** — value: NONE
 - L42 `function transferOwnership(address to) external` — **owner** — value: NONE
-- L63 `function deployBrew(Config calldata c) external returns (address collection, address vault)` — **anyone** — value: NONE
-- L99 `function deployVault(address collection, address registry, uint256 floorOffset) external returns (address vault)` — **anyone** — value: NONE
+- L63 `function deployBrew(Config calldata c) external returns (address collection, address vault)` — **anyone** — value: no native or token value moves here; what the call produces is three DEPLOYMENTS whose constructors run inside it - `CauldronCollection` (CauldronFactory.sol:71), `CauldronVault` (CauldronFactory.sol:75) and `RoyaltyRouter` (CauldronFactory.sol:81) - each created with caller-supplied addresses and none of them funded by this call.
+- L99 `function deployVault(address collection, address registry, uint256 floorOffset) external returns (address vault)` — **anyone** — value: no native or token value moves; the call is a DEPLOYMENT - it runs the `CauldronVault` (CauldronFactory.sol:103) constructor with the collection, registry and floor offset the caller named, and funds it with nothing.
 
 **ICauldronHookGacha (declared in CauldronGachaRouter.sol)** (`cauldron/CauldronGachaRouter.sol`)
 
@@ -269,26 +270,28 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 - L99 `function setOracle(address _oracle) external onlyOwner` — **owner** — value: NONE
 - L120 `function playInCurveUnits(uint256 playWei) external view returns (uint256)` — **anyone** — value: NONE
 - L136 `function _playInCurveUnits(uint256 playWei) internal view returns (uint256)` — **internal (callers: playInCurveUnits, _play, playChurn)** — value: NONE
-- L177 `modifier nonReentrant()` — **internal (callers: play, playLiq, openReady, playChurn)** — value: NONE
-- L184 `constructor(IPoolManager _poolManager, address _hook, address _registry, address _owner) Ownable(_owner)` — **deployer** — value: NONE
-- L204 `function _quote() internal view returns (address)` — **internal (callers: _key, _playInCurveUnits, playChurn)** — value: NONE
-- L215 `function _key() internal view returns (PoolKey memory)` — **internal (callers: _play, unlockCallback, _churn)** — value: NONE
-- L233 `function play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax) external p...` — **anyone** — value: receives native when the generation's quote is native - declared `payable` (line 235)
-- L248 `function playLiq( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint25...` — **anyone** — value: receives native when the generation's quote is native - declared `payable` (line 257)
-- L271 `function _pullQuote(address q, uint256 quoteIn) private returns (uint256)` — **internal (callers: _play, playChurn)** — value: receives native `msg.value` on the native branch (line 274); ERC20 pull of `q` from the caller into this ro...
-- L281 `function _play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[...` — **internal (callers: play, playLiq)** — value: ERC20 pull of the iteration token from the caller at `_safeTransferFrom` (line 298); ERC20 refund of the un...
-- L345 `function openReady(uint256 maxCount) external nonReentrant returns (uint256 opened)` — **anyone** — value: NONE
-- L368 `function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax) external payable nonReentrant returns (uint256 op...` — **anyone** — value: receives native when the quote is native - declared `payable` (line 370); leftover quote paid back to `msg....
-- L398 `function unlockCallback(bytes calldata raw) external returns (bytes memory)` — **poolManager (re-entered during unlock)** — value: the pool manager pays the swap output to the player at `_take` (line 431); the sell output is taken to this...
-- L451 `function _churn(ChurnData memory c) private returns (bytes memory)` — **internal (callers: unlockCallback)** — value: leftover iteration token sent to the player at `_safeTransfer` (line 497)
-- L501 `function _limit(bool zeroForOne) private pure returns (uint160)` — **internal (callers: unlockCallback, _churn)** — value: NONE
-- L505 `function _settle(Currency currency, uint256 amount, bool isNative) private` — **internal (callers: unlockCallback, _churn)** — value: sends native to the pool manager at `settle` (line 507); ERC20 sent to the pool manager at `_safeTransfer` ...
-- L515 `function _take(Currency currency, address to, uint256 amount) private` — **internal (callers: unlockCallback, _churn)** — value: the pool manager pays `to` at `take` (line 516)
-- L525 `function _payQuote(address q, address to, uint256 amount) private` — **internal (callers: _play, playChurn)** — value: sends native to `to` (line 528); ERC20 sent to `to` at `_safeTransfer` (line 531)
-- L535 `function _safeTransfer(address token, address to, uint256 amount) private` — **internal (callers: _play, _churn, _settle, _payQuote)** — value: ERC20 transfer of `token` to `to` (line 537)
-- L541 `function _safeTransferFrom(address token, address from, address to, uint256 amount) private` — **internal (callers: _pullQuote, _play)** — value: ERC20 transferFrom of `token` from `from` to `to` (line 543)
-- L547 `function rescueETH(address to, uint256 amount) external onlyOwner` — **owner** — value: sends native to `to` (line 548)
-- L552 `receive() external payable` — **anyone** — value: receives native - declared `payable` (line 552)
+- L178 `modifier nonReentrant()` — **internal (callers: play, playLiq, openReady, playChurn)** — value: NONE
+- L185 `constructor(IPoolManager _poolManager, address _hook, address _registry, address _owner) Ownable(_owner)` — **deployer** — value: NONE
+- L205 `function _quote() internal view returns (address)` — **internal (callers: _key, _playInCurveUnits, playChurn)** — value: NONE
+- L216 `function _key() internal view returns (PoolKey memory)` — **internal (callers: _play, unlockCallback, _churn)** — value: NONE
+- L234 `function play(uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax) external payable nonReentrant returns (uint256 opened)` — **anyone** — value: receives native when the generation's quote is native - declared `payable` (line 236)
+- L249 `function playLiq( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] calldata liqHints ) external payable nonReentrant returns (uint256 opened)` — **anyone** — value: receives native when the generation's quote is native - declared `payable` (line 258)
+- L272 `function _pullQuote(address q, uint256 quoteIn) private returns (uint256)` — **internal (callers: _play, playChurn)** — value: receives native `msg.value` on the native branch (line 275); ERC20 pull of `q` from the caller into this router (line 278)
+- L282 `function _play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax, uint256[] memory liqHints ) internal returns (uint256 opened)` — **internal (callers: play, playLiq)** — value: ERC20 pull of the iteration token from the caller at `_safeTransferFrom` (line 299); ERC20 refund of the unused token to `msg.sender` (line 332); quote paid back to `msg.sender` (line 339)
+- L346 `function openReady(uint256 maxCount) external nonReentrant returns (uint256 opened)` — **anyone** — value: NONE
+- L369 `function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax) external payable nonReentrant returns (uint256 opened)` — **anyone** — value: receives native when the quote is native - declared `payable` (line 371); leftover quote paid back to `msg.sender` (line 391)
+- L399 `function unlockCallback(bytes calldata raw) external returns (bytes memory)` — **poolManager (re-entered during unlock)** — value: the pool manager pays the swap output to the player at `_take` (line 432); the sell output is taken to this router at `_take` (line 445)
+- L452 `function _churn(ChurnData memory c) private returns (bytes memory)` — **private (single caller: unlockCallback, tag 1)** — value: each buy leg settles the quote at `_settle` (line 475) and takes the token at `_take` (line 476), each sell leg does the reverse at `_settle` (line 501) and `_take` (line 502), and unsold tokens are swept to the player at `_safeTransfer` (line 514)
+- L518 `function _limit(bool zeroForOne) private pure returns (uint160)` — **internal (callers: unlockCallback, _churn)** — value: NONE
+- L522 `function _settle(Currency currency, uint256 amount, bool isNative) private` — **internal (callers: unlockCallback, _churn)** — value: sends native to the pool manager at `settle` (line 524); on the ERC20 branch the manager's balance is synced at `sync` (line 526), the token is pushed to it at `_safeTransfer` (line 527) and the debt is closed at `settle` (line 528)
+- L532 `function _take(Currency currency, address to, uint256 amount) private` — **internal (callers: unlockCallback, _churn)** — value: the pool manager pays `to` at `take` (line 533)
+- L542 `function _payQuote(address q, address to, uint256 amount) private` — **internal (callers: _play, playChurn)** — value: sends native to `to` (line 545); ERC20 sent to `to` at `_safeTransfer` (line 548)
+- L552 `function _safeTransfer(address token, address to, uint256 amount) private` — **internal (callers: _play, _churn, _settle, _payQuote)** — value: ERC20 transfer of `token` to `to` (line 554)
+- L558 `function _safeTransferFrom(address token, address from, address to, uint256 amount) private` — **internal (callers: _pullQuote, _play)** — value: ERC20 transferFrom of `token` from `from` to `to` (line 560)
+- L564 `function rescueETH(address to, uint256 amount) external onlyOwner` — **owner** — value: sends native to `to` (line 565)
+- L577 `function rescueToken(address token, address to, uint256 amount) external onlyOwner` — **owner** — value: sends `amount` of an arbitrary ERC20 to `to` (line 578)
+- L590 `function renounceOwnership() public pure override` — **anyone by ABI - it always reverts** — value: none - it reverts (DERIVED)
+- L594 `receive() external payable` — **anyone** — value: receives native - declared `payable` (line 594)
 
 **CollectionLedger** (`cauldron/CollectionLedger.sol`)
 
@@ -342,7 +345,7 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 - L375 `function castSpell(uint256 tokenId) external` — **holder of token** — value: NONE
 - L380 `function castMany(uint256[] calldata tokenIds) external` — **holder of token** — value: NONE
 - L385 `function _castSpell(uint256 tokenId) private` — **internal (callers: castSpell, castMany); the caller must own the token** — value: NONE
-- L445 `function _collectEnchantFee(uint256 tokenId) private` — **internal (callers: _castSpell)** — value: ERC20 transferFrom of `tok` from the caster into this contract (line 455); ERC20 approve of `reg` for the f...
+- L445 `function _collectEnchantFee(uint256 tokenId) private` — **internal (callers: _castSpell)** — value: ERC20 transferFrom of `tok` from the caster into this contract (line 455); ERC20 approve of `reg` for the fee (line 456)
 - L464 `function onMiFrenTransfer(uint256 tokenId, address /*from*/) external` — **the MiFrens collection** — value: NONE
 - L502 `function claim(uint256 tokenId) public nonReentrant returns (uint256 amount)` — **holder of token who is also its caster** — value: sends native to `msg.sender` (line 538)
 - L507 `function claimMany(uint256[] calldata tokenIds) external nonReentrant returns (uint256 total)` — **holder of token who is also its caster** — value: sends native to `msg.sender` (line 538)
@@ -360,7 +363,7 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 
 **MiFrensGenesis** (`cauldron/MiFrensGenesis.sol`)
 
-- L227 `constructor( string memory name_, string memory symbol_, uint256 genesisSupply_, uint256 maxSupply_, uint256 price_, ...` — **deployer** — value: NONE
+- L227 `constructor( string memory name_, string memory symbol_, uint256 genesisSupply_, uint256 maxSupply_, uint256 price_, uint256 maxPerWallet_, string memory baseURI_ ) ERC721(name_, symbol_) EIP712(name_, "1")` — **deployer** — value: NONE
 - L249 `function setRegistry(address _registry) external` — **deployer** — value: NONE
 - L262 `function mint(uint256 quantity) external payable nonReentrant` — **anyone** — value: receives native - exact `msg.value` required (line 267)
 - L289 `function cancelPresale() external` — **deployer** — value: NONE
@@ -393,15 +396,15 @@ The two enchantment-settling paths are the mirror of the claim paths: `onMiFrenT
 - L515 `function _reveal(uint256 tokenId) private` — **internal (callers: reveal, revealBatch); the caller must own the token** — value: NONE
 - L545 `function burnFromVault(uint256 tokenId) external` — **vault** — value: NONE
 - L550 `function _rollRarity(uint256 seed) private view returns (uint8)` — **internal (callers: _reveal)** — value: NONE
-- L575 `function igniteCauldron() external nonReentrant returns (address token)` — **anyone, unless a finalizer is wired - then only that address** — value: sends native to `registry` (line 585)
-- L594 `function soldOut() external view returns (bool)` — **anyone** — value: NONE
-- L599 `function remaining() external view returns (uint256)` — **anyone** — value: NONE
-- L610 `function isGenesis(uint256 tokenId) public view returns (bool)` — **anyone** — value: NONE
-- L617 `function ogTrait(uint256 tokenId) external view returns (string memory)` — **anyone** — value: NONE
-- L621 `function tokenURI(uint256 tokenId) public view override returns (string memory)` — **anyone** — value: NONE
-- L647 `function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Votes) returns (address)` — **internal (callers: ERC721 _mint, _burn, _transfer and the public transfer entry points)** — value: NONE
-- L707 `function _increaseBalance(address account, uint128 amount) internal override(ERC721, ERC721Votes)` — **internal (callers: ERC721 batch-mint plumbing)** — value: NONE
-- L715 `function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981) returns (bool)` — **anyone** — value: NONE
+- L575 `function igniteCauldron() external nonReentrant returns (address token)` — **anyone once sold out - unless a finalizer is set, and then only the finalizer** — value: forwards this contract's ENTIRE native balance to the registry's summon at `summon` (line 595)
+- L604 `function soldOut() external view returns (bool)` — **anyone** — value: NONE
+- L609 `function remaining() external view returns (uint256)` — **anyone** — value: NONE
+- L620 `function isGenesis(uint256 tokenId) public view returns (bool)` — **anyone** — value: NONE
+- L627 `function ogTrait(uint256 tokenId) external view returns (string memory)` — **anyone** — value: NONE
+- L631 `function tokenURI(uint256 tokenId) public view override returns (string memory)` — **anyone** — value: NONE
+- L657 `function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Votes) returns (address)` — **internal (callers: ERC721 _mint, _burn, _transfer and the public transfer entry points)** — value: NONE
+- L717 `function _increaseBalance(address account, uint128 amount) internal override(ERC721, ERC721Votes)` — **internal (callers: ERC721 batch-mint plumbing)** — value: NONE
+- L725 `function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981) returns (bool)` — **anyone** — value: NONE
 
 **MintCurvePolicy** (`cauldron/MintCurvePolicy.sol`)
 

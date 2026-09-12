@@ -43,6 +43,7 @@
  "isDead(bytes32)": "134f86e7",
  "isOpener(address)": "3e3a8cb8",
  "legacyBuffer()": "b5b67321",
+ "legacyBufferAsset()": "4a8dc5be",
  "legacyBuyStep((address,address,uint24,int24,address))": "cdbf9cd9",
  "legacyOwedToReserve()": "e520af37",
  "legacyRegistry()": "ae8c9d13",

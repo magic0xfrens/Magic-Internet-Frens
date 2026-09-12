@@ -1,6 +1,6 @@
 # Cauldron function graph
 
-Generated 2026-09-11 at commit `39d04e1` (branch snapshot of the working tree) from the decontaminated source tree `/tmp/blind-final/contracts/solidity` (comment tags stripped; line numbers and body hashes identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).
+Generated 2026-09-12 at commit `ba9fb17` (branch snapshot of the working tree) from the decontaminated source tree `contracts/solidity` (comment tags stripped; line numbers and body hashes identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).
 
 Extraction only: no severity judgment, no exploit narrative. Every node comes from `skeleton.py`; every number below comes from `validate.py`, `join.py`, or `CROSSCHECK.md`.
 
@@ -61,16 +61,16 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | hook | IPerpForceClose (declared in CauldronHook.sol) | 2 | 2 | 2 | 0 | 0 | |
 | hook | IPerpFeeCredit (declared in CauldronHook.sol) | 3 | 3 | 3 | 0 | 0 | |
 | hook | ISeederInSwap (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | CauldronHook | 77 | 77 | 77 | 48 | 0 | |
+| hook | CauldronHook | 78 | 78 | 78 | 49 | 4 | |
 | hook | DefaultFeeRouter | 1 | 1 | 1 | 0 | 0 | |
 | hook | FeeRouteLib | 7 | 7 | 7 | 7 | 1 | |
-| hook | LegacyBuyLib | 1 | 1 | 1 | 1 | 0 | |
+| hook | LegacyBuyLib | 1 | 1 | 1 | 1 | 1 | |
 | hook | ReserveLib | 5 | 5 | 5 | 1 | 4 | |
 | hook | ILegacyBuffer (declared in RoyaltyRouter.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | RoyaltyRouter | 2 | 2 | 2 | 1 | 1 | |
+| hook | RoyaltyRouter | 2 | 2 | 2 | 1 | 2 | |
 | hook | BaseHook | 23 | 23 | 23 | 12 | 0 | |
 | hook | HookMiner | 2 | 2 | 2 | 1 | 1 | |
-| registry | CauldronRegistry | 68 | 68 | 68 | 41 | 31 | |
+| registry | CauldronRegistry | 68 | 68 | 68 | 42 | 29 | |
 | registry | CauldronToken | 3 | 3 | 3 | 0 | 2 | |
 | registry | ICollectionRenderer (declared in ICauldron.sol | 1 | 1 | 1 | 0 | 1 | |
 | registry | LaunchLib (declared in ICauldron.sol) | 1 | 1 | 1 | 0 | 1 | |
@@ -100,43 +100,43 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | pool | ICauldronBurn (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | IAutoFlag (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | IPermit2Ops (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
-| pool | PoolOps | 30 | 30 | 30 | 28 | 3 | |
+| pool | PoolOps | 30 | 30 | 30 | 28 | 4 | |
 | perp | IPerpRegistry (declared in PerpEngine.sol) | 8 | 8 | 8 | 0 | 4 | |
 | perp | IMarkSource (declared in PerpEngine.sol) | 1 | 1 | 1 | 0 | 0 | |
-| perp | IPerpVaultStake (declared in PerpEngine.sol) | 1 | 1 | 1 | 0 | 1 | |
+| perp | IPerpVaultStake (declared in PerpEngine.sol) | 2 | 2 | 2 | 0 | 2 | |
 | perp | IPerpHook (declared in PerpEngine.sol) | 2 | 2 | 2 | 0 | 1 | |
-| perp | PerpEngine | 87 | 87 | 87 | 62 | 33 | |
-| perp | PerpMarkSource | 6 | 6 | 6 | 0 | 4 | |
+| perp | PerpEngine | 93 | 93 | 93 | 68 | 59 | |
+| perp | PerpMarkSource | 7 | 7 | 7 | 0 | 6 | |
 | perp | IPerpShares (declared in PerpStakerOracle.sol) | 2 | 2 | 2 | 0 | 1 | |
 | perp | PerpStakerOracle | 2 | 2 | 2 | 1 | 2 | |
-| perp | PerpSwapLib | 3 | 3 | 3 | 3 | 0 | |
+| perp | PerpSwapLib | 11 | 11 | 11 | 11 | 12 | |
 | perp | IPerpEngineVault (declared in PerpVault.sol) | 11 | 11 | 11 | 0 | 1 | |
 | perp | IVaultRegistry (declared in PerpVault.sol) | 1 | 1 | 1 | 0 | 1 | |
-| perp | PerpVault | 22 | 22 | 22 | 17 | 7 | |
+| perp | PerpVault | 23 | 23 | 23 | 17 | 8 | |
 | rotation | IBurnableCollection (declared in CauldronVault | 3 | 3 | 3 | 0 | 3 | |
 | rotation | CauldronVault | 6 | 6 | 6 | 4 | 0 | |
 | rotation | MockAggregator | 7 | 7 | 7 | 0 | 0 | |
 | rotation | MockQuoteToken | 3 | 3 | 3 | 1 | 0 | |
 | rotation | IAggregatorV3 (declared in QuoteOracle.sol) | 2 | 2 | 2 | 0 | 0 | |
 | rotation | IERC20Decimals (declared in QuoteOracle.sol) | 1 | 1 | 1 | 0 | 0 | |
-| rotation | QuoteOracle | 11 | 11 | 11 | 6 | 1 | |
-| rotation | QuoteRotator | 29 | 29 | 29 | 18 | 0 | |
+| rotation | QuoteOracle | 11 | 11 | 11 | 6 | 3 | |
+| rotation | QuoteRotator | 29 | 29 | 29 | 18 | 6 | |
 | rotation | ITreasuryGovernor (declared in RedemptionExt.s | 3 | 3 | 3 | 0 | 0 | |
 | rotation | IQuoteRotator (declared in RedemptionExt.sol) | 2 | 2 | 2 | 0 | 0 | |
 | rotation | IHookVolume (declared in RedemptionExt.sol) | 1 | 1 | 1 | 0 | 0 | |
-| rotation | RedemptionExt | 16 | 16 | 16 | 11 | 2 | |
+| rotation | RedemptionExt | 19 | 19 | 19 | 13 | 5 | |
 | governance | IRegistryQuotes (declared in CauldronGovernor. | 1 | 1 | 1 | 0 | 0 | |
-| governance | CauldronGovernor | 11 | 11 | 11 | 7 | 3 | |
+| governance | CauldronGovernor | 13 | 13 | 13 | 7 | 10 | |
 | governance | IVotes721 (declared in TreasuryGovernor.sol) | 3 | 3 | 3 | 0 | 2 | |
 | governance | IRegistryQuotes (declared in TreasuryGovernor. | 1 | 1 | 1 | 0 | 0 | |
 | governance | IQuotePrice (declared in TreasuryGovernor.sol) | 1 | 1 | 1 | 0 | 1 | |
-| governance | TreasuryGovernor | 18 | 18 | 18 | 9 | 18 | |
+| governance | TreasuryGovernor | 19 | 19 | 19 | 10 | 29 | |
 | nft | CauldronCollection | 26 | 26 | 26 | 8 | 1 | |
 | nft | CauldronFactory | 4 | 4 | 4 | 1 | 2 | |
 | nft | ICauldronHookGacha (declared in CauldronGachaR | 5 | 5 | 5 | 0 | 0 | |
 | nft | IRegistryCurrent (declared in CauldronGachaRou | 3 | 3 | 3 | 0 | 0 | |
 | nft | IQuoteOracleView (declared in CauldronGachaRou | 1 | 1 | 1 | 0 | 0 | |
-| nft | CauldronGachaRouter | 23 | 23 | 23 | 18 | 7 | |
+| nft | CauldronGachaRouter | 25 | 25 | 25 | 19 | 13 | |
 | nft | CollectionLedger | 8 | 8 | 8 | 3 | 3 | |
 | nft | ITransferValidator (declared in ICreatorToken. | 1 | 1 | 1 | 0 | 0 | |
 | nft | ICreatorToken | 3 | 3 | 3 | 0 | 0 | |
@@ -145,7 +145,7 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | nft | MiFrensDividend | 22 | 22 | 22 | 18 | 4 | |
 | nft | IRegistrySummon (declared in MiFrensGenesis.so | 2 | 2 | 2 | 0 | 1 | |
 | nft | IMiFrensDividendHook (declared in MiFrensGenes | 1 | 1 | 1 | 0 | 0 | |
-| nft | MiFrensGenesis | 42 | 42 | 42 | 13 | 8 | |
+| nft | MiFrensGenesis | 42 | 42 | 42 | 13 | 10 | |
 | nft | MintCurvePolicy | 3 | 3 | 3 | 0 | 0 | |
 | nft | INFTContract | 2 | 2 | 2 | 0 | 2 | |
 | seed | IRegistryOwner (declared in CauldronSeeder.sol | 1 | 1 | 1 | 0 | 1 | |
@@ -153,51 +153,51 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | seed | ISeeder | 6 | 6 | 6 | 0 | 1 | |
 | seed | IMiFrensGenesisFinalize (declared in LaunchSni | 2 | 2 | 2 | 0 | 0 | |
 | seed | IRegistryCurrent (declared in LaunchSniper.sol | 1 | 1 | 1 | 0 | 1 | |
-| seed | IGachaPlay (declared in LaunchSniper.sol) | 1 | 1 | 1 | 0 | 1 | |
-| seed | LaunchSniper | 4 | 4 | 4 | 2 | 1 | |
+| seed | IGachaPlay (declared in LaunchSniper.sol) | 1 | 1 | 1 | 0 | 2 | |
+| seed | LaunchSniper | 5 | 5 | 5 | 2 | 5 | |
 | seed | IVestingRegistry (declared in MigrationVesting | 3 | 3 | 3 | 0 | 2 | |
 | seed | IStakerOracle (declared in MigrationVesting.so | 1 | 1 | 1 | 0 | 1 | |
-| seed | MigrationVesting | 15 | 15 | 15 | 9 | 1 | |
+| seed | MigrationVesting | 16 | 16 | 16 | 9 | 6 | |
 | seed | SeedLib | 7 | 7 | 7 | 3 | 5 | |
 
 | cluster | validator result |
 |---|---|
-| hook | `COVERAGE hook: 133/133 nodes, 0 failures` |
+| hook | `COVERAGE hook: 134/134 nodes, 0 failures` |
 | registry | `COVERAGE registry: 87/87 nodes, 0 failures` |
 | pool | `COVERAGE pool: 71/71 nodes, 0 failures` |
-| perp | `COVERAGE perp: 146/146 nodes, 0 failures` |
-| rotation | `COVERAGE rotation: 84/84 nodes, 0 failures` |
-| governance | `COVERAGE governance: 35/35 nodes, 0 failures` |
-| nft | `COVERAGE nft: 153/153 nodes, 0 failures` |
-| seed | `COVERAGE seed: 64/64 nodes, 0 failures` |
+| perp | `COVERAGE perp: 163/163 nodes, 0 failures` |
+| rotation | `COVERAGE rotation: 87/87 nodes, 0 failures` |
+| governance | `COVERAGE governance: 38/38 nodes, 0 failures` |
+| nft | `COVERAGE nft: 155/155 nodes, 0 failures` |
+| seed | `COVERAGE seed: 66/66 nodes, 0 failures` |
 
 ## Per-cluster totals (from the graph JSON)
 
 | cluster | nodes | external/public | authority = anyone | UNGATED | edges | UNTRUSTED edges | DERIVED tags | observations |
 |---|---|---|---|---|---|---|---|---|
-| hook | 133 | 87 | 21 | 81 | 130 | 47 | 10 | 15 |
-| registry | 87 | 68 | 31 | 35 | 108 | 4 | 41 | 15 |
-| pool | 71 | 61 | 45 | 39 | 119 | 20 | 13 | 6 |
-| perp | 146 | 93 | 65 | 107 | 196 | 13 | 55 | 7 |
-| rotation | 84 | 60 | 38 | 53 | 96 | 15 | 6 | 14 |
-| governance | 35 | 26 | 16 | 25 | 25 | 3 | 24 | 10 |
-| nft | 153 | 116 | 42 | 85 | 121 | 33 | 29 | 10 |
-| seed | 64 | 38 | 25 | 41 | 96 | 24 | 21 | 12 |
+| hook | 134 | 88 | 21 | 81 | 132 | 45 | 16 | 14 |
+| registry | 87 | 68 | 30 | 34 | 109 | 4 | 39 | 15 |
+| pool | 71 | 61 | 45 | 39 | 119 | 20 | 14 | 7 |
+| perp | 163 | 106 | 69 | 116 | 227 | 15 | 97 | 60 |
+| rotation | 87 | 61 | 40 | 56 | 100 | 17 | 15 | 14 |
+| governance | 38 | 27 | 19 | 27 | 28 | 3 | 31 | 14 |
+| nft | 155 | 118 | 43 | 86 | 122 | 32 | 36 | 9 |
+| seed | 66 | 40 | 26 | 41 | 94 | 19 | 29 | 13 |
 
-Total nodes: 773.
+Total nodes: 801.
 
 ## Cross-cluster edge join (from join.py)
 
 | cluster | edges | in-cluster | out-of-cluster | resolved to node | resolved to lib/low-level | unresolved | malformed |
 |---|---|---|---|---|---|---|---|
-| hook | 130 | 54 | 76 | 43 | 33 | 0 | 0 |
-| registry | 108 | 29 | 79 | 67 | 12 | 0 | 0 |
+| hook | 132 | 55 | 77 | 43 | 34 | 0 | 0 |
+| registry | 109 | 31 | 78 | 66 | 12 | 0 | 0 |
 | pool | 119 | 31 | 88 | 59 | 29 | 0 | 0 |
-| perp | 196 | 134 | 62 | 43 | 19 | 0 | 0 |
-| rotation | 96 | 47 | 49 | 21 | 28 | 0 | 0 |
-| governance | 25 | 14 | 11 | 10 | 1 | 0 | 0 |
-| nft | 121 | 84 | 37 | 16 | 21 | 0 | 0 |
-| seed | 96 | 42 | 54 | 14 | 40 | 0 | 0 |
+| perp | 227 | 145 | 82 | 56 | 26 | 0 | 0 |
+| rotation | 100 | 46 | 54 | 25 | 29 | 0 | 0 |
+| governance | 28 | 17 | 11 | 10 | 1 | 0 | 0 |
+| nft | 122 | 85 | 37 | 16 | 21 | 0 | 0 |
+| seed | 94 | 33 | 61 | 21 | 40 | 0 | 0 |
 
 Unresolved edges (0):
 

@@ -1,0 +1,18 @@
+NEW : registry.json  (87 nodes, 87 keys)
+OLD : registry.json  (87 nodes, 87 keys)
+
+COUNTS  added=2  removed=2  changed=0  moved=0
+
+ADDED (2)
+  + CauldronRegistry.recoverLegs  recoverLegs(uint256) external returns (uint256, uint256)  (line 290)
+  + CauldronRegistry.claimByBurnUpTo  claimByBurnUpTo(uint256, uint256) external returns (uint256)  (line 1288)
+
+REMOVED (2)
+  - CauldronRegistry.claimByBurnUpTo  claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256 claimedAmount)  (line 1263)
+  - CauldronRegistry.hasClaimed  hasClaimed(uint256 generation_, address holder) external view returns (bool)  (line 1768)
+
+CHANGED (0)
+  (none)
+
+MOVED (0)
+  (none)

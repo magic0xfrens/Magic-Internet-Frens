@@ -1,0 +1,26 @@
+NEW : governance.json  (38 nodes, 38 keys)
+OLD : governance.json  (35 nodes, 35 keys)
+
+COUNTS  added=3  removed=0  changed=9  moved=0
+
+ADDED (3)
+  + CauldronGovernor.renounceOwnership  renounceOwnership() public view override onlyOwner  (line 195)
+  + CauldronGovernor._benchRecord  _benchRecord(uint256 id, uint256 votes) private  (line 429)
+  + TreasuryGovernor._benchRecord  _benchRecord(uint256 id, uint256 votes) private  (line 534)
+
+REMOVED (0)
+  (none)
+
+CHANGED (9)
+  ~ CauldronGovernor.vote  vote(uint256 proposalId) external  (line 383)  body_sha1 96a6922c -> 2ef12a37
+  ~ CauldronGovernor._recomputeLeader  _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes)  (line 554)  body_sha1 b090f3b7 -> 131f2c08
+  ~ TreasuryGovernor.propose  propose(address quote, uint16 maxTotalBps) external returns (uint256 id)  (line 415)  body_sha1 db8a4346 -> f3e65208
+  ~ TreasuryGovernor.vote  vote(uint256 id, bool support) external  (line 465)  body_sha1 af0566ba -> c46131e5
+  ~ TreasuryGovernor.execute  execute(uint256 id) external  (line 558)  body_sha1 0c15afee -> 80c2b3a5
+  ~ TreasuryGovernor.setGuardian  setGuardian(address g) external  (line 631)  body_sha1 3db54529 -> fd65e99d
+  ~ TreasuryGovernor.winner  winner() public view returns (uint256 best)  (line 667)  body_sha1 0aa1d5bf -> b21b38ae
+  ~ TreasuryGovernor.allowance  allowance() public view returns (address quote, uint16 remainingBps)  (line 753)  body_sha1 5ac3b163 -> caf47906
+  ~ TreasuryGovernor.consume  consume(uint16 bps, bool fromPrimary) external  (line 827)  body_sha1 c7967368 -> aa27ae40
+
+MOVED (0)
+  (none)

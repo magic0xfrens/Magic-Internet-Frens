@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 21737,
+   "astId": 6,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "owner",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_address"
   },
   {
-   "astId": 21743,
+   "astId": 12,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "description",
    "offset": 0,
@@ -17,7 +17,7 @@
    "type": "t_string_storage"
   },
   {
-   "astId": 21745,
+   "astId": 14,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "_answer",
    "offset": 0,
@@ -25,7 +25,7 @@
    "type": "t_int256"
   },
   {
-   "astId": 21748,
+   "astId": 17,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "_round",
    "offset": 0,
@@ -33,7 +33,7 @@
    "type": "t_uint80"
   },
   {
-   "astId": 21751,
+   "astId": 20,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "stale",
    "offset": 10,
@@ -41,7 +41,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 21754,
+   "astId": 23,
    "contract": "cauldron/MockAggregator.sol:MockAggregator",
    "label": "down",
    "offset": 11,

@@ -1,9 +1,9 @@
 {
  "cluster": "registry",
- "source_root": "/tmp/blind-final/contracts/solidity",
- "generated": "2026-09-11T13:24:25",
+ "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
+ "generated": "2026-09-12T11:37:55",
  "files": {
-  "CauldronRegistry.sol": 1786,
+  "CauldronRegistry.sol": 1797,
   "CauldronToken.sol": 62,
   "cauldron/IPolicies.sol": 75,
   "cauldron/IDeathChecker.sol": 32,
@@ -14,7 +14,7 @@
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 156,
+   "line": 158,
    "kind": "constructor",
    "name": "",
    "signature": "constructor( address _poolManager, address _positionManager, address _hook, address _emergencyAdmin, uint256 _emergencyDelay )",
@@ -23,14 +23,14 @@
    "modifiers": [],
    "body_sha1": "ac9f50e383eb5a01580185e0f657365980910a8c",
    "body_lines": [
-    162,
-    176
+    164,
+    178
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 182,
+   "line": 184,
    "kind": "function",
    "name": "setRedemptionExt",
    "signature": "function setRedemptionExt(address ext) external onlyOwner",
@@ -41,14 +41,14 @@
    ],
    "body_sha1": "2dc45b036e815acb5638a2f7f75bda242a87b46f",
    "body_lines": [
-    182,
-    190
+    184,
+    192
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 195,
+   "line": 197,
    "kind": "function",
    "name": "setReserveCeiling",
    "signature": "function setReserveCeiling(int24 offset) external onlyOwner",
@@ -59,14 +59,14 @@
    ],
    "body_sha1": "f06c8dc361c98da77a39a956e79b8e944f6244e8",
    "body_lines": [
-    195,
-    198
+    197,
+    200
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 238,
+   "line": 240,
    "kind": "function",
    "name": "rotateSlice",
    "signature": "function rotateSlice(uint16, uint256, PoolKey calldata) external returns (uint256, uint256)",
@@ -75,14 +75,14 @@
    "modifiers": [],
    "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    238,
-    240
+    240,
+    242
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 262,
+   "line": 264,
    "kind": "function",
    "name": "rotateSliceFrom",
    "signature": "function rotateSliceFrom(uint8, uint16, uint256, PoolKey calldata) external returns (uint256, uint256)",
@@ -91,14 +91,14 @@
    "modifiers": [],
    "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    265,
-    267
+    267,
+    269
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 272,
+   "line": 274,
    "kind": "function",
    "name": "setRotationWiring",
    "signature": "function setRotationWiring(address, address) external",
@@ -107,14 +107,30 @@
    "modifiers": [],
    "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    272,
-    272
+    274,
+    274
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 282,
+   "line": 290,
+   "kind": "function",
+   "name": "recoverLegs",
+   "signature": "function recoverLegs(uint256) external returns (uint256, uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
+   "body_lines": [
+    290,
+    290
+   ]
+  },
+  {
+   "contract": "CauldronRegistry",
+   "file": "CauldronRegistry.sol",
+   "line": 300,
    "kind": "function",
    "name": "sweepLegProceeds",
    "signature": "function sweepLegProceeds(address, address) external returns (uint256)",
@@ -123,14 +139,14 @@
    "modifiers": [],
    "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    282,
-    282
+    300,
+    300
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 290,
+   "line": 308,
    "kind": "function",
    "name": "setAllowedQuote",
    "signature": "function setAllowedQuote(address quote, bool allowed, uint256 scale) external onlyOwner",
@@ -141,14 +157,14 @@
    ],
    "body_sha1": "4e840067d50b7b62691196dd56bb392348e206d4",
    "body_lines": [
-    290,
-    307
+    308,
+    325
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 309,
+   "line": 327,
    "kind": "function",
    "name": "setSeeder",
    "signature": "function setSeeder(address _seeder) external onlyOwner",
@@ -159,14 +175,14 @@
    ],
    "body_sha1": "8c9871e6a38cc2941abd16cfe4a60b549a53c877",
    "body_lines": [
-    309,
-    313
+    327,
+    331
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 321,
+   "line": 339,
    "kind": "function",
    "name": "rescueSeeder",
    "signature": "function rescueSeeder() external onlyEmergency timelocked nonReentrant",
@@ -179,14 +195,14 @@
    ],
    "body_sha1": "95aef2801cd68f592f5f712213e25d70febad569",
    "body_lines": [
-    321,
-    325
+    339,
+    343
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 332,
+   "line": 350,
    "kind": "function",
    "name": "setSeedWindow",
    "signature": "function setSeedWindow(uint64 window) external onlyOwner",
@@ -197,14 +213,14 @@
    ],
    "body_sha1": "309d038d7dd5fbd68b22b6b9e0f43da620c13b2a",
    "body_lines": [
-    332,
-    336
+    350,
+    354
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 341,
+   "line": 359,
    "kind": "function",
    "name": "enchantFee",
    "signature": "function enchantFee() external view returns (uint256)",
@@ -213,14 +229,14 @@
    "modifiers": [],
    "body_sha1": "394896c89565c60eb6cbaf108d7c8ec9e08d6c00",
    "body_lines": [
-    341,
-    343
+    359,
+    361
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 345,
+   "line": 363,
    "kind": "modifier",
    "name": "onlyEmergency",
    "signature": "modifier onlyEmergency()",
@@ -229,14 +245,14 @@
    "modifiers": [],
    "body_sha1": "20a35bf6c20670520dfdc5b78d431b3bc4c00e8a",
    "body_lines": [
-    345,
-    348
+    363,
+    366
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 354,
+   "line": 372,
    "kind": "modifier",
    "name": "timelocked",
    "signature": "modifier timelocked()",
@@ -245,14 +261,14 @@
    "modifiers": [],
    "body_sha1": "86c236a6ab08919917cdd0279d8e1f5a5e24decc",
    "body_lines": [
-    354,
-    357
+    372,
+    375
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 388,
+   "line": 406,
    "kind": "function",
    "name": "_consumeTimelock",
    "signature": "function _consumeTimelock() private",
@@ -261,14 +277,14 @@
    "modifiers": [],
    "body_sha1": "769be33c99c2016580d227394ff7e67f0c9267bc",
    "body_lines": [
-    388,
-    392
+    406,
+    410
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 396,
+   "line": 414,
    "kind": "function",
    "name": "setIgniter",
    "signature": "function setIgniter(address who) external onlyOwner",
@@ -279,14 +295,14 @@
    ],
    "body_sha1": "e37025db1a72a7f28aa99a7550d9a54265d22f4f",
    "body_lines": [
-    396,
-    398
+    414,
+    416
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 402,
+   "line": 420,
    "kind": "function",
    "name": "armEmergency",
    "signature": "function armEmergency() external onlyEmergency",
@@ -297,14 +313,14 @@
    ],
    "body_sha1": "2f53aa515b613ebbb5c8dd1d1ab3f582d0fed37c",
    "body_lines": [
-    402,
-    405
+    420,
+    423
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 410,
+   "line": 428,
    "kind": "function",
    "name": "setGuardian",
    "signature": "function setGuardian(address who) external",
@@ -313,14 +329,14 @@
    "modifiers": [],
    "body_sha1": "60b1599d54b77dbc896836bc3cf1269c1c2aa776",
    "body_lines": [
-    410,
-    416
+    428,
+    434
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 420,
+   "line": 438,
    "kind": "function",
    "name": "vetoEmergency",
    "signature": "function vetoEmergency() external",
@@ -329,14 +345,14 @@
    "modifiers": [],
    "body_sha1": "d7886fdbecf0e3ed5db87c98abb3a53a15671513",
    "body_lines": [
-    420,
-    424
+    438,
+    442
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 435,
+   "line": 453,
    "kind": "function",
    "name": "setRedemptionPaused",
    "signature": "function setRedemptionPaused(bool paused) external onlyEmergency",
@@ -347,14 +363,14 @@
    ],
    "body_sha1": "760fadf646a2d0080ea861cc0da491352e6a6ba9",
    "body_lines": [
-    435,
-    438
+    453,
+    456
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 444,
+   "line": 462,
    "kind": "function",
    "name": "setEnchantFeeMult",
    "signature": "function setEnchantFeeMult(uint256 bps) external onlyEmergency",
@@ -365,14 +381,14 @@
    ],
    "body_sha1": "436b348efa406c0ae57124151373cd9cf1b4dbf5",
    "body_lines": [
-    444,
-    447
+    462,
+    465
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 451,
+   "line": 469,
    "kind": "function",
    "name": "emergencyWithdrawLP",
    "signature": "function emergencyWithdrawLP(uint256 gen) external onlyEmergency timelocked nonReentrant",
@@ -385,14 +401,14 @@
    ],
    "body_sha1": "2b413e674cf871728d8eabfa79e70e35a4911386",
    "body_lines": [
-    451,
-    460
+    469,
+    478
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 464,
+   "line": 482,
    "kind": "function",
    "name": "emergencySweep",
    "signature": "function emergencySweep(address token) external onlyEmergency timelocked nonReentrant",
@@ -405,14 +421,14 @@
    ],
    "body_sha1": "bab92a8908a83dc025c124fb6759f02fd97ed8a0",
    "body_lines": [
-    464,
-    471
+    482,
+    489
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 481,
+   "line": 499,
    "kind": "function",
    "name": "setSuccessor",
    "signature": "function setSuccessor(address _successor) external onlyEmergency",
@@ -423,14 +439,14 @@
    ],
    "body_sha1": "7307f3aa35079b7c7c463702ba4e16b1fc3a34a4",
    "body_lines": [
-    481,
-    484
+    499,
+    502
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 500,
+   "line": 518,
    "kind": "function",
    "name": "setClaimGate",
    "signature": "function setClaimGate(address gate) external onlyEmergency",
@@ -441,14 +457,14 @@
    ],
    "body_sha1": "4bebf06085df082f085e5966883135b076f138b2",
    "body_lines": [
-    500,
-    504
+    518,
+    522
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 516,
+   "line": 534,
    "kind": "function",
    "name": "migrateToSuccessor",
    "signature": "function migrateToSuccessor() external onlyEmergency timelocked nonReentrant",
@@ -461,14 +477,14 @@
    ],
    "body_sha1": "8920d4e8cdfb5a74f611dda4f0a24ca2e06b7157",
    "body_lines": [
-    516,
-    552
+    534,
+    570
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 554,
+   "line": 572,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -477,14 +493,14 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    554,
-    554
+    572,
+    572
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 561,
+   "line": 579,
    "kind": "function",
    "name": "setGovernor",
    "signature": "function setGovernor(address _governor) external onlyOwner",
@@ -495,14 +511,14 @@
    ],
    "body_sha1": "507d8684c457637621eae5c09c829da76c6cd92c",
    "body_lines": [
-    561,
-    563
+    579,
+    581
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 566,
+   "line": 584,
    "kind": "function",
    "name": "setMinLifetime",
    "signature": "function setMinLifetime(uint256 _seconds) external onlyEmergency",
@@ -513,14 +529,14 @@
    ],
    "body_sha1": "20e3a715985c0136edf58d6b92432efdc201c96a",
    "body_lines": [
-    566,
-    568
+    584,
+    586
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 571,
+   "line": 589,
    "kind": "function",
    "name": "setFactory",
    "signature": "function setFactory(address _factory) external onlyOwner",
@@ -531,14 +547,14 @@
    ],
    "body_sha1": "f28eeff39d0eb1882c7ac9dfb7371f7c7ada2d95",
    "body_lines": [
-    571,
-    573
+    589,
+    591
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 576,
+   "line": 594,
    "kind": "function",
    "name": "setNftMaxSupply",
    "signature": "function setNftMaxSupply(uint256 _max) external onlyOwner",
@@ -549,14 +565,14 @@
    ],
    "body_sha1": "be0c84b92d8568c3cf269464dc04a0e21922b3f8",
    "body_lines": [
-    576,
-    579
+    594,
+    597
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 583,
+   "line": 601,
    "kind": "function",
    "name": "setRoyalty",
    "signature": "function setRoyalty(address _dividend, uint96 _bps) external onlyOwner",
@@ -567,14 +583,14 @@
    ],
    "body_sha1": "11699653a1660a2f272f882be4651ff0ac5aea67",
    "body_lines": [
-    583,
-    587
+    601,
+    605
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 591,
+   "line": 609,
    "kind": "function",
    "name": "setGenesisMetadata",
    "signature": "function setGenesisMetadata(MetadataMode mode, string calldata baseURI, address renderer) external onlyOwner",
@@ -585,14 +601,14 @@
    ],
    "body_sha1": "ae27afb336c67735063064f5c0aa04dca1af541e",
    "body_lines": [
-    594,
-    598
+    612,
+    616
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 607,
+   "line": 625,
    "kind": "function",
    "name": "setGenesisBonus",
    "signature": "function setGenesisBonus(address _mifrens, uint256 _bonusBps, uint256 _shares) external onlyOwner",
@@ -603,14 +619,14 @@
    ],
    "body_sha1": "1ec009aa488b4af62233b5ee05d1311ca7558706",
    "body_lines": [
-    610,
-    617
+    628,
+    635
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 622,
+   "line": 640,
    "kind": "function",
    "name": "setAirdropReserve",
    "signature": "function setAirdropReserve(address _wallet, uint256 _amount) external onlyOwner",
@@ -621,14 +637,14 @@
    ],
    "body_sha1": "5c052d94cd6e8de9f5be972fb53867c55ed593a1",
    "body_lines": [
-    622,
-    628
+    640,
+    646
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 631,
+   "line": 649,
    "kind": "function",
    "name": "setPrimeFunder",
    "signature": "function setPrimeFunder(address who) external onlyOwner",
@@ -639,14 +655,14 @@
    ],
    "body_sha1": "00ebd2f2efa252e2d3bcf43918919ef7525af2a6",
    "body_lines": [
-    631,
-    634
+    649,
+    652
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 641,
+   "line": 659,
    "kind": "function",
    "name": "fundPrimeBuy",
    "signature": "function fundPrimeBuy() external payable",
@@ -655,14 +671,14 @@
    "modifiers": [],
    "body_sha1": "15839775e0a00b8bbaebe59c3e4cb2d7552c7cee",
    "body_lines": [
-    641,
-    644
+    659,
+    662
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 647,
+   "line": 665,
    "kind": "function",
    "name": "sweepPrimeBuy",
    "signature": "function sweepPrimeBuy() external",
@@ -671,14 +687,14 @@
    "modifiers": [],
    "body_sha1": "c4dcc45dbf8e217d109454ded250036a4c732de7",
    "body_lines": [
-    647,
-    653
+    665,
+    671
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 668,
+   "line": 686,
    "kind": "function",
    "name": "summon",
    "signature": "function summon() external payable nonReentrant returns (address token, PoolId poolId)",
@@ -689,14 +705,14 @@
    ],
    "body_sha1": "184734f016e011356c5c22bb1c91499ee2ce92ed",
    "body_lines": [
-    673,
-    746
+    691,
+    764
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 767,
+   "line": 785,
    "kind": "function",
    "name": "relaunch",
    "signature": "function relaunch() external nonReentrant returns (address token, PoolId poolId)",
@@ -707,14 +723,14 @@
    ],
    "body_sha1": "0ba02529c0b88c6969207bb747e0000abf4f9205",
    "body_lines": [
-    771,
-    1088
+    789,
+    1106
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1094,
+   "line": 1112,
    "kind": "function",
    "name": "_perpHousekeep",
    "signature": "function _perpHousekeep(bool sync) private",
@@ -723,14 +739,14 @@
    "modifiers": [],
    "body_sha1": "d0d5e8c4f1b343cbbe470b8079053c6024ca221d",
    "body_lines": [
-    1094,
-    1129
+    1112,
+    1147
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1135,
+   "line": 1153,
    "kind": "function",
    "name": "_deployCollection",
    "signature": "function _deployCollection( uint256 gen, string memory name, string memory symbol, MetadataMode mode, string memory baseURI, address renderer, uint256 maxSupply ) private",
@@ -739,14 +755,14 @@
    "modifiers": [],
    "body_sha1": "5b8eff665d301c33bb3d35b958163e7061a084f3",
    "body_lines": [
-    1143,
-    1173
+    1161,
+    1191
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1184,
+   "line": 1202,
    "kind": "function",
    "name": "_continueMiFrens",
    "signature": "function _continueMiFrens(uint256 gen) private",
@@ -755,14 +771,14 @@
    "modifiers": [],
    "body_sha1": "6eebc8102065098d08be0bf2243880cfe6d24fc9",
    "body_lines": [
-    1184,
-    1197
+    1202,
+    1215
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1225,
+   "line": 1243,
    "kind": "function",
    "name": "claimByBurn",
    "signature": "function claimByBurn(uint256 fromGen, uint256 amount) external returns (uint256 claimedAmount)",
@@ -771,30 +787,30 @@
    "modifiers": [],
    "body_sha1": "804750a3933586aa70b1a43f41207720ebc5127c",
    "body_lines": [
-    1228,
-    1249
+    1246,
+    1267
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1263,
+   "line": 1288,
    "kind": "function",
    "name": "claimByBurnUpTo",
-   "signature": "function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256 claimedAmount)",
+   "signature": "function claimByBurnUpTo(uint256, uint256) external returns (uint256)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "761527f7c0e68bb23e95279c1de2160b47dfbd7f",
+   "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    1266,
-    1284
+    1288,
+    1290
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1300,
+   "line": 1306,
    "kind": "function",
    "name": "enableAutoMigrate",
    "signature": "function enableAutoMigrate() external payable",
@@ -803,14 +819,14 @@
    "modifiers": [],
    "body_sha1": "8e18a8fb059454aea5c7c487c3ab320a4bbcbab4",
    "body_lines": [
-    1300,
-    1310
+    1306,
+    1316
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1328,
+   "line": 1334,
    "kind": "function",
    "name": "disableAutoMigrate",
    "signature": "function disableAutoMigrate() external",
@@ -819,14 +835,14 @@
    "modifiers": [],
    "body_sha1": "c775be83532b598b09d057f5bd72c63990124453",
    "body_lines": [
-    1328,
-    1331
+    1334,
+    1337
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1340,
+   "line": 1346,
    "kind": "function",
    "name": "autoMigrateBatch",
    "signature": "function autoMigrateBatch(uint256 fromGen, address[] calldata holders) external nonReentrant",
@@ -837,24 +853,8 @@
    ],
    "body_sha1": "76f47a41001fc0779150f180f124cf03cbeb866d",
    "body_lines": [
-    1343,
-    1356
-   ]
-  },
-  {
-   "contract": "CauldronRegistry",
-   "file": "CauldronRegistry.sol",
-   "line": 1383,
-   "kind": "function",
-   "name": "redeemOgFren",
-   "signature": "function redeemOgFren(uint256) external returns (uint256)",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
-   "body_lines": [
-    1383,
-    1385
+    1349,
+    1362
    ]
   },
   {
@@ -862,8 +862,8 @@
    "file": "CauldronRegistry.sol",
    "line": 1389,
    "kind": "function",
-   "name": "buyTreasuryOgFren",
-   "signature": "function buyTreasuryOgFren(uint256) external returns (uint256)",
+   "name": "redeemOgFren",
+   "signature": "function redeemOgFren(uint256) external returns (uint256)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
@@ -878,8 +878,8 @@
    "file": "CauldronRegistry.sol",
    "line": 1395,
    "kind": "function",
-   "name": "donateToReserve",
-   "signature": "function donateToReserve(uint256) external",
+   "name": "buyTreasuryOgFren",
+   "signature": "function buyTreasuryOgFren(uint256) external returns (uint256)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
@@ -894,8 +894,8 @@
    "file": "CauldronRegistry.sol",
    "line": 1401,
    "kind": "function",
-   "name": "materializeLegacyReserve",
-   "signature": "function materializeLegacyReserve() external returns (uint256)",
+   "name": "donateToReserve",
+   "signature": "function donateToReserve(uint256) external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
@@ -908,7 +908,23 @@
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1418,
+   "line": 1407,
+   "kind": "function",
+   "name": "materializeLegacyReserve",
+   "signature": "function materializeLegacyReserve() external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
+   "body_lines": [
+    1407,
+    1409
+   ]
+  },
+  {
+   "contract": "CauldronRegistry",
+   "file": "CauldronRegistry.sol",
+   "line": 1424,
    "kind": "function",
    "name": "floorClaimableNow",
    "signature": "function floorClaimableNow() external returns (bool, uint256)",
@@ -917,14 +933,14 @@
    "modifiers": [],
    "body_sha1": "6f15d2947f90aff1b01ae8ebee2a24667216cffb",
    "body_lines": [
-    1418,
-    1420
+    1424,
+    1426
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1423,
+   "line": 1429,
    "kind": "function",
    "name": "legCount",
    "signature": "function legCount(uint256) external returns (uint256)",
@@ -933,14 +949,14 @@
    "modifiers": [],
    "body_sha1": "6f15d2947f90aff1b01ae8ebee2a24667216cffb",
    "body_lines": [
-    1423,
-    1425
+    1429,
+    1431
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1428,
+   "line": 1434,
    "kind": "function",
    "name": "legAt",
    "signature": "function legAt(uint256, uint256) external returns (address, uint256, PoolKey memory)",
@@ -949,14 +965,14 @@
    "modifiers": [],
    "body_sha1": "6f15d2947f90aff1b01ae8ebee2a24667216cffb",
    "body_lines": [
-    1428,
-    1430
+    1434,
+    1436
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1441,
+   "line": 1447,
    "kind": "function",
    "name": "_forwardToExtView",
    "signature": "function _forwardToExtView() private",
@@ -965,14 +981,14 @@
    "modifiers": [],
    "body_sha1": "9d5aae3209f78c6a79992368fb811104a5954f83",
    "body_lines": [
-    1441,
-    1443
+    1447,
+    1449
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1451,
+   "line": 1457,
    "kind": "function",
    "name": "_forwardToExt",
    "signature": "function _forwardToExt() private",
@@ -981,14 +997,14 @@
    "modifiers": [],
    "body_sha1": "195063922bd1dedccc4f7e09ad4f17e87f6aa22c",
    "body_lines": [
-    1451,
-    1462
+    1457,
+    1468
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1473,
+   "line": 1479,
    "kind": "function",
    "name": "setCollectionLedger",
    "signature": "function setCollectionLedger(address ledger) external onlyOwner",
@@ -999,14 +1015,14 @@
    ],
    "body_sha1": "fabd88c1bf238a153eab3044d37fd20cd6d6aaf4",
    "body_lines": [
-    1473,
-    1475
+    1479,
+    1481
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1494,
+   "line": 1500,
    "kind": "function",
    "name": "_flushLegacyAtRelaunch",
    "signature": "function _flushLegacyAtRelaunch(uint256 oldGen, address oldToken) private",
@@ -1015,14 +1031,14 @@
    "modifiers": [],
    "body_sha1": "f28cf763c52665369a3dd5aa80e2ccd01eaf66e2",
    "body_lines": [
-    1494,
-    1502
+    1500,
+    1508
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1508,
+   "line": 1514,
    "kind": "function",
    "name": "recycleCollectionNFT",
    "signature": "function recycleCollectionNFT(uint256 gen, uint256 tokenId) external nonReentrant returns (uint256 amount)",
@@ -1033,14 +1049,14 @@
    ],
    "body_sha1": "b7dc0b581c8ed657237d12ac4ca9672ecc99cb3b",
    "body_lines": [
-    1510,
-    1524
+    1516,
+    1530
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1529,
+   "line": 1535,
    "kind": "function",
    "name": "buyCollectionNFT",
    "signature": "function buyCollectionNFT(uint256 gen, uint256 tokenId) external nonReentrant returns (uint256 paid)",
@@ -1051,14 +1067,14 @@
    ],
    "body_sha1": "7cbc9fe3f84332fab3b38b03d94fb4ef5d1ebff5",
    "body_lines": [
-    1531,
-    1541
+    1537,
+    1547
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1552,
+   "line": 1558,
    "kind": "function",
    "name": "_removeLiquidity",
    "signature": "function _removeLiquidity(uint256 gen) private returns (uint256 ethRecovered, uint256 tokensRecovered)",
@@ -1067,14 +1083,14 @@
    "modifiers": [],
    "body_sha1": "477dd077cac5646387b5d7b795bb28f179b150fc",
    "body_lines": [
-    1555,
-    1614
+    1561,
+    1620
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1626,
+   "line": 1632,
    "kind": "function",
    "name": "_deployToken",
    "signature": "function _deployToken( string memory name, string memory symbol, uint256 gen, address want ) private returns (address token, address quoteUsed)",
@@ -1083,14 +1099,14 @@
    "modifiers": [],
    "body_sha1": "08d7fecb359d86f2588f442f04f0ac9d62f17611",
    "body_lines": [
-    1631,
-    1642
+    1637,
+    1648
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1671,
+   "line": 1677,
    "kind": "function",
    "name": "_createPoolAndSeedWithBuy",
    "signature": "function _createPoolAndSeedWithBuy( address token, uint256 activeTokens, uint256 ethAmount, uint256 reserveTokens, uint256 gen ) private returns (PoolId poolId)",
@@ -1099,14 +1115,14 @@
    "modifiers": [],
    "body_sha1": "542144f7e18fcb937d24ae2914af4398b3837d3c",
    "body_lines": [
-    1677,
-    1688
+    1683,
+    1694
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1703,
+   "line": 1709,
    "kind": "function",
    "name": "_seedGeneration",
    "signature": "function _seedGeneration( address token, uint256 activeTokens, uint256 ethAmount, uint256 reserveTokens, uint256 gen ) private returns (PoolId poolId)",
@@ -1115,14 +1131,14 @@
    "modifiers": [],
    "body_sha1": "c05a9f34932d3afe94299dc97e13213154523ede",
    "body_lines": [
-    1709,
-    1735
+    1715,
+    1741
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1740,
+   "line": 1746,
    "kind": "function",
    "name": "_recordSeed",
    "signature": "function _recordSeed(SeedResult memory r, uint256 gen) private returns (PoolId poolId)",
@@ -1131,14 +1147,14 @@
    "modifiers": [],
    "body_sha1": "2d05ccff67e594d3b2952dd67ff7e036734caf42",
    "body_lines": [
-    1740,
-    1749
+    1746,
+    1755
    ]
   },
   {
    "contract": "CauldronRegistry",
    "file": "CauldronRegistry.sol",
-   "line": 1758,
+   "line": 1764,
    "kind": "function",
    "name": "unlockCallback",
    "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
@@ -1147,24 +1163,8 @@
    "modifiers": [],
    "body_sha1": "b0ce2f488ec9e12e78774f0897663072fde906f5",
    "body_lines": [
-    1758,
-    1762
-   ]
-  },
-  {
-   "contract": "CauldronRegistry",
-   "file": "CauldronRegistry.sol",
-   "line": 1768,
-   "kind": "function",
-   "name": "hasClaimed",
-   "signature": "function hasClaimed(uint256 generation_, address holder) external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "8985e95b3622d184a1c5a6856a8e9f9b0574cbf1",
-   "body_lines": [
-    1768,
-    1770
+    1764,
+    1768
    ]
   },
   {

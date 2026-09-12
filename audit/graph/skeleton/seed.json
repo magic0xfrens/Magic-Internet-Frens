@@ -1,13 +1,13 @@
 {
  "cluster": "seed",
- "source_root": "/tmp/blind-final/contracts/solidity",
- "generated": "2026-09-11T13:24:25",
+ "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
+ "generated": "2026-09-12T11:37:55",
  "files": {
   "cauldron/CauldronSeeder.sol": 611,
   "cauldron/SeedLib.sol": 147,
   "cauldron/ISeeder.sol": 39,
-  "cauldron/MigrationVesting.sol": 308,
-  "cauldron/LaunchSniper.sol": 97
+  "cauldron/MigrationVesting.sol": 376,
+  "cauldron/LaunchSniper.sol": 126
  },
  "nodes": [
   {
@@ -524,10 +524,10 @@
   {
    "contract": "IGachaPlay (declared in LaunchSniper.sol)",
    "file": "cauldron/LaunchSniper.sol",
-   "line": 17,
+   "line": 22,
    "kind": "function",
    "name": "play",
-   "signature": "function play(uint256 gnomeIn, uint256 minGnomeOut, uint256 minEthOut, uint256 openMax) external payable returns (uint256)",
+   "signature": "function play( uint256 quoteIn, uint256 tokenIn, uint256 minTokenOut, uint256 minQuoteOut, uint256 openMax ) external payable returns (uint256)",
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
@@ -537,7 +537,7 @@
   {
    "contract": "LaunchSniper",
    "file": "cauldron/LaunchSniper.sol",
-   "line": 47,
+   "line": 58,
    "kind": "constructor",
    "name": "",
    "signature": "constructor(address _owner) Ownable(_owner)",
@@ -548,14 +548,14 @@
    ],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    47,
-    47
+    58,
+    58
    ]
   },
   {
    "contract": "LaunchSniper",
    "file": "cauldron/LaunchSniper.sol",
-   "line": 58,
+   "line": 69,
    "kind": "function",
    "name": "launch",
    "signature": "function launch( address presale, address registry, address gachaRouter, address airdropWallet, uint256 minGnomeOut, uint256 openMax ) external payable onlyOwner returns (address token, uint256 gnomeBought)",
@@ -564,16 +564,16 @@
    "modifiers": [
     "onlyOwner"
    ],
-   "body_sha1": "5c5155b4a8d802a20a3145f60f8a9a39313093d6",
+   "body_sha1": "29137b50b5644073c59547ce5ca8c9326089440c",
    "body_lines": [
-    65,
-    83
+    76,
+    99
    ]
   },
   {
    "contract": "LaunchSniper",
    "file": "cauldron/LaunchSniper.sol",
-   "line": 86,
+   "line": 102,
    "kind": "function",
    "name": "sweep",
    "signature": "function sweep(address tokenAddr) external onlyOwner",
@@ -584,14 +584,30 @@
    ],
    "body_sha1": "7056aeb6270348a230a91af8d96b1340ebb6947d",
    "body_lines": [
-    86,
-    93
+    102,
+    109
    ]
   },
   {
    "contract": "LaunchSniper",
    "file": "cauldron/LaunchSniper.sol",
-   "line": 95,
+   "line": 120,
+   "kind": "function",
+   "name": "renounceOwnership",
+   "signature": "function renounceOwnership() public pure override",
+   "visibility": "public",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+   "body_lines": [
+    120,
+    122
+   ]
+  },
+  {
+   "contract": "LaunchSniper",
+   "file": "cauldron/LaunchSniper.sol",
+   "line": 124,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -600,8 +616,8 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    95,
-    95
+    124,
+    124
    ]
   },
   {
@@ -659,7 +675,7 @@
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 114,
+   "line": 147,
    "kind": "constructor",
    "name": "",
    "signature": "constructor( address _registry, address _owner, uint64 _vestWindow, address _stakerOracle ) Ownable(_owner)",
@@ -670,14 +686,14 @@
    ],
    "body_sha1": "06163038c692b60fa8bc2d69882ce2937e3f23d2",
    "body_lines": [
-    119,
-    124
+    152,
+    157
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 135,
+   "line": 168,
    "kind": "function",
    "name": "startVest",
    "signature": "function startVest(uint256 fromGen, uint256 amount) external nonReentrant returns (uint256 escrowed)",
@@ -688,14 +704,14 @@
    ],
    "body_sha1": "ab7befb598ff20a73332d785eb7e0c41a8069e94",
    "body_lines": [
-    139,
-    145
+    172,
+    178
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 153,
+   "line": 191,
    "kind": "function",
    "name": "vestBatch",
    "signature": "function vestBatch(uint256 fromGen, address[] calldata holders) external nonReentrant",
@@ -704,32 +720,32 @@
    "modifiers": [
     "nonReentrant"
    ],
-   "body_sha1": "02985fbebfe30e2d14f1f00c0f8b02067843af73",
+   "body_sha1": "f7512081927aa9790081e39a88d57a99580a1881",
    "body_lines": [
-    153,
-    164
+    191,
+    203
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 169,
+   "line": 208,
    "kind": "function",
    "name": "_pullAndVest",
    "signature": "function _pullAndVest(address holder, uint256 fromGen, uint256 amount) private returns (uint256 escrowed)",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "59729410c9d7567523d1033ce45dcad78c2f9ee1",
+   "body_sha1": "1424ba175912c62a49c3e19ed4b97b9c55879581",
    "body_lines": [
-    172,
-    199
+    211,
+    242
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 206,
+   "line": 249,
    "kind": "function",
    "name": "claim",
    "signature": "function claim() external nonReentrant",
@@ -740,14 +756,14 @@
    ],
    "body_sha1": "5fc454f971f39c1d5a76c82602e4b65889abc2ac",
    "body_lines": [
-    206,
-    209
+    249,
+    252
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 213,
+   "line": 256,
    "kind": "function",
    "name": "claimFor",
    "signature": "function claimFor(address holder) external nonReentrant",
@@ -758,30 +774,30 @@
    ],
    "body_sha1": "8b440903a901cac77fcdd4ba1ead001e8224c795",
    "body_lines": [
-    213,
-    216
+    256,
+    259
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 221,
+   "line": 264,
    "kind": "function",
    "name": "_release",
    "signature": "function _release(address holder) private returns (uint256 totalMoved)",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "751f697340720ab6db7fcc544876171491632735",
+   "body_sha1": "1185801067852fdc24489c602131fd18b71b5fc5",
    "body_lines": [
-    221,
-    242
+    264,
+    298
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 245,
+   "line": 301,
    "kind": "function",
    "name": "_vestedOf",
    "signature": "function _vestedOf(Grant storage grt) private view returns (uint256)",
@@ -790,14 +806,14 @@
    "modifiers": [],
    "body_sha1": "45a3b559e539fbb327b84ea130f3b41a2854bd68",
    "body_lines": [
-    245,
-    250
+    301,
+    306
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 252,
+   "line": 308,
    "kind": "function",
    "name": "_isInstant",
    "signature": "function _isInstant(address who) private view returns (bool)",
@@ -806,14 +822,14 @@
    "modifiers": [],
    "body_sha1": "33c763282c1eb5b5a7b7608e503724197f076fc5",
    "body_lines": [
-    252,
-    258
+    308,
+    314
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 265,
+   "line": 321,
    "kind": "function",
    "name": "claimable",
    "signature": "function claimable(address holder) external view returns (uint256 total)",
@@ -822,14 +838,14 @@
    "modifiers": [],
    "body_sha1": "4c3df377ebf198c9784a76d1e1430d9ba5a7ff4f",
    "body_lines": [
-    265,
-    270
+    321,
+    326
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 273,
+   "line": 329,
    "kind": "function",
    "name": "locked",
    "signature": "function locked(address holder) external view returns (uint256 total)",
@@ -838,14 +854,14 @@
    "modifiers": [],
    "body_sha1": "b13b631b0d1dfe9b8e13e01b2753f7a1cfafa7ae",
    "body_lines": [
-    273,
-    278
+    329,
+    334
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 281,
+   "line": 337,
    "kind": "function",
    "name": "grantCount",
    "signature": "function grantCount(address holder) external view returns (uint256)",
@@ -854,14 +870,14 @@
    "modifiers": [],
    "body_sha1": "9f40086f59d7b82f8b75eaf78d2055fad6e9d9cc",
    "body_lines": [
-    281,
-    283
+    337,
+    339
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 286,
+   "line": 342,
    "kind": "function",
    "name": "grantAt",
    "signature": "function grantAt(address holder, uint256 i) external view returns (Grant memory)",
@@ -870,14 +886,14 @@
    "modifiers": [],
    "body_sha1": "f8952a3673639deca041dd5f3a395496f2544fc8",
    "body_lines": [
-    286,
-    288
+    342,
+    344
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 296,
+   "line": 352,
    "kind": "function",
    "name": "setVestWindow",
    "signature": "function setVestWindow(uint64 _window) external onlyOwner",
@@ -888,14 +904,14 @@
    ],
    "body_sha1": "b7589f6183f908aad2c60d43f1c8dadd67aff83b",
    "body_lines": [
-    296,
-    300
+    352,
+    356
    ]
   },
   {
    "contract": "MigrationVesting",
    "file": "cauldron/MigrationVesting.sol",
-   "line": 303,
+   "line": 359,
    "kind": "function",
    "name": "setStakerOracle",
    "signature": "function setStakerOracle(address _oracle) external onlyOwner",
@@ -906,8 +922,24 @@
    ],
    "body_sha1": "5af99fb2ac32d5bf577e37227c6a6c7e5e15c751",
    "body_lines": [
-    303,
-    306
+    359,
+    362
+   ]
+  },
+  {
+   "contract": "MigrationVesting",
+   "file": "cauldron/MigrationVesting.sol",
+   "line": 372,
+   "kind": "function",
+   "name": "renounceOwnership",
+   "signature": "function renounceOwnership() public pure override",
+   "visibility": "public",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+   "body_lines": [
+    372,
+    374
    ]
   },
   {

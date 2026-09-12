@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 40022,
+   "astId": 883,
    "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
    "label": "_owner",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_address"
   },
   {
-   "astId": 20824,
+   "astId": 66,
    "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
    "label": "vestWindow",
    "offset": 20,
@@ -17,20 +17,20 @@
    "type": "t_uint64"
   },
   {
-   "astId": 20828,
+   "astId": 70,
    "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
    "label": "stakerOracle",
    "offset": 0,
    "slot": "1",
-   "type": "t_contract(IStakerOracle)20803"
+   "type": "t_contract(IStakerOracle)39"
   },
   {
-   "astId": 20853,
+   "astId": 103,
    "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
    "label": "_grants",
    "offset": 0,
    "slot": "2",
-   "type": "t_mapping(t_address,t_array(t_struct(Grant)20846_storage)dyn_storage)"
+   "type": "t_mapping(t_address,t_array(t_struct(Grant)96_storage)dyn_storage)"
   }
  ],
  "types": {
@@ -39,31 +39,31 @@
    "label": "address",
    "numberOfBytes": "20"
   },
-  "t_array(t_struct(Grant)20846_storage)dyn_storage": {
+  "t_array(t_struct(Grant)96_storage)dyn_storage": {
    "encoding": "dynamic_array",
    "label": "struct MigrationVesting.Grant[]",
    "numberOfBytes": "32",
-   "base": "t_struct(Grant)20846_storage"
+   "base": "t_struct(Grant)96_storage"
   },
-  "t_contract(IStakerOracle)20803": {
+  "t_contract(IStakerOracle)39": {
    "encoding": "inplace",
    "label": "contract IStakerOracle",
    "numberOfBytes": "20"
   },
-  "t_mapping(t_address,t_array(t_struct(Grant)20846_storage)dyn_storage)": {
+  "t_mapping(t_address,t_array(t_struct(Grant)96_storage)dyn_storage)": {
    "encoding": "mapping",
    "key": "t_address",
    "label": "mapping(address => struct MigrationVesting.Grant[])",
    "numberOfBytes": "32",
-   "value": "t_array(t_struct(Grant)20846_storage)dyn_storage"
+   "value": "t_array(t_struct(Grant)96_storage)dyn_storage"
   },
-  "t_struct(Grant)20846_storage": {
+  "t_struct(Grant)96_storage": {
    "encoding": "inplace",
    "label": "struct MigrationVesting.Grant",
    "numberOfBytes": "128",
    "members": [
     {
-     "astId": 20837,
+     "astId": 87,
      "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
      "label": "token",
      "offset": 0,
@@ -71,7 +71,7 @@
      "type": "t_address"
     },
     {
-     "astId": 20839,
+     "astId": 89,
      "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
      "label": "total",
      "offset": 0,
@@ -79,7 +79,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 20841,
+     "astId": 91,
      "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
      "label": "released",
      "offset": 0,
@@ -87,7 +87,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 20843,
+     "astId": 93,
      "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
      "label": "start",
      "offset": 0,
@@ -95,7 +95,7 @@
      "type": "t_uint64"
     },
     {
-     "astId": 20845,
+     "astId": 95,
      "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
      "label": "window",
      "offset": 8,
