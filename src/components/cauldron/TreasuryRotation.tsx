@@ -268,9 +268,25 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const [fromLeg, setFromLeg] = useState(0);
 
   const to = quoteMeta((target || NATIVE_QUOTE) as Address);
-  const targets = quotes.filter(
-    (q) => q.address.toLowerCase() !== (liveQuote || NATIVE_QUOTE).toLowerCase(),
-  );
+  //  ── A DESTINATION IS VALID IF ANY LEG CAN REACH IT ───────────────────
+  //  This filtered on the generation's DENOMINATION, so once a rotation
+  //  completed and flipped the basis to USDG the only offer left was
+  //  "USDG → ETH". That is not what the contract permits and not what a guild
+  //  wants: the treasury was still holding the larger side in ETH, and moving
+  //  MORE of it into USDG — or merging a split back into one pool — was
+  //  unreachable from the UI while being perfectly legal on chain.
+  //
+  //  The real rule is per-SLICE, not per-generation: `rotateSliceFrom` reverts
+  //  only when `fromQuote == toQuote`, and the source leg is chosen at execution
+  //  time. So a destination is offerable whenever the treasury holds at least
+  //  one leg in a DIFFERENT asset. With legs in ETH and USDG, both are.
+  const legAssets = (env.legs ?? []).map((l) => l.quote.toLowerCase());
+  const targets = quotes.filter((q) => {
+    const a = q.address.toLowerCase();
+    return legAssets.length === 0
+      ? a !== (liveQuote || NATIVE_QUOTE).toLowerCase()
+      : legAssets.some((l) => l !== a);
+  });
   const say = (m: string) => setLog((l) => [m, ...l].slice(0, 4));
 
   // The destination is the ENVELOPE's, once one is live: a slice cannot go
@@ -443,6 +459,19 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
           )}
 
           <label className="tc-mono tc-dim tr-label">Rotate into</label>
+          {(env.legs?.length ?? 0) > 1 && (
+            //  THE VOTE PICKS THE DESTINATION, NOT THE SOURCE. With the treasury
+            //  split across legs that distinction stops being pedantic: the same
+            //  approved envelope can move ETH→USDG or merge USDG→ETH depending
+            //  on which leg the executor draws from, and nothing on this screen
+            //  said so.
+            <p className="tr-note tr-note--sub">
+              The vote fixes the <strong>destination</strong>. Which leg it is drawn
+              from — {(env.legs ?? []).map((l) => quoteMeta(l.quote).symbol).join(" or ")} —
+              is chosen per slice when the envelope is executed, so one vote can add
+              to a position or merge a split back together.
+            </p>
+          )}
           <AssetPicker
             options={targets}
             value={target}

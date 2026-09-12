@@ -83,13 +83,20 @@ const GOVERNOR_ABI = [
 /** `rotateSlice` takes the venue as a full PoolKey, so the tuple must match. */
 const REGISTRY_GEN_ABI = [
   { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  //  THE GENERATION'S OWN QUOTE. The primary leg is denominated in this — NOT in
-  //  `envelope().quote`, which is the rotation's DESTINATION. Seeding leg 0 from
-  //  the envelope made the source picker render "USDG primary / USDG leg" during
-  //  an ETH→USDG rotation: the one asset you cannot rotate into, shown twice,
-  //  with the asset actually being sold nowhere on screen.
-  { type: "function", name: "generationQuote", stateMutability: "view",
-    inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  //  WHAT THE PRIMARY POSITION ACTUALLY HOLDS.
+  //
+  //  Not `envelope().quote` (the rotation's DESTINATION) and not
+  //  `generationQuote` either. `generationQuote` is the DENOMINATION, and a
+  //  completed rotation flips it while `generationPositionId` keeps pointing at
+  //  the original pool — measured on r40: generationQuote = USDG, primary pool
+  //  key currency0 = ETH, primary position 39256 still the ETH pool.
+  //
+  //  So the honest label for leg 0 is the primary pool's own currency0, which is
+  //  what `rotateSliceFrom(0, ...)` will actually sell. Reading the denomination
+  //  instead told the user they were selling USDG while the contract sold ETH.
+  { type: "function", name: "generationPoolKey", stateMutability: "view",
+    inputs: [{ type: "uint256" }],
+    outputs: [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }] },
 ] as const;
 
 export const REGISTRY_ROTATE_ABI = [
@@ -302,10 +309,14 @@ export function useTreasuryRotation() {
       //  Falls back to native ETH when the read fails, which is what every
       //  generation before multi-quote was denominated in — and is still wrong
       //  to guess silently, so it is the ONLY fallback and it is stated here.
-      const genQuote = await pc.readContract({
+      const primaryKey = await pc.readContract({
         address: CAULDRON.registry, abi: REGISTRY_GEN_ABI,
-        functionName: "generationQuote", args: [gen],
-      }).catch(() => NATIVE_QUOTE) as Address;
+        functionName: "generationPoolKey", args: [gen],
+      }).catch(() => null) as readonly [Address, Address, number, number, Address] | null;
+      //  currency0 is the quote in every pair the registry opens (the brew token
+      //  is mined to sort above it). Falling back to native is the truth for any
+      //  generation before multi-quote existed.
+      const genQuote = (primaryKey?.[0] ?? NATIVE_QUOTE) as Address;
 
       const legs: TreasuryLeg[] = [
         { index: 0, quote: genQuote, positionId: 0n, isPrimary: true },
