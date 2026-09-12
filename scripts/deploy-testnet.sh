@@ -115,6 +115,17 @@ export HEARTBEAT_USDC=172800    # 48h (mainnet 12h)
 #                    and that protection is what stops a liquidation shortfall
 #                    being written against the stakers' vault.
 export PERP_WARMUP=60                         # 1 min  (mainnet 24 h)
+# LIQUIDATION-MARK TWAP. 5 min on mainnet is what makes the mark expensive to
+# push — a liquidation fires off the AVERAGE, so a flash move cannot trigger it.
+# On a testnet it just means the mark lags every trade by minutes, the panel
+# shows a large mark-vs-spot divergence, and opens are refused as
+# "would be liquidated the instant it opens".
+#
+# 5s, not the contract's 1s floor: Sepolia blocks are ~12s, so a 1s window often
+# spans a SINGLE block and the mark becomes whatever the last swap left behind —
+# which is precisely the manipulation the TWAP exists to prevent, and it would
+# make liquidations look random rather than fast. NEVER ship this on mainnet.
+export TWAP_WINDOW=5                          # 5 s (mainnet 300 s)
 export INSURANCE_SEED_WEI=60000000000000000   # 0.06 ETH, just over the 0.05 floor
 
 # VENUE LP DEPTH for the ETH/USDG rotation route.
