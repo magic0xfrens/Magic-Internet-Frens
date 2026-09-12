@@ -93,8 +93,11 @@ contract X9bDustTokenStakeVetoesAdoption is Test {
     }
 
     function _quoteUnstake() internal {
+        //  Shares read BEFORE the prank: an argument expression is evaluated first
+        //  and would consume it, leaving this contract as the caller.
+        uint256 shares = vault.ethShareOf(LP);
         vm.prank(LP);
-        vault.withdrawEth(vault.ethShareOf(LP));
+        vault.withdrawEth(shares);
     }
 
     function _sync() internal returns (bool ok) {

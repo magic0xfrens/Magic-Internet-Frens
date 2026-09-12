@@ -138,15 +138,22 @@ contract DeployPerp is Script {
         //  Sequencing, and it matters — the mark must aggregate BEFORE a second
         //  pool carries real depth:
         //    1. deploy PerpMarkSource, `setPrimary(<the generation's pool key>)`
-        //    2. `engine.setRouting(dividend, treasury, nftBeneficiary, markSource)`
+        //    2. `engine.setRouting(dividend, treasury, nftBeneficiary, markSource, quoteOracle)`
         //    3. only then add siblings via `markSource.addPool(...)`
         //  On every relaunch, call `setPrimary` again — it re-points the mark and
         //  clears the previous generation's siblings.
         address markSource = vm.envOr("PERP_MARK_SOURCE", address(0));
-        if (markSource != address(0)) {
-            engine.setRouting(dividend, treasury, treasury, markSource);
-            console2.log("markSource     :", markSource);
-        }
+        //  WIRE THE QUOTE ORACLE UNCONDITIONALLY (red-team F-03). {PerpEngine._q}
+        //  prices its wei-written thresholds — the dust filter, the insurance
+        //  circuit breaker and the leverage tiers — through this oracle. Without it
+        //  they fall back to unit scaling, which on a 6-decimal quote means "$25 of
+        //  pool depth" where "$80,000" was intended. This used to run only when a
+        //  mark source was configured, so on a single-pool generation the engine
+        //  never learned the oracle at all.
+        address quoteOracle = vm.envOr("QUOTE_ORACLE", address(0));
+        engine.setRouting(dividend, treasury, treasury, markSource, quoteOracle);
+        console2.log("markSource     :", markSource);
+        console2.log("quoteOracle    :", quoteOracle);
 
         // Optional: seed the ETH PLV through the vault (deployer gets LP shares)
         // so longs can open immediately without waiting for community deposits.

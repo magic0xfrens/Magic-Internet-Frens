@@ -175,7 +175,18 @@ contract PerpVault is ReentrancyGuard {
     ///  token side is deliberately excluded: `tokShares`/`pendingTok` are counts
     ///  of the generation's TOKEN, which a quote rotation does not redenominate,
     ///  and blocking on them would make rotation unrunnable for no safety gain.
-    ///  Their quote-denominated reward pot (`tokYieldEth`) is checked engine-side.
+    ///  Their quote-denominated reward pot (`tokYieldEth`) cannot follow the flip,
+    ///  so the engine sweeps it to the treasury and logs `TokYieldWrittenOff` by
+    ///  name rather than vetoing on it — an unclaimable orphan (yield credited at
+    ///  zero token shares) would otherwise veto forever.
+    ///
+    ///  ── THIS IS NOW ACTUALLY THE CALLER (red-team F-01/F-06) ───────────────
+    ///  Until then the engine asked {hasStakers} while three comment blocks here
+    ///  and one attack test all said it asked this, and this function had ZERO
+    ///  production callers. One dust {depositToken} therefore vetoed every quote
+    ///  adoption for the life of the generation and took the perp engine down with
+    ///  it. {PerpEngine.setVault} deliberately still asks {hasStakers}: re-pointing
+    ///  the vault hands the new one the `onlyVault` path over token PRINCIPAL.
     function hasQuoteStake() external view returns (bool) {
         return (ethShares | pendingEth) != 0;
     }

@@ -92,14 +92,17 @@ contract X3iPayoutVetoStrandsQuote is Test {
         try perp.claimPayout() returns (uint256) { ok = true; } catch { ok = false; }
     }
 
-    /// The timelock retiring the unclaimable entry. Pure bookkeeping — no push, so
-    /// it cannot be reentered, and the value goes nowhere the owner can reach.
-    function _retire() internal returns (bool ok) {
-        //  A STRANGER, deliberately — not the owner. While the engine's quote
-        //  disagrees with its generation's, this entry is the only thing standing
-        //  between the engine and recovery, and S01's liveness invariant promises
-        //  nothing privileged is needed to put that right.
+    /// A STRANGER retiring the entry. While the engine's quote disagrees with its
+    /// generation's, this entry is the only thing standing between the engine and
+    /// recovery, and S01's liveness invariant promises nothing privileged is needed
+    /// to put that right — for any recipient that CAN be paid.
+    function _strangerRetires() internal returns (bool ok) {
         vm.prank(address(0xC0FFEE));
+        try perp.retirePayout(address(refuser)) { ok = true; } catch { ok = false; }
+    }
+
+    /// The timelock retiring it. This contract is the engine's owner.
+    function _ownerRetires() internal returns (bool ok) {
         try perp.retirePayout(address(refuser)) { ok = true; } catch { ok = false; }
     }
 
@@ -126,11 +129,24 @@ contract X3iPayoutVetoStrandsQuote is Test {
         //  rotation completed anyway and left the engine stranded on the old quote
         //  for the rest of the generation. That is the F-10/F-11 shape the guard
         //  exists to prevent, reached through a different door.
-        bool retired = _retire();
+        //  ── AND THE WRITE-OFF IS THE OWNER'S, NOT A STRANGER'S (F-02) ───────
+        //  `retirePayout` discarded the push result, so while the engine was diverged
+        //  ANY address could name ANY recipient and destroy its escrow — including a
+        //  recipient that was only TRANSIENTLY unable to receive, whose claim
+        //  {claimPayout} would have kept. A stranger may now only retire an entry
+        //  whose value actually moved. THIS refuser reverts at full gas too, so it is
+        //  a genuine write-off and the timelock takes it; liveness is unharmed
+        //  because every payable recipient is still clearable by anyone
+        //  (X9c_RetirePayoutBurnsEscrow asserts both halves).
+        bool strangerRetired = _strangerRetires();
+        uint256 owedAfterStranger = perp.payoutOwed(address(refuser));
+        bool ownerRetired = _ownerRetires();
         bool syncedAfterRetire = _rotateAndSync();
-        bool retireAgain = _retire();
+        bool retireAgain = _ownerRetires();
 
-        assertTrue(retired, "ANYONE can retire a blocking entry while the engine is diverged");
+        assertFalse(strangerRetired, "a stranger may NOT write off a claim the push could not deliver");
+        assertEq(owedAfterStranger, 1, "the refuser keeps its wei until someone privileged writes it off");
+        assertTrue(ownerRetired, "the owner (timelock) can, so the veto is always escapable");
         assertEq(perp.payoutOwed(address(refuser)), 0, "the stranded entry is gone");
         assertEq(perp.payoutOwedTotal(), 0, "and so is the veto");
         assertTrue(syncedAfterRetire, "the rotation now ADOPTS");

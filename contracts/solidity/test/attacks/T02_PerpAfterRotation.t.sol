@@ -74,7 +74,7 @@ contract T02_PerpAfterRotation is YBase {
         // exactly as deploy/DeployPerp.s.sol:140-141 instructs.
         markSrc = new PerpMarkSource(pm, address(this));
         markSrc.setPrimary(_key());
-        perp.setRouting(address(0xD1D1), address(0x7E7E), address(0x7E7E), address(markSrc));
+        perp.setRouting(address(0xD1D1), address(0x7E7E), address(0x7E7E), address(markSrc), address(0));
 
         _warp(25 hours);
         vm.roll(vm.getBlockNumber() + 40);

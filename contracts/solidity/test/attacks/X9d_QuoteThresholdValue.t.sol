@@ -83,7 +83,7 @@ contract X9dQuoteThresholdValue is Test {
             IPoolManager(address(pm)), address(this), address(reg),
             address(0xBEEF), address(0xD1D1), address(0x7E7E), address(this)
         );
-        perp.setRouting(address(0xD1D1), address(0x7E7E), address(0x7E7E), address(0), address(oracle), 3_000, 1_000);
+        perp.setRouting(address(0xD1D1), address(0x7E7E), address(0x7E7E), address(0), address(oracle));
         perp.setVaultLimits(5_000, FLOOR_WEI);
         reg.rotateQuote(address(q));
         perp.syncGeneration();

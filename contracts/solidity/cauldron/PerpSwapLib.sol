@@ -35,11 +35,62 @@ library PerpSwapLib {
     ///         the encode + staticcall + decode is ~120 B and {PerpEngine} calls it
     ///         once, on the cold rotation path.
     function unitOf(address q) external view returns (uint256) {
+        return _unitOf(q);
+    }
+
+    function _unitOf(address q) private view returns (uint256) {
         if (q == address(0)) return 1e18;
         (bool ok, bytes memory ret) = q.staticcall(abi.encodeWithSignature("decimals()"));
         if (!ok || ret.length < 32) return 1e18;
         uint256 d = abi.decode(ret, (uint256));
         return d > 36 ? 1e18 : 10 ** d;
+    }
+
+    /**
+     * @notice How many RAW units of `q` carry the same VALUE as 1e18 wei of ether,
+     *         1e18-scaled. {PerpEngine._q} multiplies its wei-written thresholds by
+     *         this, so `_q(25 ether)` means "25 ether WORTH of `q`".
+     *
+     *  ── A UNIT COUNT IS NOT A VALUE (red-team F-03) ────────────────────────
+     *  The engine used `unitOf` here, which answers a different question: it turned
+     *  "25 ether of pool depth" into 25e6 raw units of a 6-decimal stable — $25 —
+     *  and with it switched off the leverage tiering, the dust filter and the
+     *  insurance circuit breaker on every non-ether-quoted generation. Decimals
+     *  carry no price, so the price has to come from the oracle the protocol
+     *  already runs. `usdPerRawUnit` is 1e18-scaled USD per RAW unit, which already
+     *  contains the decimals, so the ratio of the two legs is the whole answer.
+     *
+     *  Here rather than in the engine for EIP-170: two encodes, two staticcalls and
+     *  two decodes, on the cold rotation path, against single-digit headroom there.
+     *
+     * @param oracle {QuoteOracle}, or zero when none is wired.
+     * @return f Never 0 — an unpriceable quote falls back to its unit count, and a
+     *         unit count below 1e6 (a degenerate or hostile `decimals()`, including
+     *         0, which would drive every threshold to exactly zero) falls back to
+     *         1e18. The fallback is STRICTER than the truth for a cheap quote, which
+     *         is the safe direction for a protection: it can only over-apply, and
+     *         governance can retune every one of these thresholds by hand.
+     */
+    function quoteFactor(address oracle, address q) external view returns (uint256 f) {
+        if (q == address(0)) return 1e18;
+        if (oracle != address(0)) {
+            uint256 pNative = _usdPerRawUnit(oracle, address(0));
+            uint256 pQuote = _usdPerRawUnit(oracle, q);
+            //  0 means "cannot judge" (QuoteOracle.sol:200), never "free".
+            if (pNative != 0 && pQuote != 0) {
+                f = FullMath.mulDiv(1e18, pNative, pQuote);
+                if (f != 0) return f;
+            }
+        }
+        f = _unitOf(q);
+        if (f < 1e6) f = 1e18;
+    }
+
+    function _usdPerRawUnit(address oracle, address q) private view returns (uint256) {
+        (bool ok, bytes memory ret) =
+            oracle.staticcall(abi.encodeWithSignature("usdPerRawUnit(address)", q));
+        if (!ok || ret.length < 32) return 0;
+        return abi.decode(ret, (uint256));
     }
 
     /// @notice tick -> sqrtPriceX96.

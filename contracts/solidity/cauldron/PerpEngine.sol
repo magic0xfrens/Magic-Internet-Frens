@@ -474,6 +474,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @notice Token inventory that did NOT survive a generation migration, keyed by
     ///         the token it is still denominated in. The engine still HOLDS it.
     event TokenInventoryStranded(address indexed token, uint256 amount, uint256 migrated);
+    /// @notice Token-side (short) LP reward that could not follow a quote rotation:
+    ///         it was accrued in `asset` and the engine now pays in another one, so
+    ///         it is swept to the treasury and written off here BY NAME rather than
+    ///         disappearing into a counter reset. See {syncGeneration}.
+    event TokYieldWrittenOff(address indexed asset, uint256 amount);
     event VaultFunded(bool isEth, uint256 amount);
     event VaultWithdrawn(bool isEth, uint256 amount, address to);
     event GenerationSynced(uint256 indexed fromGen, uint256 indexed toGen, uint256 migratedIn, uint256 newInventory);
@@ -557,7 +562,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     /// @dev 10**decimals of the LIVE quote; 1e18 for native. Adopted alongside
     ///      `quote` in {syncGeneration}.
+    /// @dev Raw units of the live `quote` that carry the same VALUE as 1e18 wei of
+    ///      ether, 1e18-scaled. 1e18 for a native-quoted brew. Re-derived at every
+    ///      adoption by {PerpSwapLib.quoteFactor}; see {_q}.
     uint256 internal quoteUnit = 1e18;
+    /// @dev The {QuoteOracle} the value scaling above is derived from. Set with the
+    ///      rest of the engine's outbound wiring through {setRouting}; zero leaves
+    ///      {_q} on unit scaling, which is the pre-oracle behaviour. `internal`, not
+    ///      `public`: this contract has single-digit bytes of EIP-170 headroom and a
+    ///      getter for a cold config slot is not worth one of them.
+    address internal quoteOracle;
 
     /// @dev Re-express an 18-decimal (wei-written) CONFIG threshold in the live
     ///      quote's own units.
@@ -571,9 +585,23 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  takes the perp down. `insuranceFloor` (0.05 ether at deploy) and the
     ///  `tierDepthWei` leverage tiers fail identically, so all of them scale here
     ///  rather than each being patched where it happens to be read.
+    ///
+    ///  ── AND THE SCALE IS A VALUE, NOT A UNIT COUNT (red-team F-03) ────────
+    ///  The first cut of this scaled by `10**decimals()`. But every constant here
+    ///  is a VALUE statement: `tierDepthWei = [25, 100, 300] ether` means "≈ $80k /
+    ///  $320k / $1M of pool depth", and unit-scaling turned it into $25 / $100 /
+    ///  $300 on a 6-decimal stable — the leverage ceiling then applies at any
+    ///  liquidity, the dust filter passes 3000 raw units of a $1 token, and the
+    ///  insurance circuit breaker never trips. `decimals() == 0` made all three
+    ///  exactly zero. `quoteUnit` is now the VALUE factor (see its declaration),
+    ///  derived from the quote oracle at adoption and falling back to a clamped
+    ///  unit count only when the quote is unpriceable.
+    ///  No `u == 1e18` fast path: this is inlined at six call sites and the branch
+    ///  cost bytes at every one of them. `wei18` is a config threshold (≤ 300 ether
+    ///  by construction), so `wei18 * u` cannot overflow for any factor this
+    ///  protocol can produce, and the native case multiplies and divides by 1e18.
     function _q(uint256 wei18) internal view returns (uint256) {
-        uint256 u = quoteUnit;
-        return u == 1e18 ? wei18 : (wei18 * u) / 1e18;
+        return (wei18 * quoteUnit) / 1e18;
     }
 
 
@@ -1119,10 +1147,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         uint256 fromGen = syncedGeneration;
         uint256 migratedIn;
+        bool migrating;
         // Migrate the engine's leftover (now-dead) inventory into the new token,
         // 1:1. Best-effort: if migration isn't available the sync still proceeds
         // (owner can re-seed via fundPlvToken), nothing bricks.
         if (fromGen != 0 && fromGen < gen && syncedToken != address(0)) {
+            migrating = true;
             migratedIn = PerpSwapLib.migrateInventory(address(registry), syncedToken, fromGen);
         }
 
@@ -1138,7 +1168,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  across, against the token it is still denominated in: the engine is still
         //  HOLDING it, so recovery becomes mechanical. Deliberately does not revert —
         //  a reverting sync is the brick shape.
-        uint256 unmigrated = plvToken > migratedIn ? plvToken - migratedIn : 0;
+        //  ── ONLY A GENERATION CHANGE CAN STRAND INVENTORY (red-team F-05) ──
+        //  On a QUOTE ROTATION `gen == syncedGeneration`, so the migration above is
+        //  skipped and `migratedIn` stays 0 — because `newTok == syncedToken` and
+        //  there was nothing to move, not because a move failed. Booking that as a
+        //  shortfall recorded the ENTIRE live inventory to `strandedToken` (and
+        //  announced it) one line before `plvToken` was re-set to the same real
+        //  balance, so the books claimed the engine held it twice. Only the path
+        //  that actually ATTEMPTED a migration can report one falling short.
+        uint256 unmigrated = migrating && plvToken > migratedIn ? plvToken - migratedIn : 0;
         if (unmigrated != 0) {
             strandedToken[syncedToken] += unmigrated;
             emit TokenInventoryStranded(syncedToken, unmigrated, migratedIn);
@@ -1213,17 +1251,45 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  gates, and both are satisfiable — {retirePayout} clears a stranded
             //  payout, and stakers can always exit:
             if (payoutOwedTotal != 0) revert VaultStaked();
-            if (vault != address(0) && IPerpVaultStake(vault).hasStakers()) revert VaultStaked();
+            //  ── AND THE TOKEN SIDE MUST NOT GET A VETO (red-team F-01) ─────
+            //  This asked `hasStakers()`, which is `(ethShares | tokShares |
+            //  pendingEth | pendingTok) != 0`. The token side is NOT redenominated
+            //  by a quote rotation — `tokShares`/`pendingTok` count the
+            //  generation's TOKEN — so it has nothing to be protected from here,
+            //  and it cannot be cleared without its owner's cooperation. One dust
+            //  {PerpVault.depositToken} (≈ assetsTok()/1e6, enough for one share)
+            //  therefore vetoed every future adoption, `_isDead()` read the
+            //  divergence as death, and leverage was off for the whole generation
+            //  with no governance escape — the X8-01 permanent-freeze shape,
+            //  re-entered through the token side at negligible cost. The deploy
+            //  script's own PLV_SEED_ETH reaches the same state by doing nothing
+            //  wrong. Ask the QUOTE-side question the vault's header (PerpVault.sol
+            //  :174-186) always documented as the one being asked:
+            if (vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) revert VaultStaked();
             //  ...and with nobody left owning them, the protocol's own old-asset
             //  equity is swept to the treasury IN THE OLD ASSET — `quote` has not
             //  flipped yet, so `_payOut` still pays the right thing — and the
             //  counters are zeroed so no old-unit figure survives to claim units of
-            //  the NEW asset. `hasStakers()` covers the TOKEN side too, which is what
-            //  makes zeroing `tokYieldEth` safe rather than a confiscation. Opens
+            //  the NEW asset. Opens
             //  stay paused until someone re-funds insurance in the new asset through
             //  the permissionless {fundInsurance} — honest, because there IS no
             //  buffer in the new asset yet. A pause, not a brick.
-            uint256 sweep = plv + tokYieldEth + insuranceEth;
+            //  ── AN EXPLICIT, LOGGED WRITE-OFF (red-team F-01) ──────────────
+            //  `hasQuoteStake()` no longer covers the token side, so token stakers
+            //  CAN still be present at this line — and `tokYieldEth` is their
+            //  accrued short-side reward, denominated in the OLD quote. It cannot
+            //  survive the flip (`_pushQuote` would pay an old-asset figure in the
+            //  NEW asset, the exact redenomination e964d54 closed) and paying it on
+            //  the way out needs a reachable per-asset parked pot this contract has
+            //  no EIP-170 room for. So it is written off ON THE RECORD, naming the
+            //  asset and the amount, and the value lands in the treasury with the
+            //  rest of the sweep where governance can make the stakers whole. A
+            //  bounded, announced, one-time loss of accrued REWARD in place of a
+            //  permanent attacker-triggerable shutdown of the whole engine. Token
+            //  PRINCIPAL (`plvToken`) is not touched here and stays withdrawable.
+            uint256 writtenOff = tokYieldEth;
+            emit TokYieldWrittenOff(quote, writtenOff);
+            uint256 sweep = plv + writtenOff + insuranceEth;
             plv = 0; tokYieldEth = 0; insuranceEth = 0;
             if (sweep != 0 && treasury != address(0)) {
                 //  DELIBERATELY NOT `_payOut`. That credits `payoutOwed` when the
@@ -1248,7 +1314,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  engine with no mark source wired.
             markSource = address(0);
             //  And the decimals the thresholds are compared in (see {_q}).
-            quoteUnit = PerpSwapLib.unitOf(newQuote); // read defensively; 18 on any bad answer
+            //  ── AND THE VALUE THE THRESHOLDS ARE COMPARED IN (see {_q}) ────
+            //  This was `unitOf(newQuote)`, which rescaled the UNITS only: on a
+            //  6-decimal quote `25 ether` of tier depth became 25e6 raw = $25, and
+            //  the leverage tiers, the dust filter and the insurance circuit
+            //  breaker all lost ~1e12 of economic meaning (red-team F-03).
+            quoteUnit = PerpSwapLib.quoteFactor(quoteOracle, newQuote);
         }
         quote = newQuote;
 
@@ -1617,10 +1688,32 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  reentering this finds `payoutOwed[to] == 0` and reverts, and the asset branch
     ///  is chosen before any external code runs — a reentrant adoption cannot change
     ///  what gets sent. Strict CEI is the guard.
+    ///  ── A STRANGER MAY UNBLOCK A ROTATION, NOT BURN A CLAIM (F-02) ────────
+    ///  The push's return value used to be DISCARDED, so the entry was retired
+    ///  whether or not the value moved. Combined with the permissionless branch
+    ///  that is a burn-someone-else's-escrow primitive: any address could pick a
+    ///  recipient that happens to be TRANSIENTLY unpayable — paused for an upgrade,
+    ///  blacklisted by the quote token, reverting for a block — and permanently
+    ///  destroy its settlement proceeds, which {claimPayout} would have preserved.
+    ///  So an unprivileged caller may only retire an entry whose value ACTUALLY
+    ///  went somewhere: the liveness promise is kept for every recipient that can
+    ///  be paid (which is every case the invariant was written for), and a
+    ///  recipient that refuses at FULL gas is a WRITE-OFF only the owner may take.
     function retirePayout(address to) external {
         uint256 amount = payoutOwed[to];
         if (amount == 0) revert ZeroValue();
-        if (quote == registry.generationQuote(registry.currentGeneration())) _checkOwner();
+        //  THE OWNER MAY ALWAYS WRITE OFF, DIVERGED OR NOT. Making the successful
+        //  push a condition for EVERY caller would hand a permanently-refusing
+        //  recipient the veto back (red-team X3i: `payoutOwedTotal` is the one
+        //  counter that can still refuse a quote adoption, and nothing may pin it
+        //  forever). So the push result gates the UNPRIVILEGED caller only.
+        bool priv = msg.sender == owner();
+        if (!priv) {
+            //  Converged: this is ordinary bookkeeping and belongs to the timelock.
+            //  Diverged: this entry is what stands between the engine and recovery,
+            //  so anyone may clear it — see the liveness note above.
+            if (quote == registry.generationQuote(registry.currentGeneration())) _checkOwner();
+        }
         payoutOwed[to] = 0;                     // effects before interaction
         payoutOwedTotal -= amount;
         //  ONE LAST PUSH AT FULL GAS — not the 30k settlement budget that stranded
@@ -1628,7 +1721,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  here instead of written off. Only an outright revert loses the claim, and
         //  that wei then stays in the engine as residue owned by nobody, where it
         //  can never again veto a rotation.
-        _tryPush(to, amount, false); // retired either way — never re-arm the counter
+        //  Checked (F-02): retired unconditionally for the OWNER — that is the
+        //  deliberate write-off, and the wei stays as residue owned by nobody that
+        //  can never again veto a rotation — but a permissionless caller reverts if
+        //  nothing moved, which rolls both effects back and leaves the claim intact.
+        if (!_tryPush(to, amount, false) && !priv) revert EthSend();
         //  No dedicated event (EIP-170): the owner is a timelock, which emits its
         //  own CallExecuted for this exact calldata, and `payoutOwed(to)` going to
         //  zero alongside `payoutOwedTotal` is the on-chain record. An indexer has
@@ -1956,7 +2053,16 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  EIP-170 headroom, and each additional external function costs a dispatch
     ///  entry plus a prologue for a cold path nobody calls in a normal month.
     ///  Folding them together is what paid for the mark source.
-    function setRouting(address _dividend, address _treasury, address _nftBeneficiary, address _markSource)
+    ///  `_quoteOracle` is the {QuoteOracle} {_q} prices its wei-written thresholds
+    ///  through (red-team F-03). Zero leaves them unit-scaled, which is the
+    ///  pre-oracle behaviour; it is read defensively and only ever at an adoption.
+    function setRouting(
+        address _dividend,
+        address _treasury,
+        address _nftBeneficiary,
+        address _markSource,
+        address _quoteOracle
+    )
         external
         onlyOwner
     {
@@ -1964,6 +2070,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         treasury = _treasury;
         nftBeneficiary = _nftBeneficiary;
         markSource = _markSource;
+        quoteOracle = _quoteOracle;
+    }
+
+    /// @notice Fee split: `_yieldBps` of routed fees → LP yield, `_insBps` →
+    ///         insurance. Their sum must leave room for div/treasury (≤ BPS).
+    function setVaultSplit(uint256 _yieldBps, uint256 _insBps) external onlyOwner {
+        if (_yieldBps + _insBps > BPS) revert BadParam();
+        vaultYieldBps = _yieldBps; insuranceBps = _insBps;
     }
     /// @notice Phase-3 hardening params: TWAP window, per-block liq cap, funding cap.
     function setGuards(uint32 _twapWindow, uint256 _maxLiqBps, uint256 _maxFundingBps) external onlyOwner {
@@ -1987,15 +2101,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  to no one, and the ONLY lever for replacing a broken vault on a live
     ///  engine was gone. Measured: one wei was enough.
     ///  {PerpVault.hasStakers} answers the question the guard was always asking.
+    ///
+    ///  ── AND IT STAYS `hasStakers`, NOT `hasQuoteStake` (red-team F-01) ────
+    ///  {syncGeneration} was moved to the quote-side-only question because a quote
+    ///  rotation does not redenominate the token side, so the token side has
+    ///  nothing to be protected from there. THIS guard is the opposite case: a new
+    ///  vault gets the `onlyVault` withdraw path over `plvToken`, which IS token-side
+    ///  principal, so re-pointing the vault while token stakers hold shares hands
+    ///  their principal to whatever contract the owner names — the H-01 drain this
+    ///  guard exists for. A genuine token staker is owed money and may veto here.
+    ///  The cost is that a dust token deposit can also block replacing a BUGGY
+    ///  vault; the engine itself keeps running either way, so that is a griefing
+    ///  nuisance and not the permanent freeze F-01 reported, and it is strictly
+    ///  preferable to making staked principal re-pointable.
     function setVault(address _vault) external onlyOwner {
         if (vault != address(0) && IPerpVaultStake(vault).hasStakers()) revert BadParam();
         vault = _vault;
-    }
-    /// @notice Fee split: `_yieldBps` of routed fees → LP yield, `_insBps` →
-    ///         insurance. Their sum must leave room for div/treasury (≤ BPS).
-    function setVaultSplit(uint256 _yieldBps, uint256 _insBps) external onlyOwner {
-        if (_yieldBps + _insBps > BPS) revert BadParam();
-        vaultYieldBps = _yieldBps; insuranceBps = _insBps;
     }
     /// @notice Utilization cap (max % of vault lent to traders) + insurance
     ///         circuit-breaker floor (pause opens while insurance < floor).

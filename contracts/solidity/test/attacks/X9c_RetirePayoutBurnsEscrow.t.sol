@@ -121,6 +121,7 @@ contract X9cRetirePayoutBurnsEscrow is Test {
         // ── 1. the attack: a stranger writes off a paused recipient's escrow ──
         bool burned = _strangerRetires();
         uint256 owedAfterBurn = perp.payoutOwed(address(victim));
+        uint256 totalAfterBurn = perp.payoutOwedTotal();
 
         // ── 2. and the claim is still there when the recipient recovers ───────
         victim.unpause();
@@ -135,6 +136,7 @@ contract X9cRetirePayoutBurnsEscrow is Test {
         victim.unpause();
         bool strangerClearedPayable = _strangerRetires();
         uint256 receivedAfterRetire = victim.received();
+        uint256 owedAfterPayableRetire = perp.payoutOwed(address(victim));
 
         // ── 4. and the owner keeps the write-off power for a hard refusal, so a
         //       genuinely unpayable entry can never permanently veto adoption ──
@@ -148,14 +150,14 @@ contract X9cRetirePayoutBurnsEscrow is Test {
         assertEq(owed, 1 ether, "the fee is escrowed to a sink that cannot take it");
         assertFalse(burned, "a STRANGER can no longer retire an entry that did not move");
         assertEq(owedAfterBurn, 1 ether, "the victim's escrow is untouched");
-        assertEq(perp.payoutOwedTotal(), 1 ether, "and so is the counter");
+        assertEq(totalAfterBurn, 1 ether, "and so is the counter");
 
         assertTrue(claimed, "the recipient still owns its claim once it can receive");
         assertEq(paidToVictim, 1 ether, "and is paid in full");
 
         assertTrue(strangerClearedPayable, "PERMISSIONLESS RECOVERY STILL WORKS for a payable recipient");
         assertEq(receivedAfterRetire, 3 ether, "and the value really moved (1 + 2)");
-        assertEq(perp.payoutOwed(address(victim)), 0, "the entry is gone because it was PAID");
+        assertEq(owedAfterPayableRetire, 0, "the entry is gone because it was PAID");
 
         assertFalse(strangerRefused, "a hard refusal is not a stranger's decision to make");
         assertTrue(ownerWroteOff, "the owner (timelock) may still write it off");

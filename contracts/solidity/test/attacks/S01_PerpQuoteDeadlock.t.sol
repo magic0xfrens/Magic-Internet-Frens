@@ -257,7 +257,8 @@ contract S01_PerpQuoteDeadlock is YBase {
         //  `fundPlv`, which is documented as a SHARE-LESS PERMANENT DONATION by the
         //  owner — so the treasury is precisely where that capital belongs, and no
         //  staker exists to mispay. (Staker capital arrives via the vault, and
-        //  `hasStakers()` still refuses the flip while any of it is present.)
+        //  `hasQuoteStake()` still refuses the flip while any QUOTE-denominated part
+        //  of it is present — the token side does not veto, red-team F-01/X9b.)
         //
         //  So Route B is refuted in its strongest form: the engine never diverges.
         assertEq(perp.quote(), address(usdg), "the engine re-points in the SAME call");
@@ -528,14 +529,28 @@ contract S01_PerpQuoteDeadlock is YBase {
         //  Adoption now sweeps the old-asset counters to the treasury IN THE OLD
         //  ASSET and zeroes them, so nothing is re-denominated. `_bootPerp` donates
         //  through `fundPlv`, documented as SHARE-LESS and PERMANENT, so no staker is
-        //  mispaid; staker capital comes through the vault and `hasStakers()` still
-        //  refuses the flip while any of it is present.
+        //  mispaid; staker capital comes through the vault and `hasQuoteStake()`
+        //  still refuses the flip while any QUOTE-denominated part of it is present.
+        //  (The token side no longer vetoes: a quote rotation does not redenominate
+        //  it, and one dust `depositToken` used to freeze the engine for the whole
+        //  generation -- red-team F-01, X9b. {PerpEngine.setVault} still asks
+        //  `hasStakers()`, because re-pointing the vault DOES reach token principal.)
         //
         //  NOTHING PRIVILEGED, INCLUDING THE PAYOUT BOOK. `payoutOwedTotal` is the
         //  one counter that can still refuse a flip, and {PerpEngine.retirePayout}
         //  is permissionless exactly while the engine is diverged — i.e. whenever a
         //  stranded payout is what stands between it and recovery. See
         //  X3i_PayoutVetoStrandsQuote, where a stranger clears it.
+        //
+        //  ── NARROWED, DELIBERATELY (red-team F-02) ──────────────────────────
+        //  A permissionless caller may clear an entry whose value ACTUALLY MOVES,
+        //  not any entry it names. Discarding the push result made this a
+        //  burn-someone-else's-escrow primitive: a stranger could pick a recipient
+        //  that was only TRANSIENTLY unable to receive (paused, blacklisted) and
+        //  destroy proceeds `claimPayout` would have preserved. Every recipient
+        //  this invariant was written for is payable at full gas and is still
+        //  cleared by anyone; a recipient that refuses at full gas is a WRITE-OFF
+        //  and needs the timelock. See X9c_RetirePayoutBurnsEscrow.
         perp.syncGeneration();
         assertEq(
             perp.quote(), registry.generationQuote(gen),
