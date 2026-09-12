@@ -2315,6 +2315,42 @@ function Styles() {
     .tr-vote--against:hover:not(:disabled) { border-color: rgba(248,113,113,0.45); color: #f87171; }
     .tr-ballot__exec { margin-top: 10px; width: 100%; }
 
+    /* TX MODAL — narrates sign -> mine -> index, because each fails differently
+       and a governance click previously changed a label and nothing else. */
+    .tr-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+      background: rgba(4,2,10,0.72); backdrop-filter: blur(3px); animation: tr-fade .15s ease both; }
+    @keyframes tr-fade { from { opacity: 0; } to { opacity: 1; } }
+    .tr-modal__box { width: min(360px, calc(100vw - 40px)); padding: 24px 22px 20px; text-align: center;
+      border-radius: var(--r-md); background: rgba(19,14,36,0.98);
+      border: 1px solid rgba(255,255,255,0.11); box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      animation: tr-rise .18s cubic-bezier(0.2,0.9,0.3,1) both; }
+    @keyframes tr-rise { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+    .tr-modal__icon { width: 42px; height: 42px; margin: 0 auto 12px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 18px; font-weight: 700;
+      border: 2px solid rgba(255,255,255,0.14); color: ${C.cream}; }
+    .tr-modal__icon.is-sign, .tr-modal__icon.is-pending { border-top-color: ${C.lime};
+      animation: tr-spin 0.9s linear infinite; }
+    @keyframes tr-spin { to { transform: rotate(360deg); } }
+    .tr-modal__icon.is-done { border-color: rgba(213,253,81,0.6); color: ${C.lime}; }
+    .tr-modal__icon.is-error { border-color: rgba(248,113,113,0.6); color: #f87171; }
+    .tr-modal__title { margin: 0 0 6px; font-family: "Cinzel", serif; font-size: 16px; color: #f4f1ff; }
+    .tr-modal__detail { margin: 0 0 14px; font-family: "DM Sans", sans-serif; font-size: 12px;
+      line-height: 1.5; color: ${C.mute}; }
+    .tr-modal__rail { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
+    .tr-modal__step { width: 26px; height: 3px; border-radius: var(--r-full); background: rgba(255,255,255,0.12); }
+    .tr-modal__step.is-past { background: rgba(213,253,81,0.55); }
+    .tr-modal__step.is-now { background: ${C.lime}; animation: tr-pulse 1s ease-in-out infinite; }
+    .tr-modal__step.is-err { background: #f87171; animation: none; }
+    @keyframes tr-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .tr-modal__link { display: inline-block; font-size: 10px; color: ${C.mute}; text-decoration: none;
+      border-bottom: 1px dotted rgba(255,255,255,0.2); }
+    .tr-modal__link:hover { color: ${C.cream}; }
+    .tr-modal__close { display: block; width: 100%; margin-top: 14px; padding: 8px;
+      border-radius: var(--r-sm); cursor: pointer; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12); color: ${C.dim};
+      font: 500 12px/1 "DM Sans", sans-serif; }
+    .tr-modal__close:hover { color: ${C.cream}; border-color: rgba(255,255,255,0.25); }
+
     /* The ritual button is absolutely-positioned glow furniture, so the
        paragraph after it rode up underneath and the two overlapped. Give the
        button real bottom margin inside the desk rather than padding the text,

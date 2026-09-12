@@ -668,25 +668,78 @@ export function RotationBallots({ col }: { col: string }) {
   const { refresh, voteEnvelope, executeEnvelope } = useTreasuryRotation();
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const pc = usePublicClient({ chainId: CAULDRON.chainId });
 
-  async function castVote(id: string, support: boolean) {
-    setBusy(`vote-${id}-${support ? "y" : "n"}`);
+  //  ── A GOVERNANCE ACTION HAS FOUR STAGES AND SHOWED NONE OF THEM ────────
+  //  `await voteEnvelope(...)` resolves when the tx is SUBMITTED, and the tally
+  //  only moves once Ponder has indexed it — up to a 10s poll later. In between,
+  //  the panel changed a button label and nothing else, so a vote looked like it
+  //  had done nothing at all: the wallet takes a beat to appear, the chain takes
+  //  a block, the indexer takes a poll.
+  //
+  //  The modal narrates all four. It is also the only honest place to put the
+  //  hash: a submitted-but-unconfirmed tx is a real state a user can act on
+  //  (open the explorer), and hiding it makes a slow block look like a failure.
+  const [tx, setTx] = useState<
+    { stage: "sign" | "pending" | "done" | "error"; title: string; detail?: string; hash?: string } | null
+  >(null);
+
+  /** Run a governance write with the modal narrating each stage. */
+  async function withTx(
+    key: string,
+    title: string,
+    send: () => Promise<`0x${string}`>,
+    doneMsg: string,
+  ) {
+    setBusy(key);
+    setTx({ stage: "sign", title, detail: "Confirm in your wallet…" });
     try {
-      await voteEnvelope(BigInt(id), support);
-      setNote(`Voted ${support ? "FOR" : "AGAINST"} #${id}.`);
+      const hash = await send();
+      setTx({ stage: "pending", title, detail: "Submitted — waiting for the chain…", hash });
+      //  WAIT FOR THE RECEIPT, then refresh. Refreshing on submission reads
+      //  pre-transaction state and paints the OLD tally, which reads as "my vote
+      //  did not count".
+      if (pc) await pc.waitForTransactionReceipt({ hash, timeout: 90_000 });
+      setTx({ stage: "done", title, detail: doneMsg, hash });
+      setNote(doneMsg);
       await refresh();
-    } catch (e) { setNote(`Vote failed: ${(e as Error).message.slice(0, 80)}`); }
-    finally { setBusy(null); }
+      //  The tally comes from the indexer, which is a poll behind the chain.
+      //  Nudge it again shortly so the number lands without the user refreshing.
+      setTimeout(() => { void refresh(); }, 4_000);
+      setTimeout(() => setTx(null), 2_500);
+    } catch (e) {
+      const m = (e as Error).message ?? "";
+      const why = /user rejected|denied|rejected the request/i.test(m)
+        ? "You rejected it in your wallet."
+        : /NoVotingPower/i.test(m)
+          ? "This wallet holds no MiFrens, so it has no vote. One fren = one vote."
+          : /AlreadyVoted/i.test(m)
+            ? "This wallet has already voted on that proposal."
+            : /VotingClosed/i.test(m)
+              ? "Voting has closed on that proposal."
+              : /DidNotPass/i.test(m)
+                ? "That proposal did not win — only the leading proposal can execute."
+                : m.split("\n")[0].slice(0, 140) || "Transaction failed.";
+      setTx({ stage: "error", title, detail: why });
+      setNote(why);
+    } finally { setBusy(null); }
   }
-  async function runExecute(id: string) {
-    setBusy(`exec-${id}`);
-    try {
-      await executeEnvelope(BigInt(id));
-      setNote(`Executed #${id} — the envelope is open.`);
-      await refresh();
-    } catch (e) { setNote(`Execute failed: ${(e as Error).message.slice(0, 80)}`); }
-    finally { setBusy(null); }
-  }
+
+  const castVote = (id: string, support: boolean) =>
+    withTx(
+      `vote-${id}-${support ? "y" : "n"}`,
+      `Vote ${support ? "FOR" : "AGAINST"} #${id}`,
+      () => voteEnvelope(BigInt(id), support) as Promise<`0x${string}`>,
+      `Voted ${support ? "FOR" : "AGAINST"} #${id}.`,
+    );
+
+  const runExecute = (id: string) =>
+    withTx(
+      `exec-${id}`,
+      `Execute #${id}`,
+      () => executeEnvelope(BigInt(id)) as Promise<`0x${string}`>,
+      `Executed #${id} — the envelope is open.`,
+    );
 
   //  LIVE first, then the tape. A voter needs to see what is contested before
   //  what is settled — and with CONCURRENT proposals, filing another while one
@@ -720,6 +773,43 @@ export function RotationBallots({ col }: { col: string }) {
         </ul>
       )}
       {note && <p className="tc-rothist__note tc-mono tc-dim">{note}</p>}
+
+      {tx && (
+        <div className="tr-modal" role="dialog" aria-modal="true" aria-label={tx.title}
+             onClick={() => { if (tx.stage === "done" || tx.stage === "error") setTx(null); }}>
+          <div className="tr-modal__box" onClick={(e) => e.stopPropagation()}>
+            <div className={`tr-modal__icon is-${tx.stage}`}>
+              {tx.stage === "done" ? "✓" : tx.stage === "error" ? "✕" : ""}
+            </div>
+            <h4 className="tr-modal__title">{tx.title}</h4>
+            <p className="tr-modal__detail">{tx.detail}</p>
+
+            {/*  THE STAGE RAIL. Three dots beat a spinner here: a spinner says
+                 "waiting", these say WHAT is being waited on, which is the part
+                 that was missing — signing, mining and indexing fail for very
+                 different reasons. */}
+            <div className="tr-modal__rail">
+              {(["sign", "pending", "done"] as const).map((st, i) => {
+                const order = { sign: 0, pending: 1, done: 2, error: 1 }[tx.stage];
+                return (
+                  <span key={st}
+                    className={`tr-modal__step ${i < order ? "is-past" : i === order ? "is-now" : ""} ${tx.stage === "error" && i === 1 ? "is-err" : ""}`} />
+                );
+              })}
+            </div>
+
+            {tx.hash && (
+              <a className="tr-modal__link tc-mono" target="_blank" rel="noreferrer"
+                 href={`https://sepolia.etherscan.io/tx/${tx.hash}`}>
+                {tx.hash.slice(0, 10)}…{tx.hash.slice(-8)} ↗
+              </a>
+            )}
+            {(tx.stage === "done" || tx.stage === "error") && (
+              <button className="tr-modal__close" onClick={() => setTx(null)}>Close</button>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
