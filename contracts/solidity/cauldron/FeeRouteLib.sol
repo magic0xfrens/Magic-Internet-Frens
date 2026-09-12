@@ -103,6 +103,17 @@ library FeeRouteLib {
     }
 
     function _move(address asset, address to, uint256 amount) private returns (bool ok) {
+        //  A CODELESS RECIPIENT IS NOT A SUCCESSFUL DELIVERY, ON EITHER BRANCH
+        //  (red-team X4c/X4e, third sibling, F-04). The floor `vault` is a contract
+        //  by construction; a non-zero but CODELESS one — an operator typo, or a
+        //  CREATE address that was never deployed — takes the native branch, where
+        //  `to.call{value:}("")` SUCCEEDS and the ether really leaves. This then
+        //  reported true, {routeSplit} emitted `FloorFunded`, and the caller skipped
+        //  its `leftover += toFloor` fallback, so the floor share of EVERY fee this
+        //  hook routes was gone with a success signal on it. Checked BEFORE the
+        //  branch, so the value never moves and the share rolls into the relaunch
+        //  reserve, which has an exit.
+        if (to.code.length == 0) return false;
         if (asset == address(0)) { (ok, ) = to.call{value: amount}(""); return ok; }
         (bool called, bytes memory ret) = asset.call(
             abi.encodeWithSignature("transfer(address,uint256)", to, amount)
