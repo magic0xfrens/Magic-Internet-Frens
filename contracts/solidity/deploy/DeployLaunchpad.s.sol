@@ -735,10 +735,35 @@ contract DeployLaunchpad is Script {
         //  transfer round trip was only ever there to stage the tokens.
         VenueSeeder vs = new VenueSeeder();
         usdg.mint(address(vs), venueUsdg);
-        vs.seed{value: venueEth}(
+
+        //  ── OPEN FULL RANGE, THEN CONCENTRATE ────────────────────────────
+        //  `seed` places MIN_TICK..MAX_TICK. That is the right way to OPEN the
+        //  pool — it fixes the price from the contributed ratio, which now comes
+        //  from the oracle — and the wrong way to give a rotation venue DEPTH.
+        //  Full range behaves like constant product, so slippage is x/(X+x) and
+        //  the capital needed is brutal. Measured against one full 30000-bps
+        //  envelope (0.2434 ETH in twelve slices) over 2 ETH of venue: 10.85%
+        //  end to end, with six of the twelve slices failing a 3% floor.
+        //
+        //  The same 2 ETH in a +/-5% band costs 0.59% — ~18x better for no extra
+        //  capital — because a rotation only ever needs the venue to quote NEAR
+        //  the oracle. A thin tranche establishes the price; the bulk goes into
+        //  the band around it. VENUE_BAND_BPS=0 restores pure full range.
+        uint16 bandBps = uint16(vm.envOr("VENUE_BAND_BPS", uint256(500)));
+        uint256 openEth = bandBps == 0 ? venueEth : venueEth / 20;
+        uint256 openUsdg = bandBps == 0 ? venueUsdg : venueUsdg / 20;
+        vs.seed{value: openEth}(
             IPoolManager(poolManager), IPositionManagerOps(positionManager),
-            address(usdg), venueEth, venueUsdg, VENUE_SPACING, VENUE_FEE
+            address(usdg), openEth, openUsdg, VENUE_SPACING, VENUE_FEE
         );
+        if (bandBps != 0) {
+            vs.seedBand{value: venueEth - openEth}(
+                IPoolManager(poolManager), IPositionManagerOps(positionManager),
+                address(usdg), venueEth - openEth, venueUsdg - openUsdg,
+                VENUE_SPACING, VENUE_FEE, bandBps
+            );
+            console2.log("  venue band placed, half-width bps:", bandBps);
+        }
         rotator.setVenue(
             PoolKey({
                 currency0: Currency.wrap(address(0)),

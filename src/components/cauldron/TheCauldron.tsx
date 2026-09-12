@@ -17,7 +17,7 @@ import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
-import { TreasuryRotation, RotationHistory } from "@/components/cauldron/TreasuryRotation";
+import { TreasuryRotation, RotationHistory, RotationBallots } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
 import BrewNotes, { useBrewNotes } from "@/components/cauldron/BrewNotes";
@@ -1107,9 +1107,14 @@ export default function TheCauldron() {
                 it get there"; the right is the control that changes it. */}
             <div className="tc-treasury2__left">
               <LpBasisPanel gen={m.gen} />
+              <RotationBallots col={col} />
+            </div>
+            {/* The desk and the tape it produces, so the right column reads
+                top-to-bottom as "what you can do" then "what was done". */}
+            <div className="tc-treasury2__right">
+              <TreasuryRotation gen={m.gen} col={col} />
               <RotationHistory col={col} />
             </div>
-            <TreasuryRotation gen={m.gen} col={col} />
           </div>
           <section className="tc-card tc-gov">
             <div className="tc-gov__head">
@@ -2210,8 +2215,8 @@ function Styles() {
     .tc-treasury2 { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
       gap: 18px; align-items: start; margin-bottom: 18px; }
     .tc-treasury2 > * { min-width: 0; margin-bottom: 0; }
-    .tc-treasury2__left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-    .tc-treasury2__left > * { margin-bottom: 0; }
+    .tc-treasury2__left, .tc-treasury2__right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .tc-treasury2__left > *, .tc-treasury2__right > * { margin-bottom: 0; }
 
     /* THE TAPE. Executed slices, under the composition they produced. */
     .tc-rothist { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06);
@@ -2230,6 +2235,14 @@ function Styles() {
     .tc-rothist__pair i { font-style: normal; padding: 0 2px; }
     .tc-rothist__amt { text-align: right; color: ${C.mute}; }
     .tc-rothist__bps { min-width: 34px; text-align: right; }
+    .tc-rothist__note { font-size: 10.5px; margin: 10px 0 0; padding-top: 9px;
+      border-top: 1px solid rgba(255,255,255,0.05); }
+    /* The ballots panel carries live, contested state, so it gets a touch more
+       presence than the settled tape below it. */
+    .tc-ballots { border-color: rgba(255,255,255,0.09);
+      background: linear-gradient(180deg, rgba(213,253,81,0.028), rgba(8,6,15,0.42) 60%); }
+    .tc-ballots .tr-ballots { margin-bottom: 0; }
+    .tc-rothist__head span { font-size: 9.5px; letter-spacing: 0.08em; }
 
     /* A disabled ritual button kept its full lime fill, so "pick a destination
        above" read as the primary call to action it was refusing to be. */

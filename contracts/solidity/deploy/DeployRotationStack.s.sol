@@ -12,6 +12,12 @@ import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
 import {TreasuryGovernor, IVotes721} from "../cauldron/TreasuryGovernor.sol";
 import {MockQuoteToken} from "../cauldron/MockQuoteToken.sol";
 import {PoolOps, IPositionManagerOps} from "../cauldron/PoolOps.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+import {Actions} from "v4-periphery/src/libraries/Actions.sol";
+import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IRegistryAdmin {
     function setAllowedQuote(address quote, bool allowed, uint256 scale) external;
@@ -270,6 +276,106 @@ contract VenueSeeder {
             poolManager, posm, address(0), usdg, address(0),
             ethAmount, usdgAmount, spacing, fee
         );
+        return positionId;
+    }
+
+    /**
+     * @notice Seed the venue as a CONCENTRATED BAND around the live price.
+     *
+     *  ── WHY NOT FULL RANGE ───────────────────────────────────────────────
+     *  {seed} places MIN_TICK..MAX_TICK, because it borrows `PoolOps`'s launch
+     *  placement. That is right for a brew's own pool, which must quote at any
+     *  price forever, and wrong for a ROTATION VENUE, which only ever has to
+     *  quote near the oracle.
+     *
+     *  Full range makes the venue behave like constant product, so slippage is
+     *  `x/(X+x)` and the capital needed is brutal. Measured against the live
+     *  generation LP (one 30000-bps envelope moving 0.2434 ETH in twelve
+     *  slices) with 2 ETH of venue:
+     *
+     *      full range        largest slice 3.05%   whole envelope 10.85%
+     *      +/- 10% band      largest slice 0.30%   whole envelope  1.15%
+     *      +/-  5% band      largest slice 0.15%   whole envelope  0.59%
+     *      +/-  2% band      largest slice 0.06%   whole envelope  0.24%
+     *
+     *  Same capital, ~18x less slippage at +/-5%. The rotation's floor is
+     *  ORACLE-derived, so what matters is that the venue's price barely moves
+     *  while a whole envelope crosses it — a band delivers that, and depth alone
+     *  buys it only at ~20x the cost.
+     *
+     *  ── TWO-SIDED, NOT ONE-SIDED ─────────────────────────────────────────
+     *  A single-sided USDG position above spot would serve ETH->USDG and NOTHING
+     *  else, so the guild could rotate out of ether and never back. A band holds
+     *  both assets and quotes both directions, which is what "the treasury may
+     *  change its mind" actually requires.
+     *
+     *  ── THE TRADE-OFF, STATED ────────────────────────────────────────────
+     *  A band is only deep INSIDE itself. Push price past an edge and the
+     *  position goes one-sided and stops quoting the direction you need. That is
+     *  acceptable here precisely because this is a MOCK venue: nothing but our
+     *  own rotations moves it, and {recover} plus a re-seed re-centres it. Do not
+     *  copy this placement to a venue with real external flow without a keeper
+     *  that re-centres.
+     *
+     * @param bandBps half-width of the band, in bps of price (500 = +/-5%).
+     */
+    function seedBand(
+        IPoolManager poolManager,
+        IPositionManagerOps posm,
+        address usdg,
+        uint256 ethAmount,
+        uint256 usdgAmount,
+        int24 spacing,
+        uint24 fee,
+        uint16 bandBps
+    ) external payable returns (uint256) {
+        require(msg.sender == deployer, "only deployer");
+        require(bandBps > 0 && bandBps <= 5_000, "band");
+
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(usdg),
+            fee: fee,
+            tickSpacing: spacing,
+            hooks: IHooks(address(0))
+        });
+
+        //  The pool must already exist and hold a price. A band has to be placed
+        //  AROUND something, and opening the pool here would let this function
+        //  invent the very price the band is supposed to bracket.
+        (uint160 sqrtP, int24 tick,,) = StateLibrary.getSlot0(poolManager, PoolIdLibrary.toId(key));
+        require(sqrtP != 0, "venue: pool not initialized - run seed() first");
+
+        //  Ticks are log_1.0001(price), so a +/-b price band is +/-ln(1+b)/ln(1.0001)
+        //  ticks. ln(1.0001) ~ 1e-4, so delta ~ bandBps * 1e-4 / 1e-4 ... in
+        //  integer terms: ticks per 1% is ~99.5, so bandBps * 995 / 100 is within
+        //  a tick of exact across the whole permitted range and needs no logs.
+        int24 delta = int24(int256(uint256(bandBps)) * 995 / 100);
+        int24 lo = ((tick - delta) / spacing) * spacing;
+        int24 hi = ((tick + delta) / spacing) * spacing;
+        //  Integer division truncates TOWARD ZERO, so a negative tick would round
+        //  the wrong way and could collapse the band; nudge to keep it straddling.
+        if (lo >= tick) lo -= spacing;
+        if (hi <= tick) hi += spacing;
+        require(lo < hi, "band collapsed");
+
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtP,
+            TickMath.getSqrtPriceAtTick(lo),
+            TickMath.getSqrtPriceAtTick(hi),
+            ethAmount,
+            usdgAmount
+        );
+        require(liquidity > 0, "band: zero liquidity");
+
+        IERC20(usdg).approve(address(posm), usdgAmount);
+        bytes memory actions = abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.SETTLE_PAIR));
+        bytes[] memory params = new bytes[](2);
+        params[0] = abi.encode(key, lo, hi, liquidity, ethAmount, usdgAmount, address(this), bytes(""));
+        params[1] = abi.encode(key.currency0, key.currency1);
+
+        positionId = posm.nextTokenId();
+        posm.modifyLiquidities{value: ethAmount}(abi.encode(actions, params), block.timestamp + 300);
         return positionId;
     }
 

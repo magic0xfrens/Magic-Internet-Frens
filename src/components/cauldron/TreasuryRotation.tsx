@@ -435,33 +435,6 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
             <strong>{since(env.timing.votingPeriod)}</strong> to agree.
           </p>
 
-          {/*  LIVE BALLOTS. Shown ABOVE the propose form: with concurrent
-               proposals, filing another when one is already winning splits the
-               vote, so the existing ones have to be visible first. */}
-          {gov.proposals.some((p) => p.open || p.executable) && (
-            <>
-              <label className="tc-mono tc-dim tr-label">
-                On the table now
-                {gov.proposals.filter((p) => p.open).length > 1 && " — they compete, the leader wins"}
-              </label>
-              {/*  RANKED BY FOR-VOTES, because that is how `execute` picks.
-                   Filing order is not the contest; showing it as the order
-                   implies a queue, and this is a race. Ties fall back to the
-                   older proposal so the list does not reshuffle on every poll. */}
-              <ul className="tr-ballots">
-                {gov.proposals
-                  .filter((p) => p.open || p.executable)
-                  .sort((a, b) =>
-                    a.forVotes === b.forVotes
-                      ? a.createdTs - b.createdTs
-                      : (b.forVotes > a.forVotes ? 1 : -1))
-                  .map((p) => (
-                  <Ballot key={p.id} p={p} leader={gov.leader} col={col} busy={busy}
-                          onVote={castVote} onExecute={runExecute} since={since} />
-                ))}
-              </ul>
-            </>
-          )}
           {gov.failed && (
             // An unreachable indexer is not "no proposals" — say which it is.
             <p className="tr-note tc-mono tc-dim">
@@ -660,6 +633,75 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
  * Amounts are converted per-asset upstream: ETH is 18 decimals and USDG is 6, so
  * a shared divisor would misreport one of them by a factor of 10^12 — the exact
  * confusion the rotator's USD-denominated floor exists to avoid.
+ */
+export function RotationBallots({ col }: { col: string }) {
+  const gov = useRotationGovernance();
+  const { refresh, voteEnvelope, executeEnvelope } = useTreasuryRotation();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function castVote(id: string, support: boolean) {
+    setBusy(`vote-${id}-${support ? "y" : "n"}`);
+    try {
+      await voteEnvelope(BigInt(id), support);
+      setNote(`Voted ${support ? "FOR" : "AGAINST"} #${id}.`);
+      await refresh();
+    } catch (e) { setNote(`Vote failed: ${(e as Error).message.slice(0, 80)}`); }
+    finally { setBusy(null); }
+  }
+  async function runExecute(id: string) {
+    setBusy(`exec-${id}`);
+    try {
+      await executeEnvelope(BigInt(id));
+      setNote(`Executed #${id} — the envelope is open.`);
+      await refresh();
+    } catch (e) { setNote(`Execute failed: ${(e as Error).message.slice(0, 80)}`); }
+    finally { setBusy(null); }
+  }
+
+  //  LIVE first, then the tape. A voter needs to see what is contested before
+  //  what is settled — and with CONCURRENT proposals, filing another while one
+  //  is already winning splits the vote, so the open ones must be unmissable.
+  const live = gov.proposals
+    .filter((p) => p.open || p.executable)
+    .sort((a, b) => (a.forVotes === b.forVotes
+      ? a.createdTs - b.createdTs
+      : (b.forVotes > a.forVotes ? 1 : -1)));
+
+  return (
+    <section className="tc-rothist tc-ballots">
+      <header className="tc-rothist__head">
+        <h3 className="tc-mono">On the table now</h3>
+        {live.filter((p) => p.open).length > 1 && (
+          <span className="tc-mono tc-dim">they compete · leader wins</span>
+        )}
+      </header>
+      {live.length === 0 ? (
+        <p className="tc-rothist__empty tc-mono tc-dim">
+          {gov.failed
+            ? "Indexer unreachable — proposals unknown."
+            : "Nothing proposed. The desk on the right files one."}
+        </p>
+      ) : (
+        <ul className="tr-ballots">
+          {live.map((p) => (
+            <Ballot key={p.id} p={p} leader={gov.leader} col={col} busy={busy}
+                    onVote={castVote} onExecute={runExecute} since={since} />
+          ))}
+        </ul>
+      )}
+      {note && <p className="tc-rothist__note tc-mono tc-dim">{note}</p>}
+    </section>
+  );
+}
+
+/**
+ * EXECUTED ROTATIONS — the tape, not the plan.
+ *
+ * Sits under the desk that produces it. Amounts are converted per-asset
+ * upstream: ETH is 18 decimals and USDG is 6, so a shared divisor would
+ * misreport one of them by 10^12 — the confusion the rotator's USD-denominated
+ * floor exists to avoid.
  */
 export function RotationHistory({ col }: { col: string }) {
   const gov = useRotationGovernance();
