@@ -93,12 +93,16 @@ echo "   presale: $PRESALE"
 # ── 3. MINT OUT ─────────────────────────────────────────────────────────────
 # Batched: mint() loops _mint per token (~55k gas each), so 1110 in one call
 # would not fit in a block. 250 per tx is ~14M gas, comfortably inside.
-say "3/5  minting out the presale (1110 frens, batched)"
+#  LEAVE_UNMINTED lets a demo stop short so a HUMAN mints the last fren and fires
+#  the summon from the UI. Default 0 = mint out and ignite, which is what CI wants.
+LEAVE_UNMINTED="${LEAVE_UNMINTED:-0}"
+say "3/5  minting out the presale (batched, leaving $LEAVE_UNMINTED for a human)"
 PRICE=$(cast call "$PRESALE" "PRICE()(uint256)" --rpc-url "$R" | tail -1 | awk '{print $1}')
 REMAINING=$(cast call "$PRESALE" "remaining()(uint256)" --rpc-url "$R" | tail -1 | awk '{print $1}')
 echo "   price=$PRICE wei  remaining=$REMAINING"
-while [ "$REMAINING" -gt 0 ]; do
-  N=$(( REMAINING > 250 ? 250 : REMAINING ))
+while [ "$REMAINING" -gt "$LEAVE_UNMINTED" ]; do
+  TO_GO=$(( REMAINING - LEAVE_UNMINTED ))
+  N=$(( TO_GO > 250 ? 250 : TO_GO ))
   VAL=$(python3 -c "print($PRICE*$N)")
   echo "   minting $N (value $VAL wei)"
   cast send "$PRESALE" "mint(uint256)" "$N" --value "$VAL" "${W[@]}" >/dev/null
@@ -115,9 +119,16 @@ done
 #  catch it, so `set -e` aborted the deploy here — after arming, deploying and
 #  minting out, leaving a stack with no pool. Verified against
 #  `forge inspect MiFrensGenesis methodIdentifiers`: igniteCauldron() = 0xe830840c.
+if [ "$LEAVE_UNMINTED" != "0" ]; then
+  say "4/5  SKIPPED — $LEAVE_UNMINTED fren(s) left unminted on purpose"
+  echo "   Mint the last one from the UI; that mint sells out the presale and then"
+  echo "   igniteCauldron() summons the pool. Presale: $PRESALE"
+  echo "   remaining=$(cast call "$PRESALE" 'remaining()(uint256)' --rpc-url "$R" | tail -1)"
+else
 say "4/5  igniteCauldron -> summon"
 cast send "$PRESALE" "igniteCauldron()" "${W[@]}" >/dev/null
 echo "   summoned. token: $(cast call "$PRESALE" 'currentToken()(address)' --rpc-url "$R" 2>/dev/null | tail -1 || echo '(read from the registry)')"
+fi
 
 # ── 5. MANIFEST ─────────────────────────────────────────────────────────────
 say "5/5  folding the new addresses into the manifest"
