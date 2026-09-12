@@ -31,10 +31,14 @@ fi
 
 if [ -n "$PK" ]; then
   echo "signing with the key from $ENVFILE"
-source "$(dirname "$0")/lib/signer.sh"
-resolve_signer || exit 1
-  W=(--rpc-url "$R" "${SIGNER[@]}")
+  #  EXPORT BEFORE RESOLVING. `resolve_signer` reads $PRIVATE_KEY, so exporting it
+  #  afterwards left it empty at the only moment it was read and the run died
+  #  "no signer" with a perfectly good key on disk. Same read-before-load shape as
+  #  keeper.sh binding its addresses before sourcing its env.
   export PRIVATE_KEY="$PK"
+  source "$(dirname "$0")/lib/signer.sh"
+  resolve_signer || exit 1
+  W=(--rpc-url "$R" "${SIGNER[@]}")
   #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on
   #  disk after the job that needed it is just a liability with no upside.
   cleanup() {
