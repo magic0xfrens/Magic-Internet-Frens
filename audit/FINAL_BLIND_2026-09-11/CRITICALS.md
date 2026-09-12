@@ -33,3 +33,21 @@
 **Method note: the documentation pass produced coherence findings no hunter did, because writing "what does this actually do" forces a claim-by-claim reconciliation that attack-driven review skips.**
 - `hasClaimed()` ALWAYS RETURNS FALSE (LOW, VERIFIED) — `CauldronBase.sol:209` declares `mapping(uint256 => mapping(address => bool)) public claimed;` and `CauldronRegistry.sol:1774-1775` exposes it; grep confirms NO WRITER anywhere in the non-test tree. Explicitly NOT a double-claim bug: nothing gates on it, so no claim path is weakened. It is a public view that lies to integrators, on a protocol whose core promise is per-generation claim guarantees. Assigned to fixC with instructions not to shift the shared facet storage layout. Severity kept at Low deliberately — the alarming reading (double claims) was checked and refuted.
 - Registry has NO `fallback()` (documented, not a new finding) — every facet function needs an explicit stub or the call reverts as an unknown selector, and `CauldronRegistry.sol:1778-1782` says the OPPOSITE. Five functions have already shipped broken this way across the project's history. This is the root cause behind X2b and X2g.
+
+## Found while debugging the live deployment (2026-09-12)
+- **ART-1 (HIGH, VERIFIED on-chain) — revealed NFTs have no art, and the documented fix is unreachable.**
+  `CauldronCollection.tokenURI` (`:412-414`) calls `ICollectionRenderer(renderer).tokenURI(tokenId)` with ONE
+  argument. `render/FrenRenderer.tokenURI` takes FIVE (`FrenRenderer.sol:40-46`: tokenId + four trait indices).
+  Selectors differ and the renderer has no fallback, so the revealed branch always reverts. Verified live:
+  `tokenURI(1)` reverts on collection `0xd9c04263…` while `revealed(1)==true`, `rarityOf(1)==0`. Round 39 never
+  exposed it because nothing there was revealed, so the branch returned the placeholder instead.
+  The hardcoded `DEFAULT_GNOME_RENDERER = 0x15EbCb6c…` (`DeployLaunchpad.s.sol:86`) answers NEITHER the 1-arg
+  nor the 5-arg selector and has an `owner()` that FrenRenderer does not — it is not a working renderer.
+  **Why it needs a redeploy:** `CauldronCollection.setMetadata` (`:316`) exists for precisely this repair and is
+  gated to `deployer`, which is the REGISTRY — and the registry has no function that calls it.
+  `setGenesisMetadata` (`CauldronRegistry.sol:609`) only stores values consumed when a FUTURE collection is
+  deployed (read at `:862`). So the escape hatch is unreachable: 8th instance of the
+  "function exists, nothing can reach it" class after setRotationWiring, three RedemptionExt views,
+  recoverLegs, completeRotation, and claimByBurnUpTo's stub.
+  Front-end aggravator: the art fetch swallows the revert with `.catch(() => {})`
+  (`CrystalCauldronGame.tsx`), so the tile renders blank with no diagnostic — the silent-substitution class again.
