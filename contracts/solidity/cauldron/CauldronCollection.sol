@@ -244,6 +244,14 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         for (uint256 i; i < n; ++i) _reveal(tokenIds[i]);
     }
 
+    /// @notice Whether this token has already spent its one expiry re-anchor.
+    ///
+    ///  ── ONE RE-ANCHOR, EVER (red-team Z-08) ─────────────────────────────────
+    ///  See the note in {_reveal}: an uncapped re-anchor is an unlimited free
+    ///  re-roll, because the holder can read the pending tier off-chain the moment
+    ///  block `mintBlockOf` is mined and is under no obligation to commit it.
+    mapping(uint256 => bool) public reanchored;
+
     function _reveal(uint256 tokenId) private {
         if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
         if (!revealed[tokenId]) {
@@ -261,9 +269,46 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
             // NOTE: we must NOT revert here — a revert would roll the re-anchor
             // back, leaving the token stuck. Return quietly instead; the holder
             // (or a keeper) calls reveal() again once the new block is mined.
+            //
+            // ── THE RE-ANCHOR IS CAPPED AT ONE (red-team Z-08) ────────────────
+            //  The claim above — "exactly ONE unknowable draw" — was false, for a
+            //  reason the M-03 note never considers: the draw stops being unknowable
+            //  the moment block `mb` is mined, and NOTHING OBLIGES THE HOLDER TO
+            //  REVEAL. Every input to the roll (blockhash(mb), tokenId, address) is
+            //  public at mb+1, so the holder computes the pending tier off-chain,
+            //  commits it if it is good, and otherwise waits out the 256-block
+            //  window. `blockhash(mb)` then returns 0, this branch re-anchored
+            //  WITHOUT committing a rarity, and they had a fresh draw for the price
+            //  of one transaction. Measured on the PoC: tier 0 ground up to tier 3
+            //  in 3 re-anchors, and 400 re-rolls reached Ultra deterministically.
+            //  M-03 reasoned about best-of-two and shipped best-of-unlimited.
+            //
+            //  WHY A CAP AND NOT A SELF-COMMITTING EXPIRY DRAW. Rolling here from
+            //  `blockhash(block.number - 1)` and committing looks stricter but is
+            //  strictly worse: that seed IS known while the transaction executes, so
+            //  a wrapper contract that calls reveal(), reads `rarityOf` and reverts
+            //  on a bad tier rolls the commit back and retries next block — free,
+            //  unlimited, and available to anyone. The ordinary path is safe from
+            //  exactly that because its seed is fixed BEFORE the reveal is sent;
+            //  a re-anchor preserves that property, it just must not be repeatable.
+            //
+            //  So: one re-anchor per token, ever. An honest holder who missed the
+            //  window keeps a genuinely fair second draw. A holder who declines
+            //  that one too gets the base tier — declining a draw costs the draw
+            //  instead of buying another, and the token is never left unrevealable.
+            //  Grind ceiling: best-of-two.
             if (bh == 0) {
-                mintBlockOf[tokenId] = uint48(block.number);
-                emit ReAnchored(tokenId, uint48(block.number));
+                if (!reanchored[tokenId]) {
+                    reanchored[tokenId] = true;
+                    mintBlockOf[tokenId] = uint48(block.number);
+                    emit ReAnchored(tokenId, uint48(block.number));
+                    return;
+                }
+                // Second expiry: commit the base tier. Deterministic, so there is
+                // nothing left to grind, and `revealed` is set so the token renders.
+                rarityOf[tokenId] = 0;
+                revealed[tokenId] = true;
+                emit Revealed(tokenId, 0);
                 return;
             }
             uint8 rarity = _rollRarity(uint256(keccak256(abi.encodePacked(bh, tokenId, address(this)))));

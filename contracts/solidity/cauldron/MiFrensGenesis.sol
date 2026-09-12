@@ -512,6 +512,11 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         for (uint256 i; i < n; ++i) _reveal(tokenIds[i]);
     }
 
+    /// @notice Whether this token has already spent its one expiry re-anchor.
+    ///         See the note in {_reveal} (red-team Z-08) — an uncapped re-anchor is
+    ///         an unlimited free gacha re-roll.
+    mapping(uint256 => bool) public reanchored;
+
     function _reveal(uint256 tokenId) private {
         if (ownerOf(tokenId) != msg.sender) revert OnlyMinter();
         if (!revealed[tokenId]) {
@@ -529,9 +534,38 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
             // NOTE: we must NOT revert here — a revert would roll the re-anchor
             // back, leaving the token stuck. Return quietly instead; the holder
             // (or a keeper) calls reveal() again once the new block is mined.
+            //
+            // ── THE RE-ANCHOR IS CAPPED AT ONE (red-team Z-08) ────────────────
+            //  "Exactly ONE unknowable draw" was false: the draw stops being
+            //  unknowable the moment block `mb` is mined, and nothing obliges the
+            //  holder to reveal. Every input (blockhash(mb), tokenId, address) is
+            //  public at mb+1, so a holder peeks at the pending tier, commits only
+            //  when it is good, and otherwise waits out the 256-block window — this
+            //  branch then re-anchored WITHOUT committing a rarity and handed them
+            //  a fresh draw for one transaction. Unlimited: measured at 400
+            //  re-rolls to a deterministic Ultra.
+            //
+            //  Committing an expiry draw from `blockhash(block.number - 1)` instead
+            //  would be worse, not better — that seed is known while the call
+            //  executes, so a wrapper that reverts on a bad tier rolls the commit
+            //  back and retries next block, free and unlimited. The ordinary path
+            //  is safe precisely because its seed is fixed before the reveal is
+            //  sent; a re-anchor keeps that, it just must not repeat.
+            //
+            //  One re-anchor per token, ever. An honest holder who missed the
+            //  window still gets a genuinely fair second draw; declining that one
+            //  too commits the base tier, so waiting costs the draw rather than
+            //  buying another, and the token is never left unrevealable.
             if (bh == 0) {
-                mintBlockOf[tokenId] = uint48(block.number);
-                emit ReAnchored(tokenId, uint48(block.number));
+                if (!reanchored[tokenId]) {
+                    reanchored[tokenId] = true;
+                    mintBlockOf[tokenId] = uint48(block.number);
+                    emit ReAnchored(tokenId, uint48(block.number));
+                    return;
+                }
+                rarityOf[tokenId] = 0;
+                revealed[tokenId] = true;
+                emit Revealed(tokenId, 0);
                 return;
             }
             uint8 rarity = _rollRarity(uint256(keccak256(abi.encodePacked(bh, tokenId, address(this)))));
