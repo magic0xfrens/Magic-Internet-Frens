@@ -25,7 +25,25 @@ contract DefaultFeeRouter is IFeeRouter {
     {
         toGuild = (guild != address(0) && guildBps > 0) ? (feeAmount * guildBps) / BPS : 0;
         uint256 rem = feeAmount - toGuild;
-        toFloor = (vault != address(0) && floorBps > 0) ? (rem * floorBps) / BPS : 0;
+        //  ── NO VAULT TEST (red-team Z-11) ───────────────────────────────────
+        //  `CauldronHook.sol:1383` — the built-in split this router exists to
+        //  reproduce — does NOT test `vault`, because under the shipped FULL-UNIFY
+        //  configuration the floor share is not an ETH transfer at all: both
+        //  collection-deployment paths call `hook.setVault(address(0))`
+        //  (CauldronRegistry.sol:1189, :1213) and the hook turns `wantFloor` into
+        //  token BUY PRESSURE via the legacy buffer (CauldronHook.sol:1428-1450).
+        //
+        //  With the extra `vault != address(0)` condition this router returned
+        //  `toFloor == 0` on EVERY swap of the live configuration, so the whole
+        //  buy-pressure block was skipped and the collection's token floor share
+        //  was silently re-routed into the relaunch reserve. The hook's own
+        //  mismatch detector cannot see it: the three amounts still sum to
+        //  `feeAmount`, so `routed = true` (CauldronHook.sol:1373) and the
+        //  built-in split is never consulted.
+        //
+        //  `vault` stays in the signature — it is part of {IFeeRouter} and a v2
+        //  router may legitimately want it — it just must not gate the share.
+        toFloor = floorBps > 0 ? (rem * floorBps) / BPS : 0;
         toRelaunch = rem - toFloor; // remainder — guarantees the sum == feeAmount
     }
 }
