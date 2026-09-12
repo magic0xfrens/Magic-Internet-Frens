@@ -110,6 +110,13 @@ const updates = {
   timelock: pick("TimelockController", launchpad),
   registry: pick("CauldronRegistry", launchpad),
   hook: hookFromRegistry(m0.contracts?.registry),
+  //  THE COLLECTION WAS NEVER UPDATED EITHER, and it CANNOT come from a broadcast:
+  //  the factory deploys it during the SUMMON, which happens after this script runs.
+  //  So `collection` was carried forward across every round — round 40 shipped with
+  //  round 39's collection while the live gen-1 collection was 0xD9c04263 (GNOME),
+  //  and the frontend reads this field, so the UI was pointed at a dead collection.
+  //  Ask the chain, the same way the hook is resolved.
+  collection: "__ASK_CHAIN_COLLECTION__",
   governor: pick("CauldronGovernor", launchpad),
   dividend: pick("MiFrensDividend", launchpad),
   presale: pick("MiFrensGenesis", launchpad),
@@ -236,6 +243,36 @@ if (m.contracts.hook === "__ASK_CHAIN__") {
     const j = await r.json();
     m.contracts.hook = "0x" + String(j.result).slice(-40);
   } catch { m.contracts.hook = m0.contracts.hook; }
+}
+
+//  Resolve the LIVE collection from the registry. It is created by the factory during
+//  the summon, so no broadcast can name it, and carrying the previous round's value
+//  forward pointed the frontend at a dead collection.
+if (m.contracts.collection === "__ASK_CHAIN_COLLECTION__") {
+  const prev = m0.contracts?.collection ?? null;
+  try {
+    const rpc = process.env.RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+    const call = async (data) => {
+      const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call",
+          params: [{ to: m.contracts.registry, data }, "latest"] }) });
+      return (await r.json()).result;
+    };
+    // currentGeneration() then generationCollection(uint256)
+    const genHex = await call("0x8ddb428a");            // currentGeneration()
+    const gen = BigInt(genHex ?? "0x0");
+    if (gen > 0n) {
+      const arg = gen.toString(16).padStart(64, "0");
+      const got = await call("0xb3e49827" + arg);          // generationCollection(uint256)
+      const addr = "0x" + String(got).slice(-40);
+      m.contracts.collection = /^0x0{40}$/.test(addr) ? prev : addr;
+    } else {
+      m.contracts.collection = prev;   // nothing summoned yet: keep what we had
+    }
+  } catch { m.contracts.collection = prev; }
+  if (m.contracts.collection && prev && m.contracts.collection.toLowerCase() !== String(prev).toLowerCase()) {
+    applied.push(["collection", prev, m.contracts.collection]);
+  }
 }
 
 if (applied.length > 0 && m.contracts.registry) {

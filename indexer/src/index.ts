@@ -144,6 +144,22 @@ ponder.on("Collection:Revealed", async ({ event, context }) => {
   await context.db.insert(nft).values({ id: nftId(event.log.address, event.args.tokenId as bigint), collection: lc(event.log.address), tokenId: Number(event.args.tokenId), owner: ZERO as `0x${string}`, rarity: Number(event.args.rarity), revealed: true })
     .onConflictDoUpdate(() => ({ revealed: true, rarity: Number(event.args.rarity) }));
 });
+//  The live generation's collection, subscribed by ADDRESS as well as through the
+//  factory. Same handlers, same tables — the factory did not index the current
+//  collection, so a wallet holding crystals on chain read as empty in the UI.
+ponder.on("LiveCollection:Transfer", async ({ event, context }) => {
+  await onTransfer(context, event.log.address, (event.args.from as string).toLowerCase(), (event.args.to as string).toLowerCase(), event.args.tokenId as bigint);
+});
+ponder.on("LiveCollection:Minted", async ({ event, context }) => {
+  await onMint(context, event.log.address, event.args.to as string, event.args.tokenId as bigint, Number(event.args.rarity), event.block.timestamp, event.transaction.hash, false);
+});
+ponder.on("LiveCollection:Revealed", async ({ event, context }) => {
+  await context.db.insert(nft).values({ id: nftId(event.log.address, event.args.tokenId as bigint), collection: lc(event.log.address), tokenId: Number(event.args.tokenId), owner: ZERO as `0x${string}`, rarity: Number(event.args.rarity), revealed: true })
+    .onConflictDoUpdate(() => ({ revealed: true, rarity: Number(event.args.rarity) }));
+});
+ponder.on("LiveCollection:LiquidatoorMinted", async ({ event, context }) => {
+  await onLiquidatoor(context, event.log.address, event.args.tokenId as bigint, event.block.timestamp, event.transaction.hash);
+});
 ponder.on("Collection:LiquidatoorMinted", async ({ event, context }) => {
   await onLiquidatoor(context, event.log.address, event.args.tokenId as bigint, event.block.timestamp, event.transaction.hash);
 });

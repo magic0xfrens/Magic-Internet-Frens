@@ -311,7 +311,7 @@ function HomePreview() {
         </h1>
 
         <p className="pp__hero-sub">
-          2222 magic internet frens, fully on-chain on Robinhood
+          2222 mifrens summoning an eternal on-chain being
         </p>
 
         {/* Editor toggle */}

@@ -38,6 +38,8 @@ const POOL_IDS = round.poolIds as `0x${string}`[];
 // The progressive seeder. Absent on an atomic (SEED_WINDOW=0) deployment and on
 // any manifest written before the launch feed existed, so it degrades to the zero
 // address — registered either way so its event types resolve, yielding no logs.
+const LIVE_COLLECTION = (((round.contracts as Record<string, string>).collection ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`);
 const SEEDER = ((round.contracts as Record<string, string>).seeder ??
   "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
@@ -145,6 +147,20 @@ export default createConfig({
     // Every per-iteration collection, discovered from the registry's
     // CollectionDeployed event (Ponder factory pattern) → one handler set covers
     // Gnomeland, Frog Nation, and every future brew automatically.
+    //  THE LIVE COLLECTION, BY ADDRESS. The factory entry below discovers every
+    //  per-iteration collection from the registry's CollectionDeployed event, and it
+    //  is what covers PAST generations — but it did not index the current one: the
+    //  presale (a fixed address) indexed all 1111 frens while the freshly-summoned
+    //  collection had zero rows, so "0 sealed" was shown to a wallet holding four
+    //  crystals on chain. A fixed-address subscription for the live collection is
+    //  belt-and-braces: whatever the factory does or does not discover, the
+    //  generation people are actually looking at is always indexed.
+    LiveCollection: {
+      chain: "cauldron",
+      abi: CollectionAbi,
+      address: LIVE_COLLECTION,
+      startBlock,
+    },
     Collection: {
       chain: "cauldron",
       abi: CollectionAbi,
