@@ -207,6 +207,13 @@ contract T02_PerpAfterRotation is YBase {
         console2.log("...as WHOLE USDG ($)      :", floorRaw / 1e6);
         assertEq(floorRaw, 0.003 ether, "unchanged by the rotation");
 
+        //  ── REACH THE ASSERTION. `_guardOpen` gates on the SUMMON warmup and the
+        //  TWAP RING warmup (PerpEngine.sol:1390-1392). The 3-day governor vote in
+        //  `_rotateFully` clears the first; nothing here was filling the ring, so
+        //  every open died `NotWarm()` and this test could neither prove nor
+        //  disprove what it is about. Same 8-poke fill the sibling test uses.
+        for (uint256 i; i < 8; ++i) { _warp(60); perp.poke(); }
+
         // A generous $50,000 of collateral, in the asset the engine now uses.
         uint256 collateral = 50_000e6;
         usdg.mint(trader, collateral);
@@ -234,6 +241,13 @@ contract PVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
     function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev HARNESS GAP, not a protocol finding. `TreasuryGovernor._passed` reads
+    ///      `getPastTotalSupply` for its quorum denominator — that IS the real vote
+    ///      source's API (`MiFrensGenesis` implements it). This mock had only
+    ///      `totalSupply`, so every `execute` in this file died on an unrecognized
+    ///      selector and both tests failed for a reason unrelated to what they
+    ///      assert. Same one-line gap as T02_StaleFloorSandwich's `FVotes`.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }
 

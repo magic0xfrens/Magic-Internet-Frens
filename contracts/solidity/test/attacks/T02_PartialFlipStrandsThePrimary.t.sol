@@ -20,8 +20,25 @@ interface IPosLiq {
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * T02 — THE HALF-CHANGED TREASURY
+ * T02 — THE HALF-CHANGED TREASURY  (REGRESSION; both halves resolved)
  * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * WHY THIS FILE WAS IN THE DEPLOY GATE'S BASELINE-FAILURE LIST, and it should not
+ * have been: its vote mock implemented `totalSupply` where
+ * `TreasuryGovernor._passed` needs `getPastTotalSupply`, so every `execute` here
+ * died on an unrecognized selector and BOTH tests failed before reaching a single
+ * assertion. A broken harness is indistinguishable from a real regression when the
+ * gate compares by name. Mock widened; see `SVotes` at the bottom.
+ *
+ * OF THE TWO CLAIMS BELOW, ONE IS ACCEPTED BEHAVIOUR AND ONE WAS A REAL BUG:
+ *   A. the ~31.6% tail is REAL and DELIBERATE — see {RedemptionExt.rotateSliceFrom}
+ *      ("this deliberately does NOT try to make the flip a full-drain test ...
+ *      demanding a drained position would make completion unreachable and the whole
+ *      feature dead"). Asserted here as the accepted, bounded property it is.
+ *   B. the tail being UNROTATABLE was the bug, and it is fixed: `fromLeg == 0` now
+ *      resolves its quote from `generationPoolKey.currency0` — the pair's own quote
+ *      — instead of from `generationQuote`. That is what makes A a limitation
+ *      rather than a loss.
  *
  * `RedemptionExt.rotateSliceFrom` flips the generation's denomination when
  * the governor says the migration mandate is spent (:468-469):
@@ -106,8 +123,12 @@ contract T02_PartialFlipStrandsThePrimary is YBase {
 
     // -----------------------------------------------------------------------
 
-    /// @notice A. A "MIGRATE THE WHOLE POSITION" MANDATE REDENOMINATES THE
-    /// GENERATION WITH A THIRD OF IT STILL IN THE OLD ASSET.
+    /// @notice A. ACCEPTED PROPERTY. A "migrate the whole position" mandate
+    /// redenominates the generation and leaves a BOUNDED tail in the old asset,
+    /// because slices are a share of CURRENT liquidity and therefore compound
+    /// rather than sum. 0.75^4 = 31.6%. This is documented and deliberate; the
+    /// alternative (demanding a drained pair) makes completion unreachable.
+    /// What makes it survivable is test B: the tail stays addressable.
     function test_T02_POC_FullMandateFlipsWithAThirdLeftBehind() public {
         vm.skip(!active);
 
@@ -147,11 +168,19 @@ contract T02_PartialFlipStrandsThePrimary is YBase {
         assertTrue(reached, "T02 partial-flip reached its assertions");
     }
 
-    /// @notice B. AND THAT THIRD CAN NEVER BE ROTATED AGAIN.
+    /// @notice B. REGRESSION — AND THAT THIRD IS STILL ADDRESSABLE.
     ///
-    /// `fromLeg == 0` reads `fromQuote = generationQuote[gen]` (now USDG) but
-    /// `srcKey = generationPoolKey[gen]` (still the ETH pair). `removePartial`
-    /// then burns ETH liquidity and looks for the proceeds in the USDG balance.
+    /// The bug: `fromLeg == 0` read `fromQuote = generationQuote[gen]` (flipped to
+    /// USDG) while `srcKey = generationPoolKey[gen]` still named the ETH pair, so
+    /// `removePartial` burned ETH liquidity and looked for the proceeds in the USDG
+    /// balance — `quoteOut == 0`, revert `BadConfig`, residual frozen for the life
+    /// of the generation.
+    ///
+    /// THE OLD ASSERTION COULD NOT SEE THE FIX. It was a bare `vm.expectRevert()`
+    /// over a call whose ONLY defect was WHICH error it raised, and it pointed the
+    /// envelope at native ether — the primary pair's own quote — so it would keep
+    /// passing on a correctly refused self-rotation long after the freeze was gone.
+    /// Both directions are now asserted separately and by selector.
     function test_T02_POC_PrimaryLegIsUnrotatableAfterTheFlip() public {
         vm.skip(!active);
 
@@ -163,34 +192,42 @@ contract T02_PartialFlipStrandsThePrimary is YBase {
         }
         assertEq(registry.generationQuote(1), address(usdg), "flipped");
 
-        // The stored pair is UNCHANGED — this is the whole defect.
+        // The two slots still disagree, and they MUST: the 69x redemption reserve is
+        // held under `generationPoolKey`, so the primary cannot be re-pointed. That
+        // divergence is the precondition the fix had to survive, not remove.
         (Currency c0,,,,) = registry.generationPoolKey(1);
         assertEq(Currency.unwrap(c0), address(0), "generationPoolKey[1] still names ETH as the quote");
         assertTrue(
             Currency.unwrap(c0) != registry.generationQuote(1),
-            "generationQuote and generationPoolKey now disagree"
+            "generationQuote and generationPoolKey disagree - the shape that used to freeze the primary"
         );
 
-        // The guild votes to bring the stranded third home. Native is an
-        // allowed quote (CauldronRegistry.sol:173) and `_requirePriceable`
-        // exempts it (TreasuryGovernor.sol:749), so the vote passes and
-        // executes cleanly.
+        uint128 liqBefore = _primaryLiquidity();
+        assertGt(liqBefore, 0, "the stranded third is still sitting in the ETH pair");
+
+        // The guild votes to finish the job: drain the ETH residual into USDG.
         _warp(governor.COOLDOWN() + 1);
-        _approve(address(0), 10_000);
+        _approve(address(usdg), 10_000);
         (address dest, uint16 rem) = governor.allowance();
-        assertEq(dest, address(0), "the envelope really does target native ether");
+        assertEq(dest, address(usdg), "the envelope targets the destination");
         assertGt(rem, 0, "and it is live");
 
-        // Every slice of it reverts. The 31.6% is unreachable for the rest of
-        // the generation's life.
-        vm.expectRevert();
-        registry.rotateSliceFrom(0, 2500, 0, _venueKey());
+        // ── THE FIX ─────────────────────────────────────────────────────────
+        // This is the exact call that used to revert BadConfig() = 0x07cc321c.
+        (uint256 moved,) = registry.rotateSliceFrom(0, 2500, 0, _venueKey());
+        assertGt(moved, 0, "FIXED: the primary residual rotates, and real value moves");
+        assertLt(_primaryLiquidity(), liqBefore, "FIXED: the ETH pair actually shrank");
 
-        console2.log("envelope remaining bps     :", rem);
-        console2.log("rotateSliceFrom(0,...) reverted; the ETH leg cannot be moved");
+        // ── AND THE GUARD IT MUST NOT HAVE DISABLED ─────────────────────────
+        // Leg 1 is already USDG, so rotating it into USDG is a self-rotation and is
+        // still refused by name. The fix resolves the primary's REAL quote; it does
+        // not make every slice succeed.
+        vm.expectRevert(bytes4(keccak256("BadConfig()")));
+        registry.rotateSliceFrom(1, 2500, 0, _venueKey());
 
-        bool reached = true;
-        assertTrue(reached, "T02 primary-unrotatable reached its assertions");
+        console2.log("primary liquidity before   :", uint256(liqBefore));
+        console2.log("primary liquidity after    :", uint256(_primaryLiquidity()));
+        console2.log("quote moved out of the ETH residual:", moved);
     }
 }
 
@@ -198,5 +235,12 @@ contract SVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
     function totalSupply() external pure returns (uint256) { return 1000; }
-    function balanceOf(address) external pure returns (uint256) { return 1000; }
+    /// @dev HARNESS GAP, not a protocol finding, and the reason this whole file sat
+    ///      in the deploy gate's baseline-failure list. `TreasuryGovernor._passed`
+    ///      reads `getPastTotalSupply` for its quorum denominator — that IS the real
+    ///      vote source's API (`MiFrensGenesis` implements it). This mock had only
+    ///      `totalSupply`, so every `execute` here died on an unrecognized selector
+    ///      and both tests failed before reaching an assertion. Same one-line gap as
+    ///      `FVotes` in T02_StaleFloorSandwich.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
 }

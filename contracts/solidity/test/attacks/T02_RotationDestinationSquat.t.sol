@@ -287,5 +287,12 @@ contract TVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
     function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev HARNESS GAP, not a protocol finding. `TreasuryGovernor._passed` reads
+    ///      `getPastTotalSupply` for its quorum denominator — that IS the real vote
+    ///      source's API (`MiFrensGenesis` implements it). This mock had only
+    ///      `totalSupply`, so every `execute` in this file died on an unrecognized
+    ///      selector and both tests failed for a reason unrelated to what they
+    ///      assert. Same one-line gap as T02_StaleFloorSandwich's `FVotes`.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }

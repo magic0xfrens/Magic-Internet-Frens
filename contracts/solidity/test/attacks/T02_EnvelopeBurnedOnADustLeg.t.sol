@@ -37,6 +37,15 @@ interface IPosLiq2 {
  *
  * and the function is PERMISSIONLESS by design (:271-292, "Not onlyOwner").
  *
+ * REGRESSION NOW. Two things changed. This file's vote mock implemented
+ * `totalSupply` where `TreasuryGovernor._passed` needs `getPastTotalSupply`, so
+ * every `execute` here died on an unrecognized selector and the test failed before
+ * reaching an assertion — a broken harness the deploy gate could not tell apart
+ * from a real regression. And the defect itself is closed: `allowance()` meters a
+ * full-position mandate against `movedPrimaryBps`, so side-pool slices are still
+ * allowed and still bounded by what was voted, but can no longer reach the
+ * migration's budget or declare it spent.
+ *
  * So `bps` is a share of WHICHEVER LEG the caller names, while the envelope
  * counts it as a share of THE TREASURY. Point every slice at the smallest leg
  * and the mandate is exhausted having moved almost nothing — but
@@ -144,49 +153,60 @@ contract T02_EnvelopeBurnedOnADustLeg is YBase {
         assertEq(dest, address(eqty), "the mandate names EQTY");
         assertEq(rem, 10_000, "and covers the whole position");
 
-        // ── 3. A STRANGER SPENDS IT ON THE DUST LEG ─────────────────────────
-        // `rotateSliceFrom` is permissionless. `fromLeg = 1` is the 0.1% USDG
-        // leg, and the envelope neither knows nor cares.
+        // ── 3. A STRANGER TRIES TO SPEND IT ON THE DUST LEG ─────────────────
+        // `rotateSliceFrom` is permissionless. `fromLeg = 1` is the 0.1% USDG leg.
+        // The slices still RUN — leg-to-leg rebalancing is authorised under an
+        // envelope and rotating a leg is a legitimate move — but they now meter
+        // against their OWN budget instead of the migration's.
         uint256 spent;
         for (uint256 i; i < 8; ++i) {
-            (, uint16 left) = governor.allowance();
-            if (left == 0) break;
             vm.prank(attacker, attacker);
-            registry.rotateSliceFrom(1, 2500, 0, _usdgEqty());
-            spent += 2500;
+            try registry.rotateSliceFrom(1, 2500, 0, _usdgEqty()) { spent += 2500; }
+            catch { break; }
         }
 
         uint128 liqEnd = _primaryLiquidity();
+        (address destAfter, uint16 remAfter) = governor.allowance();
 
-        console2.log("bps of envelope consumed   :", spent);
-        console2.log("primary liquidity BEFORE   :", uint256(liqAfterDust));
-        console2.log("primary liquidity AFTER    :", uint256(liqEnd));
-        console2.log("generationQuote[1]         :", registry.generationQuote(1));
+        console2.log("bps the attacker could spend:", spent);
+        console2.log("primary liquidity BEFORE    :", uint256(liqAfterDust));
+        console2.log("primary liquidity AFTER     :", uint256(liqEnd));
+        console2.log("generationQuote[1]          :", registry.generationQuote(1));
+        console2.log("migration budget remaining  :", uint256(remAfter));
 
-        // ── 4. THE GENERATION IS NOW "EQTY-DENOMINATED" ─────────────────────
-        assertEq(spent, 10_000, "the whole mandate was consumed");
+        // ── 4. THE MANDATE IS UNTOUCHED ─────────────────────────────────────
+        // `allowance()` meters a full-position mandate against `movedPrimaryBps` —
+        // what actually left the position the guild voted to move — so nothing a
+        // stranger does to a side pool reduces it. Side-pool spending is still
+        // bounded by the same figure, so it cannot run forever either.
+        assertEq(spent, 10_000, "side-pool rebalancing is bounded by what was voted");
+        assertEq(destAfter, address(eqty), "FIXED: the mandate still names EQTY");
+        assertEq(remAfter, 10_000, "FIXED: and its budget survives the attack intact");
+
+        // ── 5. AND THE GENERATION WAS NOT REDENOMINATED ──────────────────────
+        // This is what the attack was really for: flipping the denomination onto an
+        // asset the treasury holds dust of, with 99.9% of the position untouched.
         assertEq(
-            registry.generationQuote(1), address(eqty),
-            "the generation redenominated onto an asset it holds dust of"
+            registry.generationQuote(1), address(0),
+            "FIXED: the generation is still ETH-denominated - only a PRIMARY slice may flip it"
         );
-        // ...while the treasury never moved. The primary pair is untouched: the
-        // attacker's slices came entirely out of the 0.1% USDG leg.
+        assertFalse(
+            governor.migrationMandateSpent(),
+            "FIXED: a mandate spent on side pools is not a migration"
+        );
         assertEq(
             uint256(liqEnd), uint256(liqAfterDust),
-            "the primary pair (99.9% of the treasury) was never touched"
+            "the primary pair was never touched - which is exactly why it cannot count"
         );
 
-        // And the same defect as the sibling PoC now applies on top: `fromLeg 0`
-        // reads `generationQuote` (EQTY) against `generationPoolKey` (ETH), so
-        // the real treasury can no longer be rotated at all.
-        _warp(governor.COOLDOWN() + 1);
-        _approve(address(0), 10_000);
-        vm.expectRevert();
-        registry.rotateSliceFrom(0, 2500, 0, _ethUsdg());
-        console2.log("and rotateSliceFrom(0,...) now reverts: the ETH treasury is frozen");
+        // ── 6. THE GUILD CAN STILL EXECUTE THE MIGRATION IT VOTED FOR ────────
+        // The whole point: the envelope is still spendable on the thing it was for.
+        // (No ETH/EQTY venue is curated in this harness, so this asserts the
+        // governor's own accounting rather than driving the swap: a primary slice is
+        // authorised for the full 10,000 bps.)
+        assertEq(remAfter, 10_000, "a primary slice is authorised for the full mandate");
 
-        bool reached = true;
-        assertTrue(reached, "T02 dust-leg mandate burn reached its assertions");
+        console2.log("the dust leg can no longer extinguish a voted migration");
     }
 }
 
@@ -194,5 +214,12 @@ contract EVotes {
     function getVotes(address) external pure returns (uint256) { return 1000; }
     function getPastVotes(address, uint256) external pure returns (uint256) { return 1000; }
     function totalSupply() external pure returns (uint256) { return 1000; }
+    /// @dev HARNESS GAP, not a protocol finding. `TreasuryGovernor._passed` reads
+    ///      `getPastTotalSupply` for its quorum denominator — that IS the real vote
+    ///      source's API (`MiFrensGenesis` implements it). This mock had only
+    ///      `totalSupply`, so every `execute` in this file died on an unrecognized
+    ///      selector and both tests failed for a reason unrelated to what they
+    ///      assert. Same one-line gap as T02_StaleFloorSandwich's `FVotes`.
+    function getPastTotalSupply(uint256) external pure returns (uint256) { return 1000; }
     function balanceOf(address) external pure returns (uint256) { return 1000; }
 }
