@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { usePerpEngine, type PerpPosition } from "@/hooks/usePerpEngine";
@@ -138,6 +138,18 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
   //  open with `Slippage()`, a loose one silently accepts a bad fill on small
   //  ones. So it is a control, like every DEX, and the number is shown.
   const [slipBps, setSlipBps] = useState(PERP_SLIPPAGE_BPS);
+  const [slipOpen, setSlipOpen] = useState(false);
+  const slipRef = useRef<HTMLSpanElement | null>(null);
+  //  Close on an outside click. A popover that traps you is worse than no
+  //  popover — the same rule the asset picker follows.
+  useEffect(() => {
+    if (!slipOpen) return;
+    const away = (e: MouseEvent) => {
+      if (slipRef.current && !slipRef.current.contains(e.target as Node)) setSlipOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [slipOpen]);
   const notional = collateral * lev;
   const feeBps = stats.openFeeBps || 690;
   const feeEth = (collateral * feeBps) / 1e4;
@@ -341,7 +353,34 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         .pp-chip__pct { display: block; font-size: 8px; letter-spacing: 0.1em; opacity: 0.6; margin-bottom: 1px; }
         .pp-chip--on { background: ${accent}18; border-color: ${accent}77; color: ${accent}; }
         .pp-lev { margin: 14px 0 4px; }
-        .pp-lev-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+        .pp-lev-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        /* SLIPPAGE GEAR — mirrors the swap widget's control so the two read as
+           one idea rather than two inventions. */
+        .pp-gear-wrap { position: relative; display: inline-flex; }
+        .pp-gear { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px;
+          border-radius: 999px; cursor: pointer; background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.09); color: #8f83b8;
+          font-family: "DM Mono", monospace; font-size: 9.5px; transition: all 0.15s ease; }
+        .pp-gear:hover { color: #efe9dd; border-color: rgba(255,255,255,0.2); }
+        .pp-gear svg { transition: transform 0.35s cubic-bezier(0.34,1.3,0.64,1); }
+        .pp-gear:hover svg, .pp-gear--on svg { transform: rotate(60deg); }
+        .pp-gear--on { color: #d5fd51; border-color: rgba(213,253,81,0.5); background: rgba(213,253,81,0.09); }
+        .pp-pop { position: absolute; top: calc(100% + 9px); right: 0; z-index: 40; display: block;
+          min-width: 232px; padding: 11px 12px; border-radius: 12px;
+          background: rgba(19,14,36,0.97); border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.5); animation: pp-pop 0.16s ease both; }
+        @keyframes pp-pop { from { opacity: 0; transform: translateY(-5px) scale(0.97); } to { opacity: 1; transform: none; } }
+        .pp-pop-l { display: block; font-family: "DM Mono", monospace; font-size: 8.5px;
+          letter-spacing: 0.16em; text-transform: uppercase; color: #8f83b8; margin-bottom: 8px; }
+        .pp-pop-opts { display: flex; align-items: center; gap: 4px; }
+        .pp-chip { flex: 1; padding: 5px 0; border-radius: 8px; cursor: pointer;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+          color: #8f83b8; font-family: "DM Mono", monospace; font-size: 10px; transition: all 0.15s ease; }
+        .pp-chip:hover { color: #efe9dd; border-color: rgba(255,255,255,0.22); }
+        .pp-chip--on { background: rgba(213,253,81,0.12); border-color: rgba(213,253,81,0.5); color: #d5fd51; }
+        .pp-pop-note { display: block; margin-top: 9px; padding-top: 8px;
+          border-top: 1px solid rgba(255,255,255,0.07); font-family: "DM Sans", sans-serif;
+          font-size: 9.5px; line-height: 1.5; color: #8f83b8; }
         .pp-lev-v { font-family: "Fredoka", sans-serif; font-weight: 700; font-size: 20px; color: ${accent}; }
         .pp-range { width: 100%; -webkit-appearance: none; appearance: none; height: 5px; border-radius: var(--r-chip); outline: none; cursor: pointer;
           background: linear-gradient(90deg, ${accent} 0%, ${accent} var(--pct,50%), rgba(255,255,255,0.09) var(--pct,50%)); }
@@ -456,37 +495,49 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
         </div>
 
         <div className="pp-lev">
-          <div className="pp-lev-top"><span className="pp-lbl">Leverage</span><span className="pp-lev-v">{lev}×</span></div>
+          <div className="pp-lev-top">
+            <span className="pp-lbl">Leverage</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {/*  THE SAME GEAR THE SWAP WIDGET USES. One pattern for one idea —
+                   "how much price am I willing to give up" — so a trader who has
+                   met it on the buy box does not have to learn a second control
+                   here. Sits by Leverage because both are trade sizing. */}
+              <span className="pp-gear-wrap" ref={slipRef}>
+                <button
+                  className={`pp-gear ${slipOpen ? "pp-gear--on" : ""}`}
+                  aria-label={`Max slippage ${(slipBps / 100)}% — open trade settings`}
+                  aria-expanded={slipOpen}
+                  onClick={() => setSlipOpen((o) => !o)}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3.2" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                  <span>{slipBps / 100}%</span>
+                </button>
+                {slipOpen && (
+                  <span className="pp-pop" role="dialog" aria-label="Trade settings">
+                    <span className="pp-pop-l">Max slippage</span>
+                    <span className="pp-pop-opts">
+                      {[1, 3, 5, 10, 15].map((sp) => (
+                        <button key={sp} className={`pp-chip ${slipBps === sp * 100 ? "pp-chip--on" : ""}`}
+                          onClick={() => { setSlipBps(sp * 100); setSlipOpen(false); }}>{sp}%</button>
+                      ))}
+                    </span>
+                    <span className="pp-pop-note">
+                      A brew&rsquo;s pool is thin, so a larger open pays real price impact.
+                      If a trade reverts on slippage, raise this or reduce the size.
+                    </span>
+                  </span>
+                )}
+              </span>
+              <span className="pp-lev-v">{lev}×</span>
+            </span>
+          </div>
           <input type="range" min={1} max={maxLev} step={1} value={lev} className="pp-range"
             style={{ ["--pct" as string]: `${((lev - 1) / Math.max(1, maxLev - 1)) * 100}%` }}
             onChange={(e) => setLev(Number(e.target.value))} />
           <div className="pp-ticks">{Array.from({ length: maxLev }, (_, i) => <span key={i}>{i + 1}×</span>)}</div>
-
-          {/*  MAX SLIPPAGE. Sits with leverage because it is the same kind of
-               decision — how much of the price am I willing to give up — and
-               because a brew's pool is thin at launch, so a larger open can pay
-               real impact. The presets step up to 15%, which sounds enormous and
-               is honest: at 0.09 ETH of notional into this depth the measured
-               impact was 8.6%, and anything tighter simply cannot fill. */}
-          <div className="pp-lev-top" style={{ marginTop: 14 }}>
-            <span className="pp-lbl">Max slippage</span>
-            <span className="pp-lev-v">{(slipBps / 100).toFixed(slipBps % 100 ? 1 : 0)}%</span>
-          </div>
-          <div className="pp-ticks" style={{ gap: 6, marginTop: 6 }}>
-            {[100, 300, 500, 1000, 1500].map((b) => (
-              <button
-                key={b}
-                onClick={() => setSlipBps(b)}
-                style={{
-                  flex: 1, padding: "5px 0", borderRadius: 8, cursor: "pointer",
-                  fontFamily: '"DM Mono", monospace', fontSize: 10,
-                  background: slipBps === b ? "rgba(213,253,81,0.12)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${slipBps === b ? "rgba(213,253,81,0.45)" : "rgba(255,255,255,0.07)"}`,
-                  color: slipBps === b ? "#d5fd51" : "#8f83b8",
-                }}
-              >{b / 100}%</button>
-            ))}
-          </div>
         </div>
 
         <div className="pp-summary">
