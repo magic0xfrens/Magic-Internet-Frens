@@ -96,6 +96,32 @@ contract DeployPerp is Script {
             vm.envOr("INSURANCE_FLOOR_WEI", uint256(0.05 ether))
         );
 
+        //  ── WARMUP AND THE OPENING INSURANCE ──────────────────────────────
+        //  `warmup` defaults to 24 HOURS, which is right for mainnet (it is what
+        //  keeps a fresh pool's TWAP from being opened against before it has any
+        //  history) and makes a testnet perp untestable: every other testnet
+        //  timing is cut to minutes and this one was never in that list, so the
+        //  first live attempt reverted `NotWarm` with nothing on screen saying
+        //  why. Overridable, and left at the safe default when unset.
+        uint256 warmup = vm.envOr("PERP_WARMUP", uint256(0));
+        if (warmup != 0) {
+            engine.setRisk(warmup, 3, 1_500, 500, 3_000, 100);
+            console2.log("  warmup (s)     :", warmup);
+        }
+
+        //  SEED THE INSURANCE BUFFER. It absorbs bad debt a liquidation cannot
+        //  cover and fills from trading FEES — so a brand-new engine has none,
+        //  `insuranceEth < insuranceFloor` holds, and every open reverts
+        //  `InsurancePaused` until somebody trades. That is correct behaviour and
+        //  a terrible first impression, and the alternative (lowering the floor)
+        //  would make opens work by deleting the protection rather than meeting
+        //  it. `fundInsurance` is permissionless, so this is just pre-paying it.
+        uint256 seedIns = vm.envOr("INSURANCE_SEED_WEI", uint256(0));
+        if (seedIns != 0) {
+            engine.fundInsurance{value: seedIns}(seedIns);
+            console2.log("  insurance seed :", seedIns);
+        }
+
         // LIQUIDATION-MARK GUARDS, SET AT DEPLOY (audit F-12).
         //
         //  These used to be left at the contract defaults with a runbook note to

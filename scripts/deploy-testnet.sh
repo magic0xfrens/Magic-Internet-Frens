@@ -101,6 +101,22 @@ export MINT_OUT_TARGET_USD=8000000000000000000000   # $8k to mint out 3333
 export HEARTBEAT_ETH=21600      # 6h  (mainnet 4h)
 export HEARTBEAT_USDC=172800    # 48h (mainnet 12h)
 
+# PERP GATES. Both are correct-for-mainnet defaults that make a testnet perp look
+# broken, and both were found the hard way — a live `openLong` reverting with an
+# empty message during a recording.
+#
+#   warmup           24h on mainnet: no leverage until the pool's TWAP has real
+#                    history to resist manipulation. Every other testnet timing
+#                    was cut to minutes; this one was never added to that list.
+#   insurance floor  the bad-debt buffer fills from trading FEES, so a fresh
+#                    engine has none and every open reverts `InsurancePaused`.
+#                    SEEDED rather than lowered — lowering the floor would make
+#                    opens work by deleting the protection instead of meeting it,
+#                    and that protection is what stops a liquidation shortfall
+#                    being written against the stakers' vault.
+export PERP_WARMUP=60                         # 1 min  (mainnet 24 h)
+export INSURANCE_SEED_WEI=60000000000000000   # 0.06 ETH, just over the 0.05 floor
+
 # VENUE LP DEPTH for the ETH/USDG rotation route.
 #
 # This was 0.005 ETH, which is why "rotate ETH into USDG" had never actually been
