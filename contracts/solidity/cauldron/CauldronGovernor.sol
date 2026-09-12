@@ -148,7 +148,25 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     ///         a deadline, `winner()` is the live leader and a whale can flip the
     ///         result in the same block as the permissionless `relaunch()`.
     ///         (Audit M-02.)
-    uint256 public constant VOTING_PERIOD = 3 days;
+    ///  ── IMMUTABLE, NOT CONSTANT (testnet parity) ─────────────────────────
+    ///  3 days is the right MAINNET value and it made the brew vote
+    ///  undemonstrable on a testnet: every other clock in the system is already
+    ///  a deploy parameter — the treasury governor's vote/cooldown/execution
+    ///  window, the registry's `minLifetime` and `emergencyDelay`, the perp
+    ///  warmup and TWAP — and this one was a `constant`, so a round could reach
+    ///  "proposal has 1111 votes, LEADING" and still be three days from
+    ///  `winner()` naming it, with no way to move it short of a code change.
+    ///
+    ///  The MIN_VOTING floor is what keeps this honest: a deploy may shorten the
+    ///  vote for testing but can never remove it, because a zero-length vote is
+    ///  what M-02 closed — `winner()` would be the live leader again and a whale
+    ///  could flip the result in the same block as the permissionless
+    ///  `relaunch()`. A mainnet deploy passing 0 gets the 3-day default.
+    uint256 public immutable VOTING_PERIOD;
+    /// @dev Shortest vote a deploy may configure. TESTNET convenience is not a
+    ///      reason to allow a same-block flip.
+    uint256 internal constant MIN_VOTING = 60;
+    uint256 internal constant DEFAULT_VOTING = 3 days;
 
     /// @notice Per-field byte caps on a proposal's free-text. Enforced in
     ///         {propose}, beside the `nftSupply` and `quote` bounds and for the
@@ -330,9 +348,13 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     event Consumed(uint256 indexed proposalId);
     event RegistrySet(address registry);
 
-    constructor(address _mifrens) Ownable(msg.sender) {
+    /// @param _votingPeriod seconds a proposal accepts votes. 0 = the 3-day
+    ///        mainnet default; any non-zero value must be at least {MIN_VOTING}.
+    constructor(address _mifrens, uint256 _votingPeriod) Ownable(msg.sender) {
         if (_mifrens == address(0)) revert EmptyField();
         mifrens = IVotes(_mifrens);
+        if (_votingPeriod != 0 && _votingPeriod < MIN_VOTING) revert SupplyOutOfRange();
+        VOTING_PERIOD = _votingPeriod == 0 ? DEFAULT_VOTING : _votingPeriod;
     }
 
     /// @notice One-time wiring of the registry that may consume winners.

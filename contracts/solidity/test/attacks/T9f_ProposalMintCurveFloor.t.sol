@@ -73,7 +73,7 @@ contract T9fProposalMintCurveFloor is Test {
         hook.setRegistry(address(this));
 
         reg = new T9fRegistry(address(hook));
-        gov = new CauldronGovernor(address(new T9fVotes()));
+        gov = new CauldronGovernor(address(new T9fVotes()), 0);
         gov.setRegistry(address(reg));
     }
 
@@ -149,7 +149,7 @@ contract T9fProposalMintCurveFloor is Test {
      *      is a dead machine, which is strictly worse than this bound being off.
      */
     function test_NoHookReachableLeavesTheCurveUnconstrained() public {
-        CauldronGovernor bare = new CauldronGovernor(address(new T9fVotes()));
+        CauldronGovernor bare = new CauldronGovernor(address(new T9fVotes()), 0);
         bare.setRegistry(address(new T9fRegistry(address(0))));
         uint256 id = bare.propose(
             "Brew", "BRW", MetadataMode.BaseURI, "ipfs://brew/", address(0),

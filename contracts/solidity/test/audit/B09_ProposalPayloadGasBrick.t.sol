@@ -62,7 +62,7 @@ contract B09_ProposalPayloadGasBrick is Test {
     CauldronFactory internal factory;
 
     function setUp() public {
-        governor = new CauldronGovernor(address(new VotesStubB09()));
+        governor = new CauldronGovernor(address(new VotesStubB09()), 0);
         factory = new CauldronFactory();
     }
 
@@ -168,7 +168,7 @@ contract B09_ProposalPayloadGasBrick is Test {
     ///      (CauldronGovernor.sol:271), so reusing one would leave the first
     ///      proposal cached and silently measure it twice.
     function _measureMaxLegal() internal returns (uint256 author, uint256 replay) {
-        governor = new CauldronGovernor(address(new VotesStubB09()));
+        governor = new CauldronGovernor(address(new VotesStubB09()), 0);
         // Built outside both measured regions.
         string memory nm = _blob(governor.MAX_NAME_BYTES());
         string memory sy = _blob(governor.MAX_SYMBOL_BYTES());
@@ -226,7 +226,7 @@ contract B09_RelaunchPayloadBrick is YBase {
     function setUp() public {
         _boot(20 ether, 0);
         if (!active) return;
-        gov = new CauldronGovernor(address(new VotesStubB09()));
+        gov = new CauldronGovernor(address(new VotesStubB09()), 0);
         gov.setRegistry(address(registry));
         registry.setGovernor(address(gov));
     }

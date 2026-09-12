@@ -107,7 +107,7 @@ contract PoC_GovernorLiveWinner is Test {
 
     function setUp() public {
         presale = new MiFrensGenesis("MiFrens", "MIFREN", 100, 200, 0.01 ether, 100, "ipfs://");
-        gov = new CauldronGovernor(address(presale));
+        gov = new CauldronGovernor(address(presale), 0);
         gov.setRegistry(address(this));
 
         vm.deal(honest, 10 ether);

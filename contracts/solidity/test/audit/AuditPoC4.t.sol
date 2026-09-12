@@ -122,7 +122,7 @@ contract PoC_PoisonProposalBricksRelaunch is Test {
         
         vm.skip(!active);
         MiniVotes votes = new MiniVotes();
-        CauldronGovernor real = new CauldronGovernor(address(votes));
+        CauldronGovernor real = new CauldronGovernor(address(votes), 0);
         vm.expectRevert(CauldronGovernor.SupplyOutOfRange.selector);
         real.propose("X", "X", MetadataMode.BaseURI, "ipfs://x/", address(0), "", "", 1_000_000, 0, address(0));
         // ...and accepts anything within the bound.

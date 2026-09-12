@@ -101,7 +101,7 @@ contract GovernorTest is Test {
 
     function setUp() public {
         mifrens = new MockMiFrens();
-        gov = new CauldronGovernor(address(mifrens));
+        gov = new CauldronGovernor(address(mifrens), 0);
         renderer = new MockRenderer();
         gov.setRegistry(registry);
         mifrens.mint(alice, 5); // alice: 5 votes
@@ -209,7 +209,7 @@ contract GovernorTest is Test {
     }
 
     function test_SetRegistryOwnerGated() public {
-        CauldronGovernor g2 = new CauldronGovernor(address(mifrens));
+        CauldronGovernor g2 = new CauldronGovernor(address(mifrens), 0);
         vm.prank(address(0xBAD));
         vm.expectRevert(); // OwnableUnauthorizedAccount
         g2.setRegistry(address(0x1234));

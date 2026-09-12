@@ -1,7 +1,7 @@
 {
   "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
   "round": 43,
-  "schema": "cauldron_r43",
+  "schema": "cauldron_r43b",
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
@@ -14,7 +14,7 @@
     "hook": "0x790c79686cf4958c2d96e79d2596c62a02c850cc",
     "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
     "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
-    "governor": "0xa1258d3b78fb4e54ffa1ffc9ac1efe0357024d0d",
+    "governor": "0x1c7C09296543e3861a3684faF277c9150A2D4c50",
     "dividend": "0x47c31834b846c1639436048f27045b4204a71f65",
     "presale": "0x2b5534ea22dd3067370522139e99a3daf4d9bfc0",
     "gachaRouter": "0x335d9e7d83f06b6d4cb26d3c37437533c14e273f",

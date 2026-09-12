@@ -46,7 +46,7 @@ contract B10_ScanWindowErasure is Test {
     CauldronGovernor internal gov;
 
     function setUp() public {
-        gov = new CauldronGovernor(address(new VS10()));
+        gov = new CauldronGovernor(address(new VS10()), 0);
         gov.setRegistry(address(this)); // this test stands in for the registry
     }
 

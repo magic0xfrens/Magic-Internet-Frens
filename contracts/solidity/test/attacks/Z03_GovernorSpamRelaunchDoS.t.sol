@@ -66,7 +66,7 @@ contract Z03_GovernorSpamRelaunchDoS is Test {
 
     function setUp() public {
         votes = new ZVotes();
-        gov = new CauldronGovernor(address(votes));
+        gov = new CauldronGovernor(address(votes), 0);
         gov.setRegistry(REGISTRY);
         votes.setPower(ATTACKER, 1); // ONE NFT is the entire cost of entry
         votes.setPower(WHALE, 1_000_000);

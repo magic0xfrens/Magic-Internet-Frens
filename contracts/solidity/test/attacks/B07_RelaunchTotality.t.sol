@@ -175,7 +175,7 @@ contract B07_GovernorQuoteBoundary is Test {
     address internal constant UNVETTED = address(0xDEAD);
 
     function setUp() public {
-        governor = new CauldronGovernor(address(new VotesStub()));
+        governor = new CauldronGovernor(address(new VotesStub()), 0);
         reg = new RegistryQuoteStub();
         reg.allow(VETTED);
         //  WIRE THE REGISTRY. Without this, `governor.registry` is address(0), the

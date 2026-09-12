@@ -25,7 +25,7 @@ contract X2j_GovernorRenounceBlocked is Test {
     CauldronGovernor internal gov;
 
     function setUp() public {
-        gov = new CauldronGovernor(address(new X2jVotes()));
+        gov = new CauldronGovernor(address(new X2jVotes()), 0);
     }
 
     function test_X2j_ownerCannotRenounceIntoADeadEnd() public {

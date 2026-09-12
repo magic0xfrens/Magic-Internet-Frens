@@ -119,7 +119,7 @@ contract Z9CurveSupplyMandate is Test {
         votes = new Z9VotesMock();
         hook = new Z9HookMock();
         reg = new Z9RegistryMock(address(hook));
-        gov = new CauldronGovernor(address(votes));
+        gov = new CauldronGovernor(address(votes), 0);
         gov.setRegistry(address(reg));
     }
 

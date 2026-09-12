@@ -53,7 +53,7 @@ contract X2d_MandateErasedBySpam is Test {
 
     function setUp() public {
         votes = new X2dVotes();
-        gov = new CauldronGovernor(address(votes));
+        gov = new CauldronGovernor(address(votes), 0);
         gov.setRegistry(address(this));   // this test IS the registry
         vm.warp(1_000_000);
         vm.roll(100);

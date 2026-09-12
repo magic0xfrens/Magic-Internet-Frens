@@ -205,7 +205,7 @@ contract DeployLaunchpad is Script {
         console2.log("RedemptionExt   :", address(redemptionExt));
 
         // 4. Governor (electorate = the MiFrens presale NFT).
-        CauldronGovernor governor = new CauldronGovernor(address(presale));
+        CauldronGovernor governor = new CauldronGovernor(address(presale), 0);
         console2.log("CauldronGovernor:", address(governor));
 
         // 4b. Factory that deploys each brew's collection + vault.
