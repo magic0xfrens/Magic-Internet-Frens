@@ -125,10 +125,20 @@ const updates = {
   factory: pick("CauldronFactory", launchpad),
   // The launch poke keeper reads this to know what to poke; without it the
   // keeper is inert and the stream depends entirely on organic trades.
-  seeder: pick("CauldronSeeder", launchpad),
+  //  RESOLVED FROM CHAIN, NOT FROM THE BROADCAST.
+  //  `CauldronSeeder` is created BY the registry, so it is never a top-level
+  //  CREATE and `pick` matched nothing — silently keeping the PREVIOUS round's
+  //  seeder for three deploys running, which points the indexer's launch feed at
+  //  a dead campaign. `pick` returning the old value on no match is the
+  //  dangerous half: a missing address would have been obvious.
+  seeder: "__ASK_CHAIN_SEEDER__",
   quoteRotator: pick("QuoteRotator", rotation, launchpad),
   treasuryGovernor: pick("TreasuryGovernor", rotation, launchpad),
   quoteOracle: pick("QuoteOracle", rotation, launchpad),
+  //  The native zap ships with the launchpad. Missing from this map meant the
+  //  frontend could never see it, so "pay in ETH on a rotated generation" stayed
+  //  dark on every round it was actually deployed to.
+  nativeZap: pick("NativeQuoteZap", launchpad),
   perpEngine: pick("PerpEngine", perp),
   perpVault: pick("PerpVault", perp),
 };
@@ -243,6 +253,26 @@ if (m.contracts.hook === "__ASK_CHAIN__") {
     const j = await r.json();
     m.contracts.hook = "0x" + String(j.result).slice(-40);
   } catch { m.contracts.hook = m0.contracts.hook; }
+}
+
+//  Resolve the SEEDER from the registry. It is created BY the registry during
+//  the deploy, so it is never a top-level CREATE and `pick` matched nothing —
+//  silently carrying the PREVIOUS round's seeder forward for three deploys,
+//  which points the indexer's launch feed at a dead campaign.
+if (m.contracts.seeder === "__ASK_CHAIN_SEEDER__") {
+  const prev = m0.contracts?.seeder ?? null;
+  try {
+    const rpc = process.env.RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+    const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call",
+        params: [{ to: m.contracts.registry, data: "0x684931ed" }, "latest"] }) });  // seeder()
+    const got = (await r.json()).result;
+    const addr = "0x" + String(got ?? "").slice(-40);
+    m.contracts.seeder = /^0x[0-9a-fA-F]{40}$/.test(addr) && !/^0x0{40}$/.test(addr) ? addr : prev;
+  } catch {
+    m.contracts.seeder = prev;
+  }
+  if (!m.contracts.seeder) delete m.contracts.seeder;
 }
 
 //  Resolve the LIVE collection from the registry. It is created by the factory during

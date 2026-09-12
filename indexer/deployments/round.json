@@ -1,33 +1,34 @@
 {
   "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
-  "round": 41,
-  "schema": "cauldron_r41",
+  "round": 42,
+  "schema": "cauldron_r42",
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
-    "deploy": 11689514,
-    "perp": 11689514,
-    "indexer": 11689514
+    "deploy": 11689748,
+    "perp": 11689748,
+    "indexer": 11689748
   },
   "contracts": {
-    "registry": "0xa3b3a6e62be0cbef219de5c874c8b5f9bfdd434e",
-    "hook": "0xae3c188e9a5a91f77f322d8485754567d60cd0cc",
+    "registry": "0xc233f32128f6da1356bad2aa1c75c87b624edec3",
+    "hook": "0xc0dac2973aa87e43c3505ed2bf0a301e9ac950cc",
     "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
     "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
-    "governor": "0xda8b223c95d9b07ac5535bd95c3457c5639a7824",
-    "dividend": "0x1031af33cdf274001393fda05157d6640418a6b5",
-    "presale": "0x3244d3f9335399370211ff7080786f0ebaf4ed23",
-    "gachaRouter": "0xc62a1fd9e3aed58055e950ff1bcbce966a9c1c0a",
-    "timelock": "0x77e47cee9866a7e07d9a00ba69fb7fd27af45cfd",
-    "collectionLedger": "0x6025860332f7a923eb9c99bf87e8dda552e47204",
-    "perpEngine": "0xe186c3c78cca738e86c5b35c7a0458363544996a",
-    "perpVault": "0xaaf4e8a88d99d05893791e957299364687ee77d6",
-    "quoteRotator": "0x4e203b2c745d33bbdc271617b25370ee78ceabe2",
-    "factory": "0x0bcb7e666a88f9893fb1a7cef123e34234248036",
+    "governor": "0x2f927dff042d0da477070a4f38500a17db7208da",
+    "dividend": "0x3096ee07897b16452b28a510f1f385ff17d9ae04",
+    "presale": "0xd44cb90ad75890a991291361f0768184e2581aa4",
+    "gachaRouter": "0xb80912ac313f0d221fb2a459ab134b58b251839e",
+    "timelock": "0xa7294714e38b2e0831fc04faf87de1eaf5d20d91",
+    "collectionLedger": "0xd226fea9f6a6870eeb19c19e810b56aba2dbdf0e",
+    "perpEngine": "0x336da07f0a56439fa2ead8694d44b0b87cdbb0c0",
+    "perpVault": "0x134997e176de5c03a6f7c0864e7e501d3f27e9f1",
+    "quoteRotator": "0x470fba136bcf18fc20e411cdd3b9a7cdbb833caa",
+    "factory": "0xc9d8013a4b090ead08a89523a11b3c0e53e020c1",
     "collection": "__ASK_CHAIN_COLLECTION__",
-    "treasuryGovernor": "0xaa37c7e3ba80447cac28b3ce1544bf3956ee2c71",
-    "quoteOracle": "0x5795656a302cac6ea76fbb36b23db1a5eaa4d179",
-    "seeder": "0xf3756Db8Ac713e0481595bb535db02D42fB13823"
+    "treasuryGovernor": "0xa4e483e1ed7162095ed3ebe96b46585d34216645",
+    "quoteOracle": "0x9713d668fd71c6ce7f1ddff8df0c3bcbb78ab9f0",
+    "seeder": "0xFa10E1CB37cc04a9712a853d454537Ba2b4ad321",
+    "nativeZap": "0x99e3d9e03b6c723deec296afe77cb8a0cbf7a0cb"
   },
   "poolIds": [
     "0x4b2086e047bfd35774d4999cd079ad7f9afd4a9ad8df257388da7bf551facb29"
@@ -40,11 +41,11 @@
       "symbol": "ETH",
       "name": "Ether",
       "decimals": 18,
-      "glyph": "Ξ",
+      "glyph": "\u039e",
       "blurb": "The default. Deepest liquidity, and the only pair perps support today."
     },
     {
-      "address": "0x6c00c327b0a15c7ce19b97c9fcabd15129125b97",
+      "address": "0x13bdb621a8070e6305d01689f564b12f015ca317",
       "symbol": "USDG",
       "name": "Magic USD",
       "decimals": 6,
