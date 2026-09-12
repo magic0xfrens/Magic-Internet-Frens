@@ -984,6 +984,9 @@ export default function TheCauldron() {
                       ethUsd={m.ethUsd}
                       col={col}
                       onBought={m.refresh}
+                      quote={liveQuoteAddr}
+                      quoteSymbol={liveQuote.symbol}
+                      quoteDecimals={liveQuote.decimals}
                     />
                   )}
                 </div>

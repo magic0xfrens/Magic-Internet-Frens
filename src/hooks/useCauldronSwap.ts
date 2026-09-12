@@ -1,12 +1,14 @@
 import { useCallback } from "react";
-import { parseEther, maxUint256, type Address } from "viem";
+import { parseEther, parseUnits, maxUint256, type Address } from "viem";
 import {
   useAccount,
   useSwitchChain,
   useWriteContract,
   useWaitForTransactionReceipt,
+  usePublicClient,
 } from "wagmi";
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
+import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 
 /** Generous gas limit for a hinted swap that may auto-liquidate a position
  *  (nested pool swaps + badge mint). The wallet's estimate can be far too low
@@ -29,6 +31,9 @@ export function useCauldronSwap() {
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, data: txHash, isPending, reset } = useWriteContract();
+  //  Needed to READ an allowance and to WAIT on the approval before `play`
+  //  pulls the quote — an ERC20-quoted buy is two transactions, not one.
+  const pc = usePublicClient({ chainId: CAULDRON.chainId });
   const {
     isLoading: confirming,
     isSuccess: mined,
@@ -80,12 +85,54 @@ export function useCauldronSwap() {
    *  buy tips it past the mark — a win mints YOU a Liquidatoor badge. 0 = none;
    *  a stale/healthy hint is a silent no-op, so it never risks the trade. */
   const buy = useCallback(
-    async (ethIn: number, minOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n): Promise<`0x${string}`> => {
+    async (
+      ethIn: number, minOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n,
+      quote: Address = NATIVE_QUOTE, quoteDecimals = 18,
+    ): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
+
+      //  ── AN ERC20-QUOTED GENERATION BUYS DIFFERENTLY ──────────────────────
+      //  `CauldronGachaRouter._pullQuote` branches on the generation's quote:
+      //  native takes `msg.value` and REVERTS on a non-zero `quoteIn`
+      //  (`NativeQuoteTakesValue`); an ERC20 quote reverts on any value
+      //  (`ErcQuoteTakesNoValue`) and `transferFrom`s `quoteIn` instead.
+      //
+      //  Only the native branch was ever implemented here. The comment below
+      //  said so and nothing acted on it — so the first completed rotation, which
+      //  legitimately flips `generationQuote` to USDG, made the buy button
+      //  revert for everyone. Trading is not something a treasury vote may
+      //  switch off.
+      if (!isNativeQuote(quote)) {
+        const amountIn = parseUnits(ethIn.toFixed(quoteDecimals), quoteDecimals);
+        //  APPROVE ONLY WHAT IS MISSING. An unconditional approve costs an extra
+        //  transaction on every buy; an infinite one leaves a standing allowance
+        //  on a router that moves user funds. Read, then top up to exactly this
+        //  trade if short.
+        const current = (await pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "allowance",
+          args: [address, CAULDRON.gachaRouter as Address],
+        })) as bigint;
+        if (current < amountIn) {
+          const hash = await writeContractAsync({
+            address: quote, abi: ERC20_SWAP_ABI, functionName: "approve",
+            args: [CAULDRON.gachaRouter as Address, amountIn],
+          });
+          //  WAIT FOR IT. `play` would otherwise race its own approval and
+          //  revert on `transferFrom` — a failure that reads like a bad trade.
+          await pc!.waitForTransactionReceipt({ hash });
+        }
+        return writeContractAsync({
+          address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
+          functionName: "play",
+          args: [amountIn, 0n, minOut, 0n, BigInt(openMax)], value: 0n,
+          gas: LIQ_SWAP_GAS,
+        });
+      }
+
       const value = parseEther(ethIn.toFixed(18));
       liqHint; // LEGACY/IGNORED: the hook auto-liquidates on EVERY swap hint-free,
       //          so we never call the router's playLiq (its liqHint path reverts).
@@ -104,7 +151,7 @@ export function useCauldronSwap() {
         gas: LIQ_SWAP_GAS,
       });
     },
-    [address, chainId, switchChainAsync, writeContractAsync],
+    [address, chainId, switchChainAsync, writeContractAsync, pc],
   );
 
   /** SPIN volume: churn `ethIn` ETH through `loops` Buy→Sell→Buy legs. Each leg

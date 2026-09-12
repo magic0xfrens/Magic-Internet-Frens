@@ -4,6 +4,7 @@ import { useAccount, useReadContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { usePerpLiqHint } from "@/hooks/usePerpLiqHint";
+import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { useLiquidatoorWatch } from "@/hooks/useLiquidatoorWatch";
 import LiquidatoorModal from "@/components/cauldron/LiquidatoorModal";
 import { CAULDRON, ERC20_SWAP_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
@@ -19,6 +20,13 @@ interface SwapWidgetProps {
   priceUsd: number;
   /** USD per ETH. */
   ethUsd: number;
+  /** The asset this generation's pool is priced in. A completed rotation flips
+   *  it (address(0) = native ETH), and the buy leg must follow: the router
+   *  reverts `ErcQuoteTakesNoValue` if a native-shaped buy is sent to an
+   *  ERC20-quoted generation. */
+  quote?: Address;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
   /** Accent colour for the current phase. */
   col: string;
   /** Called after a trade confirms so the parent can refresh telemetry. */
@@ -82,7 +90,15 @@ function compact(n: number): string {
  * router. A BUY also credits volume + rolls the crystal gacha (chance to forge a
  * creature NFT). A SELL swaps the token back to ETH (needs a one-time approval).
  */
-export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd, col, onBought }: SwapWidgetProps) {
+export default function SwapWidget({
+  ticker, token, spotPrice, priceUsd, ethUsd, col, onBought,
+  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
+}: SwapWidgetProps) {
+  //  The buy leg is denominated in the GENERATION'S quote, which is ETH for
+  //  every generation until a rotation completes. `qNative` drives both the
+  //  transaction shape and every label that used to hardcode ether.
+  const qNative = isNativeQuote(quote);
+  const qGlyph = qNative ? "Ξ" : quoteSymbol;
   const [mode, setMode] = useState<"buy" | "sell">("buy");
   const [buyAmt, setBuyAmt] = useState<string>("0.05");
   const [sellAmt, setSellAmt] = useState<string>("");
@@ -186,10 +202,10 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
     if (!isConnected) { openConnectModal?.(); return; }
     try {
       if (mode === "buy") {
-        if (eth <= 0) { setErr("Enter an ETH amount"); return; }
+        if (eth <= 0) { setErr(`Enter a ${qGlyph} amount`); return; }
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
-        await buy(eth, minOut, 0, liqHint);
+        await buy(eth, minOut, 0, liqHint, quote, quoteDecimals);
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
@@ -403,7 +419,7 @@ export default function SwapWidget({ ticker, token, spotPrice, priceUsd, ethUsd,
             </div>
             <div className="sw__row">
               <input className="sw__input" inputMode="decimal" placeholder="0.0" value={buyAmt} onChange={(e) => setBuyAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
-              <span className="sw__coin"><span className="sw__coin-dot" style={{ background: "#627EEA", color: "#fff" }}>Ξ</span>ETH</span>
+              <span className="sw__coin"><span className="sw__coin-dot" style={{ background: qNative ? "#627EEA" : "#2775CA", color: "#fff" }}>{qNative ? "Ξ" : qGlyph.slice(0, 1)}</span>{qNative ? "ETH" : quoteSymbol}</span>
             </div>
           </div>
           <div className="sw__chips">
