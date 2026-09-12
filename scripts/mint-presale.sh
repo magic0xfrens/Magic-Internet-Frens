@@ -17,6 +17,9 @@
 # Usage:  ./scripts/mint-presale.sh [PRESALE_ADDRESS]
 #         TARGET=1110 ./scripts/mint-presale.sh
 set -euo pipefail
+#  Own directory resolved BEFORE the cd: a relative `$(dirname "$0")` in a later
+#  `source` breaks once the script changes directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.."
 
 R="${RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}"
@@ -29,7 +32,7 @@ if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
   PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
 fi
 [ -n "${PRIVATE_KEY:-}" ] || { echo "no PRIVATE_KEY (env or $ENVFILE)"; exit 1; }
-source "$(dirname "$0")/lib/signer.sh"
+source "$SCRIPT_DIR/lib/signer.sh"
 resolve_signer || exit 1
 W=(--rpc-url "$R" "${SIGNER[@]}")
 

@@ -25,6 +25,9 @@
 # no key reaches argv; the raw-PRIVATE_KEY fallback announces that it does.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
+#  Own directory resolved BEFORE the cd: a relative `$(dirname "$0")` in a later
+#  `source` breaks once the script changes directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.."
 
 # ── config, FROM THE SHIPPED MANIFEST ──
@@ -46,7 +49,7 @@ lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 # load key + rpc (never echo the key)
 set -a; source "$CONTRACTS_DIR/.env.sepolia"; set +a
 RPC="${SEPOLIA_RPC:?set SEPOLIA_RPC in .env.sepolia}"
-source "$(dirname "$0")/lib/signer.sh"
+source "$SCRIPT_DIR/lib/signer.sh"
 resolve_signer || exit 1
 DEPLOYER="$(cast wallet address "${SIGNER[@]}")"
 

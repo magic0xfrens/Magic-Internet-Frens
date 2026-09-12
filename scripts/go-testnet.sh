@@ -10,6 +10,9 @@
 # The keystore password is read ONCE, kept in a shell variable, and never
 # written to disk or the shell history.
 set -euo pipefail
+#  Own directory resolved BEFORE the cd: a relative `$(dirname "$0")` in a later
+#  `source` breaks once the script changes directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
@@ -36,7 +39,7 @@ if [ -n "$PK" ]; then
   #  "no signer" with a perfectly good key on disk. Same read-before-load shape as
   #  keeper.sh binding its addresses before sourcing its env.
   export PRIVATE_KEY="$PK"
-  source "$(dirname "$0")/lib/signer.sh"
+  source "$SCRIPT_DIR/lib/signer.sh"
   resolve_signer || exit 1
   W=(--rpc-url "$R" "${SIGNER[@]}")
   #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on

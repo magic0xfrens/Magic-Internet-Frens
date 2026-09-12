@@ -6,6 +6,10 @@
 # mainnet deploy is this file with the TESTNET block deleted — not a diff you
 # have to reconstruct later.
 set -e
+#  Resolve our own directory BEFORE the cd. `$(dirname "$0")` is relative, so any
+#  later `source "$(dirname "$0")/..."` breaks once we have changed directory —
+#  which is exactly how the shared signer helper came to be unfindable here.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/../contracts/solidity"
 
 export FOUNDRY_PROFILE=cauldron
@@ -102,9 +106,9 @@ fi
 if [ -s "$PASSFILE" ]; then
   SIGNER=(--account deployer --sender "$DEPLOYER" --password-file "$PASSFILE")
 elif [ -n "${PRIVATE_KEY:-}" ]; then
-source "$(dirname "$0")/lib/signer.sh"
-resolve_signer || exit 1
-  SIGNER=("${SIGNER[@]}")
+  export PRIVATE_KEY
+  source "$SCRIPT_DIR/lib/signer.sh"
+  resolve_signer || exit 1
 else
   SIGNER=(--account deployer --sender "$DEPLOYER")
 fi

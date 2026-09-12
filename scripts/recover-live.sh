@@ -22,6 +22,9 @@
 # The ETH lands in the TIMELOCK (the registry's emergencyAdmin), not in the
 # wallet, so the last step forwards it on.
 set -euo pipefail
+#  Own directory resolved BEFORE the cd: a relative `$(dirname "$0")` in a later
+#  `source` breaks once the script changes directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.."
 
 R="${RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}"
@@ -51,7 +54,7 @@ if [ -z "${PRIVATE_KEY:-}" ] && [ -f "$ENVFILE" ]; then
   PRIVATE_KEY=$(grep -E '^PRIVATE_KEY=' "$ENVFILE" | head -1 | cut -d= -f2- | tr -d ' "\r')
 fi
 if [ -n "${PRIVATE_KEY:-}" ]; then
-source "$(dirname "$0")/lib/signer.sh"
+source "$SCRIPT_DIR/lib/signer.sh"
 resolve_signer || exit 1
   W=(--rpc-url "$R" "${SIGNER[@]}")
 else
