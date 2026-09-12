@@ -12,6 +12,7 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {BalanceDelta, toBalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
 import {HookMiner} from "../../vendor/HookMiner.sol";
 import {CauldronHook} from "../../CauldronHook.sol";
@@ -68,10 +69,21 @@ contract X1PoolManagerStub {
 
     function sync(Currency c) external { lastSynced = c; }
 
-    /// @dev {StateLibrary.getSlot0} reads the packed pool-state slot through this.
-    ///      The buyback's slippage bound needs a live sqrt price: 1<<96 is price
-    ///      1.0 at tick 0.
-    function extsload(bytes32) external pure returns (bytes32) { return bytes32(uint256(1) << 96); }
+    /// @dev The tick this stub claims to be at. `swap` below fills at ONE token per
+    ///      1000 wei, so the price it REPORTS has to say that: since red-team T-1 the
+    ///      buyback derives both its price limit and its minimum output from this
+    ///      word, and a stub advertising price 1.0 while filling at 1/1000 trips a
+    ///      guard that is doing exactly its job. 1.0001^-69081 ~= 1.0009e-3.
+    ///      (It used to return a bare `1 << 96`, i.e. price 1.0 at tick 0.)
+    int24 internal constant STUB_TICK = -69081;
+
+    /// @dev {StateLibrary.getSlot0} reads the packed pool-state slot through this:
+    ///      160 bits of sqrtPriceX96, then 24 bits of tick (v4-core Slot0.sol:9).
+    function extsload(bytes32) external pure returns (bytes32) {
+        return bytes32(
+            uint256(TickMath.getSqrtPriceAtTick(STUB_TICK)) | (uint256(uint24(STUB_TICK)) << 160)
+        );
+    }
     function settle() external payable returns (uint256) { lastNativeSettled = msg.value; return msg.value; }
     function take(Currency, address, uint256) external {}
 
@@ -172,6 +184,17 @@ contract X1aLegacyBufferDenomination is Test {
         _makeLive(k);
 
         hook.fundLegacyBuffer{value: DONATION}();
+
+        //  THE FIRST BUYBACK ON A POOL ONLY SEEDS THE PRICE REFERENCE and spends
+        //  nothing (red-team T-1: otherwise whoever fires the first one picks the
+        //  tick the reference is born at, and gets the sandwich the reference
+        //  exists to stop). The control is unchanged in substance — the buffer is
+        //  intact across that call, and every assertion below still holds on the
+        //  buyback that actually runs.
+        _swap(k);
+        assertEq(hook.legacyBuffer(), DONATION, "the seeding call leaves the buffer intact");
+        vm.roll(vm.getBlockNumber() + 1);
+
         uint256 hookEthBefore = address(hook).balance;
 
         _swap(k);

@@ -113,6 +113,13 @@ contract X4a_LegacyBufferDenomination is Test {
         vm.prank(ROYALTY_PAYER);
         hook.fundLegacyBuffer{value: donation}();
 
+        //  THE FIRST BUYBACK ON A POOL ONLY SEEDS THE PRICE REFERENCE and spends
+        //  nothing (red-team T-1). Drive it, roll a block, then measure the buyback
+        //  that actually runs — every assertion on the control is unchanged.
+        vm.prank(address(hook));
+        hook.legacyBuyStep(_liveKeyFor(address(0)));
+        vm.roll(vm.getBlockNumber() + 1);
+
         uint256 balBefore = address(hook).balance;
         vm.prank(address(hook));
         hook.legacyBuyStep(_liveKeyFor(address(0)));
