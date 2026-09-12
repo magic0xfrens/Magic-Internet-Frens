@@ -404,6 +404,14 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
           //  card, so a metadata host having a bad minute looked exactly like a
           //  creature that does not exist.
           if (!image) { noteArtFailure(id, "tokenURI resolved but carried no image"); return; }
+          //  REFUSE THE PLACEHOLDER. `tokenURI` serves the UNREVEALED metadata
+          //  until `revealed[tokenId]` is true on the node we happen to read, so a
+          //  reveal read a beat too early came back as the sealed crystal — and the
+          //  card announced "Sealed Crystal revealed!" over the sealed art, which
+          //  reads as the reveal having failed. Treat it as not-yet-resolved and
+          //  let the visible-art effect pick it up once the chain agrees.
+          const placeholder = /sealed|unrevealed|crystal/i.test(name ?? "");
+          if (placeholder) { noteArtFailure(id, "tokenURI still served the unrevealed placeholder"); return; }
           setVault((v) => v.map((c) => (c.tokenId === id ? { ...c, image, name } : c)));
           setFlash({ image, name });
         })
@@ -459,7 +467,11 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
           <div className="ccg-prize">
             <div className="ccg-prize-burst" aria-hidden />
             <CreatureTile image={flash?.image} size={78} />
-            <div className="ccg-prize-label">{flash?.name ?? "Creature"} revealed!</div>
+            <div className="ccg-prize-label">
+              {flash?.image
+                ? `${flash.name ?? "Creature"} revealed!`
+                : "Revealed — art loading…"}
+            </div>
           </div>
         )}
 
@@ -657,7 +669,7 @@ const css = (col: string) => `
   .ccg-tile { position: relative; border-radius: var(--r-sm); overflow: hidden; }
   .ccg-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 
-  .ccg-prize { position: absolute; z-index: 3; bottom: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; animation: ccg-pop 0.5s cubic-bezier(.2,1.5,.4,1); }
+  .ccg-prize { position: absolute; z-index: 3; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; animation: ccg-pop 0.5s cubic-bezier(.2,1.5,.4,1); }
   .ccg-prize-burst { position: absolute; inset: -35% 15% 0; z-index: -1; border-radius: 50%; background: radial-gradient(circle, ${col}55, transparent 65%); animation: ccg-flash 0.7s ease-out; }
   .ccg-prize-tiles .ccg-tile, .ccg-prize .ccg-tile { box-shadow: 0 0 18px ${col}99, 0 4px 10px rgba(0,0,0,0.5); }
   .ccg-prize-label { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 13px; color: ${col}; background: rgba(8,6,15,0.72); padding: 3px 12px; border-radius: var(--r-chip); border: 1px solid ${col}66; text-shadow: 0 0 10px ${col}; }
@@ -767,7 +779,7 @@ const css = (col: string) => `
   @keyframes ccg-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
   @keyframes ccg-brew { 0%,100% { transform: translateY(0) rotate(-0.6deg); } 50% { transform: translateY(-3px) rotate(0.6deg); } }
   @keyframes ccg-glowpulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-  @keyframes ccg-pop { 0% { transform: scale(0.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  @keyframes ccg-pop { 0% { transform: translateX(-50%) scale(0.7); } 60% { transform: translateX(-50%) scale(1.12); } 100% { transform: translateX(-50%) scale(1); } }
   @keyframes ccg-flash { from { opacity: 1; transform: scale(0.5); } to { opacity: 0; transform: scale(1.4); } }
   @media (prefers-reduced-motion: reduce) {
     .ccg-hero, .ccg-hero--brew, .ccg-glow--hot, .ccg-spin, .ccg-cry-img { animation: none !important; }
