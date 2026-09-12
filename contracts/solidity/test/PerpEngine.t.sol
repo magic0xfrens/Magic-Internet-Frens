@@ -18,6 +18,7 @@ import {HookMiner} from "../vendor/HookMiner.sol";
 import {CauldronHook} from "../CauldronHook.sol";
 import {CauldronRegistry} from "../CauldronRegistry.sol";
 import {CauldronFactory} from "../cauldron/CauldronFactory.sol";
+import {RedemptionExt} from "../cauldron/RedemptionExt.sol";
 import {PerpEngine} from "../cauldron/PerpEngine.sol";
 import {CauldronCollection} from "../cauldron/CauldronCollection.sol";
 import {ICauldronGovernor, BrewSpec, MetadataMode} from "../cauldron/ICauldron.sol";
@@ -69,6 +70,12 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         require(address(hook) == hookAddr, "hook addr");
 
         registry = new CauldronRegistry(poolManager, positionManager, address(hook), address(0), 0);
+        //  REQUIRED WIRING, not optional test scaffolding: `claimByBurnUpTo` (the
+        //  engine's 1:1 inventory migration at relaunch) lives in {RedemptionExt}
+        //  and the registry only forwards to it. Without this the forwarder
+        //  reverts `NotConfigured()` and the perp token side migrates ZERO. Both
+        //  deploy scripts call `setRedemptionExt`; this fixture must too.
+        registry.setRedemptionExt(address(new RedemptionExt()));
         hook.setRegistry(address(registry));
         // Genesis summon now does a green-candle reseed BUY, so the registry must be
         // the opener + tax-exempt BEFORE summon (as relaunch already required).

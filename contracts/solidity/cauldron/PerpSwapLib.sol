@@ -125,6 +125,17 @@ library PerpSwapLib {
     ///      Best-effort by design — if migration is unavailable the caller keeps
     ///      the old inventory and the owner can re-seed, rather than the sync
     ///      reverting and leaving the engine armed on a dead generation.
+    /// @notice A dead-generation inventory migration moved LESS than the engine
+    ///         held — `stranded` of `oldToken` is still sitting in the engine and
+    ///         is no longer counted as token principal. `reason` is the raw revert
+    ///         data when the claim reverted outright, empty when it merely came up
+    ///         short against a thin reserve.
+    /// @dev Emitted from a delegatecalled library, so the log carries the PERP
+    ///      ENGINE's address — which is what an operator or indexer watches.
+    event InventoryMigrationShortfall(
+        uint256 indexed fromGen, address indexed oldToken, uint256 stranded, bytes reason
+    );
+
     function migrateInventory(address registry, address oldToken, uint256 fromGen)
         external
         returns (uint256 migratedIn)
@@ -135,6 +146,23 @@ library PerpSwapLib {
             abi.encodeWithSignature("claimByBurnUpTo(uint256,uint256)", fromGen, oldBal)
         );
         if (ok && ret.length >= 32) migratedIn = abi.decode(ret, (uint256));
+        //  A FAILED MIGRATION MUST BE LOUD.
+        //  `syncGeneration` re-points `plvToken` at the engine's balance of the NEW
+        //  token the instant this returns, so whatever does NOT migrate is token
+        //  principal that disappears from the LP's books with no error anywhere.
+        //  That is not hypothetical: when the registry's `claimByBurnUpTo` body
+        //  moved to {RedemptionExt}, a registry without that facet wired answered
+        //  `NotConfigured()` here, this returned 0, and the engine's whole token
+        //  side went to zero silently.
+        //  Reverting is still not an option — the sync runs inside relaunch's
+        //  try/catch and a revert would leave the engine armed on a dead
+        //  generation (the reason this is best-effort in the first place). So
+        //  RECORD the shortfall instead: the operator sees the amount and the raw
+        //  reason, the stranded balance is still in the engine, and the token side
+        //  is re-seeded with `fundPlvToken` once the cause is fixed.
+        if (migratedIn < oldBal) {
+            emit InventoryMigrationShortfall(fromGen, oldToken, oldBal - migratedIn, ok ? bytes("") : ret);
+        }
     }
 
     uint160 internal constant MIN_LIMIT = 4295128740;
