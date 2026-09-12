@@ -8,7 +8,7 @@ import { DividendAbi } from "./abis/DividendAbi";
 import { PerpEngineAbi } from "./abis/PerpEngineAbi";
 import { RegistryFloorAbi, HookFloorAbi } from "./abis/FloorAbi";
 import { SeederAbi } from "./abis/SeederAbi";
-import { TreasuryGovAbi, RotationExecAbi } from "./abis/TreasuryGovAbi";
+import { TreasuryGovAbi, RotationExecAbi, Erc721TransferAbi } from "./abis/TreasuryGovAbi";
 
 // ── SINGLE SOURCE OF TRUTH ──────────────────────────────────────────────────
 // All addresses/blocks/poolIds come from ./deployments/round.json — the SAME
@@ -24,6 +24,7 @@ const chainId = Number(round.chainId);
 const startBlock = round.blocks.indexer; // gen-1 pool summon (before the genesis mints)
 
 const REGISTRY = round.contracts.registry as `0x${string}`;
+const POSITION_MANAGER = round.contracts.positionManager as `0x${string}`;
 const POOL_MANAGER = round.contracts.poolManager as `0x${string}`;
 const PRESALE = round.contracts.presale as `0x${string}`;
 const HOOK = round.contracts.hook as `0x${string}`;
@@ -146,6 +147,18 @@ export default createConfig({
     // through the registry's own address, so the two need separate entries.
     TreasuryGov: { chain: "cauldron", abi: TreasuryGovAbi, address: TREASURY_GOV, startBlock },
     RotationExec: { chain: "cauldron", abi: RotationExecAbi, address: REGISTRY, startBlock },
+    //  POSITION OWNERSHIP. The PositionManager is shared across every Sepolia v4
+    //  pool, so this is filtered to transfers involving OUR registry — without
+    //  the filter it would index the whole chain's LP NFTs. Two entries because
+    //  a position arriving and a position leaving are different filters.
+    PosmIn: {
+      chain: "cauldron", abi: Erc721TransferAbi, address: POSITION_MANAGER, startBlock,
+      filter: { event: "Transfer", args: { to: REGISTRY } },
+    },
+    PosmOut: {
+      chain: "cauldron", abi: Erc721TransferAbi, address: POSITION_MANAGER, startBlock,
+      filter: { event: "Transfer", args: { from: REGISTRY } },
+    },
     // Launch seeding feed: stream progress + prime-buy tranches, so the frontend
     // reads them from Ponder instead of polling the seeder over public RPC.
     Seeder: { chain: "cauldron", abi: SeederAbi, address: SEEDER, startBlock },

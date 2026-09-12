@@ -360,3 +360,23 @@ export const rotationSlice = onchainTable("rotation_slice", (t) => ({
   block: t.bigint().notNull(),
   txHash: t.hex().notNull(),
 }), (table) => ({ genIdx: index().on(table.generation) }));
+
+/* POSITIONS THE REGISTRY ACTUALLY OWNS.
+ *
+ * Not the ones it REMEMBERS. `generationPositionId` holds the primary and
+ * `generationLegs` holds one id per quote, so anything a rotation orphaned was
+ * invisible to every aggregate — measured on r40, eleven of twelve USDG leg
+ * positions holding 643 of 649 USDG.
+ *
+ * Ownership is the ground truth and it cannot drift: the PositionManager's own
+ * ERC721 transfers say who holds what, so this reports the treasury even when
+ * the treasury's bookkeeping is wrong. That property is the point — a panel
+ * derived from the same record as the bug cannot show the bug. */
+export const ownedPosition = onchainTable("owned_position", (t) => ({
+  id: t.text().primaryKey(),          // positionId, decimal string
+  owner: t.hex().notNull(),
+  /** False once it leaves the registry (a burn sends it to address(0)). */
+  live: t.boolean().notNull().default(true),
+  acquiredBlock: t.bigint().notNull(),
+  updatedBlock: t.bigint().notNull(),
+}), (table) => ({ ownerIdx: index().on(table.owner) }));

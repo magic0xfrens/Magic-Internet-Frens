@@ -266,6 +266,9 @@ const EXTSLOAD = [{ type: "function", name: "extsload", stateMutability: "view",
 const POSLIQ = [{ type: "function", name: "getPositionLiquidity", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }] }] as const;
 // Progressive-seed reads. A streamed generation holds ledger-A liquidity in the
 // seeder's own core positions, so it has no PositionManager position id.
+/** The progressive seeder, or the zero address on an atomic launch. */
+const SEEDER = ((round.contracts as Record<string, string>).seeder ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`;
 const SEEDER_READ = [
   { type: "function", name: "ethTotal", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "seeding", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
@@ -454,6 +457,21 @@ const REG_LP = [
       ] }] },
 ] as const;
 const POSM = round.contracts.positionManager as `0x${string}`;
+const POSM_KEY = [{
+  //  The pool a position belongs to, straight from the PositionManager. This is
+  //  what makes an OWNERSHIP-based treasury view possible: every position the
+  //  registry holds can be valued without the registry having to remember it.
+  type: "function", name: "getPoolAndPositionInfo", stateMutability: "view",
+  inputs: [{ type: "uint256" }],
+  outputs: [
+    { type: "tuple", components: [
+      { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+      { name: "hooks", type: "address" },
+    ] },
+    { type: "uint256" },
+  ],
+}] as const;
 const POSM_READ = [{
   type: "function", name: "getPositionLiquidity", stateMutability: "view",
   inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }],
@@ -573,43 +591,33 @@ app.get("/treasury", async (c) => {
     };
   };
 
-  const positions = (await Promise.all(genRows.map(async (row) => {
-    const g = row.generation;
-    const [posId, key] = await Promise.all([
-      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPositionId", args: [BigInt(g)] }).catch(() => 0n) as Promise<bigint>,
-      perpClient.readContract({ address: REGISTRY, abi: REG_LP, functionName: "generationPoolKey", args: [BigInt(g)] }).catch(() => null) as Promise<readonly [string, string, number, number, string] | null>,
-    ]);
-    const out = key ? [await valuePosition(g, posId, key, true)] : [];
+  //  ── EVERY POSITION THE REGISTRY OWNS ─────────────────────────────────
+  //  Driven by ERC721 ownership, not by the registry's own records. Reading
+  //  `generationPositionId` + `generationLegs` reports what the contract
+  //  REMEMBERS, and a rotation that mints a fresh position per slice leaves the
+  //  previous one owned-but-forgotten: measured on r40, eleven of twelve USDG
+  //  legs holding 643 of 649 USDG were invisible here.
+  //
+  //  A view derived from the same record as the bug cannot show the bug. This
+  //  one can, and it stays correct through any future bookkeeping mistake.
+  const owned = await db.select().from(schema.ownedPosition)
+    .where(and(eq(schema.ownedPosition.owner, REGISTRY), eq(schema.ownedPosition.live, true)));
 
-    //  A deployment predating leg tracking simply reverts `legCount`, which is
-    //  caught here and reported as "primary only" — the truth for such a
-    //  deployment, and not something to fabricate legs for.
-    const n = await perpClient.readContract({
-      address: REGISTRY, abi: REG_LP, functionName: "legCount", args: [BigInt(g)],
-    }).catch(() => 0n) as bigint;
-    for (let i = 0n; i < n; i++) {
-      const leg = await perpClient.readContract({
-        address: REGISTRY, abi: REG_LP, functionName: "legAt", args: [BigInt(g), i],
-      }).catch(() => null) as readonly [string, bigint, unknown] | null;
-      if (!leg) continue;
-      const [, legPosId, rawKey] = leg;
-      //  NORMALISE THE POOL KEY. `legAt`'s third output is a NAMED tuple, so
-      //  viem decodes it to an OBJECT — while `generationPoolKey` declares five
-      //  flat outputs and decodes to an ARRAY. Indexing the object positionally
-      //  yielded `undefined` for every field, which surfaced as
-      //  `InvalidAddressError: Address "undefined"` and took the WHOLE /treasury
-      //  route down with a 500, not just the legs. The panel then reported "no
-      //  live positions" for a treasury holding two.
-      const k = rawKey as Record<string, unknown> & ArrayLike<unknown>;
-      const legKey = (Array.isArray(rawKey)
-        ? rawKey
-        : [k.currency0, k.currency1, k.fee, k.tickSpacing, k.hooks]
-      ) as readonly [string, string, number, number, string];
-      if (!legKey[0] || !legKey[1]) continue;
-      out.push(await valuePosition(g, legPosId, legKey, false));
-    }
-    return out;
-  }))).flat();
+  const liveGen = gen;
+  const positions = (await Promise.all(owned.map(async (row) => {
+    const posId = BigInt(row.id);
+    const [key, liq] = await Promise.all([
+      perpClient.readContract({ address: POSM, abi: POSM_KEY, functionName: "getPoolAndPositionInfo", args: [posId] })
+        .then((r) => (r as readonly [Record<string, unknown>, bigint])[0]).catch(() => null),
+      perpClient.readContract({ address: POSM, abi: POSM_READ, functionName: "getPositionLiquidity", args: [posId] })
+        .catch(() => 0n) as Promise<bigint>,
+    ]);
+    if (!key || liq === 0n) return null;
+    const k = key as Record<string, unknown>;
+    const flat = [k.currency0, k.currency1, k.fee, k.tickSpacing, k.hooks] as
+      readonly [string, string, number, number, string];
+    return valuePosition(liveGen, posId, flat, false);
+  }))).filter(Boolean) as Awaited<ReturnType<typeof valuePosition>>[];
 
   // Idle balances on the REGISTRY — what a rebirth recovered but has not yet
   // reseeded, plus anything a rotation left behind.
@@ -625,7 +633,28 @@ app.get("/treasury", async (c) => {
     // positions, with the quote-side amount those L units represent.
     const mine = positions.filter((p) => p && p.quote.toLowerCase() === q.address.toLowerCase());
     const liq = mine.reduce((a, p) => a + BigInt(p!.liquidity), 0n);
-    const lpRaw = mine.reduce((a, p) => a + BigInt(p!.lpRaw), 0n);
+    let lpRaw = mine.reduce((a, p) => a + BigInt(p!.lpRaw), 0n);
+
+    //  THE SEEDER'S STREAMED BANDS COUNT TOO, and only for native.
+    //  A progressive launch holds its liquidity as CORE positions, which carry
+    //  no PositionManager id and are therefore invisible to an ownership scan of
+    //  ERC721s. The brew page already counts them (`lpEthOf`), which is exactly
+    //  why the two screens disagreed: "real liquidity 0.4801 ETH" against "in
+    //  pool $27" for the same treasury, each omitting what the other counted.
+    //
+    //  Guarded on `seeding`: `withdrawAll` clears it and returns everything to
+    //  the registry, while `ethTotal` keeps its last value — counting it
+    //  unconditionally would double-report a finished campaign.
+    if (q.address === NATIVE && SEEDER && SEEDER !== NATIVE) {
+      const live = await perpClient.readContract({
+        address: SEEDER as `0x${string}`, abi: SEEDER_READ, functionName: "seeding",
+      }).catch(() => false) as boolean;
+      if (live) {
+        lpRaw += await perpClient.readContract({
+          address: SEEDER as `0x${string}`, abi: SEEDER_READ, functionName: "ethTotal",
+        }).catch(() => 0n) as bigint;
+      }
+    }
 
     //  THE ASSET'S VALUE IS IDLE + DEPLOYED. Pricing `raw` alone answered "what
     //  has this treasury failed to put to work", which is ~0 for a healthy one

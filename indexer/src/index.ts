@@ -1,5 +1,5 @@
 import { ponder } from "ponder:registry";
-import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice } from "ponder:schema";
+import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice, ownedPosition } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/round.json";
 
@@ -736,4 +736,40 @@ ponder.on("RotationExec:SliceRotated", async ({ event, context }) => {
     block: event.block.number,
     txHash: event.transaction.hash,
   }).onConflictDoNothing();
+});
+
+//  ── WHICH LP POSITIONS THE REGISTRY OWNS ────────────────────────────────────
+//  Ownership, not bookkeeping. `generationPositionId` + `generationLegs` record
+//  one id per quote, so a rotation that mints a fresh position per slice leaves
+//  the previous one owned-but-forgotten — 643 of 649 USDG on r40. The ERC721
+//  transfers are the ground truth, and a view built on them shows the treasury
+//  even when the treasury's own records are wrong.
+
+ponder.on("PosmIn:Transfer", async ({ event, context }) => {
+  const id = event.args.tokenId.toString();
+  await context.db.insert(ownedPosition).values({
+    id,
+    owner: event.args.to,
+    live: true,
+    acquiredBlock: event.block.number,
+    updatedBlock: event.block.number,
+  }).onConflictDoUpdate(() => ({
+    owner: event.args.to, live: true, updatedBlock: event.block.number,
+  }));
+});
+
+ponder.on("PosmOut:Transfer", async ({ event, context }) => {
+  //  A position leaving the registry — sold, or burned by removeAll (which
+  //  transfers to address(0)). Either way it stops counting, and it must be
+  //  marked rather than deleted so a re-acquisition does not look like a new
+  //  position with no history.
+  await context.db.insert(ownedPosition).values({
+    id: event.args.tokenId.toString(),
+    owner: event.args.to,
+    live: false,
+    acquiredBlock: event.block.number,
+    updatedBlock: event.block.number,
+  }).onConflictDoUpdate(() => ({
+    owner: event.args.to, live: false, updatedBlock: event.block.number,
+  }));
 });

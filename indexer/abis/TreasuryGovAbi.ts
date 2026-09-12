@@ -62,3 +62,12 @@ export const RotationExecAbi = [
     { name: "to", type: "address", indexed: true },
   ], anonymous: false },
 ] as const;
+
+/** ERC721 Transfer, for tracking which LP positions the registry OWNS. */
+export const Erc721TransferAbi = [
+  { type: "event", name: "Transfer", inputs: [
+    { name: "from", type: "address", indexed: true },
+    { name: "to", type: "address", indexed: true },
+    { name: "tokenId", type: "uint256", indexed: true },
+  ], anonymous: false },
+] as const;
