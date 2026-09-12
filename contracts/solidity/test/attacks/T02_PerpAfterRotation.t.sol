@@ -138,7 +138,10 @@ contract T02_PerpAfterRotation is YBase {
 
         // The engine now settles, collateralises and pays in 6-decimal USDG...
         (Currency stillP0,,,,) = markSrc.primary();
-        assertEq(Currency.unwrap(stillP0), address(0), "...but the mark is still sampled from the ETH pair");
+        //  The SOURCE is still armed on the old pair — the engine is not its owner
+        //  and cannot re-point it. That is precisely why the engine now DROPS its
+        //  pointer to it at adoption and falls soft back to its own `_key()`.
+        assertEq(Currency.unwrap(stillP0), address(0), "the mark source itself is still armed on the ETH pair");
 
         // Fill the TWAP ring from the (stale) mark source, the way any keeper or
         // swap would, then read the mark the engine would liquidate against.
@@ -155,15 +158,18 @@ contract T02_PerpAfterRotation is YBase {
         console2.log("ratio  mark : correct pool:", mark / uint256(usdgSqrt));
 
         // The mark tracks the abandoned ETH pair, not the pair the engine trades.
-        assertApproxEqRel(mark, uint256(ethSqrt), 0.05e18, "mark == the OLD pool's price");
+        // REGRESSION (red-team T02): the mark now follows the pool the engine
+        // actually settles in, because `syncGeneration` clears `markSource` when it
+        // adopts a new quote.
+        assertApproxEqRel(mark, uint256(usdgSqrt), 0.05e18, "mark == the pool the engine NOW settles in");
         // DIRECTION CORRECTED: the destination pool's sqrtPrice is the LARGER of
         // the two (the token is cheap in raw 6-decimal USDG units), so the stale
         // mark sits orders of magnitude BELOW the pool the engine settles in.
         // The earlier pass asserted this the wrong way round and the test failed
         // on a true finding.
-        assertLt(
-            mark * 10, uint256(usdgSqrt),
-            "the mark is orders of magnitude away from the pool the engine now settles in"
+        assertGt(
+            mark, uint256(ethSqrt) * 10,
+            "and is orders of magnitude away from the ABANDONED pair it used to track"
         );
 
         // `_quoteMark(size) = size * (Q96/sqrt)^2` is the value every liquidation
@@ -174,7 +180,7 @@ contract T02_PerpAfterRotation is YBase {
         console2.log("1,000 token marked, STALE :", valStale);
         console2.log("1,000 token marked, TRUE  :", valTrue);
         console2.log("stale/true overstatement x:", valTrue == 0 ? 0 : valStale / valTrue);
-        assertGt(valStale, valTrue * 10, "positions mark at many times their real value");
+        assertApproxEqRel(valStale, valTrue, 0.05e18, "a position marks at its REAL value (was 112,805,296x)");
 
         // The generation is NOT protected by the engine's own staleness guard:
         // `_isDead` (PerpEngine.sol:1307) compares `quote` against
@@ -205,7 +211,7 @@ contract T02_PerpAfterRotation is YBase {
         uint256 floorRaw = perp.minCollateral();
         console2.log("minCollateral (raw units) :", floorRaw);
         console2.log("...as WHOLE USDG ($)      :", floorRaw / 1e6);
-        assertEq(floorRaw, 0.003 ether, "unchanged by the rotation");
+        assertEq(floorRaw, 0.003 ether, "the STORED threshold stays 18-decimal, by design");
 
         //  ── REACH THE ASSERTION. `_guardOpen` gates on the SUMMON warmup and the
         //  TWAP RING warmup (PerpEngine.sol:1390-1392). The 3-day governor vote in
@@ -221,10 +227,16 @@ contract T02_PerpAfterRotation is YBase {
         usdg.approve(address(perp), collateral);
 
         vm.prank(trader, trader);
-        vm.expectRevert(PerpEngine.DustPosition.selector);
-        perp.openLong(2, 0, 0, collateral);
+        bytes4 sel;
+        try perp.openLong(2, 0, 0, collateral) returns (uint256) { sel = bytes4(0); }
+        catch (bytes memory err) { if (err.length >= 4) sel = bytes4(err); }
 
-        console2.log("$50,000 of USDG collateral rejected as DUST");
+        // REGRESSION (red-team T02): `minCollateral` is still STORED in 18-decimal
+        // terms — that is the unit governance sets it in — but it is now scaled into
+        // the live quote's units by `PerpEngine._q` at the comparison, so a
+        // $50,000 open is no longer dust. Any other revert here is a fixture
+        // liquidity limit, not the denomination brick this test is about.
+        assertTrue(sel != PerpEngine.DustPosition.selector, "$50,000 of USDG is NOT rejected as dust any more");
 
         // And the ceiling on the fix is in the same units: `setMinCollateral`
         // refuses anything above 1 ether, which is fine here, but the value is

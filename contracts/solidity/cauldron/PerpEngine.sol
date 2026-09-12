@@ -13,7 +13,6 @@ import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/src/types/BalanceDelta.
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
-import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -201,11 +200,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  Return value CHECKED. A non-standard token (USDT and most
             //  tokenized equities) returns false rather than reverting, and an
             //  unchecked pull would credit collateral that never arrived —
-            //  a free position, paid for by everyone else's.
-            (bool ok, bytes memory ret) = quote.call(
-                abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, from, address(this), amount)
-            );
-            if (!(ok && (ret.length == 0 || abi.decode(ret, (bool))))) revert BadParam();
+            //  a free position, paid for by everyone else's. The encode/call/decode
+            //  itself lives in {PerpSwapLib} for EIP-170 headroom; as a DELEGATECALL
+            //  its `address(this)` is still this engine, which is the pull target.
+            if (!PerpSwapLib.tryTransferFrom(quote, from, amount)) revert BadParam();
         }
     }
 
@@ -356,16 +354,21 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         reverted). Claimed via {claimPayout}. This is what stops one hostile
     ///         trader from freezing every settlement path. (Audit H-04.)
     mapping(address => uint256) public payoutOwed;
+    /// @notice Old-generation token inventory the best-effort migration left behind,
+    ///         keyed by that token, so the books say "we hold X of the old token,
+    ///         unmigrated" instead of implying zero.
+    mapping(address => uint256) public strandedToken;
     /// @dev Σ of every unclaimed {payoutOwed} entry. The mapping itself cannot be
     ///      enumerated, so {syncGeneration}'s rotation guard reads this aggregate to
     ///      learn whether anyone is still owed the OLD quote.
     ///
-    ///      `internal` (EIP-170): this variable is NEW — nothing has ever read it, so
-    ///      no ABI entry is removed and no frontend string is broken. Per-user
-    ///      `payoutOwed` stays public, which is what a claimant actually needs; the
-    ///      aggregate is readable from storage off-chain, the same trade already made
-    ///      for `lastTick`, `maxUtilBps`, `observations` and the tier arrays.
-    uint256 internal payoutOwedTotal;
+    ///      PUBLIC deliberately. This is the one counter that can still REFUSE a
+    ///      quote adoption, so "why did the sync not take?" has to be answerable
+    ///      without a storage read: a non-zero value here names the reason, and
+    ///      {retirePayout} is the lever. It was briefly `internal` to buy EIP-170
+    ///      headroom; moving `TickMath.getSqrtPriceAtTick` into {PerpSwapLib} bought
+    ///      far more, so the getter is back.
+    uint256 public payoutOwedTotal;
 
     // ── Enumerable open set — lets ANY swap (any interface) scan + liquidate
     //    underwater positions without a hint. O(1) add/remove (swap-and-pop).
@@ -462,6 +465,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     event PlvFunded(uint256 eth, uint256 token);
     event BadDebt(uint256 shortfall, uint256 covered);
     event PayoutOwed(address indexed to, uint256 amount);
+    /// @notice Token inventory that did NOT survive a generation migration, keyed by
+    ///         the token it is still denominated in. The engine still HOLDS it.
+    event TokenInventoryStranded(address indexed token, uint256 amount, uint256 migrated);
     event VaultFunded(bool isEth, uint256 amount);
     event VaultWithdrawn(bool isEth, uint256 amount, address to);
     event GenerationSynced(uint256 indexed fromGen, uint256 indexed toGen, uint256 migratedIn, uint256 newInventory);
@@ -542,6 +548,39 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  storage off-chain, or observe it the way the tests do, through the mark
     ///  it produces. Behaviour is the thing worth asserting anyway.
     address internal markSource;
+
+    /// @dev 10**decimals of the LIVE quote; 1e18 for native. Adopted alongside
+    ///      `quote` in {syncGeneration}.
+    uint256 internal quoteUnit = 1e18;
+
+    /// @dev Re-express an 18-decimal (wei-written) CONFIG threshold in the live
+    ///      quote's own units.
+    ///
+    ///  ── AN ABSOLUTE WEI CONSTANT IS A DENOMINATION BUG (red-team T02) ─────
+    ///  Every absolute threshold in this contract was written in ether/wei and then
+    ///  compared against a QUOTE-denominated amount. On a 6-decimal quote
+    ///  `minCollateral = 0.003 ether` demanded 3e15 raw units — about $3bn — so a
+    ///  $50,000 open reverted `DustPosition` and the entire book was closed for
+    ///  business. A prior review filed that as "fails safe"; it fails CLOSED, which
+    ///  takes the perp down. `insuranceFloor` (0.05 ether at deploy) and the
+    ///  `tierDepthWei` leverage tiers fail identically, so all of them scale here
+    ///  rather than each being patched where it happens to be read.
+    function _q(uint256 wei18) internal view returns (uint256) {
+        uint256 u = quoteUnit;
+        return u == 1e18 ? wei18 : (wei18 * u) / 1e18;
+    }
+
+    /// @dev `10**decimals()` of `q`, read defensively. A token without `decimals()`,
+    ///      or one answering nonsense, is treated as 18 — the same fail-soft rule the
+    ///      rest of the quote plumbing uses, because guessing wrong here must not be
+    ///      able to brick an adoption.
+    function _unitOf(address q) private view returns (uint256) {
+        if (q == address(0)) return 1e18;
+        (bool ok, bytes memory ret) = q.staticcall(abi.encodeWithSignature("decimals()"));
+        if (!ok || ret.length < 32) return 1e18;
+        uint256 d = abi.decode(ret, (uint256));
+        return d > 36 ? 1e18 : 10 ** d;
+    }
 
     /**
      * @dev The tick the whole mark is built from.
@@ -725,17 +764,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @dev The manipulation-resistant mark sqrtPrice (TWAP tick; spot fallback).
     function markSqrtPriceX96() public view returns (uint160) {
         (int24 t, bool ok) = twapTick();
-        return ok ? TickMath.getSqrtPriceAtTick(t) : _sqrtP();
+        return ok ? PerpSwapLib.sqrtPriceAtTick(t) : _sqrtP();
     }
 
     function activeEthDepth() public view returns (uint256) {
         PoolId id = _key().toId();
         uint160 sp = _sqrtP();
         if (sp == 0) return 0;
-        uint128 L = poolManager.getLiquidity(id);
-        if (L == 0) return 0;
-        uint256 term = FullMath.mulDiv(uint256(L), uint256(SQRT_MAX) - sp, uint256(SQRT_MAX));
-        return FullMath.mulDiv(term, Q96, sp);
+        return PerpSwapLib.ethDepth(poolManager.getLiquidity(id), sp);
     }
 
     function maxLeverage() public view returns (uint8 lev) {
@@ -743,7 +779,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         lev = tierLeverage.length > 0 ? tierLeverage[0] : 2;
         uint256 tiers = tierDepthWei.length;
         for (uint256 i = 0; i < tiers;) {
-            if (depth >= tierDepthWei[i]) lev = tierLeverage[i + 1];
+            if (depth >= _q(tierDepthWei[i])) lev = tierLeverage[i + 1];
             unchecked { ++i; }
         }
         if (lev > maxLeverageCeiling) lev = uint8(maxLeverageCeiling);
@@ -751,8 +787,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     /// @dev token→ETH value at sqrtPrice sp. Pool price p = (sp/Q96)² = token/ETH,
     ///      so ETH value = size/p = size·(Q96/sp)².
-    function _quoteAt(uint256 size, uint256 sp) internal pure returns (uint256) {
-        return FullMath.mulDiv(FullMath.mulDiv(size, Q96, sp), Q96, sp);
+    ///  Body in {PerpSwapLib} for EIP-170 headroom: `FullMath.mulDiv` is an
+    ///  INTERNAL library, so each of its call sites inlined the assembly — six
+    ///  copies in this contract, which is at the ceiling, against kilobytes free
+    ///  there. Pure value arguments, so the move is mechanical.
+    function _quoteAt(uint256 size, uint256 sp) internal view returns (uint256) {
+        return PerpSwapLib.quoteAt(size, sp);
     }
     /// @dev token→ETH at SPOT (used for funding sizing).
     function _quoteEth(uint256 size) internal view returns (uint256) { return _quoteAt(size, _sqrtP()); }
@@ -828,7 +868,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         _pokeFunding();
 
         uint256 collateral = _takeFee(amount, true);
-        if (collateral < minCollateral) revert DustPosition(); // dust filter
+        if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
         uint256 borrow = collateral * (leverage - 1);
         if (borrow > plv) revert PlvInsufficient();
         // Community PLV: cap utilization so a share of depositor liquidity stays
@@ -836,7 +876,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // depleted below the circuit-breaker floor (bad-debt protection).
         if (vault != address(0)) {
             if (longOiEth + borrow > (totalEth() * maxUtilBps) / BPS) revert UtilCapped();
-            if (insuranceFloor > 0 && insuranceEth < insuranceFloor) revert InsurancePaused();
+            if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
         }
         uint256 buyEth = collateral + borrow;
         _checkNotional(buyEth);
@@ -865,7 +905,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         _pokeFunding();
 
         uint256 collateral = _takeFee(amount, false);
-        if (collateral < minCollateral) revert DustPosition(); // dust filter
+        if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
         // Notional (in ETH) = collateral × leverage; borrow that much TOKEN value.
         uint256 notionalEth = collateral * leverage;
         _checkNotional(notionalEth);
@@ -874,7 +914,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // Community PLV: token-side utilization cap + insurance circuit breaker.
         if (vault != address(0)) {
             if (shortOiToken + tokenToSell > (totalTokenAssets() * maxUtilBps) / BPS) revert UtilCapped();
-            if (insuranceFloor > 0 && insuranceEth < insuranceFloor) revert InsurancePaused();
+            if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
         }
         if (shortOiToken + tokenToSell > (_ethToToken(activeEthDepth()) * maxOiBps) / BPS) revert OiCapped();
 
@@ -1093,6 +1133,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // current token, and clear the stale per-token OI (already 0 via settles).
         address newTok = registry.currentToken();
         uint256 newInv = newTok != address(0) ? IERC20(newTok).balanceOf(address(this)) : 0;
+        //  ── TRACK THE SHORTFALL, DO NOT PAPER OVER IT ─────────────────────
+        //  This was a bare `plvToken = newInv`. The migration above is BEST-EFFORT,
+        //  so when it brought nothing across, the LP's token principal was silently
+        //  overwritten with zero and the books stopped mentioning it — the accounting
+        //  lied, and recovery depended on somebody noticing. Record what did NOT come
+        //  across, against the token it is still denominated in: the engine is still
+        //  HOLDING it, so recovery becomes mechanical. Deliberately does not revert —
+        //  a reverting sync is the brick shape.
+        uint256 unmigrated = plvToken > migratedIn ? plvToken - migratedIn : 0;
+        if (unmigrated != 0) {
+            strandedToken[syncedToken] += unmigrated;
+            emit TokenInventoryStranded(syncedToken, unmigrated, migratedIn);
+        }
         plvToken = newInv;
         shortOiToken = 0;
         longOiEth = 0;
@@ -1142,24 +1195,54 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  native (red-team B-05), so the rebirth path sees `newQuote == quote`
         //  and never reaches this line.
         if (newQuote != quote) {
-            //  ── ENUMERATE THE WHOLE SET, NOT JUST `plv` (red-team H-1) ────
-            //  Every counter below is a BARE COUNT of the quote asset and each is
-            //  paid out through `_sendEth`/`_pushQuote`, i.e. in whatever `quote`
-            //  says TODAY. Naming only `plv` let `tokYieldEth`, `insuranceEth`
-            //  and the `payoutOwed` book survive the flip at their old nominal
-            //  and then claim that many units of the NEW asset. Measured: a
-            //  1e18-wei `tokYieldEth` pulled 1e18 of the ERC20 backing `plv`,
-            //  leaving the engine holding 999e18 against a 1000e18 claim while
-            //  1.5 ETH sat native and permanently unpayable.
-            if ((plv | tokYieldEth | insuranceEth | payoutOwedTotal) != 0) revert VaultStaked();
-            //  ...AND the vault's own quote-side claims (red-team H-2). `plv == 0`
-            //  does NOT mean the vault is empty: `openCount == 0` forces
-            //  `longOiEth == 0`, so `totalEth() == plv` and `plv == 0` is EXACTLY
-            //  when a queued exit is worst-backed — the old guard passed precisely
-            //  when a stale 8 ETH queue was standing, and that queue then took
-            //  100% of the first deposit made in the new asset. Drain first, which
-            //  is what PerpVault's own invariant note (:86-90) always claimed.
-            if (vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) revert VaultStaked();
+            //  ── DEMANDING ZERO WAS A PERMANENT FREEZE (red-team X8-01) ────
+            //  The first version of this guard required
+            //  `plv | tokYieldEth | insuranceEth | payoutOwedTotal == 0`. THREE of
+            //  those four cannot be driven to zero by a healthy engine:
+            //    * `insuranceEth` is floored. {skimInsurance} protects
+            //      max(insuranceFloor, riskMin) and deploy/DeployPerp.s.sol arms
+            //      INSURANCE_FLOOR_WEI = 0.05 ether, so not one wei is skimmable
+            //      below it — and the engine REQUIRES the buffer above that floor or
+            //      every open reverts `InsurancePaused`. The guard demanded exactly
+            //      the state that breaks the engine.
+            //    * orphaned `tokYieldEth` (credited at zero token shares) is
+            //      attributable to nobody and therefore never payable out (R-09), and
+            //    * `plv` keeps a wei of redemption-floor dust behind the last staker.
+            //  The sync then failed forever, `_isDead()` read true on the diverged
+            //  quote, and the book was force-closed and frozen for the rest of the
+            //  generation — at zero attacker cost, from the shipped default.
+            //
+            //  REDENOMINATE, don't refuse. Only what is genuinely owed BY NAME still
+            //  gates, and both are satisfiable — {retirePayout} clears a stranded
+            //  payout, and stakers can always exit:
+            if (payoutOwedTotal != 0) revert VaultStaked();
+            if (vault != address(0) && IPerpVaultStake(vault).hasStakers()) revert VaultStaked();
+            //  ...and with nobody left owning them, the protocol's own old-asset
+            //  equity is swept to the treasury IN THE OLD ASSET — `quote` has not
+            //  flipped yet, so `_payOut` still pays the right thing — and the
+            //  counters are zeroed so no old-unit figure survives to claim units of
+            //  the NEW asset. `hasStakers()` covers the TOKEN side too, which is what
+            //  makes zeroing `tokYieldEth` safe rather than a confiscation. Opens
+            //  stay paused until someone re-funds insurance in the new asset through
+            //  the permissionless {fundInsurance} — honest, because there IS no
+            //  buffer in the new asset yet. A pause, not a brick.
+            uint256 sweep = plv + tokYieldEth + insuranceEth;
+            plv = 0; tokYieldEth = 0; insuranceEth = 0;
+            if (sweep != 0 && treasury != address(0)) _payOut(treasury, sweep);
+            //  ── THE MARK SOURCE MUST NOT SURVIVE THE ROTATION (red-team T02) ──
+            //  {PerpMarkSource.primary} stays armed on the OLD pair, and the engine
+            //  is not its owner so it cannot re-point it. Measured position-value
+            //  overstatement on a rotated book: 112,805,296x. `_isDead` cannot catch
+            //  it either — that test compares `quote` against `generationQuote`, and
+            //  by this line those AGREE. So the pointer is dropped here and
+            //  {_currentTick} fails soft to THIS engine's own `_key()`, which is
+            //  correct for the new quote by construction. Governance re-arms the
+            //  weighted mark on the new pair through {setRouting} when it is ready;
+            //  until then the primary pool's tick is used, exactly as it is on any
+            //  engine with no mark source wired.
+            markSource = address(0);
+            //  And the decimals the thresholds are compared in (see {_q}).
+            quoteUnit = _unitOf(newQuote);
         }
         quote = newQuote;
 
@@ -1345,14 +1428,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // Internals
     // ---------------------------------------------------------------------
     function _guardOpen(uint8 leverage) internal view {
-        if (block.timestamp < registry.lastSummonAt() + warmup) revert NotWarm();
-        //  ── AND AGAIN AFTER THE RING IS WIPED (red-team H-4) ──────────────
-        //  The line above arms off the SUMMON, which a mid-generation quote
-        //  rotation does not move; {syncGeneration} nevertheless deletes the
-        //  whole observation ring, after which `twapTick`'s oldest-entry
-        //  fallback trusts as little as MIN_TWAP (1 s) of history. No position
-        //  may be opened until the ring genuinely spans `twapWindow` again.
-        if (block.timestamp < uint256(ringArmedAt) + twapWindow) revert NotWarm();
+        //  TWO gates, one comparison (EIP-170). The SUMMON warmup, and — since a
+        //  mid-generation quote rotation does not move `lastSummonAt` but
+        //  {syncGeneration} does delete the whole observation ring, after which
+        //  `twapTick`'s oldest-entry fallback trusts as little as MIN_TWAP (1 s) of
+        //  history — the RING warmup too. No position may be opened until the ring
+        //  genuinely spans `twapWindow` again. (red-team H-4)
+        uint256 summonWarm = registry.lastSummonAt() + warmup;
+        uint256 ringWarm = uint256(ringArmedAt) + twapWindow;
+        if (block.timestamp < (summonWarm < ringWarm ? ringWarm : summonWarm)) revert NotWarm();
         if (_isDead()) revert TokenDead(); // no leverage into a death
         if (leverage < 1 || leverage > maxLeverage()) revert BadLeverage();
     }
@@ -1412,8 +1496,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     /// @dev ETH→token amount at spot: tokens = eth·p = eth·(sp/Q96)².
     function _ethToToken(uint256 eth) internal view returns (uint256) {
-        uint256 sp = _sqrtP();
-        return FullMath.mulDiv(FullMath.mulDiv(eth, sp, Q96), sp, Q96);
+        return PerpSwapLib.ethToToken(eth, _sqrtP());
     }
 
     function _routeFee(uint256 amount, bool longSide) internal {
@@ -1469,12 +1552,50 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  unpayable, and a non-standard token returns false rather than
             //  reverting. Both are caught here so the credit-instead-of-revert
             //  guarantee holds whatever the book is denominated in.
-            (bool called, bytes memory ret) = quote.call(
-                abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
-            );
-            ok = called && (ret.length == 0 || abi.decode(ret, (bool)));
+            ok = PerpSwapLib.tryTransfer(quote, to, amount);
         }
         if (!ok) { unchecked { payoutOwed[to] += amount; payoutOwedTotal += amount; } emit PayoutOwed(to, amount); }
+    }
+
+    /// @notice Retire a settlement payout its recipient cannot accept, so one
+    ///         stranded wei can never veto a quote adoption. Timelock-only.
+    ///
+    ///  ── THE GUARD MUST NOT DEPEND ON A THIRD PARTY (red-team X3i) ─────────
+    ///  {syncGeneration} refuses to adopt a new quote while `payoutOwedTotal != 0`,
+    ///  and that counter was cleared ONLY by {claimPayout}, which is
+    ///  `msg.sender`-keyed with no override. So ONE WEI owed to a contract whose
+    ///  `receive()` reverts pinned it non-zero FOREVER — and the rotation itself
+    ///  still completed, because {RedemptionExt} wraps the sync in `try {} catch {}`
+    ///  (RedemptionExt.sol:562). The engine was left stranded on the OLD quote for
+    ///  the rest of the generation: exactly the F-10/F-11 state the guard exists to
+    ///  prevent, reached through a different door. No attacker needed — the
+    ///  dividend and treasury fee sinks reach it on their own.
+    ///
+    ///  The owner cannot profit by calling this: the value goes to `to` or it goes
+    ///  nowhere. It CANNOT be redirected. The retry forwards ALL remaining gas, so a
+    ///  recipient that only overran the 30k settlement budget is paid in full here;
+    ///  and the recipient may self-claim via {claimPayout} at any time beforehand.
+    ///  Only a recipient that reverts outright at full gas is written off, and its
+    ///  wei then stays in the engine as residue owned by nobody — the same class as
+    ///  the R-09 `plv` dust — where it can never again veto a rotation.
+    ///
+    ///  Deliberately NOT a drop of the counter from the guard: that counter is
+    ///  load-bearing for the redenomination fix (e964d54). And deliberately pure
+    ///  BOOKKEEPING — it makes no external call, so it cannot be reentered and
+    ///  needs no guard. The last-chance payment attempt lives where it already
+    ///  did: {claimPayout} pushes at FULL gas (not the 30k settlement budget) and
+    ///  stays open to the recipient right up until the timelock retires the entry,
+    ///  so a recipient that merely overran that budget is never written off
+    ///  without having had a working way to collect.
+    function retirePayout(address to) external onlyOwner {
+        uint256 amount = payoutOwed[to];
+        if (amount == 0) revert ZeroValue();
+        payoutOwed[to] = 0;
+        payoutOwedTotal -= amount;
+        //  No dedicated event (EIP-170): the owner is a timelock, which emits its
+        //  own CallExecuted for this exact calldata, and `payoutOwed(to)` going to
+        //  zero alongside `payoutOwedTotal` is the on-chain record. An indexer has
+        //  strictly more to work with here than it would from one more log topic.
     }
 
     /// @notice Withdraw a settlement payout that could not be pushed to you (your
@@ -1562,28 +1683,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  floor is raised to match. Leaving it at 220k would not have reverted —
         //  the mint would simply have run out of gas and fallen through to
         //  `badgesOwed`, silently turning every badge into a claimable IOU.
+        //  Both encodes and both gas-metered calls live in {PerpSwapLib.tryMintBadge}
+        //  for EIP-170 headroom, including the pre-stats `mintLiquidator` fallback
+        //  for a collection deployed before stats existed. It is a DELEGATECALL, so
+        //  the collection still sees THIS ENGINE as `msg.sender`.
         if (gasleft() > 300_000) {
-            address col = IPerpHook(hookAddr).collection();
-            if (col.code.length != 0) {
-                uint256 fwd;
-                unchecked { fwd = gasleft() - 120_000; } // safe: guarded > 300k
-                (bool ok, ) = col.call{gas: fwd}(
-                    abi.encodeWithSelector(
-                        ILiquidatorMintable.mintLiquidatorWithStats.selector, to, st
-                    )
-                );
-                if (ok) minted = 1;
-                //  A collection deployed before stats existed has no such
-                //  function, so the call reverts on an unknown selector. Fall
-                //  back to the original mint rather than dropping the badge.
-                if (!ok && gasleft() > 200_000) {
-                    unchecked { fwd = gasleft() - 120_000; }
-                    (ok, ) = col.call{gas: fwd}(
-                        abi.encodeWithSelector(ILiquidatorMintable.mintLiquidator.selector, to)
-                    );
-                    if (ok) minted = 1;
-                }
-            }
+            if (PerpSwapLib.tryMintBadge(IPerpHook(hookAddr).collection(), to, st)) minted = 1;
         }
         if (minted == 0) { unchecked { badgesOwed[to] += 1; } }
         emit LiquidatoorAwarded(id, to, minted);
@@ -1607,8 +1712,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < n;) { ILiquidatorMintable(col).mintLiquidator(msg.sender); unchecked { ++i; } }
     }
     function _safeTransfer(address token, address to, uint256 amount) private {
-        (bool ok, bytes memory data) = token.call(abi.encodeWithSelector(IERC20Minimal.transfer.selector, to, amount));
-        if (!(ok && (data.length == 0 || abi.decode(data, (bool))))) revert BadParam();
+        if (!PerpSwapLib.tryTransfer(token, to, amount)) revert BadParam();
     }
 
     // ── vault funding + admin ──
@@ -1877,7 +1981,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function skimInsurance(uint256 amount, address to) external onlyOwner {
         if (to == address(0)) revert BadParam();
         uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
-        uint256 protect = insuranceFloor > riskMin ? insuranceFloor : riskMin;
+        uint256 floorQ = _q(insuranceFloor);
+        uint256 protect = floorQ > riskMin ? floorQ : riskMin;
         if (insuranceEth < protect + amount) revert BadParam();
         insuranceEth -= amount;
         _sendEth(to, amount);

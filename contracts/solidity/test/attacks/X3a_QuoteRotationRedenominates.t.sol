@@ -52,10 +52,13 @@ contract X3aQuoteRotationRedenominates is Test {
     MockQuoteToken newQuote;      // 18-decimal ERC20 the treasury rotates into
     address attacker = address(0xA77ACC);
 
-    /// This contract is also the VAULT; `quoteStake` is its {hasQuoteStake} answer.
-    bool public quoteStake;
-    function hasStakers() external pure returns (bool) { return false; }
-    function hasQuoteStake() external view returns (bool) { return quoteStake; }
+    /// This contract is also the VAULT. The engine's rotation guard asks
+    /// {hasStakers} — which covers the TOKEN side too, and that is exactly what
+    /// makes zeroing `tokYieldEth` at the flip a redenomination rather than a
+    /// confiscation. `hasQuoteStake` is kept for the vault's own callers.
+    bool public vaultStake;
+    function hasStakers() external view returns (bool) { return vaultStake; }
+    function hasQuoteStake() external view returns (bool) { return vaultStake; }
 
     function setUp() public {
         pm = new X3aPM();
@@ -100,34 +103,31 @@ contract X3aQuoteRotationRedenominates is Test {
         try perp.withdrawTokYieldTo(amount, attacker) { ok = true; } catch { ok = false; }
     }
 
-    function test_QuoteRotation_RefusedWhileAnyQuoteCounterStands() public {
+    function test_QuoteRotation_RedenominatesEveryCounterAndNeverStrandsOne() public {
         perp.setVault(address(this));                // this contract plays the vault
         _accrueNativeObligations();
-        uint256 nativeHeld   = address(perp).balance;
+        uint256 nativeHeld     = address(perp).balance;
         uint256 tokYieldBefore = perp.tokYieldEth();
         uint256 insBefore      = perp.insuranceEth();
         address quoteBefore    = perp.quote();
+        uint256 treBefore      = address(0x7E7E).balance;   // the engine's treasury
 
-        // ── 1. the rotation is REFUSED while 1.5 ETH of obligations stand ────
-        bool syncedWithCounters = _rotateAndSync();
+        // ── 1. still REFUSED while the vault holds someone's value ──────────
+        vaultStake = true;
+        bool syncedWithVaultStake = _rotateAndSync();
         address quoteAfterRefusal = perp.quote();
 
-        // ── 2. they are payable in the asset they were accrued in ───────────
-        uint256 attackerEthBefore = attacker.balance;
-        bool pulledNative = _pullTokYield(1 ether);
-        perp.skimInsurance(0.5 ether, attacker);
-        uint256 attackerEthGained = attacker.balance - attackerEthBefore;
-
-        // ── 3. still refused while the VAULT holds quote-side value (H-2) ───
-        quoteStake = true;
-        bool syncedWithVaultStake = _rotateAndSync();
-
-        // ── 4. drained on both sides -> the rotation goes through ───────────
-        quoteStake = false;
+        // ── 2. nobody owns them -> the flip REDENOMINATES rather than freezing.
+        //  The old guard demanded these counters be ZERO, which `insuranceEth`
+        //  can never be once the deploy arms its floor (red-team X8-01), so a
+        //  healthy engine could never adopt a rotated quote and the book froze.
+        //  They are now swept to the treasury IN THE OLD ASSET and zeroed.
+        vaultStake = false;
         bool syncedClean = _rotateAndSync();
         address quoteAfter = perp.quote();
+        uint256 treGained = address(0x7E7E).balance - treBefore;
 
-        // ── 5. and no stale counter survives to claim the new asset ─────────
+        // ── 3. and no stale counter survives to claim the NEW asset ─────────
         _fundPlvInNewQuote(1_000 ether);
         bool stalePull = _pullTokYield(1 ether);
         uint256 stolen = newQuote.balanceOf(attacker);
@@ -138,21 +138,18 @@ contract X3aQuoteRotationRedenominates is Test {
         assertEq(tokYieldBefore, 1 ether, "tokYieldEth is native wei");
         assertEq(insBefore, 0.5 ether, "insuranceEth is native wei");
 
-        assertFalse(syncedWithCounters, "H-1: rotation REFUSED while tokYield/insurance stand");
-        assertEq(quoteAfterRefusal, address(0), "quote did NOT flip under the obligations");
+        assertFalse(syncedWithVaultStake, "H-2: no flip while the vault holds value");
+        assertEq(quoteAfterRefusal, address(0), "quote did NOT move under the stakers");
 
-        assertTrue(pulledNative, "the native counters stay payable in native");
-        assertEq(attackerEthGained, 1.5 ether, "all 1.5 ETH paid out as ETH, not as USDG");
-        assertEq(perp.tokYieldEth(), 0, "tokYieldEth drained");
-        assertEq(perp.insuranceEth(), 0, "insuranceEth drained");
-        assertEq(address(perp).balance, 0, "no native stranded behind the flip");
+        assertTrue(syncedClean, "X8-01: a healthy engine CAN adopt the rotated quote");
+        assertEq(quoteAfter, address(newQuote), "quote adopted");
+        assertEq(treGained, 1.5 ether, "all 1.5 ETH swept to the treasury AS ETH, its own unit");
+        assertEq(perp.tokYieldEth(), 0, "no old-unit tokYieldEth survives the flip");
+        assertEq(perp.insuranceEth(), 0, "no old-unit insuranceEth survives the flip");
+        assertEq(perp.plv(), 1_000 ether, "plv counts ONLY the new asset");
+        assertEq(address(perp).balance, 0, "and not one wei of the old asset is stranded");
 
-        assertFalse(syncedWithVaultStake, "H-2: rotation REFUSED while the vault has quote-side value");
-        assertTrue(syncedClean, "a genuinely drained engine CAN still rotate - not bricked");
-        assertEq(quoteAfter, address(newQuote), "quote adopted once nothing is owed in the old one");
-
-        assertEq(perp.plv(), 1_000 ether, "plv now claims 1000 USDG");
-        assertEq(newQuote.balanceOf(address(perp)), 1_000 ether, "and the engine holds 1000 USDG");
+        assertEq(newQuote.balanceOf(address(perp)), 1_000 ether, "engine holds 1000 USDG");
         assertFalse(stalePull, "no stale counter can pull the new asset");
         assertEq(stolen, 0, "attacker got zero USDG");
         assertGe(newQuote.balanceOf(address(perp)), perp.plv(), "ENGINE SOLVENT vs plv");

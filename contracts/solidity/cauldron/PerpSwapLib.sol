@@ -7,6 +7,9 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
 
 /**
  * @title PerpSwapLib
@@ -25,6 +28,101 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *  engine.
  */
 library PerpSwapLib {
+    uint256 internal constant Q96X = 0x1000000000000000000000000;
+
+    /// @notice tick -> sqrtPriceX96.
+    ///
+    ///  Here for EIP-170 headroom, and it is the single biggest win available:
+    ///  `TickMath` is an INTERNAL library whose `getSqrtPriceAtTick` body is a long
+    ///  chain of magic-constant multiplications, so {PerpEngine} was inlining the
+    ///  whole thing for its ONE call site while sitting at the ceiling. Pure, one
+    ///  value argument, identical result.
+    function sqrtPriceAtTick(int24 t) external pure returns (uint160) {
+        return TickMath.getSqrtPriceAtTick(t);
+    }
+
+    /// @notice Best-effort Liquidatoor badge mint: the stats-bearing mint first, the
+    ///         pre-stats `mintLiquidator` as a fallback for a collection deployed
+    ///         before stats existed. Reports rather than reverting, so a liquidation
+    ///         is never taken down by its own reward.
+    ///
+    ///  Here for EIP-170 headroom — two `abi.encodeWithSelector`s (one carrying a
+    ///  struct, so a full memory encode) plus two gas-metered calls was the largest
+    ///  self-contained block left in {PerpEngine}, and it takes only value
+    ///  arguments. As an EXTERNAL library function this runs by DELEGATECALL, so the
+    ///  collection still sees the ENGINE as `msg.sender`, which every mint gate
+    ///  depends on. `gasleft()` inside the delegatecall is 63/64 of the engine's and
+    ///  both thresholds carry six-figure margins, so the fall-through is unchanged;
+    ///  the floor below makes the subtraction safe on its own rather than relying on
+    ///  the caller's guard.
+    function tryMintBadge(address col, address to, LiqStats memory st) external returns (bool ok) {
+        if (col.code.length == 0 || gasleft() < 200_000) return false;
+        uint256 fwd;
+        unchecked { fwd = gasleft() - 120_000; }
+        (ok, ) = col.call{gas: fwd}(
+            abi.encodeWithSelector(ILiquidatorMintable.mintLiquidatorWithStats.selector, to, st)
+        );
+        if (!ok && gasleft() > 200_000) {
+            unchecked { fwd = gasleft() - 120_000; }
+            (ok, ) = col.call{gas: fwd}(
+                abi.encodeWithSelector(ILiquidatorMintable.mintLiquidator.selector, to)
+            );
+        }
+    }
+
+    /// @notice token size -> quote value at `sp`. {PerpEngine._quoteAt}'s body.
+    ///
+    ///  These three live here purely for EIP-170 headroom. `FullMath.mulDiv` is an
+    ///  INTERNAL library, so every call site inlined its assembly: six copies in
+    ///  PerpEngine, which is at the ceiling, versus one here where there are
+    ///  kilobytes. Pure value arguments, no storage, so the move is mechanical.
+    function quoteAt(uint256 size, uint256 sp) external pure returns (uint256) {
+        return FullMath.mulDiv(FullMath.mulDiv(size, Q96X, sp), Q96X, sp);
+    }
+
+    /// @notice quote amount -> token amount at `sp`. {PerpEngine._ethToToken}'s body.
+    function ethToToken(uint256 eth, uint256 sp) external pure returns (uint256) {
+        return FullMath.mulDiv(FullMath.mulDiv(eth, sp, Q96X), sp, Q96X);
+    }
+
+    /// @notice Active quote-side depth of a pool from its liquidity and sqrt price.
+    ///         {PerpEngine.activeEthDepth}'s body.
+    function ethDepth(uint128 L, uint160 sp) external pure returns (uint256) {
+        if (sp == 0 || L == 0) return 0;
+        uint256 term = FullMath.mulDiv(uint256(L), uint256(SQRT_MAX) - sp, uint256(SQRT_MAX));
+        return FullMath.mulDiv(term, Q96X, sp);
+    }
+
+    /// @notice ERC20 `transfer` with the return value CHECKED, REPORTING failure
+    ///         instead of reverting.
+    ///
+    ///  Lives here rather than inline in {PerpEngine} for EIP-170 headroom: the
+    ///  engine had three byte-identical copies of `encodeWithSelector` + `call` +
+    ///  decode, and the engine is 67 bytes from the limit while this library has
+    ///  kilobytes. `external`, so it is a DELEGATECALL from the engine — the token
+    ///  still sees the engine as `msg.sender`, which is what every caller needs.
+    ///
+    ///  Reporting rather than reverting is load-bearing, not stylistic: a
+    ///  blacklistable token (true of most tokenized equities) can make ONE
+    ///  recipient permanently unpayable, and a non-standard token returns false
+    ///  rather than reverting. Callers that must not be griefed by either
+    ///  ({PerpEngine._payOut}, {PerpEngine.retirePayout}) need the boolean;
+    ///  callers that should abort ({PerpEngine._safeTransfer}) revert on it.
+    function tryTransferFrom(address token, address from, uint256 amount) external returns (bool) {
+        (bool called, bytes memory ret) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, address(this), amount)
+        );
+        return called && (ret.length == 0 || abi.decode(ret, (bool)));
+    }
+
+    /// @notice Twin of {tryTransferFrom} for plain `transfer`. See that note.
+    function tryTransfer(address token, address to, uint256 amount) external returns (bool) {
+        (bool called, bytes memory ret) = token.call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+        );
+        return called && (ret.length == 0 || abi.decode(ret, (bool)));
+    }
+
     /// @notice One leg of a perp's pool interaction.
     /// @param buy       true = acquire the iteration token (pay the quote in)
     /// @param exactOut  true = `amount` is the exact TOKEN out; else exact quote in
