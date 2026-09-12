@@ -322,16 +322,33 @@ Every fresh pool carries a decaying surtax **on top of** the base fee, routed
 | `MAX_SNIPE_BPS` (ceiling) | 9,900 |
 | `MAX_TOTAL_FEE_BPS` (base + surtax clamp) | 9,900 |
 
-The rate decays linearly across the window, and a **jitter** term is folded in so
-there is no cleanly-predictable cheap block. The jitter mixes the previous
-blockhash, the pool id, the block number **and the pool's live tick** — the tick
-being the input that is genuinely unknowable at submission time, because it moves
-with the very trade being priced. The surtax is the *maximum* of the decay and the
-jitter, so jitter can only ever raise the rate.
+The rate decays linearly across the window, and a **jitter** term is ADDED on top:
+`total = decayed + jitter` (`SurtaxLib.sol:125`). The jitter mixes the previous
+blockhash, the pool id, the block number and `prevrandao` (`SurtaxLib.sol:121`).
 
-> Older versions of this document said the jitter used `prevrandao`. It does not,
-> and deliberately so: `prevrandao` returns **the constant 1** on Arbitrum and
-> Orbit chains, which would have made it worthless on the deployment target.
+**What is actually guaranteed**, stated precisely because the weaker and stronger
+claims are easy to confuse:
+
+- **A floor, always.** `total >= decayed` for every input (`SurtaxLib.sol:76`). The
+  jitter can only ever raise the rate, never lower it below the decay curve.
+- **Nothing inside the priced transaction can steer it.** The jitter used to mix the
+  pool's live tick, which a sniper could move with a probe swap in the same
+  transaction — measured at 6,402 vs 9,600 bps in one block. The tick was removed for
+  exactly that reason; every remaining term is fixed for the whole block.
+- **It does NOT prevent block-shopping.** The rate is per-block and
+  `snipeSurtaxBps` is a `public view`, so a sniper can read it, revert when the jitter
+  is unfavourable, and retry in the next block — grinding down to the `decayed` floor.
+  Closing that would need per-caller state, which a `view` cannot write, and pushing it
+  into `beforeSwap` would charge every honest trade for it. So waiting is possible, and
+  what waiting costs you is the decay itself.
+
+> Two notes on the history, because both directions have been wrong in print. An
+> earlier version said the surtax was the *maximum* of decay and jitter. That form was
+> dead code: the jitter is bounded by the same `maxBps`, so `jitter <= decayed` for all
+> inputs and the maximum was always just `decayed` (`SurtaxLib.sol:108-110`). And an
+> earlier note said the jitter does not use `prevrandao`. It now does — with the caveat
+> that `prevrandao` is **the constant 1** on Arbitrum and Orbit chains, so on the
+> Robinhood target the previous blockhash carries the entropy (`SurtaxLib.sol:101`).
 
 ---
 
