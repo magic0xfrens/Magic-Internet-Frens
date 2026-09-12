@@ -250,7 +250,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     //  check + element return, one per array), and neither has a single reader
     //  outside this contract. Reclaimed for the R-07 check in {_isDead}.
     uint256[] internal tierDepthWei;
-    uint8[]  internal tierLeverage;
+    ///  ── PACKED, NOT A SECOND ARRAY (EIP-170) ────────────────────────────
+    ///  One leverage per tier, 8 bits each, tier 0 in the low byte: up to 32
+    ///  tiers, which is 8x any configuration this protocol has ever used. A
+    ///  second dynamic storage array cost 200+ B in {setTiers}'s calldata copy
+    ///  alone, in a contract at the EIP-170 ceiling. The external signature and
+    ///  the governance capability are unchanged.
+    uint256 internal tierLevPacked;
 
     // ── TWAP oracle: a ring of cumulative-tick observations (Uniswap-style) ──
     // Writes are TIME-throttled (≥ OBS_INTERVAL apart) so the ring can't be
@@ -480,7 +486,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         mifrens = IERC721(_mifrens); dividend = _dividend; treasury = _treasury;
         nftBeneficiary = _treasury; // perp-volume creatures → treasury by default
         tierDepthWei = [uint256(25 ether), 100 ether, 300 ether];
-        tierLeverage = [uint8(2), 3, 4, 5];
+        tierLevPacked = 2 | (3 << 8) | (4 << 16) | (5 << 24);
         lastFundingAt = uint64(block.timestamp);
         // Seed the TWAP oracle with the live tick so the mark is meaningful from
         // block one (the ring fills as trades/pokes arrive).
@@ -765,10 +771,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     function maxLeverage() public view returns (uint8 lev) {
         uint256 depth = activeEthDepth();
-        lev = tierLeverage.length > 0 ? tierLeverage[0] : 2;
+        uint256 p = tierLevPacked;
+        lev = uint8(p & 0xff);
+        if (lev == 0) lev = 2;                       // never configured -> the floor
         uint256 tiers = tierDepthWei.length;
         for (uint256 i = 0; i < tiers;) {
-            if (depth >= _q(tierDepthWei[i])) lev = tierLeverage[i + 1];
+            if (depth >= _q(tierDepthWei[i])) lev = uint8((p >> ((i + 1) << 3)) & 0xff);
             unchecked { ++i; }
         }
         if (lev > maxLeverageCeiling) lev = uint8(maxLeverageCeiling);
@@ -1930,7 +1938,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     //  MIN_TWAP floor plus a 2-hour ceiling), so nothing became unreachable —
     //  pass the current `maxLiqBps` / `maxFundingBps` alongside the new window.
     function setTiers(uint256[] calldata depths, uint8[] calldata levs) external onlyOwner {
-        if (levs.length != depths.length + 1) revert BadParam(); tierDepthWei = depths; tierLeverage = levs;
+        uint256 n = levs.length;
+        if (n != depths.length + 1 || n > 32) revert BadParam();
+        tierDepthWei = depths;
+        uint256 p;
+        for (uint256 i = 0; i < n;) { p |= uint256(levs[i]) << (i << 3); unchecked { ++i; } }
+        tierLevPacked = p;
     }
     /// @notice The engine's outbound addresses, set together.
     ///
