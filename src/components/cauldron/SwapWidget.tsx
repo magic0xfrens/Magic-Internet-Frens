@@ -178,7 +178,18 @@ export default function SwapWidget({
   const expectedOut = mode === "buy" ? estTokensOut : estEthOut;
   const minOut = minOutFor(expectedOut);
   //  No mark, no floor — and a floor of 0 is exactly the bug. Refuse instead.
-  const priceable = spotPrice > 0;
+  //  ── THE SPOT PRICE IS IN ETH, AND THE PAY SIDE MAY NOT BE ────────────
+  //  `spotPrice` is ETH per token. On an ERC20-quoted generation the buy side is
+  //  USDG, so `netOfFee(amount) / spotPrice` overstates the expected output by
+  //  the whole ETH/quote ratio (~2,533x) and `minOut` lands far above anything
+  //  the pool can fill. The swap then EXECUTES and fails the floor afterwards,
+  //  which burns the gas and reports nothing useful.
+  //
+  //  Refusing is the honest outcome until the quote-denominated price is wired
+  //  through: this panel already refuses to sign an unpriceable market, and a
+  //  price in the wrong UNIT is not a price. Selling is unaffected — it is
+  //  denominated in the token either way.
+  const priceable = spotPrice > 0 && (qNative || mode === "sell");
 
   const needsApproval = mode === "sell" && tokensIn > 0 &&
     (allowanceWei == null || (allowanceWei as bigint) < (() => { try { return parseEther((tokensIn).toFixed(18)); } catch { return 0n; } })());
@@ -509,7 +520,11 @@ export default function SwapWidget({
            trader never saw is the bug this whole control exists to close. */}
       <div className="sw__min">
         {!priceable
-          ? <span className="sw__min-warn">unpriceable · will not sign</span>
+          ? <span className="sw__min-warn">
+              {!qNative && mode === "buy"
+                ? `price is quoted in ETH, pool takes ${quoteSymbol} · will not sign`
+                : "unpriceable · will not sign"}
+            </span>
           : <>min {mode === "buy"
               ? `${compact(Number(formatEther(minOut)))} $${ticker}`
               : `${Number(formatEther(minOut)).toFixed(6)} Ξ`} · {slipPct}% slip</>}
