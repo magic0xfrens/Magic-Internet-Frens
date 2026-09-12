@@ -2225,8 +2225,16 @@ function Styles() {
     .tc-rothist__head h3 { margin: 0; font-size: 11px; letter-spacing: 0.13em;
       text-transform: uppercase; color: #7d7597; }
     .tc-rothist__empty { font-size: 11px; padding: 4px 0; }
+    /* SCROLLS WITHOUT PAINTING A BAR. A platform scrollbar drawn down the
+       inside of a panel is OS chrome punched through the app's own surface —
+       the same reason the asset picker is a listbox and not a <select>. The
+       height is raised so a full envelope (12 slices) fits without scrolling at
+       all; past that it scrolls silently rather than growing the column
+       unbounded. */
     .tc-rothist__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
-      max-height: 260px; overflow-y: auto; }
+      max-height: 460px; overflow-y: auto;
+      scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; }
+    .tc-rothist__list::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .tc-rothist__row { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
       gap: 10px; font-size: 11px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.04);
       font-variant-numeric: tabular-nums; }
