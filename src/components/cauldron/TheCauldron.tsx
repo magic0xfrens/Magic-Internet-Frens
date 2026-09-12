@@ -9,6 +9,7 @@ import CrystalCauldronGame from "@/components/cauldron/CrystalCauldronGame";
 import PerpPanel from "@/components/cauldron/PerpPanel";
 import StakePanel from "@/components/cauldron/StakePanel";
 import TradingChart from "@/components/cauldron/TradingChart";
+import LiquidatoorBadges from "@/components/wizards/LiquidatoorBadges";
 import { formatEther } from "viem";
 import { useSignMessage } from "wagmi";
 import { useCauldronMachine, type Proposal, type Phase, type MigratableBalance } from "@/hooks/useCauldronMachine";
@@ -851,18 +852,28 @@ export default function TheCauldron() {
                   <section className="tc-card tc-chart-card">
                     <div className="tc-chart-head">
                       <div>
-                        <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} / {liveQuote.symbol} · V4 pool</div>
-                        {/* Shown while streaming AND once finished. Hiding it on
-                            completion meant a fast launch — two swaps was enough
-                            here — displayed nothing at all, so there was no way
-                            to tell "not started" from "already fully deployed". */}
-                        {(seed.active || seed.complete) && (
+                        <div className="tc-card__eyebrow" style={{ color: col }}>
+                          ${m.ticker} / {liveQuote.symbol} · V4 pool
+                          {/*  ONCE IT IS ALL IN, THE RAIL IS PAST NEWS. A finished
+                               seed held three lines (headline, step count, progress
+                               track) that could only ever read 100% — the most
+                               expensive way on the page to say "nothing left to
+                               watch", and it pushed the Buy button below the fold.
+                               It collapses to this chip instead of vanishing: the
+                               original rail existed to distinguish "not started"
+                               from "already fully deployed", and a blank header
+                               would lose that distinction all over again. */}
+                          {seed.complete && !seed.active && (
+                            <span className="tc-seed__done" title="Every sliver of the launch schedule is placed in the pool">
+                              · liquidity fully deployed
+                            </span>
+                          )}
+                        </div>
+                        {seed.active && (
                           <div className="tc-seed" title="Liquidity is streamed in as swaps poke the seeder">
                             <div className="tc-seed__row">
                               <span className="tc-mono tc-dim">
-                                {seed.complete
-                                  ? `Liquidity fully deployed · 100%`
-                                  : `Liquidity deploying · ${(seed.placed * 100).toFixed(0)}%`}
+                                {`Liquidity deploying · ${(seed.placed * 100).toFixed(0)}%`}
                               </span>
                               <span className="tc-mono tc-dim">
                                 {seed.pokes} step{seed.pokes === 1 ? "" : "s"}
@@ -883,7 +894,7 @@ export default function TheCauldron() {
                               <div className="tc-seed__target" style={{ width: `${seed.target * 100}%` }} />
                               <div className="tc-seed__fill" style={{ width: `${seed.placed * 100}%`, background: col }} />
                             </div>
-                            {!seed.complete && seed.target - seed.placed > 0.05 && (
+                            {seed.target - seed.placed > 0.05 && (
                               <div className="tc-mono tc-seed__hint">
                                 waiting on a swap to place the next sliver
                               </div>
@@ -952,13 +963,24 @@ export default function TheCauldron() {
                     </div>
                   </section>
                   {/* Buy/Sell swap — directly below the chart. Shown even when
-                      "dead": a young pool reads dead at 0 volume, and a buy revives it. */}
+                      "dead": a young pool reads dead at 0 volume, and a buy revives it.
+
+                      THE SIGNING PANEL GETS THE FASTEST PRICE THERE IS.
+                      `m.spotPrice` is the last CANDLE CLOSE — a slower feed than the
+                      tape the chart beside it draws from, and the slower feed was
+                      wired to the one component whose number ends up inside a
+                      transaction. Every second of staleness is spent out of the
+                      trader's slippage tolerance: on a rising tape the quote is
+                      struck below the live price, `minOut` asks for more tokens than
+                      the pool will hand over, and the router reverts. The perps and
+                      the stake panel have been on the tape all along (see
+                      `livePerpPrice`); this is the one that needed it. */}
                   {m.token && (
                     <SwapWidget
                       ticker={m.ticker}
                       token={m.token}
-                      spotPrice={m.spotPrice}
-                      priceUsd={m.priceUsd}
+                      spotPrice={livePerpPrice > 0 ? livePerpPrice : m.spotPrice}
+                      priceUsd={livePerpPrice > 0 ? livePerpPrice * (m.ethUsd ?? 0) : m.priceUsd}
                       ethUsd={m.ethUsd}
                       col={col}
                       onBought={m.refresh}
@@ -973,7 +995,7 @@ export default function TheCauldron() {
                       ticker={m.ticker}
                       token={m.token}
                       collection={m.collection}
-                      spotPrice={m.spotPrice}
+                      spotPrice={livePerpPrice > 0 ? livePerpPrice : m.spotPrice}
                       ethUsd={m.ethUsd}
                       col={col}
                       nftMinted={m.nftMinted}
@@ -1008,30 +1030,9 @@ export default function TheCauldron() {
                  decimal ratio. So this banner was blocking the UI on a limitation
                  that had been removed from the contracts. */}
 
-            {/* live chart WITH the liquidation heatmap — trade against your walls */}
-            <div className="tc-perp-chart">
-              <div className="tc-chart-head">
-                <div>
-                  <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · liquidation heatmap</div>
-                  <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
-                </div>
-                <div className="tc-chart-mcap">
-                  <span className="tc-mono tc-dim">OPEN INTEREST</span>
-                  <span className="tc-chart-mcap__v">{heat.openCount || 0} pos</span>
-                  <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>
-                    {heat.live ? `${fmt(heat.longOiEth, 2)}Ξ L · ${fmt(heat.shortOiEth, 2)}Ξ S` : `offline: ${heat.reason ?? "…"}`}
-                  </span>
-                </div>
-              </div>
-              <TradingChart trades={tradeTape} liq={[...heat.positions, ...heat.history]} mark={heat.markPrice} />
-              {heat.openCount === 0 && (
-                <p className="tc-perp-hint">
-                  No liquidation walls yet — open a position and its liquidation price appears here as a
-                  <span style={{ color: C.red }}> red (long)</span> or <span style={{ color: col }}>lime (short)</span> band.
-                </p>
-              )}
-            </div>
-
+            {/* The chart hands itself to PerpPanel, which lays it out with the
+                open-position ticket in a right rail beside it — so the trade
+                form sits next to the price it's trading, not below the fold. */}
             <PerpPanel
               ticker={m.ticker}
               spotPrice={livePerpPrice}
@@ -1041,6 +1042,34 @@ export default function TheCauldron() {
               warm={m.summoned}
               generation={m.gen}
               onTraded={m.refresh}
+              /* proof-of-kill trophies — same component as My MiFrens, in rail
+                 chrome. Self-hides when disconnected; tiles open full-size. */
+              badges={<LiquidatoorBadges variant="rail" />}
+              chart={
+                /* live chart WITH the liquidation heatmap — trade against your walls */
+                <div className="tc-perp-chart">
+                  <div className="tc-chart-head">
+                    <div>
+                      <div className="tc-card__eyebrow" style={{ color: col }}>${m.ticker} · liquidation heatmap</div>
+                      <div className="tc-spot">{usdPrice(m.priceUsd, m.spotPrice)} <span className="tc-dim tc-mono">/ token</span></div>
+                    </div>
+                    <div className="tc-chart-mcap">
+                      <span className="tc-mono tc-dim">OPEN INTEREST</span>
+                      <span className="tc-chart-mcap__v">{heat.openCount || 0} pos</span>
+                      <span className="tc-mono tc-dim" style={{ fontSize: 10 }}>
+                        {heat.live ? `${fmt(heat.longOiEth, 2)}Ξ L · ${fmt(heat.shortOiEth, 2)}Ξ S` : `offline: ${heat.reason ?? "…"}`}
+                      </span>
+                    </div>
+                  </div>
+                  <TradingChart trades={tradeTape} liq={[...heat.positions, ...heat.history]} mark={heat.markPrice} />
+                  {heat.openCount === 0 && (
+                    <p className="tc-perp-hint">
+                      No liquidation walls yet — open a position and its liquidation price appears here as a
+                      <span style={{ color: C.red }}> red (long)</span> or <span style={{ color: col }}>lime (short)</span> band.
+                    </p>
+                  )}
+                </div>
+              }
             />
 
             <p className="tc-perp-hint" style={{ marginTop: 18 }}>
@@ -1067,11 +1096,16 @@ export default function TheCauldron() {
         {/* ══ GOVERNANCE ══ */}
         {tab === "governance" && (
           <>
-          {/* WHAT THE LP IS MADE OF, measured — above the desk that changes it.
-              The desk's own donut projects a PLANNED rotation; this reports the
-              treasury's actual holdings across every allowed quote. */}
-          <LpBasisPanel gen={m.gen} />
-          <TreasuryRotation gen={m.gen} col={col} />
+          {/* WHAT THE LP IS MADE OF, beside the desk that changes it.
+              These were stacked, which put ~700px between the composition a
+              voter is reading and the control they act on it with — the two
+              halves of one decision, and neither visible with the other. Side
+              by side: the measured state on the left, the proposal on the
+              right. They collapse back to a stack under 900px. */}
+          <div className="tc-treasury2">
+            <LpBasisPanel gen={m.gen} />
+            <TreasuryRotation gen={m.gen} col={col} />
+          </div>
           <section className="tc-card tc-gov">
             <div className="tc-gov__head">
               <div>
@@ -1255,7 +1289,12 @@ function GenesisBonusPanel({ notify }: { notify: (k: "ok" | "err", m: string) =>
   const [open, setOpen] = useState(false);
   if (gb.unclaimedIds.length === 0) return null;
 
-  const fmtG = (b: bigint) => Number(formatEther(b)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  //  "Nobody could read the floor" is not "the floor is 0". `sharePerFren` is 0n
+  //  in both cases, so the distinction has to come from `floorSource`, and the
+  //  figure renders as "—" (and the redeem is held) when it is unknown.
+  const floorKnown = gb.floorSource !== "none";
+  const fmtG = (b: bigint) =>
+    floorKnown ? Number(formatEther(b)).toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—";
   const remaining = gb.unclaimedIds.length; // every owned genesis fren is recyclable
   const thisBatch = Math.min(remaining, gb.claimBatch);
   const more = remaining > gb.claimBatch;
@@ -1310,12 +1349,15 @@ function GenesisBonusPanel({ notify }: { notify: (k: "ok" | "err", m: string) =>
         <div className="tc-genesis__stat"><span className="tc-genesis__k tc-mono">Your total floor</span><span className="tc-genesis__v tc-genesis__v--hl">{fmtG(gb.claimableGnome)} ${ticker}</span></div>
       </div>
       <div className="tc-genesis__foot">
-        <button className="tc-btn tc-btn--migrate" onClick={onClaim} disabled={gb.busy}>
+        <button className="tc-btn tc-btn--migrate" onClick={onClaim} disabled={gb.busy || !floorKnown}>
           {gb.busy
             ? (gb.progress ? `Recycling ${gb.progress.done + 1}/${gb.progress.total}…` : "Recycling…")
-            : `Recycle & Redeem ${more ? `${thisBatch} of ${remaining}` : remaining}`}
+            : !floorKnown
+              ? "Floor unavailable"
+              : `Recycle & Redeem ${more ? `${thisBatch} of ${remaining}` : remaining}`}
         </button>
-        {more && <span className="tc-genesis__note tc-mono">recycles {gb.claimBatch} at a time — repeat for the rest</span>}
+        {!floorKnown && <span className="tc-genesis__note tc-mono">floor could not be read — indexer and RPC both unreachable</span>}
+        {floorKnown && more && <span className="tc-genesis__note tc-mono">recycles {gb.claimBatch} at a time — repeat for the rest</span>}
       </div>
     </div>
   );
@@ -1780,7 +1822,11 @@ function Styles() {
     <style>{`
     /* The shell owns the horizontal gutter now (it has to clear the rail), so
        the page only sets its own vertical rhythm and atmosphere. */
-    .tc { position: relative; min-height: 100vh; padding: 0 0 100px; overflow: visible;
+    /*  The tail exists so a long tab (governance, lineage) does not end flush
+        against the viewport edge. On the Brew tab it was the ONLY thing left
+        putting the page into scroll once the reactor was made to fit, so it
+        shrinks with the viewport instead of being a flat 100px. */
+    .tc { position: relative; min-height: 100vh; padding: 0 0 clamp(14px, 2.8vh, 96px); overflow: visible;
       background:
         radial-gradient(1100px 620px at 50% -8%, rgba(213,253,81,0.06), transparent 60%),
         radial-gradient(900px 700px at 80% 20%, rgba(124,92,252,0.10), transparent 55%),
@@ -1872,7 +1918,7 @@ function Styles() {
     /* Masthead — a page title now, not a second nav. The rail carries identity,
        so the wordmark shrinks and the stats collapse to one aligned strip. */
     .tc-top { display: flex; justify-content: space-between; align-items: center; gap: 20px 32px; flex-wrap: wrap;
-      padding: 22px 0 16px; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+      padding: clamp(14px, 2.4vh, 22px) 0 clamp(10px, 1.8vh, 16px); margin-bottom: clamp(11px, 2vh, 18px); border-bottom: 1px solid rgba(255,255,255,0.06); }
     .tc-wordmark { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 28px; line-height: 1.05; margin: 0; letter-spacing: 0.01em;
       background: linear-gradient(180deg, ${C.cream}, #b9aee0); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     .tc-sub { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: ${C.mute}; margin: 6px 0 0; }
@@ -1882,11 +1928,19 @@ function Styles() {
     .tc-stat__v { font-size: 14px; font-weight: 500; text-transform: capitalize; }
 
     /* cards */
-    .tc-card { background: ${C.panel}; border: 1px solid rgba(255,255,255,0.07); border-radius: var(--r-md); padding: 26px; backdrop-filter: blur(14px);
+    /*  DENSITY — the reactor has to land entirely above the fold, so the card
+        padding is a viewport-aware token rather than a fixed 26px: it breathes
+        on a tall display and tightens on a laptop instead of pushing the Buy
+        button and the crystal CTA below the crease. Every rule that used to
+        hardcode 26px reads this, so the profile banner's bleed can never drift
+        away from the card it is bleeding out of. */
+    .tc-card { --card-pad: clamp(15px, 2.1vh, 26px);
+      background: ${C.panel}; border: 1px solid rgba(255,255,255,0.07); border-radius: var(--r-md);
+      padding: var(--card-pad); backdrop-filter: blur(14px);
       box-shadow: 0 24px 60px rgba(8,6,15,0.5); }
-    .tc-card__eyebrow { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px; }
+    .tc-card__eyebrow { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: clamp(8px, 1.2vh, 16px); }
 
-    .tc-reactor { display: grid; grid-template-columns: 0.8fr 1.2fr 300px; gap: 18px; align-items: start; }
+    .tc-reactor { display: grid; grid-template-columns: 0.8fr 1.2fr 300px; gap: clamp(12px, 1.6vw, 18px); align-items: start; }
     /*  A grid track sized in fr still floors at its content's MIN-CONTENT
         width, so any child with a wide unbreakable row silently overrides the
         0.8fr and steals space from the chart beside it. min-width:0 is what
@@ -1894,8 +1948,8 @@ function Styles() {
         nowrap rows widened the whole left column.
         (No backticks in this block - it is a template literal.) */
     .tc-reactor > * { min-width: 0; }
-    .tc-rail { display: flex; flex-direction: column; gap: 14px; }
-    .tc-chart-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .tc-rail { display: flex; flex-direction: column; gap: clamp(9px, 1.3vh, 14px); }
+    .tc-chart-col { display: flex; flex-direction: column; gap: clamp(9px, 1.3vh, 14px); min-width: 0; }
     @media (max-width: 1180px) { .tc-reactor { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 760px) { .tc-reactor { grid-template-columns: 1fr; } .tc-top { align-items: flex-start; } }
 
@@ -1903,7 +1957,7 @@ function Styles() {
     .tc-core-card { display: flex; flex-direction: column; }
 
     /* brew profile — Twitter-style banner + avatar */
-    .tc-profile { margin: -26px -26px 6px; }
+    .tc-profile { margin: calc(var(--card-pad) * -1) calc(var(--card-pad) * -1) 6px; }
     .tc-profile__banner {
       position: relative; height: 128px; border-radius: var(--r-md) var(--r-md) 0 0;
       background-size: cover; background-position: center;
@@ -1928,7 +1982,7 @@ function Styles() {
     }
     .tc-profile__logo img { width: 100%; height: 100%; object-fit: cover; }
     .tc-profile__initial { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 34px; }
-    .tc-profile__body { padding: 10px 26px 4px; }
+    .tc-profile__body { padding: 8px var(--card-pad) 2px; }
     .tc-profile__name { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 24px; margin: 4px 0 2px; color: ${C.cream}; }
     .tc-profile__handle { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
     .tc-profile__tick { font-size: 13px; font-weight: 600; }
@@ -1955,7 +2009,7 @@ function Styles() {
     .tc-core__orb--cold { filter: grayscale(0.5) brightness(0.7); }
     .tc-core__tick { font-family: "DM Mono", monospace; font-weight: 700; font-size: 15px; color: #0c0918; text-shadow: 0 1px 2px color-mix(in srgb, var(--cc) 40%, transparent); }
 
-    .tc-brewname { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 26px; margin: 4px 0 2px; color: ${C.cream}; }
+    .tc-brewname { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: clamp(22px, 2.9vh, 26px); margin: 3px 0 2px; color: ${C.cream}; }
     .tc-brewby { font-family: "DM Mono", monospace; font-size: 11px; color: ${C.mute}; margin: 0 0 18px; letter-spacing: 0.06em; }
 
     .tc-vital { width: 100%; margin-bottom: 18px; }
@@ -1972,12 +2026,24 @@ function Styles() {
 
     /* chart */
     .tc-chart-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-    .tc-spot { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: 26px; color: ${C.cream}; }
+    .tc-spot { font-family: "Cinzel Decorative", serif; font-weight: 900; font-size: clamp(21px, 2.8vh, 26px); color: ${C.cream}; }
     .tc-spot .tc-dim { font-size: 12px; font-weight: 400; }
     .tc-chart-mcap { text-align: right; display: flex; flex-direction: column; gap: 3px; }
     .tc-chart-mcap__v { font-family: "DM Mono", monospace; font-size: 15px; color: ${C.cream}; }
 
-    .tc-ekg { position: relative; height: 180px; margin: 4px 0 16px; border-radius: var(--r-sm); overflow: hidden; background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
+    .tc-seed__done { color: ${C.mute}; opacity: 0.75; letter-spacing: 0.1em; }
+    /*  COMPACT TIER — see the matching block in SwapWidget. The telemetry tiles
+        are the chart card's least compressible row because their labels wrap at
+        a narrow middle column, so below the tier the secondary caption goes and
+        the chart is allowed a shorter floor. */
+    @media (max-height: 780px) {
+      .tc-ekg { height: clamp(96px, 14vh, 190px); }
+      .tc-teleitem { padding: 6px 8px; }
+      .tc-teleitem__sub { display: none; }
+      .tc-teleitem__v { font-size: 13px; }
+      .tc-tele { gap: 7px; }
+    }
+    .tc-ekg { position: relative; height: clamp(112px, 15.2vh, 190px); margin: 4px 0 clamp(8px, 1.4vh, 16px); border-radius: var(--r-sm); overflow: hidden; background: rgba(8,6,15,0.4); border: 1px solid rgba(255,255,255,0.05); }
     .tc-ekg__svg { width: 100%; height: 100%; display: block; }
     /* The price label sat directly on the line and became unreadable against
        it. A dark pill lifts it off without hiding the chart underneath. */
@@ -2002,12 +2068,12 @@ function Styles() {
     .tc-linkbtn:hover { filter: brightness(1.15); }
     .tc-linkbtn:focus-visible { outline: 2px solid ${C.lime}; outline-offset: 2px; border-radius: var(--r-xs); }
 
-    .tc-tele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: stretch; }
+    .tc-tele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; align-items: stretch; }
     .tc-teleitem__sub { font-size: 8.5px; letter-spacing: .06em; opacity: .7; margin-top: 1px; }
     @media (max-width: 560px) { .tc-tele { grid-template-columns: repeat(2, 1fr); } }
-    .tc-teleitem { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+    .tc-teleitem { display: flex; flex-direction: column; gap: 3px; padding: clamp(7px, 1.1vh, 12px) 10px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
     .tc-teleitem .tc-dim { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
-    .tc-teleitem__v { font-family: "DM Mono", monospace; font-size: 15px; font-weight: 500; white-space: nowrap; }
+    .tc-teleitem__v { font-family: "DM Mono", monospace; font-size: 14px; font-weight: 500; white-space: nowrap; }
 
     /* buttons */
     .tc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; border-radius: var(--r-sm); padding: 13px 20px; cursor: pointer; border: none; transition: transform .15s, box-shadow .15s, opacity .2s; }
@@ -2122,6 +2188,36 @@ function Styles() {
     .tc-rot { background: rgba(8,6,15,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); padding: 22px; margin-bottom: 18px; }
     .tr-head { margin-bottom: 16px; }
     .tr-title { font-family: "Cinzel", serif; font-size: 21px; margin: 4px 0 0; color: #f4f1ff; }
+
+    /* ── THE TREASURY PAIR ────────────────────────────────────────────────
+       Measured composition on the left, the proposal that changes it on the
+       right. align-items:start so the shorter column does not stretch, and
+       min-width:0 on both because the desk contains a monospace figure that
+       would otherwise refuse to shrink and blow the grid out.
+       (No backticks in here — this block is a JS template literal.)
+
+       The stacked layout is kept below 900px rather than squeezing two
+       columns: the desk's preset row is four cells wide and becomes unreadable
+       before the breakpoint a 2-up layout would need. */
+    .tc-treasury2 { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 18px; align-items: start; margin-bottom: 18px; }
+    .tc-treasury2 > * { min-width: 0; margin-bottom: 0; }
+    @media (max-width: 900px) { .tc-treasury2 { grid-template-columns: 1fr; } }
+
+    /* COMPACT THE DESK when it sits in the pair. Full-width it could afford
+       22px padding and a 21px serif title; in a 55% column that spends the
+       space the controls need. Scoped to the pair so the preview lab still
+       shows the roomy original. */
+    .tc-treasury2 .tc-rot { padding: 18px; }
+    .tc-treasury2 .tr-head { margin-bottom: 12px; }
+    .tc-treasury2 .tr-title { font-size: 18px; }
+    .tc-treasury2 .tr-note { font-size: 11.5px; margin-bottom: 11px; }
+    .tc-treasury2 .tr-label { margin-bottom: 6px; }
+    .tc-treasury2 .tr-sizes { gap: 5px; margin-bottom: 10px; }
+    .tc-treasury2 .tr-projection { margin: 12px 0; padding: 11px 13px; }
+    .tc-treasury2 .tr-proj__row { font-size: 11.5px; padding: 2px 0; }
+    .tc-treasury2 .tr-proj__note { font-size: 10.5px; margin-top: 8px; }
+    .tc-treasury2 .tc-lpbasis { padding: 18px; }
 
     .tr-top { display: grid; grid-template-columns: 168px 1fr; gap: 22px; align-items: start; }
     @media (max-width: 720px) { .tr-top { grid-template-columns: 1fr; } }

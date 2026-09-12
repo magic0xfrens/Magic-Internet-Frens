@@ -67,6 +67,26 @@ const CSS = `
 .tc-lpbasis__pct { min-width: 52px; text-align: right; color: #efe9dd; }
 .tc-lpbasis__total { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; text-align: right; }
 .tc-lpbasis__warn { margin: 10px 0 0; font-size: 10px; line-height: 1.5; color: #f0b429; }
+
+/* ── THE COMPOSITION RING ──────────────────────────────────────────────────
+   A donut reads a SPLIT better than a 10px bar does, and this panel's whole
+   job is the split. The bar is kept for the priced-vs-unpriced nuance below;
+   the ring is the at-a-glance figure, with the value in the hole so the two
+   are never read apart. */
+.tc-lpbasis__viz { display: flex; align-items: center; gap: 18px; margin: 4px 0 16px; }
+.tc-lpbasis__ring { flex: 0 0 auto; position: relative; width: 124px; height: 124px; }
+.tc-lpbasis__ring svg { transform: rotate(-90deg); display: block; }
+.tc-lpbasis__ring-seg { transition: stroke-dasharray 320ms ease; }
+.tc-lpbasis__hole { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 1px; }
+.tc-lpbasis__hole b { font-family: "DM Mono", ui-monospace, monospace; font-size: 15px;
+  color: #efe9dd; line-height: 1.1; letter-spacing: -0.01em; }
+.tc-lpbasis__hole span { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #9b93b5; }
+.tc-lpbasis__vizside { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 420px) {
+  .tc-lpbasis__viz { flex-direction: column; align-items: stretch; gap: 12px; }
+  .tc-lpbasis__ring { align-self: center; }
+}
 `;
 
 /** A stable colour per asset, so the same quote keeps its colour across renders
@@ -76,6 +96,91 @@ const swatchFor = (i: number) => SWATCH[i % SWATCH.length];
 
 function pct(x: number) {
   return `${(x * 100).toFixed(x < 0.01 && x > 0 ? 2 : 1)}%`;
+}
+
+/**
+ * USD for the ring's centre.
+ *
+ * `maximumFractionDigits: 0` is right for a treasury and wrong for a testnet:
+ * it renders every value under fifty cents as "$0", which is what the panel was
+ * doing — a live pool with real liquidity in it reported "≈ $0 priced" and read
+ * as broken rather than as small. Small numbers get their significant digits.
+ */
+function money(n: number): string {
+  if (n <= 0) return "$0";
+  if (n >= 1000) return `$${(n / 1000).toLocaleString(undefined, { maximumFractionDigits: n >= 10_000 ? 0 : 1 })}k`;
+  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  if (n >= 0.01) return `$${n.toFixed(2)}`;
+  return `<$0.01`;
+}
+
+/**
+ * The composition ring.
+ *
+ * Draws ONLY priced assets, for the reason stated at the top of this file: a
+ * ring is a proportion, a proportion needs a common unit, and comparing raw
+ * balances across a 6-decimal and an 18-decimal asset produces a confident,
+ * wrong picture. When nothing can be priced it draws one neutral track and says
+ * so in the hole, which is a visibly different thing from a treasury that is
+ * genuinely 100% one asset.
+ */
+function CompositionRing({ priced, totalUsd, basisSymbol, assetCount }: {
+  priced: QuoteHolding[];
+  totalUsd: number;
+  basisSymbol: string;
+  assetCount: number;
+}) {
+  const R = 52, SW = 13, C = 2 * Math.PI * R;
+  const hasSplit = priced.length > 0 && totalUsd > 0;
+
+  //  Segments are laid out by running offset so they abut exactly; rounding each
+  //  independently would leave hairline gaps that read as missing assets.
+  let offset = 0;
+  const segs = priced.map((h, i) => {
+    const frac = Math.max(0, Math.min(1, h.share ?? 0));
+    const seg = { len: C * frac, off: C * offset, colour: swatchFor(i), h };
+    offset += frac;
+    return seg;
+  });
+
+  return (
+    <div className="tc-lpbasis__ring">
+      <svg width={124} height={124} viewBox="0 0 124 124" aria-hidden={hasSplit ? undefined : true}
+           role={hasSplit ? "img" : undefined}
+           aria-label={hasSplit
+             ? `Treasury split: ${priced.map((h) => `${h.asset.symbol} ${pct(h.share!)}`).join(", ")}`
+             : undefined}>
+        <circle cx={62} cy={62} r={R} fill="none" strokeWidth={SW}
+                stroke={hasSplit ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.10)"}
+                strokeDasharray={hasSplit ? undefined : "3 6"} />
+        {segs.map((s) => (
+          <circle
+            key={s.h.asset.address}
+            className="tc-lpbasis__ring-seg"
+            cx={62} cy={62} r={R} fill="none"
+            stroke={s.colour} strokeWidth={SW} strokeLinecap="butt"
+            strokeDasharray={`${s.len} ${C - s.len}`}
+            strokeDashoffset={-s.off}
+          >
+            <title>{`${s.h.asset.symbol} — ${pct(s.h.share!)}`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="tc-lpbasis__hole">
+        {hasSplit ? (
+          <>
+            <b>{money(totalUsd)}</b>
+            <span>in pool</span>
+          </>
+        ) : (
+          <>
+            <b>{basisSymbol}</b>
+            <span>{assetCount === 1 ? "unpriced" : `${assetCount} assets · unpriced`}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function amountLabel(h: QuoteHolding) {
@@ -145,54 +250,74 @@ export function LpBasisView({
         </div>
       ) : (
         <>
-          {priced.length > 0 && (
-            <div
-              className="tc-lpbasis__bar"
-              role="img"
-              aria-label={`Treasury split: ${priced
-                .map((h) => `${h.asset.symbol} ${pct(h.share!)}`)
-                .join(", ")}`}
-            >
-              {priced.map((h, i) => (
+          <div className="tc-lpbasis__viz">
+            <CompositionRing
+              priced={priced}
+              totalUsd={totalUsd}
+              basisSymbol={basis.symbol}
+              assetCount={held.length}
+            />
+            <div className="tc-lpbasis__vizside">
+              {priced.length > 0 && (
                 <div
-                  key={h.asset.address}
-                  className="tc-lpbasis__seg"
-                  style={{ width: pct(h.share!), background: swatchFor(i) }}
-                  title={`${h.asset.symbol} — ${pct(h.share!)}`}
-                />
-              ))}
-            </div>
-          )}
+                  className="tc-lpbasis__bar"
+                  role="img"
+                  aria-label={`Treasury split: ${priced
+                    .map((h) => `${h.asset.symbol} ${pct(h.share!)}`)
+                    .join(", ")}`}
+                >
+                  {priced.map((h, i) => (
+                    <div
+                      key={h.asset.address}
+                      className="tc-lpbasis__seg"
+                      style={{ width: pct(h.share!), background: swatchFor(i) }}
+                      title={`${h.asset.symbol} — ${pct(h.share!)}`}
+                    />
+                  ))}
+                </div>
+              )}
 
-          <ul className="tc-lpbasis__legend">
-            {held.map((h) => {
-              const i = priced.indexOf(h);
-              return (
-                <li key={h.asset.address} className="tc-lpbasis__row">
-                  <span
-                    className="tc-lpbasis__dot"
-                    style={{ background: i >= 0 ? swatchFor(i) : "transparent",
-                             border: i >= 0 ? "none" : "1px dashed currentColor" }}
-                  />
-                  <span className="tc-lpbasis__sym tc-mono">
-                    {h.asset.symbol}
-                    {h.isBasis && <em className="tc-lpbasis__tag">basis</em>}
-                  </span>
-                  <span className="tc-lpbasis__amt tc-mono tc-dim">
-                    {h.liquidity > 0n && <em className="tc-lpbasis__lp">in LP</em>}
-                    {amountLabel(h)}
-                  </span>
-                  <span className="tc-lpbasis__pct tc-mono">
-                    {h.share !== null ? pct(h.share) : <span className="tc-dim">unpriced</span>}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+              <ul className="tc-lpbasis__legend">
+                {held.map((h) => {
+                  const i = priced.indexOf(h);
+                  //  IDLE AMOUNT AND LP PRESENCE ARE DIFFERENT FACTS.
+                  //  `amount` is the idle balance, which `rotateSlice` keeps at
+                  //  ~0 by design, so pairing it with the "in LP" pill rendered
+                  //  "in LP 0 ETH" for a pool holding real liquidity — the pill
+                  //  saying the value is deployed and the number next to it
+                  //  saying there is none. Show the idle figure only when there
+                  //  is one to show.
+                  const inLp = h.liquidity > 0n;
+                  return (
+                    <li key={h.asset.address} className="tc-lpbasis__row">
+                      <span
+                        className="tc-lpbasis__dot"
+                        style={{ background: i >= 0 ? swatchFor(i) : "transparent",
+                                 border: i >= 0 ? "none" : "1px dashed currentColor" }}
+                      />
+                      <span className="tc-lpbasis__sym tc-mono">
+                        {h.asset.symbol}
+                        {h.isBasis && <em className="tc-lpbasis__tag">basis</em>}
+                      </span>
+                      <span className="tc-lpbasis__amt tc-mono tc-dim">
+                        {inLp && <em className="tc-lpbasis__lp">in LP</em>}
+                        {h.raw > 0n
+                          ? amountLabel(h)
+                          : inLp ? "" : `0 ${h.asset.symbol}`}
+                      </span>
+                      <span className="tc-lpbasis__pct tc-mono">
+                        {h.share !== null ? pct(h.share) : <span className="tc-dim">unpriced</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
 
           {totalUsd > 0 && (
             <div className="tc-lpbasis__total tc-mono tc-dim">
-              ≈ ${totalUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} priced
+              ≈ {money(totalUsd)} priced
             </div>
           )}
 

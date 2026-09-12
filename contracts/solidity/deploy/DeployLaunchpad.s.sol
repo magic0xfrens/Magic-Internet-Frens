@@ -679,6 +679,21 @@ contract DeployLaunchpad is Script {
             oracle.setFeed(address(usdg), FEED_USDC_USD, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
         }
         rotator.setArbParams(address(oracle), 1000, 5e18);
+        //  THE ROTATION PRICE FLOOR. Left at its 300 (3%) default by every deploy
+        //  so far, which is correct for mainnet and makes the rotation
+        //  undemonstrable on a testnet: the floor is oracle-derived, so a slice
+        //  only clears it if the venue can absorb it without moving price 3%,
+        //  which against a full-range venue means ~65x the slice in depth.
+        //
+        //  Set explicitly, and only when asked. `setRotationSlipBps` reverts above
+        //  2000, so the cap is the contract's, not this script's — but a widened
+        //  floor is a real haircut allowance, so an unset variable must leave the
+        //  safe default in place rather than pick a convenient one.
+        uint256 slipBps = vm.envOr("ROTATION_SLIP_BPS", uint256(0));
+        if (slipBps != 0) {
+            rotator.setRotationSlipBps(uint16(slipBps));
+            console2.log("  rotationSlipBps widened for testing:", slipBps);
+        }
         registry.setAllowedQuote(address(usdg), true, 1e18);
 
         //  Create and seed the venue pool, then curate it. `openOrAddPair`
@@ -686,7 +701,34 @@ contract DeployLaunchpad is Script {
         //  and currency1 is USDG, with hook = 0 (a vanilla v4 pool, not a
         //  Cauldron pool).
         uint256 venueEth = vm.envOr("VENUE_ETH", uint256(0.02 ether));
-        uint256 venueUsdg = vm.envOr("VENUE_USDG", uint256(60e6));
+        //  PRICE THE VENUE OFF THE ORACLE, NOT OFF A CONSTANT.
+        //
+        //  `openOrAddPair` sets a fresh pool's opening price from the ratio of
+        //  the two amounts it is given, and `rotateSlice`'s floor is derived from
+        //  the ORACLE ({QuoteRotator._oracleFloor}). So a hardcoded pair of
+        //  amounts silently encodes an ETH/USD assumption, and the day the real
+        //  price has moved away from it every slice reverts `SlippageTooHigh` --
+        //  a venue that is deep and useless, failing for a reason that looks
+        //  nothing like its cause.
+        //
+        //  Asking the oracle for both legs keeps the opening price AT the floor's
+        //  own reference and needs no assumption about either asset's decimals or
+        //  the oracle's internal scaling: `_usd(x) = raw * usdPerRawUnit / 1e18`
+        //  for both, so equal value means `usdg = eth * upru(native) / upru(usdg)`.
+        //  VENUE_USDG still overrides, for a deploy that wants a deliberate skew.
+        uint256 venueUsdg = vm.envOr("VENUE_USDG", uint256(0));
+        if (venueUsdg == 0) {
+            uint256 upruEth = oracle.usdPerRawUnit(address(0));
+            uint256 upruUsdg = oracle.usdPerRawUnit(address(usdg));
+            //  0 means "cannot value this". Seeding against an unpriceable leg
+            //  would divide by zero or open the pool at a fabricated price, and
+            //  the rotation would then be untestable on this deployment -- so say
+            //  so loudly here rather than shipping a venue that cannot be used.
+            require(upruEth > 0 && upruUsdg > 0, "venue: oracle cannot price a leg");
+            venueUsdg = (venueEth * upruEth) / upruUsdg;
+            require(venueUsdg > 0, "venue: usdg leg rounds to zero");
+            console2.log("  venue priced from oracle, USDG leg:", venueUsdg);
+        }
         //  Mint STRAIGHT to the seeder. Foundry refuses `address(this)` inside a
         //  script — script contracts are ephemeral, so an address derived from
         //  one is meaningless once the broadcast ends — and the mint-then-

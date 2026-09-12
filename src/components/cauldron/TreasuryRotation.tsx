@@ -6,7 +6,7 @@ import { NATIVE_QUOTE, quoteMeta, isNativeQuote } from "@/config/quotes";
 import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
 import {
   useTreasuryRotation, SLICE_BPS, ENVELOPE_BPS, SLICES_PER_ENVELOPE,
-  remainingAfter, type RouteKey,
+  remainingAfter, earliestCompletion, type RouteKey,
 } from "@/hooks/useTreasuryRotation";
 
 /**
@@ -142,13 +142,24 @@ function AssetPicker({ options, value, onChange, fromSymbol }: {
     </div>
   );
 }
-/** Seconds → a short human string. */
-function since(s: number): string {
+/**
+ * Seconds → a short human string.
+ *
+ * `null` renders as "unknown" rather than as a number. Every duration on this
+ * panel is one of the governor's immutables, and a deployment can hold minutes
+ * where another holds days, so there is no default that is safe to print: the
+ * panel previously said "three days" in prose against a governor whose vote ran
+ * five minutes.
+ */
+function since(s: number | null): string {
+  if (s === null) return "unknown";
   if (s <= 0) return "now";
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
-  if (d > 0) return `${d}d ${h}h`;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
   const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  //  Sub-minute matters: a testnet cooldown of 60 s must not round to "0m".
+  return m > 0 ? `${m}m` : `${s}s`;
 }
 
 export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
@@ -257,7 +268,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
     setBusy("govern");
     try {
       await proposeEnvelope(target as Address, envBps);
-      say(`Proposed a rotation into ${to.symbol}. Voting runs 3 days.`);
+      say(`Proposed a rotation into ${to.symbol}. Voting runs ${since(env.timing.votingPeriod)}.`);
       await refresh();
     } catch (e) { say(`Proposal failed: ${(e as Error).message.slice(0, 90)}`); }
     finally { setBusy(null); }
@@ -317,8 +328,8 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
         <>
           <p className="tr-note">
             The LP is denominated in <strong>{from.symbol}</strong>. A rotation is
-            voted, not executed on a whim: pick a destination, and the guild has
-            three days to agree.
+            voted, not executed on a whim: pick a destination, and the guild has{" "}
+            <strong>{since(env.timing.votingPeriod)}</strong> to agree.
           </p>
 
           <label className="tc-mono tc-dim tr-label">Rotate into</label>
@@ -353,15 +364,20 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
               <span className="tc-dim">Slices to get there</span>
               <b>{slicesFor(envBps)} × {(SLICE_BPS / 100).toFixed(0)}%</b>
             </div>
+            {/*  EARLIEST COMPLETION IS THE VOTE, NOT THE SLICING.
+                 This read "~4 days" as a constant. The contract has no
+                 per-slice cooldown — once the envelope opens, `rotateSlice` is
+                 permissionless and every slice can land in the next block — so
+                 the only floor is the voting period. */}
             <div className="tr-proj__row">
               <span className="tc-dim">Earliest completion</span>
-              <b>~4 days</b>
+              <b>{since(earliestCompletion(env.timing))}</b>
             </div>
             <p className="tr-proj__note tc-dim">
               Each slice takes its share of what REMAINS, so the position decays
-              geometrically and never reaches exactly zero. A second envelope,
-              after the {since(Number(env.cooldownLeft) || 604800)} cooldown,
-              takes it past 99%.
+              geometrically and never reaches exactly zero. Slices are
+              unpaced — the wait is the vote. A second envelope, after the{" "}
+              {since(env.timing.cooldown)} cooldown, takes it past 99%.
             </p>
           </div>
 

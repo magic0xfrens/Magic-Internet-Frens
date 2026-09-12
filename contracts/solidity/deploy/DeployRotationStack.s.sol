@@ -273,5 +273,50 @@ contract VenueSeeder {
         return positionId;
     }
 
+    /**
+     * @notice Pull the venue position back out and return both sides to the
+     *         deployer.
+     *
+     *  ── WHY THIS HAD TO EXIST BEFORE THE VENUE COULD BE FUNDED PROPERLY ──
+     *  This contract minted a full-range position and then stored nothing but
+     *  the id. There was no way to decrease liquidity, no way to burn, and no
+     *  sweep — so every wei sent to {seed} was permanently stranded the moment
+     *  the broadcast ended. That was survivable only because the venue was
+     *  seeded with 0.005 ETH.
+     *
+     *  It stopped being survivable when the venue had to get DEEP. The rotation
+     *  floor is oracle-derived, so a slice only clears it if the venue can
+     *  absorb the trade without moving price much, which means real capital —
+     *  and this session has already spent a day recovering 12.25 ETH stranded by
+     *  exactly this shape of contract. A pot with no drain is not a cheaper pot,
+     *  it is a slower loss.
+     *
+     *  `key` is passed in rather than stored: reconstructing it costs a storage
+     *  slot and the caller already knows it (it is pinned by the allowlist).
+     *  `positionId == 0` is treated as "nothing seeded" rather than reverting, so
+     *  a recovery script can be run blindly against every deployment.
+     */
+    function recover(IPositionManagerOps posm, PoolKey memory key, address usdg)
+        external
+        returns (uint256 ethOut, uint256 usdgOut)
+    {
+        require(msg.sender == deployer, "only deployer");
+        if (positionId != 0) {
+            (ethOut, usdgOut) = PoolOps.removeAll(posm, positionId, key, usdg);
+            positionId = 0;
+        }
+        //  Sweep the BALANCE, not the amounts `removeAll` reported. Fees accrued
+        //  since the mint sit here too, and a transfer sized from the return
+        //  value would leave them behind for the same reason the position was
+        //  stuck in the first place.
+        uint256 tok = MockQuoteToken(usdg).balanceOf(address(this));
+        if (tok > 0) MockQuoteToken(usdg).transfer(deployer, tok);
+        uint256 bal = address(this).balance;
+        if (bal > 0) {
+            (bool ok,) = deployer.call{value: bal}("");
+            require(ok, "eth return");
+        }
+    }
+
     receive() external payable {}
 }

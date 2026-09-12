@@ -62,6 +62,16 @@ const GOVERNOR_ABI = [
   { type: "function", name: "lastEnvelopeAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "function", name: "MAX_ENVELOPE_BPS", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
   { type: "function", name: "COOLDOWN", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  //  THE REST OF THE CLOCK. All four are `immutable` and public on
+  //  TreasuryGovernor (:274-280), set from constructor arguments — so they are
+  //  a property of the DEPLOYMENT, not of the protocol. The panel used to print
+  //  "three days to agree" and a 604800-second cooldown as prose; on a testnet
+  //  governor built with `testnet = true` the real numbers are minutes, and a
+  //  UI that states a timing the contract does not hold teaches the wrong thing
+  //  about the one control this screen exists to explain.
+  { type: "function", name: "VOTING_PERIOD", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "EXECUTION_WINDOW", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "ENVELOPE_LIFETIME", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "function", name: "propose", stateMutability: "nonpayable",
     inputs: [{ type: "address" }, { type: "uint16" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "vote", stateMutability: "nonpayable",
@@ -144,6 +154,13 @@ export interface EnvelopeState {
   expiry: number;
   /** Seconds until a NEW envelope may be proposed, 0 if now. */
   cooldownLeft: number;
+  /**
+   * The deployment's OWN clock, read from the governor's immutables — never
+   * assumed. `null` means the read failed, and the UI must then say it does not
+   * know rather than print a plausible default: a testnet governor runs these
+   * in minutes and a mainnet one in days, so there is no safe constant.
+   */
+  timing: GovTiming;
   governor: Address | null;
   loading: boolean;
   /**
@@ -156,6 +173,21 @@ export interface EnvelopeState {
    * pools it actually is, and let a rotation pick which one to draw from.
    */
   legs: TreasuryLeg[];
+}
+
+/**
+ * The four timings that govern a rotation, in seconds, as this deployment holds
+ * them. `null` for any field the governor would not answer.
+ *
+ * There is deliberately no per-slice gap in here because the contract has none:
+ * once an envelope is live, `rotateSlice` is permissionless and consecutive
+ * slices can land in consecutive blocks. {earliestCompletion} depends on that.
+ */
+export interface GovTiming {
+  votingPeriod: number | null;
+  executionWindow: number | null;
+  envelopeLifetime: number | null;
+  cooldown: number | null;
 }
 
 export interface TreasuryLeg {
@@ -185,6 +217,23 @@ export function remainingAfter(slices: number): number {
 /** Slices affordable under a full envelope. */
 export const SLICES_PER_ENVELOPE = Math.floor(ENVELOPE_BPS / SLICE_BPS);
 
+/**
+ * Seconds from PROPOSING to a fully-spent envelope, at best.
+ *
+ * The contract paces the VOTE and nothing after it: once `execute` opens the
+ * envelope, `rotateSlice` is permissionless with no per-slice cooldown, so all
+ * `SLICES_PER_ENVELOPE` slices can land in consecutive blocks. The only floor is
+ * therefore the voting period — the panel's previous hardcoded "~4 days" was not
+ * a number the contract could produce, and it overstated the delay by orders of
+ * magnitude on a testnet governor whose vote runs five minutes.
+ *
+ * Returns `null` when the voting period could not be read, so the caller says so
+ * rather than printing a guess.
+ */
+export function earliestCompletion(t: { votingPeriod: number | null }): number | null {
+  return t.votingPeriod === null ? null : t.votingPeriod;
+}
+
 /** Envelopes needed to get the source quote under `target` (0..1). */
 export function envelopesToReach(target: number): number {
   if (target <= 0 || target >= 1) return 0;
@@ -198,6 +247,7 @@ export function useTreasuryRotation() {
   const [env, setEnv] = useState<EnvelopeState>({
     idle: true, quote: NATIVE_QUOTE, maxTotalBps: 0, movedBps: 0, slicesLeft: 0,
     expiry: 0, cooldownLeft: 0, governor: null, loading: true, legs: [],
+    timing: { votingPeriod: null, executionWindow: null, envelopeLifetime: null, cooldown: null },
   });
 
   const load = useCallback(async () => {
@@ -213,11 +263,24 @@ export function useTreasuryRotation() {
         return;
       }
 
-      const [allow, envelope, lastAt, cooldown] = await Promise.all([
+      //  A FAILED TIMING READ RESOLVES TO null, NOT TO A NUMBER.
+      //  `.catch(() => 0n)` on a clock is the silent-substitution shape: nothing
+      //  reverts, nothing is stolen, and the screen states a duration that is
+      //  simply not this contract's. These four come back as `number | null` so
+      //  the panel can say "unknown" instead of inventing three days.
+      const secs = (fn: string) =>
+        pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: fn })
+          .then((v) => Number(v as bigint))
+          .catch(() => null);
+
+      const [allow, envelope, lastAt, cooldown, votingPeriod, executionWindow, envelopeLifetime] = await Promise.all([
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "allowance" }) as Promise<readonly [Address, number]>,
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "envelope" }) as Promise<readonly [Address, number, number, bigint, boolean]>,
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "lastEnvelopeAt" }).catch(() => 0n) as Promise<bigint>,
-        pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "COOLDOWN" }).catch(() => 0n) as Promise<bigint>,
+        secs("COOLDOWN"),
+        secs("VOTING_PERIOD"),
+        secs("EXECUTION_WINDOW"),
+        secs("ENVELOPE_LIFETIME"),
       ]);
 
       //  ── READ THE LEGS ──────────────────────────────────────────────────
@@ -247,8 +310,9 @@ export function useTreasuryRotation() {
       } catch { /* pre-leg deployment: the primary is the whole treasury */ }
 
       const now = Math.floor(Date.now() / 1000);
-      const readyAt = Number(lastAt) + Number(cooldown);
+      const readyAt = Number(lastAt) + (cooldown ?? 0);
       setEnv({
+        timing: { votingPeriod, executionWindow, envelopeLifetime, cooldown },
         idle: allow[0] === NATIVE_QUOTE,
         quote: envelope[0],
         maxTotalBps: envelope[1],

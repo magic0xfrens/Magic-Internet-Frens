@@ -19,14 +19,34 @@ DEPLOYER=0xc94400e90bb652afa02740bff50824e14069c133
 
 # ── TESTNET ONLY — delete this whole block for mainnet ──────────────────────
 # Governance timing. Mainnet is a 3-day vote and a 7-day cooldown; that cannot
-# be exercised on a testnet, so a full rotation is driveable in ~6 minutes here.
+# be exercised on a testnet, so the whole path is driveable in ~2 minutes here.
 # TESTNET_GOV waives the contract's own 1-day floors and is refused unless set,
 # so a mainnet deploy that forgets to remove these still gets safe values.
+#
+# WHY 120s IS THE WHOLE WAIT, not a stage of it. The contract paces the VOTE and
+# nothing after it: once `execute` opens the envelope, `rotateSlice` is
+# permissionless with NO per-slice cooldown, so all 12 slices of an envelope can
+# land in consecutive blocks. Propose -> vote -> execute -> 96.8% converted is
+# therefore ~2 min plus twelve transactions. COOLDOWN only gates the SECOND
+# envelope, so it stays at 60s — long enough to be visible as a real constraint,
+# short enough to demo twice.
 export TESTNET_GOV=true
-export GOV_VOTING_PERIOD=300         # 5 min  (mainnet 3 days)
+export GOV_VOTING_PERIOD=120         # 2 min  (mainnet 3 days)
 export GOV_COOLDOWN=60               # 1 min  (mainnet 7 days)
 export GOV_EXECUTION_WINDOW=1800     # 30 min (mainnet 3 days)
 export GOV_ENVELOPE_LIFETIME=7200    # 2 h    (mainnet 30 days)
+
+# ROTATION PRICE FLOOR. `QuoteRotator.rotationSlipBps` defaults to 300 (3%) and
+# nothing ever set it, which made the rotation undemonstrable for a reason that
+# had nothing to do with governance: the floor is ORACLE-derived, so a slice only
+# clears it if the venue absorbs the trade without moving price ~3%. Against a
+# full-range venue that needs the venue to be ~65x the slice.
+#
+# 20% is the contract's own cap (`setRotationSlipBps` reverts above 2000), so
+# this is the widest a testnet can be and still exercise the real code path. It
+# buys a ~6x smaller venue. DO NOT ship this on mainnet — a 20% floor is a 20%
+# haircut an unlucky slice is allowed to take.
+export ROTATION_SLIP_BPS=2000        # 20% (mainnet: leave unset -> 3%)
 
 # Break-glass delay. 48h on mainnet is the "holders can exit at floor before
 # anything moves" guarantee; 10 minutes here so LP recovery is testable.
@@ -81,9 +101,24 @@ export MINT_OUT_TARGET_USD=8000000000000000000000   # $8k to mint out 3333
 export HEARTBEAT_ETH=21600      # 6h  (mainnet 4h)
 export HEARTBEAT_USDC=172800    # 48h (mainnet 12h)
 
-# Venue LP depth for the ETH/USDG rotation route.
-export VENUE_ETH=5000000000000000    # 0.005 ETH
-export VENUE_USDG=15000000           # 15 USDG (6dp)
+# VENUE LP DEPTH for the ETH/USDG rotation route.
+#
+# This was 0.005 ETH, which is why "rotate ETH into USDG" had never actually been
+# watchable: the generation's LP holds ~0.4 ETH on the quote side, so one 25%
+# slice is ~0.1 ETH swapping into a 0.005 ETH book — a ~95% haircut, rejected by
+# the floor long before it could fill.
+#
+# `_seedActive` places FULL RANGE (PoolOps.sol:734-740 spans MIN_TICK..MAX_TICK),
+# so this behaves like a constant-product pool: price impact is ~2x/X. For the
+# 20% floor above, the largest slice needs x/X < ~10%, i.e. X > ~1 ETH. 1.5 ETH
+# leaves headroom for the cumulative drift across all twelve slices, which is the
+# part that bites — by slice 12 the venue has already been bought up eleven times.
+#
+# VENUE_USDG is deliberately UNSET: the deploy derives the USDG leg from the
+# oracle so the pool opens AT the floor's own reference price. Hardcoding it
+# encoded an ETH/USD guess that silently expired.
+export VENUE_ETH=1500000000000000000 # 1.5 ETH  (recoverable: VenueSeeder.recover)
+# export VENUE_USDG=                 # leave unset -> priced from the oracle
 # ── end TESTNET block ───────────────────────────────────────────────────────
 
 #  PRIVATE_KEY (exported by go-testnet.sh from the gitignored .env) wins when
