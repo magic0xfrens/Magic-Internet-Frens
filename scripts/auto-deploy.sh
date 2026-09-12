@@ -207,12 +207,35 @@ for PAIR in "hook:$HOOK"; do
   case "$R" in *revert*|*Error*|*error*) echo "  OK   $N renounceOwnership reverts";; *) echo "  FAIL $N renounceOwnership did NOT revert";; esac
 done
 
+say "WIRE  Ponder indexer (Railway)"
+if command -v railway >/dev/null 2>&1; then
+  if ( cd "$ROOT/indexer" && railway up --detach > /tmp/ad-railway.log 2>&1 ); then
+    echo "railway up: submitted (schema bumped -> clean reindex). log /tmp/ad-railway.log"
+  else
+    echo "WARN railway up FAILED — the contracts are deployed and the manifest is correct;"
+    echo "     only the hosted indexer did not redeploy. Re-run by hand: cd indexer && railway up"
+    tail -5 /tmp/ad-railway.log 2>/dev/null | sed 's/^/     /'
+    bad=$((bad+1))
+  fi
+else
+  echo "WARN railway CLI not on PATH — run by hand: cd indexer && railway up"
+  bad=$((bad+1))
+fi
+
 say "DONE"
-echo "deployed and wired. logs: /tmp/ad-{sizes,suite,deploy,tsc,build}.log"
+echo "deployed and wired. logs: /tmp/ad-{sizes,suite,deploy,tsc,build,railway}.log"
 echo "verify checks passed=$ok failed=$bad"
+python3 - "$MANIFEST" <<'PYEOF'
+import json,sys
+d=json.load(open(sys.argv[1]))
+print("\nNEW DEPLOYMENT")
+for k in ("schema","registry","hook","presale","governor","gachaRouter","dividend","perpEngine","perpVault"):
+    if d.get(k): print("  %-14s %s" % (k, d[k]))
+PYEOF
 echo
-echo "NEXT, by hand:"
-echo "  cd indexer && railway up          # schema bumped -> clean reindex"
-echo "  rm -f .env.recovery               # the plaintext key must not outlive the deploy"
+echo "STILL TO DO BY HAND (deliberately not automated):"
+echo "  rm -f .env.recovery               # plaintext key, must not outlive the deploy"
 echo "  6.888 ETH (r33/34) matures ~2026-09-12 20:05 UTC — recover it then."
-echo "  0.919 ETH (old r38) is now safe to take: its successor exists."
+echo "                                     NEVER run scripts/arm-old-emergency.sh: it re-arms +2 days."
+echo "  5.547 ETH (r32) needs arming, then a 300 s wait."
+echo "  0.919 ETH (old r38) is now safe to take — its successor exists."
