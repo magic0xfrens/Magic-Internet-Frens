@@ -5,6 +5,22 @@ here is a guess. Branch `redteam/2026-09-11`, ~60 fix commits, nothing pushed.
 
 **To resume, one instruction is enough:** "follow audit/FINAL_BLIND_2026-09-11/RESUME_PLAN.md".
 
+**The whole thing is now automated in `scripts/auto-deploy.sh`:**
+```
+./scripts/auto-deploy.sh --check    # run the gates, deploy nothing (safe, default)
+./scripts/auto-deploy.sh --go       # gates, then deploy + wire if they pass
+```
+It verifies the signer derives the right address, checks the balance is sufficient, requires a clean
+build with every contract under EIP-170, runs the full suite and **compares failures against the
+13 known-baseline ones by name**, requires this run's 65 regression tests to be perfect, blocks if the
+skip count grew, then runs `go-testnet.sh` (arm-if-needed → deploy → mint out → finalize → fold the
+manifest), regenerates ABIs from compiled artifacts, type-checks and builds the frontend, and
+verifies post-deploy invariants. It bridges the key from `.env.recovery` into the file the existing
+scripts expect and deletes that bridge on exit, including on failure or Ctrl-C.
+
+**Measured 2026-09-12: GATE 0 and GATE 1 PASS** (signer verified, 12.4757 ETH, build clean, nothing
+over EIP-170). **GATE 2 currently FAILS on one regression — see below.**
+
 ---
 
 ## 0. State at hand-off
@@ -37,6 +53,20 @@ export POSITION_MANAGER=0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4
 forge build --sizes            # every contract must be UNDER 24,576 runtime
 forge test --threads 2         # compare against the baseline below
 ```
+
+### MEASURED RESULT 2026-09-12 (~60 fix commits in)
+179 suites / **782 passed** / 14 failed / **1 skipped** (baseline 152/718/13/1).
+- **All 27 of this run's regression tests pass: 65/65.**
+- Skip count did NOT grow. No contract over EIP-170 (CauldronHook 102 B free, CauldronRegistry 416,
+  PerpEngine 67, PoolOps 729).
+- 13 failures are the known baseline set. **1 is NEW and BLOCKS the deploy:**
+  `test_Relaunch_AutoMigratesPerps_WithOpenPositions_OnFork` —
+  `token PLV migrated 1:1 into the new token (non-zero): 0 <= 0`.
+  **PROVEN a real regression, not pre-existing:** it is `[PASS] (gas: 6814317)` in the baseline log
+  at `1e98bb4` and fails now. A fixer's "pre-existing" claim was checked and was wrong. Perp
+  inventory migration during relaunch now moves zero, and `PerpEngine.sol:1095 plvToken = newInv`
+  then silently erases the principal. A fixer was dispatched for it; if it is still open when you
+  resume, it is the FIRST thing to close.
 
 **Baseline to beat: 152 suites / 718 passed / 13 failed / 1 skipped.** The 13 were pre-existing
 attack PoCs (`T02_*` ×7, `T03_*` ×3, `test_Inventory_200M`, `test_SurvivorsCanNeverBeClosed`,
