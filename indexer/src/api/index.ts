@@ -266,6 +266,21 @@ const EXTSLOAD = [{ type: "function", name: "extsload", stateMutability: "view",
 const POSLIQ = [{ type: "function", name: "getPositionLiquidity", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "uint128" }] }] as const;
 // Progressive-seed reads. A streamed generation holds ledger-A liquidity in the
 // seeder's own core positions, so it has no PositionManager position id.
+/**
+ * Pull a signed int24 tick out of a v4-periphery `PositionInfo` word.
+ *
+ * Layout is `poolId(200) | tickUpper(24) | tickLower(24) | hasSubscriber(8)`,
+ * so tickLower sits at bit 8 and tickUpper at bit 32. Both are SIGNED, and the
+ * sign matters enormously: every tick below the 1:1 price is negative, so
+ * reading them unsigned puts a reserve band at tick ~16.7 million and values the
+ * position at zero — silently, and only for the positions that are out of range,
+ * which are exactly the ones this exists to get right.
+ */
+function tickOf(info: bigint, shift: bigint): number {
+  const raw = Number((info >> shift) & 0xffffffn);
+  return raw >= 0x800000 ? raw - 0x1000000 : raw;
+}
+
 /** The progressive seeder, or the zero address on an atomic launch. */
 const SEEDER = ((round.contracts as Record<string, string>).seeder ??
   "0x0000000000000000000000000000000000000000") as `0x${string}`;
@@ -528,7 +543,8 @@ app.get("/treasury", async (c) => {
   //  guild was leaving and omitted the one it was moving to, which is precisely
   //  backwards for a screen whose subject is the split.
   const valuePosition = async (
-    g: number, posId: bigint, key: readonly [string, string, number, number, string], isPrimary: boolean,
+    g: number, posId: bigint, key: readonly [string, string, number, number, string],
+    isPrimary: boolean, info: bigint,
   ) => {
     if (!posId) return null;
     const liq = await perpClient.readContract({
@@ -578,9 +594,31 @@ app.get("/treasury", async (c) => {
       //  let `partial` surface it, rather than valuing a position at a price we
       //  do not have.
       if (sqrtP > 0n) {
-        const Q96 = 1n << 96n;
-        const SQRT_MAX = 1461446703485210103287273052203988822378723970342n;
-        lpRaw = (liq * Q96 * (SQRT_MAX - sqrtP)) / (sqrtP * SQRT_MAX);
+        //  ── USE THE POSITION'S OWN RANGE ────────────────────────────────
+        //  The first cut assumed FULL RANGE for everything, which is true of
+        //  the launch and venue placements and false of two the registry also
+        //  owns: the RESERVE is a narrow band deliberately parked out of range,
+        //  and rotation legs are banded too. Valuing a band with the full-range
+        //  formula reported the reserve — single-sided BREW TOKEN, worth zero
+        //  quote — as 3.99 ETH, and the treasury as $10,791 instead of ~$1,865.
+        //
+        //  Being wrong in a new direction is not an improvement on being wrong
+        //  in the old one, so this uses the real bounds:
+        //      P <= a           all token0   -> amount0 = L(b-a)/(ab)
+        //      a <  P <  b      in range     -> amount0 = L(b-P)/(Pb)
+        //      P >= b           all token1   -> amount0 = 0
+        //  which is `LiquidityAmounts.getAmount0ForLiquidity` with clamping.
+        const tl = tickOf(info, 8n), tu = tickOf(info, 32n);
+        const Q = 2 ** 96;
+        const sp = Number(sqrtP) / Q;
+        const sa = Math.pow(1.0001, tl / 2);
+        const sb = Math.pow(1.0001, tu / 2);
+        const c = Math.min(Math.max(sp, sa), sb);   // clamp price into the band
+        //  Float is fine HERE and only here: this feeds a display, the error is
+        //  ~1e-15 relative, and the alternative is reimplementing TickMath's
+        //  fixed-point ladder in the API layer.
+        const amt0 = c >= sb ? 0 : Number(liq) * (sb - c) / (c * sb);
+        lpRaw = BigInt(Math.max(0, Math.floor(amt0)));
       }
     }
     // currency0 is the quote in every Cauldron pair the registry opens; the
@@ -608,15 +646,16 @@ app.get("/treasury", async (c) => {
     const posId = BigInt(row.id);
     const [key, liq] = await Promise.all([
       perpClient.readContract({ address: POSM, abi: POSM_KEY, functionName: "getPoolAndPositionInfo", args: [posId] })
-        .then((r) => (r as readonly [Record<string, unknown>, bigint])[0]).catch(() => null),
+        .then((r) => r as readonly [Record<string, unknown>, bigint]).catch(() => null),
       perpClient.readContract({ address: POSM, abi: POSM_READ, functionName: "getPositionLiquidity", args: [posId] })
         .catch(() => 0n) as Promise<bigint>,
     ]);
     if (!key || liq === 0n) return null;
-    const k = key as Record<string, unknown>;
+    const info = key[1];
+    const k = key[0] as Record<string, unknown>;
     const flat = [k.currency0, k.currency1, k.fee, k.tickSpacing, k.hooks] as
       readonly [string, string, number, number, string];
-    return valuePosition(liveGen, posId, flat, false);
+    return valuePosition(liveGen, posId, flat, false, info);
   }))).filter(Boolean) as Awaited<ReturnType<typeof valuePosition>>[];
 
   // Idle balances on the REGISTRY — what a rebirth recovered but has not yet
