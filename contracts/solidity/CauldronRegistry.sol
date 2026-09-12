@@ -54,6 +54,12 @@ import {
  *    Gen 3: Shadow Wraith (WRAITH)         Gen 6: Storm Elemental (STORM)
  *    Gen 7+: Cycle repeats
  */
+/// @dev The art-repair entrypoint every Cauldron collection ships, gated on its
+///      `deployer` — which is this registry. `cauldron/CauldronCollection.sol:316`.
+interface ICollectionMetadata {
+    function setMetadata(MetadataMode mode, address renderer, string calldata baseURI) external;
+}
+
 contract CauldronRegistry is CauldronBase, IUnlockCallback {
     /// @dev `RedemptionExt.recoverLegsAtTeardown(uint256)` — the UNGATED entry, which
     ///      exists only for this call and has no forwarder on purpose (the public
@@ -613,6 +619,36 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         genesisMode = mode;
         genesisBaseURI = baseURI;
         genesisRenderer = renderer;
+    }
+
+    /**
+     * @notice REPOINT A LIVE COLLECTION'S ART SOURCE (owner/timelock only).
+     *
+     *  {setGenesisMetadata} above only seeds the values a FUTURE collection is
+     *  deployed with (they are read at `_deployCollection`, line ~862), so it
+     *  cannot repair a collection that already exists. `CauldronCollection`
+     *  ships exactly the right repair — `setMetadata(mode, renderer, baseURI)`,
+     *  `cauldron/CauldronCollection.sol:316` — but it is gated on the
+     *  collection's `deployer`, which IS THIS REGISTRY (audit H-01), and no
+     *  registry function called it. The repair therefore existed and was
+     *  UNREACHABLE: a collection whose renderer reverts (the whole revealed
+     *  branch did, before the art adapter) could never be moved to a working
+     *  renderer or to a BaseURI art endpoint.
+     *
+     * @param gen Generation to repoint; 0 means the LIVE one.
+     * @dev Same `onlyOwner` gate as every other art/config setter here. On a
+     *      real deployment the owner is a TimelockController, so this is a
+     *      schedule/execute round trip, not a one-shot call.
+     */
+    function setCollectionMetadata(
+        uint256 gen,
+        MetadataMode mode,
+        address renderer,
+        string calldata baseURI
+    ) external onlyOwner {
+        address col = generationCollection[gen == 0 ? currentGeneration : gen];
+        if (col == address(0)) revert BadConfig();
+        ICollectionMetadata(col).setMetadata(mode, renderer, baseURI);
     }
 
     /**

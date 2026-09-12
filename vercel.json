@@ -1,5 +1,7 @@
 {
     "rewrites": [
+      { "source": "/api/cauldron/creature/:rarity/:id", "destination": "/api/cauldron/creature?rarity=:rarity&id=:id" },
+      { "source": "/api/cauldron/liquidatoor/:id", "destination": "/api/cauldron/liquidatoor?id=:id" },
       { "source": "/api/(.*)", "destination": "/api/$1" },
       { "source": "/((?!api/).*)", "destination": "/index.html" }
     ],

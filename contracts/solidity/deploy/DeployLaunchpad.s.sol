@@ -82,8 +82,17 @@ interface IOwnable {
  */
 contract DeployLaunchpad is Script {
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    // GnomeLand's on-chain renderer on Sepolia (iteration #1 art).
-    address constant DEFAULT_GNOME_RENDERER = 0x15EbCb6c3cf473b4DF5F7DF05cD5609513dEe4A7;
+    //  ART SOURCE. This used to default to a hardcoded "gnome renderer" on
+    //  Sepolia, 0x15EbCb6c3cf473b4DF5F7DF05cD5609513dEe4A7, which answers
+    //  NEITHER renderer selector — not `tokenURI(uint256)` (what
+    //  CauldronCollection.sol:413 calls) and not the 5-argument one FrenRenderer
+    //  exposes — so every revealed token's `tokenURI` reverted. The default is
+    //  now the BaseURI arm of the same switch, an endpoint that composes the
+    //  real pixel art (api/cauldron/creature.ts). Pass GNOME_RENDERER to use an
+    //  on-chain renderer instead; it must answer `tokenURI(uint256)`, which for
+    //  a FrenRenderer means pointing at a CauldronArtAdapter, not at the
+    //  renderer itself.
+    string constant DEFAULT_ART_BASE = "https://www.mifrens.xyz/api/cauldron/creature/";
 
     function run() external {
         //  SIGNER. Prefer an ENCRYPTED KEYSTORE (`--account <name>`), which
@@ -98,7 +107,8 @@ contract DeployLaunchpad is Script {
         address deployer = pk != 0 ? vm.addr(pk) : msg.sender;
         address poolManager = vm.envAddress("POOL_MANAGER");
         address positionManager = vm.envAddress("POSITION_MANAGER");
-        address gnomeRenderer = vm.envOr("GNOME_RENDERER", DEFAULT_GNOME_RENDERER);
+        address gnomeRenderer = vm.envOr("GNOME_RENDERER", address(0));
+        string memory artBase = vm.envOr("ART_BASE_URI", string(DEFAULT_ART_BASE));
 
         uint256 supply = vm.envOr("PRESALE_SUPPLY", uint256(1111));   // OG rare tranche
         uint256 artCap = vm.envOr("MIFRENS_ART_CAP", uint256(2222));  // total incl. volume
@@ -405,7 +415,11 @@ contract DeployLaunchpad is Script {
             vm.envOr("LEGACY_BPS", uint256(4000)),
             vm.envOr("LEGACY_THRESHOLD", uint256(0.02 ether))
         );
-        registry.setGenesisMetadata(MetadataMode.Renderer, "", gnomeRenderer);
+        if (gnomeRenderer != address(0)) {
+            registry.setGenesisMetadata(MetadataMode.Renderer, "", gnomeRenderer);
+        } else {
+            registry.setGenesisMetadata(MetadataMode.BaseURI, artBase, address(0));
+        }
         // Badge metadata: on-chain renderer instead of the URI base. Must happen
         // here — `deployer` is the only address allowed to set it, and ownership
         // moves to the timelock at the end of this script.

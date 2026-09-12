@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { fetchGachaStats, fetchIndexerLagSec, fetchOwnedNfts, type IndexedGacha } from "@/lib/cauldronIndexer";
 import { CAULDRON, HOOK_ABI, COLLECTION_ABI } from "@/config/cauldron";
+import { resolveTokenArt } from "@/lib/tokenArt";
 
 /* ══════════════════════════════════════════════════════════════════
  * CRYSTAL CAULDRON — spin volume, summon crystals, open them.
@@ -28,35 +29,35 @@ const RARITY_COL = ["#8f83b8", "#5ac8fa", "#c07cff", "#f5c542"];
 
 /** A summoned crystal. Sealed shows the crystal art; once opened, `image` holds
  *  the creature's REAL on-chain art (from the collection's tokenURI). */
-type Crystal = { tokenId: bigint; revealed: boolean; image?: string; name?: string; rarity?: number };
-
-/** Pull the image (+name) out of an ERC-721 tokenURI (on-chain data-URI or URL). */
-function imageFromTokenURI(uri: string): { image?: string; name?: string } {
-  try {
-    if (uri.startsWith("data:application/json;base64,")) {
-      const j = JSON.parse(atob(uri.slice("data:application/json;base64,".length)));
-      return { image: j.image, name: j.name };
-    }
-    if (uri.startsWith("data:application/json,")) {
-      const j = JSON.parse(decodeURIComponent(uri.slice("data:application/json,".length)));
-      return { image: j.image, name: j.name };
-    }
-    if (uri.startsWith("http") || uri.startsWith("ipfs")) return { image: uri };
-  } catch { /* ignore */ }
-  return {};
-}
+type Crystal = { tokenId: bigint; revealed: boolean; image?: string; name?: string; rarity?: number; artFailed?: boolean };
 
 /** Renders a creature's real on-chain art (falls back to the crystal while the
- *  tokenURI image loads). */
-function CreatureTile({ image, size = 64 }: { image?: string; size?: number }) {
+ *  tokenURI image loads).
+ *
+ *  `failed` is NOT cosmetic. A reverting `tokenURI` used to be swallowed by a
+ *  bare `.catch(() => {})`, so a broken renderer looked exactly like art that
+ *  had not finished loading — for days. When the art genuinely cannot be
+ *  resolved the tile says so, and the reason is in the console once. */
+function CreatureTile({ image, size = 64, failed }: { image?: string; size?: number; failed?: boolean }) {
   return (
     <div className="ccg-tile" style={{ width: size, height: size }}>
       <img src={image || "/crystal.png"} alt="" />
+      {failed && !image && <span className="ccg-tile__na" title="Art unavailable — see console">art n/a</span>}
     </div>
   );
 }
 
 type Phase = "idle" | "spinning" | "summoned" | "forged" | "fizzle" | "opening" | "opened";
+
+/** How long each resolution state stays on the stage before the panel returns
+ *  to idle. Absent = not a resolution state (idle, and the two in-flight ones,
+ *  which end when their transaction does). */
+const HOLD_MS: Partial<Record<Phase, number>> = {
+  opened: 15_000,
+  summoned: 9_000,
+  forged: 9_000,
+  fizzle: 6_000,
+};
 type SpinResult = { forged: number; won: number; lost: number };
 
 interface Props {
@@ -111,6 +112,21 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
     setLagSec(lag);
   }, [address]);
   useEffect(() => { void loadGacha(); }, [loadGacha]);
+
+  /*  EVERY RESOLUTION STATE USED TO BE TERMINAL ON SCREEN. A "Creature
+      revealed!" card, a "+2 crystals summoned!" burst and a fizzle all sat over
+      the wizard until the player's NEXT action, so the panel spent most of its
+      life reporting something that happened minutes ago and the idle stage —
+      the thing that invites another spin — was the one view you rarely saw.
+      They now time out back to idle. The reveal holds longest because its
+      artwork is the payoff the whole loop exists for; a fizzle holds shortest
+      because "nothing happened" earns the least of the player's attention. */
+  useEffect(() => {
+    const ms = HOLD_MS[phase];
+    if (!ms) return;
+    const t = setTimeout(() => { setPhase("idle"); setFlash(null); setResult(null); }, ms);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   //  Enabled ONLY while the indexer is failing. `opened` is otherwise free.
   const { data: opened, refetch: refOpened } = useReadContract({
@@ -261,6 +277,34 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
   }, [address, collection]);
 
   /**
+   * Record an art resolution failure INSTEAD OF SWALLOWING IT.
+   *
+   *  Every art fetch below used to end in `.catch(() => {})`, and the
+   *  `if (!image) return` branches dropped a resolved-but-imageless metadata
+   *  document just as quietly. The revealed branch of `CauldronCollection.tokenURI`
+   *  reverted for every token (the collection calls `tokenURI(uint256)`, the art
+   *  renderer only answers the 5-argument one), and NOTHING in the UI said so —
+   *  a permanently broken renderer and a slow RPC looked identical: a blank tile.
+   *
+   *  The grid stays alive (a per-token failure must not stall the others), but the
+   *  tile is marked, the panel shows one line, and the first reason is logged once
+   *  with the collection and token so it is diagnosable from a screenshot.
+   */
+  const artErrLogged = useRef(false);
+  const [artErr, setArtErr] = useState("");
+  const noteArtFailure = useCallback((tokenId: bigint, why: unknown) => {
+    const msg = why instanceof Error ? why.message : String(why ?? "unknown error");
+    setVault((v) => v.map((c) => (c.tokenId === tokenId ? { ...c, artFailed: true } : c)));
+    setArtErr((prev) => prev || `Creature art unavailable (#${tokenId}) — ${msg.slice(0, 120)}`);
+    if (!artErrLogged.current) {
+      artErrLogged.current = true;
+      console.error("[cauldron] creature art unavailable", {
+        collection, tokenId: tokenId.toString(), reason: msg,
+      });
+    }
+  }, [collection]);
+
+  /**
    * Fetch art for revealed crystals that are actually VISIBLE.
    *
    * The backfill knows which tokens are revealed but not what they look like,
@@ -277,16 +321,19 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       pub.readContract({
         address: collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [c.tokenId],
       })
-        .then((uri) => {
+        .then(async (uri) => {
           if (!alive) return;
-          const { image, name } = imageFromTokenURI(uri as string);
+          const { image, name } = await resolveTokenArt(uri as string);
+          if (!alive) return;
+          if (!image) { noteArtFailure(c.tokenId, "tokenURI resolved but carried no image"); return; }
           setVault((v) => v.map((x) => (x.tokenId === c.tokenId ? { ...x, image, name } : x)));
         })
-        // One unreadable tokenURI must not stall the rest of the grid.
-        .catch(() => {});
+        // One unreadable tokenURI must not stall the rest of the grid — but it
+        // must not disappear either.
+        .catch((e) => { if (alive) noteArtFailure(c.tokenId, e); });
     }
     return () => { alive = false; };
-  }, [vault, collection, pub]);
+  }, [vault, collection, pub, noteArtFailure]);
 
   const doOpenAll = useCallback(async () => {
     setErr("");
@@ -314,21 +361,22 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       setVault((v) => v.map((c) => (c.revealed ? c : { ...c, revealed: true })));
       setPhase("opened");
 
-      // Pull each creature's real art. Failures are per-token and silent: one
-      // unreachable tokenURI must not blank the whole vault.
+      // Pull each creature's real art. Failures are per-token — one unreachable
+      // tokenURI must not blank the whole vault — but each one is REPORTED.
       for (const id of ids) {
         pub.readContract({ address: collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [id] })
-          .then((uri) => {
-            const { image, name } = imageFromTokenURI(uri as string);
+          .then(async (uri) => {
+            const { image, name } = await resolveTokenArt(uri as string);
+            if (!image) { noteArtFailure(id, "tokenURI resolved but carried no image"); return; }
             setVault((v) => v.map((c) => (c.tokenId === id ? { ...c, image, name } : c)));
           })
-          .catch(() => {});
+          .catch((e) => noteArtFailure(id, e));
       }
     } catch (e) {
       setErr((e as Error)?.message?.slice(0, 120) ?? "Open failed");
       setPhase("idle");
     }
-  }, [collection, pub, vault, revealMany]);
+  }, [collection, pub, vault, revealMany, noteArtFailure]);
 
   const doOpen = useCallback(async (id: bigint) => {
     setErr("");
@@ -349,12 +397,17 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       setPhase("opened");
       // Pull the creature's REAL on-chain art (tokenURI) + rarity badge.
       pub.readContract({ address: collection, abi: COLLECTION_ABI, functionName: "tokenURI", args: [id] })
-        .then((uri) => {
-          const { image, name } = imageFromTokenURI(uri as string);
+        .then(async (uri) => {
+          const { image, name } = await resolveTokenArt(uri as string);
+          //  DO NOT overwrite with `undefined`. An unresolvable tokenURI used to
+          //  wipe the tile's placeholder and set the reveal flash to a blank
+          //  card, so a metadata host having a bad minute looked exactly like a
+          //  creature that does not exist.
+          if (!image) { noteArtFailure(id, "tokenURI resolved but carried no image"); return; }
           setVault((v) => v.map((c) => (c.tokenId === id ? { ...c, image, name } : c)));
           setFlash({ image, name });
         })
-        .catch(() => {});
+        .catch((e) => noteArtFailure(id, e));
       pub.readContract({ address: collection, abi: COLLECTION_ABI, functionName: "rarityOf", args: [id] })
         .then((r) => setVault((v) => v.map((c) => (c.tokenId === id ? { ...c, rarity: Number(r) } : c))))
         .catch(() => {});
@@ -365,7 +418,7 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
     } finally {
       reset();
     }
-  }, [collection, pub, reveal, onBought, reset]);
+  }, [collection, pub, reveal, onBought, reset, noteArtFailure]);
 
   const spinCost = (stake * ethUsd).toFixed(2);
   //  What the two dials multiply to: the churn runs `loops` legs off the same
@@ -489,6 +542,9 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
       </button>
 
       {err && <div className="ccg-err">{err}</div>}
+      {/* Art failures are shown, not swallowed: a blank tile used to be the only
+          symptom of a renderer that reverts for every token. */}
+      {!err && artErr && <div className="ccg-err ccg-err--warn">{artErr}</div>}
 
       {/* ── crystal vault ── */}
       <div className="ccg-vault">
@@ -514,7 +570,7 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
               <div key={c.tokenId.toString()} className={`ccg-cry ${c.revealed ? "ccg-cry--open" : ""}`}>
                 {c.revealed ? (
                   <>
-                    <CreatureTile image={c.image} size={62} />
+                    <CreatureTile image={c.image} size={62} failed={c.artFailed} />
                     {c.rarity != null && <span className="ccg-rar" style={{ color: RARITY_COL[c.rarity], borderColor: `${RARITY_COL[c.rarity]}66` }}>{RARITY[c.rarity]}</span>}
                   </>
                 ) : (
@@ -572,7 +628,13 @@ const css = (col: string) => `
       deliberately, because a cauldron's smoke rising into the words above it is
       the composition. The plume dissolves into the panel (mask below) instead of
       ending on a hard edge, so it can never collide with the eyebrow. */
-  .ccg-stage { position: relative; height: clamp(112px, 15.5vh, 196px); display: block; margin-bottom: clamp(13px, 1.9vh, 21px); border-radius: var(--r-sm); overflow: visible; }
+  /*  THE ART IS THE PANEL'S HEADLINE, so it gets the height, and the machine
+      below it gets pushed down to make room. The rail is no longer required to
+      end above the fold — only the Spin button is — which is what buys the
+      wizard this much room. The upper bound is the width cap in disguise: past
+      ~274px of stage the art is already as wide as the column allows, so extra
+      height here would only open dead space ABOVE a bottom-anchored image. */
+  .ccg-stage { position: relative; height: clamp(200px, 27vh, 274px); display: block; margin-bottom: clamp(34px, 5vh, 72px); border-radius: var(--r-sm); overflow: visible; }
   .ccg-glow { position: absolute; inset: 0; background: radial-gradient(54% 48% at 50% 76%, ${col}22, transparent 70%); transition: opacity 0.4s; }
   .ccg-glow--hot { animation: ccg-glowpulse 0.9s ease-in-out infinite; }
   /*  ABSOLUTE, NOT A GRID ITEM. Anchoring the art with "place-items: end" looked
@@ -585,10 +647,10 @@ const css = (col: string) => `
       hero (float, brew, win) animates "transform", and a centring transform would
       be the first thing they overwrite. */
   .ccg-hero { position: absolute; z-index: 3; bottom: 0; left: 0; right: 0; margin: 0 auto; display: block;
-    height: 132%; width: auto; max-width: 90%; object-fit: contain;
+    height: 132%; width: auto; max-width: 96%; object-fit: contain;
     filter: drop-shadow(0 6px 22px rgba(0,0,0,0.5)); transition: filter 0.3s ease, transform 0.3s ease;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%);
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 15%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 18%);
     animation: ccg-float 5.5s ease-in-out infinite; will-change: transform; }
   .ccg-hero--brew { animation: ccg-brew 0.5s ease-in-out infinite; filter: drop-shadow(0 0 26px ${col}) saturate(1.22) brightness(1.07); }
   .ccg-hero--win { animation: none; transform: scale(1.03); filter: drop-shadow(0 0 42px ${col}) saturate(1.3) brightness(1.12); }
@@ -647,6 +709,8 @@ const css = (col: string) => `
   .ccg-cta:hover:not(:disabled) { background: ${col}30; box-shadow: 0 0 24px ${col}44; }
   .ccg-cta:disabled { opacity: 0.55; cursor: default; }
   .ccg-err { margin-top: 8px; font-family: "DM Sans", sans-serif; font-size: 10.5px; color: ${C.red}; text-align: center; }
+  .ccg-err--warn { color: #f5c542; }
+  .ccg-tile__na { position: absolute; inset: auto 0 0 0; padding: 1px 0; font-family: "DM Mono", monospace; font-size: 8px; letter-spacing: 0.5px; text-align: center; color: #f5c542; background: rgba(0,0,0,0.72); }
 
   .ccg-vault { margin: clamp(9px, 1.4vh, 14px) 0 clamp(8px, 1.2vh, 12px); border-top: 1px solid rgba(255,255,255,0.06); padding-top: clamp(8px, 1.2vh, 12px); }
   .ccg-vault-head { display: flex; justify-content: space-between; align-items: baseline; font-family: "DM Mono", monospace; font-size: 10px; color: ${C.cream}; margin-bottom: 7px; }
