@@ -472,7 +472,23 @@ contract DeployLaunchpad is Script {
         //  approved and voted in as a generation's base while the oracle had no feed
         //  for it, and the failure is silent - _toUsd returns 0, no volume records,
         //  and the brew reads as dying while trading normally.
-        treasuryGov.setQuoteOracle(quoteOracle);
+        //  GUARDIAN-GATED, AND ONLY WHEN THERE IS AN ORACLE TO SET.
+        //  `setQuoteOracle` checks `msg.sender == guardian` (TreasuryGovernor.sol:944),
+        //  and the guardian is the TIMELOCK whenever one exists (:463 above) — so the
+        //  deployer cannot call it directly. This call was also UNCONDITIONAL while
+        //  `quoteOracle` is `address(0)` unless `QUOTE_ORACLE` is set (:250), so every
+        //  timelocked deploy reverted `NotGuardian()` on what was a no-op anyway, after
+        //  thirteen contracts had already been created. Guarded both ways, and the
+        //  timelock case prints the call to queue — the same shape the rotation and
+        //  quote-asset scripts already use for owner-gated wiring.
+        if (quoteOracle != address(0)) {
+            if (address(timelock) == address(0)) {
+                treasuryGov.setQuoteOracle(quoteOracle);
+            } else {
+                console2.log("TREASURY GOV GUARDED BY TIMELOCK - queue this:");
+                console2.log("  treasuryGov.setQuoteOracle(quoteOracle)");
+            }
+        }
         registry.setRotationWiring(address(rotator), address(treasuryGov));
         console2.log("TreasuryGovernor:", address(treasuryGov));
 
