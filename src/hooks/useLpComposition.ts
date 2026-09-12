@@ -73,6 +73,10 @@ export interface LpComposition {
    *  describe only part of the treasury and the UI must say so. */
   partial: boolean;
   loading: boolean;
+  /** True when the endpoint could not be read. An empty treasury and an
+   *  unreachable indexer render identically otherwise, and they mean opposite
+   *  things: one says the guild holds nothing, the other says we do not know. */
+  failed: boolean;
 }
 
 /** The `/treasury` payload. `raw` is a string because JSON has no bigint. */
@@ -95,6 +99,7 @@ const EMPTY: LpComposition = {
   totalUsd: 0,
   partial: false,
   loading: true,
+  failed: false,
 };
 
 /**
@@ -108,7 +113,7 @@ export function useLpComposition(generation: number): LpComposition {
     if (!INDEXER) {
       // No indexer configured: report "nothing to show" rather than falling back
       // to browser RPC, which is the thing this hook exists to not do.
-      setState((s) => ({ ...s, loading: false }));
+      setState((s) => ({ ...s, loading: false, failed: true }));
       return;
     }
     try {
@@ -137,11 +142,12 @@ export function useLpComposition(generation: number): LpComposition {
         totalUsd: j.totalUsd ?? 0,
         partial: !!j.partial,
         loading: false,
+        failed: false,
       });
     } catch {
       // Keep the last good composition; only clear the spinner. A blank panel on
       // one failed poll is worse than a slightly stale one.
-      setState((s) => ({ ...s, loading: false }));
+      setState((s) => ({ ...s, loading: false, failed: true }));
     }
   }, []);
 

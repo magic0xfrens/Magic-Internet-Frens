@@ -227,7 +227,7 @@ export function LpBasisPanel({ gen }: { gen: number }) {
  * same function with fixture data.
  */
 export function LpBasisView({
-  gen, basis, holdings, totalUsd, partial, loading,
+  gen, basis, holdings, totalUsd, partial, loading, failed,
 }: LpComposition & { gen: number }) {
 
   //  AN ASSET COUNTS IF IT IS IN THE LP **OR** HELD IDLE.
@@ -265,8 +265,13 @@ export function LpBasisView({
       {loading && held.length === 0 ? (
         <div className="tc-lpbasis__skeleton tc-dim tc-mono">reading balances…</div>
       ) : held.length === 0 ? (
+        //  SAY WHICH EMPTINESS THIS IS. "No live positions" is a claim about the
+        //  treasury; a failed fetch is a claim about us. Rendering the second as
+        //  the first told a guild holding two live positions that it held none.
         <div className="tc-lpbasis__empty tc-dim tc-mono">
-          No live positions and nothing held in an allowed quote.
+          {failed
+            ? "Could not reach the indexer — holdings unknown, not empty."
+            : "No live positions and nothing held in an allowed quote."}
         </div>
       ) : (
         <>

@@ -531,10 +531,19 @@ app.get("/treasury", async (c) => {
     //  Raw units, not ether: the quote may be 6-decimal USDG. `lpEthOf` does the
     //  same arithmetic but formatEther's it, which is correct for its native-only
     //  caller and would be off by 10^12 here.
-    const poolId = keccak256(encodeAbiParameters(
-      [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }],
-      [key[0] as `0x${string}`, key[1] as `0x${string}`, key[2], key[3], key[4] as `0x${string}`],
-    ));
+    //  A MALFORMED KEY MUST NOT 500 THE WHOLE PANEL. `encodeAbiParameters`
+    //  throws on a bad address, and this route serves several positions — one
+    //  unreadable leg should cost that leg, not the entire treasury view.
+    let poolId: `0x${string}`;
+    try {
+      poolId = keccak256(encodeAbiParameters(
+        [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }],
+        [key[0] as `0x${string}`, key[1] as `0x${string}`, key[2], key[3], key[4] as `0x${string}`],
+      ));
+    } catch (e) {
+      console.error(`treasury: bad pool key for gen ${g} pos ${posId}: ${String(e).slice(0, 120)}`);
+      return null;
+    }
     let lpRaw = 0n;
     if (liq > 0n) {
       const slot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, 6n]));
@@ -576,9 +585,22 @@ app.get("/treasury", async (c) => {
     for (let i = 0n; i < n; i++) {
       const leg = await perpClient.readContract({
         address: REGISTRY, abi: REG_LP, functionName: "legAt", args: [BigInt(g), i],
-      }).catch(() => null) as readonly [string, bigint, readonly [string, string, number, number, string]] | null;
+      }).catch(() => null) as readonly [string, bigint, unknown] | null;
       if (!leg) continue;
-      const [, legPosId, legKey] = leg;
+      const [, legPosId, rawKey] = leg;
+      //  NORMALISE THE POOL KEY. `legAt`'s third output is a NAMED tuple, so
+      //  viem decodes it to an OBJECT — while `generationPoolKey` declares five
+      //  flat outputs and decodes to an ARRAY. Indexing the object positionally
+      //  yielded `undefined` for every field, which surfaced as
+      //  `InvalidAddressError: Address "undefined"` and took the WHOLE /treasury
+      //  route down with a 500, not just the legs. The panel then reported "no
+      //  live positions" for a treasury holding two.
+      const k = rawKey as Record<string, unknown> & ArrayLike<unknown>;
+      const legKey = (Array.isArray(rawKey)
+        ? rawKey
+        : [k.currency0, k.currency1, k.fee, k.tickSpacing, k.hooks]
+      ) as readonly [string, string, number, number, string];
+      if (!legKey[0] || !legKey[1]) continue;
       out.push(await valuePosition(g, legPosId, legKey, false));
     }
     return out;

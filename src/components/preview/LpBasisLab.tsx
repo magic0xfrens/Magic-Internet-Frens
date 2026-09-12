@@ -52,6 +52,8 @@ function compose(holdings: QuoteHolding[], basisAddr: Address): LpComposition {
     totalUsd,
     partial: holdings.some((h) => h.usd === null && h.raw > 0n),
     loading: false,
+    // Fixtures are local data, so the fetch can never have failed.
+    failed: false,
   };
 }
 
