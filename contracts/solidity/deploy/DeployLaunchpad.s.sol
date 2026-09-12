@@ -613,7 +613,21 @@ contract DeployLaunchpad is Script {
         address positionManager,
         address deployer
     ) internal {
-        MockQuoteToken usdg = new MockQuoteToken("Magic USD", "USDG", 6);
+//  A QUOTE MUST SORT BELOW THE WATERMARK. `setAllowedQuote` rejects any quote at
+        //  or above `0xf000…` (CauldronRegistry.sol:320) because iteration tokens are
+        //  MINED above it, and a quote above it could sort as currency1 and silently
+        //  invert every pool key. A plain `new` gets whatever address the nonce yields,
+        //  so roughly one deploy in sixteen landed at `0xf…` and died here AFTER
+        //  fourteen contracts were already created. Redeploy until it sorts correctly —
+        //  the token is tiny, and the expected number of attempts is ~1.07.
+        MockQuoteToken usdg;
+        for (uint256 i = 0; i < 32; ++i) {
+            usdg = new MockQuoteToken("Magic USD", "USDG", 6);
+            if (uint160(address(usdg)) < uint160(0xf000000000000000000000000000000000000000)) break;
+            console2.log("  usdg landed above the quote watermark, retrying:", address(usdg));
+            usdg = MockQuoteToken(address(0));
+        }
+        require(address(usdg) != address(0), "could not place usdg below the quote watermark");
         QuoteOracle oracle = new QuoteOracle(deployer);
 
         //  Real Chainlink where it exists. USDG is a mock USD stablecoin, so
