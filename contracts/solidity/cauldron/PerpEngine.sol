@@ -968,14 +968,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (p.trader == address(0)) revert NotOpen();
         _pokeFunding();
         // Mark loop ONCE, reused for the health test + the per-block-cap notional.
-        uint256 notional = _quoteMark(p.size);
-        if (!_underwaterVal(p, notional)) revert Healthy();
-        // Per-block throttle: bound the ETH-notional liquidated per block so an
-        // attacker can't engineer an unbounded atomic cascade.
-        if (block.timestamp != liqBlock) { liqBlock = block.timestamp; liqEthThisBlock = 0; }
-        uint256 cap = (activeEthDepth() * maxLiqBps) / BPS;
-        if (cap > 0 && liqEthThisBlock + notional > cap) revert LiqCapped();
-        liqEthThisBlock += notional;
+        (bool trip, bool insolvent, uint256 notional) = _liqTest(p);
+        if (!trip) revert Healthy();
+        if (!_throttle(insolvent, notional)) revert LiqCapped();
         _settle(id, p, 0, MODE_LIQUIDATION, msg.sender);
     }
 
@@ -1065,22 +1060,17 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         _liqReentry = false;
     }
 
-    /// @dev Liquidate one hinted position if it's genuinely underwater at the
-    ///      mark + within the per-block cap; otherwise a silent no-op. Assumes
-    ///      the caller has set `_inLocked`/`_liqReentry` and poked funding.
+    /// @dev Liquidate one position if {_liqTest} trips it and the per-block
+    ///      throttle admits it; otherwise a silent no-op. Assumes the caller has
+    ///      set `_inLocked`/`_liqReentry` and poked funding.
+    ///  THIS IS THE PATH THAT CLOSES A POSITION INSIDE THE SWAP THAT KILLED IT, so
+    ///  it must use exactly the same trigger as {liquidate} — see {_liqTest}.
     function _tryLiquidate(uint256 id, address liquidator) internal {
         Position memory p = positions[id];
         if (p.trader == address(0)) return;      // stale/closed hint
-        // Compute the TWAP mark ONCE (a 32-slot loop) and reuse its value for BOTH
-        // the underwater test AND the per-block-cap notional. (Gas audit G-02.)
-        uint256 notional = _quoteMark(p.size);
-        if (!_underwaterVal(p, notional)) return;   // healthy at the mark → skip
-        // Same per-block throttle as liquidate(): bound the ETH-notional
-        // liquidated per block so a swap can't engineer an unbounded cascade.
-        if (block.timestamp != liqBlock) { liqBlock = block.timestamp; liqEthThisBlock = 0; }
-        uint256 cap = (activeEthDepth() * maxLiqBps) / BPS;
-        if (cap > 0 && liqEthThisBlock + notional > cap) return; // capped → skip
-        liqEthThisBlock += notional;
+        (bool trip, bool insolvent, uint256 notional) = _liqTest(p);
+        if (!trip) return;                          // healthy → skip
+        if (!_throttle(insolvent, notional)) return; // capped → skip
         _settle(id, p, 0, MODE_LIQUIDATION, liquidator);
     }
 
@@ -1328,16 +1318,111 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         emit GenerationSynced(fromGen, gen, migratedIn, newInv);
     }
 
-    /// @notice Whether a position is liquidatable at the current TWAP mark.
+    /// @notice Whether a position is liquidatable right now — the same test the
+    ///         keeper path and the in-swap sweep use. See {_liqTest}.
     function isLiquidatable(uint256 id) external view returns (bool) {
         Position memory p = positions[id];
         if (p.trader == address(0)) return false;
         return _underwater(p);
     }
 
-    /// @dev Underwater test at the TWAP MARK (a one-block flash-move can't trip it).
-    function _underwater(Position memory p) internal view returns (bool) {
-        return _underwaterVal(p, _quoteMark(p.size));
+    /// @dev The liquidation trigger, for the views. See {_liqTest}.
+    function _underwater(Position memory p) internal view returns (bool trip) {
+        (trip, , ) = _liqTest(p);
+    }
+
+    /**
+     * @dev THE LIQUIDATION TRIGGER: the WORSE of the TWAP mark and live SPOT.
+     *
+     *  ── WHY TWO PRICES (red-team LIQ-01, measured on Sepolia r42) ───────────
+     *  The mark was the ONLY test, and the mark is a `twapWindow`-long average. So
+     *  a single large swap could carry a position from healthy to deeply insolvent
+     *  INSIDE the trade that the hook's afterSwap sweep runs on: the sweep asked
+     *  the mark, the mark still reported the pre-trade price, the position survived
+     *  the swap that killed it, and by the time the average caught up the loss was
+     *  whatever the market had done in the meantime. Measured: 0.05 ETH of
+     *  collateral carrying a 4.43 ETH realised loss (-9526%), every wei of it bad
+     *  debt against `insuranceEth` and then the stakers' PLV.
+     *
+     *  ── THE MANIPULATION TRADE-OFF, STATED ─────────────────────────────────
+     *  The TWAP stays the PRIMARY test and keeps its `maintenanceBps` buffer, so an
+     *  ORDINARY liquidation — a position that has merely eaten into its margin —
+     *  still needs a SUSTAINED move and CANNOT be triggered by a one-block push.
+     *  That is the property the TWAP exists for and it is not weakened here.
+     *
+     *  SPOT is a SECOND trigger carrying NO maintenance buffer at all: it fires
+     *  only when the position is ALREADY INSOLVENT at the price the pool just
+     *  filled at — its own backing can no longer repay its own debt. That is a
+     *  strictly WIDER margin than the mark's, and it is the right place to draw the
+     *  line, because the two sides of the trade-off are not symmetric:
+     *    * a merely-unhealthy position costs the vault NOTHING to leave open, so
+     *      there is no hurry and the manipulation-resistant average should decide;
+     *    * past zero equity every further block is bad debt the vault eats, and
+     *      waiting cannot make it smaller.
+     *  An attacker who wants to trip the spot leg must therefore push spot past a
+     *  victim's ENTIRE equity, not merely through its maintenance buffer, and must
+     *  pay that impact into the same pool the liquidation's own settlement swap
+     *  then unwinds against. The control for this is asserted in
+     *  test/attacks/XL1_LiqTwapAndDepthCap.t.sol.
+     *
+     * @return trip      liquidatable at all.
+     * @return insolvent backing cannot cover the debt at one of the two prices.
+     *                   This is the flag that EXEMPTS the per-block throttle —
+     *                   see {_throttle}.
+     * @return notional  the mark ETH-notional, reused as the throttle's magnitude
+     *                   (the mark is a 32-slot loop, so it is computed once —
+     *                   gas audit G-02).
+     */
+    function _liqTest(Position memory p) internal view returns (bool trip, bool insolvent, uint256 notional) {
+        notional = _quoteMark(p.size);
+        trip = _underwaterVal(p, notional);
+        insolvent = _insolventVal(p, notional);
+        if (!insolvent) {
+            //  `_sqrtP() == 0` means the pool is not initialized, in which case
+            //  there is no spot price to judge by — leave the mark's answer alone
+            //  rather than dividing by zero on a path the hook cannot afford to
+            //  have revert.
+            uint160 sp = _sqrtP();
+            if (sp != 0) insolvent = _insolventVal(p, _quoteAt(p.size, sp));
+        }
+        if (insolvent) trip = true;
+    }
+
+    /// @dev ZERO-BUFFER solvency at `val`: can the position's own backing still
+    ///      repay its own debt? True here means the VAULT is already carrying the
+    ///      difference, so every block of delay grows the hole.
+    function _insolventVal(Position memory p, uint256 val) internal pure returns (bool) {
+        return p.isLong ? val < p.principal : val > uint256(p.collateral) + p.principal;
+    }
+
+    /**
+     * @dev The per-block liquidation throttle: bound the ETH-notional liquidated
+     *      per block so nobody can engineer an unbounded ATOMIC cascade.
+     *
+     *  ── A THROTTLE MUST NEVER CREATE PERMANENT BAD DEBT (red-team LIQ-01) ───
+     *  `cap` is a share of ACTIVE POOL DEPTH, so a position whose notional had
+     *  grown past that depth could not fit under it at ANY `maxLiqBps` — 100% still
+     *  reverted `LiqCapped()` on the live engine, because notional 4.35 ETH >
+     *  depth 2.6 ETH. The anti-cascade throttle was converting a solvable
+     *  liquidation into permanently UNLIQUIDATABLE bad debt, which is strictly
+     *  worse than the cascade it exists to bound.
+     *
+     *  An INSOLVENT position is therefore EXEMPT. The cascade the cap guards
+     *  against is one of merely-unhealthy positions being force-closed together to
+     *  push the price; delaying an insolvent close never makes the vault whole, it
+     *  only grows the hole, and the close itself REDUCES the vault's exposure. The
+     *  notional is still BOOKED against the block's budget, so one large insolvent
+     *  close still crowds out the discretionary ones queued behind it in the same
+     *  block — the cap keeps doing its real job.
+     *
+     * @return true when the liquidation may proceed.
+     */
+    function _throttle(bool insolvent, uint256 notional) internal returns (bool) {
+        if (block.timestamp != liqBlock) { liqBlock = block.timestamp; liqEthThisBlock = 0; }
+        uint256 cap = (activeEthDepth() * maxLiqBps) / BPS;
+        if (!insolvent && cap > 0 && liqEthThisBlock + notional > cap) return false;
+        liqEthThisBlock += notional;
+        return true;
     }
 
     /// @dev Underwater test given the position's ALREADY-COMPUTED mark value
