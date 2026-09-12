@@ -486,6 +486,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         it is swept to the treasury and written off here BY NAME rather than
     ///         disappearing into a counter reset. See {syncGeneration}.
     event TokYieldWrittenOff(address indexed asset, uint256 amount);
+    /// @notice A close/liquidation could only unwind PART of a short, because the
+    ///         pool could not supply the whole debt inside what the engine may
+    ///         spend. `remaining` is still open under the SAME id and is
+    ///         re-liquidatable immediately. FOR INDEXERS: this fires INSTEAD of
+    ///         {Closed}, and the position's `size`, `collateral` and `principal` all
+    ///         change — re-read `positions(id)` rather than assuming it is gone.
+    event PartiallyClosed(uint256 indexed id, uint256 bought, uint256 cost, uint256 remaining);
+    /// @notice A DEAD generation's short could not be bought back in full — the
+    ///         pool could not supply `amount` token inside what the engine may
+    ///         spend — so the debt is written off against the TOKEN side of the
+    ///         vault rather than keeping `openCount` non-zero and blocking the
+    ///         relaunch. `plvToken` is short by `amount`.
+    event TokenDebtWrittenOff(uint256 indexed id, uint256 amount);
     event VaultFunded(bool isEth, uint256 amount);
     event VaultWithdrawn(bool isEth, uint256 amount, address to);
     event GenerationSynced(uint256 indexed fromGen, uint256 indexed toGen, uint256 migratedIn, uint256 newInventory);
@@ -904,7 +917,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
     // Open
     // ---------------------------------------------------------------------
-    struct SwapReq { bool buy; bool exactOut; uint256 amount; }
+    struct SwapReq { bool buy; bool exactOut; uint256 amount; uint160 limit; }
 
     // NOTE (EIP-170): the 2-arg `openLong(uint8,uint256)` overload was removed. It
     // was a pure forwarder to the 3-arg form, and every caller (the frontend, the
@@ -1494,17 +1507,46 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             if (proceeds < p.principal) _replenishPlv(p.principal - proceeds);
             residual = proceeds - repay;
         } else {
-            shortOiToken -= p.size;
-            // Buy back EXACTLY the borrowed token (price UP → squeeze) so the
-            // inventory is made whole, paying ETH from the position's backing.
+            // Buy the borrowed token back (price UP → squeeze) so the inventory is
+            // made whole, paying ETH from the position's backing. BOUNDED: see
+            // {_buyUpTo} — an unbounded exact-output buy made a short bigger than
+            // the pool's token side unclosable by anyone, its owner included.
             uint256 backing = uint256(p.collateral) + p.principal;
-            uint256 cost = _buyExactOut(p.size); // ETH → exactly p.size token
-            plvToken += p.size;                  // inventory returned in full
+            (uint256 cost, uint256 bought) = _buyUpTo(p.size, backing + insuranceEth + plv);
+            shortOiToken -= bought;              // only what came back is off the books
+            plvToken += bought;                  // ...and back in inventory
             // The buy-back may have spent MORE ETH than this position's backing;
             // that overspend came out of the engine's raw ETH (the PLV). ABSORB
             // it — insurance first, then LP principal — so `plv` matches reality.
             // (Audit V-01: short path must DECREASE plv, not increase it.)
             if (cost > backing) _absorbPlvLoss(cost - backing);
+            uint256 unbought = p.size - bought;
+            if (unbought > 0 && mode != MODE_DEATH) {
+                //  ── A POSITION MUST ALWAYS BE CLOSEABLE, IN PIECES ──────────
+                //  The pool could not supply the whole debt inside what the engine
+                //  may spend. Retire the piece it did supply and leave the REST
+                //  open, smaller and fully re-liquidatable, so the next block (or
+                //  the next swap's sweep) takes the next bite until it is flat.
+                //  That is strictly better than realising the whole gap now: the
+                //  pool may refill and the price may recover in between, whereas a
+                //  one-shot write-off hands the difference straight to the stakers.
+                _rebook(id, p, unbought, backing > cost ? backing - cost : 0);
+                emit PartiallyClosed(id, bought, cost, unbought);
+                return;
+            }
+            if (unbought > 0) {
+                //  ── DEATH IS TERMINAL, OR A RELAUNCH COULD BE BLOCKED ───────
+                //  {forceCloseAllDead} is on relaunch's path and {syncGeneration}
+                //  refuses while `openCount != 0`, so a position the pool can NEVER
+                //  unwind must not be allowed to keep the book non-empty for good —
+                //  that is the R-07 brick by another door. On the DEATH path only,
+                //  the token we could not buy back is written off: the debt leaves
+                //  `shortOiToken` and never returns to `plvToken`, i.e. the TOKEN
+                //  side of the vault carries it. Loud, by name, so operators and
+                //  indexers see the shortfall rather than inferring it.
+                shortOiToken -= unbought;
+                emit TokenDebtWrittenOff(id, unbought);
+            }
             residual = backing > cost ? backing - cost : 0;
             if (ownerSlippage && residual < minOut) revert Slippage();
         }
@@ -1570,31 +1612,68 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      path) or directly when we're ALREADY inside a lock (`_inLocked`, i.e.
     ///      a hook-driven in-swap liquidation) — the manager is unlocked during
     ///      the hook's afterSwap, so re-`unlock`ing would revert.
-    function _run(SwapReq memory r) internal returns (bytes memory) {
-        // In-lock path passes the struct straight through — no encode/decode
-        // round-trip (gas audit G-05); only `unlock` needs the bytes marshalling.
-        return _inLocked ? _swapBody(r) : poolManager.unlock(abi.encode(r));
+    ///  RETURNS TWO WORDS, NOT `bytes` (EIP-170). Both legs of every swap are
+    ///  needed now that a bounded exact-output buy can fill partially, and a
+    ///  `bytes` return meant an `abi.decode` of a 2-tuple INLINED at every internal
+    ///  call site. Returning the pair directly leaves exactly ONE decode — the
+    ///  `unlock` round-trip, which is the only place v4 forces bytes on us — and
+    ///  the in-lock path now allocates no memory buffer at all (gas audit G-05's
+    ///  point, taken further).
+    function _run(SwapReq memory r) internal returns (uint256 spent, uint256 got) {
+        if (_inLocked) return _swapBody(r);
+        return abi.decode(poolManager.unlock(abi.encode(r)), (uint256, uint256));
     }
     /// @dev Exact-INPUT swap. buy=true → spend `amount` ETH for token (returns
     ///      token out); buy=false → sell `amount` token for ETH (returns ETH out).
     function _swapExactIn(bool buy, uint256 amount) internal returns (uint256 out) {
-        out = abi.decode(_run(SwapReq(buy, false, amount)), (uint256));
+        (, out) = _run(SwapReq(buy, false, amount, 0));
     }
-    /// @dev Exact-OUTPUT buy: acquire EXACTLY `tokenOut` token, paying ETH.
-    ///      Returns the ETH spent. Used to make the short inventory whole.
-    function _buyExactOut(uint256 tokenOut) internal returns (uint256 ethSpent) {
-        ethSpent = abi.decode(_run(SwapReq(true, true, tokenOut)), (uint256));
+
+    /**
+     * @dev Exact-OUTPUT buy of AT MOST `tokenOut` token, spending AT MOST `budget`
+     *      quote. Returns the quote spent and the token actually received.
+     *
+     *  ── AN UNBOUNDED EXACT-OUTPUT BUY IS A BRICK (red-team LIQ-02) ─────────
+     *  This was `_buyExactOut`, an exact-output buy whose only price limit was the
+     *  direction's extreme. Closing a SHORT has to buy `size` token back, so when
+     *  the pool held LESS token than the position owed, the swap walked the price
+     *  all the way to MIN_SQRT_PRICE. Measured on Sepolia r42 position 3 (83.07M
+     *  token owed against a ~12.18M token side): `liquidate` and the OWNER's own
+     *  `close` both reverted, the in-swap sweep failed silently inside the hook's
+     *  gas-metered call, and the position was unclosable at EVERY privilege level
+     *  while its bad debt sat on the vault. Reproduced locally the revert is v4's
+     *  own `SafeCastOverflow()` — the quote leg no longer fits int128 — and on
+     *  chain it was an out-of-value `settle`, i.e. empty revert data. Same cause.
+     *
+     *  `budget` is everything the engine is permitted to spend on this close: the
+     *  position's own backing, then the insurance buffer, then LP principal — the
+     *  exact waterfall {_absorbPlvLoss} already uses, so this widens no exposure.
+     *  It is by construction ≤ the engine's own balance, so no balance read is
+     *  needed. When the full buy-back fits inside it — every ordinary close —
+     *  the limit never binds and the behaviour is byte-for-byte the old one.
+     */
+    function _buyUpTo(uint256 tokenOut, uint256 budget)
+        internal
+        returns (uint256 spent, uint256 got)
+    {
+        //  `quote < syncedToken` is exactly `quote == currency0` (see {_key}), and
+        //  paying currency0 in moves the pool price DOWN.
+        uint160 lim = PerpSwapLib.spendLimit(
+            _sqrtP(), poolManager.getLiquidity(_key().toId()), budget, quote < syncedToken
+        );
+        (spent, got) = _run(SwapReq(true, true, tokenOut, lim));
     }
 
     function unlockCallback(bytes calldata raw) external returns (bytes memory) {
         if (msg.sender != address(poolManager)) revert NotTrader();
-        return _swapBody(abi.decode(raw, (SwapReq)));
+        (uint256 spent, uint256 got) = _swapBody(abi.decode(raw, (SwapReq)));
+        return abi.encode(spent, got);
     }
 
     /// @dev The swap body — shared by the unlock path (`unlockCallback`) and the
     ///      in-lock path (`_run` when `_inLocked`). Performs the pool swap and
     ///      settles both currency legs; returns the ABI-encoded result.
-    function _swapBody(SwapReq memory r) internal returns (bytes memory) {
+    function _swapBody(SwapReq memory r) internal returns (uint256, uint256) {
         PoolKey memory key = _key();
         //  WHICH SIDE IS WHICH. v4 orders currencies by address: native ETH is
         //  address(0) and always sorts first, so "quote = currency0" held for
@@ -1610,12 +1689,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         (uint256 spent, uint256 got) = PerpSwapLib.swapLeg(
             poolManager,
             key,
-            PerpSwapLib.Req({buy: r.buy, exactOut: r.exactOut, amount: r.amount}),
+            PerpSwapLib.Req({buy: r.buy, exactOut: r.exactOut, amount: r.amount, limit: r.limit}),
             q0,
             abi.encode(nftBeneficiary)
         );
-        if (r.buy) return abi.encode(r.exactOut ? spent : got);
-        return abi.encode(got);
+        //  BOTH legs are returned now, always. A bounded exact-output buy can fill
+        //  PARTIALLY, so its caller needs `got` as well as `spent` — see {_buyUpTo}.
+        return (spent, got);
     }
 
     // ---------------------------------------------------------------------
@@ -1672,12 +1752,44 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // A-03: refuse to grow the book past what one force-close can clear.
         if (openCount >= MAX_OPEN_POSITIONS) revert OiCapped();
         id = nextId++;
-        openCount++;
-        positions[id] = Position(trader, isLong, uint128(collateral), size, principal,
-            uint64(block.timestamp), leverage, fundingIndex);
-        _openIds.push(id); _openPos[id] = _openIds.length; // enumerable add
+        _addOpen(id, Position(trader, isLong, uint128(collateral), size, principal,
+            uint64(block.timestamp), leverage, fundingIndex));
         emit Opened(id, trader, isLong, collateral, size, leverage);
     }
+    /// @dev Write a position and put it into the enumerable open set. Shared by
+    ///      {_book} (a brand-new position) and {_rebook} (a partially closed one
+    ///      going back smaller).
+    ///
+    ///  ONE COPY, NOT TWO (EIP-170). A `Position` storage write is six masked
+    ///  slots; inlined at both sites it cost 507 bytes more than this contract
+    ///  has. Same trade as {_pos}, and it is what made the partial close fit.
+    function _addOpen(uint256 id, Position memory p) internal {
+        positions[id] = p;
+        openCount++;
+        _openIds.push(id); _openPos[id] = _openIds.length; // enumerable add
+    }
+    /**
+     * @dev Put a PARTIALLY closed position back, smaller. {_settle} has already
+     *      deleted it and dropped it from the enumerable set, so this restores both.
+     *
+     *  ALL REMAINING BACKING BECOMES PRINCIPAL and the collateral goes to zero: the
+     *  trader's own stake is spent FIRST, before the borrowed proceeds, which is the
+     *  same seniority every other loss path here uses. `openedAt`, `leverage` and
+     *  `entryFunding` are preserved, so funding settles in full against the smaller
+     *  position on the final close rather than being charged twice.
+     *
+     *  No liquidation penalty and no keeper cut is taken on a piece — {_settle}
+     *  returns before the settlement tail — because a piece pays out nothing to
+     *  take them from. The keeper is paid, and the badge struck, on the piece that
+     *  finally closes the position.
+     */
+    function _rebook(uint256 id, Position memory p, uint256 newSize, uint256 newBacking) internal {
+        p.size = newSize;
+        p.collateral = 0;
+        p.principal = newBacking;
+        _addOpen(id, p); // enumerable re-add
+    }
+
     /// @dev Remove a settled position from the enumerable open set (swap-and-pop).
     function _removeOpen(uint256 id) internal {
         uint256 idx = _openPos[id];
@@ -1906,6 +2018,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///                same size so it is directly comparable to entry.
     ///      Both are clamped into uint128; a price that large cannot occur with a
     ///      777M-supply token, but truncation would misreport rather than revert.
+    /// @dev Snapshot what a liquidation actually was, for the badge that
+    ///      commemorates it. Prices are ETH per token in wei:
+    ///        entry — what the position paid per token when it opened, i.e.
+    ///                borrowed ETH over token size for a long, and proceeds over
+    ///                size owed for a short (both are `principal / size`).
+    ///        liq   — the TWAP mark that triggered this close, quoted for the
+    ///                same size so it is directly comparable to entry.
+    ///      Both are clamped into uint128; a price that large cannot occur with a
+    ///      777M-supply token, but truncation would misreport rather than revert.
+    ///
+    ///  MEASURED DEAD END, DO NOT RETRY (red-team LIQ-02): moving this body into
+    ///  {PerpSwapLib} COSTS 551 bytes. Eight scalar arguments plus a struct return
+    ///  marshalled across a library call is dearer than the six clamps and two
+    ///  divisions it replaces — the same shape as the `maxLeverage` attempt logged
+    ///  at 49178d9. A library move only pays here for FEW scalars and a scalar
+    ///  return.
     function _killStats(Position memory p, uint256 bounty)
         internal
         view

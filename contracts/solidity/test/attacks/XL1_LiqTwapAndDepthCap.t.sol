@@ -139,10 +139,10 @@ contract XL1_LiqTwapAndDepthCap is Test {
         // Fund both sides generously: the engine must be ABLE to settle, so that
         // whatever loss we measure is the protocol's economics and not a
         // liquidity accident.
-        perp.fundPlv{value: 500 ether}(500 ether);
+        perp.fundPlv{value: 20 ether}(20 ether);
         token.approve(address(perp), type(uint256).max);
         perp.fundPlvToken(10_000_000 ether);
-        perp.fundInsurance{value: 50 ether}(50 ether);
+        perp.fundInsurance{value: 2 ether}(2 ether);
         // Only `warmup` is moved (a test cannot wait 24h). Every risk parameter
         // that matters here keeps its SHIPPED value: maintenanceBps 1500,
         // maxNotionalBps 500, maxOiBps 3000, maxLiqBps 2000, twapWindow 300.
@@ -201,6 +201,11 @@ contract XL1_LiqTwapAndDepthCap is Test {
     ///      does. Fires the hook's afterSwap sweep on the way out.
     function _buy(uint256 amountIn) internal {
         pm.unlock(abi.encode(true, -int256(amountIn)));
+    }
+
+    /// @dev A raw token->ETH SELL: the market putting token back into the pool.
+    function _sell(uint256 amountIn) internal {
+        pm.unlock(abi.encode(false, -int256(amountIn)));
     }
 
     /// @dev Advance the clock by `dt` seconds and one block.
@@ -436,6 +441,89 @@ contract XL1_LiqTwapAndDepthCap is Test {
         assertEq(perp.openCount(), 0, "solvent liquidation still works under a sane cap");
     }
 
+    // -----------------------------------------------------------------------
+    // BUG 3 — a position the pool cannot fully unwind must still be closeable
+    // -----------------------------------------------------------------------
+    /**
+     *  Same live position 3, later state (price back to sane levels):
+     *
+     *    size       83_075_039_111_919_524_157_682_700  (83.07M tokens owed)
+     *    backing    0.135023470083052223 ETH
+     *    activeEthDepth 1.281016633551938573 ETH, pool token side ~12.18M
+     *    maxLiqBps  10000
+     *    liquidate(3) -> EMPTY revert data. close(3,0) from the OWNER -> reverts.
+     *
+     *  Closing a short buys back `size` token with an EXACT-OUTPUT swap whose only
+     *  price limit is MIN_SQRT_PRICE. When the pool holds less token than the
+     *  position owes, v4 walks the price all the way to that limit and the ETH the
+     *  engine is then asked to `settle` is astronomically more than it holds, so
+     *  the settle call fails for lack of value — empty revert data, from inside the
+     *  unlock callback. The position is unclosable at EVERY privilege level: its
+     *  own owner, any liquidator, and the in-swap sweep (which fails silently
+     *  inside the hook's try/catch).
+     */
+    function test_XL1_ShortLargerThanThePoolIsStillCloseable() public {
+        uint256 id = _openShort();
+        uint256 size0 = _size(id);
+
+        // An LP exits: the book thins to 2.5% while the position stays open, which
+        // leaves the pool holding LESS token than the short owes.
+        _modify(-887_200, 887_200, -int256(uint256(L0) - uint256(L0) / 40));
+
+        // A small buy on the now-thin book drives spot far past zero equity.
+        _skip(15);
+        _buy(0.05 ether);
+        _rest(40);
+
+        (, uint256 markValue, uint256 backing, bool liquidatable) = perp.positionHealth(id);
+        uint256 poolTok = token.balanceOf(address(pm));
+        console2.log("size owed        ", size0);
+        console2.log("pool token side  ", poolTok);
+        console2.log("mark value       ", markValue);
+        console2.log("backing          ", backing);
+        assertTrue(liquidatable, "precondition: liquidatable");
+        assertGt(markValue, backing, "precondition: insolvent");
+        assertGt(size0, poolTok, "precondition: the pool holds LESS token than the short owes");
+
+        // ── THE INVARIANT: closeable, IN PIECES if necessary ────────────────
+        //  Before the fix this line reverted `SafeCastOverflow()` from inside v4's
+        //  own swap math (on chain: an out-of-value `settle`, i.e. empty revert
+        //  data). It reverted for the liquidator, for the OWNER's `close`, and
+        //  silently for the in-swap sweep — the position was unclosable at every
+        //  privilege level while its bad debt sat on the vault.
+        _skip(15);
+        perp.liquidate(id);
+        uint256 size1 = _size(id);
+        console2.log("size after 1 liq ", size1);
+        assertLt(size1, size0, "a liquidation must never revert and must make progress");
+        assertGt(perp.openCount(), 0, "the piece it could not buy stays OPEN, not written off");
+
+        // The market returns: someone puts token back into the pool. More bites
+        // become possible, and none of them may revert.
+        _skip(15);
+        _sell(3_000_000 ether);
+        for (uint256 i = 0; i < 20 && perp.openCount() > 0; i++) {
+            _skip(15);
+            perp.liquidate(id); // MUST NEVER revert, at any point in this sequence
+        }
+        console2.log("openCount after bites", perp.openCount());
+        console2.log("size after bites     ", _size(id));
+
+        //  ── AND A RELAUNCH MUST NEVER BE BLOCKED BY IT ──────────────────────
+        //  `syncGeneration` refuses while `openCount != 0`, so whatever the pool
+        //  could never supply has to be write-off-able on the DEATH path. If the
+        //  bites above already cleared it, this is a no-op and the assert below
+        //  holds anyway.
+        if (perp.openCount() > 0) {
+            hook.setDead(true);
+            _skip(15);
+            perp.forceCloseDead(id);
+        }
+        console2.log("openCount at end ", perp.openCount());
+        assertEq(perp.openCount(), 0, "the book must always be clearable for a relaunch");
+        assertEq(_traderOf(id), address(0), "position must be gone");
+    }
+
     receive() external payable {}
 }
 
@@ -480,7 +568,9 @@ contract XL1Hook {
     function arm(address _perp) external { require(msg.sender == admin); perp = _perp; armed = true; }
     function disarm() external { require(msg.sender == admin); armed = false; }
 
-    function isDead(PoolId) external pure returns (bool) { return false; }
+    bool public dead;
+    function setDead(bool d) external { require(msg.sender == admin); dead = d; }
+    function isDead(PoolId) external view returns (bool) { return dead; }
 
     /// @dev Signature IDENTICAL to {IHooks.afterSwap} — asserted below by
     ///      returning `IHooks.afterSwap.selector`, which v4 checks.
@@ -489,7 +579,13 @@ contract XL1Hook {
         returns (bytes4, int128)
     {
         if (armed) {
-            try IXL1Sweep(perp).sweepLiquidations(tx.origin) {} catch {}
+            //  PRODUCTION-FAITHFUL: CauldronHook.sol:949 fires the sweep with a
+            //  LOW-LEVEL, gas-reserved `.call` and DISCARDS the result, so a
+            //  reverting sweep can never revert the triggering swap. Solidity's
+            //  try/catch is NOT equivalent here and measurably let a
+            //  `SafeCastOverflow()` out of v4's swap math escape into the swap.
+            (bool ok, ) = perp.call(abi.encodeWithSelector(IXL1Sweep.sweepLiquidations.selector, tx.origin));
+            ok;
         }
         return (IHooks.afterSwap.selector, int128(0));
     }

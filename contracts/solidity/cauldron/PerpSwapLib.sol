@@ -194,6 +194,9 @@ library PerpSwapLib {
         bool buy;
         bool exactOut;
         uint256 amount;
+        /// @notice sqrtPrice the swap may not pass. 0 = the direction's extreme,
+        ///         i.e. the historical behaviour. See {spendLimit}.
+        uint160 limit;
     }
 
     /**
@@ -224,7 +227,15 @@ library PerpSwapLib {
         // while the quote is currency0. The price limit follows the resulting
         // direction, not the intent.
         bool z = r.buy == quoteIsCurrency0;
-        uint160 limit = z ? MIN_LIMIT : SQRT_MAX - 1;
+        //  A CALLER-SUPPLIED LIMIT IS WHAT MAKES AN EXACT-OUTPUT BUY SAFE.
+        //  With the direction's extreme as the only limit, an exact-output buy for
+        //  more token than the pool can supply walks the price to MIN_SQRT_PRICE
+        //  and the quote leg either overflows v4's own int128 accounting
+        //  (`SafeCastOverflow`) or asks for more value than the caller holds. Both
+        //  make the position UNCLOSABLE at every privilege level. A finite limit
+        //  turns that into a PARTIAL fill, which the caller can repeat.
+        //  See {PerpEngine._buyUpTo}. (red-team LIQ-02)
+        uint160 limit = r.limit != 0 ? r.limit : (z ? MIN_LIMIT : SQRT_MAX - 1);
 
         int256 spec;
         if (r.buy) {
@@ -324,6 +335,43 @@ library PerpSwapLib {
         if (migratedIn < oldBal) {
             emit InventoryMigrationShortfall(fromGen, oldToken, oldBal - migratedIn, ok ? bytes("") : ret);
         }
+    }
+
+    /**
+     * @notice The sqrtPrice at which spending `budget` of the QUOTE against
+     *         constant liquidity `L` from `sp` would be exhausted — i.e. the price
+     *         limit that caps a buy's cost at `budget`.
+     *
+     *  Here rather than in {PerpEngine} for EIP-170: two `FullMath.mulDiv` bodies
+     *  inline their whole assembly at every call site, and the engine is at the
+     *  ceiling. Pure, four scalar arguments.
+     *
+     * @param down true when the QUOTE is currency0, so paying quote in moves the
+     *        pool price DOWN; false when it moves UP.
+     * @return The limit, clamped into v4's representable range. Never 0, so the
+     *         caller can always pass it straight through as {Req.limit}.
+     *
+     *  THE BOUND IS EXACT WHILE LIQUIDITY IS CONSTANT and CONSERVATIVE when the
+     *  swap crosses into a THINNER band — which is the case that matters, because
+     *  a thin band is what makes a buy-back unaffordable in the first place.
+     *  Crossing into a DEEPER band costs more to reach the same price, but a
+     *  deeper band is also one where the buy-back was affordable to begin with.
+     */
+    function spendLimit(uint160 sp, uint128 L, uint256 budget, bool down)
+        external
+        pure
+        returns (uint160)
+    {
+        if (sp == 0 || L == 0) return down ? MIN_LIMIT : SQRT_MAX - 1;
+        if (down) {
+            // amount0 in = L * (Q96/sp' - Q96/sp)  =>  sp' = Q96*L / (Q96*L/sp + budget)
+            uint256 a = FullMath.mulDiv(Q96X, uint256(L), uint256(sp));
+            uint256 r = FullMath.mulDiv(Q96X, uint256(L), a + budget);
+            return uint160(r < MIN_LIMIT ? MIN_LIMIT : (r >= uint256(sp) ? uint256(sp) - 1 : r));
+        }
+        // amount1 in = L * (sp' - sp) / Q96  =>  sp' = sp + budget*Q96/L
+        uint256 up = uint256(sp) + FullMath.mulDiv(budget, Q96X, uint256(L));
+        return uint160(up >= SQRT_MAX ? SQRT_MAX - 1 : up);
     }
 
     uint160 internal constant MIN_LIMIT = 4295128740;
