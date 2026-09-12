@@ -19,6 +19,13 @@ import {Actions} from "v4-periphery/src/libraries/Actions.sol";
 import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// @dev Permit2's allowance entrypoint — v4's PositionManager pulls through it.
+address constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+interface IPermit2Approve {
+    function approve(address token, address spender, uint160 amount, uint48 expiration) external;
+}
+
 interface IRegistryAdmin {
     function setAllowedQuote(address quote, bool allowed, uint256 scale) external;
     function allowedQuote(address quote) external view returns (bool);
@@ -368,7 +375,14 @@ contract VenueSeeder {
         );
         require(liquidity > 0, "band: zero liquidity");
 
-        IERC20(usdg).approve(address(posm), usdgAmount);
+        //  APPROVE THROUGH PERMIT2, NOT THE POSITION MANAGER DIRECTLY.
+        //  v4's PositionManager pulls with `PERMIT2.transferFrom`, so a plain
+        //  ERC20 allowance to the manager is never read and the mint reverts
+        //  `InsufficientAllowance(0)` — which is what took the first deploy of
+        //  this function down, after fourteen contracts were already on chain.
+        //  `PoolOps._approve` is the reference; it is private, so this mirrors it.
+        IERC20(usdg).approve(PERMIT2, usdgAmount);
+        IPermit2Approve(PERMIT2).approve(usdg, address(posm), uint160(usdgAmount), uint48(block.timestamp + 300));
         bytes memory actions = abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.SETTLE_PAIR));
         bytes[] memory params = new bytes[](2);
         params[0] = abi.encode(key, lo, hi, liquidity, ethAmount, usdgAmount, address(this), bytes(""));
