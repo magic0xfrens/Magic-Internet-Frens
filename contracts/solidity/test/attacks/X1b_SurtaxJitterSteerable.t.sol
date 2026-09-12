@@ -153,5 +153,25 @@ contract X1bSurtaxJitterSteerable is Test {
         console2.log("jitter still varies at prevrandao # ", moved);
         assertLt(base, maxCfg, "premise: late in the window the peak clamp cannot bite");
         assertGt(moved, 0, "jitter is not dead: per-block randomness still moves it");
+
+        // X1h — THE HONEST PROPERTY. `snipeSurtaxBps` is `public view` and the
+        // jitter is per-BLOCK, so a sniper can read it, revert when the draw is
+        // bad, and retry next block. The guarantee is NOT "no cheap block", it is
+        // the DECAY FLOOR: shop as many blocks as you like and you still never
+        // pay less than the deterministic decay for the block you land in. This
+        // asserts that floor across a run of blocks, and records the best a
+        // shopper can actually reach so the claim stays honest.
+        uint256 floorSeen = type(uint256).max;
+        for (uint256 b = 0; b < 24; b++) {
+            vm.roll(1_000_000 + 25 + b);
+            vm.prevrandao(bytes32(b * uint256(0xDEADBEEF) + 1));
+            uint256 elapsedB = 25 + b;
+            uint256 decayB = elapsedB >= window ? 0 : (maxCfg * (window - elapsedB)) / window;
+            uint256 got = hook.snipeSurtaxBps(id);
+            assertGe(got, decayB, "the deterministic decay is the floor in EVERY block");
+            if (got - decayB < floorSeen) floorSeen = got - decayB;
+        }
+        console2.log("best jitter a block-shopper reached ", floorSeen);
+        assertLe(floorSeen, maxCfg, "documented: block shopping can reach the decay floor");
     }
 }

@@ -64,7 +64,29 @@ library SurtaxLib {
         // Deterministic decay: high at launch, fading to 0 across the window.
         uint256 decayed = (maxBps * remaining) / window;
         // Per-block jitter, also fading with the window, so late-window blocks can
-        // still randomly spike — a sniper can't pick a guaranteed-cheap block.
+        // still randomly spike.
+        //
+        //  WHAT THIS DOES AND DOES NOT GUARANTEE (red-team X1h). The jitter is a
+        //  per-BLOCK value and `snipeSurtaxBps` is `public view`, so a sniper can
+        //  read it, revert its own transaction when the draw is unfavourable, and
+        //  retry in the next block. It therefore does NOT guarantee that a sniper
+        //  pays more than the decay; an earlier version of this comment claimed a
+        //  sniper "can't pick a guaranteed-cheap block", and that was never true.
+        //
+        //  What IS guaranteed is the floor: `total >= decayed` for every input, so
+        //  a sniper who shops for blocks still pays the deterministic decay — and
+        //  shopping is not free, because the decay is what falls while they wait.
+        //  Each retry buys a lower jitter at the cost of a block of lost
+        //  opportunity on a curve designed to be expensive early. The jitter's
+        //  real job is narrower than the old comment claimed and still worth
+        //  having: the exact rate is not knowable when the trade is submitted, so
+        //  a sniper cannot size a buy to a known fee, and one that will not retry
+        //  pays the expected jitter on top.
+        //
+        //  Binding it harder would mean charging for a retry, which needs a state
+        //  write keyed on the caller — impossible from a `view` getter and a cost
+        //  on every honest swap in the hot path. Accepted deliberately, and the
+        //  property asserted here is the one the tests check.
         //
         // ENTROPY. The seed MUST NOT contain anything the caller can move inside
         // its OWN transaction (red-team X1b — Medium). It used to fold in the
