@@ -254,7 +254,16 @@ cleared afterwards by permissionless keeper paths.
 
 Two seeding paths. Which one runs is a governance choice made before the summon.
 
-### 4.1 Atomic — the green candle (default)
+**Which one you actually get.** In the CONTRACT, atomic is the fallback: progressive
+requires `seeder != 0 && nextSeedWindow > 0` (`CauldronRegistry.sol:1728`). But every
+SHIPPED deployment turns progressive on — `DeployLaunchpad.s.sol:357` defaults
+`SEED_WINDOW` to 900 s when the variable is unset, and `deploy-testnet.sh:58` sets 300 s.
+Only an explicit `SEED_WINDOW=0` selects the atomic path. So in practice a launch is
+progressive and there is **no green candle**; the anti-snipe comes from the thin streamed
+book instead (`CauldronRegistry.sol:1699-1702`). Read 4.1 as the fallback behaviour, not
+as what you will see on chain.
+
+### 4.1 Atomic — the green candle (the contract's fallback, not the shipped default)
 
 Instead of silently parking the reserve, the registry **mints it into existence
 with a real market buy**, all inside the launch transaction so nothing can
@@ -270,9 +279,11 @@ The constant-product identity makes the active LP land at exactly the intended
 `(activeTokens, ethAmount)` — the same end state a silent seed would produce — but
 the reserve arrives as real volume rather than a mint.
 
-### 4.2 Progressive — the streamed seed
+### 4.2 Progressive — the streamed seed (what every deployment runs)
 
-Opt-in per iteration (`seeder` set **and** `nextSeedWindow > 0`). The reserve is
+Opt-in per iteration in the contract (`seeder` set **and** `nextSeedWindow > 0`), but
+switched ON by every deploy script, so this is the path a real launch takes. **It does no
+green-candle buy at all** — the reserve is placed silently single-sided. The reserve is
 placed in full as usual, but the active tranche is handed to `CauldronSeeder`,
 which **streams it into the pool over the launch window**:
 
