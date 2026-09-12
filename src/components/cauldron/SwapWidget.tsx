@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { usePerpLiqHint } from "@/hooks/usePerpLiqHint";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
+import { useLpComposition } from "@/hooks/useLpComposition";
 import { useLiquidatoorWatch } from "@/hooks/useLiquidatoorWatch";
 import LiquidatoorModal from "@/components/cauldron/LiquidatoorModal";
 import { CAULDRON, ERC20_SWAP_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
@@ -130,7 +131,9 @@ export default function SwapWidget({
     chainId: CAULDRON.chainId,
     query: { enabled: !qNative && !!address },
   });
-  const needsFaucet = !qNative && isTestnet && (quoteBal ?? 0n) === 0n;
+  //  The faucet is now a FALLBACK, not the answer: with a zap deployed a buyer
+  //  pays in ether and never needs to hold the quote at all.
+  const needsFaucet = !qNative && isTestnet && !CAULDRON.nativeZap && (quoteBal ?? 0n) === 0n;
   const { openConnectModal } = useConnectModal();
   const { buy, sell, approveToken, isPending, confirming, confirmed, failed, failReason, reset, txHash , mintTestQuote } = useCauldronSwap();
   // The most-at-risk perp position to tag onto this swap: if our trade tips it
@@ -156,6 +159,23 @@ export default function SwapWidget({
 
   const balance = balanceWei != null ? Number(formatEther(balanceWei as bigint)) : 0;
   const eth = parseFloat(buyAmt) || 0;
+
+  //  HOW MUCH QUOTE `ethIn` IS WORTH, via the oracle.
+  //  `usdPerRawUnit` is USD(1e18) per RAW unit, so it already carries each
+  //  asset's decimals and the ratio needs no scale factor:
+  //      quoteRaw = weiIn * upru(native) / upru(quote)
+  //  These are the same factors QuoteRotator floors slices with, so the zap's
+  //  floor and the contract's agree by construction.
+  const lp = useLpComposition(0);
+  const quoteExpected = useMemo(() => {
+    if (qNative || eth <= 0) return 0n;
+    const un = lp.prices[NATIVE_QUOTE.toLowerCase()];
+    const uq = lp.prices[(quote as string).toLowerCase()];
+    if (!un || !uq) return 0n;
+    return (parseEther(eth.toFixed(18)) * un) / uq;
+  }, [qNative, eth, lp.prices, quote]);
+
+
   const tokensIn = parseFloat(sellAmt) || 0;
   //  NET OF THE PROTOCOL FEE. The hook skims {TRADE_FEE_BPS} off the ETH side of
   //  every swap — off the INPUT on a buy (`beforeSwap`), off the OUTPUT on a sell
@@ -189,7 +209,11 @@ export default function SwapWidget({
   //  through: this panel already refuses to sign an unpriceable market, and a
   //  price in the wrong UNIT is not a price. Selling is unaffected — it is
   //  denominated in the token either way.
-  const priceable = spotPrice > 0 && (qNative || mode === "sell");
+  //  Ether is the input on both branches now — the zap converts it — so the
+  //  ETH-denominated `spotPrice` is the right unit again and the earlier refusal
+  //  no longer applies. A non-native buy still needs an oracle rate to size the
+  //  zap's floor, and without one there is no honest number to sign.
+  const priceable = spotPrice > 0 && (qNative || mode === "sell" || quoteExpected > 0n);
 
   const needsApproval = mode === "sell" && tokensIn > 0 &&
     (allowanceWei == null || (allowanceWei as bigint) < (() => { try { return parseEther((tokensIn).toFixed(18)); } catch { return 0n; } })());
@@ -240,7 +264,7 @@ export default function SwapWidget({
         if (eth <= 0) { setErr(`Enter a ${qGlyph} amount`); return; }
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
-        await buy(eth, minOut, 0, liqHint, quote, quoteDecimals);
+        await buy(eth, minOut, 0, liqHint, quote, quoteDecimals, quoteExpected, quoteSymbol);
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
@@ -460,7 +484,7 @@ export default function SwapWidget({
             </div>
             <div className="sw__row">
               <input className="sw__input" inputMode="decimal" placeholder="0.0" value={buyAmt} onChange={(e) => setBuyAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
-              <span className="sw__coin"><span className="sw__coin-dot" style={{ background: qNative ? "#627EEA" : "#2775CA", color: "#fff" }}>{qNative ? "Ξ" : qGlyph.slice(0, 1)}</span>{qNative ? "ETH" : quoteSymbol}</span>
+              <span className="sw__coin"><span className="sw__coin-dot" style={{ background: "#627EEA", color: "#fff" }}>Ξ</span>ETH</span>
             </div>
             {needsFaucet && (
               <button

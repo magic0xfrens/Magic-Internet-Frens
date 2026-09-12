@@ -10,6 +10,20 @@ import {
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 
+/** NativeQuoteZap — ether in, the generation's quote out, to the caller. */
+const ZAP_ABI = [{
+  type: "function", name: "zap", stateMutability: "payable",
+  inputs: [
+    { name: "key", type: "tuple", components: [
+      { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+      { name: "hooks", type: "address" },
+    ] },
+    { name: "minOut", type: "uint256" },
+  ],
+  outputs: [{ type: "uint256" }],
+}] as const;
+
 /** `MockQuoteToken.mint` — testnet quote faucet. Not present on a real asset. */
 const MOCK_MINT_ABI = [{
   type: "function", name: "mint", stateMutability: "nonpayable",
@@ -86,6 +100,42 @@ export function useCauldronSwap() {
           : "Lost track of the transaction (it may have been replaced or the RPC dropped it). Check the explorer before retrying.")
       : "";
 
+  /**
+   * PAY IN ETHER ON AN ERC20-QUOTED GENERATION.
+   *
+   * Converts `ethIn` into `quote` through the curated venue and leaves it with
+   * the CALLER, who then buys normally. Two transactions rather than one, and
+   * deliberately so: `play` credits `hook.commitCrystals(msg.sender, ...)`, so a
+   * contract that swapped AND bought would be minted the player's crystals. The
+   * zap never touches `play`.
+   *
+   * `minOut` comes from the ORACLE, not from the pool being traded — the same
+   * factors `QuoteRotator._oracleFloor` uses, so the floor cannot be moved by
+   * pushing the venue. A missing price means no floor can be justified, and the
+   * zap refuses rather than signing a zero.
+   */
+  const zapNativeToQuote = useCallback(
+    async (quote: Address, ethIn: number, expectedOut: bigint, slipBps = 300): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (!CAULDRON.nativeZap) throw new Error("No zap deployed on this round");
+      if (expectedOut <= 0n) throw new Error("No oracle price for this quote — refusing to sign an unbounded floor");
+      if (chainId !== CAULDRON.chainId) await switchChainAsync({ chainId: CAULDRON.chainId });
+      const minOut = (expectedOut * BigInt(10_000 - slipBps)) / 10_000n;
+      //  The venue key: native is always currency0 because every allowed quote
+      //  sorts above address(0), and fee/spacing/hooks are pinned by the
+      //  rotator's allowlist, so this is the venue by construction.
+      return writeContractAsync({
+        address: CAULDRON.nativeZap as Address, abi: ZAP_ABI, functionName: "zap",
+        args: [{
+          currency0: NATIVE_QUOTE, currency1: quote,
+          fee: 3000, tickSpacing: 60, hooks: NATIVE_QUOTE,
+        }, minOut],
+        value: parseEther(ethIn.toFixed(18)),
+      });
+    },
+    [address, chainId, switchChainAsync, writeContractAsync],
+  );
+
   /** Buy with `ethIn` ETH; `minOut` = minimum token out (wei); `openMax` crystals.
    *  `liqHint` (optional) is the id of a perp position to auto-liquidate if this
    *  buy tips it past the mark — a win mints YOU a Liquidatoor badge. 0 = none;
@@ -94,6 +144,7 @@ export function useCauldronSwap() {
     async (
       ethIn: number, minOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n,
       quote: Address = NATIVE_QUOTE, quoteDecimals = 18,
+      quoteExpected: bigint = 0n, quoteSymbol = "the quote",
     ): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
@@ -113,11 +164,38 @@ export function useCauldronSwap() {
       //  revert for everyone. Trading is not something a treasury vote may
       //  switch off.
       if (!isNativeQuote(quote)) {
-        const amountIn = parseUnits(ethIn.toFixed(quoteDecimals), quoteDecimals);
-        //  APPROVE ONLY WHAT IS MISSING. An unconditional approve costs an extra
-        //  transaction on every buy; an infinite one leaves a standing allowance
-        //  on a router that moves user funds. Read, then top up to exactly this
-        //  trade if short.
+        //  ── ETHER IS ALWAYS THE INPUT ────────────────────────────────────
+        //  A completed rotation redenominates the generation, and from that
+        //  moment the router takes the quote by `transferFrom` and reverts on
+        //  any value. Asking a buyer to go and acquire USDG first is not a
+        //  product; a treasury vote must not change what people can pay with.
+        //
+        //  So: zap ether into the quote (a swap the caller owns, floored by the
+        //  ORACLE), then buy with what actually arrived. Two signatures, because
+        //  `play` credits `hook.commitCrystals(msg.sender, ...)` — a contract
+        //  doing both would be minted the player's crystals.
+        const bal = () => pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "balanceOf", args: [address],
+        }) as Promise<bigint>;
+
+        let amountIn = (await bal()) as bigint;
+        //  Only zap what is MISSING. A buyer who already holds the quote should
+        //  not be forced through a swap (and its fee) to spend it.
+        if (quoteExpected > 0n && amountIn < quoteExpected) {
+          if (!CAULDRON.nativeZap) {
+            throw new Error(`This round has no zap, so paying in ETH is not possible. Acquire ${quoteSymbol} first.`);
+          }
+          const before = amountIn;
+          const hash = await zapNativeToQuote(quote, ethIn, quoteExpected);
+          await pc!.waitForTransactionReceipt({ hash });
+          amountIn = (await bal()) as bigint;
+          //  MEASURE what arrived rather than trusting the estimate — the swap
+          //  is the thing that decides, and spending a number we predicted is
+          //  how a buy ends up reverting inside `transferFrom`.
+          if (amountIn <= before) throw new Error("The zap delivered nothing — refusing to continue");
+        }
+        if (amountIn === 0n) throw new Error(`No ${quoteSymbol} to spend`);
+
         const current = (await pc!.readContract({
           address: quote, abi: ERC20_SWAP_ABI, functionName: "allowance",
           args: [address, CAULDRON.gachaRouter as Address],
@@ -128,7 +206,7 @@ export function useCauldronSwap() {
             args: [CAULDRON.gachaRouter as Address, amountIn],
           });
           //  WAIT FOR IT. `play` would otherwise race its own approval and
-          //  revert on `transferFrom` — a failure that reads like a bad trade.
+          //  revert inside transferFrom — a failure that reads like a bad trade.
           await pc!.waitForTransactionReceipt({ hash });
         }
         return writeContractAsync({
@@ -312,7 +390,7 @@ export function useCauldronSwap() {
   );
 
   return {
-    buy, sell, spin, reveal, revealMany, openReady, approveToken, mintTestQuote,
+    buy, sell, spin, reveal, revealMany, openReady, approveToken, mintTestQuote, zapNativeToQuote,
     txHash, receipt, isPending, confirming, confirmed,
     //  Exposed so no caller has to re-derive "mined but reverted" and get it
     //  wrong the way this hook did.

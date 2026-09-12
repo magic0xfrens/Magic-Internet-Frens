@@ -26,6 +26,7 @@ import {QuoteRotator} from "../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../cauldron/TreasuryGovernor.sol";
 import {QuoteOracle} from "../cauldron/QuoteOracle.sol";
 import {MockQuoteToken} from "../cauldron/MockQuoteToken.sol";
+import {NativeQuoteZap} from "../cauldron/NativeQuoteZap.sol";
 import {MintCurvePolicy} from "../cauldron/MintCurvePolicy.sol";
 import {VenueSeeder} from "./DeployRotationStack.s.sol";
 import {MetadataMode} from "../cauldron/ICauldron.sol";
@@ -775,6 +776,18 @@ contract DeployLaunchpad is Script {
             true
         );
 
+        //  ── THE NATIVE ZAP ───────────────────────────────────────────────
+        //  A completed rotation redenominates the generation, and from that
+        //  moment `play` takes the quote by `transferFrom` and reverts on any
+        //  ether — so buyers need a token they have no way to get. This lets
+        //  them convert ether into the live quote first.
+        //
+        //  Deliberately NOT a "buy with ETH" wrapper: `play` credits
+        //  `hook.commitCrystals(msg.sender, ...)`, so a contract calling it on a
+        //  user's behalf would be minted that user's crystals. The zap does one
+        //  job and stops; the buy stays a direct call from the player.
+        NativeQuoteZap zap = new NativeQuoteZap(IPoolManager(poolManager));
+        console2.log("NativeQuoteZap :", address(zap));
         console2.log("USDG           :", address(usdg));
         console2.log("QuoteOracle    :", address(oracle));
         console2.log("venue LP holder:", address(vs));

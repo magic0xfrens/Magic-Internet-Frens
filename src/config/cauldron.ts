@@ -20,6 +20,10 @@ export const CAULDRON = {
   // Treasury rotation. Optional: a deployment predating the rotator omits it,
   // and the UI hides the panel rather than rendering a dead button.
   quoteRotator: (round.contracts as Record<string, string>).quoteRotator as Address | undefined,
+  //  NativeQuoteZap — lets a buyer pay in ether on a generation that has rotated
+  //  into an ERC20 quote. Optional: rounds deployed before it simply have none,
+  //  and the UI falls back to asking for the quote directly.
+  nativeZap: ((round.contracts as Record<string, string>).nativeZap || undefined) as Address | undefined,
   // `CauldronBase.treasuryGovernor` is `internal` (:345) and the registry has 62
   // bytes of EIP-170 margin, so it cannot be given a getter — the manifest is
   // the handle, same as every other contract here.

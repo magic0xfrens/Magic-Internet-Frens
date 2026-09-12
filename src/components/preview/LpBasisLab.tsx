@@ -54,6 +54,7 @@ function compose(holdings: QuoteHolding[], basisAddr: Address): LpComposition {
     loading: false,
     // Fixtures are local data, so the fetch can never have failed.
     failed: false,
+    prices: {},
   };
 }
 

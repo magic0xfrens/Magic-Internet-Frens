@@ -73,6 +73,10 @@ export interface LpComposition {
    *  describe only part of the treasury and the UI must say so. */
   partial: boolean;
   loading: boolean;
+  /** USD(1e18) per RAW unit, keyed by lowercased quote address — the same
+   *  factors `QuoteRotator._oracleFloor` prices slices with, so a native<->quote
+   *  rate derived from these agrees with the contract by construction. */
+  prices: Record<string, bigint>;
   /** True when the endpoint could not be read. An empty treasury and an
    *  unreachable indexer render identically otherwise, and they mean opposite
    *  things: one says the guild holds nothing, the other says we do not know. */
@@ -100,6 +104,7 @@ const EMPTY: LpComposition = {
   partial: false,
   loading: true,
   failed: false,
+  prices: {},
 };
 
 /**
@@ -121,6 +126,7 @@ export function useLpComposition(generation: number): LpComposition {
       if (!r.ok) throw new Error(String(r.status));
       const j = (await r.json()) as {
         basis: string; holdings: TreasuryRow[]; totalUsd: number; partial: boolean;
+        prices?: Record<string, string>;
       };
       setState({
         basis: quoteMeta(j.basis as Address),
@@ -143,6 +149,10 @@ export function useLpComposition(generation: number): LpComposition {
         partial: !!j.partial,
         loading: false,
         failed: false,
+        prices: Object.fromEntries(
+          Object.entries((j.prices ?? {}) as Record<string, string>)
+            .map(([k, v]) => [k.toLowerCase(), BigInt(v)]),
+        ),
       });
     } catch {
       // Keep the last good composition; only clear the spinner. A blank panel on

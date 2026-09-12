@@ -729,10 +729,28 @@ app.get("/treasury", async (c) => {
   }));
 
   const totalUsd = holdings.reduce((a, h) => a + (h.usd ?? 0), 0);
+  //  ORACLE FACTORS, EXPOSED. The frontend needs a native<->quote rate to pay in
+  //  ether on an ERC20-quoted generation, and deriving one from pool state in
+  //  the browser would be both an RPC read and a manipulable number. These are
+  //  the SAME factors `QuoteRotator._oracleFloor` prices slices with, so the UI
+  //  and the contract agree by construction. `usdPerRawUnit` is USD(1e18) per
+  //  raw unit, so it already carries each asset's decimals.
+  const prices: Record<string, string> = {};
+  if (oracle && oracle !== NATIVE) {
+    await Promise.all(QUOTES.map(async (q) => {
+      const f = await perpClient.readContract({
+        address: oracle as `0x${string}`, abi: ORACLE_READ,
+        functionName: "usdPerRawUnit", args: [q.address as `0x${string}`],
+      }).catch(() => 0n) as bigint;
+      if (f > 0n) prices[q.address.toLowerCase()] = f.toString();
+    }));
+  }
+
   const v = {
     generation: gen,
     basis: basis ?? NATIVE,
     oracle,
+    prices,
     positions: positions.filter(Boolean),
     holdings: holdings.map((h) => ({
       ...h,
