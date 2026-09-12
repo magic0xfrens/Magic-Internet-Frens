@@ -40,8 +40,21 @@ const POOL_IDS = round.poolIds as `0x${string}`[];
 // The progressive seeder. Absent on an atomic (SEED_WINDOW=0) deployment and on
 // any manifest written before the launch feed existed, so it degrades to the zero
 // address — registered either way so its event types resolve, yielding no logs.
-const LIVE_COLLECTION = (((round.contracts as Record<string, string>).collection ??
-  "0x0000000000000000000000000000000000000000") as `0x${string}`);
+//  A PLACEHOLDER IS NOT AN ADDRESS, AND `??` DOES NOT CATCH IT.
+//  `apply-deployment.mjs` writes `__ASK_CHAIN_COLLECTION__` until the summon
+//  creates the collection, and a nullish-coalesce only fires on null/undefined —
+//  so the placeholder sailed through and Ponder refused the whole build
+//  ("Invalid prefix for address"), taking the indexer down for the entire window
+//  between deploying a round and igniting it. That window is exactly when the
+//  frontend is being checked.
+//
+//  Anything that is not a 0x address degrades to the zero address: the
+//  subscription registers, yields no logs, and starts working the moment the
+//  manifest is refreshed after the summon.
+const rawCollection = (round.contracts as Record<string, string>).collection ?? "";
+const LIVE_COLLECTION = (/^0x[0-9a-fA-F]{40}$/.test(rawCollection)
+  ? rawCollection
+  : "0x0000000000000000000000000000000000000000") as `0x${string}`;
 const SEEDER = ((round.contracts as Record<string, string>).seeder ??
   "0x0000000000000000000000000000000000000000") as `0x${string}`;
 // The TREASURY governor — what the LP is denominated in. Distinct from GOVERNOR
