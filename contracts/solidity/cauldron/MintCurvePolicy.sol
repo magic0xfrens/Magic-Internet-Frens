@@ -92,6 +92,30 @@ contract MintCurvePolicy is ICurvePolicy {
     ///  carries its own calibration, and silently mixing the two sets of
     ///  constants would produce a ladder neither of them describes. The hook
     ///  keeps its values as the fallback for when no policy is set.
+    ///
+    ///  ── THE DISCARDED ARGUMENTS ARE A GOVERNANCE HAZARD, NOT JUST A STYLE
+    ///     CHOICE (red-team Z-09) ───────────────────────────────────────────────
+    ///  The second and third parameters are `volumePerNFT` and `nftPriceStep` — the
+    ///  values `CauldronRegistry.sol:1134` writes on every relaunch from the WINNING
+    ///  PROPOSAL's mint-out target. Ignoring them means a vote that thinks it is
+    ///  setting the ladder sets nothing, and — worse — this calibration is frozen to
+    ///  the one `supply` below while `nftSupply` was proposer-chosen. Measured on
+    ///  the shipped 2222-fren calibration: 100 rungs total $80 against a $20,000
+    ///  target; 10,000 rungs total $444,083.
+    ///
+    ///  The contract is immutable, so the bound cannot live here. It lives at the
+    ///  proposal boundary instead: `CauldronGovernor.propose` now refuses any
+    ///  `nftSupply` outside [MIN_NFT_SUPPLY, MAX_NFT_SUPPLY] AND any value that
+    ///  disagrees with this policy's `supply()`, so the collection being priced is
+    ///  always the collection this ladder was calibrated for. That makes the
+    ///  discarded arguments inert rather than dangerous.
+    ///
+    ///  Honest caveat for whoever redeploys: the hook's own fallback ladder is
+    ///  `volumePerNFT + k * nftPriceStep`, and `DeployLaunchpad` does NOT sync
+    ///  `volumePerNFT` with this calibration (it stays at the 0.02 ether default
+    ///  while this ladder is denominated in USD-1e18). Any change that makes this
+    ///  policy DECLINE a price would therefore fall back to a ~450x cheaper ladder.
+    ///  Do not add a "return 0 on mismatch" branch here without fixing that first.
     function priceAt(uint256 k, uint256, uint256) external view returns (uint256) {
         //  At k = supply-1 = 3332 and spread ~ 0.4e18, k*k*spread is about
         //  4.4e24 — five orders of magnitude clear of uint256. No overflow path

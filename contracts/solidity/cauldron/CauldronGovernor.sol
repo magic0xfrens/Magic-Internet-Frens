@@ -25,6 +25,19 @@ interface IRegistryQuotes {
     function allowedQuote(address quote) external view returns (bool);
 }
 
+/// @notice The three hops from this contract to the mint ladder a proposal's
+///         collection will actually be priced on: registry -> hook -> curve policy.
+///         Read defensively in {propose}; see {MIN_NFT_SUPPLY}.
+interface IRegistryHook {
+    function hook() external view returns (address);
+}
+interface IHookCurve {
+    function curvePolicy() external view returns (address);
+}
+interface ICurveCalibration {
+    function supply() external view returns (uint256);
+}
+
 contract CauldronGovernor is ICauldronGovernor, Ownable {
     // -----------------------------------------------------------------------
     // Errors
@@ -53,6 +66,36 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     ///         inside `relaunch()` rolls back `markConsumed`, so the poisoned
     ///         proposal would win again forever and freeze the machine. (Audit C-02.)
     uint256 public constant MAX_NFT_SUPPLY = 100_000;
+
+    /// @notice Floor on a proposal's collection size. `nftSupply == 0` still means
+    ///         "leave the current size alone" (CauldronRegistry.sol:961) and is
+    ///         always accepted; any non-zero value must land in
+    ///         [MIN_NFT_SUPPLY, MAX_NFT_SUPPLY].
+    ///
+    ///  ── WHY THERE HAS TO BE A FLOOR, AND A CALIBRATION MATCH (red-team Z-09) ──
+    ///  The bound above was one-sided. `nftSupply = 1` was a valid, winnable
+    ///  proposal, and the mint ladder that prices the collection is NOT a function
+    ///  of its size: `MintCurvePolicy` carries an IMMUTABLE `base`/`spread`/`knee`
+    ///  calibrated against one `supply()`, and its `priceAt` discards the
+    ///  per-generation curve `hook.setNftCurveFrom(volPerNFT)` writes at
+    ///  CauldronRegistry.sol:1134. So the mint-out cost does not scale with the
+    ///  collection it is pricing. Measured on the shipped 2222-fren calibration:
+    ///  the first 100 rungs total $80.36 against a $20,000 target, and 10,000 rungs
+    ///  total $444,083 (22x), which kills the forge for that generation outright.
+    ///
+    ///  Small is the dangerous direction. `CollectionLedger.floorPerNFT` is
+    ///  `entitledTokens / outstanding`, so whoever holds a 100-fren collection —
+    ///  minted out for ~$80 of weighted buy credit — owns 100% of the claim on a
+    ///  floor funded by `floorBps` (10_000 by default) of that whole generation's
+    ///  fee revenue.
+    ///
+    ///  Neither direction is recoverable after the fact: the policy is immutable,
+    ///  so correcting it needs a timelocked `setPolicies` redeploy. Both bounds
+    ///  therefore live HERE, at the proposal boundary, for the same reason the
+    ///  string caps and the quote allowlist do — refusing a proposal costs one
+    ///  proposal and freezes nothing, while a revert inside `relaunch()` would roll
+    ///  back `markConsumed` and end the protocol.
+    uint256 public constant MIN_NFT_SUPPLY = 100;
 
     /// @notice How long a proposal accepts votes before it may be launched. Without
     ///         a deadline, `winner()` is the live leader and a whale can flip the
@@ -259,6 +302,27 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     // Propose
     // -----------------------------------------------------------------------
 
+    /// @dev Collection size the LIVE mint-curve policy was calibrated for, or 0 if
+    ///      there is no policy (or the chain to it is not wired yet). Every hop is a
+    ///      raw staticcall so a registry, hook or policy that predates any of these
+    ///      accessors degrades to "unconstrained" instead of making {propose}
+    ///      unreachable — a governor that cannot take proposals is a dead machine.
+    function _calibratedSupply() private view returns (uint256) {
+        address r = registry;
+        if (r == address(0)) return 0;
+        (bool ok, bytes memory ret) = r.staticcall(abi.encodeWithSelector(IRegistryHook.hook.selector));
+        if (!ok || ret.length < 32) return 0;
+        address h = abi.decode(ret, (address));
+        if (h == address(0)) return 0;
+        (ok, ret) = h.staticcall(abi.encodeWithSelector(IHookCurve.curvePolicy.selector));
+        if (!ok || ret.length < 32) return 0;
+        address p = abi.decode(ret, (address));
+        if (p == address(0)) return 0;
+        (ok, ret) = p.staticcall(abi.encodeWithSelector(ICurveCalibration.supply.selector));
+        if (!ok || ret.length < 32) return 0;
+        return abi.decode(ret, (uint256));
+    }
+
     /**
      * @notice Submit a proposal for the next brew.
      * @param name     Token + collection name.
@@ -313,7 +377,23 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         // at relaunch. Reject anything the collection could never be deployed with,
         // here at the boundary — a revert deeper in `relaunch()` would roll back
         // `markConsumed` and freeze the machine forever. (Audit C-02.)
-        if (nftSupply > MAX_NFT_SUPPLY) revert SupplyOutOfRange();
+        //  BOTH SIDES, AND BOUND TO THE LADDER THAT WILL PRICE IT (red-team Z-09).
+        //  See {MIN_NFT_SUPPLY}. `0` keeps its meaning: leave the size unchanged.
+        if (nftSupply != 0) {
+            if (nftSupply < MIN_NFT_SUPPLY || nftSupply > MAX_NFT_SUPPLY) {
+                revert SupplyOutOfRange();
+            }
+            //  A wired {MintCurvePolicy} is calibrated for exactly one collection
+            //  size and cannot be re-calibrated, so a proposal that names a
+            //  different one is asking for a collection the machine would misprice
+            //  by up to 22x. Refuse it here rather than discover it from the mint
+            //  ladder. Unconstrained when no policy is wired (the flat fallback
+            //  `volumePerNFT + k * nftPriceStep` scales with the size by
+            //  construction), which is also what keeps every existing deployment
+            //  and fixture working unchanged.
+            uint256 calibrated = _calibratedSupply();
+            if (calibrated != 0 && nftSupply != calibrated) revert SupplyOutOfRange();
+        }
         // The quote must be one the treasury has vetted. Checked HERE so a pool
         // nobody would want can never reach a vote; re-checked at consumption
         // because the allowlist can change in between.
