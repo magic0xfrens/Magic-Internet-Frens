@@ -220,6 +220,30 @@ contract X1aLegacyBufferDenomination is Test {
         assertEq(pm.lastSwapAmountOffered(), 0, "no buyback swap was attempted at all");
     }
 
+    /// @notice REGRESSION (X1g): "the buyback cannot spend this" must have one
+    ///         exit whatever the reason. A balance buffered while the buyback was
+    ///         WIRED, then switched off, used to be unreachable: the
+    ///         `legacyRegistry == 0` check was the first line of
+    ///         `_maybeLegacyBuyback`, so it returned before the drain could run.
+    function test_X1a_unwiredBuybackDrainsTheBufferInsteadOfStrandingIt() public {
+        PoolKey memory k = _key(address(0), address(brewToken));
+        _makeLive(k);
+
+        hook.fundLegacyBuffer{value: DONATION}();
+        assertEq(hook.legacyBuffer(), DONATION, "buffered while the buyback was wired");
+
+        // The owner switches the legacy buyback OFF.
+        hook.setLegacyBuyback(address(0), 500, 0.02 ether);
+
+        _swap(k);
+
+        console2.log("unwired: buffer after swap", hook.legacyBuffer());
+        console2.log("unwired: relaunchETH      ", hook.relaunchETH());
+        assertEq(hook.legacyBuffer(), 0, "drained rather than stranded");
+        assertEq(hook.relaunchETH(), DONATION, "into the counter that can pay it out");
+        assertEq(pm.lastSwapAmountOffered(), 0, "and no buyback swap was attempted");
+    }
+
     /// @notice REGRESSION: the other half of the mechanism — a buffer funded
     ///         while the generation was NATIVE-quoted, then a quote rotation
     ///         underneath it. The stale wei must not be spent as the new quote,

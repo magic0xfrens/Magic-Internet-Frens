@@ -1014,7 +1014,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      us. Driving it off the caller's key let an attacker point the hook's
     ///      own ETH at a book they priced and control.
     function _maybeLegacyBuyback(PoolId id, PoolKey calldata key) private {
-        if (legacyRegistry == address(0) || legacyBuffer == 0) return;
+        if (legacyBuffer == 0) return;
         PoolKey memory live = _liveKey;
         //  DENOMINATION MATCH, AND AN EXIT WHEN IT FAILS (red-team X1/X4a). The
         //  buffer is spent as raw units of `live.currency0`; if it is holding
@@ -1025,7 +1025,23 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  drain and gives the value an exit (`releaseRelaunchETH` /
         //  `releaseRelaunchAsset`). Checked BEFORE the threshold so a stranded
         //  sub-threshold balance still drains rather than sitting forever.
-        if (legacyBufferAsset != Currency.unwrap(live.currency0)) {
+        //  ...AND UNWIRED COUNTS AS UNSPENDABLE (red-team X1g). The wiring check
+        //  used to be the FIRST line of this function, so it returned before the
+        //  drain below could ever run: a balance buffered while the buyback was
+        //  wired and then switched off with `setLegacyBuyback(address(0), ..)`
+        //  had no reader at ANY privilege level. That is the same
+        //  accepted-but-unspendable class the denomination fix closed, closed for
+        //  denomination only and left open for wiring — and now that royalties
+        //  route through `fundLegacyBuffer`, it is reachable with no attacker.
+        //  Folding it into the drain condition instead of short-circuiting ahead
+        //  of it means "the buyback cannot spend this" has exactly ONE meaning
+        //  and exactly one exit, whichever reason it cannot spend it.
+        //
+        //  This is also why `fundLegacyBuffer` does NOT re-check the wiring: a
+        //  payment that arrives while the buyback is off is drained by the next
+        //  swap through this hook, so a second gate there would be a duplicate
+        //  of this one with its own way to drift out of step.
+        if (legacyBufferAsset != Currency.unwrap(live.currency0) || legacyRegistry == address(0)) {
             uint256 stale = legacyBuffer;
             legacyBuffer = 0;
             //  (no event: this contract is ON the EIP-170 ceiling. The move is
@@ -1180,7 +1196,16 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         uint256 bal = IERC20(token).balanceOf(address(this));
         amt = owed > bal ? bal : owed;
         legacyOwedToReserve = owed - amt;
-        if (amt > 0) IERC20(token).transfer(to, amt);
+        //  CHECKED, AND THE DEBIT ROLLS BACK IF IT FAILS (red-team X1f). This was
+        //  a bare `IERC20.transfer` AFTER the counter was debited. USDT and most
+        //  tokenised equities return false instead of reverting, so a
+        //  false-returning token zeroed the counter while the tokens stayed here
+        //  — and the registry credits exactly the returned `amt` to the
+        //  collection's floor, so the ledger would have credited a reserve that
+        //  never received anything, breaking the one property this function
+        //  exists to preserve. {FeeRouteLib.send} checks the return value;
+        //  reverting undoes the debit, so the next sweep can still claim it.
+        if (amt > 0 && !FeeRouteLib.send(token, to, amt, 0)) revert SendFailed();
     }
 
     /**
