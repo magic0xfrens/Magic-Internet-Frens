@@ -41,11 +41,11 @@
       "symbol": "ETH",
       "name": "Ether",
       "decimals": 18,
-      "glyph": "Ξ",
+      "glyph": "\u039e",
       "blurb": "The default. Deepest liquidity, and the only pair perps support today."
     },
     {
-      "address": "0x13bdb621a8070e6305d01689f564b12f015ca317",
+      "address": "0xB9fcDa126b0CB5D1964B714EC7Cd37218Fc4Df78",
       "symbol": "USDG",
       "name": "Magic USD",
       "decimals": 6,

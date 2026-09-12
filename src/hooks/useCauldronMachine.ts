@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePoll } from "@/hooks/usePoll";
 import { formatEther, parseEther, keccak256, encodeAbiParameters, type Address } from "viem";
 import {
@@ -15,7 +15,6 @@ import {
 } from "@/config/cauldron";
 import { useEthUsd } from "./useEthUsd";
 import { fetchCollectionBalance } from "@/lib/cauldronIndexer";
-import { DEMO_TX_HASH, RECEIPT_MS, demoState, runDemoSummon, subscribeDemo, type DemoState } from "@/lib/demoCauldron";
 
 
 export type Phase = "presale" | "live" | "dying" | "dead";
@@ -290,22 +289,11 @@ export function useCauldronMachine() {
   usePoll(load, 15_000);
   useEffect(() => { if (confirmed) load(); }, [confirmed, load]);
 
-  // ── DEMO MODE (filming only; armed by ?demo=dying|dead — see lib/demoCauldron) ──
-  // A scripted death + summon painted over the real state. Off unless the URL
-  // asks for it, so no visitor can reach it by accident.
-  const demo = useSyncExternalStore(subscribeDemo, demoState, () => null);
-
   const relaunch = useCallback(async (): Promise<`0x${string}`> => {
-    // Mocked summon: no wallet, no tx, no gas — just the scripted beat.
-    if (demoState()) { runDemoSummon(); return DEMO_TX_HASH; }
     if (!address) throw new Error("Connect a wallet first");
     if (chainId !== CAULDRON.chainId) await switchChainAsync({ chainId: CAULDRON.chainId });
     return writeContractAsync({ address: CAULDRON.registry, abi: REGISTRY_ABI, functionName: "relaunch" });
   }, [address, chainId, switchChainAsync, writeContractAsync]);
-
-  // Demo mode is per-callback, not global: ONLY the sentinel hash short-circuits
-  // here, so vote / propose / migrate still wait on a real receipt even while a
-  // scripted summon is armed.
 
   /** Block until a submitted tx is mined ON THE CAULDRON CHAIN, and return the
    *  receipt so callers can verify it actually did something. Catches the
@@ -313,10 +301,6 @@ export function useCauldronMachine() {
    *  wrong chain reports success in the wallet but never lands here — waiting on
    *  the Cauldron-chain client makes that failure explicit instead of silent. */
   const waitForReceipt = useCallback(async (hash: `0x${string}`) => {
-    if (hash === DEMO_TX_HASH) {
-      await new Promise((r) => setTimeout(r, RECEIPT_MS)); // "submitted → mined" beat
-      return { status: "success" } as never;
-    }
     if (!publicClient) throw new Error("No RPC client");
     const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
     if (rc.status !== "success") throw new Error("Transaction reverted on-chain.");
@@ -416,73 +400,19 @@ export function useCauldronMachine() {
   });
   const holdsMiFren = (idxMiFrens ?? 0) > 0 || (mifrenBalance ?? 0n) > 0n;
 
-  // Everything below reads `v` (the view), not `s` (the chain). Outside demo
-  // mode they are the same object.
-  const v = useMemo(() => applyDemo(s, demo), [s, demo]);
-
-  const fdv = useMemo(() => v.spotPrice * 777_000_000, [v.spotPrice]); // fully-diluted, in ETH
+  const fdv = useMemo(() => s.spotPrice * 777_000_000, [s.spotPrice]); // fully-diluted, in ETH
   // Circulating MC = spot × supply that can actually reach the market at ~spot,
   // i.e. total minus the out-of-range reserve (locked at ~69× to back the floor).
-  const circSupply = useMemo(() => Math.max(0, 777_000_000 - (v.reserveTokens || 0)), [v.reserveTokens]);
-  const mcap = useMemo(() => v.spotPrice * circSupply, [v.spotPrice, circSupply]); // circulating MC in ETH
-  const priceUsd = useMemo(() => v.spotPrice * ethUsd, [v.spotPrice, ethUsd]);
+  const circSupply = useMemo(() => Math.max(0, 777_000_000 - (s.reserveTokens || 0)), [s.reserveTokens]);
+  const mcap = useMemo(() => s.spotPrice * circSupply, [s.spotPrice, circSupply]); // circulating MC in ETH
+  const priceUsd = useMemo(() => s.spotPrice * ethUsd, [s.spotPrice, ethUsd]);
   const mcapUsd = useMemo(() => mcap * ethUsd, [mcap, ethUsd]);   // circulating MC in USD
   const fdvUsd = useMemo(() => fdv * ethUsd, [fdv, ethUsd]);      // fully-diluted in USD
 
-  return { ...v, mcap, fdv, ethUsd, priceUsd, mcapUsd, fdvUsd, relaunch, voteFor, propose, claimPrev, holdsMiFren, waitForReceipt, refresh: load, txHash, isPending, confirming, confirmed, reset };
+  return { ...s, mcap, fdv, ethUsd, priceUsd, mcapUsd, fdvUsd, relaunch, voteFor, propose, claimPrev, holdsMiFren, waitForReceipt, refresh: load, txHash, isPending, confirming, confirmed, reset };
 }
 
 /* ── helpers ─────────────────────────────────────────────────────── */
-
-/**
- * Paint the scripted lifecycle over the real chain state. Returns `s` untouched
- * when demo mode isn't armed, so this is a no-op on every normal page load.
- *
- * Only display fields move. Addresses, pool id and price stay real, so the chart,
- * the trade panel and the explorer links keep working during the take.
- */
-function applyDemo(s: MachineState, demo: DemoState | null): MachineState {
-  if (!demo || !s.summoned) return s;
-
-  // The live registry reports a 0 floor right after a summon (so a fresh pool can
-  // trade). A 0 floor would render "0 Ξ/24h" in the dying copy, so give the shot
-  // a plausible number to fall under.
-  const floor = s.deathThresholdEth > 0 ? s.deathThresholdEth : 5;
-
-  // A winning proposal to summon. Real ones win if any exist with votes —
-  // otherwise the demo brew stands in so the ritual has something to reveal.
-  const realWinner = s.proposals.find((p) => p.votes > 0);
-  const proposals: Proposal[] = realWinner ? s.proposals : [{
-    id: 0, name: demo.brew, ticker: demo.ticker, theme: demo.brew,
-    proposer: "0x000000000000000000000000000000000000dEaD" as Address,
-    votes: 42, consumed: false, metaMode: "uri", metaValue: "",
-    nftSupply: 777, mintOutEth: 30,
-  }, ...s.proposals];
-  const winner = realWinner ?? proposals[0];
-
-  switch (demo.stage) {
-    case "dying": {
-      const vol = floor * 0.34;
-      return { ...s, phase: "dying", isDead: false, deathThresholdEth: floor,
-        vol24hEth: vol, vitality: (vol / (floor * 4)) * 100 };
-    }
-    case "dead":
-      return { ...s, phase: "dead", isDead: true, deathThresholdEth: floor,
-        vol24hEth: floor * 0.06, vitality: 0,
-        relaunchAt: 0,  // grace already served — the ritual button is armed
-        proposals };
-    case "summoning":
-      // `summoned: false` is what puts the page on the "Summoning…" screen.
-      return { ...s, summoned: false, phase: "dead", isDead: true,
-        deathThresholdEth: floor, vol24hEth: 0, vitality: 0, proposals };
-    case "reborn":
-      return { ...s, phase: "live", isDead: false, gen: s.gen + 1,
-        name: winner.name, ticker: winner.ticker,
-        deathThresholdEth: floor, vol24hEth: floor * 3.2, vitality: 80,
-        nftMinted: 0, nftMax: winner.nftSupply || s.nftMax,
-        proposals: s.proposals.filter((p) => p.id !== winner.id) };
-  }
-}
 
 function cleanName(n: string) {
   return n.replace(/\s*by Magic Internet Frens\s*$/i, "").trim();

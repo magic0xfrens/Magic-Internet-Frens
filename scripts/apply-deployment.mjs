@@ -167,6 +167,22 @@ for (const [k, v] of Object.entries(updates)) {
 const quoteSrc = launchpad.creates.some((t) => t.contractName === "MockQuoteToken")
   ? launchpad
   : rotation;
+//  FAIL LOUDLY WHEN THE QUOTE MOCK IS NOT IN THE BROADCAST.
+//  Measured on r43: the launchpad deployed USDG (the console log proves it) yet
+//  the broadcast recorded ZERO `MockQuoteToken` CREATEs, so this block silently
+//  did nothing and the manifest kept the PREVIOUS round's USDG. The frontend
+//  then offered a quote the new registry has never allowlisted, and the rotation
+//  desk read "No other quote asset is approved yet" — a wrong address that looks
+//  like a missing feature. A stale address must never be the quiet default.
+if (!quoteSrc.found || !pickNth("MockQuoteToken", 0, quoteSrc)) {
+  console.error(
+    "\n  !! quoteAssets NOT UPDATED: no MockQuoteToken CREATE found in either broadcast.\n" +
+    "     The manifest still points at the PREVIOUS round's quote token, which the new\n" +
+    "     registry has not allowlisted. Read the address from the deploy log's\n" +
+    "     'USDG           :' line and set quoteAssets[].address by hand, or re-run the\n" +
+    "     deploy so the create is recorded.\n",
+  );
+}
 if (quoteSrc.found) {
   const usdg = pickNth("MockQuoteToken", 0, quoteSrc);
   const xnvda = pickNth("MockQuoteToken", 1, quoteSrc);
