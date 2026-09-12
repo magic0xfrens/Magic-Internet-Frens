@@ -400,6 +400,61 @@ contract RedemptionExt is CauldronBase {
 
         // 3. Redeploy immediately into the destination pair, opening it on the
         //    first slice and topping it up on every later one.
+        //
+        //  ── openOrAddPair MINTS, IT NEVER INCREASES (red-team LEG-01) ───────
+        //  {PoolOps.openOrAddPair}'s header says it "adds to" an existing pair,
+        //  and it does — to the POOL. But `_seedActive` (PoolOps.sol:759) issues
+        //  `MINT_POSITION` unconditionally, so every slice receives a BRAND NEW
+        //  PositionManager NFT. `_recordLeg` upserts by quote, so it then
+        //  OVERWROTE `legs[i].positionId` and the previous NFT was left owned by
+        //  this registry with its full liquidity and NOTHING referencing it.
+        //
+        //  That was unrecoverable, not merely untidy. `recoverLegs`,
+        //  `recoverLegsAtTeardown` and `_recoverLegs` all iterate
+        //  `generationLegs[gen]`, which holds exactly ONE entry per quote — the
+        //  latest — and no function on this facet or on the registry takes an
+        //  arbitrary `positionId`. So the orphans could never be unwound by
+        //  anyone at any privilege level.
+        //
+        //  MEASURED ON SEPOLIA r40 (gen 1, ETH -> USDG, one full 30,000-bps
+        //  envelope = 12 slices of 25%): positions 39263..39273 orphaned holding
+        //  643.02 USDG, position 39274 tracked holding 6.32 — 99.0% of the
+        //  rotated treasury stuck forever. The defect got WORSE the better the
+        //  rotation worked: a single-slice rotation was fine, which is why
+        //  nothing caught it.
+        //
+        //  THE FIX IS ONE POSITION PER LEG, ALWAYS. Before redeploying, the
+        //  leg's existing position is UNWOUND IN FULL ({PoolOps.removeAll} —
+        //  which burns the NFT and measures both sides by balance delta, fees
+        //  included) and its proceeds are folded into this slice's mint. The
+        //  destination therefore carries exactly one live position at all times
+        //  and the leg book can never lose a reference.
+        //
+        //  Deliberately NOT done by teaching `openOrAddPair` to
+        //  `INCREASE_LIQUIDITY` on a passed id (that library belongs to another
+        //  claim and its signature has ~30 call sites), and deliberately NOT
+        //  done by making `generationLegs` a LIST of ids per quote: that would
+        //  put a caller-growable loop inside `recoverLegsAtTeardown`, the one
+        //  path that must never run out of gas (B-10 / pass-7).
+        //
+        //  `moved` stays the amount THIS SLICE rotated — the folded-in leg is
+        //  not new movement and must not be reported as such to the governor's
+        //  consumer or to the UI.
+        uint256 addQuote = moved;
+        uint256 addToken = tokenOut;
+        (uint256 priorId, PoolKey memory priorKey) = _legPosition(gen, toQuote);
+        if (priorId != 0) {
+            //  Not try/catch: if the existing leg cannot be unwound, this slice
+            //  must NOT proceed to mint a second position beside it — that is
+            //  precisely the state being fixed. A reverted slice burns no
+            //  envelope (`consume` is below) and costs nothing but gas.
+            (uint256 pq, uint256 pt) = PoolOps.removeAll(
+                IPositionManagerOps(address(positionManager)), priorId, priorKey, token
+            );
+            addQuote += pq;
+            addToken += pt;
+        }
+
         PoolId poolId;
         (poolId, positionId) = PoolOps.openOrAddPair(
             poolManager,
@@ -407,8 +462,8 @@ contract RedemptionExt is CauldronBase {
             address(hook),
             token,
             toQuote,
-            moved,
-            tokenOut,
+            addQuote,
+            addToken,
             TICK_SPACING,
             POOL_FEE
         );
@@ -688,12 +743,39 @@ contract RedemptionExt is CauldronBase {
         return (l.quote, l.positionId, l.key);
     }
 
+    /// @dev The position a leg currently holds for `quote`, with the key it was
+    ///      recorded under, or (0, empty) if this quote has no leg yet.
+    ///
+    ///  The STORED key, not a reconstructed one: it is what every recovery path
+    ///  settles the position with, so unwinding it here must use the same one or
+    ///  the two disagree about which two currencies the position holds.
+    function _legPosition(uint256 gen, address quote)
+        private
+        view
+        returns (uint256 positionId, PoolKey memory key)
+    {
+        TreasuryLeg[] storage legs = generationLegs[gen];
+        uint256 n = legs.length;
+        for (uint256 i; i < n; ++i) {
+            if (legs[i].quote == quote) return (legs[i].positionId, legs[i].key);
+        }
+    }
+
     /// @dev Upsert a leg by quote. See the call site for why it is not an append.
     function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private {
         TreasuryLeg[] storage legs = generationLegs[gen];
         uint256 n = legs.length;
         for (uint256 i; i < n; ++i) {
-            if (legs[i].quote == quote) { legs[i].positionId = positionId; return; }
+            //  EMITTED ON UPDATE TOO. Every slice retires the leg's previous NFT
+            //  and mints a replacement (see step 3 of `rotateSliceFrom`), so an
+            //  indexer that only saw the first `LegOpened` would hold a BURNED
+            //  position id for the rest of the rotation. The event is the only
+            //  window onto the current one.
+            if (legs[i].quote == quote) {
+                legs[i].positionId = positionId;
+                emit LegOpened(gen, quote, positionId);
+                return;
+            }
         }
         legs.push(TreasuryLeg({quote: quote, positionId: positionId, key: key}));
         emit LegOpened(gen, quote, positionId);
