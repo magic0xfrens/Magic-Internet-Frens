@@ -83,6 +83,13 @@ const GOVERNOR_ABI = [
 /** `rotateSlice` takes the venue as a full PoolKey, so the tuple must match. */
 const REGISTRY_GEN_ABI = [
   { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  //  THE GENERATION'S OWN QUOTE. The primary leg is denominated in this — NOT in
+  //  `envelope().quote`, which is the rotation's DESTINATION. Seeding leg 0 from
+  //  the envelope made the source picker render "USDG primary / USDG leg" during
+  //  an ETH→USDG rotation: the one asset you cannot rotate into, shown twice,
+  //  with the asset actually being sold nowhere on screen.
+  { type: "function", name: "generationQuote", stateMutability: "view",
+    inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
 ] as const;
 
 export const REGISTRY_ROTATE_ABI = [
@@ -292,8 +299,16 @@ export function useTreasuryRotation() {
         address: CAULDRON.registry, abi: REGISTRY_GEN_ABI, functionName: "currentGeneration",
       }).catch(() => 0n) as bigint;
 
+      //  Falls back to native ETH when the read fails, which is what every
+      //  generation before multi-quote was denominated in — and is still wrong
+      //  to guess silently, so it is the ONLY fallback and it is stated here.
+      const genQuote = await pc.readContract({
+        address: CAULDRON.registry, abi: REGISTRY_GEN_ABI,
+        functionName: "generationQuote", args: [gen],
+      }).catch(() => NATIVE_QUOTE) as Address;
+
       const legs: TreasuryLeg[] = [
-        { index: 0, quote: envelope[0], positionId: 0n, isPrimary: true },
+        { index: 0, quote: genQuote, positionId: 0n, isPrimary: true },
       ];
       try {
         const n = await pc.readContract({

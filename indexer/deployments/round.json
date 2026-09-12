@@ -1,7 +1,7 @@
 {
   "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
   "round": 40,
-  "schema": "cauldron_r40f",
+  "schema": "cauldron_r40g",
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
@@ -40,7 +40,7 @@
       "symbol": "ETH",
       "name": "Ether",
       "decimals": 18,
-      "glyph": "\u039e",
+      "glyph": "Ξ",
       "blurb": "The default. Deepest liquidity, and the only pair perps support today."
     },
     {

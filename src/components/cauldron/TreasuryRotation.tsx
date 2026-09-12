@@ -441,8 +441,18 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
                 On the table now
                 {gov.proposals.filter((p) => p.open).length > 1 && " — they compete, the leader wins"}
               </label>
+              {/*  RANKED BY FOR-VOTES, because that is how `execute` picks.
+                   Filing order is not the contest; showing it as the order
+                   implies a queue, and this is a race. Ties fall back to the
+                   older proposal so the list does not reshuffle on every poll. */}
               <ul className="tr-ballots">
-                {gov.proposals.filter((p) => p.open || p.executable).map((p) => (
+                {gov.proposals
+                  .filter((p) => p.open || p.executable)
+                  .sort((a, b) =>
+                    a.forVotes === b.forVotes
+                      ? a.createdTs - b.createdTs
+                      : (b.forVotes > a.forVotes ? 1 : -1))
+                  .map((p) => (
                   <Ballot key={p.id} p={p} leader={gov.leader} col={col} busy={busy}
                           onVote={castVote} onExecute={runExecute} since={since} />
                 ))}

@@ -2249,6 +2249,14 @@ function Styles() {
     .tr-vote--against:hover:not(:disabled) { border-color: rgba(248,113,113,0.45); color: #f87171; }
     .tr-ballot__exec { margin-top: 10px; width: 100%; }
 
+    /* The ritual button is absolutely-positioned glow furniture, so the
+       paragraph after it rode up underneath and the two overlapped. Give the
+       button real bottom margin inside the desk rather than padding the text,
+       which would only move the collision. */
+    .tc-rot .tc-btn--ritual { margin-bottom: 16px; }
+    .tc-rot .tc-btn--ritual + .tr-note { margin-top: 4px; }
+    .tr-legs { margin-bottom: 14px; }
+
     .tr-top { display: grid; grid-template-columns: 168px 1fr; gap: 22px; align-items: start; }
     @media (max-width: 720px) { .tr-top { grid-template-columns: 1fr; } }
 
