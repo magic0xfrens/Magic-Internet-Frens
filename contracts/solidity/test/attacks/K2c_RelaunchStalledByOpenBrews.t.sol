@@ -117,8 +117,12 @@ contract K2c_RelaunchStalledByOpenBrews is Test {
 
         assertTrue(hasBefore, "before: the guild's settled mandate is available");
         assertEq(winnerBefore, good, "before: it is the winner");
-        assertFalse(hasAfter, "ATTACK: hasProposals() is FALSE with a settled mandate on file");
-        assertEq(winnerAfter, 0, "ATTACK: winner() reverts NoProposals -> relaunch() reverts NoProposal()");
-        assertEq(winnerLater, firstJunk, "ATTACK: the attacker's brew is what the machine is reborn as");
+        assertTrue(hasAfter, "FIXED: hasProposals() still sees the settled mandate, so relaunch() runs");
+        assertEq(winnerAfter, good, "FIXED: the guild's settled brew is still the winner");
+        // Once the attacker's OWN window closes their brew does outrank the
+        // guild's on votes (301 > 300) — that is honest governance, not the bug.
+        // The bug was that relaunch() was unrunnable in the window BEFORE that,
+        // when the guild's brew was the only settled mandate on file.
+        assertEq(winnerLater, firstJunk, "a settled brew with more votes may win on the merits");
     }
 }

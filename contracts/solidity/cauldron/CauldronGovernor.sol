@@ -687,19 +687,46 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
     /// @dev Keep `id` on the bench if it out-weighs the weakest thing already
     ///      there. See {_bench}. O(BENCH_SLOTS) and only on the first vote that
     ///      reaches an untracked proposal.
+    ///
+    ///  ── A SETTLED BREW IS EVICTED LAST (red-team T2c) ──────────────────────
+    ///  This ranked purely on raw `votes`. `_benchRecord` is reached from {vote},
+    ///  and {vote} reverts `VotingClosed` past `votingEndsAt` (:652) — so every
+    ///  CANDIDATE is still OPEN, and {_recomputeLeader} skips open proposals
+    ///  entirely. Ranking the two together let eight open filings from one wallet
+    ///  push a SETTLED, unconsumed brew off all eight slots: `hasProposals()`
+    ///  went false with a real mandate on file, `CauldronRegistry.relaunch`
+    ///  reverted `NoProposal()`, the evicted brew could never be re-benched
+    ///  because voting had closed on it, and once the junk settled the machine
+    ///  was reborn as the attacker's brew. Gas only, plus out-voting the guild.
+    ///
+    ///  The rule is now an ORDER, not a weight: prefer to evict a slot that is
+    ///  not a settled, unconsumed candidate over one that is. A settled entry is
+    ///  displaced only when EVERY slot holds one — so the bench cannot freeze —
+    ///  and even then only by strictly more votes, exactly as before.
     function _benchRecord(uint256 id, uint256 votes) private {
         uint256 weakSlot;
         uint256 weakVotes = type(uint256).max;
+        bool weakProtected = true;
         for (uint256 i; i < BENCH_SLOTS; ++i) {
             uint256 b = _bench[i];
             if (b == id) return;                       // already tracked
             uint256 v;
+            bool prot;
             if (b != 0) {
                 Proposal storage q = _proposals[b];
                 //  A consumed or vanished entry is dead weight, not a mandate.
-                if (q.exists && !q.consumed) v = q.votes;
+                if (q.exists && !q.consumed) {
+                    v = q.votes;
+                    //  Exactly the entries {_recomputeLeader} is willing to elect.
+                    prot = block.timestamp > q.votingEndsAt;
+                }
             }
-            if (v < weakVotes) { weakVotes = v; weakSlot = i; }
+            //  Lexicographic: unprotected beats protected, then fewer votes.
+            if (weakProtected != prot ? !prot : v < weakVotes) {
+                weakVotes = v;
+                weakSlot = i;
+                weakProtected = prot;
+            }
         }
         if (votes > weakVotes) _bench[weakSlot] = id;
     }
