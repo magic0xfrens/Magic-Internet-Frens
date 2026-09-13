@@ -30,6 +30,23 @@ contract FixedCurve is ICurvePolicy {
 contract MockOpenCount {
     uint256 public openCount;
     function set(uint256 v) external { openCount = v; }
+
+    //  MUST MIRROR THE REAL ENGINE'S DECISION, not just expose `openCount`.
+    //  `CauldronHook._linkVolume` asks the ENGINE whether a link is blocked
+    //  (`blocksVolumeLink`, CauldronHook.sol:1626) rather than reading
+    //  `openCount` and deciding for itself — the judgement moved to the engine
+    //  when the liquidity-weighted mark landed, because an open book only
+    //  forbids a second pool while the engine still reads a SINGLE pool's tick.
+    //
+    //  Without this the staticcall hits a function the mock does not have,
+    //  reverts with NO data, and `vm.expectRevert(PerpsOpen.selector)` fails as
+    //  "reverted as expected, but without data" — which reads like a protocol
+    //  regression and is really just a mock that fell behind the interface.
+    //  `markSource` is unset on this mock, so the real engine's
+    //  `openCount != 0 && markSource == address(0)` reduces to `openCount != 0`.
+    function blocksVolumeLink() external view returns (bool) {
+        return openCount != 0;
+    }
 }
 
 /// Always-dead checker (for testing the module override).
