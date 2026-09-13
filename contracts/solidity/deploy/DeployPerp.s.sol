@@ -5,6 +5,10 @@ import {Script, console2} from "forge-std/Script.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PerpEngine} from "../cauldron/PerpEngine.sol";
 import {PerpVault} from "../cauldron/PerpVault.sol";
+import {PerpMarkSource} from "../cauldron/PerpMarkSource.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 
 interface IHookWire {
     function setPerpEngine(address engine) external;
@@ -18,6 +22,13 @@ interface IPerpVaultDeposit {
 }
 interface IOwnable {
     function transferOwnership(address newOwner) external;
+}
+interface IRegistryGen {
+    function currentGeneration() external view returns (uint256);
+    function generationPoolKey(uint256 gen)
+        external
+        view
+        returns (Currency currency0, Currency currency1, uint24 fee, int24 tickSpacing, IHooks hooks);
 }
 
 /**
@@ -168,7 +179,44 @@ contract DeployPerp is Script {
         //    3. only then add siblings via `markSource.addPool(...)`
         //  On every relaunch, call `setPrimary` again — it re-points the mark and
         //  clears the previous generation's siblings.
+        //  ── ARM THE WEIGHTED MARK AT DEPLOY, NOT "LATER" ────────────────────
+        //  DEPLOY_MARK_SOURCE builds one here and points it at the live pool.
+        //  Two reasons this is worth doing even on a single-pool generation,
+        //  where the weighted tick is IDENTICAL to the primary's:
+        //
+        //   1. `PerpEngine.blocksVolumeLink()` is
+        //      `openCount != 0 && markSource == address(0)`, and
+        //      `CauldronHook.linkVolume` reverts `PerpsOpen()` on it. With no mark
+        //      source, ONE open perp position — a dust position costing well under
+        //      a thousandth of an ETH — blocks every `linkVolume`, and
+        //      `RedemptionExt.rotateSliceFrom` calls `linkVolume` on every slice.
+        //      A governance-approved treasury rotation could therefore be held
+        //      hostage indefinitely for almost nothing, and no reachable call
+        //      closes a SOLVENT position to clear it. Arming the mark removes the
+        //      hazard the interlock exists to guard, so the interlock stands down.
+        //   2. It must be armed BEFORE a second pool carries depth (see the
+        //      sequencing note above). Doing it at deploy is the only point where
+        //      that ordering is guaranteed; afterwards the engine is owned by the
+        //      timelock and it becomes a scheduled proposal nobody remembers.
+        //
+        //  Safe by construction on a fresh generation: with only the primary in
+        //  the set, `weightedTick()` returns the primary's tick, so liquidation
+        //  behaviour is byte-for-byte what it was before.
         address markSource = vm.envOr("PERP_MARK_SOURCE", address(0));
+        if (markSource == address(0) && vm.envOr("DEPLOY_MARK_SOURCE", false)) {
+            PerpMarkSource ms = new PerpMarkSource(IPoolManager(poolManager), deployer);
+            uint256 gen = IRegistryGen(registry).currentGeneration();
+            (Currency c0, Currency c1, uint24 fee, int24 spacing, IHooks hk) =
+                IRegistryGen(registry).generationPoolKey(gen);
+            //  A generation that has not summoned has a zero pool key, and
+            //  `setPrimary` would arm the mark at a pool that does not exist —
+            //  every `weightedTick()` would then read an uninitialised slot0.
+            //  Refuse rather than arm something meaningless.
+            require(address(hk) != address(0), "no live pool: run DeployPerp AFTER the summon");
+            ms.setPrimary(PoolKey(c0, c1, fee, spacing, hk));
+            markSource = address(ms);
+            console2.log("PerpMarkSource :", markSource, "(armed at gen)", gen);
+        }
         //  WIRE THE QUOTE ORACLE UNCONDITIONALLY (red-team F-03). {PerpEngine._q}
         //  prices its wei-written thresholds — the dust filter, the insurance
         //  circuit breaker and the leverage tiers — through this oracle. Without it
@@ -198,6 +246,13 @@ contract DeployPerp is Script {
             IHookWire(hook).setPerpEngine(address(engine)); // ensure wired pre-handoff
             IOwnable(hook).transferOwnership(timelock);
             IOwnable(address(engine)).transferOwnership(timelock);
+            //  The mark source governs what price liquidations fire at, so it is
+            //  custody-relevant and goes to the timelock with everything else.
+            //  Only when WE deployed it — a caller-supplied PERP_MARK_SOURCE is
+            //  somebody else's contract and may already be owned correctly.
+            if (markSource != address(0) && vm.envOr("DEPLOY_MARK_SOURCE", false)) {
+                IOwnable(markSource).transferOwnership(timelock);
+            }
             console2.log("hook + engine owner -> timelock:", timelock);
         }
 

@@ -241,16 +241,33 @@ export const GOVERNOR_ABI = [
   {
     type: "function", name: "getProposal", stateMutability: "view",
     inputs: [{ type: "uint256" }],
+    //  ── THIS TUPLE MUST MATCH THE STRUCT EXACTLY, FIELD FOR FIELD ──────────
+    //  viem decodes a tuple POSITIONALLY against whatever components are
+    //  declared here, so a missing field does not error — it silently shifts
+    //  every field after it and returns confident nonsense. This list was short
+    //  by two (`quote` and `votingEndsAt`) and, measured against the live r43
+    //  governor, that made `getProposal(1)` decode as nftSupply 0 (really 3333),
+    //  proposer 0x0 (really 0xC944...) and votes 1.149e48 (really 1111). The
+    //  proposal cards were rendering that. `loadProposals` wraps the read in
+    //  `.catch(() => null)`, so there was nothing in the console either.
+    //
+    //  If you add a field to `Proposal` in CauldronGovernor.sol, add it here in
+    //  the same position, and check it against:
+    //    forge inspect CauldronGovernor abi | jq '.[]|select(.name=="getProposal")'
     outputs: [{
       type: "tuple",
       components: [
         { name: "name", type: "string" }, { name: "symbol", type: "string" },
         { name: "mode", type: "uint8" }, { name: "baseURI", type: "string" },
         { name: "renderer", type: "address" }, { name: "website", type: "string" },
-        { name: "socials", type: "string" }, { name: "nftSupply", type: "uint256" },
+        { name: "socials", type: "string" },
+        { name: "logo", type: "string" }, { name: "banner", type: "string" },
+        { name: "quote", type: "address" },
+        { name: "nftSupply", type: "uint256" },
         { name: "volumePerNFT", type: "uint256" },
         { name: "proposer", type: "address" }, { name: "votes", type: "uint256" },
-        { name: "snapshot", type: "uint256" }, { name: "consumed", type: "bool" },
+        { name: "snapshot", type: "uint256" }, { name: "votingEndsAt", type: "uint256" },
+        { name: "consumed", type: "bool" },
         { name: "exists", type: "bool" },
       ],
     }],
@@ -282,6 +299,23 @@ export const GOVERNOR_ABI = [
       { name: "volumePerNFT", type: "uint256" },
       // The asset this brew's token is PRICED IN (0 = native ETH). Validated
       // against the registry's allowlist on-chain, at propose AND at relaunch.
+      { name: "quote", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    // WITH BREW ART. Third overload; viem still picks by argument count. `logo`
+    // and `banner` are display-only — they are stored on the proposal and never
+    // reach `BrewSpec`, so they cannot change what `relaunch()` constructs.
+    type: "function", name: "propose", stateMutability: "nonpayable",
+    inputs: [
+      { name: "name", type: "string" }, { name: "symbol", type: "string" },
+      { name: "mode", type: "uint8" }, { name: "baseURI", type: "string" },
+      { name: "renderer", type: "address" }, { name: "website", type: "string" },
+      { name: "socials", type: "string" },
+      { name: "logo", type: "string" }, { name: "banner", type: "string" },
+      { name: "nftSupply", type: "uint256" },
+      { name: "volumePerNFT", type: "uint256" },
       { name: "quote", type: "address" },
     ],
     outputs: [{ type: "uint256" }],

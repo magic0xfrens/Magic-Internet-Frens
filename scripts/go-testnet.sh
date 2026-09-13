@@ -128,6 +128,53 @@ else
 say "4/5  igniteCauldron -> summon"
 cast send "$PRESALE" "igniteCauldron()" "${W[@]}" >/dev/null
 
+# ── 4a. PERP STACK ──────────────────────────────────────────────────────────
+#  DeployPerp used to be a MANUAL step run from a runbook after this script
+#  finished. That is the same shape the script's own comments warn about — "a
+#  pending manual step behind an ownership transfer is a step that silently never
+#  runs" — and it is why r31 shipped with `twapWindow == 300` and why every round
+#  so far has shipped with NO mark source and NO quote oracle on the engine.
+#
+#  DEPLOY_MARK_SOURCE matters beyond multi-pool marks: `blocksVolumeLink()` is
+#  `openCount != 0 && markSource == address(0)`, and `CauldronHook.linkVolume`
+#  reverts `PerpsOpen()` on it. With no mark source, a single dust perp position
+#  — measured at 0.000744 ETH in
+#  test/attacks/S0x_RotationPerpHostage.t.sol — holds a governance-approved
+#  treasury rotation hostage indefinitely, and nothing reachable closes a SOLVENT
+#  position to clear it. Arming the mark removes the hazard the interlock guards,
+#  so the interlock stands down. Same test file proves the fix
+#  (test_S0x_FIXED_WeightedMarkLetsTheApprovedRotationProceed).
+say "4a/5 deploying the perp stack (engine, vault, mark source)"
+addr_of() { grep -oE "$1 *: 0x[0-9a-fA-F]{40}" /tmp/deploy-out.txt | tail -1 | grep -oE "0x[0-9a-fA-F]{40}"; }
+HOOK=$(addr_of "CauldronHook")
+REGISTRY=$(addr_of "CauldronRegistry")
+DIVIDEND=$(addr_of "MiFrensDividend")
+TIMELOCK=$(grep -oE "timelock \(reg emergencyAdmin[^:]*: 0x[0-9a-fA-F]{40}" /tmp/deploy-out.txt | tail -1 | grep -oE "0x[0-9a-fA-F]{40}")
+QUOTE_ORACLE=$(addr_of "QuoteOracle")
+echo "   hook=$HOOK registry=$REGISTRY dividend=$DIVIDEND"
+echo "   timelock=$TIMELOCK quoteOracle=$QUOTE_ORACLE"
+
+if [ -n "$HOOK" ] && [ -n "$REGISTRY" ] && [ -n "$DIVIDEND" ]; then
+  ( cd contracts/solidity
+    FOUNDRY_PROFILE=cauldron \
+    PRIVATE_KEY="$PK" \
+    POOL_MANAGER=0xE03A1074c86CFeDd5C142C4F04F1a1536e203543 \
+    HOOK="$HOOK" REGISTRY="$REGISTRY" PRESALE="$PRESALE" DIVIDEND="$DIVIDEND" \
+    TIMELOCK="$TIMELOCK" QUOTE_ORACLE="$QUOTE_ORACLE" \
+    DEPLOY_MARK_SOURCE=true \
+    PERP_WARMUP="${PERP_WARMUP:-60}" \
+    TWAP_WINDOW="${TWAP_WINDOW:-5}" \
+    INSURANCE_SEED_WEI="${INSURANCE_SEED_WEI:-60000000000000000}" \
+    PLV_SEED_ETH="${PLV_SEED_ETH:-0}" \
+    forge script deploy/DeployPerp.s.sol --tc DeployPerp \
+      --rpc-url "$R" --private-key "$PK" --broadcast --slow
+  ) 2>&1 | tee /tmp/perp-out.txt | grep -E "^  [A-Za-z]+ *:|SUCCESSFUL" || true
+  PERP_ENGINE=$(grep -oE "PerpEngine *: 0x[0-9a-fA-F]{40}" /tmp/perp-out.txt | tail -1 | grep -oE "0x[0-9a-fA-F]{40}")
+  echo "   engine=$PERP_ENGINE"
+else
+  echo "   SKIPPED — could not parse the launchpad addresses from /tmp/deploy-out.txt"
+fi
+
 #  ── ADOPT THE NEW GENERATION ON THE PERP ENGINE ─────────────────────────────
 #  The engine is deployed BEFORE the summon, so `syncedToken` is still zero when
 #  the pool is born. That is not cosmetic: `PerpSwapLib.swap` derives the swap

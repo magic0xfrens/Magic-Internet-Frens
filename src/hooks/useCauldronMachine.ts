@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePoll } from "@/hooks/usePoll";
-import { formatEther, parseEther, keccak256, encodeAbiParameters, type Address } from "viem";
+import { formatEther, parseEther, keccak256, encodeAbiParameters, toFunctionSelector, type Address } from "viem";
 import {
   useAccount,
   usePublicClient,
@@ -26,6 +26,10 @@ export interface Proposal {
   theme: string;
   website?: string;
   socials?: string;
+  /** Display-only brew art from the proposal. Never reaches the minted collection. */
+  logo?: string;
+  banner?: string;
+  votingEndsAt?: number;
   proposer: Address;
   votes: number;
   consumed: boolean;
@@ -327,6 +331,7 @@ export function useCauldronMachine() {
   const propose = useCallback(async (p: {
     name: string; symbol: string; nftSupply: number; mintOutEth: number;
     renderer?: string; baseURI?: string; website?: string; socials?: string;
+    logo?: string; banner?: string;
       /** What the brew is PRICED IN. Omit for native ETH. */
       quote?: string;
   }): Promise<`0x${string}`> => {
@@ -356,19 +361,46 @@ export function useCauldronMachine() {
       supportsQuote = true;
     } catch { supportsQuote = false; }
 
+    //  DOES THIS GOVERNOR TAKE BREW ART? Probed against the deployed BYTECODE
+    //  rather than by trying the call, because every other way of asking is
+    //  ambiguous: a `simulateContract` on the 12-arg overload also reverts when
+    //  the caller simply holds no MiFren, and reading `getProposal` tells us
+    //  nothing when no proposal exists yet. A selector is either in the code or
+    //  it is not.
+    //
+    //  This matters because viem selects the overload by ARGUMENT COUNT. Sending
+    //  logo/banner to a governor deployed before they existed would encode a
+    //  selector that contract has no dispatch for, and the whole propose reverts
+    //  with no reason string — which reads to the user as "proposing is broken".
+    let supportsArt = false;
+    try {
+      const code = await publicClient!.getCode({ address: CAULDRON.governor });
+      const sel = toFunctionSelector(
+        "propose(string,string,uint8,string,address,string,string,string,string,uint256,uint256,address)",
+      ).slice(2);
+      supportsArt = !!code && code.toLowerCase().includes(sel.toLowerCase());
+    } catch { supportsArt = false; }
+
     const baseArgs = [
       p.name, p.symbol.toUpperCase(),
       useRenderer ? 1 : 0, // 1 = Renderer, 0 = BaseURI
       useRenderer ? "" : (p.baseURI || "https://mifrens.xyz/api/cauldron/"),
       (useRenderer ? p.renderer! : "0x0000000000000000000000000000000000000000") as Address,
-      p.website ?? "", p.socials ?? "", supply, perNft,
+      p.website ?? "", p.socials ?? "",
     ] as const;
+    //  Art is sent only when the governor actually accepts it. viem picks the
+    //  overload by argument count, so appending logo/banner to a call aimed at
+    //  an older governor would select a signature that does not exist there and
+    //  revert with no reason string.
+    const artArgs = [p.logo ?? "", p.banner ?? ""] as const;
 
     return writeContractAsync({
       address: CAULDRON.governor, abi: GOVERNOR_ABI, functionName: "propose",
-      args: (supportsQuote
-        ? [...baseArgs, (p.quote ?? "0x0000000000000000000000000000000000000000") as Address]
-        : baseArgs) as never,
+      args: (supportsArt
+        ? [...baseArgs, ...artArgs, supply, perNft, (p.quote ?? "0x0000000000000000000000000000000000000000") as Address]
+        : supportsQuote
+          ? [...baseArgs, supply, perNft, (p.quote ?? "0x0000000000000000000000000000000000000000") as Address]
+          : [...baseArgs, supply, perNft]) as never,
     });
   }, [address, chainId, switchChainAsync, writeContractAsync, publicClient]);
 
@@ -484,13 +516,19 @@ async function loadProposals(pc: PC): Promise<Proposal[]> {
         .catch(() => null)
     ));
     return raw.flatMap((p, i) => {
-      const pr = p as { name: string; symbol: string; mode: number; baseURI: string; renderer: Address; website: string; socials: string; nftSupply: bigint; volumePerNFT: bigint; proposer: Address; votes: bigint; consumed: boolean; exists: boolean } | null;
+      //  FIELDS MUST MATCH THE ON-CHAIN STRUCT — see the note on GOVERNOR_ABI's
+      //  getProposal tuple. This type is only a view onto whatever viem decoded;
+      //  it cannot catch a short ABI, which is how `votes` came to render as
+      //  1.149e48 on r43.
+      const pr = p as { name: string; symbol: string; mode: number; baseURI: string; renderer: Address; website: string; socials: string; logo: string; banner: string; quote: Address; nftSupply: bigint; volumePerNFT: bigint; proposer: Address; votes: bigint; votingEndsAt: bigint; consumed: boolean; exists: boolean } | null;
       if (!pr || !pr.exists || pr.consumed) return [];
       const supply = Number(pr.nftSupply);
       return [{
         id: ids[i], name: pr.name, ticker: pr.symbol,
         theme: pr.website ? `${pr.name} — ${pr.website}` : pr.name,
         website: pr.website || undefined, socials: pr.socials || undefined,
+        logo: pr.logo || undefined, banner: pr.banner || undefined,
+        votingEndsAt: Number(pr.votingEndsAt ?? 0n),
         proposer: pr.proposer, votes: Number(pr.votes), consumed: pr.consumed,
         metaMode: pr.mode === 1 ? "renderer" : "uri",
         metaValue: pr.mode === 1 ? pr.renderer : pr.baseURI,

@@ -218,6 +218,18 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         address renderer;
         string website;     // proposer's site
         string socials;     // community / X link
+        //  ── BREW ART ────────────────────────────────────────────────────
+        //  Display-only, and deliberately NOT part of {BrewSpec}: these never
+        //  reach the registry or the minted collection, so adding them cannot
+        //  change what `relaunch()` constructs. Bounded by MAX_URI_BYTES for
+        //  the same reason every other string here is — an unbounded proposal
+        //  field is a permanent gas cost the protocol replays forever.
+        //
+        //  Cheap on the hot path by construction: {_recomputeLeader} scans via
+        //  `Proposal storage` and reads only votes/flags/timestamps, so these
+        //  are never loaded during the leader scan that `relaunch()` triggers.
+        string logo;        // square brew art, shown on the proposal card
+        string banner;      // wide brew art, shown behind the proposal card
         /// The asset this iteration's token is PRICED IN. `address(0)` is native
         /// ETH, which is the default and every generation to date.
         ///
@@ -425,6 +437,37 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
      * @param renderer On-chain renderer (required if mode == Renderer).
      * @param website  Optional project site.
      * @param socials  Optional community / X link.
+     * @param logo     Optional square brew art (URI). Display only.
+     * @param banner   Optional wide brew art (URI). Display only.
+     */
+    function propose(
+        string calldata name,
+        string calldata symbol,
+        MetadataMode mode,
+        string calldata baseURI,
+        address renderer,
+        string calldata website,
+        string calldata socials,
+        string calldata logo,
+        string calldata banner,
+        uint256 nftSupply,
+        uint256 volumePerNFT,
+        address quote
+    ) external returns (uint256 id) {
+        return _propose(
+            name, symbol, mode, baseURI, renderer, website, socials,
+            logo, banner, nftSupply, volumePerNFT, quote
+        );
+    }
+
+    /**
+     * @notice Art-less overload, kept so every existing caller compiles unchanged.
+     *
+     *  `logo` and `banner` are display-only additions; a proposal without them is
+     *  still a complete, launchable proposal. Forwarding empty strings here means
+     *  adding brew art did not become a breaking API change for anyone already
+     *  integrating — the alternative was editing 81 call sites, which is a worse
+     *  trade than a few hundred bytes in a contract with 16KB spare.
      */
     function propose(
         string calldata name,
@@ -438,6 +481,26 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         uint256 volumePerNFT,
         address quote
     ) external returns (uint256 id) {
+        return _propose(
+            name, symbol, mode, baseURI, renderer, website, socials,
+            "", "", nftSupply, volumePerNFT, quote
+        );
+    }
+
+    function _propose(
+        string memory name,
+        string memory symbol,
+        MetadataMode mode,
+        string memory baseURI,
+        address renderer,
+        string memory website,
+        string memory socials,
+        string memory logo,
+        string memory banner,
+        uint256 nftSupply,
+        uint256 volumePerNFT,
+        address quote
+    ) internal returns (uint256 id) {
         // Only the guild may propose the next brew — you must hold a MiFren
         // (auto-delegated on mint, so voting power is live without a delegate tx).
         if (mifrens.getVotes(msg.sender) == 0) revert NoVotingPower();
@@ -451,6 +514,8 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
                 || bytes(baseURI).length > MAX_URI_BYTES
                 || bytes(website).length > MAX_LINK_BYTES
                 || bytes(socials).length > MAX_LINK_BYTES
+                || bytes(logo).length > MAX_URI_BYTES
+                || bytes(banner).length > MAX_URI_BYTES
         ) revert FieldTooLong();
         if (mode == MetadataMode.BaseURI) {
             if (bytes(baseURI).length == 0) revert EmptyField();
@@ -545,6 +610,8 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
             renderer: renderer,
             website: website,
             socials: socials,
+            logo: logo,
+            banner: banner,
             quote: quote,
             nftSupply: nftSupply,
             volumePerNFT: volumePerNFT,

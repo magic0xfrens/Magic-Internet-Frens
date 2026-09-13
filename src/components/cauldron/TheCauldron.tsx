@@ -760,6 +760,7 @@ export default function TheCauldron() {
   const onPropose = async (p: {
     name: string; symbol: string; nftSupply: number; mintOutEth: number;
     renderer?: string; baseURI?: string; website?: string; socials?: string;
+    logo?: string; banner?: string;
   }) => {
     setBusyPropose(true);
     try {
@@ -1586,7 +1587,7 @@ function RelaunchPanel({ proposals, relaunchAt, busy, col, onRelaunch, onPropose
 }
 function ProposeForm({ busy, onSubmit }: {
   busy: boolean; col: string;
-  onSubmit: (p: { name: string; symbol: string; nftSupply: number; mintOutEth: number; renderer?: string; baseURI?: string; website?: string; socials?: string; quote?: string }) => void;
+  onSubmit: (p: { name: string; symbol: string; nftSupply: number; mintOutEth: number; renderer?: string; baseURI?: string; website?: string; socials?: string; logo?: string; banner?: string; quote?: string }) => void;
 }) {
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -1597,6 +1598,10 @@ function ProposeForm({ busy, onSubmit }: {
   const [baseURI, setBaseURI] = useState("");
   const [website, setWebsite] = useState("");
   const [socials, setSocials] = useState("");
+  //  Brew art. Display-only: stored on the proposal, never passed into BrewSpec,
+  //  so it cannot change what `relaunch()` constructs.
+  const [logo, setLogo] = useState("");
+  const [banner, setBanner] = useState("");
   // What the brew is PRICED IN. Native ETH is the default and is always
   // available — the registry allows it at construction and refuses to remove it.
   const [quote, setQuote] = useState<string>(NATIVE_QUOTE);
@@ -1617,6 +1622,8 @@ function ProposeForm({ busy, onSubmit }: {
     uri: artMode === "uri" ? proposalFieldError("uri", baseURI.trim()) : null,
     website: proposalFieldError("link", website.trim()),
     socials: proposalFieldError("link", socials.trim()),
+    logo: proposalFieldError("uri", logo.trim()),
+    banner: proposalFieldError("uri", banner.trim()),
   };
   const overLimit = Object.values(fieldErrors).some(Boolean);
   const valid = name.trim() && symbol.trim() && nSupply > 0 && nMintOut > 0 && rendererOk && !overLimit;
@@ -1706,6 +1713,16 @@ function ProposeForm({ busy, onSubmit }: {
           <span className="tc-mono tc-dim">X / socials (optional)</span>
           <input value={socials} onChange={(e) => setSocials(e.target.value)} placeholder="@frognation" maxLength={PROPOSAL_LIMITS.link} />
         </label>
+        <label className="tc-propose__field">
+          <span className="tc-mono tc-dim">Logo URL (optional)</span>
+          <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…/logo.png" maxLength={PROPOSAL_LIMITS.uri} />
+          {fieldErrors.logo && <span className="tc-propose__err">{fieldErrors.logo}</span>}
+        </label>
+        <label className="tc-propose__field">
+          <span className="tc-mono tc-dim">Banner URL (optional)</span>
+          <input value={banner} onChange={(e) => setBanner(e.target.value)} placeholder="https://…/banner.png" maxLength={PROPOSAL_LIMITS.uri} />
+          {fieldErrors.banner && <span className="tc-propose__err">{fieldErrors.banner}</span>}
+        </label>
       </div>
 
       <div className="tc-propose__summary tc-mono">
@@ -1722,6 +1739,7 @@ function ProposeForm({ busy, onSubmit }: {
           renderer: artMode === "renderer" ? renderer.trim() : undefined,
           baseURI: artMode === "uri" ? baseURI.trim() : undefined,
           website: website.trim(), socials: socials.trim(),
+          logo: logo.trim(), banner: banner.trim(),
           quote,
         })}
       >
@@ -1774,19 +1792,28 @@ function ProposalModal({ p, leader, busy, onVote, onClose }: { p: Proposal; lead
   const accent = brand?.accent ?? C.lime;
   const site = p.website?.replace(/^https?:\/\//, "");
   const x = p.socials?.replace(/^@|https?:\/\/x\.com\//, "");
+  //  PROPOSER ART WINS over the curated PROPOSAL_BRAND table, which only knows
+  //  tickers we hardcoded — a brand-new brew is never in it. Both fall back to
+  //  the generated fren face, so a proposal with no art still renders a card
+  //  rather than a hole. Only http(s) is accepted: these strings are attacker
+  //  controlled, and `javascript:`/`data:` in an <img src> or a CSS url() is an
+  //  injection vector on a page that holds a connected wallet.
+  const safeArt = (u?: string) => (u && /^https:\/\/|^http:\/\//i.test(u.trim()) ? u.trim() : undefined);
+  const bannerUrl = safeArt(p.banner) ?? brand?.banner;
+  const logoUrl = safeArt(p.logo) ?? brand?.logo;
   return createPortal(
     <div className="tc-pm__scrim" onClick={onClose}>
       <div className="tc-pm" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <button className="tc-pm__x" onClick={onClose} aria-label="Close">✕</button>
         {/* banner */}
-        <div className="tc-pm__banner" style={brand ? { backgroundImage: `url(${brand.banner})` } : { background: `linear-gradient(120deg, ${accent}22, #1b1436)` }}>
+        <div className="tc-pm__banner" style={bannerUrl ? { backgroundImage: `url("${encodeURI(bannerUrl)}")` } : { background: `linear-gradient(120deg, ${accent}22, #1b1436)` }}>
           <span className="tc-pm__gen" style={{ color: accent, borderColor: `${accent}55` }}>
             <span className="tc-pm__dot" style={{ background: accent, boxShadow: `0 0 8px ${accent}` }} /> PROPOSAL · {leader ? "LEADING" : "PENDING"}
           </span>
         </div>
         {/* logo */}
         <div className="tc-pm__logo" style={{ background: brand?.logoBg ?? "#171226", boxShadow: `0 0 0 3px #171226, 0 0 22px ${accent}55` }}>
-          {brand ? <img src={brand.logo} alt={p.name} /> : <FrenFace seed={addrSeed(p.proposer)} size={80} ring="transparent" />}
+          {logoUrl ? <img src={logoUrl} alt={p.name} /> : <FrenFace seed={addrSeed(p.proposer)} size={80} ring="transparent" />}
         </div>
         <div className="tc-pm__body">
           <h2 className="tc-pm__name">{p.name}</h2>
