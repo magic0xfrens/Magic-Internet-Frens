@@ -208,21 +208,37 @@ and reverted the user's swap. That is a subtle, production-only failure.
 especially for a hook that is itself the swapper. Prose about sign conventions is much less
 useful here than three annotated examples.
 
-### 4. v4's chain prerequisites are not stated in deployable terms
+### 4. Please deploy v4 on hackathon partner chains *before* the hackathon
 
-We ported this stack to Arc testnet, which **did not have Uniswap v4 deployed**. So we
-deployed it ourselves ([`DeployV4Core.s.sol`](contracts/solidity/deploy/DeployV4Core.s.sol)),
-and it worked on the first try — which is a real compliment to v4's deployability.
+Our honest biggest wish: **we wish Uniswap had deployed v4 on Arc testnet before this
+hackathon started.**
 
-But before committing to the port we had to answer "can v4 even run here?" ourselves, by
-sending a raw `eth_call` executing `TSTORE`/`TLOAD` and checking the return value. v4
-settles every `unlock` through transient storage, so **EIP-1153 is a hard requirement**,
-and a CREATE2 factory is a second one because hook permissions live in a mined address.
+Arc was a sponsor of the same event, with its own prize track. Our protocol is a v4 hook,
+so "also deploy on Arc" should have been an afternoon of configuration. Instead the first
+question was "is there even a PoolManager here?", the answer was no, and claiming both
+prizes meant **deploying Uniswap v4 core ourselves first**
+([`DeployV4Core.s.sol`](contracts/solidity/deploy/DeployV4Core.s.sol)) before we could
+deploy a single line of our own. Every hook-based project attempting that track faced the
+same tax, and we would guess most of them simply didn't attempt it.
 
-**What would help:** one line in the deployment docs — "v4 requires EIP-1153 and a CREATE2
-factory" — plus a note on `PositionManager`'s constructor arguments that are safely zero
-(`tokenDescriptor` and `weth9` both are, if you settle native directly). That is maybe
-three sentences and it would save every new-chain integrator the same afternoon.
+To be clear about where the credit lies: **it worked on the first try.** PoolManager and
+PositionManager deployed clean, our hook ran on top completely unmodified, and the whole
+thing cost about $0.44 in gas. That is a genuine compliment to how deployable v4 is — the
+problem was purely that nobody had done it yet.
+
+So the request is a process one rather than a code one: when a chain is a sponsor of the
+same hackathon, having canonical v4 addresses published on it beforehand would remove a
+real barrier to hooks being built there. It is a small amount of work for the Foundation
+and it multiplies across every team.
+
+The related documentation gap, since we hit it on the way: before committing to the port we
+had to answer "can v4 even run here?" ourselves, by sending a raw `eth_call` executing
+`TSTORE`/`TLOAD` and checking the return value. v4 settles every `unlock` through transient
+storage, so **EIP-1153 is a hard requirement**, and a CREATE2 factory is a second one
+because hook permissions live in a mined address. One line in the deployment docs — "v4
+requires EIP-1153 and a CREATE2 factory" — plus a note that `PositionManager`'s
+`tokenDescriptor` and `weth9` are safely zero if you settle native directly, would be about
+three sentences and would save every new-chain integrator the same afternoon.
 
 ### 5. Smaller things
 
@@ -246,6 +262,10 @@ In priority order, all of them small:
 4. **Chain prerequisites for v4** — EIP-1153 and CREATE2, stated once, somewhere findable.
 5. **"Deploying v4 core yourself"** — including which `PositionManager` constructor args
    are safely zero.
+
+And one that isn't documentation: **publish canonical v4 addresses on hackathon partner
+chains before the hackathon.** See friction item 4 — this was our single biggest wish, and
+it is the cheapest of everything on this page to fix.
 
 ---
 
