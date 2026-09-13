@@ -568,14 +568,45 @@ contract PerpVault is ReentrancyGuard {
     ///         (includes yield not yet folded into the accumulator).
     function pendingTokYield(address user) external view returns (uint256) {
         uint256 acc = accEthPerTokShare;
+        uint256 eAcc = epochAcc;
+        uint32 ep = yieldEpoch;
         uint256 cum = engine.tokYieldCumulative();
+        uint256 pulled = totalTokYieldPulled;
+        uint256 lost;
+        { uint256 backed = engine.tokYieldEth() + pulled;
+          lost = cum > backed ? cum - backed : 0; }
+        uint256 last = lastTokYieldCum;
+        uint256 shTot = tokShares;
         // Mirrors _syncTokYield exactly: at zero shares the delta is unattributed and
         // is NOT credited to anyone, so the view must not promise it either (H-05).
-        if (cum > lastTokYieldCum && tokShares > 0) acc += FullMath.mulDiv(cum - lastTokYieldCum, ACC, tokShares);
+        //  ── AND IT MIRRORS THE WRITE-OFF TOO (red-team T3b) ────────────────
+        //  A view that reported the pre-write-off nominal while {claimTokYield}
+        //  paid the post-write-off one would be the same lie the bug was, moved
+        //  into the UI. Same detector, same split fold, same epoch line.
+        if (cum != last) {
+            if (shTot != 0) {
+                uint256 cut = pulled + lost;
+                if (lost != 0 && cut > last && cut < cum) {
+                    acc += FullMath.mulDiv(cut - last, ACC, shTot);
+                    eAcc = acc;
+                    acc += FullMath.mulDiv(cum - cut, ACC, shTot);
+                } else {
+                    acc += FullMath.mulDiv(cum - last, ACC, shTot);
+                    if (lost != 0) eAcc = acc;
+                }
+            }
+        } else if (lost != 0) {
+            eAcc = acc;
+        }
+        if (lost != 0) ep++;                       // the bump the next sync will make
+
         uint256 sh = tokShareOf[user];
+        uint256 owed = tokRewardOwed[user];
+        uint256 debt = tokRewardDebt[user];
+        if (stakerEpoch[user] != ep) { owed = 0; debt = FullMath.mulDiv(sh, eAcc, ACC); }
         uint256 earned;
-        if (sh > 0) { uint256 a = FullMath.mulDiv(sh, acc, ACC); if (a > tokRewardDebt[user]) earned = a - tokRewardDebt[user]; }
-        return tokRewardOwed[user] + earned;
+        if (sh > 0) { uint256 a = FullMath.mulDiv(sh, acc, ACC); if (a > debt) earned = a - debt; }
+        return owed + earned;
     }
 
     // ── internal ERC20 helpers ────────────────────────────────────────────────
