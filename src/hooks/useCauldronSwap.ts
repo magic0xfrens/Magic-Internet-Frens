@@ -9,6 +9,7 @@ import {
 } from "wagmi";
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
+import { quoteInForTypedAmount, scaleFloor } from "@/lib/quoteUnits";
 
 /** NativeQuoteZap — ether in, the generation's quote out, to the caller. */
 const ZAP_ABI = [{
@@ -178,32 +179,55 @@ export function useCauldronSwap() {
           address: quote, abi: ERC20_SWAP_ABI, functionName: "balanceOf", args: [address],
         }) as Promise<bigint>;
 
-        let amountIn = (await bal()) as bigint;
+        //  ── SPEND WHAT WAS TYPED, NOT WHAT IS HELD ───────────────────────
+        //  This used to pass the wallet's ENTIRE quote balance as `quoteIn`
+        //  while `minOut` was sized for the typed amount. `_pullQuote`
+        //  (`CauldronGachaRouter._pullQuote`) transferFroms the whole thing and
+        //  the exact-input swap runs to the extreme tick, so nothing comes
+        //  back: a wallet holding 10,000 USDG spent all 10,000 buying 25 USDG
+        //  worth, with a floor covering 0.25% of the size. `quoteExpected` is
+        //  the oracle's conversion of the TYPED ether into this quote's own
+        //  decimals, and that is the only number allowed into the calldata.
+        if (quoteExpected <= 0n) {
+          throw new Error("No oracle price for this quote — refusing to sign an unbounded spend");
+        }
+        const before = (await bal()) as bigint;
+        let delivered: bigint | null = null;
         //  Only zap what is MISSING. A buyer who already holds the quote should
         //  not be forced through a swap (and its fee) to spend it.
-        if (quoteExpected > 0n && amountIn < quoteExpected) {
+        if (before < quoteExpected) {
           if (!CAULDRON.nativeZap) {
             throw new Error(`This round has no zap, so paying in ETH is not possible. Acquire ${quoteSymbol} first.`);
           }
-          const before = amountIn;
           const hash = await zapNativeToQuote(quote, ethIn, quoteExpected);
           await pc!.waitForTransactionReceipt({ hash });
-          amountIn = (await bal()) as bigint;
+          const after = (await bal()) as bigint;
           //  MEASURE what arrived rather than trusting the estimate — the swap
           //  is the thing that decides, and spending a number we predicted is
           //  how a buy ends up reverting inside `transferFrom`.
-          if (amountIn <= before) throw new Error("The zap delivered nothing — refusing to continue");
+          if (after <= before) throw new Error("The zap delivered nothing — refusing to continue");
+          delivered = after - before;
         }
-        if (amountIn === 0n) throw new Error(`No ${quoteSymbol} to spend`);
+        const walletNow = delivered === null ? before : before + delivered;
+        const spend = quoteInForTypedAmount(quoteExpected, delivered, walletNow);
+        if (spend === 0n) throw new Error(`No ${quoteSymbol} to spend`);
+        //  The floor was computed for `quoteExpected` of input. If the zap
+        //  under-delivered we sign less input, so scale the floor down by the
+        //  same ratio — the per-unit price the user accepted is unchanged, and
+        //  it is never raised.
+        const floor = scaleFloor(minOut, spend, quoteExpected);
 
         const current = (await pc!.readContract({
           address: quote, abi: ERC20_SWAP_ABI, functionName: "allowance",
           args: [address, CAULDRON.gachaRouter as Address],
         })) as bigint;
-        if (current < amountIn) {
+        //  BOUNDED TO `spend`. Never an infinite approval, and never the whole
+        //  balance: the allowance is the last line of defence if the calldata
+        //  is ever wrong again.
+        if (current < spend) {
           const hash = await writeContractAsync({
             address: quote, abi: ERC20_SWAP_ABI, functionName: "approve",
-            args: [CAULDRON.gachaRouter as Address, amountIn],
+            args: [CAULDRON.gachaRouter as Address, spend],
           });
           //  WAIT FOR IT. `play` would otherwise race its own approval and
           //  revert inside transferFrom — a failure that reads like a bad trade.
@@ -212,7 +236,7 @@ export function useCauldronSwap() {
         return writeContractAsync({
           address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
           functionName: "play",
-          args: [amountIn, 0n, minOut, 0n, BigInt(openMax)], value: 0n,
+          args: [spend, 0n, floor, 0n, BigInt(openMax)], value: 0n,
           gas: LIQ_SWAP_GAS,
         });
       }
