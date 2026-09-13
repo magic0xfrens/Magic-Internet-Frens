@@ -1,10 +1,10 @@
 {
  "cluster": "governance",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-12T11:37:55",
+ "generated": "2026-09-13T18:22:53",
  "files": {
-  "cauldron/CauldronGovernor.sol": 573,
-  "cauldron/TreasuryGovernor.sol": 950
+  "cauldron/CauldronGovernor.sol": 861,
+  "cauldron/TreasuryGovernor.sol": 993
  },
  "nodes": [
   {
@@ -21,9 +21,61 @@
    "body_lines": []
   },
   {
+   "contract": "IRegistryHook (declared in CauldronGovernor.sol)",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 32,
+   "kind": "function",
+   "name": "hook",
+   "signature": "function hook() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IHookCurve (declared in CauldronGovernor.sol)",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 35,
+   "kind": "function",
+   "name": "curvePolicy",
+   "signature": "function curvePolicy() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "ICurveCalibration (declared in CauldronGovernor.sol)",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 38,
+   "kind": "function",
+   "name": "supply",
+   "signature": "function supply() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IHookCurveBase (declared in CauldronGovernor.sol)",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 43,
+   "kind": "function",
+   "name": "volumePerNFT",
+   "signature": "function volumePerNFT() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 195,
+   "line": 315,
    "kind": "function",
    "name": "renounceOwnership",
    "signature": "function renounceOwnership() public view override onlyOwner",
@@ -34,32 +86,32 @@
    ],
    "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
    "body_lines": [
-    195,
-    197
+    315,
+    317
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 243,
+   "line": 365,
    "kind": "constructor",
    "name": "",
-   "signature": "constructor(address _mifrens) Ownable(msg.sender)",
+   "signature": "constructor(address _mifrens, uint256 _votingPeriod) Ownable(msg.sender)",
    "visibility": "",
    "mutability": "nonpayable",
    "modifiers": [
     "Ownable(msg.sender)"
    ],
-   "body_sha1": "553bff73875d6628c6e82def7ba04bfd67b7098c",
+   "body_sha1": "2162ee5d62d4a73b312997cae33265b71498a212",
    "body_lines": [
-    243,
-    246
+    365,
+    370
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 251,
+   "line": 375,
    "kind": "function",
    "name": "setRegistry",
    "signature": "function setRegistry(address _registry) external onlyOwner",
@@ -70,30 +122,110 @@
    ],
    "body_sha1": "2024a32a88be75b107b7f0d94e16ce96946e8514",
    "body_lines": [
-    251,
-    256
+    375,
+    380
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 280,
+   "line": 391,
+   "kind": "function",
+   "name": "_calibratedSupply",
+   "signature": "function _calibratedSupply() private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b230f7e8fd2b77fd99e9bdaaac19767e775524fd",
+   "body_lines": [
+    391,
+    401
+   ]
+  },
+  {
+   "contract": "CauldronGovernor",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 405,
+   "kind": "function",
+   "name": "_liveHook",
+   "signature": "function _liveHook() private view returns (address)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "922033613eec2279f6a3304d41cb25e66097294e",
+   "body_lines": [
+    405,
+    411
+   ]
+  },
+  {
+   "contract": "CauldronGovernor",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 415,
+   "kind": "function",
+   "name": "_liveCurveBase",
+   "signature": "function _liveCurveBase() private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "a9a951fafc142f65deb4d40fe86cea51c97735b1",
+   "body_lines": [
+    415,
+    421
+   ]
+  },
+  {
+   "contract": "CauldronGovernor",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 443,
+   "kind": "function",
+   "name": "propose",
+   "signature": "function propose( string calldata name, string calldata symbol, MetadataMode mode, string calldata baseURI, address renderer, string calldata website, string calldata socials, string calldata logo, string calldata banner, uint256 nftSupply, uint256 volumePerNFT, address quote ) external returns (uint256 id)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8270b24a993f33760bcba7f4b7e003742a7916ac",
+   "body_lines": [
+    456,
+    461
+   ]
+  },
+  {
+   "contract": "CauldronGovernor",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 472,
    "kind": "function",
    "name": "propose",
    "signature": "function propose( string calldata name, string calldata symbol, MetadataMode mode, string calldata baseURI, address renderer, string calldata website, string calldata socials, uint256 nftSupply, uint256 volumePerNFT, address quote ) external returns (uint256 id)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "6d85c35d634f91371b09c9623a6d09722a34890a",
+   "body_sha1": "df5ef4bcef2fb30996f40e8ee2949ce725f7655d",
    "body_lines": [
-    291,
-    366
+    483,
+    488
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 369,
+   "line": 490,
+   "kind": "function",
+   "name": "_propose",
+   "signature": "function _propose( string memory name, string memory symbol, MetadataMode mode, string memory baseURI, address renderer, string memory website, string memory socials, string memory logo, string memory banner, uint256 nftSupply, uint256 volumePerNFT, address quote ) internal returns (uint256 id)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "206597095d5d8ad76ac5baffd42f04c2a35e38ee",
+   "body_lines": [
+    503,
+    627
+   ]
+  },
+  {
+   "contract": "CauldronGovernor",
+   "file": "cauldron/CauldronGovernor.sol",
+   "line": 630,
    "kind": "function",
    "name": "displayName",
    "signature": "function displayName(uint256 proposalId) external view returns (string memory)",
@@ -102,14 +234,14 @@
    "modifiers": [],
    "body_sha1": "155a9be255686b7f2a18bf527eccddffe5903128",
    "body_lines": [
-    369,
-    373
+    630,
+    634
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 383,
+   "line": 644,
    "kind": "function",
    "name": "vote",
    "signature": "function vote(uint256 proposalId) external",
@@ -118,30 +250,30 @@
    "modifiers": [],
    "body_sha1": "2ef12a37597419495aa02c478b078ddab5edbb53",
    "body_lines": [
-    383,
-    424
+    644,
+    685
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 429,
+   "line": 706,
    "kind": "function",
    "name": "_benchRecord",
    "signature": "function _benchRecord(uint256 id, uint256 votes) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "3cfcd6c482bd8e523b76ed4a1cd7d3890f379ca8",
+   "body_sha1": "96a275ef131d9ea407827cd56fd790891eb102df",
    "body_lines": [
-    429,
-    444
+    706,
+    732
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 451,
+   "line": 739,
    "kind": "function",
    "name": "winner",
    "signature": "function winner() external view returns (uint256 proposalId, BrewSpec memory spec)",
@@ -150,14 +282,14 @@
    "modifiers": [],
    "body_sha1": "5513e4155dc9158324fbf8ce67075894b88ee3ab",
    "body_lines": [
-    451,
-    468
+    739,
+    756
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 470,
+   "line": 758,
    "kind": "function",
    "name": "hasProposals",
    "signature": "function hasProposals() external view returns (bool)",
@@ -166,14 +298,14 @@
    "modifiers": [],
    "body_sha1": "9b0f687cb5cd64653bd56aaeb169c52ec8865c65",
    "body_lines": [
-    470,
-    472
+    758,
+    760
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 475,
+   "line": 763,
    "kind": "function",
    "name": "markConsumed",
    "signature": "function markConsumed(uint256 proposalId) external",
@@ -182,14 +314,14 @@
    "modifiers": [],
    "body_sha1": "c01725ed0fa6c320272624f113fcd0069a24923c",
    "body_lines": [
-    475,
-    506
+    763,
+    794
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 512,
+   "line": 800,
    "kind": "function",
    "name": "getProposal",
    "signature": "function getProposal(uint256 id) external view returns (Proposal memory)",
@@ -198,14 +330,14 @@
    "modifiers": [],
    "body_sha1": "b6060ba3afa1e8a7f1fc367372f89d8bce2e9948",
    "body_lines": [
-    512,
-    516
+    800,
+    804
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 522,
+   "line": 810,
    "kind": "function",
    "name": "_bestUnconsumed",
    "signature": "function _bestUnconsumed() private view returns (uint256)",
@@ -214,14 +346,14 @@
    "modifiers": [],
    "body_sha1": "68fc0e2d5f4878b5d9c631552595667e7a076b43",
    "body_lines": [
-    522,
-    530
+    810,
+    818
    ]
   },
   {
    "contract": "CauldronGovernor",
    "file": "cauldron/CauldronGovernor.sol",
-   "line": 554,
+   "line": 842,
    "kind": "function",
    "name": "_recomputeLeader",
    "signature": "function _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes)",
@@ -230,8 +362,8 @@
    "modifiers": [],
    "body_sha1": "131f2c089a4971b4e54f09239b2a70958b2dae35",
    "body_lines": [
-    554,
-    571
+    842,
+    859
    ]
   },
   {
@@ -366,23 +498,23 @@
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 534,
+   "line": 551,
    "kind": "function",
    "name": "_benchRecord",
    "signature": "function _benchRecord(uint256 id, uint256 votes) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "69fa561714786cab856ac84c5156cf8d304baefe",
+   "body_sha1": "79d7722b775112cdb74f17e7d3f7803b92f461dd",
    "body_lines": [
-    534,
-    550
+    551,
+    577
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 558,
+   "line": 585,
    "kind": "function",
    "name": "execute",
    "signature": "function execute(uint256 id) external",
@@ -391,14 +523,14 @@
    "modifiers": [],
    "body_sha1": "80c2b3a5c3bd093bf4445bc323eb08377680c4f8",
    "body_lines": [
-    558,
-    611
+    585,
+    638
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 616,
+   "line": 643,
    "kind": "function",
    "name": "cancel",
    "signature": "function cancel(uint256 id) external",
@@ -407,14 +539,14 @@
    "modifiers": [],
    "body_sha1": "c7a5e016493edfedd57b64bf40f9f7a630b4c9cf",
    "body_lines": [
-    616,
-    621
+    643,
+    648
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 631,
+   "line": 658,
    "kind": "function",
    "name": "setGuardian",
    "signature": "function setGuardian(address g) external",
@@ -423,14 +555,14 @@
    "modifiers": [],
    "body_sha1": "fd65e99d7286b6f82ca479ffd70469b4c48f0960",
    "body_lines": [
-    631,
-    635
+    658,
+    662
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 667,
+   "line": 694,
    "kind": "function",
    "name": "winner",
    "signature": "function winner() public view returns (uint256 best)",
@@ -439,14 +571,14 @@
    "modifiers": [],
    "body_sha1": "b21b38ae9e50b2fdaaca8725ff7c1792bd4303cd",
    "body_lines": [
-    667,
-    713
+    694,
+    742
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 717,
+   "line": 746,
    "kind": "function",
    "name": "_executable",
    "signature": "function _executable(Proposal storage p) private view returns (bool)",
@@ -455,14 +587,14 @@
    "modifiers": [],
    "body_sha1": "13e0c544b3c86c9fbd6aff712d266e1913370f92",
    "body_lines": [
-    717,
-    722
+    746,
+    751
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 736,
+   "line": 765,
    "kind": "function",
    "name": "_dead",
    "signature": "function _dead(Proposal storage p) private view returns (bool)",
@@ -471,30 +603,30 @@
    "modifiers": [],
    "body_sha1": "716cdaa004fc2fcedfdd22817a2c48fbb30d3fcb",
    "body_lines": [
-    736,
-    739
+    765,
+    768
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 753,
+   "line": 782,
    "kind": "function",
    "name": "allowance",
    "signature": "function allowance() public view returns (address quote, uint16 remainingBps)",
    "visibility": "public",
    "mutability": "view",
    "modifiers": [],
-   "body_sha1": "caf47906ed500c65ab4bf085c461a49f93137648",
+   "body_sha1": "980e6857815aed5e8e58b30d5db97f2d80e619bd",
    "body_lines": [
-    753,
-    778
+    782,
+    820
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 811,
+   "line": 853,
    "kind": "function",
    "name": "migrationMandateSpent",
    "signature": "function migrationMandateSpent() external view returns (bool)",
@@ -503,30 +635,30 @@
    "modifiers": [],
    "body_sha1": "1325b6f35bec2af140d27bcac478352981b0a8ef",
    "body_lines": [
-    811,
-    814
+    853,
+    856
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 827,
+   "line": 869,
    "kind": "function",
    "name": "consume",
    "signature": "function consume(uint16 bps, bool fromPrimary) external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "aa27ae40787b3957bc5b75485ff08868684a51b5",
+   "body_sha1": "05f5b3a30d5341e805e72392e8952fb96820ca88",
    "body_lines": [
-    827,
-    872
+    869,
+    915
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 876,
+   "line": 919,
    "kind": "function",
    "name": "_passed",
    "signature": "function _passed(Proposal storage p) private view returns (bool)",
@@ -535,14 +667,14 @@
    "modifiers": [],
    "body_sha1": "6a150bedcf01350bcc17ef30f3ce34c042d6c3c0",
    "body_lines": [
-    876,
-    889
+    919,
+    932
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 891,
+   "line": 934,
    "kind": "function",
    "name": "_settled",
    "signature": "function _settled(uint256 id) private view returns (bool)",
@@ -551,14 +683,14 @@
    "modifiers": [],
    "body_sha1": "183e173b32e571e3d8ab8bafb95a17e921d8831f",
    "body_lines": [
-    891,
-    894
+    934,
+    937
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 897,
+   "line": 940,
    "kind": "function",
    "name": "passing",
    "signature": "function passing(uint256 id) external view returns (bool)",
@@ -567,14 +699,14 @@
    "modifiers": [],
    "body_sha1": "7ef1f043ff7df34e050f4e01c5c21a6d64a31e20",
    "body_lines": [
-    897,
-    899
+    940,
+    942
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 934,
+   "line": 977,
    "kind": "function",
    "name": "_requirePriceable",
    "signature": "function _requirePriceable(address quote) internal view",
@@ -583,14 +715,14 @@
    "modifiers": [],
    "body_sha1": "5766e9968d3f15505f15f63fa8d74a1165b92de3",
    "body_lines": [
-    934,
-    939
+    977,
+    982
    ]
   },
   {
    "contract": "TreasuryGovernor",
    "file": "cauldron/TreasuryGovernor.sol",
-   "line": 943,
+   "line": 986,
    "kind": "function",
    "name": "setQuoteOracle",
    "signature": "function setQuoteOracle(address o) external",
@@ -599,8 +731,8 @@
    "modifiers": [],
    "body_sha1": "33072ab81d9037e2a3177d2c1b22d21f818caac0",
    "body_lines": [
-    943,
-    947
+    986,
+    990
    ]
   }
  ]

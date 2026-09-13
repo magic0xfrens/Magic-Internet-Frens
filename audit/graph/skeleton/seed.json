@@ -1,9 +1,9 @@
 {
  "cluster": "seed",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-12T11:37:55",
+ "generated": "2026-09-13T18:22:53",
  "files": {
-  "cauldron/CauldronSeeder.sol": 611,
+  "cauldron/CauldronSeeder.sol": 908,
   "cauldron/SeedLib.sol": 147,
   "cauldron/ISeeder.sol": 39,
   "cauldron/MigrationVesting.sol": 376,
@@ -13,7 +13,7 @@
   {
    "contract": "IRegistryOwner (declared in CauldronSeeder.sol)",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 23,
+   "line": 24,
    "kind": "function",
    "name": "owner",
    "signature": "function owner() external view returns (address)",
@@ -26,7 +26,7 @@
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 144,
+   "line": 204,
    "kind": "modifier",
    "name": "lock",
    "signature": "modifier lock()",
@@ -35,14 +35,14 @@
    "modifiers": [],
    "body_sha1": "7b39189ebae1b1469734860d15b0d6291cc36028",
    "body_lines": [
-    144,
-    144
+    204,
+    204
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 145,
+   "line": 205,
    "kind": "modifier",
    "name": "onlyRegistry",
    "signature": "modifier onlyRegistry()",
@@ -51,14 +51,14 @@
    "modifiers": [],
    "body_sha1": "9fc52a1474bebaa55e587b54813691f8e77da6c9",
    "body_lines": [
-    145,
-    145
+    205,
+    205
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 159,
+   "line": 223,
    "kind": "constructor",
    "name": "",
    "signature": "constructor(address _registry, address _positionManager, address _poolManager)",
@@ -67,14 +67,14 @@
    "modifiers": [],
    "body_sha1": "7d63cb42deee379445bcf21643f9e922c57999ab",
    "body_lines": [
-    159,
-    164
+    223,
+    228
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 166,
+   "line": 230,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -83,14 +83,14 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    166,
-    166
+    230,
+    230
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 175,
+   "line": 239,
    "kind": "function",
    "name": "startSeed",
    "signature": "function startSeed(SeederConfig calldata cfg) external payable onlyRegistry lock",
@@ -100,16 +100,16 @@
     "onlyRegistry",
     "lock"
    ],
-   "body_sha1": "bf18360212efb7db36a9036be80956a714905a36",
+   "body_sha1": "30060c36a656727911ba3c5cfeb1ba291b9a7ac2",
    "body_lines": [
-    175,
-    226
+    239,
+    298
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 231,
+   "line": 303,
    "kind": "function",
    "name": "poke",
    "signature": "function poke() external lock",
@@ -118,32 +118,50 @@
    "modifiers": [
     "lock"
    ],
-   "body_sha1": "6c5e7dd5bc200c67ff14d71dd12b92965f4d5100",
+   "body_sha1": "1641c245352d6752606389e74cb2a4be732a86f8",
    "body_lines": [
-    231,
-    242
+    303,
+    330
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 251,
+   "line": 347,
    "kind": "function",
    "name": "fundPrime",
    "signature": "function fundPrime(address to) external payable",
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "56f7dde867349349756be5145ce345a59ac11785",
+   "body_sha1": "f675cec6b329fbca737fe4dd91dc488f78a39696",
    "body_lines": [
-    251,
-    257
+    347,
+    365
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 265,
+   "line": 379,
+   "kind": "function",
+   "name": "refundPrime",
+   "signature": "function refundPrime(address to) external lock",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "lock"
+   ],
+   "body_sha1": "05b36a004c5023c94d634942beeb830ded161fe5",
+   "body_lines": [
+    379,
+    389
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 397,
    "kind": "function",
    "name": "primePending",
    "signature": "function primePending() public view returns (uint256)",
@@ -152,30 +170,30 @@
    "modifiers": [],
    "body_sha1": "a1f373487be3cc2f47e842ad308dfbd53077f177",
    "body_lines": [
-    265,
-    275
+    397,
+    407
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 286,
+   "line": 418,
    "kind": "function",
    "name": "_primeStep",
    "signature": "function _primeStep(uint256 ethIn) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "b0c80b50ab0c3e56844ad2eccb7da702bb252451",
+   "body_sha1": "58854007d7d47d07597ed226e683b73a6364368b",
    "body_lines": [
-    286,
-    302
+    418,
+    460
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 307,
+   "line": 465,
    "kind": "function",
    "name": "pokeInSwap",
    "signature": "function pokeInSwap() external lock",
@@ -184,16 +202,32 @@
    "modifiers": [
     "lock"
    ],
-   "body_sha1": "6a659afdf7c857acde47e34893ef60f419842807",
+   "body_sha1": "9ce7b0f6f24890bc6fadd3d2de2c3e0f56959ad0",
    "body_lines": [
-    307,
-    313
+    465,
+    475
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 316,
+   "line": 494,
+   "kind": "function",
+   "name": "_syncRef",
+   "signature": "function _syncRef() private returns (bool, int24)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "77628c9caf64586b715bbca81bbbac947fda05b3",
+   "body_lines": [
+    494,
+    512
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 515,
    "kind": "function",
    "name": "_pendingStep",
    "signature": "function _pendingStep() private view returns (uint256)",
@@ -202,14 +236,14 @@
    "modifiers": [],
    "body_sha1": "b197e8eaeefebc884c0e724d5bc9a87cc1e58d70",
    "body_lines": [
-    316,
-    323
+    515,
+    522
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 327,
+   "line": 526,
    "kind": "function",
    "name": "_advance",
    "signature": "function _advance(uint256 step) private",
@@ -218,14 +252,14 @@
    "modifiers": [],
    "body_sha1": "36ab78252b3ec8ed83237543c92f2de346d3c40f",
    "body_lines": [
-    327,
-    335
+    526,
+    534
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 341,
+   "line": 540,
    "kind": "function",
    "name": "unlockCallback",
    "signature": "function unlockCallback(bytes calldata data) external returns (bytes memory)",
@@ -234,46 +268,46 @@
    "modifiers": [],
    "body_sha1": "bcc8100d28eec1d2f2e733bc52d6a12e2c84f2f0",
    "body_lines": [
-    341,
-    355
+    540,
+    554
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 363,
+   "line": 562,
    "kind": "function",
    "name": "_placeStep",
    "signature": "function _placeStep(uint256 stepWad) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "bb2991dda67ec0abb1d36f321d0cdd8ff78a2e57",
+   "body_sha1": "e1a68145f806dab2a3e50068542a51ac620944fe",
    "body_lines": [
-    363,
-    413
+    562,
+    641
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 417,
+   "line": 645,
    "kind": "function",
    "name": "_teardown",
    "signature": "function _teardown(address to) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "42aa5ce768c564efd1e1ee9def4148af047ac999",
+   "body_sha1": "1068bce6280e1395439bbcc453d8f87a28ebb1da",
    "body_lines": [
-    417,
-    451
+    645,
+    690
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 462,
+   "line": 701,
    "kind": "function",
    "name": "_placeBase",
    "signature": "function _placeBase() private",
@@ -282,14 +316,14 @@
    "modifiers": [],
    "body_sha1": "4367cb2476d57a4fae4324de466879af241e203b",
    "body_lines": [
-    462,
-    483
+    701,
+    722
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 488,
+   "line": 727,
    "kind": "function",
    "name": "_settle",
    "signature": "function _settle(BalanceDelta d) private",
@@ -298,30 +332,30 @@
    "modifiers": [],
    "body_sha1": "98c5ff315c38a42f7c22784e3330392023303446",
    "body_lines": [
-    488,
-    503
+    727,
+    742
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 536,
+   "line": 798,
    "kind": "function",
    "name": "_reserveRange",
-   "signature": "function _reserveRange(int24 lo, int24 hi, bool isAsk) private returns (int24, int24)",
+   "signature": "function _reserveRange(int24 lo, int24 hi, bool isAsk, int24 tick) private returns (int24, int24)",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "0ea0665dc502f6dc81aa99eda931ee9abd672794",
+   "body_sha1": "922e4471a764e574007ebef78becbd6808a590b2",
    "body_lines": [
-    536,
-    556
+    798,
+    841
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 565,
+   "line": 850,
    "kind": "function",
    "name": "withdrawAll",
    "signature": "function withdrawAll(address to) external onlyRegistry lock returns (uint256 ethOut, uint256 tokenOut)",
@@ -333,14 +367,14 @@
    ],
    "body_sha1": "0bd7f4481e6aa83a44ae517f42ec798b082950a5",
    "body_lines": [
-    565,
-    573
+    850,
+    858
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 597,
+   "line": 888,
    "kind": "function",
    "name": "rescue",
    "signature": "function rescue(address to) external onlyRegistry lock",
@@ -350,16 +384,16 @@
     "onlyRegistry",
     "lock"
    ],
-   "body_sha1": "9ebb312dc49510b68187643eef65f6e10403fa0b",
+   "body_sha1": "832c7a0f443bac7ddcc47ba977c96428400300d7",
    "body_lines": [
-    597,
-    602
+    888,
+    894
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 607,
+   "line": 899,
    "kind": "function",
    "name": "deployedWad",
    "signature": "function deployedWad() external view returns (uint256)",
@@ -368,14 +402,14 @@
    "modifiers": [],
    "body_sha1": "5178bdfbf722617ed10cfc78a968ae10ab2f9e7f",
    "body_lines": [
-    607,
-    607
+    899,
+    899
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 608,
+   "line": 900,
    "kind": "function",
    "name": "rangeCount",
    "signature": "function rangeCount() external view returns (uint256)",
@@ -384,14 +418,14 @@
    "modifiers": [],
    "body_sha1": "c74e6162a823327eeb0cdf08d1e592c377fba975",
    "body_lines": [
-    608,
-    608
+    900,
+    900
    ]
   },
   {
    "contract": "CauldronSeeder",
    "file": "cauldron/CauldronSeeder.sol",
-   "line": 609,
+   "line": 901,
    "kind": "function",
    "name": "isComplete",
    "signature": "function isComplete() external view returns (bool)",
@@ -400,8 +434,24 @@
    "modifiers": [],
    "body_sha1": "8fe8df6e71084c19060bd2638fc9f3e4731791c1",
    "body_lines": [
-    609,
-    609
+    901,
+    901
+   ]
+  },
+  {
+   "contract": "CauldronSeeder",
+   "file": "cauldron/CauldronSeeder.sol",
+   "line": 904,
+   "kind": "function",
+   "name": "priceRef",
+   "signature": "function priceRef() external view returns (int24 refTick, uint64 refBlock)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "846428b3897d1a74f85417094a08ec9b02854e8d",
+   "body_lines": [
+    904,
+    906
    ]
   },
   {

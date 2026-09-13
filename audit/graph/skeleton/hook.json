@@ -1,16 +1,16 @@
 {
  "cluster": "hook",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-12T11:37:55",
+ "generated": "2026-09-13T18:22:52",
  "files": {
-  "CauldronHook.sol": 2546,
+  "CauldronHook.sol": 2573,
   "vendor/BaseHook.sol": 217,
   "vendor/HookMiner.sol": 58,
-  "cauldron/FeeRouteLib.sol": 253,
-  "cauldron/DefaultFeeRouter.sol": 32,
+  "cauldron/FeeRouteLib.sol": 264,
+  "cauldron/DefaultFeeRouter.sol": 50,
   "cauldron/ReserveLib.sol": 108,
-  "cauldron/RoyaltyRouter.sol": 48,
-  "cauldron/LegacyBuyLib.sol": 155
+  "cauldron/RoyaltyRouter.sol": 140,
+  "cauldron/LegacyBuyLib.sol": 340
  },
  "nodes": [
   {
@@ -53,9 +53,22 @@
    "body_lines": []
   },
   {
+   "contract": "IPerpOpenCount (declared in CauldronHook.sol)",
+   "file": "CauldronHook.sol",
+   "line": 53,
+   "kind": "function",
+   "name": "blocksVolumeLink",
+   "signature": "function blocksVolumeLink() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
    "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 54,
+   "line": 57,
    "kind": "function",
    "name": "liquidateInSwap",
    "signature": "function liquidateInSwap(uint256 id, address liquidator) external",
@@ -68,7 +81,7 @@
   {
    "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 55,
+   "line": 58,
    "kind": "function",
    "name": "liquidateManyInSwap",
    "signature": "function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external",
@@ -81,7 +94,7 @@
   {
    "contract": "IPerpEngineLiq (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 56,
+   "line": 59,
    "kind": "function",
    "name": "sweepLiquidations",
    "signature": "function sweepLiquidations(address liquidator) external",
@@ -94,7 +107,7 @@
   {
    "contract": "ICollectionLiquidator (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 61,
+   "line": 64,
    "kind": "function",
    "name": "setLiquidatorMinter",
    "signature": "function setLiquidatorMinter(address minter) external",
@@ -107,7 +120,7 @@
   {
    "contract": "ILegacyNote (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 67,
+   "line": 70,
    "kind": "function",
    "name": "noteLegacyBuy",
    "signature": "function noteLegacyBuy(uint256 tokensBought) external",
@@ -120,7 +133,7 @@
   {
    "contract": "IPerpForceClose (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 72,
+   "line": 75,
    "kind": "function",
    "name": "forceCloseAllDead",
    "signature": "function forceCloseAllDead() external",
@@ -133,7 +146,7 @@
   {
    "contract": "IPerpForceClose (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 73,
+   "line": 76,
    "kind": "function",
    "name": "openCount",
    "signature": "function openCount() external view returns (uint256)",
@@ -146,7 +159,7 @@
   {
    "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 79,
+   "line": 82,
    "kind": "function",
    "name": "creditPerpFee",
    "signature": "function creditPerpFee() external payable",
@@ -159,7 +172,7 @@
   {
    "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 80,
+   "line": 83,
    "kind": "function",
    "name": "creditPerpFeeToken",
    "signature": "function creditPerpFeeToken() external payable",
@@ -172,7 +185,7 @@
   {
    "contract": "IPerpFeeCredit (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 83,
+   "line": 86,
    "kind": "function",
    "name": "creditPerpFeeAsset",
    "signature": "function creditPerpFeeAsset(address asset, uint256 amount) external",
@@ -185,7 +198,7 @@
   {
    "contract": "ISeederInSwap (declared in CauldronHook.sol)",
    "file": "CauldronHook.sol",
-   "line": 90,
+   "line": 93,
    "kind": "function",
    "name": "pokeInSwap",
    "signature": "function pokeInSwap() external",
@@ -198,7 +211,7 @@
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 557,
+   "line": 560,
    "kind": "constructor",
    "name": "",
    "signature": "constructor( IPoolManager _poolManager, uint256 _deathThreshold, address _nftContract, address _treasury, address _owner ) BaseHook(_poolManager) Ownable(_owner)",
@@ -210,14 +223,14 @@
    ],
    "body_sha1": "866740523afe62e35b19c64314ed9ad688c9431c",
    "body_lines": [
-    563,
-    567
+    566,
+    570
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 573,
+   "line": 576,
    "kind": "function",
    "name": "getHookPermissions",
    "signature": "function getHookPermissions() public pure override returns (Hooks.Permissions memory)",
@@ -226,14 +239,14 @@
    "modifiers": [],
    "body_sha1": "106d16749ed8afd42e230af8ad24446220e8b931",
    "body_lines": [
-    578,
-    595
+    581,
+    598
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 622,
+   "line": 625,
    "kind": "function",
    "name": "_afterInitialize",
    "signature": "function _afterInitialize( address sender, PoolKey calldata key, uint160, int24 ) internal override returns (bytes4)",
@@ -242,14 +255,14 @@
    "modifiers": [],
    "body_sha1": "fd2c8f03db651daee790c501e325dfbfc93638b3",
    "body_lines": [
-    627,
-    654
+    630,
+    657
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 742,
+   "line": 745,
    "kind": "function",
    "name": "_toUsd",
    "signature": "function _toUsd(address quote, uint256 raw) internal returns (uint256)",
@@ -258,14 +271,14 @@
    "modifiers": [],
    "body_sha1": "1ea29ada68f7f2680b2a47e258bbee611b8b3764",
    "body_lines": [
-    742,
-    751
+    745,
+    754
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 779,
+   "line": 782,
    "kind": "function",
    "name": "_afterSwap",
    "signature": "function _afterSwap( address sender, PoolKey calldata key, SwapParams calldata params, BalanceDelta delta, bytes calldata hookData ) internal override returns (bytes4, int128)",
@@ -274,14 +287,14 @@
    "modifiers": [],
    "body_sha1": "3c9830eaa05d90c2bb06c77815915a4bc3748c96",
    "body_lines": [
-    785,
-    1004
+    788,
+    1007
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1016,
+   "line": 1019,
    "kind": "function",
    "name": "_maybeLegacyBuyback",
    "signature": "function _maybeLegacyBuyback(PoolId id, PoolKey calldata key) private",
@@ -290,14 +303,14 @@
    "modifiers": [],
    "body_sha1": "e0220c618a6f3ff646cdcef51d10618c7ad1d294",
    "body_lines": [
-    1016,
-    1075
+    1019,
+    1078
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1083,
+   "line": 1086,
    "kind": "function",
    "name": "_maybePoke",
    "signature": "function _maybePoke() private",
@@ -306,14 +319,14 @@
    "modifiers": [],
    "body_sha1": "ebd2e4fef9e4a995423a4a18980ade981cf50173",
    "body_lines": [
-    1083,
-    1090
+    1086,
+    1093
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1099,
+   "line": 1102,
    "kind": "function",
    "name": "legacyBuyStep",
    "signature": "function legacyBuyStep(PoolKey calldata key) external",
@@ -322,14 +335,14 @@
    "modifiers": [],
    "body_sha1": "84eed309b82734d8f8e9a401f73895cc80695dc7",
    "body_lines": [
-    1099,
-    1137
+    1102,
+    1140
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1145,
+   "line": 1148,
    "kind": "function",
    "name": "fundLegacyBuffer",
    "signature": "function fundLegacyBuffer() external payable",
@@ -338,14 +351,14 @@
    "modifiers": [],
    "body_sha1": "c7fb00fe63a9bf1a54531cc4bcfa1b9e88d80f2f",
    "body_lines": [
-    1145,
-    1179
+    1148,
+    1182
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1193,
+   "line": 1196,
    "kind": "function",
    "name": "sweepLegacyReserve",
    "signature": "function sweepLegacyReserve(address token, address to) external returns (uint256 amt)",
@@ -354,14 +367,14 @@
    "modifiers": [],
    "body_sha1": "1cd98f158a5eb7e059f7d317eb177bbb6eb3ee60",
    "body_lines": [
-    1193,
-    1209
+    1196,
+    1212
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1218,
+   "line": 1221,
    "kind": "function",
    "name": "_beforeSwap",
    "signature": "function _beforeSwap( address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData ) internal override returns (bytes4, BeforeSwapDelta, uint24)",
@@ -370,14 +383,14 @@
    "modifiers": [],
    "body_sha1": "808e1ccff3fe1c475aef5b0d8dbcf9cef15f3c3f",
    "body_lines": [
-    1223,
-    1274
+    1226,
+    1277
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1286,
+   "line": 1289,
    "kind": "function",
    "name": "_routePerpFee",
    "signature": "function _routePerpFee(uint256 amount, bool isBuy) private",
@@ -386,14 +399,14 @@
    "modifiers": [],
    "body_sha1": "9132b998f156875fc5825f6a4a79b9c33197045e",
    "body_lines": [
-    1286,
-    1296
+    1289,
+    1299
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1303,
+   "line": 1306,
    "kind": "function",
    "name": "_creditReserve",
    "signature": "function _creditReserve(uint256 amount) private",
@@ -402,14 +415,14 @@
    "modifiers": [],
    "body_sha1": "b4cd68c849881d40a6055fa01bcbc6a2aa567126",
    "body_lines": [
-    1303,
-    1303
+    1306,
+    1306
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1307,
+   "line": 1310,
    "kind": "function",
    "name": "_creditFor",
    "signature": "function _creditFor(address a, uint256 amount) private",
@@ -418,14 +431,14 @@
    "modifiers": [],
    "body_sha1": "9065e1222d93ec3bef04b92a5784a8f9b4690138",
    "body_lines": [
-    1307,
-    1311
+    1310,
+    1314
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1313,
+   "line": 1316,
    "kind": "function",
    "name": "_routeEthFee",
    "signature": "function _routeEthFee(uint256 feeAmount) private",
@@ -434,14 +447,14 @@
    "modifiers": [],
    "body_sha1": "00d4abc021bb1657f7d5c1742253b338baa0e00b",
    "body_lines": [
-    1313,
-    1458
+    1316,
+    1461
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1466,
+   "line": 1469,
    "kind": "function",
    "name": "snipeSurtaxBps",
    "signature": "function snipeSurtaxBps(PoolId id) public view returns (uint256)",
@@ -450,14 +463,14 @@
    "modifiers": [],
    "body_sha1": "6179fce6e06b026ec4ec0d366e13a1e9c1036efa",
    "body_lines": [
-    1466,
-    1475
+    1469,
+    1478
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1485,
+   "line": 1488,
    "kind": "function",
    "name": "_takeEthFee",
    "signature": "function _takeEthFee( PoolId id, PoolKey calldata key, address sender, bytes calldata hookData, uint256 ethAmount, bool isBuy ) private returns (uint256 total)",
@@ -466,14 +479,14 @@
    "modifiers": [],
    "body_sha1": "fc0bb10ab9b4827ee189a3f308dc70f5fece6f5c",
    "body_lines": [
-    1491,
-    1537
+    1494,
+    1540
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1540,
+   "line": 1543,
    "kind": "function",
    "name": "setSnipeParams",
    "signature": "function setSnipeParams(uint256 windowBlocks, uint256 maxBps) external onlyOwner",
@@ -484,62 +497,62 @@
    ],
    "body_sha1": "0a1966d0c4593857179e255048811bf736461d5e",
    "body_lines": [
-    1540,
-    1544
+    1543,
+    1547
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1550,
+   "line": 1553,
    "kind": "function",
    "name": "_recordVolume",
    "signature": "function _recordVolume(PoolId id, uint256 amount) private",
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "5fd770f8a16918050c6f2a578aa5d2979b90be6c",
+   "body_sha1": "7a149563b0ed3bb9b20c34d465c14b04ecd98e17",
    "body_lines": [
-    1550,
-    1578
+    1553,
+    1584
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1580,
+   "line": 1586,
    "kind": "function",
    "name": "getVolume24h",
    "signature": "function getVolume24h(PoolId id) public view returns (uint256 total)",
    "visibility": "public",
    "mutability": "view",
    "modifiers": [],
-   "body_sha1": "f6fc15f2ae208047a11c33f05c3f250cef3261a1",
+   "body_sha1": "f113302ae2f03cce4c1fd26895064bc6e87743ad",
    "body_lines": [
-    1580,
-    1588
+    1586,
+    1600
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1621,
+   "line": 1633,
    "kind": "function",
    "name": "linkVolume",
    "signature": "function linkVolume(PoolId primary, PoolId secondary) external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "17e786ebfecd5e5977add5f03c287158b5990fb8",
+   "body_sha1": "e407bb52449a63bcf83616a77ff8fbbd142bc004",
    "body_lines": [
-    1621,
-    1648
+    1633,
+    1666
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1653,
+   "line": 1677,
    "kind": "function",
    "name": "isDead",
    "signature": "function isDead(PoolId id) external view returns (bool)",
@@ -548,14 +561,14 @@
    "modifiers": [],
    "body_sha1": "93951bf9ed9e2686b153ea7fbba2fb075a9ef85b",
    "body_lines": [
-    1653,
-    1673
+    1677,
+    1697
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1675,
+   "line": 1699,
    "kind": "function",
    "name": "_getCurrentBucket",
    "signature": "function _getCurrentBucket() private view returns (uint256)",
@@ -564,30 +577,30 @@
    "modifiers": [],
    "body_sha1": "044d34cc77755ead04ed76359bd9c19afd3c0706",
    "body_lines": [
-    1675,
-    1677
+    1699,
+    1701
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1683,
+   "line": 1707,
    "kind": "function",
    "name": "_getHolderTaxRate",
    "signature": "function _getHolderTaxRate(address holder) private view returns (uint256)",
    "visibility": "private",
    "mutability": "view",
    "modifiers": [],
-   "body_sha1": "56b731c355b1972372f48043401d299b8d1389a2",
+   "body_sha1": "0e0e016aca6fa06a152fc7170a8bdfcb7f1ff794",
    "body_lines": [
-    1683,
-    1691
+    1707,
+    1718
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1695,
+   "line": 1722,
    "kind": "function",
    "name": "setDefaultTaxBps",
    "signature": "function setDefaultTaxBps(uint256 _bps) external onlyOwner",
@@ -598,14 +611,14 @@
    ],
    "body_sha1": "fd93667f14d2060ac614e532fd2e41b107dc3bc9",
    "body_lines": [
-    1695,
-    1699
+    1722,
+    1726
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1710,
+   "line": 1737,
    "kind": "function",
    "name": "releaseRelaunchETH",
    "signature": "function releaseRelaunchETH() external returns (uint256 amount)",
@@ -614,14 +627,14 @@
    "modifiers": [],
    "body_sha1": "fe26d6100bc9403da86008ed5c08d47308628cbe",
    "body_lines": [
-    1710,
-    1722
+    1737,
+    1749
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1738,
+   "line": 1765,
    "kind": "function",
    "name": "releaseRelaunchAsset",
    "signature": "function releaseRelaunchAsset(address asset) external returns (uint256 amount)",
@@ -630,14 +643,14 @@
    "modifiers": [],
    "body_sha1": "db5a9021d453ee0388d1e6c19b0e0134d4f85d70",
    "body_lines": [
-    1738,
-    1748
+    1765,
+    1775
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1772,
+   "line": 1799,
    "kind": "function",
    "name": "renounceOwnership",
    "signature": "function renounceOwnership() public view override onlyOwner",
@@ -648,14 +661,14 @@
    ],
    "body_sha1": "05b5a97cde9034b25da9601e40bee80c6e76a89d",
    "body_lines": [
-    1772,
-    1774
+    1799,
+    1801
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1820,
+   "line": 1847,
    "kind": "function",
    "name": "setDeathThreshold",
    "signature": "function setDeathThreshold( uint256 _threshold, address _oracle, uint256 _volumePerNFT, uint256 _nftPriceStep, uint256 _oddsFullVolume ) external onlyOwner",
@@ -666,14 +679,14 @@
    ],
    "body_sha1": "8026927a68f5b1a02e573cfcfcfbbc500cf066c3",
    "body_lines": [
-    1826,
-    1835
+    1853,
+    1862
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1843,
+   "line": 1870,
    "kind": "function",
    "name": "forceClosePerps",
    "signature": "function forceClosePerps() external",
@@ -682,14 +695,14 @@
    "modifiers": [],
    "body_sha1": "d57ed2210a6be28a72263c3d51845454e3e00414",
    "body_lines": [
-    1843,
-    1875
+    1870,
+    1902
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1905,
+   "line": 1932,
    "kind": "function",
    "name": "setLiveKey",
    "signature": "function setLiveKey(PoolKey calldata k) external",
@@ -698,14 +711,14 @@
    "modifiers": [],
    "body_sha1": "02986dde19d55de0d40cbd71c92b64aea88dad91",
    "body_lines": [
-    1905,
-    1908
+    1932,
+    1935
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1911,
+   "line": 1938,
    "kind": "function",
    "name": "liveKey",
    "signature": "function liveKey() external view returns (PoolKey memory)",
@@ -714,14 +727,14 @@
    "modifiers": [],
    "body_sha1": "03474adb2d83decd6dbe095dbbe8787d142f8f3c",
    "body_lines": [
-    1911,
-    1913
+    1938,
+    1940
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1918,
+   "line": 1945,
    "kind": "function",
    "name": "setLegacyBuyback",
    "signature": "function setLegacyBuyback(address registry_, uint256 bps, uint256 threshold) external",
@@ -730,14 +743,14 @@
    "modifiers": [],
    "body_sha1": "890425b88ceec2707f89c4796b3042017d6e77df",
    "body_lines": [
-    1918,
-    1924
+    1945,
+    1951
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1932,
+   "line": 1959,
    "kind": "function",
    "name": "setDeathChecker",
    "signature": "function setDeathChecker(address _checker) external",
@@ -746,14 +759,14 @@
    "modifiers": [],
    "body_sha1": "99849e0603cb1ed7102e2d1fab4494d8fd43940f",
    "body_lines": [
-    1932,
-    1936
+    1959,
+    1963
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1942,
+   "line": 1969,
    "kind": "function",
    "name": "setPolicies",
    "signature": "function setPolicies(address _surtax, address _odds, address _curve) external",
@@ -762,14 +775,14 @@
    "modifiers": [],
    "body_sha1": "31da35d431557c1c027ea715b31571a5154eb9b4",
    "body_lines": [
-    1942,
-    1948
+    1969,
+    1975
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1954,
+   "line": 1981,
    "kind": "function",
    "name": "setFeeRouter",
    "signature": "function setFeeRouter(address _router) external",
@@ -778,14 +791,14 @@
    "modifiers": [],
    "body_sha1": "1375c52e78664b778b3e218452ea8061fb729559",
    "body_lines": [
-    1954,
-    1958
+    1981,
+    1985
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1960,
+   "line": 1987,
    "kind": "function",
    "name": "setNftContract",
    "signature": "function setNftContract(address _nft) external onlyOwner",
@@ -796,14 +809,14 @@
    ],
    "body_sha1": "4f42c2d4c6dc609e442b09d6f4e27e2bd3da9240",
    "body_lines": [
-    1960,
-    1962
+    1987,
+    1989
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1973,
+   "line": 2000,
    "kind": "function",
    "name": "setRegistry",
    "signature": "function setRegistry(address _registry) external onlyOwner",
@@ -814,14 +827,14 @@
    ],
    "body_sha1": "9089e77a581624638f4dade071c0543f47a8023a",
    "body_lines": [
-    1973,
-    1977
+    2000,
+    2004
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1989,
+   "line": 2016,
    "kind": "function",
    "name": "proposeRegistryOverride",
    "signature": "function proposeRegistryOverride(address _registry) external onlyOwner",
@@ -832,14 +845,14 @@
    ],
    "body_sha1": "af9fd298c244c81077709a2e5deefb714187490c",
    "body_lines": [
-    1989,
-    1994
+    2016,
+    2021
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 1998,
+   "line": 2025,
    "kind": "function",
    "name": "cancelRegistryOverride",
    "signature": "function cancelRegistryOverride() external onlyOwner",
@@ -850,14 +863,14 @@
    ],
    "body_sha1": "2846168a2dd569eaef3aaa62d0ba826e30f46656",
    "body_lines": [
-    1998,
-    2002
+    2025,
+    2029
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2009,
+   "line": 2036,
    "kind": "function",
    "name": "executeRegistryOverride",
    "signature": "function executeRegistryOverride() external onlyOwner",
@@ -868,14 +881,14 @@
    ],
    "body_sha1": "95f08dad8b4716913f9c5572d0c742aa04299902",
    "body_lines": [
-    2009,
-    2023
+    2036,
+    2050
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2041,
+   "line": 2068,
    "kind": "function",
    "name": "setCollection",
    "signature": "function setCollection(address _collection) external",
@@ -884,14 +897,14 @@
    "modifiers": [],
    "body_sha1": "479be36b30a7574c4523f36d6f951ace1713cbe7",
    "body_lines": [
-    2041,
-    2054
+    2068,
+    2081
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2063,
+   "line": 2090,
    "kind": "function",
    "name": "_wireLiquidator",
    "signature": "function _wireLiquidator(address _collection) private",
@@ -900,14 +913,14 @@
    "modifiers": [],
    "body_sha1": "7e837fe8724c6684b475bc7b4d75203b8775d0bc",
    "body_lines": [
-    2063,
-    2066
+    2090,
+    2093
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2069,
+   "line": 2096,
    "kind": "function",
    "name": "setVault",
    "signature": "function setVault(address _vault) external",
@@ -916,14 +929,14 @@
    "modifiers": [],
    "body_sha1": "83c7a231e6ddeac23212ee3d5c9afcb6c39f6adb",
    "body_lines": [
-    2069,
-    2072
+    2096,
+    2099
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2075,
+   "line": 2102,
    "kind": "function",
    "name": "setQuest",
    "signature": "function setQuest(address _quest) external",
@@ -932,14 +945,14 @@
    "modifiers": [],
    "body_sha1": "1ebb3bee0ac4d15e8c948dd9d87e8603fc30726b",
    "body_lines": [
-    2075,
-    2078
+    2102,
+    2105
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2084,
+   "line": 2111,
    "kind": "function",
    "name": "setSeeder",
    "signature": "function setSeeder(address _seeder) external",
@@ -948,14 +961,14 @@
    "modifiers": [],
    "body_sha1": "e3bd6520f43e523ca3479dbf473754b347b6c655",
    "body_lines": [
-    2084,
-    2087
+    2111,
+    2114
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2092,
+   "line": 2119,
    "kind": "function",
    "name": "setPerpEngine",
    "signature": "function setPerpEngine(address _engine) external",
@@ -964,14 +977,14 @@
    "modifiers": [],
    "body_sha1": "b504fa9c89328b2f41bc69fb675114d618d5f12c",
    "body_lines": [
-    2092,
-    2098
+    2119,
+    2125
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2101,
+   "line": 2128,
    "kind": "function",
    "name": "setFloorBps",
    "signature": "function setFloorBps(uint256 _bps) external onlyOwner",
@@ -982,14 +995,14 @@
    ],
    "body_sha1": "fc232776fc681d78c9b489dc2a7d20dff9e1a381",
    "body_lines": [
-    2101,
-    2104
+    2128,
+    2131
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2108,
+   "line": 2135,
    "kind": "function",
    "name": "setGuild",
    "signature": "function setGuild(address _guild) external",
@@ -998,14 +1011,14 @@
    "modifiers": [],
    "body_sha1": "f8b7e84c4e3be133e0b4b82802c41c5a7ca3fe61",
    "body_lines": [
-    2108,
-    2112
+    2135,
+    2139
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2120,
+   "line": 2147,
    "kind": "function",
    "name": "setGuildBps",
    "signature": "function setGuildBps(uint256 _bps) external onlyOwner",
@@ -1016,14 +1029,14 @@
    ],
    "body_sha1": "84286d3fa3fbe0d7d4d34ed19e5654e822d523a9",
    "body_lines": [
-    2120,
-    2123
+    2147,
+    2150
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2128,
+   "line": 2155,
    "kind": "function",
    "name": "setActiveProposer",
    "signature": "function setActiveProposer(address who) external",
@@ -1032,14 +1045,14 @@
    "modifiers": [],
    "body_sha1": "66103e31c8064f05a2be7615093520dc787a1a5f",
    "body_lines": [
-    2128,
-    2132
+    2155,
+    2159
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2135,
+   "line": 2162,
    "kind": "function",
    "name": "setProposerBps",
    "signature": "function setProposerBps(uint256 _bps) external onlyOwner",
@@ -1050,14 +1063,14 @@
    ],
    "body_sha1": "b50a27df364278711c8d34e01d58ac4bfc40ea43",
    "body_lines": [
-    2135,
-    2138
+    2162,
+    2165
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2143,
+   "line": 2170,
    "kind": "function",
    "name": "claimProposerFees",
    "signature": "function claimProposerFees() external nonReentrant returns (uint256 amount)",
@@ -1068,14 +1081,14 @@
    ],
    "body_sha1": "52a9c2c49b45f01a5f011052f0719a507019dc5b",
    "body_lines": [
-    2143,
-    2150
+    2170,
+    2177
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2153,
+   "line": 2180,
    "kind": "function",
    "name": "setNftCurve",
    "signature": "function setNftCurve(uint256 _base, uint256 _step) external onlyOwner",
@@ -1086,14 +1099,14 @@
    ],
    "body_sha1": "377fecd9ad6b8b4837e91fe11dae640824a1f43c",
    "body_lines": [
-    2153,
-    2157
+    2180,
+    2184
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2159,
+   "line": 2186,
    "kind": "function",
    "name": "setCreditUntaggedSwaps",
    "signature": "function setCreditUntaggedSwaps(bool on) external onlyOwner",
@@ -1104,14 +1117,14 @@
    ],
    "body_sha1": "63dbbabea1d007da4be91cb892411cb727aec55a",
    "body_lines": [
-    2159,
-    2159
+    2186,
+    2186
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2166,
+   "line": 2193,
    "kind": "function",
    "name": "setNftCurveFrom",
    "signature": "function setNftCurveFrom(uint256 _base) external",
@@ -1120,14 +1133,14 @@
    "modifiers": [],
    "body_sha1": "57127bd15715f6fb87538435488e911dd67192df",
    "body_lines": [
-    2166,
-    2171
+    2193,
+    2198
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2174,
+   "line": 2201,
    "kind": "function",
    "name": "nftPriceAt",
    "signature": "function nftPriceAt(uint256 k) public view returns (uint256)",
@@ -1136,14 +1149,14 @@
    "modifiers": [],
    "body_sha1": "2e99dff880c7158f1f0d9c24e5ad9d63bce63e47",
    "body_lines": [
-    2174,
-    2183
+    2201,
+    2210
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2186,
+   "line": 2213,
    "kind": "function",
    "name": "creditOf",
    "signature": "function creditOf(address player) external view returns (uint256)",
@@ -1152,14 +1165,14 @@
    "modifiers": [],
    "body_sha1": "33532772442a520955d1acdffc340d57e3c6020c",
    "body_lines": [
-    2186,
-    2188
+    2213,
+    2215
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2194,
+   "line": 2221,
    "kind": "function",
    "name": "_curvePos",
    "signature": "function _curvePos() internal view returns (uint256)",
@@ -1168,14 +1181,14 @@
    "modifiers": [],
    "body_sha1": "9fdb6f241e5413cec54be64fa99c85adea579a98",
    "body_lines": [
-    2194,
-    2197
+    2221,
+    2224
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2200,
+   "line": 2227,
    "kind": "function",
    "name": "crystalsReady",
    "signature": "function crystalsReady(address player) public view returns (uint256 ready)",
@@ -1184,14 +1197,14 @@
    "modifiers": [],
    "body_sha1": "99751b79841e39eb81f9e603c492ab49f85057f3",
    "body_lines": [
-    2200,
-    2211
+    2227,
+    2238
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2214,
+   "line": 2241,
    "kind": "function",
    "name": "costOfNextCrystals",
    "signature": "function costOfNextCrystals(uint256 count) public view returns (uint256 cost)",
@@ -1200,14 +1213,14 @@
    "modifiers": [],
    "body_sha1": "a2b558025358024beffd6978b6b149dd5ecd6664",
    "body_lines": [
-    2214,
-    2218
+    2241,
+    2245
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2223,
+   "line": 2250,
    "kind": "function",
    "name": "oddsForPlay",
    "signature": "function oddsForPlay(uint256 playWei) public view returns (uint256 bps)",
@@ -1216,14 +1229,14 @@
    "modifiers": [],
    "body_sha1": "76fae8d852d0101095abccde420f836ff6a99bb0",
    "body_lines": [
-    2223,
-    2234
+    2250,
+    2261
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2237,
+   "line": 2264,
    "kind": "function",
    "name": "outstandingTickets",
    "signature": "function outstandingTickets() external view returns (uint256)",
@@ -1232,14 +1245,14 @@
    "modifiers": [],
    "body_sha1": "a11562e4558975b514d1daff0fc9fd9a02df2ece",
    "body_lines": [
-    2237,
-    2239
+    2264,
+    2266
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2242,
+   "line": 2269,
    "kind": "function",
    "name": "mintedOut",
    "signature": "function mintedOut() external view returns (bool)",
@@ -1248,14 +1261,14 @@
    "modifiers": [],
    "body_sha1": "8d5bf8c5d8b0bc3f89384e448eb9abeacb3603db",
    "body_lines": [
-    2242,
-    2246
+    2269,
+    2273
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2252,
+   "line": 2279,
    "kind": "function",
    "name": "progress",
    "signature": "function progress(address player) external view returns (uint256 inCurrent, uint256 threshold, uint256 ready)",
@@ -1264,14 +1277,14 @@
    "modifiers": [],
    "body_sha1": "47c154c922ed6ba57d4cf51d208f91dfc35bcd92",
    "body_lines": [
-    2256,
-    2269
+    2283,
+    2296
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2279,
+   "line": 2306,
    "kind": "function",
    "name": "commitCrystals",
    "signature": "function commitCrystals(address player, uint256 maxCount, uint256 playWei) external nonReentrant returns (uint256 n)",
@@ -1282,14 +1295,14 @@
    ],
    "body_sha1": "c853d965bd3f9229a2e300e57deb785402e56d2f",
    "body_lines": [
-    2283,
-    2294
+    2310,
+    2321
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2299,
+   "line": 2326,
    "kind": "function",
    "name": "_commitCrystals",
    "signature": "function _commitCrystals(address player, uint256 maxCount, uint256 playWei) internal returns (uint256 n)",
@@ -1298,14 +1311,14 @@
    "modifiers": [],
    "body_sha1": "119e33c3bb9c7c5eb9e3c4c3ae4dd791f21aea06",
    "body_lines": [
-    2302,
-    2348
+    2329,
+    2375
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2359,
+   "line": 2386,
    "kind": "function",
    "name": "resolveTickets",
    "signature": "function resolveTickets(uint256 maxCount) public nonReentrant returns (uint256 processed, uint256 won)",
@@ -1316,14 +1329,14 @@
    ],
    "body_sha1": "b36cf57fdfc86db1eb9c88161b8da02d4a63ba38",
    "body_lines": [
-    2363,
-    2365
+    2390,
+    2392
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2371,
+   "line": 2398,
    "kind": "function",
    "name": "_resolveTickets",
    "signature": "function _resolveTickets(uint256 maxCount) internal returns (uint256 processed, uint256 won)",
@@ -1332,14 +1345,14 @@
    "modifiers": [],
    "body_sha1": "ee1d249319a1b3cd2299dd40fd0c8b10649032ea",
    "body_lines": [
-    2374,
-    2425
+    2401,
+    2452
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2433,
+   "line": 2460,
    "kind": "function",
    "name": "nativeGachaStep",
    "signature": "function nativeGachaStep(address player, uint256 playWei) external nonReentrant",
@@ -1350,14 +1363,14 @@
    ],
    "body_sha1": "2a17c527f6141940fb3f76eec4a41d37fa32b2b8",
    "body_lines": [
-    2433,
-    2437
+    2460,
+    2464
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2442,
+   "line": 2469,
    "kind": "function",
    "name": "setOpener",
    "signature": "function setOpener(address who, bool allowed) external",
@@ -1366,14 +1379,14 @@
    "modifiers": [],
    "body_sha1": "d29775ce6337baf3f83602014c5ccd75e2d5dd83",
    "body_lines": [
-    2442,
-    2446
+    2469,
+    2473
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2452,
+   "line": 2479,
    "kind": "function",
    "name": "setTaxExempt",
    "signature": "function setTaxExempt(address who, bool exempt) external",
@@ -1382,14 +1395,14 @@
    "modifiers": [],
    "body_sha1": "b697d2426d55f6e2cb0fdc77c1a3204874ec7905",
    "body_lines": [
-    2452,
-    2455
+    2479,
+    2482
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2466,
+   "line": 2493,
    "kind": "function",
    "name": "_isExemptPlayer",
    "signature": "function _isExemptPlayer(address sender, bytes calldata hookData) private view returns (bool)",
@@ -1398,14 +1411,14 @@
    "modifiers": [],
    "body_sha1": "d6c969a3bf450e40d43d3f85f1a99c2c85c21331",
    "body_lines": [
-    2466,
-    2468
+    2493,
+    2495
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2474,
+   "line": 2501,
    "kind": "function",
    "name": "_taxedPlayer",
    "signature": "function _taxedPlayer(address sender, bytes calldata hookData) private view returns (address)",
@@ -1414,14 +1427,14 @@
    "modifiers": [],
    "body_sha1": "e3a216dde5c4d928a22f65f7539d1d647d1aeba4",
    "body_lines": [
-    2474,
-    2478
+    2501,
+    2505
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2482,
+   "line": 2509,
    "kind": "function",
    "name": "setOddsParams",
    "signature": "function setOddsParams(uint256 fullVolumeWei, uint256 pity) external onlyOwner",
@@ -1432,14 +1445,14 @@
    ],
    "body_sha1": "b93ec7f7514e5c4778a2c94d8f80afe0e5941b4d",
    "body_lines": [
-    2482,
-    2485
+    2509,
+    2512
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2489,
+   "line": 2516,
    "kind": "function",
    "name": "setMaxOdds",
    "signature": "function setMaxOdds(uint256 bps) external onlyOwner",
@@ -1450,14 +1463,14 @@
    ],
    "body_sha1": "5858fc64b27780a9387f80e956120eff5b091555",
    "body_lines": [
-    2489,
-    2492
+    2516,
+    2519
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2495,
+   "line": 2522,
    "kind": "function",
    "name": "setWeights",
    "signature": "function setWeights(uint256 buyBps, uint256 sellBps) external onlyOwner",
@@ -1468,14 +1481,14 @@
    ],
    "body_sha1": "1d8fc4a9ffc3841509306786befb1ded34460643",
    "body_lines": [
-    2495,
-    2499
+    2522,
+    2526
    ]
   },
   {
    "contract": "CauldronHook",
    "file": "CauldronHook.sol",
-   "line": 2544,
+   "line": 2571,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -1484,8 +1497,8 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    2544,
-    2544
+    2571,
+    2571
    ]
   },
   {
@@ -1498,10 +1511,10 @@
    "visibility": "external",
    "mutability": "pure",
    "modifiers": [],
-   "body_sha1": "f1ed9ea2f6c3c9a89523533d1a6a54bb9240d6ba",
+   "body_sha1": "9f95f60701b954d087755b5767778029c1e42bf5",
    "body_lines": [
     25,
-    30
+    48
    ]
   },
   {
@@ -1546,16 +1559,16 @@
    "visibility": "private",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "9a891a3f5e236be5e7624a1854a5d948b1db7a72",
+   "body_sha1": "d5ece5e62d8ff8ac4ccea24bc1352c33a74da1cb",
    "body_lines": [
     105,
-    111
+    122
    ]
   },
   {
    "contract": "FeeRouteLib",
    "file": "cauldron/FeeRouteLib.sol",
-   "line": 128,
+   "line": 139,
    "kind": "function",
    "name": "_fundGuild",
    "signature": "function _fundGuild(address asset, address guild, uint256 amount) private returns (bool ok)",
@@ -1564,14 +1577,14 @@
    "modifiers": [],
    "body_sha1": "5de5667680ae42062538dc85c8d25ad4d5302ba1",
    "body_lines": [
-    128,
-    152
+    139,
+    163
    ]
   },
   {
    "contract": "FeeRouteLib",
    "file": "cauldron/FeeRouteLib.sol",
-   "line": 154,
+   "line": 165,
    "kind": "function",
    "name": "_deliver",
    "signature": "function _deliver(address asset, address to, uint256 amount, bytes4 nativeSel, bytes4 assetSel) private returns (bool ok)",
@@ -1580,14 +1593,14 @@
    "modifiers": [],
    "body_sha1": "59766d939df8997aac38924905bbfdc24a3dcd46",
    "body_lines": [
-    157,
-    179
+    168,
+    190
    ]
   },
   {
    "contract": "FeeRouteLib",
    "file": "cauldron/FeeRouteLib.sol",
-   "line": 190,
+   "line": 201,
    "kind": "function",
    "name": "send",
    "signature": "function send(address asset, address to, uint256 amount, uint256 gasCap) external returns (bool ok)",
@@ -1596,14 +1609,14 @@
    "modifiers": [],
    "body_sha1": "26d5aab1ab25087c67073dd781d0a3d6c705c4ae",
    "body_lines": [
-    193,
-    207
+    204,
+    218
    ]
   },
   {
    "contract": "FeeRouteLib",
    "file": "cauldron/FeeRouteLib.sol",
-   "line": 220,
+   "line": 231,
    "kind": "function",
    "name": "deliver",
    "signature": "function deliver( address asset, address to, uint256 amount, bytes4 nativeSelector, bytes4 selector ) external returns (bool ok)",
@@ -1612,24 +1625,40 @@
    "modifiers": [],
    "body_sha1": "7041da4ce53c58ee730a578ff19e31184213ec87",
    "body_lines": [
-    226,
-    251
+    237,
+    262
    ]
   },
   {
    "contract": "LegacyBuyLib",
    "file": "cauldron/LegacyBuyLib.sol",
-   "line": 73,
+   "line": 132,
    "kind": "function",
    "name": "buyStep",
    "signature": "function buyStep(IPoolManager poolManager, PoolKey calldata key, uint256 amt, uint256 encumbered) external returns (uint256 spent, uint256 got)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "72d7208b12a53d2e7fc7fc5cda2d2f4d298ddb63",
+   "body_sha1": "be8f060ecce8efd54c11e7a1f89172eb4774acb4",
    "body_lines": [
-    76,
-    153
+    135,
+    281
+   ]
+  },
+  {
+   "contract": "LegacyBuyLib",
+   "file": "cauldron/LegacyBuyLib.sol",
+   "line": 309,
+   "kind": "function",
+   "name": "_syncRef",
+   "signature": "function _syncRef(PoolId pid, int24 tick) private returns (int24 ref, bool seeded)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a7f05445a569314fe746124687954eb3042a5778",
+   "body_lines": [
+    309,
+    338
    ]
   },
   {
@@ -1726,35 +1755,96 @@
    "body_lines": []
   },
   {
+   "contract": "IAdoptable (declared in RoyaltyRouter.sol)",
+   "file": "cauldron/RoyaltyRouter.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "adopt",
+   "signature": "function adopt(address asset) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
    "contract": "RoyaltyRouter",
    "file": "cauldron/RoyaltyRouter.sol",
-   "line": 39,
+   "line": 77,
    "kind": "constructor",
    "name": "",
-   "signature": "constructor(address _hook)",
+   "signature": "constructor(address _hook, address _erc20Sink)",
    "visibility": "",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "cb23eb0c69984e2974befb5d3ab1b589d4e836f5",
+   "body_sha1": "2d3f499dcd12b85154e1a1736e2df00c120b8a79",
    "body_lines": [
-    39,
-    42
+    77,
+    81
    ]
   },
   {
    "contract": "RoyaltyRouter",
    "file": "cauldron/RoyaltyRouter.sol",
-   "line": 44,
+   "line": 83,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
    "visibility": "",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "8e2aeb3ec2a59b6ecdb7fc9d86d07cf7aadf4575",
+   "body_sha1": "d1b2c59e210e973197505455d6fda2f6d0d0fcf6",
    "body_lines": [
-    44,
-    46
+    83,
+    93
+   ]
+  },
+  {
+   "contract": "RoyaltyRouter",
+   "file": "cauldron/RoyaltyRouter.sol",
+   "line": 101,
+   "kind": "function",
+   "name": "sweep",
+   "signature": "function sweep(address asset) external returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cf4d0248d6f96a90e874bce7c7ab31701b589366",
+   "body_lines": [
+    101,
+    124
+   ]
+  },
+  {
+   "contract": "RoyaltyRouter",
+   "file": "cauldron/RoyaltyRouter.sol",
+   "line": 126,
+   "kind": "function",
+   "name": "_balanceOf",
+   "signature": "function _balanceOf(address asset) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "d7bd0fd8a46ed4d6b17b98b9e164e237241062ce",
+   "body_lines": [
+    126,
+    131
+   ]
+  },
+  {
+   "contract": "RoyaltyRouter",
+   "file": "cauldron/RoyaltyRouter.sol",
+   "line": 134,
+   "kind": "function",
+   "name": "_safeTransfer",
+   "signature": "function _safeTransfer(address asset, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cc71f51e9ceff1b596bce8dc12f5bb13f54c1ea6",
+   "body_lines": [
+    134,
+    138
    ]
   },
   {
