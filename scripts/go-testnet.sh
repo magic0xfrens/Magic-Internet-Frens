@@ -44,8 +44,12 @@ if [ -n "$PK" ]; then
   W=(--rpc-url "$R" "${SIGNER[@]}")
   #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on
   #  disk after the job that needed it is just a liability with no upside.
+  #  KEY REMOVAL IS OPT-IN NOW. Deleting it on EVERY exit — including a failure
+  #  in step 1 — meant a deploy that died early also destroyed the credential
+  #  needed to retry, and the perp deploy, the manifest step and any recovery all
+  #  still need it. Set WIPE_KEY=1 for the CI behaviour.
   cleanup() {
-    if [ -f "$ENVFILE" ]; then
+    if [ "${WIPE_KEY:-0}" = "1" ] && [ -f "$ENVFILE" ]; then
       rm -f "$ENVFILE"
       echo "removed $ENVFILE"
     fi
@@ -70,7 +74,18 @@ say() { printf "\n\033[1m== %s\033[0m\n" "$*"; }
 # holder protection. It starts the old registry's 48h emergencyDelay, which is
 # immutable, so the 6.8882 ETH of stranded LP cannot be recovered before then.
 say "1/5  arming the old deployment (48h clock starts now)"
-if [ "$(cast call "$OLD_REG" 'emergencyReadyAt()(uint256)' --rpc-url "$R" | tail -1)" = "0" ]; then
+#  SKIPPABLE. Arming is a courtesy to the PREVIOUS deployment's holders, not a
+#  precondition for this one, and it fails hard when the timelock already holds
+#  that exact operation — same target, calldata and salt produce the same
+#  operation id, so a second `schedule` reverts `TimelockUnexpectedOperationState`
+#  once the first has been executed. That aborted an otherwise fine deploy under
+#  `set -e`. SKIP_ARM=1 bypasses it; a failure inside it is now a warning.
+READY_AT=$(cast call "$OLD_REG" 'emergencyReadyAt()(uint256)' --rpc-url "$R" 2>/dev/null | tail -1 | awk '{print $1}')
+if [ "${SKIP_ARM:-0}" = "1" ]; then
+  echo "   SKIP_ARM=1 — leaving the old deployment alone"
+elif [ "${READY_AT:-0}" != "0" ]; then
+  echo "   already armed (readyAt=$READY_AT), skipping"
+elif true; then
   cast send "$OLD_TL" "schedule(address,uint256,bytes,bytes32,bytes32,uint256)" \
     "$OLD_REG" 0 0x06e7b8db "$Z" "$Z" 180 "${W[@]}" >/dev/null
   echo "   scheduled; waiting out the 180s timelock delay"
@@ -190,9 +205,25 @@ fi
 #  It also resets the TWAP ring, so opens stay gated for `twapWindow` after it.
 if [ -n "${PERP_ENGINE:-}" ]; then
   say "4b/5 syncGeneration on the perp engine"
-  cast send "$PERP_ENGINE" "syncGeneration()" "${W[@]}" >/dev/null \
-    && echo "   synced; perps warm up in twapWindow seconds" \
-    || echo "   WARNING: syncGeneration failed — perps will fill INVERTED until it runs"
+  #  `AlreadySynced` IS SUCCESS HERE. DeployPerp now runs AFTER the summon, so
+  #  the engine adopts the live generation on its own and this call is redundant.
+  #  Reporting that revert as "perps will fill INVERTED" is exactly backwards —
+  #  it sent me chasing a non-bug on the Arc deploy. VERIFY by reading the state
+  #  rather than trusting an exit code either way.
+  if OUT=$(cast send "$PERP_ENGINE" "syncGeneration()" "${W[@]}" 2>&1); then
+    echo "   synced; perps warm up in twapWindow seconds"
+  elif echo "$OUT" | grep -q "AlreadySynced"; then
+    echo "   already synced (engine deployed post-summon) — nothing to do"
+  else
+    echo "   WARNING: syncGeneration failed unexpectedly:"; echo "$OUT" | tail -3
+  fi
+  LIVE=$(cast call "$REGISTRY" 'currentToken()(address)' --rpc-url "$R" | tail -1)
+  SYNCED=$(cast call "$PERP_ENGINE" 'syncedToken()(address)' --rpc-url "$R" | tail -1)
+  if [ "$(echo "$LIVE" | tr 'A-Z' 'a-z')" = "$(echo "$SYNCED" | tr 'A-Z' 'a-z')" ]; then
+    echo "   VERIFIED syncedToken == live token — perps fill in the right direction"
+  else
+    echo "   FAIL: syncedToken=$SYNCED live=$LIVE. Do NOT trade; re-run syncGeneration."
+  fi
 fi
 echo "   summoned. token: $(cast call "$PRESALE" 'currentToken()(address)' --rpc-url "$R" 2>/dev/null | tail -1 || echo '(read from the registry)')"
 fi
