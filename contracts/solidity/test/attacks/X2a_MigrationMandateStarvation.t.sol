@@ -137,7 +137,31 @@ contract X2a_MigrationMandateStarvation is Test {
         gov.execute(id);
 
         assertTrue(_trySecondaryLegSlice(1_000), "a partial envelope funds a secondary leg");
-        assertEq(_remaining(), 1_500, "and is debited for it");
+
+        //  ── THE NUMBER MOVED, AND THAT WAS THE FIX (commit 5b2f2b5, T2a) ────
+        //  This asserted `_remaining() == 1_500`: a secondary slice debited the
+        //  budget `allowance()` reports. That asymmetry — migration mandates
+        //  metered on `movedPrimaryBps`, partial ones on the shared `movedBps` —
+        //  WAS the bug. One permissionless `rotateSliceFrom(fromLeg != 0, 2500)`
+        //  drove a partial envelope's remainder to zero out of a side pool,
+        //  deactivated it and left COOLDOWN blocking the replacement, so a partial
+        //  mandate could never execute against the primary.
+        //
+        //  `allowance()` now reports, for EVERY envelope, the progress of the
+        //  position the guild voted about — the sibling test above already
+        //  asserts exactly this for a migration mandate (`_remaining() == 10_000`
+        //  after four secondary slices). 2_500 is that same number here.
+        assertEq(_remaining(), 2_500, "the VOTED budget is not debited by a side leg (5b2f2b5)");
+
+        //  Rebalancing is still metered and still bounded — on `movedBps` against
+        //  `maxTotalBps`, which is the meter it always had. 1_000 of 2_500 is gone,
+        //  so 1_500 more fits and not one bp beyond it. That is what "debited for
+        //  it" means now, and it is asserted rather than inferred.
+        assertTrue(_trySecondaryLegSlice(1_500), "the rest of the leg-to-leg budget is still there");
+        assertFalse(_trySecondaryLegSlice(1), "and it IS debited: nothing beyond the voted total");
+
+        //  Meanwhile the mandate the guild actually voted for is still spendable.
+        assertEq(_remaining(), 2_500, "the primary budget survived the rebalancing in full");
         assertFalse(gov.migrationMandateSpent(), "a partial envelope never declares a migration");
     }
 }
