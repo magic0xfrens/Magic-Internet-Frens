@@ -203,6 +203,11 @@ contract MockEngine {
     function freeToken() external view returns (uint256) { return plvTok; }
     // side-attributed token-side ETH reward accrual marker (read on token deposit).
     uint256 public tokYieldCumulative;
+    //  The POT behind that cumulative. {PerpVault._syncTokYield} reads it to spot a
+    //  rotation write-off (`pot + pulled < cum`); the real PerpEngine has had it as
+    //  a public state var since day one (PerpEngine.sol:369). Without it every
+    //  token-side call reverted "unrecognized function selector" in this harness.
+    uint256 public tokYieldEth;
     function withdrawTokYieldTo(uint256 amount, address to) external { (bool ok,) = to.call{value: amount}(""); require(ok); }
 
     // simulation helpers

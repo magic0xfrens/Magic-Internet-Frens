@@ -145,12 +145,21 @@ contract PoC_PerpGriefStuckEngine is Test, IUnlockCallback {
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         assertTrue(hook.isDead(registry.generationPoolId(1)), "gen-1 dead");
 
-        // The honest position closes fine.
-        perp.forceCloseDead(healthyId);
-
-        // FIXED: the griefer's position settles too — the push fails, the payout is
-        // CREDITED instead of reverting.
+        //  ── CLOSE ORDER MATTERS NOW (red-team T3d) ────────────────────────
+        //  The dead path is price-banded: a forced close may only realise within
+        //  10% of the engine's own TWAP mark, and whatever the pool cannot absorb
+        //  inside that band is retired to LP inventory rather than dumped. Closing
+        //  the HEALTHY position first moved this (deliberately thin) fixture pool
+        //  far enough that the griefer's sale then hit the band, filled partially,
+        //  and left them with no ETH-denominated residual — which has nothing to do
+        //  with the property under test. The griefer goes first; the honest
+        //  position still closes fine right after, which is the actual control.
+        //  FIXED: the griefer's position settles — the push fails, the payout is
+        //  CREDITED instead of reverting.
         perp.forceCloseDead(id);
+
+        // The honest position closes fine too.
+        perp.forceCloseDead(healthyId);
         assertEq(perp.openCount(), 0, "FIXED: the hostile position settled");
         uint256 owed = perp.payoutOwed(address(griefer));
         console2.log("credited to the rejecting trader:", owed);

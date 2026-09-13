@@ -927,7 +927,73 @@ contract S06_PerpVaultSolvency is YBase {
     ///  Post-R-08 it REFUSES while `plv != 0`, which is the fix.
     function _completeRotationTo(address newQuote) internal returns (bool adopted) {
         shim.setQuote(newQuote);
+        //  ── AS A STRANGER, NOT AS THE OWNER (red-team T3c) ──────────────────
+        //  This harness deploys the engine with `address(this)` as its owner, so
+        //  the bare call was implicitly the OWNER call. {PerpEngine.syncGeneration}
+        //  now carries a deliberate owner/timelock override of the quote-side-stake
+        //  veto — without one, a single wei of stake shut the entire engine down
+        //  for a generation with no way out for owner, timelock or registry (T3c).
+        //  So the bare call stopped exercising the PERMISSIONLESS path every test
+        //  in this class is about. A completed rotation is driven by
+        //  `RedemptionExt` on anyone's behalf, so a stranger is the faithful
+        //  caller. The override itself is covered by
+        //  {test_S06_FIXED_OwnerOverrideAdoptsWithoutDrainingAnyone}.
+        vm.prank(address(0xC0FFEE));
         try perp.syncGeneration() { adopted = true; } catch { adopted = false; }
+    }
+
+    /**
+     * THE OVERRIDE MUST ADOPT SAFELY, NOT JUST ADOPT (red-team T3c).
+     *
+     * The owner/timelock can push a quote adoption through with quote-side stake
+     * present. That escape hatch exists because the veto above is otherwise
+     * un-liftable by any privilege — one wei of `ethShares` left `_isDead()` true,
+     * every open reverting `TokenDead`, and even `setVault` refused. But it must
+     * not resurrect the very drain this file documents: the old-asset value has to
+     * leave the engine BEFORE `quote` flips, so no counter survives denominated in
+     * an asset the engine no longer holds and no new-quote staker can be redeemed
+     * against a stale ETH-side claim.
+     */
+    function test_S06_FIXED_OwnerOverrideAdoptsWithoutDrainingAnyone() public {
+        vm.skip(!active);
+
+        vm.prank(lpA);
+        uint256 aShares = vault.depositEth{value: 10 ether}();
+        uint256 treBefore = address(0x7E7E).balance;
+
+        //  A stranger still cannot: the veto stands for everyone but the timelock.
+        assertFalse(_completeRotationTo(address(usdg)), "the permissionless path still refuses");
+        assertEq(perp.quote(), address(0), "and nothing moved");
+        assertEq(perp.plv(), 10 ether, "the stake is untouched by the refusal");
+
+        //  The owner can — and the sweep runs BEFORE the flip.
+        shim.setQuote(address(usdg));
+        perp.syncGeneration();
+        assertEq(perp.quote(), address(usdg), "the timelock can always un-strand the engine");
+        assertEq(perp.plv(), 0, "no ETH-denominated counter survives the flip");
+        assertEq(
+            address(0x7E7E).balance - treBefore, 10 ether,
+            "the stakers' ether is swept to the treasury IN THE OLD ASSET, on the record"
+        );
+        assertEq(address(perp).balance, 0, "the engine holds no orphaned ether");
+
+        //  lpA is written off on the record — NOT left holding a claim that drains
+        //  somebody else. That is the difference between this and the S06 exploit.
+        vm.prank(lpA);
+        (uint256 aPaid,) = vault.withdrawEth(aShares);
+        assertEq(aPaid, 0, "lpA's claim is worth nothing here - it was swept, not redenominated");
+
+        //  ...and an honest new-quote staker is untouched by any of it.
+        uint256 bStake = 1_000 * 10 ** QUOTE_DECIMALS;
+        usdg.mint(lpB, bStake);
+        vm.startPrank(lpB);
+        usdg.approve(address(vault), type(uint256).max);
+        uint256 bShares = vault.deposit(bStake);
+        vm.stopPrank();
+        assertGt(bShares, 0, "lpB got shares");
+        vm.prank(lpB);
+        (uint256 bPaid,) = vault.withdrawEth(bShares);
+        assertApproxEqAbs(bPaid, bStake, 2, "lpB recovers their own stake in full");
     }
 }
 
