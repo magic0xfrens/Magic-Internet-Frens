@@ -100,4 +100,12 @@ All 13 previous gate failures are gone (fixed by cf6ad0f/33bd29b/7da1cdb/88eecb1
 Effective final state: 228 suites / 926 tests total, 0 failing, 1 skipped (unchanged skip). Sizes clean. No code-side regressions from the 4 fixer commits.
 
 ### Uncommitted files
-`git status --short | grep -v '^??'`: empty (nothing modified-but-uncommitted before this commit besides this GATE.md edit itself).
+`git status --short | grep -v '^??'` (captured mid-write, before this commit) showed:
+```
+ M contracts/solidity/CauldronHook.sol
+ M contracts/solidity/cauldron/PerpEngine.sol
+ m contracts/solidity/lib/openzeppelin-contracts
+ M contracts/solidity/test/PerpEngine.t.sol
+ M contracts/solidity/test/attacks/XL1_LiqTwapAndDepthCap.t.sol
+```
+None of these are this runner's edits (this runner only touched audit/FINAL_BLIND_2026-09-13/GATE.md). The four .sol changes are in-flight work from another fixer agent, mid-commit at the moment this check ran; the submodule pointer is the pre-existing baseline noise. Not committed by this runner per instructions.
