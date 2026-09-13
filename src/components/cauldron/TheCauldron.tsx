@@ -1227,7 +1227,17 @@ export default function TheCauldron() {
           onClose={() => setOpenProposal(null)}
         />
       )}
-      <RitualModal ritual={ritual} col={col} onClose={() => setRitual(null)} />
+      {/*  BELT AND BRACES. `ritual` drives the narration, but if anything ever
+           fails to set it while a relaunch is in flight, `busyRelaunch` still
+           puts the dialog on screen — a spinning button with no explanation is
+           the one outcome this whole component exists to prevent. */}
+      <RitualModal
+        ritual={ritual ?? (busyRelaunch
+          ? { stage: "sign" as const, step: 0, ticker: m.proposals?.[0]?.ticker ?? "", name: m.proposals?.[0]?.name ?? "the next brew" }
+          : null)}
+        col={col}
+        onClose={() => setRitual(null)}
+      />
       <Styles />
     </div>
   );
@@ -1430,7 +1440,14 @@ function RitualModal({ ritual, col, onClose }: {
 }) {
   if (!ritual) return null;
   const done = ritual.stage === "done";
-  return (
+  //  ── A PORTAL, NOT AN INLINE DIV ──────────────────────────────────────
+  //  Rendered in place, this dialog inherited the page wrapper's
+  //  `position: relative; z-index: 2` — measured in the browser — so `position:
+  //  fixed; z-index: 400` on its own class never won, and the overlay laid
+  //  itself out INSIDE the page flow, behind the content. Nothing errored; the
+  //  modal simply was not where it said it was. A portal to <body> removes the
+  //  whole question: no ancestor can position or stack it.
+  return createPortal((
     <div className="tc-ritual" role="dialog" aria-modal="true"
          aria-label={done ? `${ritual.name} summoned` : "Relaunch ritual"}
          onClick={() => { if (done) onClose(); }}>
@@ -1473,7 +1490,7 @@ function RitualModal({ ritual, col, onClose }: {
         {done && <button className="tc-ritual__close" onClick={onClose}>Enter the new brew</button>}
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 function RelaunchPanel({ proposals, relaunchAt, busy, col, onRelaunch, onPropose }: {
@@ -2765,6 +2782,47 @@ function Styles() {
 
     /* presale — the rich founding-guild mint */
     /* summoning / syncing state — graceful post-summon transition */
+    /* ── THE RELAUNCH RITUAL ──────────────────────────────────────────────
+       One transaction kills a generation and births another; it is the only
+       moment on this page that earns the whole screen. */
+    .tc-ritual { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center;
+      background: radial-gradient(60% 60% at 50% 52%, rgba(213,253,81,.10), rgba(4,2,10,.95) 70%);
+      backdrop-filter: blur(5px); animation: tcr-fade .25s ease both; }
+    @keyframes tcr-fade { from { opacity: 0 } to { opacity: 1 } }
+    .tc-ritual__box { text-align: center; padding: 8px 24px 0;
+      animation: tcr-rise .5s cubic-bezier(.2,.9,.3,1) both; }
+    @keyframes tcr-rise { from { opacity: 0; transform: translateY(14px) scale(.97) } to { opacity: 1; transform: none } }
+    .tc-ritual__orb { position: relative; width: 210px; height: 210px; margin: 0 auto 26px;
+      display: grid; place-items: center; }
+    .tc-ritual__ring { position: absolute; border-radius: 50%; border: 2px solid rgba(213,253,81,.42); }
+    .tc-ritual__ring.r1 { inset: 0; animation: tcr-spin 3.2s linear infinite; }
+    .tc-ritual__ring.r2 { inset: 22px; border-color: rgba(139,92,246,.5); animation: tcr-spin 2.1s linear infinite reverse; }
+    .tc-ritual__ring.r3 { inset: 44px; border-color: rgba(213,253,81,.24); animation: tcr-spin 4.6s linear infinite; }
+    @keyframes tcr-spin { to { transform: rotate(360deg) } }
+    .tc-ritual__core { width: 96px; height: 96px; border-radius: 50%;
+      box-shadow: 0 0 60px rgba(213,253,81,.7), 0 0 130px rgba(213,253,81,.3);
+      animation: tcr-pulse 1.15s ease-in-out infinite; }
+    @keyframes tcr-pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.09) } }
+    .tc-ritual__orb.is-done .tc-ritual__core { animation: tcr-burst .7s cubic-bezier(.2,.9,.3,1) both; }
+    @keyframes tcr-burst { 0% { transform: scale(1) } 55% { transform: scale(1.35) } 100% { transform: scale(1.12) } }
+    .tc-ritual__k { font-family: "DM Mono", monospace; font-size: 10.5px; letter-spacing: .22em;
+      text-transform: uppercase; color: #d5fd51; margin-bottom: 10px; }
+    .tc-ritual__name { font-family: "Cinzel", serif; font-size: clamp(34px,6vw,58px); margin: 0 0 4px; color: #f4f1ff; }
+    .tc-ritual__name--sm { font-size: clamp(20px,3vw,26px); margin-bottom: 10px; }
+    .tc-ritual__tick { font-family: "DM Mono", monospace; font-size: 18px; color: #d5fd51; }
+    .tc-ritual__step { font-family: "DM Sans", sans-serif; font-size: 13px; color: #b9b0d4;
+      margin: 0 auto 4px; max-width: 340px; min-height: 20px; }
+    .tc-ritual__rail { display: flex; gap: 7px; justify-content: center; margin: 20px 0 14px; }
+    .tc-ritual__pip { width: 30px; height: 3px; border-radius: 999px; background: rgba(255,255,255,.13); }
+    .tc-ritual__pip.is-past { background: rgba(213,253,81,.55); }
+    .tc-ritual__pip.is-now { background: #d5fd51; animation: tcr-blink 1s ease-in-out infinite; }
+    @keyframes tcr-blink { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+    .tc-ritual__link { display: inline-block; font-size: 10px; color: #8f83b8; text-decoration: none;
+      border-bottom: 1px dotted rgba(255,255,255,.2); }
+    .tc-ritual__link:hover { color: #efe9dd; }
+    .tc-ritual__close { display: block; margin: 22px auto 0; padding: 11px 26px; border-radius: 10px;
+      cursor: pointer; background: #d5fd51; border: none; color: #10130a;
+      font: 700 13px/1 "Fredoka", sans-serif; box-shadow: 0 10px 34px rgba(213,253,81,.28); }
     .tc-summoning { max-width: 460px; margin: 40px auto; text-align: center; padding: 30px 24px; }
     .tc-summoning__portal { position: relative; width: 130px; height: 130px; margin: 0 auto 22px; display: grid; place-items: center; }
     .tc-summoning__ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(213,253,81,0.12); border-top-color: ${C.lime}; animation: tc-summon-spin 1.5s linear infinite; }
