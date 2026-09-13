@@ -773,3 +773,12 @@ ponder.on("PosmOut:Transfer", async ({ event, context }) => {
     owner: event.args.to, live: false, updatedBlock: event.block.number,
   }));
 });
+
+//  A proposal is SPENT once a relaunch has summoned it. Marked rather than
+//  deleted: the lineage view still wants to show which brew won which
+//  generation, and a deleted row cannot answer that.
+ponder.on("Governor:Consumed", async ({ event, context }) => {
+  await context.db
+    .update(proposal, { id: Number(event.args.proposalId) })
+    .set({ consumed: true });
+});

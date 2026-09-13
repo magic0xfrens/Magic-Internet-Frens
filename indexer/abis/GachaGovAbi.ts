@@ -38,4 +38,12 @@ export const GovernorAbi = [
     { name: "weight", type: "uint256", indexed: false },
     { name: "totalVotes", type: "uint256", indexed: false },
   ], anonymous: false },
+  //  THE PROPOSAL IS SPENT. `CauldronGovernor.markConsumed` emits this when a
+  //  relaunch summons the winner. Without it the `consumed` column stayed false
+  //  forever, and since the frontend filters on `!consumed`, a brew that had
+  //  ALREADY been summoned kept sitting at the top of the proposals list marked
+  //  LEADING — proposing itself again, for a generation that already exists.
+  { type: "event", name: "Consumed", inputs: [
+    { name: "proposalId", type: "uint256", indexed: true },
+  ], anonymous: false },
 ] as const;

@@ -573,6 +573,24 @@ export default function TheCauldron() {
   const [busyVote, setBusyVote] = useState<number | null>(null);
   const [openProposal, setOpenProposal] = useState<Proposal | null>(null);
   const [busyRelaunch, setBusyRelaunch] = useState(false);
+  const [ritual, setRitual] = useState<
+    { stage: "sign" | "work" | "done"; step: number; ticker: string; name: string; hash?: `0x${string}` } | null
+  >(null);
+  //  Advance the narration on a timer while the transaction mines. The steps are
+  //  real phases of one atomic call, so there is no per-step signal to listen to
+  //  — pacing them is honest as long as the LAST one only lands on the receipt,
+  //  which `onRelaunch` enforces.
+  useEffect(() => {
+    if (ritual?.stage !== "work") return;
+    const t = setInterval(() => {
+      setRitual((r) =>
+        r && r.stage === "work" && r.step < RITUAL_STEPS.length - 2
+          ? { ...r, step: r.step + 1 }
+          : r,
+      );
+    }, 1400);
+    return () => clearInterval(t);
+  }, [ritual?.stage]);
   const [showPropose, setShowPropose] = useState(false);
   const [busyPropose, setBusyPropose] = useState(false);
   //  A QUEUE, NOT A SLOT. The old notice held exactly one message and replaced
@@ -697,14 +715,25 @@ export default function TheCauldron() {
   };
   const onRelaunch = async () => {
     setBusyRelaunch(true);
+    //  ── THE RITUAL IS THE PROTOCOL'S ONE CINEMATIC MOMENT ────────────────
+    //  `relaunch()` drains the dying pool, deploys the winner, seeds it from the
+    //  recovered liquidity and carries the genesis frens across — all in ONE
+    //  transaction, and the page used to show a toast for it. The stages below
+    //  are what the transaction actually does, in order, so the narration is
+    //  descriptive rather than decorative.
+    const winner = m.proposals?.[0];
+    setRitual({ stage: "sign", step: 0, ticker: winner?.ticker ?? "", name: winner?.name ?? "the next brew" });
     try {
       const hash = await m.relaunch();
-      notify("ok", "Relaunch ritual submitted — summoning…");
+      setRitual((r) => (r ? { ...r, stage: "work", step: 0, hash } : r));
       await m.waitForReceipt(hash);
+      setRitual((r) => (r ? { ...r, stage: "done", step: RITUAL_STEPS.length - 1 } : r));
       setJustSummoned(true);
       await m.refresh();
-      notify("ok", "The Cauldron has relaunched ✓");
+      //  Let the reveal breathe before the page swaps under it.
+      setTimeout(() => setRitual(null), 3200);
     } catch (e) {
+      setRitual(null);
       notify("err", friendlyErr(e));
     } finally { setBusyRelaunch(false); }
   };
@@ -1198,6 +1227,7 @@ export default function TheCauldron() {
           onClose={() => setOpenProposal(null)}
         />
       )}
+      <RitualModal ritual={ritual} col={col} onClose={() => setRitual(null)} />
       <Styles />
     </div>
   );
@@ -1375,6 +1405,77 @@ function GenesisBonusPanel({ notify }: { notify: (k: "ok" | "err", m: string) =>
     </div>
   );
 }
+/** The phases of ONE `relaunch()` call, in the order the contract performs them. */
+const RITUAL_STEPS = [
+  "Draining the dying pool\u2026",
+  "Deploying the winning brew\u2026",
+  "Seeding its pool from the recovered liquidity\u2026",
+  "Carrying the genesis frens forward\u2026",
+  "The Cauldron burns green.",
+] as const;
+
+/**
+ * THE RELAUNCH RITUAL.
+ *
+ * `relaunch()` is the single most consequential call in the protocol — a whole
+ * generation dies and another is born inside one transaction — and it used to be
+ * a toast. This is the one place a modal earns its keep: there is nothing else on
+ * the page worth looking at while it mines, and the stages tell a user what their
+ * liquidity is doing rather than that "something is happening".
+ */
+function RitualModal({ ritual, col, onClose }: {
+  ritual: { stage: "sign" | "work" | "done"; step: number; ticker: string; name: string; hash?: string } | null;
+  col: string;
+  onClose: () => void;
+}) {
+  if (!ritual) return null;
+  const done = ritual.stage === "done";
+  return (
+    <div className="tc-ritual" role="dialog" aria-modal="true"
+         aria-label={done ? `${ritual.name} summoned` : "Relaunch ritual"}
+         onClick={() => { if (done) onClose(); }}>
+      <div className="tc-ritual__box" onClick={(e) => e.stopPropagation()}>
+        <div className={`tc-ritual__orb ${done ? "is-done" : ""}`}>
+          <span className="tc-ritual__ring r1" />
+          <span className="tc-ritual__ring r2" />
+          <span className="tc-ritual__ring r3" />
+          <span className="tc-ritual__core" style={{ background: `radial-gradient(circle at 50% 40%, #fbffd8, ${col} 45%, #6f8f14 100%)` }} />
+        </div>
+
+        {done ? (
+          <>
+            <div className="tc-ritual__k">Generation summoned</div>
+            <h2 className="tc-ritual__name">{ritual.name}</h2>
+            {ritual.ticker && <div className="tc-ritual__tick">${ritual.ticker}</div>}
+          </>
+        ) : (
+          <>
+            <h2 className="tc-ritual__name tc-ritual__name--sm">The relaunch ritual</h2>
+            <p className="tc-ritual__step">
+              {ritual.stage === "sign" ? "Confirm in your wallet\u2026" : RITUAL_STEPS[ritual.step]}
+            </p>
+          </>
+        )}
+
+        <div className="tc-ritual__rail">
+          {RITUAL_STEPS.map((_, i) => (
+            <span key={i}
+              className={`tc-ritual__pip ${done || i < ritual.step ? "is-past" : i === ritual.step && ritual.stage !== "sign" ? "is-now" : ""}`} />
+          ))}
+        </div>
+
+        {ritual.hash && (
+          <a className="tc-ritual__link tc-mono" target="_blank" rel="noreferrer"
+             href={`https://sepolia.etherscan.io/tx/${ritual.hash}`}>
+            {ritual.hash.slice(0, 10)}\u2026{ritual.hash.slice(-8)} \u2197
+          </a>
+        )}
+        {done && <button className="tc-ritual__close" onClick={onClose}>Enter the new brew</button>}
+      </div>
+    </div>
+  );
+}
+
 function RelaunchPanel({ proposals, relaunchAt, busy, col, onRelaunch, onPropose }: {
   proposals: Proposal[]; relaunchAt: number; busy: boolean; col: string; onRelaunch: () => void; onPropose: () => void;
 }) {

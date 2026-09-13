@@ -1639,7 +1639,16 @@ const GOV_READ = [{
   outputs: [{ type: "tuple", components: [
     { name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "mode", type: "uint8" },
     { name: "baseURI", type: "string" }, { name: "renderer", type: "address" }, { name: "website", type: "string" },
-    { name: "socials", type: "string" }, { name: "nftSupply", type: "uint256" }, { name: "volumePerNFT", type: "uint256" },
+    //  ── FIELD ORDER IS THE STRUCT'S, NOT propose()'s ────────────────────
+    //  `BrewSpec` (ICauldron.sol:20-30) orders these `socials, QUOTE, nftSupply,
+    //  volumePerNFT, proposer`, while `propose(...)` takes `socials, nftSupply,
+    //  volumePerNFT, quote`. This ABI followed the FUNCTION and omitted `quote`
+    //  entirely, so every field after `socials` decoded one slot early: the UI
+    //  read the quote address (zero) as `nftSupply` and showed "0 NFTs" for a
+    //  proposal that asked for 3,333. A shifted tuple does not revert — it just
+    //  reports neighbouring fields, which is why this survived.
+    { name: "socials", type: "string" }, { name: "quote", type: "address" },
+    { name: "nftSupply", type: "uint256" }, { name: "volumePerNFT", type: "uint256" },
     { name: "proposer", type: "address" }, { name: "votes", type: "uint256" }, { name: "snapshot", type: "uint256" },
     { name: "consumed", type: "bool" }, { name: "exists", type: "bool" },
   ] }],
