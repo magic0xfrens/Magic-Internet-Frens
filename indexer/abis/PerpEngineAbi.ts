@@ -45,6 +45,36 @@ export const PerpEngineAbi = [
   },
   // read used to scope a position to the live generation at open time
   { type: "function", name: "maintenanceBps", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  //  ── PARTIAL DEATH-BAND FILLS (audit C-4) ─────────────────────────────
+  //  The dead path no longer reverts outside the mark band: it fills what the
+  //  pool can supply inside it and rebooks the rest, which on a thin pool is now
+  //  the NORMAL outcome. Without these two the indexer kept the position's
+  //  pre-close size and the pre-close open count forever. Shapes from
+  //  out/PerpEngine.sol/PerpEngine.json.
+  {
+    type: "event", name: "PartiallyClosed", inputs: [
+      { name: "id", type: "uint256", indexed: true },
+      { name: "bought", type: "uint256", indexed: false },
+      { name: "cost", type: "uint256", indexed: false },
+      { name: "remaining", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event", name: "TokenDebtWrittenOff", inputs: [
+      { name: "id", type: "uint256", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  //  Distinguishes a PARKED engine from a dead token (audit C-1): nothing read
+  //  this, so off-chain there was no way to tell the two apart.
+  {
+    type: "event", name: "GenerationSynced", inputs: [
+      { name: "fromGen", type: "uint256", indexed: true },
+      { name: "toGen", type: "uint256", indexed: true },
+      { name: "migratedIn", type: "uint256", indexed: false },
+      { name: "newInventory", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;
 
 // Minimal registry read for the current generation (RegistryAbi is events-only).

@@ -1,5 +1,5 @@
 import { ponder } from "ponder:registry";
-import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice, ownedPosition } from "ponder:schema";
+import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, dividendAsset, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice, ownedPosition } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/active";
 import { normaliseQuotePerToken, rawToQuoteAmount } from "./quoteUnits";
@@ -36,6 +36,11 @@ function rawQuoteRatio(sqrtPriceX96: bigint): number {
 const ERC20_DECIMALS_ABI = [{
   type: "function", name: "decimals", stateMutability: "view",
   inputs: [], outputs: [{ type: "uint8" }],
+}] as const;
+/** ERC20 `symbol()` — labels a basket asset without a hardcoded table. */
+const ERC20_SYMBOL_ABI = [{
+  type: "function", name: "symbol", stateMutability: "view",
+  inputs: [], outputs: [{ type: "string" }],
 }] as const;
 const lc = (a: string) => a.toLowerCase() as `0x${string}`;
 const nftId = (col: string, id: bigint) => `${lc(col)}-${id}`;
@@ -242,6 +247,48 @@ ponder.on("Dividend:SpellBroken", async ({ event, context }) => {
 ponder.on("Dividend:Deposited", async ({ event, context }) => { await bumpDiv(context, "totalDeposited", event.args.amount as bigint); });
 ponder.on("Dividend:Claimed", async ({ event, context }) => { await bumpDiv(context, "totalClaimed", event.args.amount as bigint); });
 ponder.on("Dividend:TreasuryFunded", async ({ event, context }) => { await bumpDiv(context, "treasuryFunded", event.args.amount as bigint); });
+
+/* ── the ERC20 dividend basket (audit FG-1) ───────────────────────────────
+   On a non-ether generation the whole guild slice arrives here, not through
+   `Deposited`. Decoding only the native rail made the headline dividend figure
+   read zero the moment the quote rotated. */
+async function bumpDivAsset(
+  ctx: any, asset: string, field: "deposited" | "claimed" | "withdrawn", amount: bigint, ts: bigint,
+) {
+  const id = lc(asset);
+  const cur = await ctx.db.find(dividendAsset, { id });
+  if (!cur) {
+    //  Read decimals + symbol ONCE, at first sight. A basket asset can be any
+    //  ERC20 — USDG is 6 — and a consumer that assumes 18 misreports by 1e12.
+    let decimals = 18;
+    let symbol = "";
+    try {
+      decimals = Number(await ctx.client.readContract({ abi: ERC20_DECIMALS_ABI, address: id, functionName: "decimals" }));
+      if (!Number.isFinite(decimals) || decimals < 0 || decimals > 36) decimals = 18;
+    } catch { /* non-standard token: 18 is the same answer the old code assumed */ }
+    try {
+      symbol = String(await ctx.client.readContract({ abi: ERC20_SYMBOL_ABI, address: id, functionName: "symbol" }));
+    } catch { /* optional */ }
+    await ctx.db.insert(dividendAsset).values({
+      id, decimals, symbol, deposited: 0n, claimed: 0n, withdrawn: 0n, updatedAt: ts,
+    }).onConflictDoNothing();
+  }
+  const row = await ctx.db.find(dividendAsset, { id });
+  await ctx.db.update(dividendAsset, { id }).set({
+    [field]: ((row?.[field] as bigint) ?? 0n) + amount,
+    updatedAt: ts,
+  });
+}
+
+ponder.on("Dividend:TokenDeposited", async ({ event, context }) => {
+  await bumpDivAsset(context, event.args.asset as string, "deposited", event.args.amount as bigint, event.block.timestamp);
+});
+ponder.on("Dividend:TokenClaimed", async ({ event, context }) => {
+  await bumpDivAsset(context, event.args.asset as string, "claimed", event.args.amount as bigint, event.block.timestamp);
+});
+ponder.on("Dividend:TokenWithdrawn", async ({ event, context }) => {
+  await bumpDivAsset(context, event.args.asset as string, "withdrawn", event.args.amount as bigint, event.block.timestamp);
+});
 
 /* ── migration + burn (per-iteration deflation) ────────────────────────── */
 ponder.on("CauldronRegistry:HolderClaimed", async ({ event, context }) => { await bumpIter(context, Number(event.args.generation), "migratedOut", event.args.amount as bigint); });
@@ -468,6 +515,59 @@ async function bumpStat(ctx: any, gen: number, ts: bigint, patch: (s: any) => an
         s.openPositions = Math.max(0, s.openPositions - 1); return s;
       });
       void payout; break;
+    }
+  });
+
+  /* ── PARTIAL DEATH-BAND FILL (audit C-4) ────────────────────────────────
+     The dead path caps its swap at the mark band and rebooks whatever the pool
+     could not supply inside it, so a close is now routinely PARTIAL on a thin
+     pool. Nothing decoded this, which left `perpPosition` at its pre-close size
+     and `perpStat.openPositions` at its pre-close count — permanently, because
+     the eventual `Closed` may never come. Re-read the position from the chain,
+     which is authoritative, rather than trying to arithmetic our way there. */
+  ponder.on("PerpEngine:PartiallyClosed", async ({ event, context }) => {
+    const id = event.args.id as bigint;
+    const remaining = event.args.remaining as bigint;
+    for (const g of await candidateGens(context, id)) {
+      const pos = await context.db.find(perpPosition, { id: `${g}-${id}` });
+      if (!pos || pos.closedAt) continue;
+      //  `remaining` is emitted BY the engine after the rebook, so it is the
+      //  authoritative post-fill size — no extra RPC read needed.
+      const size = remaining;
+      //  Open interest shrinks in proportion to the size that actually left. The
+      //  first partial has no earlier `sizeRemaining`, so the row's opening size
+      //  is inferred from the very first event we see.
+      const before = pos.sizeRemaining > 0n ? pos.sizeRemaining : (size + (event.args.bought as bigint));
+      const frac = before > 0n ? Number(size) / Number(before) : 0;
+      const newNotional = pos.notionalEth * (Number.isFinite(frac) ? Math.max(0, Math.min(1, frac)) : 1);
+      const shed = Math.max(0, pos.notionalEth - newNotional);
+      await context.db.update(perpPosition, { id: `${g}-${id}` }).set({
+        sizeRemaining: size, notionalEth: newNotional,
+        //  Fully drained by the partial fill: it is closed, whatever the engine
+        //  calls it next.
+        ...(size === 0n ? { status: "closed", closedAt: event.block.timestamp } : {}),
+      });
+      await bumpStat(context, g, event.block.timestamp, (s) => {
+        if (pos.isLong) s.longOiEth = Math.max(0, s.longOiEth - shed);
+        else s.shortOiEth = Math.max(0, s.shortOiEth - shed);
+        if (size === 0n) s.openPositions = Math.max(0, s.openPositions - 1);
+        return s;
+      });
+      break;
+    }
+  });
+
+  /* Bad debt the death band could not fill. Recorded so a shrinking position is
+     not mistaken for a trader who closed out cleanly. */
+  ponder.on("PerpEngine:TokenDebtWrittenOff", async ({ event, context }) => {
+    const id = event.args.id as bigint;
+    for (const g of await candidateGens(context, id)) {
+      const pos = await context.db.find(perpPosition, { id: `${g}-${id}` });
+      if (!pos) continue;
+      await context.db.update(perpPosition, { id: `${g}-${id}` }).set({
+        writtenOff: pos.writtenOff + (event.args.amount as bigint),
+      });
+      break;
     }
   });
 }
