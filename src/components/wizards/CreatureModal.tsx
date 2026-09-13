@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatEther, type Address } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { CAULDRON, COLLECTION_ABI, VAULT_ABI } from "@/config/cauldron";
-import { nftTokenUrl, NETWORK_SHORT } from "@/config/chains";
+import { nftTokenUrl, IS_TARGET } from "@/config/chains";
 import FrenSprite from "@/components/shared/FrenSprite";
 import { frenFromSeed } from "@/data/frens";
 import { resolveTokenArt as resolveArt } from "@/lib/tokenArt";
@@ -166,7 +166,7 @@ export default function CreatureModal({ creature, onClose, onChanged }: Props) {
                   : `🔥 Burn for floor · ${floorEth.toFixed(5)} Ξ`}
               </button>
 
-              <a className="cm-os" href={osUrl} target="_blank" rel="noopener">View on {NETWORK_SHORT === "Robinhood" ? "Explorer" : "OpenSea"} ↗</a>
+              <a className="cm-os" href={osUrl} target="_blank" rel="noopener">View on {IS_TARGET ? "Explorer" : "OpenSea"} ↗</a>
 
               {err && <div className="cm-err">{err}</div>}
               <p className="cm-note">Burning is permanent — it destroys the NFT and pays out its equal share of the floor vault.</p>

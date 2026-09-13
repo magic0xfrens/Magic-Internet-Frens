@@ -1,7 +1,7 @@
 const FRENS_PATH = "/frens/";
 
 /**
- * Robinhood-lime gradient (#d5fd51 family), seeded by the fren's traits so each
+ * Brand-lime gradient (#d5fd51 family), seeded by the fren's traits so each
  * fren has a stable backdrop. Hue is LOCKED to the chartreuse-lime band (~66°–80°)
  * — only the angle and lightness drift a touch per fren, so every card reads as
  * the same bright brand lime, never generic green.

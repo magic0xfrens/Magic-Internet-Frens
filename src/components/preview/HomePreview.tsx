@@ -8,6 +8,7 @@ import ArchiveMachine from "@/components/preview/ArchiveMachine";
 import PresaleModal from "@/components/presale/PresaleModal";
 import { PRESALE } from "@/config/presale";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
+import { NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
 import cauldronImg from "@/assets/images/mif/cauldron.webp";
 
 
@@ -252,7 +253,7 @@ function HomePreview() {
 
 
   const tweetText = encodeURIComponent(
-    `\u{1F9D9}\u200D\u2642\uFE0F Magic Internet Frens \u2014 minting on Robinhood\n\n2222 on-chain wizards. No bridges. Pure magic.\n\n@magic0xfrens \u00B7 mifrens.xyz\n\n`
+    `\u{1F9D9}\u200D\u2642\uFE0F Magic Internet Frens \u2014 minting fully on-chain\n\n2222 on-chain wizards. No bridges. Pure magic.\n\n@magic0xfrens \u00B7 mifrens.xyz\n\n`
   );
   const tweetUrl = `https://x.com/compose/post?text=${tweetText}`;
 
@@ -384,7 +385,7 @@ function HomePreview() {
                     <img src={`${FRENS_PATH}${BODIES[cls][(i * 2) % BODIES[cls].length].file}`} alt="" className="pp__ticker-fren-layer" />
                     <img src={`${FRENS_PATH}${ITEMS[cls][i % ITEMS[cls].length].file}`} alt="" className="pp__ticker-fren-layer" />
                   </span>
-                  ON ROBINHOOD &middot; MINTING SOON &middot; 2222 MAGIC INTERNET FRENS &middot;&nbsp;
+                  ON {NETWORK_SHORT.toUpperCase()} &middot; MINTING SOON &middot; 2222 MAGIC INTERNET FRENS &middot;&nbsp;
                 </span>
               );
             })}
@@ -401,7 +402,7 @@ function HomePreview() {
             </h2>
             <p className="pp__about-text" data-reveal="fade-up" data-reveal-delay="100">
               gm fren. welcome to the realm of Magic Internet Frens &mdash; a band of 2222 pixel wizards,
-              knights, gnomes and degens summoned fully on-chain on Robinhood. 1111 genesis frens,
+              knights, gnomes and degens summoned fully on-chain on {NETWORK_LABEL}. 1111 genesis frens,
               the rest forged by trading volume. pure on-chain magic. every fren is inscribed forever. wagmi.
             </p>
 
@@ -434,7 +435,6 @@ function HomePreview() {
                   opt1sqr9...vd38eu
                 </button>
               </div>
-              {/* Deployed on Robinhood */}
             </div>
           </div>
           <div className="pp__about-right">
@@ -592,7 +592,7 @@ function HomePreview() {
               <span className="pp__feature-tag">MARKETPLACE</span>
               <h3 className="pp__feature-heading">Trade frens<br/>peer-to-peer</h3>
               <p className="pp__feature-desc">
-                Buy and sell frens directly on Robinhood Chain. No middlemen, no bridges &mdash;
+                Buy and sell frens directly on {NETWORK_LABEL}. No middlemen, no bridges &mdash;
                 just trustless swaps between wallets. Browse listings or put yours up for sale.
               </p>
               <ArrowBtn label="BROWSE" href="#/marketplace" />
@@ -706,7 +706,7 @@ function HomePreview() {
         <div className="pp__text-marquee-track">
           {Array.from({ length: 10 }).map((_, i) => (
             <span key={i} className="pp__text-marquee-item">
-              MAGIC INTERNET FRENS &middot; ON ROBINHOOD &middot; 2222 SUPPLY &middot; ON-CHAIN FOREVER &middot; THE CAULDRON &middot; ETERNAL CYCLE &middot;&nbsp;
+              MAGIC INTERNET FRENS &middot; ON {NETWORK_SHORT.toUpperCase()} &middot; 2222 SUPPLY &middot; ON-CHAIN FOREVER &middot; THE CAULDRON &middot; ETERNAL CYCLE &middot;&nbsp;
             </span>
           ))}
         </div>
@@ -828,7 +828,7 @@ function HomePreview() {
           <div className="pp__faq" data-reveal="fade-up" data-reveal-delay="100">
           <FAQItem
             q="What are Magic Internet Frens?"
-            a="2222 unique pixel-art NFTs deployed fully on-chain on Robinhood — 1111 genesis frens minted at launch, the other 1111 forged through trading volume in the Cauldron. Each fren is composed of layered traits (class, body, face, equipment) stored fully on-chain. 7 classes: Wizard, King, Knight, Apprentice, Peasant, Gnome, and Elf."
+            a={`2222 unique pixel-art NFTs deployed fully on-chain on ${NETWORK_LABEL} — 1111 genesis frens minted at launch, the other 1111 forged through trading volume in the Cauldron. Each fren is composed of layered traits (class, body, face, equipment) stored fully on-chain. 7 classes: Wizard, King, Knight, Apprentice, Peasant, Gnome, and Elf.`}
           />
           <FAQItem
             q="How does minting work?"
@@ -854,7 +854,7 @@ function HomePreview() {
           <div className="pp__footer-marquee-track">
             {Array.from({ length: 10 }).map((_, i) => (
               <span key={i} className="pp__footer-marquee-item">
-                MAGIC INTERNET FRENS &middot; ON ROBINHOOD &middot; 2222 SUPPLY &middot; ON-CHAIN FOREVER &middot;&nbsp;
+                MAGIC INTERNET FRENS &middot; ON {NETWORK_SHORT.toUpperCase()} &middot; 2222 SUPPLY &middot; ON-CHAIN FOREVER &middot;&nbsp;
               </span>
             ))}
           </div>
@@ -904,11 +904,10 @@ function HomePreview() {
               <img src="/mifrens-logo.svg" alt="MiFrens" className="pp__footer-guild" />
             </div>
             <p className="pp__footer-copy">Magic Internet Frens &middot; On-Chain NFT &middot; 2025-2026</p>
-            <p className="pp__footer-legal">All rights reserved. Fully on-chain, on Robinhood.</p>
-            <div className="pp__footer-robinhood">
-              <span className="pp__footer-robinhood-label">Powered by</span>
-              <img src="/robinhood-feather.svg" alt="Robinhood" className="pp__footer-robinhood-logo" />
-              <span>Robinhood</span>
+            <p className="pp__footer-legal">All rights reserved. Fully on-chain.</p>
+            <div className="pp__footer-chain">
+              <span className="pp__footer-chain-label">Running on</span>
+              <span>{NETWORK_LABEL}</span>
             </div>
           </div>
         </div>
@@ -938,7 +937,7 @@ export default HomePreview;
  * Palette (Refined Arcane — one lime accent, unified purples, gold warmth):
  *   Enchanted Cream: #F5F0E8 (warm off-white base + text on dark)
  *   Parchment:       #FBF7F0 (lightest bg for cards/panels)
- *   Robinhood Lime:  #d5fd51 (THE accent — CTAs, glows, highlights)
+ *   Brand Lime:      #d5fd51 (THE accent — CTAs, glows, highlights)
  *   Amber Glow:      #F0D8A0 (kindness/manifesto card)
  *   Ancient Parchment:#EDE0C8 (feature card warm)
  *   Wizard Purple:   #2A1F54 (dark section bgs + text + borders — ONE purple)
@@ -1206,13 +1205,6 @@ const styles = `
   @keyframes pp-wisp-pulse {
     0% { transform: scale(0.8); opacity: 0.3; }
     100% { transform: scale(1.3); opacity: 0.7; }
-  }
-
-  .pp__robinhood-inline {
-    width: 16px;
-    height: 16px;
-    vertical-align: middle;
-    margin: 0 2px;
   }
 
   /* Title — pushed down from top */
@@ -1496,23 +1488,6 @@ const styles = `
   .pp__about-contract-addr:active {
     transform: scale(0.97);
   }
-  .pp__about-robinhood {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    text-decoration: none;
-    transition: opacity 0.2s;
-  }
-  .pp__about-robinhood:hover { opacity: 0.8; }
-  .pp__about-robinhood-label {
-    font-family: "DM Sans", sans-serif;
-    font-weight: 500;
-    font-size: 14px;
-    color: rgba(255,255,255,0.55);
-    letter-spacing: 0.04em;
-  }
-  .pp__about-robinhood-logo { width: 120px; height: auto; filter: brightness(0) invert(1); }
   .pp__about-right { display: flex; align-items: flex-end; justify-content: flex-end; }
   .pp__about-img {
     display: block;
@@ -1836,7 +1811,7 @@ const styles = `
 
   /* ═══════ 5. CAULDRON SECTION (periwinkle) ═══════ */
   .pp__cauldron-section {
-    /* Robinhood-lime glow behind the cauldron. Two mistakes made it look white:
+    /* Brand-lime glow behind the cauldron. Two mistakes made it look white:
        low-opacity bright lime over dark purple washes pale, and fading to
        transparent interpolates through grey. Fix: a tight SATURATED lime core
        that fades to transparent-LIME (same rgb, 0 alpha, no graying), a soft mid
@@ -2643,7 +2618,9 @@ const styles = `
     font-size: 12px;
     color: rgba(255, 255, 255, 0.5);
   }
-  .pp__footer-robinhood {
+  /* "Running on <chain>" — reads from NETWORK_LABEL, so it needs no edit on a
+     cut-over. Replaced a vendor logo badge; the lime/label styling is kept. */
+  .pp__footer-chain {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2657,16 +2634,10 @@ const styles = `
     letter-spacing: 0.02em;
     transition: opacity 0.2s;
   }
-  .pp__footer-robinhood:hover { opacity: 0.8; }
-  .pp__footer-robinhood-label {
+  .pp__footer-chain:hover { opacity: 0.8; }
+  .pp__footer-chain-label {
     color: rgba(255, 255, 255, 0.45);
     font-weight: 500;
-  }
-  .pp__footer-robinhood-logo {
-    width: 18px;
-    height: 18px;
-    /* Recolor the green feather to Robinhood-lime #d5fd51 to match the brand. */
-    filter: brightness(0) saturate(100%) invert(93%) sepia(38%) saturate(1090%) hue-rotate(20deg) brightness(104%) contrast(98%);
   }
   .pp__footer-copy {
     font-family: "DM Sans", sans-serif;

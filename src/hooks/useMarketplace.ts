@@ -2,10 +2,10 @@ import { useCallback, useState } from "react";
 import toast from "react-hot-toast";
 
 /**
- * PHASE 2 STUB — the Robinhood FrenMarket contract has no EVM equivalent deployed on
- * Robinhood Chain yet. This preserves the hook's public shape so the Marketplace
- * UI compiles and renders an empty state. Wire real functions once a Solidity
- * marketplace contract is deployed.
+ * PHASE 2 STUB — the legacy FrenMarket contract has no EVM equivalent deployed
+ * yet. This preserves the hook's public shape so the Marketplace UI compiles and
+ * renders an empty state. Wire real functions once a Solidity marketplace
+ * contract is deployed.
  */
 
 export interface MarketListing {
@@ -52,7 +52,7 @@ const EMPTY_RESERVATION: ReservationStatus = {
 };
 
 function notAvailable() {
-  toast.error("Marketplace is coming soon on Robinhood Chain");
+  toast.error("Marketplace is coming soon");
 }
 
 export function useMarketplace() {

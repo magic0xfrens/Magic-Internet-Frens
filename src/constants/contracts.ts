@@ -1,11 +1,13 @@
 import {
-  ROBINHOOD_CHAIN_ID,
-  ROBINHOOD_RPC_URL,
-  ROBINHOOD_EXPLORER_URL,
+  TARGET_CHAIN_ID,
+  TARGET_CHAIN_NAME,
+  TARGET_RPC_URL,
+  TARGET_EXPLORER_URL,
+  targetChain,
 } from "@/config/chains";
 
 /**
- * Deployed contract addresses on Robinhood Chain, sourced from env so they can
+ * Deployed contract addresses on the target chain, sourced from env so they can
  * be set after deployment without a code change.
  */
 const ADDRESSES = {
@@ -16,7 +18,7 @@ const ADDRESSES = {
 
 export type ContractName =
   | keyof typeof ADDRESSES
-  // legacy Robinhood aliases — all resolve to magicFrensPeg
+  // legacy aliases — all resolve to magicFrensPeg
   | "miFrens"
   | "frenForge"
   | "frenMarket";
@@ -64,10 +66,13 @@ export const MOTOSWAP_URL = (import.meta.env.VITE_DEX_URL ?? "#") as string;
 
 export const SUPPORTED_CHAINS = [
   {
-    id: ROBINHOOD_CHAIN_ID,
-    name: "Robinhood Chain",
-    rpc: ROBINHOOD_RPC_URL,
-    explorer: ROBINHOOD_EXPLORER_URL,
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    id: TARGET_CHAIN_ID,
+    name: TARGET_CHAIN_NAME,
+    rpc: TARGET_RPC_URL,
+    explorer: TARGET_EXPLORER_URL,
+    //  Read from the chain config, not restated. A hardcoded 18-decimal ETH here
+    //  would silently contradict the configured chain on any target whose gas
+    //  token differs.
+    nativeCurrency: targetChain.nativeCurrency,
   },
 ] as const;

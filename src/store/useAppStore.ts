@@ -202,7 +202,7 @@ export interface AppNotification {
 let notificationId = 0;
 
 export const useAppStore = create<AppState>((set) => ({
-  // Network — active chain (Robinhood on mainnet, Sepolia on testnet)
+  // Network — whichever chain VITE_NETWORK selects (see @/config/chains)
   network: ACTIVE_CHAIN,
   setNetwork: (network) => set({ network }),
 

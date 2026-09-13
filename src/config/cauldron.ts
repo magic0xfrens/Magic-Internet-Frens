@@ -9,6 +9,25 @@ import { ACTIVE_CHAIN_ID } from "@/config/chains";
 // on relaunch — read those live from the registry, don't pin them here.
 import round from "../../indexer/deployments/round.json";
 
+//  ── THE MANIFEST AND THE SELECTED CHAIN MUST AGREE ──────────────────────────
+//  `chainId` below follows VITE_NETWORK while every ADDRESS comes from the
+//  manifest, which pins one chain of its own. Flipping the network switch
+//  without shipping a matching manifest therefore produces the worst kind of
+//  wrong: a UI that talks to the right chain using another chain's addresses.
+//  Those addresses hold no code there, so reads return empty and the app renders
+//  a plausible "nothing has happened yet" instead of an error.
+//
+//  Cheap to detect, so it is detected. A throw would blank the whole app over
+//  what may be a deliberate local experiment, so this is loud but non-fatal.
+if (round.chainId !== ACTIVE_CHAIN_ID) {
+  console.error(
+    `[cauldron] MANIFEST/CHAIN MISMATCH — VITE_NETWORK selects chain ${ACTIVE_CHAIN_ID}, ` +
+      `but indexer/deployments/round.json pins chain ${round.chainId}. Every address below ` +
+      `belongs to chain ${round.chainId} and has no code on ${ACTIVE_CHAIN_ID}: reads will ` +
+      `come back empty rather than failing. Ship a round.json for chain ${ACTIVE_CHAIN_ID}.`,
+  );
+}
+
 export const CAULDRON = {
   chainId: ACTIVE_CHAIN_ID,
   registry: round.contracts.registry as Address,

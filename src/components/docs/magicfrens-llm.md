@@ -56,10 +56,14 @@ token machine* built as a **Uniswap v4 hook**.
 - **Perps** — hook-native leveraged longs and shorts on the live token with **real
   price impact** and no external oracle, backed by a community two-sided vault (§11).
 
-**Chain.** Built and battle-tested on **Ethereum Sepolia**. The deployment target
-is **Robinhood Chain**, an **Arbitrum Nitro / Orbit L2** (native gas token ETH).
-The frontend targets one chain at a time via `VITE_NETWORK`; see §16 for the L2
-semantics that actually matter.
+**Chain.** Chain-agnostic by construction. Built and battle-tested on **Ethereum
+Sepolia**, and also deployed to **Arc testnet** (chainId 5042002), where Uniswap
+v4 did not exist yet — v4 core was deployed first, then the launchpad, with **no
+contract changes**. Only two things are actually required of a chain: **EIP-1153
+transient storage** (v4 settles every `unlock` through `TSTORE`/`TLOAD`) and a
+**CREATE2 factory** (the hook's permission bits live in its address, so it must
+be mined). The frontend targets one chain at a time via `VITE_NETWORK`; see §16
+for the chain semantics that actually matter.
 
 Brand voice: playful, arcane, "gm fren", "wagmi". Accent: lime `#d5fd51` on wizard
 purple `#2A1F54`.
@@ -347,8 +351,8 @@ claims are easy to confuse:
 > dead code: the jitter is bounded by the same `maxBps`, so `jitter <= decayed` for all
 > inputs and the maximum was always just `decayed` (`SurtaxLib.sol:108-110`). And an
 > earlier note said the jitter does not use `prevrandao`. It now does — with the caveat
-> that `prevrandao` is **the constant 1** on Arbitrum and Orbit chains, so on the
-> Robinhood target the previous blockhash carries the entropy (`SurtaxLib.sol:101`).
+> that `prevrandao` is **the constant 1** on Arbitrum and Orbit-style chains, so on
+> such a target the previous blockhash carries the entropy (`SurtaxLib.sol:101`).
 
 ---
 
@@ -1020,10 +1024,30 @@ trap holders ahead of a custody move — arming forces that exit open.
 
 ---
 
-## 16. Robinhood Chain / Arbitrum Orbit notes
+## 16. Portability: what the protocol assumes about a chain
 
-The deployment target is an Arbitrum Nitro Orbit L2. Four differences from
-Ethereum are load-bearing, and the code is written against them:
+**Hard requirements — two.** `EIP-1153` transient storage, because Uniswap v4
+settles every `unlock` through `TSTORE`/`TLOAD` and this protocol *is* a v4 hook;
+and a **CREATE2 factory**, because the hook's permission bits are encoded in its
+address, so the address must be mined. Everything else below is a difference the
+code is already written against rather than a requirement.
+
+**Native gas token — not assumed to be 18-decimal ETH.** Arc's is
+USD-denominated. Two consequences, both load-bearing:
+
+- The oracle prices such a native asset by **peg**, not by feed — there is no
+  exchange rate to observe, and a Chainlink address from another chain is a
+  codeless address whose revert `QuoteOracle` degrades to `0` ("cannot judge").
+  That would make the hook record **zero volume for every trade**, which silently
+  breaks the mint ladder *and* makes `isDead` read a busy generation as dying.
+- A **6-decimal** native would be a genuine blocker, not a config change:
+  `PoolOps._sqrtPrice` cannot represent a quote below `TOTAL_SUPPLY / 2^64`, which
+  at 6 decimals is ~674 raw units — so an ordinary seed would brick the launch
+  behind `markConsumed`. Verify decimals before deploying; Arc's gas token is
+  USD-denominated but **18**-decimal, which is why it ported cleanly.
+
+**Block semantics on L2s.** Four differences are load-bearing on rollups, and the
+code is written against them:
 
 - **`block.number` is the parent chain's number**, updating only periodically —
   it is constant across the many sub-second child blocks inside one parent block.

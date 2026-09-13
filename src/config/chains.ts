@@ -4,39 +4,70 @@ import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { injectedWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wallets";
 
 /**
- * Robinhood Chain — EVM Layer-2 on Arbitrum Orbit, native gas token ETH.
+ * THE DEPLOYMENT TARGET CHAIN — defined entirely from env, named by no vendor.
  *
- * All network values are env-driven so the exact chainId / RPC can be corrected
- * without a code change. Confirm the mainnet chainId at
- * https://docs.robinhood.com/chain/connecting (sources have shown 4663 for
- * mainnet vs 46646 for testnet — do NOT trust a hardcoded value blindly).
+ *  This used to be a single hardcoded vendor chain. It is generic now because the
+ *  protocol is genuinely chain-agnostic and had started to look otherwise: the
+ *  only hard requirement is EIP-1153 transient storage (Uniswap v4 settles every
+ *  `unlock` through TSTORE/TLOAD) plus a CREATE2 factory, since the hook's
+ *  permission bits live in its ADDRESS and so it must be mined. Anything meeting
+ *  those two runs this stack unmodified — Arc testnet was brought up by setting
+ *  the five variables below and nothing else.
+ *
+ *  NATIVE CURRENCY IS PART OF THAT, not decoration. It is NOT safe to assume
+ *  "ETH, 18 decimals": Arc's gas token is USD-denominated, and a chain with a
+ *  6-decimal native would misprice every wei-denominated figure in the app by
+ *  1e12. So symbol/name/decimals are env-driven too, and the decimals are
+ *  validated rather than trusted.
  */
 // NOTE: `??` does NOT catch an env var set to an empty string (Vercel does this
 // when a var is declared but left blank), and `Number("")` is 0 — a chain id of
 // 0 or NaN builds a chain wagmi can never resolve, so `usePublicClient()` returns
 // undefined and RainbowKit's TransactionStoreProvider dereferences it. Coerce
 // explicitly and fall back on anything that isn't a positive integer.
-const RAW_CHAIN_ID = Number(import.meta.env.VITE_ROBINHOOD_CHAIN_ID);
-const CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 4663;
+const RAW_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID);
+//  Default 5042002 (Arc testnet) because that is where the second deployment
+//  actually lives — a default nobody has deployed to is just a slower way to
+//  fail. Overridden by VITE_CHAIN_ID for any other target.
+const CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 5042002;
 
-const RPC_URL =
-  import.meta.env.VITE_ROBINHOOD_RPC_URL ?? "https://rpc.chain.robinhood.com";
+/** Empty-string-safe env read: Vercel sets declared-but-blank vars to "". */
+const env = (key: string, fallbackValue: string) => {
+  const raw = (import.meta.env[key as keyof ImportMetaEnv] as string | undefined)?.trim();
+  return raw ? raw : fallbackValue;
+};
 
-const EXPLORER_URL =
-  import.meta.env.VITE_ROBINHOOD_EXPLORER ?? "https://robinhoodchain.blockscout.com";
+const CHAIN_NAME = env("VITE_CHAIN_NAME", "Arc Testnet");
+const RPC_URL = env("VITE_RPC_URL", "https://rpc.testnet.arc.network");
+const EXPLORER_URL = env("VITE_EXPLORER_URL", "https://testnet.arcscan.app");
+const EXPLORER_NAME = env("VITE_EXPLORER_NAME", "Arcscan");
 
-export const robinhoodChain = defineChain({
+//  Decimals are VALIDATED, not trusted. A bad value here would not throw — it
+//  would silently shift every balance the UI formats by orders of magnitude,
+//  which is the kind of bug that gets read as a pricing error rather than a
+//  config error. Anything outside 0..36 falls back to 18.
+const RAW_DECIMALS = Number(import.meta.env.VITE_CHAIN_DECIMALS);
+const CHAIN_DECIMALS =
+  Number.isSafeInteger(RAW_DECIMALS) && RAW_DECIMALS >= 0 && RAW_DECIMALS <= 36 ? RAW_DECIMALS : 18;
+
+export const targetChain = defineChain({
   id: CHAIN_ID,
-  name: "Robinhood Chain",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  name: CHAIN_NAME,
+  nativeCurrency: {
+    name: env("VITE_CHAIN_CURRENCY_NAME", "Ether"),
+    symbol: env("VITE_CHAIN_CURRENCY", "ETH"),
+    decimals: CHAIN_DECIMALS,
+  },
   rpcUrls: {
     default: { http: [RPC_URL] },
     public: { http: [RPC_URL] },
   },
   blockExplorers: {
-    default: { name: "Blockscout", url: EXPLORER_URL },
+    default: { name: EXPLORER_NAME, url: EXPLORER_URL },
   },
-  testnet: CHAIN_ID === 46646,
+  //  Declared, not inferred from the id — the previous `=== 46646` check was a
+  //  single hardcoded chain's testnet id and read `false` for every other chain.
+  testnet: env("VITE_CHAIN_IS_TESTNET", "true") !== "false",
 });
 
 /** WalletConnect Cloud project id (required by RainbowKit for WC transports). */
@@ -84,24 +115,30 @@ const sepoliaFixed = {
 
 // ── SINGLE NETWORK SWITCH ───────────────────────────────────────────────────
 // The whole app targets ONE chain, chosen by VITE_NETWORK. Default "testnet" so
-// the live Sepolia site keeps working; set VITE_NETWORK=mainnet (once Robinhood
-// contracts + indexer exist) to cut over in ONE env change. Everything —
+// the live Sepolia site keeps working; set VITE_NETWORK=target (once that
+// chain's contracts + indexer exist) to cut over in ONE env change. Everything —
 // config chainIds, wallet switch, explorer/marketplace links, copy — reads from
-// ACTIVE_* / IS_MAINNET / NETWORK_LABEL below so there's no per-file drift.
+// ACTIVE_* / IS_TARGET / NETWORK_LABEL below so there's no per-file drift.
 // Declared ABOVE wagmiConfig because the chain order depends on it.
+//
+//  "mainnet" is still accepted as a synonym for "target" so existing
+//  deployments' env values keep working; the switch is about WHICH chain the app
+//  points at, and that chain no longer has to be a mainnet.
 const NETWORK = ((import.meta.env.VITE_NETWORK as string) ?? "testnet").trim().toLowerCase();
-export const IS_MAINNET = NETWORK === "mainnet" || NETWORK === "robinhood";
-export const IS_TESTNET = !IS_MAINNET;
+export const IS_TARGET = NETWORK === "target" || NETWORK === "mainnet";
+/** @deprecated Prefer {@link IS_TARGET} — the target chain need not be a mainnet. */
+export const IS_MAINNET = IS_TARGET;
+export const IS_TESTNET = !IS_TARGET;
 
 export const wagmiConfig = getDefaultConfig({
   appName: "Magic Internet Frens",
   projectId: WALLETCONNECT_PROJECT_ID,
   // Sepolia is included so the genesis presale can mint against the live
-  // MiFrensPresale during testnet; Robinhood is the mainnet target.
+  // MiFrensPresale during testnet; `targetChain` is the cut-over target.
   // ORDER MATTERS: wagmi seeds `state.chainId` from `chains[0]`, so the ACTIVE
-  // network must lead — otherwise a testnet build boots pointed at Robinhood and
-  // every read hook defaults to a chain the deployment doesn't actually use.
-  chains: IS_MAINNET ? [robinhoodChain, sepoliaFixed] : [sepoliaFixed, robinhoodChain],
+  // network must lead — otherwise a testnet build boots pointed at the target
+  // chain and every read hook defaults to a chain the deployment doesn't use.
+  chains: IS_TARGET ? [targetChain, sepoliaFixed] : [sepoliaFixed, targetChain],
   transports: {
     // Batch JSON-RPC calls within a ~24ms window into ONE HTTP request (fewer
     // requests → far less rate-limiting on public nodes), and roll over to the
@@ -110,7 +147,7 @@ export const wagmiConfig = getDefaultConfig({
       SEPOLIA_RPCS.map((u) => http(u, { batch: { wait: 24 }, retryCount: 2, retryDelay: 250 })),
       { retryCount: 2, retryDelay: 300 },
     ),
-    [robinhoodChain.id]: http(RPC_URL),
+    [targetChain.id]: http(RPC_URL),
   },
   // Curated connectors. `injectedWallet` (all browser-extension wallets via
   // window.ethereum) needs NO projectId, so it's always safe. WalletConnect is
@@ -125,24 +162,32 @@ export const wagmiConfig = getDefaultConfig({
   ssr: false,
 });
 
-export const CHAIN = robinhoodChain;
-export const ROBINHOOD_CHAIN_ID = CHAIN_ID;
-export const ROBINHOOD_RPC_URL = RPC_URL;
-export const ROBINHOOD_EXPLORER_URL = EXPLORER_URL;
+export const CHAIN = targetChain;
+export const TARGET_CHAIN_ID = CHAIN_ID;
+export const TARGET_CHAIN_NAME = CHAIN_NAME;
+export const TARGET_RPC_URL = RPC_URL;
+export const TARGET_EXPLORER_URL = EXPLORER_URL;
+/** Native gas-token symbol of the ACTIVE chain. Not always "ETH" — see above. */
+export const NATIVE_SYMBOL = IS_TARGET ? targetChain.nativeCurrency.symbol : "ETH";
+export const NATIVE_DECIMALS = IS_TARGET ? targetChain.nativeCurrency.decimals : 18;
 
 // ── ACTIVE NETWORK (switch itself lives above wagmiConfig) ──────────────────
-export const ACTIVE_CHAIN = IS_MAINNET ? robinhoodChain : sepoliaFixed;
+export const ACTIVE_CHAIN = IS_TARGET ? targetChain : sepoliaFixed;
 export const ACTIVE_CHAIN_ID = ACTIVE_CHAIN.id;
-export const NETWORK_LABEL = IS_MAINNET ? "Robinhood Chain" : "Sepolia testnet";
-export const NETWORK_SHORT = IS_MAINNET ? "Robinhood" : "Sepolia";
+export const NETWORK_LABEL = IS_TARGET ? CHAIN_NAME : "Sepolia testnet";
+//  First word of the chain name, so a rename needs no second edit here.
+export const NETWORK_SHORT = IS_TARGET ? (CHAIN_NAME.split(/\s+/)[0] || CHAIN_NAME) : "Sepolia";
 
 /** Block-explorer base for the active chain. */
-export const EXPLORER_BASE = IS_MAINNET ? EXPLORER_URL : "https://sepolia.etherscan.io";
+export const EXPLORER_BASE = IS_TARGET ? EXPLORER_URL : "https://sepolia.etherscan.io";
 export const explorerTxUrl = (hash: string) => `${EXPLORER_BASE}/tx/${hash}`;
 export const explorerAddressUrl = (addr: string) => `${EXPLORER_BASE}/address/${addr}`;
 
-/** Where to "view an NFT": Blockscout token page on Robinhood, OpenSea on Sepolia. */
+/** Where to "view an NFT": the chain's own explorer token page on the target
+ *  chain, OpenSea on Sepolia (which has a real NFT marketplace and most target
+ *  chains will not). Blockscout-style `/token/<addr>/instance/<id>` paths are
+ *  the common shape; override with VITE_EXPLORER_URL if a chain differs. */
 export const nftCollectionUrl = (addr: string) =>
-  IS_MAINNET ? `${EXPLORER_URL}/token/${addr}` : `https://testnets.opensea.io/assets/sepolia/${addr}`;
+  IS_TARGET ? `${EXPLORER_URL}/token/${addr}` : `https://testnets.opensea.io/assets/sepolia/${addr}`;
 export const nftTokenUrl = (addr: string, tokenId: string | number) =>
-  IS_MAINNET ? `${EXPLORER_URL}/token/${addr}/instance/${tokenId}` : `https://testnets.opensea.io/assets/sepolia/${addr}/${tokenId}`;
+  IS_TARGET ? `${EXPLORER_URL}/token/${addr}/instance/${tokenId}` : `https://testnets.opensea.io/assets/sepolia/${addr}/${tokenId}`;

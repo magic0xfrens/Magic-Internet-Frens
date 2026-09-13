@@ -29,7 +29,7 @@ import { ActivityDrawer } from "@/components/cauldron/ActivityDrawer";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import { NATIVE_QUOTE, quoteMeta, isNativeQuote, PROPOSAL_LIMITS, proposalFieldError } from "@/config/quotes";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
-import { nftCollectionUrl, NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
+import { nftCollectionUrl, NETWORK_LABEL, IS_TARGET } from "@/config/chains";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
 import { PRESALE } from "@/config/presale";
 import { BODIES, FACES, GNOME_FACES, ELF_FACES, ITEMS, CLASS_ORDER, type FrenClass, type TraitLayer } from "@/data/frens";
@@ -435,8 +435,8 @@ function BrewProfile({ name, ticker, gen, genNum, phase, col, collection }: { na
               </a>
             )}
             {collection && (
-              <a className="tc-profile__link tc-profile__link--os" href={nftCollectionUrl(collection)} target="_blank" rel="noopener" title={`View the collection on ${NETWORK_SHORT === "Robinhood" ? "the explorer" : "OpenSea"}`}>
-                <I.opensea size={14} /> {NETWORK_SHORT === "Robinhood" ? "Explorer" : "OpenSea"}
+              <a className="tc-profile__link tc-profile__link--os" href={nftCollectionUrl(collection)} target="_blank" rel="noopener" title={`View the collection on ${IS_TARGET ? "the explorer" : "OpenSea"}`}>
+                <I.opensea size={14} /> {IS_TARGET ? "Explorer" : "OpenSea"}
               </a>
             )}
           </div>
@@ -573,6 +573,7 @@ export default function TheCauldron() {
   const [busyVote, setBusyVote] = useState<number | null>(null);
   const [openProposal, setOpenProposal] = useState<Proposal | null>(null);
   const [busyRelaunch, setBusyRelaunch] = useState(false);
+  const forceRitual = typeof window !== "undefined" && window.location.href.includes("ritual=1");
   const [ritual, setRitual] = useState<
     { stage: "sign" | "work" | "done"; step: number; ticker: string; name: string; hash?: `0x${string}` } | null
   >(null);
@@ -1232,7 +1233,9 @@ export default function TheCauldron() {
            puts the dialog on screen — a spinning button with no explanation is
            the one outcome this whole component exists to prevent. */}
       <RitualModal
-        ritual={ritual ?? (busyRelaunch
+        ritual={ritual ?? (forceRitual
+          ? { stage: "work" as const, step: 1, ticker: "WIZ", name: "Wizards" }
+          : busyRelaunch
           ? { stage: "sign" as const, step: 0, ticker: m.proposals?.[0]?.ticker ?? "", name: m.proposals?.[0]?.name ?? "the next brew" }
           : null)}
         col={col}
@@ -1415,6 +1418,30 @@ function GenesisBonusPanel({ notify }: { notify: (k: "ok" | "err", m: string) =>
     </div>
   );
 }
+/**
+ * A glyph for the brew being summoned.
+ *
+ * The core used to be a bare ball of light, which reads as "loading" rather than
+ * "this specific thing is being born" — and the whole point of the ritual is
+ * that a NAMED brew arrives. Matched on the name first (a proposal is free text,
+ * so the ticker is the weaker signal), falling back to the cauldron itself,
+ * which is always true of whatever is being summoned.
+ */
+function brewGlyph(name: string, ticker: string): string {
+  const k = `${name} ${ticker}`.toLowerCase();
+  if (/wizard|wiz|mage|sorcer/.test(k)) return "\u{1F9D9}";       // 🧙
+  if (/gnome|mushroom|shroom/.test(k)) return "\u{1F344}";        // 🍄
+  if (/alchem|potion|elixir/.test(k)) return "\u{2697}\u{FE0F}";  // ⚗️
+  if (/dragon|wyrm|drake/.test(k)) return "\u{1F409}";            // 🐉
+  if (/knight|paladin|sword/.test(k)) return "\u{2694}\u{FE0F}";  // ⚔️
+  if (/witch|coven|hex/.test(k)) return "\u{1F9DA}";              // 🧚
+  if (/ghost|spirit|wraith/.test(k)) return "\u{1F47B}";          // 👻
+  if (/frog|pepe|toad/.test(k)) return "\u{1F438}";               // 🐸
+  if (/crystal|gem|shard/.test(k)) return "\u{1F48E}";            // 💎
+  if (/skull|death|reaper/.test(k)) return "\u{1F480}";           // 💀
+  return "\u{1FAD6}";                                             // 🫖 the cauldron
+}
+
 /** The phases of ONE `relaunch()` call, in the order the contract performs them. */
 const RITUAL_STEPS = [
   "Draining the dying pool\u2026",
@@ -1456,7 +1483,9 @@ function RitualModal({ ritual, col, onClose }: {
           <span className="tc-ritual__ring r1" />
           <span className="tc-ritual__ring r2" />
           <span className="tc-ritual__ring r3" />
-          <span className="tc-ritual__core" style={{ background: `radial-gradient(circle at 50% 40%, #fbffd8, ${col} 45%, #6f8f14 100%)` }} />
+          <span className="tc-ritual__core" style={{ background: `radial-gradient(circle at 50% 40%, #fbffd8, ${col} 45%, #6f8f14 100%)` }}>
+            <span className="tc-ritual__glyph" aria-hidden>{brewGlyph(ritual.name, ritual.ticker)}</span>
+          </span>
         </div>
 
         {done ? (
@@ -2799,7 +2828,10 @@ function Styles() {
     .tc-ritual__ring.r2 { inset: 22px; border-color: rgba(139,92,246,.5); animation: tcr-spin 2.1s linear infinite reverse; }
     .tc-ritual__ring.r3 { inset: 44px; border-color: rgba(213,253,81,.24); animation: tcr-spin 4.6s linear infinite; }
     @keyframes tcr-spin { to { transform: rotate(360deg) } }
-    .tc-ritual__core { width: 96px; height: 96px; border-radius: 50%;
+    .tc-ritual__glyph { font-size: 44px; line-height: 1; filter: drop-shadow(0 2px 10px rgba(0,0,0,.45));
+      animation: tcr-float 2.4s ease-in-out infinite; }
+    @keyframes tcr-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+    .tc-ritual__core { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%;
       box-shadow: 0 0 60px rgba(213,253,81,.7), 0 0 130px rgba(213,253,81,.3);
       animation: tcr-pulse 1.15s ease-in-out infinite; }
     @keyframes tcr-pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.09) } }

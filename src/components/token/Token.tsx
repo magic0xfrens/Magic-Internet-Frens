@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { useMiFrensPresale } from "@/hooks/useMiFrensPresale";
 import { MOTOSWAP_URL } from "@/constants/contracts";
+import { NETWORK_LABEL, NETWORK_SHORT } from "@/config/chains";
 import { PHOENIX_METADATA, PHOENIX_CONFIG } from "@/constants/phoenix";
 import potionImg from "@/assets/images/potion-cropped.svg";
 
@@ -380,7 +381,7 @@ export default function Token() {
           {[
             { k: "NAME", v: `${creature.name.toUpperCase()} (${creature.symbol})` },
             { k: "GENERATION", v: `${creature.gen}` },
-            { k: "NETWORK", v: "ROBINHOOD" },
+            { k: "NETWORK", v: NETWORK_SHORT.toUpperCase() },
             { k: "DECIMALS", v: "18" },
             { k: "TOTAL SUPPLY", v: `${PHOENIX_CONFIG.INITIAL_LIQUIDITY_TOKENS}` },
             { k: "DEATH THRESHOLD", v: `${PHOENIX_CONFIG.DEATH_THRESHOLD_BTC} ETH / 24H` },
@@ -412,7 +413,7 @@ export default function Token() {
           </p>
           <p>
             The Magic Internet Frens are the first iteration — 777 beings conjured
-            fully on-chain on Robinhood. Wizards, Kings, Knights, Gnomes,
+            fully on-chain on {NETWORK_LABEL}. Wizards, Kings, Knights, Gnomes,
             Apprentices, and Peasants, each with their own traits etched permanently
             into the base chain. No bridges. No sidechains. No escape hatches.
           </p>

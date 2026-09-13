@@ -6,7 +6,7 @@ export const SECONDS_PER_MINUTE: number = 60;
 export const SECONDS_PER_DAY: number = 86400;
 export const ONE_MILLISECOND: number = 1000;
 
-// Removed ROBINHOOD_CHAIN_ID - now using standard chain IDs (1=Ethereum, 8453=Base, 56=BNB)
+// No per-chain id constants here - chain ids come from @/config/chains
 
 export const MAX_ALLOWANCE_VALUE: bigint =
   0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffn;

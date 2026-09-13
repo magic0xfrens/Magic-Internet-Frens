@@ -45,8 +45,7 @@ export function useWallet() {
     openConnectModal: openConnectModal ?? (() => {}),
     connectToWallet: openConnectModal ?? (() => {}),
     disconnect,
-    // switches the wallet to the active network (Robinhood on mainnet, Sepolia on testnet)
-    switchToRobinhood: () => switchChain({ chainId: ACTIVE_CHAIN_ID }),
+    // switches the wallet to whichever chain VITE_NETWORK selects
     switchToActive: () => switchChain({ chainId: ACTIVE_CHAIN_ID }),
   };
 }

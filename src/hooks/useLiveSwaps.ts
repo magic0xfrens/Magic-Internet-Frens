@@ -16,11 +16,11 @@ import round from "../../indexer/deployments/round.json";
  * its interval. The indexer stays the source of truth; this only removes the
  * wait.
  *
- * NOTE on wss://feed.mainnet.chain.robinhood.com — that feed carries Robinhood
- * Chain MAINNET data. Our pool is on Sepolia, so it has nothing to say about our
- * trades. The idea behind it is right, and this is that idea pointed at the
- * chain we are actually on; when the protocol moves to Robinhood Chain, only the
- * URL below changes.
+ * NOTE: a websocket feed is only useful if it carries the chain OUR pool is on.
+ * A mainnet feed for some other network has nothing to say about our trades, however
+ * live it looks. WS_URLS is therefore keyed BY CHAIN ID — a chain with no entry
+ * simply falls back to interval polling, which is correct rather than broken. To
+ * add a chain, add its id and endpoint below; no other change is needed.
  */
 const WS_URLS: Record<number, string[]> = {
   11155111: [

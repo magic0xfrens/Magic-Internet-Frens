@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 
-import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPC_URL, ROBINHOOD_EXPLORER_URL } from '@/config/chains';
+import { TARGET_CHAIN_ID, TARGET_RPC_URL, TARGET_EXPLORER_URL, targetChain } from '@/config/chains';
 import metamaskLogo from '@/assets/images/connect/io.metamask.png';
 import rabbyLogo from '@/assets/images/connect/io.rabby.png';
 import coinbaseLogo from '@/assets/images/connect/coinbaseWalletSDK.png';
@@ -154,14 +154,17 @@ export default function WalletSelector({ onConnect, chainId }: WalletSelectorPro
                 rpcUrls: ['https://mainnet.base.org'],
                 blockExplorerUrls: ['https://basescan.org'],
               },
-              // Robinhood Chain — the mainnet target. Lets a wallet auto-add it
-              // (error 4902) when the user isn't on it yet.
-              [ROBINHOOD_CHAIN_ID]: {
-                chainId: `0x${ROBINHOOD_CHAIN_ID.toString(16)}`,
-                chainName: 'Robinhood Chain',
-                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                rpcUrls: [ROBINHOOD_RPC_URL],
-                blockExplorerUrls: [ROBINHOOD_EXPLORER_URL],
+              // The configured deployment target. Lets a wallet auto-add it
+              // (error 4902) when the user isn't on it yet. Every field comes
+              // from the chain config rather than being spelled out here — the
+              // native currency especially, since a target chain's gas token is
+              // not necessarily 18-decimal ETH.
+              [TARGET_CHAIN_ID]: {
+                chainId: `0x${TARGET_CHAIN_ID.toString(16)}`,
+                chainName: targetChain.name,
+                nativeCurrency: { ...targetChain.nativeCurrency },
+                rpcUrls: [TARGET_RPC_URL],
+                blockExplorerUrls: [TARGET_EXPLORER_URL],
               },
               // Sepolia — testnet build.
               11155111: {

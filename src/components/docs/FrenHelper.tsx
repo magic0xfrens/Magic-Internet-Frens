@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { IS_MAINNET, NETWORK_LABEL, EXPLORER_BASE } from "@/config/chains";
+import { IS_TARGET, NETWORK_LABEL, EXPLORER_BASE, ACTIVE_CHAIN, NATIVE_SYMBOL } from "@/config/chains";
 import { CAULDRON } from "@/config/cauldron";
 
 // Network-aware caveat so the guide's copy follows VITE_NETWORK.
-const NET_NOTE = IS_MAINNET
-  ? `live on ${NETWORK_LABEL} — this is mainnet, real ETH.`
-  : `on ${NETWORK_LABEL} — you'll need testnet ETH, which has no real value.`;
+//  KEYED ON `testnet`, NOT ON WHICH CHAIN IS SELECTED. The old version read
+//  "this is mainnet, real ETH" for the target chain unconditionally, which is
+//  simply false when the target is a testnet — as it is on Arc. The chain
+//  definition already carries the answer, and the gas token is not always ETH.
+const IS_REAL_MONEY = !("testnet" in ACTIVE_CHAIN && ACTIVE_CHAIN.testnet);
+const NET_NOTE = IS_REAL_MONEY
+  ? `live on ${NETWORK_LABEL} — this is real ${NATIVE_SYMBOL}.`
+  : `on ${NETWORK_LABEL} — you'll need testnet ${NATIVE_SYMBOL}, which has no real value.`;
 const short = (a: string) => (a && a.length > 12 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
 /**
@@ -97,9 +102,9 @@ const KB: Knowledge[] = [
   },
   {
     id: "chain",
-    keys: ["chain", "robinhood", "l2", "arbitrum", "orbit", "network", "mainnet", "testnet", "sepolia", "gas", "where"],
+    keys: ["chain", "chains", "l2", "network", "deploy", "portable", "mainnet", "testnet", "sepolia", "arc", "gas", "where"],
     q: "What chain is this on?",
-    a: `Built and battle-tested on Sepolia; the deployment target is Robinhood Chain — an Arbitrum Nitro/Orbit L2 with ETH as the native gas token. Right now the app is pointed at ${NETWORK_LABEL}${IS_MAINNET ? " 🚀" : " 🧪"}.\n\nThe L2 differences actually matter and the code is written against them:\n• block.number there is the PARENT chain's number, so the death clock is denominated in wall-clock SECONDS, not blocks.\n• prevrandao is the constant 1 on Orbit — the protocol uses zero of it.\n• The sequencer is first-come-first-served, so ordering is arrival time, not fee bidding.`,
+    a: `Any EVM chain that meets two requirements 🌐 Right now the app is pointed at ${NETWORK_LABEL}${IS_TARGET ? " 🚀" : " 🧪"}.\n\nThe requirements are narrow and non-negotiable:\n• EIP-1153 TRANSIENT STORAGE — Uniswap v4 settles every unlock through TSTORE/TLOAD, so a chain without it cannot run v4, and this protocol IS a v4 hook.\n• A CREATE2 FACTORY — the hook's permissions are encoded in its ADDRESS, so the address has to be mined.\n\nThat's it. Anything else is a config value. The stack has been deployed to Sepolia and to Arc testnet, where v4 didn't exist yet — so v4 core was deployed first, then the launchpad, with no contract changes.\n\nThree choices keep it portable:\n• The death clock counts wall-clock SECONDS, not blocks — on many L2s block.number is the PARENT chain's number, which would make a block-denominated clock mean something different per chain.\n• Zero use of prevrandao, which is a constant on several rollups and so is no randomness at all.\n• The native gas token is never assumed to be 18-decimal ETH. Arc's is USD-denominated, and the oracle prices it by PEG rather than a feed — there's no exchange rate to observe.`,
   },
   {
     id: "launch",
@@ -123,7 +128,7 @@ const KB: Knowledge[] = [
     id: "addresses",
     keys: ["address", "addresses", "contract", "contracts", "deploy", "deployed", "sepolia", "chain", "verify", "verified", "etherscan", "round"],
     q: "Where's it deployed / contract addresses?",
-    a: `Deployed on ${NETWORK_LABEL}${IS_MAINNET ? " 🚀" : " 🧪"}. Core addresses (live from the app config):\n\n• Registry ${short(CAULDRON.registry)}\n• Hook ${short(CAULDRON.hook)}\n• Genesis frens ${short(CAULDRON.mifrens)}\n• Dividend ${short(CAULDRON.dividend)}\n• Timelock ${short(CAULDRON.timelock)}\n\nEach iteration's token/collection/pool rotate every rebirth — read them live from the registry. Verify any address on the explorer: ${EXPLORER_BASE}`,
+    a: `Deployed on ${NETWORK_LABEL}${IS_TARGET ? " 🚀" : " 🧪"}. Core addresses (live from the app config):\n\n• Registry ${short(CAULDRON.registry)}\n• Hook ${short(CAULDRON.hook)}\n• Genesis frens ${short(CAULDRON.mifrens)}\n• Dividend ${short(CAULDRON.dividend)}\n• Timelock ${short(CAULDRON.timelock)}\n\nEach iteration's token/collection/pool rotate every rebirth — read them live from the registry. Verify any address on the explorer: ${EXPLORER_BASE}`,
   },
   {
     id: "risk",

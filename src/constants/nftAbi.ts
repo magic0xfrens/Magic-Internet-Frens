@@ -3,7 +3,7 @@
 type InterfaceAbi = string[];
 
 /**
- * ABIs for the EVM (Robinhood Chain) contracts, in ethers human-readable form.
+ * ABIs for the EVM contracts, in ethers human-readable form.
  *
  * The primary on-chain contract is MagicFrensPeg — a combined ERC20 + ERC721
  * bonded token/NFT (buy/sell/commit Frens with on-chain random traits).
@@ -67,8 +67,8 @@ export const PresaleAbi: InterfaceAbi = [
 ];
 
 /**
- * Back-compat aliases for the former Robinhood ABI export names. The old FrenForge /
- * FrenMarket Robinhood contracts have no EVM equivalent yet — the marketplace is a
+ * Back-compat aliases for the former ABI export names. The old FrenForge /
+ * FrenMarket contracts have no EVM equivalent yet — the marketplace is a
  * phase-2 item, so FrenMarketAbi is an empty stub.
  */
 export const MiFrensAbi: InterfaceAbi = MagicFrensPegAbi;
