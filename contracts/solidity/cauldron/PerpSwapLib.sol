@@ -93,6 +93,101 @@ library PerpSwapLib {
         return abi.decode(ret, (uint256));
     }
 
+    /**
+     * @notice CONSERVATIVE projection of the pool price AFTER a pending swap, so a
+     *         liquidation can happen BEFORE the trade that would cause the loss.
+     *
+     *  ── WHY THIS IS EXACT ENOUGH TO TRUST ──────────────────────────────────
+     *  The active book is placed FULL RANGE (`PoolOps.SEED_BASE_WAD == 1e18`), so
+     *  it behaves as constant product and the post-swap price has a closed form.
+     *  With reserves E (quote) and T (token), price of token in quote is E/T:
+     *
+     *      BUY  (adds dE of quote):  P' = P * (1 + dE/E)^2   ->  sqrtP' = sqrtP * (1 + dE/E)
+     *      SELL (adds dT of token):  P' = P / (1 + dT/T)^2   ->  sqrtP' = sqrtP / (1 + dT/T)
+     *
+     *  No tick-crossing integration is needed because there are no gaps to cross.
+     *  If the book ever stops being full range this must be revisited — a banded
+     *  book can teleport past an empty region and this projection would UNDERSTATE
+     *  the move, which is the unsafe direction.
+     *
+     *  ── WHICH WAY IS SAFE TO BE WRONG ──────────────────────────────────────
+     *  Deliberately biased toward projecting a LARGER move than will occur:
+     *
+     *    * `amountIn` is the GROSS input. The hook skims its fee in `beforeSwap`,
+     *      so strictly less than this reaches the pool.
+     *    * `slackBps` adds an explicit safety margin on top.
+     *
+     *  Over-projecting liquidates marginally EARLY; under-projecting lets a
+     *  position pass through the trade and become bad debt that is socialised onto
+     *  PLV stakers via `_absorbPlvLoss`. A leveraged trader consented to
+     *  liquidation risk; a staker did not consent to underwriting it. So the error
+     *  budget is spent on the trader's side, on purpose.
+     *
+     *  ── ORIENTATION ────────────────────────────────────────────────────────
+     *  `sqrtPriceX96` is sqrt(currency1 per currency0), so which way a BUY moves it
+     *  depends on which side the quote sits. Getting this backwards would liquidate
+     *  exactly the wrong book, so it is passed in explicitly by the caller that
+     *  already knows (`quoteIsCurrency0`) rather than re-derived here.
+     *
+     * @param sqrtP            current sqrtPriceX96
+     * @param reserveIn        active depth of the asset being ADDED, same units as amountIn
+     * @param amountIn         gross input amount
+     * @param quoteIsCurrency0 pool orientation
+     * @param isBuy            true when the QUOTE is the input (token gets dearer)
+     * @param slackBps         extra safety margin, in bps, on the projected move
+     * @return projected sqrtPriceX96, clamped to TickMath's valid range
+     */
+    function projectedSqrtPriceX96(
+        uint160 sqrtP,
+        uint256 reserveIn,
+        uint256 amountIn,
+        bool quoteIsCurrency0,
+        bool isBuy,
+        uint256 slackBps
+    ) external pure returns (uint160) {
+        //  No price, or a reserve we cannot trust, means no projection we can
+        //  stand behind. Return the CURRENT price so the caller degrades to
+        //  "liquidate only what is already underwater" rather than acting on a
+        //  fabricated number.
+        if (sqrtP == 0 || reserveIn == 0 || amountIn == 0) return sqrtP;
+
+        //  ratio = 1 + (amountIn * (1 + slack)) / reserveIn, in 1e18 fixed point.
+        uint256 inflated = amountIn + FullMath.mulDiv(amountIn, slackBps, 10_000);
+        //  Cap the modelled input at the reserve. Beyond that the constant-product
+        //  form is still finite but the result is far outside anything the pool
+        //  could fill, and the clamp keeps the arithmetic well conditioned.
+        if (inflated > reserveIn) inflated = reserveIn;
+        //  ROUND THE RATIO UP, ALWAYS. Truncation is not neutral here: it shrinks
+        //  the projected move, which is the one direction this function must never
+        //  err in. Caught by LIQ-02.2, where the sell projection undershot the real
+        //  move by ~3.5e-16 relative — tiny, but a bound that fails at zero slack
+        //  is not a bound, and relying on `slackBps` to paper over an arithmetic
+        //  bias would hide the bias rather than fix it.
+        //
+        //  A LARGER ratio is conservative on BOTH branches: it multiplies the "up"
+        //  case further up, and divides the "down" case further down.
+        uint256 ratio = 1e18 + FullMath.mulDivRoundingUp(inflated, 1e18, reserveIn);
+
+        //  A BUY makes the token dearer in quote terms. Whether that RAISES or
+        //  LOWERS sqrtPriceX96 depends on orientation: with the quote as
+        //  currency0 the price is "token per quote", which FALLS as the token
+        //  gets dearer.
+        bool up = isBuy ? !quoteIsCurrency0 : quoteIsCurrency0;
+
+        //  Same reasoning applied to the final multiply: round AWAY from the
+        //  current price on each branch. The "down" branch already truncates in
+        //  the safe direction, so it stays a plain mulDiv.
+        uint256 out = up
+            ? FullMath.mulDivRoundingUp(uint256(sqrtP), ratio, 1e18)
+            : FullMath.mulDiv(uint256(sqrtP), 1e18, ratio);
+
+        uint256 lo = uint256(TickMath.MIN_SQRT_PRICE) + 1;
+        uint256 hi = uint256(TickMath.MAX_SQRT_PRICE) - 1;
+        if (out < lo) out = lo;
+        if (out > hi) out = hi;
+        return uint160(out);
+    }
+
     /// @notice tick -> sqrtPriceX96.
     ///
     ///  Here for EIP-170 headroom, and it is the single biggest win available:
