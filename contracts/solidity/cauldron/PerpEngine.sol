@@ -1975,10 +1975,44 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      it replaces: while a vault is wired, cap the side's utilization at
     ///      `maxUtilBps` of that side's total assets, and pause opens while the
     ///      insurance buffer sits below its circuit-breaker floor. No vault, no gate.
+    /// @dev The insurance buffer the LIVE book actually requires: the greater of
+    ///      the configured floor and maintenance margin on current open interest.
+    ///      Shared by {_utilGate} and {skimInsurance} so the two can never drift.
+    function _insuranceNeed() internal view returns (uint256) {
+        uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
+        uint256 floorQ = _q(insuranceFloor);
+        return floorQ > riskMin ? floorQ : riskMin;
+    }
+
     function _utilGate(uint256 used, uint256 total) private view {
         if (vault == address(0)) return;
         if (used > (total * maxUtilBps) / BPS) revert UtilCapped();
-        if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
+        //  ── OPENS PAUSE ON A RISK-SCALED FLOOR, NOT A STATIC ONE ────────────
+        //  This checked `insuranceFloor` alone — a constant set once at deploy —
+        //  while the risk it has to cover scales with OPEN INTEREST. The buffer
+        //  could therefore be a fraction of a single max-size position and still
+        //  admit new leverage: measured on r44, insurance 0.0608 ETH against a
+        //  0.1493 ETH max notional, i.e. 0.41x. The shortfall path is
+        //  `_absorbPlvLoss`, which spends the buffer and then writes the rest off
+        //  against `plv` — LP PRINCIPAL. Stakers did not opt into backstopping
+        //  traders, and a static floor let new risk stack on top of a buffer that
+        //  no longer covered the old risk.
+        //
+        //  `skimInsurance` already refused to let the OWNER drop below this same
+        //  number (audit M-05). It was only ever missing on the path that ADDS
+        //  the exposure.
+        //
+        //  SCOPE, STATED HONESTLY: this runs BEFORE the OI state update, so it
+        //  tests the buffer against the book AS IT STANDS — the position being
+        //  opened is covered by the check on the NEXT open. The residual is
+        //  therefore one position's worth of lag, and `_checkNotional`
+        //  (`maxNotionalBps`) already bounds a single position, so the gap is
+        //  bounded rather than open-ended. Closing it exactly would mean
+        //  denominating the pending size consistently across the long path
+        //  (ETH) and the short path (token), which is a bigger change than the
+        //  bound it buys.
+        uint256 need = _insuranceNeed();
+        if (need > 0 && insuranceEth < need) revert InsurancePaused();
     }
 
     /// @dev Remove a settled position from the enumerable open set (swap-and-pop).
@@ -2602,10 +2636,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  can never be emptied while positions depend on it.
     function skimInsurance(uint256 amount, address to) external onlyOwner {
         if (to == address(0)) revert BadParam();
-        uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
-        uint256 floorQ = _q(insuranceFloor);
-        uint256 protect = floorQ > riskMin ? floorQ : riskMin;
-        if (insuranceEth < protect + amount) revert BadParam();
+        if (insuranceEth < _insuranceNeed() + amount) revert BadParam();
         insuranceEth -= amount;
         _sendEth(to, amount);
     }

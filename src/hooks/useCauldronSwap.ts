@@ -31,10 +31,37 @@ const MOCK_MINT_ABI = [{
   inputs: [{ type: "address" }, { type: "uint256" }], outputs: [],
 }] as const;
 
-/** Generous gas limit for a hinted swap that may auto-liquidate a position
- *  (nested pool swaps + badge mint). The wallet's estimate can be far too low
- *  when the target is still healthy at submit time, so we force headroom. */
-const LIQ_SWAP_GAS = 3_000_000n;
+/**
+ * Gas limit for any swap that may auto-liquidate, sized to fund a FULL sweep.
+ *
+ *  ── WHY NOT JUST LET THE WALLET ESTIMATE ─────────────────────────────────
+ *  `eth_estimateGas` runs against the CURRENT state. If nothing is liquidatable
+ *  at the moment of estimation, the estimate excludes the sweep entirely — and
+ *  if a position becomes liquidatable between estimate and inclusion, the swap
+ *  arrives without the gas to pay for the sweep it now triggers. The sweep is
+ *  best-effort and its failure is swallowed by the hook, so the user sees a
+ *  successful swap and NO liquidation, with nothing anywhere saying why. Forcing
+ *  a floor removes that race.
+ *
+ *  ── HOW THIS NUMBER IS DERIVED ───────────────────────────────────────────
+ *  From the engine's own bounds, not from guesswork:
+ *    MAX_LIQ_PER_SWAP    8       kills allowed in one sweep
+ *    SWEEP_KILL_RESERVE  420,000 gas that must remain to attempt each kill
+ *    LIQ_GAS_RESERVE     180,000 the hook keeps for afterSwap to finish
+ *    GACHA_GAS_RESERVE   200,000 kept for the in-swap gacha step
+ *  8 x 420k = 3.36M for kills, plus ~380k of hook/gacha reserves, plus ~330k for
+ *  the swap itself (measured: a buy WITH one kill estimated 1,005,895, of which
+ *  the sweep was 680,638). That is ~4.1M; 5M leaves honest headroom.
+ *
+ *  The previous 3,000,000 could not fund a full sweep — it would break after
+ *  five or six kills. That degrades gracefully (the sweep checks `gasleft()` and
+ *  stops rather than reverting), so it was never visible as an error; it just
+ *  meant some liquidatable positions survived a swap that should have taken them.
+ *
+ *  Costs the user nothing extra: EIP-1559 charges for gas USED, not the limit.
+ *  The only side effect is a higher "max fee" figure in the wallet prompt.
+ */
+const LIQ_SWAP_GAS = 5_000_000n;
 
 /**
  * useCauldronSwap — buy the current iteration's token with ETH.
@@ -352,6 +379,9 @@ export function useCauldronSwap() {
           functionName: "playChurn",
           args: [spend, BigInt(loops), floor, BigInt(openMax)],
           value: 0n,
+          //  A churn is N pool swaps, so it can trigger the sweep exactly like a
+          //  plain buy. This path set no gas at all and relied on estimation.
+          gas: LIQ_SWAP_GAS,
         });
       }
 
@@ -362,6 +392,7 @@ export function useCauldronSwap() {
         //  See the note in `buy`: native value, so `quoteIn` is 0.
         args: [0n, BigInt(loops), minTokenOut, BigInt(openMax)],
         value: parseEther(ethIn.toFixed(18)),
+        gas: LIQ_SWAP_GAS,
       });
     },
     [address, chainId, switchChainAsync, writeContractAsync, pc, zapNativeToQuote],

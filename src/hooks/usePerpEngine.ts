@@ -37,9 +37,23 @@ const EMPTY_STATS: PerpStats = {
 };
 // Live the moment the engine is deployed; the indexer reads enrich the numbers.
 const INITIAL_STATS: PerpStats = { ...EMPTY_STATS, live: PERP_LIVE, maxLev: 3 };
-/** Gas headroom for a hinted open that may also liquidate a position (extra
- *  nested swaps + badge mint the wallet can't foresee at estimate time). */
-const LIQ_OPEN_GAS = 3_000_000n;
+/**
+ * Gas headroom for an open, sized to fund the post-open sweep in full.
+ *
+ *  NOT ONLY FOR "HINTED" OPENS. `PerpEngine._sweepAfterOpen` fires on EVERY
+ *  open — it forwards `gasleft() - 120_000` into a self-sweep so an open can
+ *  also liquidate underwater positions. `liqHint` is legacy and does not gate
+ *  that, so attaching this only when a hint was passed left the common path on
+ *  the wallet's estimate, which is computed against a state where nothing may be
+ *  liquidatable yet. The sweep is best-effort and swallowed, so an under-gassed
+ *  open just silently liquidates nothing.
+ *
+ *  Same derivation as LIQ_SWAP_GAS in useCauldronSwap: MAX_LIQ_PER_SWAP (8) x
+ *  SWEEP_KILL_RESERVE (420k) = 3.36M of kills, plus the engine's own 120k
+ *  post-open reserve, plus the open's own swap. 5M leaves honest headroom, and
+ *  EIP-1559 bills gas USED, so the unused limit costs nothing.
+ */
+const LIQ_OPEN_GAS = 5_000_000n;
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
 /** `expected × (1 - slippage)`, in the engine's own units. */
@@ -209,7 +223,7 @@ export function usePerpEngine(generation = 1) {
     const minTokenOut = floorFrom(notionalEth / spotPrice, slipBps);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openLong",
-      args: [leverage, minTokenOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minTokenOut, liqHint, value], value, gas: LIQ_OPEN_GAS,
     });
   }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 
@@ -224,7 +238,7 @@ export function usePerpEngine(generation = 1) {
     const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage, slipBps);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openShort",
-      args: [leverage, minEthOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minEthOut, liqHint, value], value, gas: LIQ_OPEN_GAS,
     });
   }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 
