@@ -79,7 +79,25 @@ export GENESIS_BONUS_BPS=1400
 # seed window. Impact is (1 + e/E)^2 against deployed depth, so 0.05 into a
 # 0.2222 ETH book lands at ~1.50x by completion. A lump sum at t0 would instead
 # meet the thinnest book of the whole launch.
-export PRIME_BUY_ETH=100000000000000000 # 0.10 ETH -> ~1.39x at full depth
+#
+#  ── NOW 0, BECAUSE IT WOULD BE STRANDED ──────────────────────────────────────
+#  That derivation assumed a PROGRESSIVE campaign, and there are no longer any:
+#  `SEED_BASE_WAD` is 1e18 (full range always), so `PoolOps._seedActive` returns
+#  before `ISeeder.startSeed` and `seeding` is never set. Ledger C then has no
+#  spend path (`primePending()` needs `seeding`, CauldronSeeder.sol:365) AND no
+#  recovery path (both `withdrawAll` call sites are gated on `ISeeder.seeding()`,
+#  CauldronRegistry.sol:561/:1636). `fundPrime` is a separate entry point from
+#  `startSeed`, so the money still lands — measured on r43: 0.1 ETH parked in the
+#  seeder with `primeSpent == 0`, and it will not come back at relaunch.
+#
+#  No feature is lost: the anti-snipe first-block buy is `_greenCandle`, called on
+#  BOTH seeding branches (PoolOps.sol:398/:465) and independent of ledger C.
+#  Restore a non-zero value only alongside a progressive campaign that actually
+#  starts, or an unconditional seeder teardown.
+#
+#  r43's parked 0.1 ETH is recoverable via `registry.rescueSeeder()`
+#  (onlyEmergency + timelocked, and NOT gated on `seeding`).
+export PRIME_BUY_ETH=0
 # 300s, tuned for a live demo rather than a realistic launch. With the keeper
 # poking every 20s that is ~15 placements of ~6% each - a visible notification
 # roughly every 20 seconds for five minutes, instead of the same 15 steps spread
