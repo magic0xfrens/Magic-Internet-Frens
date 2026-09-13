@@ -82,6 +82,33 @@ library LegacyBuyLib {
     bytes32 internal constant REF_SLOT = keccak256("cauldron.legacybuy.priceref.v1");
 
     /**
+     * @dev Marks a reference that was BORN in the block currently being recorded,
+     *      i.e. taken raw from whatever tick the triggering swap had just set.
+     *
+     *  ── WHY A BIT AND NOT JUST `seeded` (red-team S0xA, High) ────────────────
+     *  The bootstrap defer used to be "the CALL that writes the sentinel returns
+     *  `seeded` and refuses". That is one call, not one block, and the buyback is
+     *  invoked TWICE inside a single `afterSwap` — `CauldronHook.sol:799` and
+     *  `:1002`. So one transaction could: push the tick, let :799 seed the
+     *  reference at that manufactured tick, and have :1002 take the
+     *  `refBlock == block.number` branch, report `seeded == false`, and spend the
+     *  whole buffer against a price the same transaction had just invented.
+     *  Measured on the pre-fix code: an honest fill of 5,139,999 tokens for 0.547
+     *  ETH became 612,853 tokens for 1.000 ETH — -88.1%, attacker +0.552 ETH,
+     *  which is byte-identical to the sandwich this guard was written to stop.
+     *  It recurs on every pool, so every relaunch re-armed it.
+     *
+     *  The sample must therefore be untradeable for the WHOLE block it was born
+     *  in, not merely for the call that took it. One bit above the packed
+     *  (tick | block) pair records that, and the first sync in any LATER block
+     *  clears it — at which point the value has survived a block boundary and the
+     *  MAX_TICK_DEV clamp governs it like any other.
+     *
+     *  Bit 88: ticks occupy 0-23, the block number 24-87.
+     */
+    uint256 internal constant VIRGIN_BIT = 1 << 88;
+
+    /**
      * @notice Spend up to `amt` of the quote to market-buy the iteration token.
      * @dev Caller MUST have set its self-buy re-entry flag first: this swap
      *      re-enters the hook's own before/afterSwap, and without that flag the
@@ -286,20 +313,27 @@ library LegacyBuyLib {
 
         ref = int24(uint24(packed & 0xFFFFFF));
         uint64 refBlock = uint64(packed >> 24);
+        uint256 virginBit;
 
         if (refBlock == 0) {
             ref = tick;
             seeded = true;
+            virginBit = VIRGIN_BIT; // born THIS block, from an UNCLAMPED sample
         } else if (refBlock != uint64(block.number)) {
             int24 dev = tick - ref;
             if (dev > MAX_TICK_DEV) dev = MAX_TICK_DEV;
             else if (dev < -MAX_TICK_DEV) dev = -MAX_TICK_DEV;
             ref += dev;
+            // virginBit stays 0: this sample has now survived a block boundary.
         } else {
-            return (ref, false); // already synced in this block — do not touch it again
+            //  SAME BLOCK. Safe to trade on ONLY if the reference was not BORN
+            //  here — see {VIRGIN_BIT}. An established reference reaching this
+            //  branch was last written by the clamped path above, so it is bounded
+            //  and spending against it is the intended behaviour.
+            return (ref, (packed & VIRGIN_BIT) != 0);
         }
 
-        packed = uint256(uint24(ref)) | (uint256(uint64(block.number)) << 24);
+        packed = uint256(uint24(ref)) | (uint256(uint64(block.number)) << 24) | virginBit;
         assembly ("memory-safe") { sstore(slot, packed) }
     }
 }

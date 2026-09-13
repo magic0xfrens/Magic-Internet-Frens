@@ -810,6 +810,40 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     /// @dev The manipulation-resistant mark sqrtPrice (TWAP tick; spot fallback).
+    /**
+     * @notice Does an open book have to block a new volume link?
+     *
+     *  ── WHY THE ENGINE ANSWERS THIS AND NOT THE HOOK (red-team S0x) ─────────
+     *  {CauldronHook.linkVolume} refused ANY link while `openCount > 0`, and a
+     *  rotation links its destination pool on EVERY slice. Since anyone may open
+     *  a position permissionlessly, one dust position — measured at 0.000744 ETH
+     *  — held a governance-approved treasury rotation hostage indefinitely, and
+     *  no reachable call closes a SOLVENT position (`forceCloseDead` and
+     *  `forceCloseAllDead` both require `_isDead()`). Each denied envelope cost
+     *  the guild a fresh vote plus the cooldown, and the same position blocked
+     *  the next one.
+     *
+     *  The interlock's stated reason is narrower than the rule it enforced: a
+     *  generation split across pools makes the MARK manipulable, because a
+     *  primary thinned by rotation is the cheap pool to push while the deep
+     *  sibling sets the real price. The hook's note called a liquidity-weighted
+     *  mark "the real fix... a larger change than this interlock. Until it
+     *  lands". IT HAS LANDED — {markSource} / {PerpMarkSource}, consumed by
+     *  {_currentTick} (:667) and armed through {setRouting}. The note is stale.
+     *
+     *  So the block is now conditional on the hazard actually being present: an
+     *  open book only stops a link while this engine is still reading a SINGLE
+     *  pool's tick. With a weighted mark armed, the reason to refuse is gone.
+     *  With none armed, behaviour is exactly as before — this fails CLOSED.
+     *
+     *  Lives here rather than in the hook because {CauldronHook} has 25 bytes of
+     *  EIP-170 headroom; the hook swaps one external call for another and does
+     *  not grow.
+     */
+    function blocksVolumeLink() external view returns (bool) {
+        return openCount != 0 && markSource == address(0);
+    }
+
     function markSqrtPriceX96() public view returns (uint160) {
         (int24 t, bool ok) = twapTick();
         return ok ? PerpSwapLib.sqrtPriceAtTick(t) : _sqrtP();
@@ -1733,9 +1767,47 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  makes `_guardOpen` refuse new leverage into an engine that cannot price
     ///  itself. When the quote agrees — every ordinary block — this is one
     ///  comparison and the behaviour is unchanged.
+    /**
+     * @dev Is the GENERATION dead — not "is my own pool dead".
+     *
+     *  ── WHY THIS ASKS ABOUT THE PRIMARY POOL (red-team S0x) ──────────────────
+     *  `CauldronHook.isDead` sums a pool's 24h volume PLUS every pool in
+     *  `_volumeSiblings[thatPool]`, and `linkVolume` only ever writes the edge
+     *  primary -> secondary (CauldronHook.sol:1635). A rotated leg is therefore a
+     *  SECONDARY with an EMPTY sibling list.
+     *
+     *  Once a rotation completes, `syncGeneration` re-points this engine at the
+     *  destination quote, so `_pid()` became that leg — and asking `isDead(leg)`
+     *  summed ONE pool's volume while the generation actually traded on the
+     *  primary. The engine then read its own live generation as dead and refused
+     *  every new position for the rest of the generation (and a keeper could
+     *  force-close solvent positions at MODE_DEATH for the keeper cut).
+     *
+     *  The primary pool id is the generation's canonical key and is never
+     *  re-pointed by a rotation, so its sibling list is the complete set. Asking
+     *  it is both the correct question and identical to the old behaviour on any
+     *  generation that never rotated, where `_pid() == generationPoolId[gen]`.
+     *
+     *  Fixed HERE rather than by making `linkVolume` write a symmetric edge:
+     *  measured, that costs 62 bytes in {CauldronHook}, which has 25 — it puts
+     *  the hook 37 bytes OVER EIP-170 and undeployable. This engine has room.
+     */
     function _isDead() internal view returns (bool) {
-        if (quote != registry.generationQuote(registry.currentGeneration())) return true;
-        try IPerpHook(hookAddr).isDead(_pid()) returns (bool d) { return d; } catch { return false; }
+        uint256 gen = registry.currentGeneration();
+        if (quote != registry.generationQuote(gen)) return true;
+        //  GUARDED, AND IT FAILS BACK TO OUR OWN POOL. `_isDead` sits on every
+        //  mutating path — open, close, liquidate, the in-swap sweep, and both
+        //  force-close entrypoints — so an unguarded read here turns a registry
+        //  that cannot answer into a TOTAL engine brick, which is the same shape
+        //  as the panic the header at :723 warns about. Caught by execution: the
+        //  first cut called this bare and every `RealEngine` test in
+        //  S06_PerpVaultSolvency reverted against a registry stub with no such
+        //  getter. `hook.isDead` is wrapped below for exactly this reason.
+        PoolId gid = _pid();
+        try registry.generationPoolId(gen) returns (PoolId g) {
+            if (PoolId.unwrap(g) != bytes32(0)) gid = g;
+        } catch { /* keep this engine's own pool */ }
+        try IPerpHook(hookAddr).isDead(gid) returns (bool d) { return d; } catch { return false; }
     }
     function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral) {
         uint256 fee = (sent * openFeeBps) / BPS;

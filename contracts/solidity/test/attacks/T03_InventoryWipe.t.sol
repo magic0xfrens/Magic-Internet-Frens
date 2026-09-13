@@ -48,9 +48,13 @@ contract T03_InventoryWipe is YBase {
         console2.log("engine totalTokenAssets()    :", perp.totalTokenAssets());
     }
 
+    ///  RUNS THE SCENARIO THIS CONTRACT IS NAMED FOR. It was stubbed to
+    ///  `_boot(0, 0); vm.skip(!active);` ("probe env only"), which asserted
+    ///  nothing and then went red on its own: summoning with zero ether is now
+    ///  refused (`InsufficientETH`), so the stub reverted before it could skip.
+    ///  `_run` boots with a real 4 ether seed like every sibling test.
     function test_Inventory_200M() public {
-        _boot(0, 0); // probe env only
-        vm.skip(!active);
+        _run(200_000_000 ether);
     }
 }
 

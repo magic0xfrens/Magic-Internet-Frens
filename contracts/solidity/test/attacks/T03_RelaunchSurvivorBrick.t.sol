@@ -76,120 +76,87 @@ contract T03_RelaunchSurvivorBrick is YBase {
 
     /// THE BRICK. 12,000,000 gas is enough for the rebirth and not enough for
     /// the force-close. Every recovery path the comment names is then probed.
+    /// REFUTED, AND NOW A REGRESSION TEST FOR THE PROPERTY THAT REPLACED IT.
+    ///
+    ///  THE ORIGINAL ATTACK: 12,000,000 gas was enough for the rebirth and not
+    ///  enough for the force-close, so the protocol moved to gen-2 while 64
+    ///  positions SURVIVED into it — holding LP ether that no path could return,
+    ///  with `forceCloseAllDead`, `forceCloseDead`, `syncGeneration`, `close` and
+    ///  `liquidate` all unreachable. A permanent brick for the price of 64 dust
+    ///  positions.
+    ///
+    ///  IT NO LONGER REPRODUCES. `relaunch()` is now ATOMIC across the gas range:
+    ///  it either completes fully or reverts and changes NOTHING. There is no
+    ///  window that leaves survivors behind. Measured on this fork, full 64-book:
+    ///
+    ///      cap 12M -> relaunch false, gen 1, openCount 64, synced 1  (no-op)
+    ///      cap 14M -> relaunch true,  gen 2, openCount  0, synced 2  (complete)
+    ///      caps 16M/18M/20M/24M -> identical to 14M
+    ///
+    ///  So the assertion that earns its keep is ATOMICITY, not the old brick. If a
+    ///  future change reintroduces a half-done rebirth, the "nothing moved" block
+    ///  below fails and names it.
     function test_SurvivorsCanNeverBeClosed() public {
         vm.skip(!active);
-        uint256 opened = _fillLev(64, 2); // leverage 2 → real LP ETH is lent out
+        uint256 opened = _fillLev(64, 2); // leverage 2 -> real LP ETH is lent out
         assertGt(opened, 0, "book filled");
 
-        uint256 longOi = perp.longOiEth();
-        uint256 plvBefore = perp.plv();
         address oldTok = registry.currentToken();
-
         hook.setDeathThreshold(1_000_000 ether, address(0), 0, 0, 0);
         _warp(1 days + 1);
 
         T03GasRunner runner = new T03GasRunner();
-        bool ok = runner.relaunchWithGas(address(registry), 12_000_000);
-        assertTrue(ok, "relaunch succeeded");
+
+        // ---- STARVED (12M): the rebirth must be a clean no-op, not a half-step.
+        uint256 snap = vm.snapshotState();
+        bool okStarved = runner.relaunchWithGas(address(registry), 12_000_000);
+        assertFalse(okStarved, "12M is not enough to relaunch a full book");
+        assertEq(registry.currentGeneration(), 1, "ATOMIC: generation did not move");
+        assertEq(registry.currentToken(), oldTok, "ATOMIC: token did not change");
+        assertEq(perp.openCount(), opened, "ATOMIC: the book is untouched");
+        assertEq(perp.syncedGeneration(), 1, "ATOMIC: the engine did not re-arm");
+        vm.revertToState(snap);
+
+        // ---- FUNDED (14M): the rebirth completes and DRAINS the book.
+        bool okFunded = runner.relaunchWithGas(address(registry), 14_000_000);
+        assertTrue(okFunded, "14M relaunches a full 64-position book");
         assertEq(registry.currentGeneration(), 2, "the protocol moved on");
-        assertEq(perp.openCount(), opened, "EVERY position survived into gen-2");
-
-        address newTok = registry.currentToken();
-        assertTrue(newTok != oldTok, "the token really did change");
-
-        // Restore an HONEST death threshold: the newborn gen-2 pool is alive,
-        // which is the only realistic post-relaunch state. (The high threshold
-        // was only the lever that killed gen-1.)
-        hook.setDeathThreshold(0, address(0), 0, 0, 0);
-        assertFalse(hook.isDead(registry.generationPoolId(2)), "gen-2 pool is ALIVE");
-
-        // ---- recovery path 1: the permissionless force-close the comment names
-        bool allWorks;
-        bytes memory e1;
-        try perp.forceCloseAllDead() { allWorks = true; }
-        catch (bytes memory e) { e1 = e; }
-
-        bool oneWorks;
-        bytes memory e2;
-        try perp.forceCloseDead(1) { oneWorks = true; }
-        catch (bytes memory e) { e2 = e; }
-
-        // ---- recovery path 2: syncGeneration re-arms
-        bool syncWorks;
-        bytes memory e3;
-        try perp.syncGeneration() { syncWorks = true; }
-        catch (bytes memory e) { e3 = e; }
-
-        // ---- recovery path 3: the trader's own exit
-        bool closeWorks;
-        bytes memory e4;
-        try perp.close(1, 0) { closeWorks = true; }
-        catch (bytes memory e) { e4 = e; }
-
-        // ---- recovery path 4: liquidation
-        bool liqWorks;
-        bytes memory e5;
-        try perp.liquidate(1) { liqWorks = true; }
-        catch (bytes memory e) { e5 = e; }
-
-        console2.log("openCount still           :", perp.openCount());
-        console2.log("syncedGeneration          :", perp.syncedGeneration());
-        console2.log("registry.currentGeneration:", registry.currentGeneration());
-        console2.log("longOiEth (LP ETH lent out):", perp.longOiEth());
-        console2.log("longOiEth before relaunch :", longOi);
-        console2.log("plv now / before          :", perp.plv(), plvBefore);
-        console2.log("plvToken (still old token):", perp.plvToken());
-        console2.log("forceCloseAllDead ok      :", allWorks); console2.logBytes(e1);
-        console2.log("forceCloseDead(1) ok      :", oneWorks); console2.logBytes(e2);
-        console2.log("syncGeneration ok         :", syncWorks); console2.logBytes(e3);
-        console2.log("close(1) ok               :", closeWorks); console2.logBytes(e4);
-        console2.log("liquidate(1) ok           :", liqWorks); console2.logBytes(e5);
-
-        assertEq(perp.openCount(), opened, "no path drained a single position");
-        assertFalse(allWorks, "forceCloseAllDead is unreachable");
-        assertFalse(oneWorks, "forceCloseDead is unreachable");
-        assertFalse(syncWorks, "syncGeneration is unreachable");
-        assertGt(perp.longOiEth(), 0, "LP ETH is lent out with no way back");
-
-        bool reached = true;
-        assertTrue(reached, "T03: survivors are permanently unclosable");
+        assertEq(perp.openCount(), 0, "NO survivor: every position was force-closed");
+        assertEq(perp.syncedGeneration(), 2, "the engine re-armed for gen-2");
+        assertTrue(registry.currentToken() != oldTok, "the token really did change");
+        assertEq(perp.longOiEth(), 0, "no LP ether left lent out");
     }
 
-    /// The `NotDead()` gate is not even the deepest problem. Once the NEW pool
-    /// dies too the gate opens — and the settlement swap is still aimed at
     /// `_key()`, i.e. the gen-2 pool, while the engine holds only gen-1 token.
+    /// REFUTED. The companion claim was that once the NEW pool dies too, the
+    /// `NotDead()` gate opens but the settlement swap is still aimed at the gen-2
+    /// pool while the engine holds only gen-1 token — so survivors stay stuck even
+    /// then. That depended on survivors EXISTING, which the atomic rebirth above
+    /// no longer produces. Asserted here from the other side: relaunch with enough
+    /// gas and there is simply nothing left to be stuck.
     function test_SurvivorsUnclosableEvenWhenTheGateOpens() public {
         vm.skip(!active);
         uint256 opened = _fillLev(64, 2);
+        assertGt(opened, 0, "book filled");
         address oldTok = registry.currentToken();
 
         hook.setDeathThreshold(1_000_000 ether, address(0), 0, 0, 0);
         _warp(1 days + 1);
         T03GasRunner runner = new T03GasRunner();
-        assertTrue(runner.relaunchWithGas(address(registry), 12_000_000), "relaunch ok");
+        assertTrue(runner.relaunchWithGas(address(registry), 14_000_000), "relaunch ok");
+
         address newTok = registry.currentToken();
-        assertEq(perp.openCount(), opened, "survivors");
+        assertTrue(newTok != oldTok, "the token changed");
+        assertEq(perp.openCount(), 0, "no survivors to strand");
 
-        // Threshold left high → the gen-2 pool also reads dead, so `_isDead()`
-        // is TRUE and the force-close gate OPENS.
-        assertTrue(hook.isDead(registry.generationPoolId(2)), "gen-2 also reads dead");
-
-        console2.log("engine gen-1 token balance :", IERC20Like(oldTok).balanceOf(address(perp)));
-        console2.log("engine gen-2 token balance :", IERC20Like(newTok).balanceOf(address(perp)));
-        console2.log("perp.syncedToken == gen-1  :", perp.syncedToken() == oldTok);
-
-        bool allWorks;
-        try perp.forceCloseAllDead() { allWorks = true; }
-        catch (bytes memory e) { console2.log("forceCloseAllDead STILL reverts:"); console2.logBytes4(bytes4(e)); }
-
-        console2.log("openCount after            :", perp.openCount());
-        assertFalse(allWorks, "even with the gate open the settle swap cannot run");
-        assertEq(perp.openCount(), opened, "not one position drained");
-
-        bool reached = true;
-        assertTrue(reached, "T03: the gate is not the only wall");
+        //  The engine's inventory followed the generation: it must NOT still be
+        //  holding the dead token while pointed at the new pool, which was the
+        //  mechanism that made the settle swap unrunnable.
+        assertEq(perp.syncedToken(), newTok, "engine re-pointed at the gen-2 token");
+        assertEq(perp.longOiEth(), 0, "no LP ether lent out against a dead book");
     }
 }
+
 
 /// HOW FULL MUST THE BOOK BE? `hook.forceClosePerps{gas: g - 8_000_000}()` is
 /// ALL-OR-NOTHING: it runs inside a try/catch, so if the budget does not cover
@@ -206,11 +173,16 @@ contract T03_RelaunchSurvivorBrick_BookSize is YBase {
         for (uint256 i; i < n; ++i) perp.openLong{value: 0.0035 ether}(2, 0, 0, 0.0035 ether);
     }
 
+    /// REFUTED. This searched for the smallest book that a 12M-gas relaunch would
+    /// carry into the next generation intact — the cheapest brick. There is no
+    /// longer any such size: at 12M the rebirth is a clean no-op at EVERY book
+    /// size, so nothing survives because nothing happens.
     function test_MinimumBookSizeAt12M() public {
         vm.skip(!active);
         T03GasRunner runner = new T03GasRunner();
         uint256[5] memory ns = [uint256(8), 16, 32, 48, 64];
         uint256 smallest;
+        uint256 checked;
         for (uint256 i; i < ns.length; ++i) {
             uint256 s = vm.snapshotState();
             _openN(ns[i]);
@@ -220,15 +192,16 @@ contract T03_RelaunchSurvivorBrick_BookSize is YBase {
             uint256 oc = perp.openCount();
             console2.log("book size", ns[i]);
             console2.log("  relaunch ok / survivors:", ok, oc);
+            //  A BRICK is "the rebirth SUCCEEDED and the whole book survived".
             if (ok && oc == ns[i] && smallest == 0) smallest = ns[i];
+            //  Whatever the gas outcome, the state must be self-consistent: a
+            //  successful rebirth drains the book, a failed one leaves it whole.
+            assertTrue(ok ? (oc == 0) : (oc == ns[i]), "rebirth was all-or-nothing");
+            checked++;
             vm.revertToState(s);
         }
-        console2.log("smallest fully-surviving book at a 12M cap:", smallest);
-        console2.log("attacker cost in ETH (wei)                :", smallest * 0.0035 ether);
-        assertGt(smallest, 0, "a brickable book size exists at 12M");
-
-        bool reached = true;
-        assertTrue(reached, "T03: book-size threshold measured");
+        assertEq(checked, ns.length, "every book size was probed");
+        assertEq(smallest, 0, "NO brickable book size exists at a 12M cap");
     }
 }
 

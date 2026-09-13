@@ -484,6 +484,24 @@ contract CauldronGovernor is ICauldronGovernor, Ownable {
         //  collection — its dividends and its claim on the generation's floor —
         //  out for less than the gas. See {CURVE_BAND} for why the band is
         //  relative to the live curve rather than an absolute floor in wei.
+        //
+        //  WHICH CONFIGURATIONS THIS ACTUALLY PROTECTS (red-team S0xB).
+        //  Only the NO-POLICY fallback ladder, `volumePerNFT + k * nftPriceStep`
+        //  (CauldronHook.nftPriceAt, :2182). With a {MintCurvePolicy} wired — which
+        //  `deploy/DeployLaunchpad.s.sol` does on every deploy — the hook passes
+        //  `volumePerNFT` to `priceAt(uint256 k, uint256, uint256)` and the policy
+        //  IGNORES it (both trailing parameters are unnamed and unused,
+        //  MintCurvePolicy.sol:119): the price is `base + spread*k*k/(k+knee)` and
+        //  nothing a proposal can name moves it. Measured: `priceAt(0, 1 wei)`,
+        //  `priceAt(0, 0.02 ether)` and `priceAt(0, type(uint128).max)` all return
+        //  0.48e18.
+        //  So under the shipped configuration the 1-wei mint-out this band was
+        //  written against is not reachable THROUGH THE PRICE at all, and a
+        //  winning proposal's `volumePerNFT` is an inert mandate. The band stays
+        //  because the fallback is reachable whenever no policy is wired (every
+        //  fixture, and any deployment that clears it), and defence for a path
+        //  that is one `setPolicies(0)` away is worth 3 SLOADs.
+        //  Do NOT read this check as evidence the ladder is governed — it is not.
         if (volumePerNFT != 0) {
             uint256 live = _liveCurveBase();
             if (live != 0 && (volumePerNFT < live / CURVE_BAND || volumePerNFT > live * CURVE_BAND)) {

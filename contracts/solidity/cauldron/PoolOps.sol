@@ -1489,6 +1489,43 @@ library PoolOps {
     /// @notice RECYCLE a dead collection's NFT: debit the ledger, move the NFT to
     ///         the treasury (the registry), and pay the floor from the live reserve.
     ///         Reverts if the caller doesn't own it. Returns the token paid out.
+    /**
+     * @dev NFTs that can ACTUALLY claim this collection's floor: minted, less the
+     *      genesis tranche.
+     *
+     *  ── WHY THE LIVE FLOOR WAS DIVIDED BY THE WRONG NUMBER (red-team S0x) ────
+     *  Death and life disagreed about the denominator. `crystallizeCollection`
+     *  freezes the base at `IVaultRedeemedOps(vault).outstanding()` (:1484), and
+     *  {CauldronVault.outstanding} is `minted - floorOffset` (CauldronVault.sol:62)
+     *  — the genesis tranche EXCLUDED, because {CauldronVault.redeem} reverts for
+     *  `tokenId <= floorOffset` ("genesis tranche has its own floor", :157).
+     *  The two LIVE sites below used raw `totalMinted()` instead, which INCLUDES
+     *  those genesis ids.
+     *
+     *  On the iteration-2 MiFrens continuation (CauldronRegistry.sol:1128) that is
+     *  1111 NFTs which can never claim, so with 100 forged the live floor was
+     *  `pot/1211` while the post-death entitlement was `pot/100`. Measured: a
+     *  treasury NFT resold for 1.6515 tokens and redeemed for 10.0083 after the
+     *  base collapsed — 6.06x out of the SHARED reserve LP that also backs the OG
+     *  floor and 1:1 migration. Recycling the whole forged tranche paid out 82.58
+     *  of a 1000 pot and stranded 917.42 (91.7%) in `totalEntitled` forever, which
+     *  CauldronRegistry.sol:1084 then subtracts from EVERY future generation.
+     *
+     *  A plain brew collection has no `GENESIS_SUPPLY()`, so `ogCount` is 0 and
+     *  this is the identity — every existing deployment and fixture is unchanged.
+     */
+    function _eligible(address collection, uint256 ogCount) private view returns (uint256) {
+        uint256 minted = IColMinted(collection).totalMinted();
+        return minted > ogCount ? minted - ogCount : 0;
+    }
+
+    /// @dev The genesis tranche size, or 0 for a collection that has none.
+    function _ogCount(address collection) private view returns (uint256 n) {
+        (bool ok, bytes memory ret) =
+            collection.staticcall(abi.encodeWithSignature("GENESIS_SUPPLY()"));
+        if (ok && ret.length == 32) n = abi.decode(ret, (uint256));
+    }
+
     function recycleCollection(
         IPositionManagerOps pm,
         address ledger,
@@ -1520,12 +1557,13 @@ library PoolOps {
         //  because a plain brew has no OG tranche to protect.
         (bool hasOg, bytes memory ogRet) =
             collection.staticcall(abi.encodeWithSignature("GENESIS_SUPPLY()"));
+        uint256 ogCount;
         if (hasOg && ogRet.length == 32) {
-            uint256 ogCount = abi.decode(ogRet, (uint256));
+            ogCount = abi.decode(ogRet, (uint256));
             if (ogCount != 0 && tokenId <= ogCount) revert("og tranche");
         }
         // mintedNow sizes the LIVE floor; ignored once the collection crystallized.
-        uint256 mintedNow = IColMinted(collection).totalMinted();
+        uint256 mintedNow = _eligible(collection, ogCount);
         uint256 payout = ILedgerOps(ledger).redeem(gen, mintedNow); // checks-effects
         ICollectionOps(collection).custodyTransfer(caller, address(this), tokenId);
         amount = claimFromReserve(pm, r.positionId, r.key, r.tickLower, r.tickUpper, payout, caller);
@@ -1548,7 +1586,7 @@ library PoolOps {
         ReserveRef memory r
     ) external returns (uint256 added) {
         if (ICollectionOps(collection).ownerOf(tokenId) != address(this)) revert("not treasury");
-        uint256 mintedNow = IColMinted(collection).totalMinted();
+        uint256 mintedNow = _eligible(collection, _ogCount(collection));
         uint256 paid = 2 * ILedgerOps(ledger).floorPerNFT(gen, mintedNow);
         require(paid > 0, "no floor");
         require(IERC20(token).transferFrom(caller, address(this), paid), "pay");

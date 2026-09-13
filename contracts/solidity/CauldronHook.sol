@@ -48,6 +48,9 @@ interface IQuoteOracle {
 ///         one while anyone is exposed (audit P-1).
 interface IPerpOpenCount {
     function openCount() external view returns (uint256);
+    /// @dev True while an open book must block a volume link — see
+    ///      {PerpEngine.blocksVolumeLink} for why the engine decides this.
+    function blocksVolumeLink() external view returns (bool);
 }
 
 interface IPerpEngineLiq {
@@ -1620,7 +1623,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  the advice is still wrong and is removed rather than merely survivable.
     function linkVolume(PoolId primary, PoolId secondary) external {
         if (msg.sender != registry) revert OnlyRegistry();
-        if (perpEngine != address(0) && IPerpOpenCount(perpEngine).openCount() > 0) {
+        if (perpEngine != address(0) && IPerpOpenCount(perpEngine).blocksVolumeLink()) {
             revert PerpsOpen();
         }
         //  A POOL IS NOT ITS OWN SIBLING (red-team R-03 follow-on).

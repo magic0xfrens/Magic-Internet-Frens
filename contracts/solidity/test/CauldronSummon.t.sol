@@ -552,6 +552,22 @@ contract CauldronSummonForkTest is Test {
         (bool ok, ) = vault1.call{value: 0.1 ether}("");
         assertTrue(ok, "funded gen1 vault");
 
+        //  MINT ONE NFT, OR THERE IS NOBODY TO ENTITLE. `CollectionLedger.crystallize`
+        //  REJECTS the incoming credit when `mintedAtDeath <= retired[gen]`
+        //  (CollectionLedger.sol:199) — the red-team Z-19 twin guard: a generation
+        //  that ends with no outstanding NFTs would freeze an entitlement no holder
+        //  could ever claim, and `crystallize` runs inside `relaunch()` with no
+        //  try/catch so it cannot revert to say so.
+        //  This test funded a vault and expected an entitlement while minting zero
+        //  NFTs, so the guard correctly threw the whole credit away —
+        //  measured: `crystallize(1, 0, 4.83e25)` -> `CreditRejected`. That is a
+        //  stale premise in the test, not a regression in the guard. One holder
+        //  makes the entitlement real, claimable, and worth asserting.
+        address col1 = registry.generationCollection(1);
+        vm.prank(address(hook)); // the collection's `minter`
+        (bool mintOk, ) = col1.call(abi.encodeWithSignature("mint(address)", address(this)));
+        assertTrue(mintOk, "minted a gen1 NFT so the entitlement has a holder");
+
         // A trader takes real circulating supply (must migrate 1:1 later).
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
@@ -602,6 +618,33 @@ contract CauldronSummonForkTest is Test {
         // fires its nested buyback in afterSwap. The parent buy must still succeed.
         uint256 got = _buyGen1(0.3 ether);
         assertGt(got, 0, "taxed buy succeeded (buyback did not brick the swap)");
+
+        //  THE FIRST BUYBACK ON A POOL ONLY SEEDS THE PRICE REFERENCE AND SPENDS
+        //  NOTHING (`LegacyBuyLib.sol:177` — `if (seeded) return (0, 0)`). That is
+        //  the anti-sandwich fix working as designed: whoever fires the very first
+        //  buyback would otherwise pick the tick the reference is born at and get
+        //  exactly the sandwich the bound exists to stop.
+        //  This test predated that fix and asserted a credit off the seeding call,
+        //  so it went red the moment the fix landed — a stale premise, not a
+        //  regression. Assert the deferral explicitly rather than skipping past it,
+        //  so that if the bootstrap ever starts spending again this test says so.
+        assertEq(hook.legacyOwedToReserve(), 0, "first buyback only seeds the reference");
+
+        //  NOW the real one: a second taxed buy in a LATER block has a reference to
+        //  price against, so the buyback actually executes.
+        //
+        //  IT MUST BE A SMALL BUY. The buyback runs in the `afterSwap` OF THE SWAP
+        //  THAT JUST MOVED THE PRICE, and it is bounded against a reference
+        //  committed in an EARLIER block (`LegacyBuyLib._syncRef`). A second 0.3e
+        //  buy moves sqrt-price further than the 9486/10000 bound
+        //  (`SLIP_SQRT_BPS`, :52) allows, so `lim >= sp` and the step refuses —
+        //  measured: the delegatecall returns in 4,396 gas having swapped nothing.
+        //  That is the guard working (it will not buy at a price the same
+        //  transaction manufactured), not a failure: the buffer is preserved for a
+        //  calmer swap and the reference catches up 1000 ticks per block.
+        vm.roll(block.number + 1);
+        uint256 got2 = _buyGen1(0.01 ether);
+        assertGt(got2, 0, "second taxed buy succeeded (buyback did not brick the swap)");
 
         // P2: the buy HOLDS the bought tokens in the hook + DEFERS the credit — the
         // ledger is not yet credited (Invariant R: no credit without reserve backing).

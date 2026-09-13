@@ -1055,9 +1055,12 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         genesisReserveOutstanding += genesisPending;
         genesisPending = 0;
         uint256 unclaimedGenesis = genesisReserveOutstanding;
-        uint256 newActive = tokensFromLP > unclaimedGenesis
-            ? tokensFromLP - unclaimedGenesis
-            : tokensFromLP; // degenerate guard (near-total migration) — never 0-seed
+        //  `degenerate` is the SAME test, kept so the branch can be reported below
+        //  rather than only taken (red-team S0xTSa).
+        bool degenerate = tokensFromLP <= unclaimedGenesis;
+        uint256 newActive = degenerate
+            ? tokensFromLP // degenerate guard (near-total migration) — never 0-seed
+            : tokensFromLP - unclaimedGenesis;
         // OBSERVABLE UNDER-COVERAGE (audit F-06). The Z-12 fix made the LEGACY
         // shortfall observable but left this twin fallback silent, and it is the more
         // dangerous of the two: it fires when the dead pool returned NOTHING
@@ -1070,6 +1073,15 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
         if (newActive == 0) {
             emit ReserveShortfall(newGen, unclaimedGenesis, 0);
             newActive = GEN1_ACTIVE_TOKENS; // ultra-rare fallback
+        } else if (degenerate) {
+            //  THE SAME SHORTFALL, ONE STEP LESS EXTREME, AND IT WAS SILENT.
+            //  The guard above only reported `tokensFromLP == 0`. The band
+            //  `0 < tokensFromLP <= unclaimedGenesis` takes the degenerate branch
+            //  too — `newActive` keeps the WHOLE recovered amount and the genesis
+            //  airdrop is never carved out — so `newReserve` is short by
+            //  `unclaimedGenesis` and late genesis claimants hit "reserve short"
+            //  (PoolOps.sol:1378) with nothing anywhere having said so.
+            emit ReserveShortfall(newGen, unclaimedGenesis, newActive);
         }
 
         // 8b. LEGACY FLOOR: flush any un-materialized live buybacks into the dying
