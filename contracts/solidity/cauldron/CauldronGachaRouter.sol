@@ -157,6 +157,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         address player;
         uint256 ethIn;
         uint256 loops;
+        uint256 minTokenOut; // floor on the tokens the final buy leg leaves you
     }
 
     error Reentrancy();
@@ -366,7 +367,16 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     /// @notice Volume amplifier: crank buy→sell→…→buy in one tx so a small spend
     ///         generates a multiple of itself in volume (each leg credited to you).
     ///         Ends in a buy, so leftover creature-tokens are sent to your wallet.
-    function playChurn(uint256 quoteIn, uint256 loops, uint256 openMax)
+    /// @param minTokenOut The FLOOR: the creature tokens this churn must leave you
+    ///        holding when the last leg closes, or the whole thing reverts.
+    ///        Every leg swaps at the extreme tick ({_limit}) — up to 10 buys and 9
+    ///        sells of the caller's own `quoteIn` with no price protection — so
+    ///        without this a sandwicher could take essentially all of it and the
+    ///        caller had no parameter to stop them. Its sibling {play} has taken
+    ///        two floors since day one; the omission here was an oversight, not a
+    ///        design (audit K4c). Passing 0 is still permitted and still means
+    ///        "fill me at any price", exactly as `play(…, 0, 0, …)` does.
+    function playChurn(uint256 quoteIn, uint256 loops, uint256 minTokenOut, uint256 openMax)
         external
         payable
         nonReentrant
@@ -378,7 +388,7 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
         if (loops == 0 || loops > MAX_LOOPS) revert BadLoops();
 
         bytes memory ret = poolManager.unlock(
-            abi.encode(uint8(1), abi.encode(ChurnData({player: msg.sender, ethIn: spend, loops: loops})))
+            abi.encode(uint8(1), abi.encode(ChurnData({player: msg.sender, ethIn: spend, loops: loops, minTokenOut: minTokenOut})))
         );
         (uint256 playWei, uint256 ethLeftover) = abi.decode(ret, (uint256, uint256));
 
@@ -511,6 +521,11 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
             unchecked { ++i; }
         }
 
+        //  THE FLOOR, CHECKED ON THE OUTPUT THE PLAYER ACTUALLY KEEPS. The churn
+        //  ends in a buy, so `tokBal` is what this whole round trip bought; a
+        //  sandwich shows up here as a short fill. Checked before the transfer so
+        //  a failed churn moves nothing at all.
+        if (tokBal < c.minTokenOut) revert Slippage();
         if (tokBal > 0) _safeTransfer(Currency.unwrap(tok), c.player, tokBal);
         return abi.encode(playWei, ethBal);
     }

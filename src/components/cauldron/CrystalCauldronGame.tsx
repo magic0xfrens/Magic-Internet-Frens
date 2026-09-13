@@ -4,8 +4,11 @@ import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { fetchGachaStats, fetchIndexerLagSec, fetchOwnedNfts, type IndexedGacha } from "@/lib/cauldronIndexer";
-import { CAULDRON, HOOK_ABI, COLLECTION_ABI } from "@/config/cauldron";
+import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
 import { resolveTokenArt } from "@/lib/tokenArt";
+
+/** Tolerance on top of the fee model for a spin's floor. See {spinFloor}. */
+const SPIN_SLIP_BPS = 2_500;
 
 /* ══════════════════════════════════════════════════════════════════
  * CRYSTAL CAULDRON — spin volume, summon crystals, open them.
@@ -72,7 +75,7 @@ interface Props {
   onBought?: () => void;
 }
 
-export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted, nftMax, onBought }: Props) {
+export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col, nftMinted, nftMax, onBought }: Props) {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const pub = usePublicClient({ chainId: CAULDRON.chainId });
@@ -142,6 +145,23 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
   //  summon, and no table records it.
   const { data: prog, refetch: refProg } = useReadContract({ ...hook, functionName: "progress", args: address ? [address] : undefined, ...qEnabled });
   const spinWei = parseEther((stake * loops).toFixed(18));
+
+  //  ── THE SPIN'S SLIPPAGE FLOOR (audit K4c) ────────────────────────────
+  //  `playChurn` runs `loops` buys and `loops - 1` sells inside one unlock, all
+  //  at the extreme tick, and ends holding creature tokens. Each leg is skimmed
+  //  by {TRADE_FEE_BPS}, so the honest end state is the stake converted at spot
+  //  and compounded down by the fee once per leg. SPIN_SLIP_BPS is deliberately
+  //  wide — price impact across up to 19 legs is real and not modelled here, and
+  //  the floor exists to refuse a sandwich that takes most of the stake, not to
+  //  price the churn to the wei. Without it the router accepted any fill at all.
+  const spinFloor = useMemo(() => {
+    if (!(spotPrice > 0) || stake <= 0) return 0n;
+    const legs = 2 * loops - 1;
+    const honest = (stake / spotPrice) * (1 - TRADE_FEE_BPS / 10_000) ** legs;
+    const floor_ = honest * (1 - SPIN_SLIP_BPS / 10_000);
+    if (!Number.isFinite(floor_) || floor_ <= 0) return 0n;
+    try { return parseEther(floor_.toFixed(18)); } catch { return 0n; }
+  }, [spotPrice, stake, loops]);
   //  STAYS ON CHAIN. A pure function of live hook state for the stake about to be
   //  signed; not indexed, and stale odds would misprice the spin.
   const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [spinWei], query: { placeholderData: (p) => p } });
@@ -178,7 +198,12 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
     setResult(null);
     setPhase("spinning");
     try {
-      const hash = await spin(stake, loops, 0);
+      if (spinFloor <= 0n) {
+        setErr("No price for this brew yet — cannot size a slippage floor for the spin.");
+        setPhase("idle");
+        return;
+      }
+      const hash = await spin(stake, loops, 0, spinFloor);
       // Drive resolution from the tx receipt DIRECTLY (not the reactive hook, which
       // can hang if the app's RPC lags the wallet's). Detect revert explicitly.
       const rcpt = await pub.waitForTransactionReceipt({ hash, timeout: 90_000 });
@@ -225,7 +250,7 @@ export default function CrystalCauldronGame({ collection, ethUsd, col, nftMinted
     } finally {
       reset();
     }
-  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, address, refOpened, refMiss, refProg, loadGacha, onBought, reset]);
+  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, spinFloor, address, refOpened, refMiss, refProg, loadGacha, onBought, reset]);
 
   /**
    * Open EVERY sealed crystal in one transaction.

@@ -288,9 +288,17 @@ export function useCauldronSwap() {
    *  is credited as Mana, so a small stake generates a multiple of itself in
    *  volume → more chances to summon a crystal. `openMax=0` opens all earned. */
   const spin = useCallback(
-    async (ethIn: number, loops = 3, openMax = 0): Promise<`0x${string}`> => {
+    async (ethIn: number, loops = 3, openMax = 0, minTokenOut: bigint = 0n): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
+      //  A CHURN MUST CARRY A FLOOR. Up to 10 buys and 9 sells run inside one
+      //  unlock, every one of them at the extreme tick, so a sandwicher could
+      //  take essentially the whole stake (audit K4c). The router now takes
+      //  `minTokenOut`; refusing to sign without one is the same stance `buy`
+      //  takes on an unpriceable market.
+      if (minTokenOut <= 0n) {
+        throw new Error("Could not compute a slippage floor for the spin — refusing to sign");
+      }
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
@@ -299,7 +307,7 @@ export function useCauldronSwap() {
         abi: GACHA_ROUTER_ABI,
         functionName: "playChurn",
         //  See the note in `buy`: native value, so `quoteIn` is 0.
-        args: [0n, BigInt(loops), BigInt(openMax)],
+        args: [0n, BigInt(loops), minTokenOut, BigInt(openMax)],
         value: parseEther(ethIn.toFixed(18)),
       });
     },

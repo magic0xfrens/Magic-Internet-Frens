@@ -438,6 +438,11 @@ export const GACHA_ROUTER_ABI = [
     inputs: [
       { name: "quoteIn", type: "uint256" },
       { name: "loops", type: "uint256" },
+      //  THE FLOOR (audit K4c). Every churn leg swaps at the extreme tick, so
+      //  without this a sandwicher could take essentially the whole stake and
+      //  the caller had no parameter to refuse it. Sized on the tokens the final
+      //  buy leg leaves you holding, exactly like `play`'s `minTokenOut`.
+      { name: "minTokenOut", type: "uint256" },
       { name: "openMax", type: "uint256" },
     ],
     outputs: [{ name: "opened", type: "uint256" }],

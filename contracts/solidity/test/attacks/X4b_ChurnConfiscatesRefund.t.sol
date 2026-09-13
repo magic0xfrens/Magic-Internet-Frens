@@ -143,7 +143,7 @@ contract X4b_ChurnConfiscatesRefund is Test {
         vm.deal(PLAYER, send_);
         uint256 before = PLAYER.balance;
         vm.prank(PLAYER);
-        router.playChurn{value: send_}(0, 1, 0);
+        router.playChurn{value: send_}(0, 1, 0, 0); // floor 0: this test is about the REFUND, not the floor (K4c added the param)
         refunded = PLAYER.balance - (before - send_);
         strandedInRouter = address(router).balance;
     }
@@ -160,7 +160,7 @@ contract X4b_ChurnConfiscatesRefund is Test {
         usdg.mint(PLAYER, amount);
         vm.startPrank(PLAYER);
         usdg.approve(address(router), amount);
-        router.playChurn(amount, 1, 0);
+        router.playChurn(amount, 1, 0, 0); // floor 0: see above
         vm.stopPrank();
         refunded = usdg.balanceOf(PLAYER);
         strandedErc20 = usdg.balanceOf(address(router));
@@ -214,7 +214,7 @@ contract X4b_ChurnConfiscatesRefund is Test {
         vm.deal(PLAYER, 1 ether);
         uint256 before = PLAYER.balance;
         vm.prank(PLAYER);
-        router.playChurn{value: 1 ether}(0, 2, 0);
+        router.playChurn{value: 1 ether}(0, 2, 0, 0); // floor 0: K4c added the param; this test is about refunds
         assertEq(PLAYER.balance, before - 1 ether, "full fill refunds nothing");
         assertEq(address(router).balance, 0, "router holds no quote after a full fill");
         assertEq(brew.balanceOf(PLAYER), 2 ether, "the final buy's tokens reach the player");
@@ -230,7 +230,7 @@ contract X4b_ChurnConfiscatesRefund is Test {
         vm.deal(PLAYER, 1 ether);
         uint256 before = PLAYER.balance;
         vm.prank(PLAYER);
-        router.playChurn{value: 1 ether}(0, 2, 0);
+        router.playChurn{value: 1 ether}(0, 2, 0, 0); // floor 0: K4c added the param; this test is about refunds
         uint256 refunded = PLAYER.balance - (before - 1 ether);
         // loop0 buy takes 0.6 (0.4 survives), sell returns 0.6 -> 1.0 into loop1,
         // loop1 buy takes 0.6 and 0.4 survives to the refund.
@@ -249,7 +249,7 @@ contract X4b_ChurnConfiscatesRefund is Test {
         pm.setSellFill(6_000);
         vm.deal(PLAYER, 1 ether);
         vm.prank(PLAYER);
-        router.playChurn{value: 1 ether}(0, 2, 0);
+        router.playChurn{value: 1 ether}(0, 2, 0, 0); // floor 0: K4c added the param; this test is about refunds
         // loop0 buy: 1.0 ETH -> 2.0 tok. The sell consumes only 1.2 tok (0.8
         // survives) and returns 0.6 ETH. loop1 buy: 0.6 ETH -> 1.2 tok, so all
         // 2.0 tok must reach the player.
