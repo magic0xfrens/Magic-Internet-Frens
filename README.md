@@ -127,6 +127,7 @@ Uniswap v4 did not exist on Arc. We deployed it, then our stack on top of it.
 | CauldronRegistry | [`0x4e60D157E951898521A97dD5217e50D6187aB432`](https://testnet.arcscan.app/address/0x4e60D157E951898521A97dD5217e50D6187aB432) |
 | PerpEngine | [`0x12962E69CD005A42ed1d7669e43A8Ad81ac16A22`](https://testnet.arcscan.app/address/0x12962E69CD005A42ed1d7669e43A8Ad81ac16A22) |
 | PerpVault | [`0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7`](https://testnet.arcscan.app/address/0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7) |
+| PerpMarkSource | [`0xFb7204D5C5ACdB801cD324B96B63FE1Eaac9C70E`](https://testnet.arcscan.app/address/0xFb7204D5C5ACdB801cD324B96B63FE1Eaac9C70E) |
 | MiFrensGenesis | [`0x5ddCd156fc0ff37eC3dD20b53f070f7Ff8B4f48a`](https://testnet.arcscan.app/address/0x5ddCd156fc0ff37eC3dD20b53f070f7Ff8B4f48a) |
 | Timelock | [`0x95ab3D345e25A8B180Af3Ca6071ed3C595df8BcB`](https://testnet.arcscan.app/address/0x95ab3D345e25A8B180Af3Ca6071ed3C595df8BcB) |
 | Generation 1 token | [`0xf5E9b44260CDaC047593583DF540A8589cEd2df9`](https://testnet.arcscan.app/address/0xf5E9b44260CDaC047593583DF540A8589cEd2df9) |
@@ -135,8 +136,15 @@ Uniswap v4 did not exist on Arc. We deployed it, then our stack on top of it.
 **The Uniswap v4 deployment transaction**, if you want the receipt rather than the
 address: [`0x52e0a244…3484b33`](https://testnet.arcscan.app/tx/0x52e0a2446730d9aef3e2b6ca6d5adc547d04a48c42976858c261c59403484b33)
 
-Generation 1 is live: the 1111-fren genesis presale minted out, the pool summoned
-through the hook, and it holds real liquidity. Reproduce the whole bring-up with
+Generation 1 is live and **traded**: the 1111-fren genesis presale minted out, the
+pool summoned through the hook, and it has since taken five buys and a sell, minted
+15 NFTs from trading volume, and opened a 2x long and a 2x short.
+
+Arc is also where the rotation-hostage fix is easiest to verify. `blocksVolumeLink()`
+reads **false with two perp positions open** — before the mark source was armed it
+read `true`, which is the state where a single dust position blocks every rotation
+slice. On Sepolia the same call reads false with an empty book, where it is
+ambiguous; here it is not. Reproduce the whole bring-up with
 [`scripts/deploy-arc.sh`](scripts/deploy-arc.sh) then
 [`scripts/arc-ignite.sh`](scripts/arc-ignite.sh).
 

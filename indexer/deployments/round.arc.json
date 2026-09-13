@@ -24,13 +24,16 @@
         "perpVault": "0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7",
         "quoteRotator": "0x4b0d6f5C7756dA303a91d5dA29B7D970229DacA1",
         "factory": "0xEb2E7040589E3E110F8a80c00585f88AA3a25DAA",
-        "collection": "__ASK_CHAIN_COLLECTION__",
+        "collection": "0x016a5E7577D6B34b2a662D49940854B385C757D8",
         "treasuryGovernor": "0x092f4009174422E778e88047158D9e806f6e210a",
         "quoteOracle": "0x6E90562150ad6aD42c8744A0683528b8DA9ee9AE",
         "seeder": "0xfb76a4E2FC2975353Fa2Db3DccB8a39112DC59f1",
-        "nativeZap": "0x402153517cF6B1229311726adE59240B9d9b298b"
+        "nativeZap": "0x402153517cF6B1229311726adE59240B9d9b298b",
+        "perpMarkSource": "0xFb7204D5C5ACdB801cD324B96B63FE1Eaac9C70E"
     },
-    "poolIds": [],
+    "poolIds": [
+        "0x5aaf6fc58dbaea917b40ec51af4c655c00f065f0e1fbb0964ae96b08f1b4e364"
+    ],
     "genesisSupply": 1111,
     "deathThresholdEth": 0,
     "quoteAssets": [
