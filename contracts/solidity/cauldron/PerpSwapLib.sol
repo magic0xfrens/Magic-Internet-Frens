@@ -28,6 +28,11 @@ import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
  *  engine.
  */
 library PerpSwapLib {
+    /// @dev Safety margin on a projected post-swap price, in bps. A constant
+    ///      rather than an argument for the same EIP-170 reason as the
+    ///      orientation above. Under-projecting hands the gap to PLV stakers.
+    uint256 internal constant SLACK_BPS = 500;
+
     uint256 internal constant Q96X = 0x1000000000000000000000000;
 
     /// @notice `10**decimals()` of `q`, read defensively; 1e18 for native or for any
@@ -129,22 +134,27 @@ library PerpSwapLib {
      *  exactly the wrong book, so it is passed in explicitly by the caller that
      *  already knows (`quoteIsCurrency0`) rather than re-derived here.
      *
-     * @param sqrtP            current sqrtPriceX96
-     * @param reserveIn        active depth of the asset being ADDED, same units as amountIn
-     * @param amountIn         gross input amount
-     * @param quoteIsCurrency0 pool orientation
-     * @param isBuy            true when the QUOTE is the input (token gets dearer)
-     * @param slackBps         extra safety margin, in bps, on the projected move
+     * @param sqrtP     current sqrtPriceX96
+     * @param reserveIn active depth of the asset being ADDED, same units as amountIn
+     * @param amountIn  gross input amount
+     * @param isBuy     true when the QUOTE is the input (token gets dearer)
      * @return projected sqrtPriceX96, clamped to TickMath's valid range
      */
     function projectedSqrtPriceX96(
         uint160 sqrtP,
         uint256 reserveIn,
         uint256 amountIn,
-        bool quoteIsCurrency0,
-        bool isBuy,
-        uint256 slackBps
+        bool isBuy
     ) external pure returns (uint160) {
+        //  ORIENTATION IS AN INVARIANT HERE, NOT A PARAMETER. The registry's quote
+        //  watermark keeps every allowed quote sorting below every mined iteration
+        //  token, and `PerpEngine._key()` pins the quote to currency0 — so
+        //  `quoteIsCurrency0` is always true for these pools. `quoteAt` in this same
+        //  library already bakes in the same assumption. Passing it cost ABI
+        //  marshalling in the engine, which is at its EIP-170 ceiling, for a
+        //  degree of freedom the protocol does not actually have.
+        bool quoteIsCurrency0 = true;
+        uint256 slackBps = SLACK_BPS;
         //  No price, or a reserve we cannot trust, means no projection we can
         //  stand behind. Return the CURRENT price so the caller degrades to
         //  "liquidate only what is already underwater" rather than acting on a

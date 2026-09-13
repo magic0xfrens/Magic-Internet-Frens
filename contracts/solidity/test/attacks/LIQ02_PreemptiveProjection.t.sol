@@ -27,18 +27,15 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
  *  against a real v4 pool and compare.
  */
 contract LIQ02_PreemptiveProjection is YBase {
-    /// Quote is native and sorts as currency0 in every generation this deploys.
-    bool constant QUOTE_IS_C0 = true;
-
     function setUp() public {
         _boot(3 ether, 24);
     }
 
-    /// @dev Projected move for `ethIn`, with the safety margin the caller would use.
-    function _project(uint256 ethIn, uint256 slackBps) internal view returns (uint160) {
+    /// @dev Projected post-swap price for a buy of `ethIn`.
+    function _project(uint256 ethIn) internal view returns (uint160) {
         uint160 sp = _sqrtP();
         uint256 depth = PerpSwapLib.ethDepth(_inRangeLiquidity(), sp);
-        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, QUOTE_IS_C0, true, slackBps);
+        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true);
     }
 
     /**
@@ -52,7 +49,7 @@ contract LIQ02_PreemptiveProjection is YBase {
         uint256[4] memory sizes = [uint256(0.01 ether), 0.05 ether, 0.25 ether, 1 ether];
         for (uint256 i; i < sizes.length; ++i) {
             uint160 before_ = _sqrtP();
-            uint160 projected = _project(sizes[i], 0);
+            uint160 projected = _project(sizes[i]);
 
             _buy(sizes[i], address(this));
             uint160 actual = _sqrtP();
@@ -98,7 +95,7 @@ contract LIQ02_PreemptiveProjection is YBase {
             FullMath.mulDivRoundingUp(sellSize, 1 << 96, uint256(before_)), 1 << 96, uint256(before_)
         );
         uint160 projected =
-            PerpSwapLib.projectedSqrtPriceX96(before_, depth, ethEquiv, QUOTE_IS_C0, false, 0);
+            PerpSwapLib.projectedSqrtPriceX96(before_, depth, ethEquiv, false);
 
         _sell(sellSize, address(this));
         uint160 actual = _sqrtP();
@@ -115,18 +112,24 @@ contract LIQ02_PreemptiveProjection is YBase {
     }
 
     /**
-     * LIQ-02.3 — slack only ever makes the bound safer.
+     * LIQ-02.3 — the built-in safety margin is actually applied.
      *
-     *  Guards the knob itself: a larger `slackBps` must never project a SMALLER
-     *  move, or the safety margin would be a footgun that silently narrows the
-     *  bound it is meant to widen.
+     *  `SLACK_BPS` is a library constant rather than an argument (EIP-170 in the
+     *  engine), so nothing at the call site can forget it — but equally nothing at
+     *  the call site would notice if it silently became zero. This pins it: the
+     *  projection must overshoot the EXACT constant-product result, which is what
+     *  makes the bound survive caller-side rounding.
      */
-    function test_LIQ02_SlackOnlyWidensTheBound() public view {
-        uint160 p0 = _project(0.25 ether, 0);
-        uint160 p5 = _project(0.25 ether, 500);
-        uint160 p20 = _project(0.25 ether, 2_000);
-        assertLe(uint256(p5), uint256(p0), "5% slack must project at least as far");
-        assertLe(uint256(p20), uint256(p5), "20% slack must project at least as far");
+    function test_LIQ02_TheSafetyMarginIsApplied() public view {
+        uint160 sp = _sqrtP();
+        uint256 depth = PerpSwapLib.ethDepth(_inRangeLiquidity(), sp);
+        uint256 ethIn = 0.25 ether;
+
+        //  Exact constant-product move, no margin: sqrtP * E / (E + dE).
+        uint256 exact = (uint256(sp) * depth) / (depth + ethIn);
+        uint256 projected = PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true);
+
+        assertLt(projected, exact, "projection must overshoot the exact move, not merely match it");
     }
 
     /**
@@ -139,8 +142,8 @@ contract LIQ02_PreemptiveProjection is YBase {
      */
     function test_LIQ02_DegenerateInputsFallBackToSpot() public view {
         uint160 sp = _sqrtP();
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 1 ether, QUOTE_IS_C0, true, 0), sp, "zero reserve");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, QUOTE_IS_C0, true, 0), sp, "zero amount");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 1 ether, QUOTE_IS_C0, true, 0), 0, "zero price");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 1 ether, true), sp, "zero reserve");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, true), sp, "zero amount");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 1 ether, true), 0, "zero price");
     }
 }
