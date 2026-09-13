@@ -549,13 +549,30 @@ contract S08_InSwapGasStarvation is YBase {
     }
 
     function _crashAndAgeTheMark() internal {
-        // CRASH. The dump's own afterSwap sweep runs, but the mark has not moved
-        // yet, so it cannot (and must not) kill the fresh longs.
+        // CRASH, delivered OUT OF BAND.
+        //
+        //  This helper used to rely on "the dump's own afterSwap sweep runs, but
+        //  the mark has not moved yet, so it cannot kill the fresh longs". That
+        //  stopped being true in `9d5cd46` (red-team LIQ-01): the liquidation
+        //  trigger is now the WORSE of the TWAP mark and LIVE SPOT
+        //  (PerpEngine._liqTest), precisely so a whale's single swap can no
+        //  longer walk a position to insolvency inside the trade the sweep runs
+        //  on. So the dump's own sweep now takes every fresh long at the crashed
+        //  spot, and the book is empty before the test starts — which is a
+        //  DIFFERENT mechanism from the gas gate these tests measure.
+        //
+        //  Detaching the engine from the hook for the duration of the dump is
+        //  the inert way to land the price move without the in-swap sweep. It
+        //  changes no engine state and no assertion: what the tests below probe
+        //  is what happens on a LATER, gas-capped swap with a victim already
+        //  underwater, which is exactly the state this leaves behind.
         uint256 dump = 400_000_000 ether;
         deal(token, address(this), dump, true);
         _warp(20);
         vm.roll(vm.getBlockNumber() + 2);
+        hook.setPerpEngine(address(0));
         _sell(dump, address(this));
+        hook.setPerpEngine(address(perp));
 
         // Let the whole TWAP window elapse at the crashed price, then write the
         // observation, so `twapTick()` reports the crash rather than the launch.

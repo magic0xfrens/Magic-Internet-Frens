@@ -441,7 +441,16 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.prank(trader);
         uint256 id = perp.openLong{value: 0.05 ether}(2, 0, 0, 0.05 ether);
 
-        _sustainedCrash(1_200_000_000 ether);
+        //  FIXTURE, not a weakening. The throttle is deliberately BYPASSED for an
+        //  INSOLVENT position — `_throttle` only bites when `!insolvent`, because
+        //  a cap that blocks the liquidation of a position already past its debt
+        //  converts a solvable loss into permanent bad debt (red-team LIQ-01,
+        //  PerpEngine.sol:1563 and the note above it). A 1.2e9-token dump takes a
+        //  2x long straight through insolvency, so the cap could never fire and
+        //  the test measured nothing. 2e8 is the same dump the neighbouring
+        //  liquidation test uses to land UNDERWATER BUT SOLVENT, which is the
+        //  only state in which the per-block cap is supposed to throttle.
+        _sustainedCrash(200_000_000 ether);
         assertTrue(perp.isLiquidatable(id), "underwater");
         vm.expectRevert(PerpEngine.LiqCapped.selector);
         perp.liquidate(id); // notional > tiny per-block cap → throttled

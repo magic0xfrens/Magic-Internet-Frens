@@ -333,7 +333,16 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         //  as a two-sided full-range base, not a 15% band, so it absorbs far more
         //  before the mark crosses maintenance. 3e9 tokens no longer move it enough.
         //  The adverse move is a fixture parameter; the assertion below is unchanged.
+        //  ...and the crash is delivered with the engine detached from the hook.
+        //  Since 9d5cd46 (red-team LIQ-01) the liquidation trigger is the WORSE of
+        //  the TWAP mark and LIVE SPOT, so the crash swap's own afterSwap sweep
+        //  now liquidates `liqId` INSIDE the dump — `positions(liqId)` is cleared
+        //  and `isLiquidatable` answers false for a position that no longer
+        //  exists. Detaching for the dump changes no engine state; it just lets
+        //  the explicit keeper liquidation below be the thing under test.
+        hook.setPerpEngine(address(0));
         _sustainedCrash(tok, 100_000_000_000 ether); // blow through the bid-heavy book (base = no teleport)
+        hook.setPerpEngine(address(perp));
         assertTrue(perp.isLiquidatable(liqId), "liquidatable on the progressive book (continuous, no teleport)");
         vm.prank(address(0xBEEF));
         perp.liquidate(liqId);
