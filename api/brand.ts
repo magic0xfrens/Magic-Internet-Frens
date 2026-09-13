@@ -63,6 +63,23 @@ const digest = (v: unknown): string =>
     ? createHash("sha256").update(v).digest("hex")
     : "none";
 
+/**
+ * ONE-TIME schema bootstrap, hoisted OUT of the request path.
+ *
+ * Both handlers used to issue `CREATE TABLE IF NOT EXISTS` inline, so every
+ * public unauthenticated GET spent a Neon round-trip on DDL. The flag lives at
+ * module scope, so it survives for the life of a warm lambda; a cold start pays
+ * it once. On failure the flag is NOT set, so the next request retries.
+ */
+let brandTableReady = false;
+async function ensureBrandTable(sql: ReturnType<typeof neon>): Promise<void> {
+  if (brandTableReady) return;
+  await sql`CREATE TABLE IF NOT EXISTS cauldron_brand (
+    gen INT PRIMARY KEY, logo TEXT, banner TEXT, website TEXT, updated_at BIGINT
+  )`;
+  brandTableReady = true;
+}
+
 function validGen(gen: unknown): gen is number {
   return typeof gen === "number" && Number.isSafeInteger(gen) && gen >= 0 && gen <= MAX_GEN;
 }
@@ -99,12 +116,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
     res.setHeader("Access-Control-Allow-Origin", "*");
     if (!dbUrl) return res.status(200).json({ logo: null, banner: null, website: null });
-    const sql = neon(dbUrl);
-    await sql`CREATE TABLE IF NOT EXISTS cauldron_brand (
-      gen INT PRIMARY KEY, logo TEXT, banner TEXT, website TEXT, updated_at BIGINT
-    )`;
+    //  UNKNOWN QUERY PARAMS ARE REFUSED, not ignored. The edge cache below is
+    //  keyed on the FULL url, so `?gen=1&x=<random>` produced a fresh origin hit
+    //  every time — an unauthenticated way to bill Neon one round-trip per
+    //  request. `gen` is the only parameter this endpoint has.
+    const extra = Object.keys(req.query).filter((k) => k !== "gen");
+    if (extra.length) return res.status(400).json({ error: "unknown query parameter" });
     const gen = Number((req.query.gen as string) ?? "0");
     if (!validGen(gen)) return res.status(400).json({ error: "unknown gen" });
+    const sql = neon(dbUrl);
+    //  DDL IS NOT PART OF A READ. This ran CREATE TABLE before every public GET.
+    await ensureBrandTable(sql);
     res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
     const rows = await sql`SELECT logo, banner, website FROM cauldron_brand WHERE gen = ${gen}`;
     const b = rows[0] as { logo?: string; banner?: string; website?: string } | undefined;
@@ -164,9 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!SIGNERS.includes(signer)) return res.status(403).json({ error: "not a brand signer" });
 
   const sql = neon(dbUrl);
-  await sql`CREATE TABLE IF NOT EXISTS cauldron_brand (
-    gen INT PRIMARY KEY, logo TEXT, banner TEXT, website TEXT, updated_at BIGINT
-  )`;
+  await ensureBrandTable(sql);
 
   // Monotonic `ts` per row: a captured payload cannot be replayed to roll the
   // branding back to an earlier state.
