@@ -140,12 +140,38 @@ through the hook, and it holds real liquidity. Reproduce the whole bring-up with
 [`scripts/deploy-arc.sh`](scripts/deploy-arc.sh) then
 [`scripts/arc-ignite.sh`](scripts/arc-ignite.sh).
 
-### Ethereum Sepolia
+### Ethereum Sepolia — round 44
 
-The long-running deployment, where the full lifecycle has been exercised repeatedly
-— summon, trade, perps, liquidations, quote rotation by governance, death and rebirth
-across dozens of generations. Uniswap v4 is canonical there:
-`PoolManager 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`.
+The long-running deployment, and where the full lifecycle has actually been
+exercised: summon, trade, perps, liquidations, governance quote rotation, and
+death-and-rebirth across dozens of generations and 44 deployment rounds.
+Uniswap v4 is canonical here, so only the protocol was deployed.
+
+| Contract | Address |
+|---|---|
+| CauldronHook | [`0xc6dcdd4cffa809cb229f00d24d9b2d3e12d510cc`](https://sepolia.etherscan.io/address/0xc6dcdd4cffa809cb229f00d24d9b2d3e12d510cc) |
+| CauldronRegistry | [`0x3dc63412e643aa4b798bda6b59c816daf7c10325`](https://sepolia.etherscan.io/address/0x3dc63412e643aa4b798bda6b59c816daf7c10325) |
+| MiFrensGenesis (presale) | [`0xfd488978344c7018aeb7ecd4043965497feb92ba`](https://sepolia.etherscan.io/address/0xfd488978344c7018aeb7ecd4043965497feb92ba) |
+| CauldronGovernor | [`0xf0b1e04897c3ec1248a83316e7305594752036b3`](https://sepolia.etherscan.io/address/0xf0b1e04897c3ec1248a83316e7305594752036b3) |
+| PerpEngine | [`0xaD0b8d2A2556E59f40389171149D65Aaf14a43C6`](https://sepolia.etherscan.io/address/0xaD0b8d2A2556E59f40389171149D65Aaf14a43C6) |
+| PerpVault | [`0x343b56e3b081f8137ad5a060ae3bf8f94d27575b`](https://sepolia.etherscan.io/address/0x343b56e3b081f8137ad5a060ae3bf8f94d27575b) |
+| PerpMarkSource | [`0xD2E037622E8F08C3DBFf2c5f3a57c59f3F967Cca`](https://sepolia.etherscan.io/address/0xD2E037622E8F08C3DBFf2c5f3a57c59f3F967Cca) |
+| QuoteRotator | [`0x410e6e7ecaf3f641c4486f38542f37e213aa6653`](https://sepolia.etherscan.io/address/0x410e6e7ecaf3f641c4486f38542f37e213aa6653) |
+| TreasuryGovernor | [`0x7da2b228016ff012e950ea13d93802cdd9e97f86`](https://sepolia.etherscan.io/address/0x7da2b228016ff012e950ea13d93802cdd9e97f86) |
+| MiFrensDividend | [`0x3d678e8599f4617cfa2ef3f04a703a0850f07cda`](https://sepolia.etherscan.io/address/0x3d678e8599f4617cfa2ef3f04a703a0850f07cda) |
+| Timelock | [`0x987bd1be2ede55d54d2ba272f3519e662b66b831`](https://sepolia.etherscan.io/address/0x987bd1be2ede55d54d2ba272f3519e662b66b831) |
+| PoolManager (canonical v4) | [`0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`](https://sepolia.etherscan.io/address/0xE03A1074c86CFeDd5C142C4F04F1a1536e203543) |
+
+**`PerpMarkSource` is new in r44 and is a security fix, not a feature.**
+`PerpEngine.blocksVolumeLink()` is `openCount != 0 && markSource == address(0)`,
+and `CauldronHook.linkVolume` reverts `PerpsOpen()` on it. Every round before this
+shipped with no mark source, so a **single dust perp position — measured at
+0.000744 ETH** — could hold a governance-approved treasury rotation hostage
+indefinitely, and nothing reachable closes a *solvent* position to clear it.
+Arming the mark removes the hazard the interlock guards, so the interlock stands
+down. Both the attack and the fix are proven against a live fork in
+[`test/attacks/S0x_RotationPerpHostage.t.sol`](contracts/solidity/test/attacks/S0x_RotationPerpHostage.t.sol);
+`blocksVolumeLink()` reads `false` on the live deployment.
 
 ---
 
@@ -185,7 +211,7 @@ Three properties make it more than a gimmick:
 | **Genesis dividend** | 15% of every fee, forever |
 | **Contracts** | 32 Solidity files, ~10,800 lines (26 of them contracts + libraries) |
 | **Tests** | 322 passing across 66 suites |
-| **Live on** | Ethereum Sepolia · Arc testnet (chain 5042002, incl. Uniswap v4 deployed by us) |
+| **Live on** | Ethereum Sepolia (round 44) · Arc testnet (chain 5042002, incl. Uniswap v4 deployed by us) |
 
 ---
 
@@ -668,8 +694,9 @@ chain can tell you, run against live Sepolia rather than a fork:
 
 | Exercised on-chain | Evidence |
 | --- | --- |
-| **43 deployment rounds**, each a full 14-contract stack | current manifest is `round: 43` |
-| **6 complete death-and-rebirth cycles** on the current round alone — pool dies, liquidity is recovered, next token summoned, holders migrate 1:1 | `registry.currentGeneration() == 7` |
+| **44 deployment rounds**, each a full 14-contract stack | current manifest is `round: 44` |
+| **Complete death-and-rebirth cycles** — pool dies, liquidity is recovered, next token summoned, holders migrate 1:1 | r43 reached `currentGeneration() == 7`, i.e. six full rebirths on one round |
+| **Stranded LP recovered through the break-glass path** after its 48h delay — 6.8881 ETH out of a retired round, which funded r44 | `emergencyWithdrawLP` via the timelock |
 | Genesis presale minted out and ignited into a live v4 pool | `MiFrensGenesis.igniteCauldron()` |
 | Perps opened, marked, and **liquidated inside a swap** with no keeper | `PerpEngine` live, insurance buffer funded |
 | **Governance quote rotation executed live**: ETH → USDG across 12 permissionless slices through a curated venue | exercised on round 42 |
@@ -740,9 +767,37 @@ re-entrant side-effects, O(n) deterministic force-close, exact-out sell fee bypa
 reserve ceiling enforcement, governance spam and lockout resistance, storage-layout
 invariance across the delegatecall facet, and L2 block-clock semantics.
 
+Adversarial work continues in [`audit/`](audit) at the repo root — blind red-team
+runs with their Criticals logs and remediation ledgers, alongside 96 PoC exploits
+in [`test/attacks/`](contracts/solidity/test/attacks).
+
+### Open findings, stated plainly
+
 **Known limitations are documented rather than hidden** — see §15 of the
-[full spec](src/components/docs/magicfrens-llm.md). If you find something, please
-open an issue.
+[full spec](src/components/docs/magicfrens-llm.md). One HIGH is open *on purpose*
+as of r44, and it is better for you to read it here than to find it:
+
+> **After a completed quote rotation, `_volumeSiblings` is one-sided.** The link
+> from a generation's primary pool to a rotated sibling is recorded in one
+> direction, so an engine pointed at the *sibling* sums volume that misses the
+> primary and can read its own live generation as dead — refusing new positions
+> for the rest of the generation. Self-inflicted; no attacker is required.
+> Reproduced in
+> [`S0x_RotationPerpHostage.t.sol`](contracts/solidity/test/attacks/S0x_RotationPerpHostage.t.sol)
+> (`test_S0x_RotatedLegDeathReadIsOneSided`).
+
+It is open because the fix lands in `CauldronHook`, which has **46 bytes** of
+EIP-170 headroom, and because it changes death semantics on a path that every
+open, close, liquidate and in-swap sweep runs through. A previous remediation
+round that rushed exactly this kind of change introduced two of its own three
+findings. It is a hook-redeploy task — free contract space first, fix it with the
+one-sided read together, then re-run the rotation and perp suites — not a patch to
+squeeze in before a deadline.
+
+Its sibling finding, the **dust-perp rotation hostage**, was closed in r44 by
+arming a `PerpMarkSource` at deploy; see [Live deployments](#live-deployments).
+
+If you find something else, please open an issue.
 
 ### Feed the whole thing to your AI
 
