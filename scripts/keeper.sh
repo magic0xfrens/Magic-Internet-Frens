@@ -84,12 +84,46 @@ sweep() {
   echo "  swept $scanned open · liquidated $liquidated  ($(date +%H:%M:%S))"
 }
 
+# ── ROYALTY SWEEP (audit FG-2) ───────────────────────────────────────────────
+# `RoyaltyRouter.sweep(address)` is permissionless BY DESIGN — "a royalty must
+# not wait on a keeper" — but nothing anywhere called it, and the per-brew router
+# address is published in no config, so an ERC20 royalty sat at an address nobody
+# could find without reading the factory's deploy trace.
+#
+# The router IS discoverable: it is the live collection's EIP-2981 receiver. So
+# resolve it from the chain rather than adding a manifest key that would go stale
+# the moment a brew is redeployed. address(0) sweeps held ether (which is what a
+# stipend-paying marketplace leaves behind); each quote asset sweeps its ERC20
+# leg to the genesis dividend. Both are no-ops that revert "nothing" when there
+# is nothing to move, so failures are silent by design.
+COLLECTION="$(manifest collection)"
+QUOTE_ASSETS="$(node -e "const r=require('./indexer/deployments/round.json');process.stdout.write((r.quoteAssets||[]).map(q=>q.address).filter(a=>a&&!/^0x0{40}$/i.test(a)).join(' '))")"
+
+royalty_sweep() {
+  [ -n "$COLLECTION" ] || return 0
+  ROUTER="$(cast call "$COLLECTION" 'royaltyInfo(uint256,uint256)(address,uint256)' 1 1000000000000000000 --rpc-url "$RPC" 2>/dev/null | head -1)"
+  case "$ROUTER" in 0x*) ;; *) return 0 ;; esac
+  [ "$(lc "$ROUTER")" != "0x0000000000000000000000000000000000000000" ] || return 0
+  for ASSET in 0x0000000000000000000000000000000000000000 $QUOTE_ASSETS; do
+    if cast send "$ROUTER" 'sweep(address)' "$ASSET" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1; then
+      echo "  ◆ swept royalty $ASSET → dividend/legacy buffer (router $ROUTER)"
+    fi
+  done
+}
+
 if [ "${1:-}" = "watch" ]; then
   echo "keeper watching (every ~8s, Ctrl+C to stop)… engine $PERP"
   n=0
-  while true; do sweep; n=$((n+1)); [ $((n % 8)) -eq 0 ] && materialize; sleep 8; done
+  while true; do
+    sweep; n=$((n+1))
+    [ $((n % 8)) -eq 0 ] && materialize
+    # Royalties trickle in from marketplace sales, so a slower cadence is plenty.
+    [ $((n % 60)) -eq 0 ] && royalty_sweep
+    sleep 8
+  done
 else
   echo "keeper single sweep · engine $PERP"
   sweep
   materialize
+  royalty_sweep
 fi

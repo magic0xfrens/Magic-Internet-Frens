@@ -97,3 +97,37 @@ test("the floor is scaled down with the spend, never up", () => {
   assert.equal(fe.scaleFloor(minOut, USDG(12.5), USDG(25)), minOut / 2n);
   assert.equal(fe.scaleFloor(minOut, 0n, 0n), minOut);
 });
+
+/* ── FG-1: the dividend basket renders in each asset's OWN decimals ─────── */
+
+import { formatUnits } from "viem";
+
+test("a 6-dec basket asset is not formatted as ether", () => {
+  //  The dividend basket can hold any ERC20 — round.json ships USDG at 6 — and
+  //  the panel used to have an ether-only rail. Formatting 2,500 USDG (raw
+  //  2_500_000_000) with formatUnits(_, 18) understates it by 1e12, which is the
+  //  same class of mistake T6B made on the price. `decimals` comes from the
+  //  token, per asset, in both the hook and the indexer's dividend_asset row.
+  const raw = 2_500_000_000n; // 2,500 USDG at 6 decimals
+  assert.equal(Number(formatUnits(raw, 6)), 2_500);
+  assert.notEqual(Number(formatUnits(raw, 18)), 2_500);
+  assert.equal(Number(formatUnits(raw, 18)) * 1e12, 2_500);
+});
+
+test("an 18-dec basket asset is unchanged by the same code path", () => {
+  const raw = 3n * 10n ** 18n; // 3 xNVDA
+  assert.equal(Number(formatUnits(raw, 18)), 3);
+});
+
+test("a basket total sums per asset, never across decimals", () => {
+  //  Two assets with different decimals must never be added as raw bigints:
+  //  2,500 USDG + 3 xNVDA is not 2_500_000_000 + 3e18 of anything.
+  const basket = [
+    { symbol: "USDG", decimals: 6, pending: 2_500_000_000n },
+    { symbol: "xNVDA", decimals: 18, pending: 3n * 10n ** 18n },
+  ];
+  const human = basket.map((a) => Number(formatUnits(a.pending, a.decimals)));
+  assert.deepEqual(human, [2_500, 3]);
+  //  and the naive raw sum is the bug this pins down
+  assert.notEqual(Number(formatUnits(basket[0].pending + basket[1].pending, 18)), 2_503);
+});

@@ -120,6 +120,24 @@ export const DIVIDEND_ABI = [
   { type: "function", name: "activeShares", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "owed", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "withdrawOwed", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
+  //  ── THE ERC20 BASKET (audit FG-1) ────────────────────────────────────
+  //  A generation whose quote is not ether pays the ENTIRE guild slice through
+  //  `fundToken`, so on a rotated generation this rail is 100% of the dividend.
+  //  Declaring only the ether rail made the panel render a flat 0 with no claim
+  //  button while the money accrued on-chain.
+  { type: "function", name: "assetCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "assets", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  { type: "function", name: "knownAsset", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "accountedOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "pendingToken", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }, { name: "asset", type: "address" }], outputs: [{ type: "uint256" }] },
+  //  Claims EVERY basket asset for one tokenId — there is no `claimTokensMany`,
+  //  so the hook signs one per owned fren.
+  { type: "function", name: "claimTokens", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [] },
+  { type: "function", name: "owedAsset", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "withdrawOwedToken", stateMutability: "nonpayable", inputs: [{ name: "asset", type: "address" }], outputs: [{ name: "amount", type: "uint256" }] },
+  //  Permissionless once the asset is known: books a balance that arrived by a
+  //  bare transfer (e.g. a RoyaltyRouter sweep) into the per-share accumulator.
+  { type: "function", name: "adopt", stateMutability: "nonpayable", inputs: [{ name: "asset", type: "address" }], outputs: [{ name: "delta", type: "uint256" }] },
 ] as const;
 
 /** CauldronRegistry — the eternal machine's lifecycle state (read-only surface). */
@@ -335,6 +353,10 @@ export const ERC20_SWAP_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+  //  Labelling an asset from the chain rather than a hardcoded table: the
+  //  dividend basket can grow by governance `adopt` at any time (audit FG-1).
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
 ] as const;
 
 /** Per-brew collection (volume-minted NFTs). */
