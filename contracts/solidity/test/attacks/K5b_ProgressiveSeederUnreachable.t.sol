@@ -81,6 +81,10 @@ contract K5b_ProgressiveSeederUnreachable is Test {
         registry.setFactory(address(new CauldronFactory()));
 
         seeder = new CauldronSeeder(address(registry), posm, poolManager);
+        // Same fork artifact as test/ProgressiveSeed.t.sol: this CREATE address is
+        // pre-funded with 0.17 ETH on Sepolia. Zero it so the balances below are the
+        // protocol's own money and nothing else.
+        vm.deal(address(seeder), 0);
         registry.setSeeder(address(seeder));
         registry.setSeedWindow(WINDOW);
         hook.setOpener(address(seeder), true);
@@ -133,11 +137,10 @@ contract K5b_ProgressiveSeederUnreachable is Test {
         assertEq(address(seeder).balance - seederEthBefore, 1 ether, "stranger moved nothing");
 
         uint256 treasuryBefore = TREASURY.balance;
-        // NOTE: on a live fork the seeder's CREATE address can already hold ETH
-        // (`seederEthBefore`), and refundPrime sweeps the whole pre-campaign balance,
-        // so compare against the balance actually held rather than the 1 ETH funded.
+        // refundPrime sweeps the whole pre-campaign balance (setUp zeroed the fork's
+        // pre-funded 0.17 ETH at this address, so that is exactly the 1 ETH funded).
         uint256 seederHeld = address(seeder).balance;
-        assertGe(seederHeld, 1 ether, "the funded ETH is in there");
+        assertEq(seederHeld, 1 ether, "the funded ETH is in there");
         seeder.refundPrime(TREASURY); // caller == the seeder's deployer EOA
         assertEq(TREASURY.balance - treasuryBefore, seederHeld, "K5b FIXED: the 1 ETH came back");
         assertEq(address(seeder).balance, 0, "K5b FIXED: nothing left trapped");
@@ -151,6 +154,25 @@ contract K5b_ProgressiveSeederUnreachable is Test {
         bool rescueWorks = _tryRescue();
         assertTrue(rescueWorks, "K5c FIXED: registry.rescueSeeder() no longer reverts pre-campaign");
         assertEq(address(seeder).balance, 0, "K5c FIXED: rescue swept the ETH out");
+
+        // --- ETH THAT NEVER CAME THROUGH fundPrime IS ALSO RECOVERABLE. ---
+        // A campaign-less seeder can hold ETH nobody booked: a plain donation, or (as
+        // on this very fork) a CREATE address that was already funded before the
+        // contract existed. `primeBudget` is 0 for that money, so an exit that
+        // refunded only the booked budget would leave it sitting there forever.
+        // refundPrime sweeps the balance, not the counter.
+        vm.deal(address(seeder), 0.3 ether);
+        uint256 t2 = TREASURY.balance;
+        // `rescue()` moves ETH without touching ledger C, so the counter now reads a
+        // budget that is NOT the balance (0.5e18 booked, 0.3e18 actually held). The
+        // exit must follow the money, not the bookkeeping: an exit that refunded
+        // `primeBudget` would try to send 0.5 and revert, and one that refunded
+        // `primeBudget - primeSpent` of a 0 counter would leave a donation stuck.
+        assertEq(seeder.primeBudget(), 0.5 ether, "counter is stale after rescue");
+        seeder.refundPrime(TREASURY);
+        assertEq(TREASURY.balance - t2, 0.3 ether, "unbooked ETH is recoverable too");
+        assertEq(address(seeder).balance, 0, "seeder ends empty");
+        assertEq(seeder.primeBudget(), 0, "and the stale counter is cleared");
     }
 
     function _tryRescue() internal returns (bool ok) {
