@@ -26,11 +26,8 @@ Submitted alongside the Uniswap Developer Feedback Form as required.
 
 ### 1. We have applied to the Uniswap Foundation Audit Subsidy programme
 
-The application is in, and its full text is in this repo at
-[`UNISWAP_AUDIT_GRANT_APPLICATION.txt`](UNISWAP_AUDIT_GRANT_APPLICATION.txt) so there is no
-gap between what we told the Foundation and what a reviewer can read here.
-
-Where we are on security today, so the request is judged on substance:
+The application is already submitted. Rather than restate it here, this is where we are on
+security today, so the request can be judged on substance:
 
 - **611 tests passing**, of which **96 are adversarial PoCs** in
   [`contracts/solidity/test/attacks/`](contracts/solidity/test/attacks). Each one is an
