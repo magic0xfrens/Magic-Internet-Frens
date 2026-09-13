@@ -173,6 +173,20 @@ contract K5b_ProgressiveSeederUnreachable is Test {
         assertEq(TREASURY.balance - t2, 0.3 ether, "unbooked ETH is recoverable too");
         assertEq(address(seeder).balance, 0, "seeder ends empty");
         assertEq(seeder.primeBudget(), 0, "and the stale counter is cleared");
+
+        // --- TEARDOWN WITH NO CAMPAIGN RETURNS THE PRIME ETH TO THE REGISTRY. ---
+        // `withdrawAll` -> unlockCallback -> _teardown used to open with
+        // `IERC20(token).balanceOf(...)` on a `token` that is still address(0) when no
+        // campaign ever started, so the whole teardown reverted and the native leg
+        // that hands unspent prime ETH back to the registry never ran.
+        seeder.fundPrime{value: 0.2 ether}(TREASURY);
+        uint256 regBefore = address(registry).balance;
+        vm.prank(address(registry));
+        (uint256 ethOut, uint256 tokenOut) = seeder.withdrawAll(address(registry));
+        assertEq(ethOut, 0.2 ether, "teardown reports the ETH it returned");
+        assertEq(tokenOut, 0, "no campaign token to return");
+        assertEq(address(registry).balance - regBefore, 0.2 ether, "registry got the prime ETH back");
+        assertEq(address(seeder).balance, 0, "nothing left in the seeder after teardown");
     }
 
     function _tryRescue() internal returns (bool ok) {

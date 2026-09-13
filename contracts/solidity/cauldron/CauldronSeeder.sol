@@ -659,8 +659,19 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
 
         // Forward everything (recovered + any un-streamed ledger-A) to the registry,
         // recording the amounts for withdrawAll's return values.
-        uint256 tbal = IERC20(token).balanceOf(address(this));
-        if (tbal > 0) IERC20(token).transfer(to, tbal);
+        //
+        // THE TOKEN LEG IS SKIPPED WHEN THERE IS NO CAMPAIGN (audit K5c, second site).
+        // `token` is written only by {startSeed}, which the atomic launch never calls
+        // while `PoolOps.SEED_BASE_WAD == 1e18` — so `IERC20(address(0)).balanceOf`
+        // reverted on the extcodesize check and took the WHOLE teardown down with it,
+        // including the native leg two lines below. That native leg is the only way an
+        // unspent prime budget gets back to the registry at relaunch, so on the shipped
+        // configuration `withdrawAll` could never return it. There is nothing to
+        // forward on the token side in that state (no campaign ever pulled any), so
+        // skipping the leg loses nothing and lets the ETH out.
+        address t = token;
+        uint256 tbal = t == address(0) ? 0 : IERC20(t).balanceOf(address(this));
+        if (tbal > 0) IERC20(t).transfer(to, tbal);
         uint256 ebal = address(this).balance;
         if (ebal > 0) { (bool ok,) = to.call{value: ebal}(""); require(ok, "eth"); }
         _lastEthOut = ebal;
