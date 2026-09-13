@@ -10,6 +10,7 @@ funded entirely by its own swap fees.*
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.26-2A1F54)](contracts/solidity)
 [![Uniswap v4](https://img.shields.io/badge/Uniswap-v4%20hook-d5fd51)](https://docs.uniswap.org/contracts/v4/overview)
+[![Feedback](https://img.shields.io/badge/Uniswap-FEEDBACK.md-ff007a)](FEEDBACK.md)
 [![Tests](https://img.shields.io/badge/forge%20test-611%20passing-brightgreen)](contracts/solidity/test)
 [![Sepolia](https://img.shields.io/badge/live-Sepolia-blue)](https://sepolia.etherscan.io)
 [![Arc](https://img.shields.io/badge/live-Arc%20testnet-7B5BF5)](https://testnet.arcscan.app/address/0x4e60D157E951898521A97dD5217e50D6187aB432)
@@ -23,6 +24,7 @@ funded entirely by its own swap fees.*
 ## Table of contents
 
 - [Hackathon: tracks and partner prizes](#hackathon-tracks-and-partner-prizes)
+- [Verify the Uniswap v4 integration](#verify-the-uniswap-v4-integration)
 - [Live deployments](#live-deployments)
 - [What this actually is](#what-this-actually-is)
 - [Why a hook and not a router](#why-a-hook-and-not-a-router)
@@ -79,6 +81,31 @@ USD-denominated gas token is **18-decimal**, not 6. That second one matters more
 it sounds: `PoolOps._sqrtPrice` cannot represent a quote below `TOTAL_SUPPLY / 2^64`,
 which at 6 decimals is ~674 raw units, so a 6-decimal native would have bricked an
 ordinary launch behind a state-consuming flag.
+
+### Verify the Uniswap v4 integration
+
+Uniswap asks that the README point at the exact code. Line numbers are verified against
+this commit. Full developer feedback, including our audit-subsidy application and our
+request for hook review, is in **[`FEEDBACK.md`](FEEDBACK.md)**.
+
+| What | File and line |
+| --- | --- |
+| Hook permissions — **both** return-delta flags enabled | [`CauldronHook.sol:576-597`](contracts/solidity/CauldronHook.sol#L576-L597) |
+| `POOL_FEE = 0` — no LP fee at all | [`cauldron/CauldronBase.sol:157`](contracts/solidity/cauldron/CauldronBase.sol#L157) |
+| Fee taken on the **quote side**, currency-agnostic | [`CauldronHook.sol:1520`](contracts/solidity/CauldronHook.sol#L1520) |
+| `poolManager.take` realises the accrued delta | [`CauldronHook.sol:1522`](contracts/solidity/CauldronHook.sol#L1522) |
+| `afterSwap` returns the fee as a delta, not a transfer | [`CauldronHook.sol:1006`](contracts/solidity/CauldronHook.sol#L1006) |
+| **Keeper-free liquidation swept inside `afterSwap`** | [`CauldronHook.sol:953`](contracts/solidity/CauldronHook.sol#L953) |
+| NFT minted from volume, inside the swap, routerless | [`CauldronHook.sol:970`](contracts/solidity/CauldronHook.sol#L970) → [`:2436`](contracts/solidity/CauldronHook.sol#L2436) |
+| Liquidation mints a badge with the kill engraved | [`cauldron/PerpEngine.sol:2116`](contracts/solidity/cauldron/PerpEngine.sol#L2116) |
+| Router-optional paths (`hookData` absent) | [`:846`](contracts/solidity/CauldronHook.sol#L846), [`:877`](contracts/solidity/CauldronHook.sol#L877), [`:959`](contracts/solidity/CauldronHook.sol#L959) |
+| Hook-initiated `poolManager.swap` inside our own `unlock` | [`cauldron/PerpSwapLib.sol:248`](contracts/solidity/cauldron/PerpSwapLib.sol#L248) |
+| Native `sync` → `settle` → `take` | [`cauldron/PerpSwapLib.sol:278-287`](contracts/solidity/cauldron/PerpSwapLib.sol#L278-L287) |
+| Cumulative-tick TWAP ring from the pool's own ticks | [`cauldron/PerpEngine.sol:268-290`](contracts/solidity/cauldron/PerpEngine.sol#L268-L290) |
+| Multi-range book via `modifyLiquidity` on the singleton | [`cauldron/PoolOps.sol:543`](contracts/solidity/cauldron/PoolOps.sol#L543) |
+| One LP recovered and re-seeded into a new `PoolKey` | [`CauldronRegistry.sol:858`](contracts/solidity/CauldronRegistry.sol#L858) |
+| EIP-1153 transient flags for self-trading reentrancy | [`CauldronHook.sol:339-344`](contracts/solidity/CauldronHook.sol#L339-L344) |
+| **v4 core deployed by us, on a chain that lacked it** | [`deploy/DeployV4Core.s.sol:71-83`](contracts/solidity/deploy/DeployV4Core.s.sol#L71-L83) |
 
 ---
 
