@@ -10,8 +10,9 @@ funded entirely by its own swap fees.*
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.26-2A1F54)](contracts/solidity)
 [![Uniswap v4](https://img.shields.io/badge/Uniswap-v4%20hook-d5fd51)](https://docs.uniswap.org/contracts/v4/overview)
-[![Tests](https://img.shields.io/badge/forge%20test-322%20passing-brightgreen)](contracts/solidity/test)
-[![Network](https://img.shields.io/badge/live-Sepolia-blue)](https://sepolia.etherscan.io)
+[![Tests](https://img.shields.io/badge/forge%20test-611%20passing-brightgreen)](contracts/solidity/test)
+[![Sepolia](https://img.shields.io/badge/live-Sepolia-blue)](https://sepolia.etherscan.io)
+[![Arc](https://img.shields.io/badge/live-Arc%20testnet-7B5BF5)](https://testnet.arcscan.app/address/0x4e60D157E951898521A97dD5217e50D6187aB432)
 
 [Website](https://www.mifrens.xyz) · [Docs](https://www.mifrens.xyz/#/docs) · [X](https://x.com/magic0xfrens)
 
@@ -21,6 +22,8 @@ funded entirely by its own swap fees.*
 
 ## Table of contents
 
+- [Hackathon: tracks and partner prizes](#hackathon-tracks-and-partner-prizes)
+- [Live deployments](#live-deployments)
 - [What this actually is](#what-this-actually-is)
 - [Why a hook and not a router](#why-a-hook-and-not-a-router)
 - [Architecture](#architecture)
@@ -37,6 +40,85 @@ funded entirely by its own swap fees.*
 - [Deployment](#deployment)
 - [Security posture](#security-posture)
 - [gm fren](#gm-fren)
+
+---
+
+## Hackathon: tracks and partner prizes
+
+Submitted to **ETHGlobal** on the **Continuity** track (this is an ongoing protocol,
+not a from-scratch build).
+
+| Track / prize | What we're claiming |
+|---|---|
+| 🏆 **Best DeFi or Agentic Application** — Continuity | The hook *is* the application: perps that liquidate themselves inside the swap, NFTs minted by on-chain activity, and a liquidity book that outlives the tokens it prices. |
+| 🏆 **Launch on Arc Testnet & Push to Mainnet** — Continuity | Full stack live on Arc testnet, **including Uniswap v4 core, which we deployed ourselves** because it wasn't on Arc yet. Zero contract changes to port. Deployment-ready for Arc mainnet. |
+| 🦄 **Uniswap Foundation** | A v4 hook using both return-delta permissions, hook-initiated swaps inside its own `unlock`, a tick TWAP built from the pool itself, and direct singleton liquidity management. We've also applied to the **Uniswap Foundation Audit Subsidy** programme. |
+| 🔵 **Arc** | Ported an entire DeFi stack to Arc with configuration only — pricing the USD-denominated gas token by peg rather than by feed, and verifying its decimals empirically. |
+
+### Why each sponsor's tech is load-bearing here
+
+**Uniswap v4** — not a dependency, the substrate. `POOL_FEE = 0`: there is no LP fee
+at all, and 100% of revenue is a quote-denominated hook fee taken through
+`beforeSwapReturnDelta`/`afterSwapReturnDelta` on both legs. Perpetual futures open,
+close and liquidate as real `poolManager.swap` calls, marked off a cumulative-tick
+TWAP the hook maintains from the pool's own ticks — and **liquidations are swept from
+`afterSwap`, so any swap on any interface auto-liquidates underwater positions**, with
+no keeper network and no external oracle. Trading volume forges NFTs inside the same
+callback, and liquidating a perp mints the liquidator a **Liquidatoor badge with the
+kill engraved on-chain** (victim, side, leverage, entry, the mark that killed them,
+your bounty). `hookData` is optional throughout, so a plain swap from the Uniswap
+interface or any aggregator does all of the above with no custom router.
+
+**Arc** — the second chain, and the one that proved the design is portable.
+Uniswap v4 wasn't deployed there, so [`DeployV4Core.s.sol`](contracts/solidity/deploy/DeployV4Core.s.sol)
+stands up `PoolManager` + `PositionManager` first, then the launchpad runs on top
+unchanged. Two facts made it work, both established by measurement rather than
+assumption: Arc supports **EIP-1153 transient storage** (verified with a raw
+`eth_call` executing `TSTORE`/`TLOAD` — without it v4 cannot run at all), and its
+USD-denominated gas token is **18-decimal**, not 6. That second one matters more than
+it sounds: `PoolOps._sqrtPrice` cannot represent a quote below `TOTAL_SUPPLY / 2^64`,
+which at 6 decimals is ~674 raw units, so a 6-decimal native would have bricked an
+ordinary launch behind a state-consuming flag.
+
+---
+
+## Live deployments
+
+Addresses rotate every iteration and rebirth, so **per-generation addresses are read
+from the registry, never hardcoded** (see [Deployment](#deployment)). The permanent
+infrastructure is below.
+
+### Arc testnet — chain `5042002`
+
+Uniswap v4 did not exist on Arc. We deployed it, then our stack on top of it.
+
+| Contract | Address |
+|---|---|
+| **PoolManager** (we deployed this) | [`0x6495341CF36fD399d74b58A5B125c07E15747d54`](https://testnet.arcscan.app/address/0x6495341CF36fD399d74b58A5B125c07E15747d54) |
+| **PositionManager** (we deployed this) | [`0x6EEA2bDee8c49168146f7015D717D9fe8fD252ae`](https://testnet.arcscan.app/address/0x6EEA2bDee8c49168146f7015D717D9fe8fD252ae) |
+| CauldronHook | [`0x8864eE50a7fb9Ed8Dd8b78aA4BBfBaf3Aa9310cc`](https://testnet.arcscan.app/address/0x8864eE50a7fb9Ed8Dd8b78aA4BBfBaf3Aa9310cc) |
+| CauldronRegistry | [`0x4e60D157E951898521A97dD5217e50D6187aB432`](https://testnet.arcscan.app/address/0x4e60D157E951898521A97dD5217e50D6187aB432) |
+| PerpEngine | [`0x12962E69CD005A42ed1d7669e43A8Ad81ac16A22`](https://testnet.arcscan.app/address/0x12962E69CD005A42ed1d7669e43A8Ad81ac16A22) |
+| PerpVault | [`0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7`](https://testnet.arcscan.app/address/0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7) |
+| MiFrensGenesis | [`0x5ddCd156fc0ff37eC3dD20b53f070f7Ff8B4f48a`](https://testnet.arcscan.app/address/0x5ddCd156fc0ff37eC3dD20b53f070f7Ff8B4f48a) |
+| Timelock | [`0x95ab3D345e25A8B180Af3Ca6071ed3C595df8BcB`](https://testnet.arcscan.app/address/0x95ab3D345e25A8B180Af3Ca6071ed3C595df8BcB) |
+| Generation 1 token | [`0xf5E9b44260CDaC047593583DF540A8589cEd2df9`](https://testnet.arcscan.app/address/0xf5E9b44260CDaC047593583DF540A8589cEd2df9) |
+| Generation 1 collection — *Gnomeland* | [`0x016a5E7577D6B34b2a662D49940854B385C757D8`](https://testnet.arcscan.app/address/0x016a5E7577D6B34b2a662D49940854B385C757D8) |
+
+**The Uniswap v4 deployment transaction**, if you want the receipt rather than the
+address: [`0x52e0a244…3484b33`](https://testnet.arcscan.app/tx/0x52e0a2446730d9aef3e2b6ca6d5adc547d04a48c42976858c261c59403484b33)
+
+Generation 1 is live: the 1111-fren genesis presale minted out, the pool summoned
+through the hook, and it holds real liquidity. Reproduce the whole bring-up with
+[`scripts/deploy-arc.sh`](scripts/deploy-arc.sh) then
+[`scripts/arc-ignite.sh`](scripts/arc-ignite.sh).
+
+### Ethereum Sepolia
+
+The long-running deployment, where the full lifecycle has been exercised repeatedly
+— summon, trade, perps, liquidations, quote rotation by governance, death and rebirth
+across dozens of generations. Uniswap v4 is canonical there:
+`PoolManager 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`.
 
 ---
 
@@ -76,7 +158,7 @@ Three properties make it more than a gimmick:
 | **Genesis dividend** | 15% of every fee, forever |
 | **Contracts** | 32 Solidity files, ~10,800 lines (26 of them contracts + libraries) |
 | **Tests** | 322 passing across 66 suites |
-| **Live on** | Ethereum Sepolia · target: Robinhood Chain (Arbitrum Orbit) |
+| **Live on** | Ethereum Sepolia · Arc testnet (chain 5042002, incl. Uniswap v4 deployed by us) |
 
 ---
 
@@ -526,7 +608,8 @@ FOUNDRY_PROFILE=cauldron forge test
 ```
 
 ```
-Ran 66 test suites: 322 passed, 0 failed, 2 skipped
+611 tests passed, 0 failed
+(+5 fork-only tests that require FORK_RPC — see below)
 ```
 
 | Suite | Covers |
@@ -537,8 +620,13 @@ Ran 66 test suites: 322 passed, 0 failed, 2 skipped
 | `test/audit/` | Proof-of-concept exploits from audit passes |
 | `test/final/` | Custody + consent, L2 semantics, reserve ceiling |
 
-The **2 skipped** are fork-only invariants. Set `FORK_RPC` to an archive-capable
-endpoint to run them:
+172 test files, **96 of them adversarial PoCs** in `test/attacks/` — each one an
+attack that was actually landed against the protocol first, then fixed, then pinned
+so it can never come back.
+
+The fork-only tests need an archive-capable endpoint, and **fail loudly rather than
+skipping silently** if it is missing — a fork test that quietly passes with no fork
+is worse than no test:
 
 ```bash
 FORK_RPC=$SEPOLIA_RPC_URL FOUNDRY_PROFILE=cauldron forge test
@@ -546,13 +634,38 @@ FORK_RPC=$SEPOLIA_RPC_URL FOUNDRY_PROFILE=cauldron forge test
 
 Frontend: `npm run type-check` (clean), `npm run lint`, `npm run test:unit`.
 
+### What has been exercised on live Sepolia
+
+Unit tests prove the code does what we meant. These are the things that only a real
+chain can tell you, run against live Sepolia rather than a fork:
+
+| Exercised on-chain | Evidence |
+| --- | --- |
+| **43 deployment rounds**, each a full 14-contract stack | current manifest is `round: 43` |
+| **6 complete death-and-rebirth cycles** on the current round alone — pool dies, liquidity is recovered, next token summoned, holders migrate 1:1 | `registry.currentGeneration() == 7` |
+| Genesis presale minted out and ignited into a live v4 pool | `MiFrensGenesis.igniteCauldron()` |
+| Perps opened, marked, and **liquidated inside a swap** with no keeper | `PerpEngine` live, insurance buffer funded |
+| **Governance quote rotation executed live**: ETH → USDG across 12 permissionless slices through a curated venue | exercised on round 42 |
+| Crystal gacha: volume-forged NFT mints from plain swaps, no router | `CauldronGacha` + in-swap `nativeGachaStep` |
+| Proposals raised, voted, and executed through the timelock | `CauldronGovernor` + `TreasuryGovernor` |
+| Break-glass recovery of stranded LP after an armed emergency delay | `rescueSeeder` / `withdrawAll` paths |
+
+Four things that only showed up on a real chain, and are now written down in the
+deploy scripts because no unit test would ever have caught them: a perp engine
+deployed before the summon keeps `syncedToken == 0` and silently **inverts every
+trade** (a "long" fills as a sell, marks at zero, and does not revert); a 24-hour
+perp warmup and a 5-minute TWAP window are correct for mainnet and make a testnet
+perp look broken; and a rotation slippage floor left at its 3% default makes the
+whole rotation feature undemonstrable against any venue you can afford to seed.
+
 ---
 
 ## Deployment
 
-Live on **Ethereum Sepolia**. Addresses rotate every iteration and every rebirth,
-so they are **not hardcoded in this README on purpose** — read them from the
-manifest, or from the registry itself:
+Live on **Ethereum Sepolia** and **Arc testnet** (addresses under
+[Live deployments](#live-deployments)). Per-generation addresses rotate every
+iteration and every rebirth, so they are **not hardcoded in this README on purpose** —
+read them from the manifest, or from the registry itself:
 
 ```solidity
 registry.currentGeneration()          // which iteration is live
@@ -564,11 +677,25 @@ registry.generationPoolId(gen)        // its v4 pool
 The [`/docs`](https://www.mifrens.xyz/#/docs) page renders live addresses from the
 same manifest the app reads, and verifies them against the chain.
 
-**Target chain: Robinhood Chain**, an Arbitrum Nitro/Orbit L2 with ETH as native
-gas. `VITE_NETWORK` flips the whole app between testnet and mainnet in one env
-change. The L2 semantics that actually matter — second-denominated windows,
-grind-resistant randomness, per-timestamp liquidation throttling — are covered in
-[`docs/ROBINHOOD_L2_REVIEW.md`](docs/ROBINHOOD_L2_REVIEW.md).
+**Chain-agnostic by construction.** Exactly two things are required of a chain:
+**EIP-1153 transient storage** (Uniswap v4 settles every `unlock` through
+`TSTORE`/`TLOAD`, so v4 — and therefore this protocol — cannot run without it) and a
+**CREATE2 factory** (the hook's permission bits live in its address, so the address
+must be mined). Everything else is a config value: `VITE_CHAIN_ID`, `VITE_RPC_URL`,
+`VITE_EXPLORER_URL` and the native currency's symbol/decimals, with `VITE_NETWORK`
+flipping the whole app between chains in one env change.
+
+Nothing assumes the gas token is 18-decimal ETH, because on Arc it is not —
+`QuoteOracle` prices a USD-denominated native asset by **peg** rather than by feed,
+which is not a shortcut but the accurate model: there is no exchange rate to observe,
+and a price feed could only introduce a way to fail.
+
+The rollup semantics that actually matter — second-denominated windows (`block.number`
+is the parent chain's on many L2s), grind-resistant randomness (`prevrandao` is a
+constant on several rollups, and this protocol uses none of it), and per-timestamp
+liquidation throttling — are covered in
+[`docs/ROBINHOOD_L2_REVIEW.md`](docs/ROBINHOOD_L2_REVIEW.md), written against an
+Arbitrum Orbit target but applicable to any rollup.
 
 ---
 
