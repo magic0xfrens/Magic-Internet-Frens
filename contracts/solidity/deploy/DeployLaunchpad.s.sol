@@ -656,12 +656,34 @@ contract DeployLaunchpad is Script {
         //  try/catch catch a feed that is old or dead, but a feed that is fresh,
         //  responsive and WRONG passes both — and this factor scales volume,
         //  which mints NFTs that earn a perpetual dividend.
-        oracle.setFeed(address(0), FEED_ETH_USD, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
-        oracle.setBounds(
-            address(0),
-            uint128(vm.envOr("ETH_MIN_USD", uint256(100e18))),
-            uint128(vm.envOr("ETH_MAX_USD", uint256(100_000e18)))
-        );
+        //  ── A CHAIN WHOSE GAS TOKEN IS ALREADY A DOLLAR ──────────────────────
+        //  NATIVE_PEGGED_USD exists for chains like Arc, where the native gas
+        //  token IS USD-denominated (Arc prices gas in USDC at 18 decimals). Two
+        //  independent reasons the fed path cannot be used there:
+        //
+        //    1. FEED_ETH_USD is a SEPOLIA address. On any other chain it is
+        //       codeless, so `usdPerRawUnit` catches the revert and returns 0 —
+        //       "cannot judge". The hook then records NO VOLUME for every trade,
+        //       which silently breaks both the mint ladder and `isDead`. The
+        //       deploy succeeds and the protocol records a fiction of zero.
+        //    2. Even a working ETH/USD feed would be the wrong question: one
+        //       native unit is worth $1 here, not $2481.
+        //
+        //  So pegging is the ACCURATE model on such a chain, not a testnet
+        //  shortcut — there is no exchange rate to observe. Note the pegged
+        //  branch returns before the bounds checks (QuoteOracle.sol:207 vs
+        //  267-268), so no band is set: a band on a hardcoded $1 could only ever
+        //  reject the one value it is guaranteed to hold.
+        if (vm.envOr("NATIVE_PEGGED_USD", false)) {
+            oracle.setPegged(address(0), 18);
+        } else {
+            oracle.setFeed(address(0), FEED_ETH_USD, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
+            oracle.setBounds(
+                address(0),
+                uint128(vm.envOr("ETH_MIN_USD", uint256(100e18))),
+                uint128(vm.envOr("ETH_MAX_USD", uint256(100_000e18)))
+            );
+        }
 
         //  THE DOLLAR STABLE IS PEGGED, NOT FED. Its feed answers ~1.0000 and
         //  the only thing it can realistically contribute is a way to FAIL —
