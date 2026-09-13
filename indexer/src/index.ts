@@ -2,6 +2,7 @@ import { ponder } from "ponder:registry";
 import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice, ownedPosition } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/active";
+import { normaliseQuotePerToken, rawToQuoteAmount } from "./quoteUnits";
 
 const CANDLE_SECONDS = Number(process.env.CANDLE_SECONDS ?? 30);
 const Q96 = 2 ** 96;
@@ -24,11 +25,18 @@ const REGISTRY_ADDR = round.contracts.registry as `0x${string}`;
 // Override with PERP_MAINTENANCE_BPS if the deployer retunes it.
 const PERP_M = Number(process.env.PERP_MAINTENANCE_BPS ?? 1500) / 1e4;
 
-function ethPerToken(sqrtPriceX96: bigint): number {
+/** RAW currency0-per-currency1 ratio. NOT a price: it carries no decimals term,
+ *  so it is only meaningful once `normaliseQuotePerToken` has been applied. */
+function rawQuoteRatio(sqrtPriceX96: bigint): number {
   const s = Number(sqrtPriceX96) / Q96;
-  const tokenPerEth = s * s;
-  return tokenPerEth > 0 ? 1 / tokenPerEth : 0;
+  const tokenPerQuote = s * s;
+  return tokenPerQuote > 0 ? 1 / tokenPerQuote : 0;
 }
+/** ERC20 `decimals()` — the one fact a raw pool ratio needs to become a price. */
+const ERC20_DECIMALS_ABI = [{
+  type: "function", name: "decimals", stateMutability: "view",
+  inputs: [], outputs: [{ type: "uint8" }],
+}] as const;
 const lc = (a: string) => a.toLowerCase() as `0x${string}`;
 const nftId = (col: string, id: bigint) => `${lc(col)}-${id}`;
 const holderId = (col: string, addr: string) => `${lc(col)}-${lc(addr)}`;
@@ -48,10 +56,24 @@ async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token:
       functionName: "generationQuote", args: [BigInt(gen)],
     }) as string);
   } catch { /* pre-quote registry, or an RPC blip: native is the right answer */ }
+  //  AND HOW MANY DECIMALS DOES IT HAVE? A price is a ratio of raw units until
+  //  this number is applied; without it a 6-decimal quote reported a price 1e12
+  //  off (see `normaliseQuotePerToken`). Native ETH is 18 by definition, and a
+  //  token that will not answer `decimals()` is treated as 18 — the same answer
+  //  the old code assumed unconditionally, so this can only improve on it.
+  let quoteDecimals = 18;
+  if (quote !== ZERO) {
+    try {
+      quoteDecimals = Number(await ctx.client.readContract({
+        abi: ERC20_DECIMALS_ABI, address: quote, functionName: "decimals",
+      }));
+      if (!Number.isFinite(quoteDecimals) || quoteDecimals < 0 || quoteDecimals > 36) quoteDecimals = 18;
+    } catch { quoteDecimals = 18; }
+  }
   await ctx.db.insert(pool).values({
     id: poolId, generation: gen, token: lc(token), name: clean, symbol,
-    createdAt: ts, createdBlock: block, dead: false, lastPrice: 0, swapCount: 0, volumeEth: 0, updatedAt: ts,
-    quote, isPrimary: true,
+    createdAt: ts, createdBlock: block, dead: false, lastPrice: 0, lastPriceRaw: 0, swapCount: 0, volumeEth: 0, updatedAt: ts,
+    quote, quoteDecimals, isPrimary: true,
     //  A lazily-registered row (see `ensurePool`) is a GUESS about the name:
     //  the swaps inside a summon/rebirth transaction are emitted BEFORE the
     //  CauldronSummoned/Reborn event that carries the real one. With
@@ -59,7 +81,9 @@ async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token:
     //  generation kept gen 1's creature name forever while pointing at the new
     //  token. So the event path, which is authoritative, corrects it.
   }).onConflictDoUpdate((row: any) => (authoritative
-    ? { generation: gen, token: lc(token), name: clean, symbol, quote }
+    //  `quoteDecimals` travels WITH `quote`: correcting one without the other
+    //  would leave the price normalised by the wrong power of ten.
+    ? { generation: gen, token: lc(token), name: clean, symbol, quote, quoteDecimals }
     : {}));
   await ctx.db.insert(iteration).values({ id: gen, token: lc(token), symbol, createdAt: ts })
     .onConflictDoUpdate(() => ({ token: lc(token), symbol }));
@@ -289,10 +313,23 @@ ponder.on("PoolManager:Swap", async ({ event, context }) => {
   let p = await context.db.find(pool, { id: poolId });
   if (!p) p = await ensurePool(context, poolId, event.block.timestamp, event.block.number);
   if (!p) return;
-  const price = ethPerToken(event.args.sqrtPriceX96 as bigint);
+  //  ── A RAW RATIO IS NOT A PRICE ───────────────────────────────────────
+  //  `lastPrice` was the bare currency0/currency1 ratio with no decimals term,
+  //  labelled "ethPerToken". On a 6-decimal quote that is 1e12 off, and the
+  //  frontend sizes its slippage floor from it, so every ERC20-quoted buy signed
+  //  an unreachable `minOut` and reverted AFTER the zap had already converted
+  //  the user's ether. mcap, FDV and every chart inherited the same error.
+  //  Both numbers are kept: `lastPriceRaw` for anyone reconstructing pool state,
+  //  `lastPrice` (what the API serves as `spotPrice`) normalised to human
+  //  quote-per-token. A native pool has 18-decimal quote, so it is unchanged.
+  const qDec = (p as { quoteDecimals?: number }).quoteDecimals ?? 18;
+  const priceRaw = rawQuoteRatio(event.args.sqrtPriceX96 as bigint);
+  const price = normaliseQuotePerToken(priceRaw, qDec);
   if (!(price > 0) || !Number.isFinite(price)) return;
   const amount0 = event.args.amount0 as bigint;
-  const amountEth = Math.abs(Number(amount0)) / 1e18;
+  //  amount0 is the QUOTE side (`PoolOps`: quote is always currency0), so it is
+  //  denominated in the quote's decimals, not hardcoded 1e18.
+  const amountEth = Math.abs(rawToQuoteAmount(amount0, qDec));
   const isBuy = amount0 < 0n;
   const ts = Number(event.block.timestamp);
   const bucketStart = Math.floor(ts / CANDLE_SECONDS) * CANDLE_SECONDS;
@@ -318,7 +355,7 @@ ponder.on("PoolManager:Swap", async ({ event, context }) => {
       open: price, high: price, low: price, close: price, volumeEth: amountEth, swapCount: 1,
     });
   }
-  await context.db.update(pool, { id: poolId }).set({ lastPrice: price, swapCount: p.swapCount + 1, volumeEth: p.volumeEth + amountEth, updatedAt: event.block.timestamp });
+  await context.db.update(pool, { id: poolId }).set({ lastPrice: price, lastPriceRaw: priceRaw, swapCount: p.swapCount + 1, volumeEth: p.volumeEth + amountEth, updatedAt: event.block.timestamp });
 });
 
 /* ── perps: positions + liquidation heatmap source ─────────────────────── */

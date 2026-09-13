@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatEther, parseEther, type Address } from "viem";
+import { formatEther, formatUnits, parseEther, parseUnits, type Address } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
@@ -183,20 +183,38 @@ export default function SwapWidget({
   //  Quoting raw mid price here is what pushed `minOut` above every achievable
   //  fill; see {TRADE_FEE_BPS} for the reverts it caused.
   //  Price impact is NOT modelled — that is what the tolerance is for.
-  const estTokensOut = useMemo(() => (spotPrice > 0 ? netOfFee(eth) / spotPrice : 0), [eth, spotPrice]);
+  //  ── THE PAY SIDE IS THE QUOTE, AND SO IS `spotPrice` ─────────────────
+  //  The indexer now serves `spotPrice` as QUOTE per token with both sides'
+  //  decimals applied, so on a non-native generation the input to divide by it
+  //  is the amount of QUOTE that will actually enter the pool — `quoteExpected`,
+  //  the oracle's conversion of the typed ether — not the ether figure. Dividing
+  //  ether by a USDG price is what produced a floor 4e8x off, which reverted the
+  //  buy AFTER the zap had already spent the user's ETH. Native is 18 decimals
+  //  and quote == ether, so that path is arithmetically unchanged.
+  const qDec = qNative ? 18 : quoteDecimals;
+  const payAmount = useMemo(
+    () => (qNative ? eth : Number(formatUnits(quoteExpected, qDec))),
+    [qNative, eth, quoteExpected, qDec],
+  );
+  const estTokensOut = useMemo(() => (spotPrice > 0 ? netOfFee(payAmount) / spotPrice : 0), [payAmount, spotPrice]);
+  //  A sell pays OUT the quote, so this is quote units too.
   const estEthOut = useMemo(() => netOfFee(tokensIn * spotPrice), [tokensIn, spotPrice]);
   //  The floor that will actually be signed, in the unit the router compares
   //  against: token wei on a buy, ETH wei on a sell. Derived from the SAME
   //  estimate shown above it, so the number on screen and the number in the
   //  calldata cannot drift apart.
   const slipBps = BigInt(Math.min(MAX_SLIP_PCT * 100, Math.max(0, Math.round(slipPct * 100))));
-  const minOutFor = (expected: number): bigint => {
+  //  `decimals` is the OUTPUT asset's: the token (always 18) on a buy, the quote
+  //  on a sell. Signing a 6-decimal payout floor scaled by 1e18 is the same
+  //  1e12 mistake in the other direction.
+  const minOutFor = (expected: number, decimals: number): bigint => {
     if (!Number.isFinite(expected) || expected <= 0) return 0n;
-    try { return (parseEther(expected.toFixed(18)) * (10_000n - slipBps)) / 10_000n; }
+    try { return (parseUnits(expected.toFixed(decimals), decimals) * (10_000n - slipBps)) / 10_000n; }
     catch { return 0n; }
   };
   const expectedOut = mode === "buy" ? estTokensOut : estEthOut;
-  const minOut = minOutFor(expectedOut);
+  const outDecimals = mode === "buy" ? 18 : qDec;
+  const minOut = minOutFor(expectedOut, outDecimals);
   //  No mark, no floor — and a floor of 0 is exactly the bug. Refuse instead.
   //  ── THE SPOT PRICE IS IN ETH, AND THE PAY SIDE MAY NOT BE ────────────
   //  `spotPrice` is ETH per token. On an ERC20-quoted generation the buy side is
@@ -462,7 +480,7 @@ export default function SwapWidget({
                       ? "will not sign"
                       : mode === "buy"
                         ? `${compact(Number(formatEther(minOut)))} $${ticker}`
-                        : `${Number(formatEther(minOut)).toFixed(6)} Ξ`}
+                        : `${Number(formatUnits(minOut, qDec)).toFixed(6)} ${qGlyph}`}
                   </b>
                 </div>
                 <p className="sw__pop-note">
@@ -551,7 +569,7 @@ export default function SwapWidget({
             </span>
           : <>min {mode === "buy"
               ? `${compact(Number(formatEther(minOut)))} $${ticker}`
-              : `${Number(formatEther(minOut)).toFixed(6)} Ξ`} · {slipPct}% slip</>}
+              : `${Number(formatUnits(minOut, qDec)).toFixed(6)} ${qGlyph}`} · {slipPct}% slip</>}
       </div>
 
       <button className={`sw__cta ${busy ? "sw__cta--busy" : ""}`} onClick={onAction}

@@ -10,7 +10,14 @@ export const pool = onchainTable("pool", (t) => ({
   createdAt: t.bigint().notNull(),
   createdBlock: t.bigint().notNull(),
   dead: t.boolean().notNull().default(false),
+  /** QUOTE PER TOKEN, in human units — decimals of both sides applied. This is
+   *  the field the API serves as `spotPrice` and the frontend sizes slippage
+   *  floors from, so it must never be a raw ratio: on a 6-decimal quote the raw
+   *  number is 1e12 off and every buy signs an unreachable floor. */
   lastPrice: t.doublePrecision().notNull().default(0),
+  /** The RAW currency0/currency1 ratio, kept alongside for anyone
+   *  reconstructing pool state. Not a price — see `lastPrice`. */
+  lastPriceRaw: t.doublePrecision().notNull().default(0),
   swapCount: t.integer().notNull().default(0),
   volumeEth: t.doublePrecision().notNull().default(0),
   updatedAt: t.bigint().notNull(),
@@ -20,6 +27,10 @@ export const pool = onchainTable("pool", (t) => ({
    *  the LP denominated in" is a per-pool fact, not a per-generation one. Read
    *  from `registry.generationQuote(gen)` at registration.  */
   quote: t.hex().notNull().default("0x0000000000000000000000000000000000000000"),
+  /** Decimals of `quote`, read once at registration. Native ETH and an
+   *  unreadable token both fall back to 18. Without it a pool ratio cannot be
+   *  turned into a price. */
+  quoteDecimals: t.integer().notNull().default(18),
   /** False for a pool linked to a generation as a SIBLING via
    *  `CauldronHook.linkVolume` — the guild's LP split across a second quote.
    *  The primary is the pool the generation was summoned/reborn into.  */
