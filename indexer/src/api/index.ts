@@ -1647,9 +1647,18 @@ const GOV_READ = [{
     //  read the quote address (zero) as `nftSupply` and showed "0 NFTs" for a
     //  proposal that asked for 3,333. A shifted tuple does not revert — it just
     //  reports neighbouring fields, which is why this survived.
-    { name: "socials", type: "string" }, { name: "quote", type: "address" },
+    //  r44 ADDED `logo`/`banner` AND THIS WAS ALSO MISSING `votingEndsAt`.
+    //  Same failure mode as the `quote` omission above: three absent fields do
+    //  not revert, they shift everything after them. Regenerate from the source
+    //  of truth rather than hand-editing:
+    //    forge inspect CauldronGovernor abi \
+    //      | jq '.[]|select(.name=="getProposal").outputs[0].components'
+    { name: "socials", type: "string" },
+    { name: "logo", type: "string" }, { name: "banner", type: "string" },
+    { name: "quote", type: "address" },
     { name: "nftSupply", type: "uint256" }, { name: "volumePerNFT", type: "uint256" },
     { name: "proposer", type: "address" }, { name: "votes", type: "uint256" }, { name: "snapshot", type: "uint256" },
+    { name: "votingEndsAt", type: "uint256" },
     { name: "consumed", type: "bool" }, { name: "exists", type: "bool" },
   ] }],
 }] as const;
@@ -1660,12 +1669,17 @@ async function fullProposal(id: number) {
   try {
     const p = await perpClient.readContract({ address: GOVERNOR, abi: GOV_READ, functionName: "getProposal", args: [BigInt(id)] }) as {
       name: string; symbol: string; mode: number; baseURI: string; renderer: string; website: string; socials: string;
-      nftSupply: bigint; volumePerNFT: bigint; proposer: string; votes: bigint; consumed: boolean;
+      logo: string; banner: string; quote: string;
+      nftSupply: bigint; volumePerNFT: bigint; proposer: string; votes: bigint; votingEndsAt: bigint; consumed: boolean;
     };
     const nftSupply = Number(p.nftSupply);
     const volPerNft = Number(formatEther(p.volumePerNFT));
     const v = {
       website: p.website || null, socials: p.socials || null,
+      //  Brew art, served so the proposal cards do not each make their own chain
+      //  read. Display-only on-chain too — it never reaches the collection.
+      logo: p.logo || null, banner: p.banner || null,
+      votingEndsAt: Number(p.votingEndsAt ?? 0n),
       metaMode: p.mode === 1 ? "renderer" : "uri", metaValue: p.mode === 1 ? p.renderer : p.baseURI,
       nftSupply, mintOutEth: volPerNft * nftSupply,
     };
