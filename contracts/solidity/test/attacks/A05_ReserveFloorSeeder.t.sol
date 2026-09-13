@@ -25,6 +25,7 @@ import {CauldronFactory} from "../../cauldron/CauldronFactory.sol";
 import {RedemptionExt} from "../../cauldron/RedemptionExt.sol";
 import {CauldronSeeder} from "../../cauldron/CauldronSeeder.sol";
 import {ISeeder} from "../../cauldron/ISeeder.sol";
+import {IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 import {ICauldronGovernor, BrewSpec, MetadataMode} from "../../cauldron/ICauldron.sol";
 
 /**
@@ -142,14 +143,25 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
     // =====================================================================
     // A-06 — SEEDER LEDGER-A IS UNREACHABLE BY OUTSIDERS
     // =====================================================================
+    //  RESTATED FOR full-range-always (commit 40b9608, PoolOps.sol:168
+    //  SEED_BASE_WAD = 1e18). The whole of ledger A is laid as the base at summon,
+    //  so `startSeed` is never reached (PoolOps.sol:405) and the seeder never
+    //  custodies ledger A at all. The only value that can sit in an unarmed seeder
+    //  is a PRIME budget, so the invariant is now the sharper two-sided one: that
+    //  money is unreachable by OUTSIDERS and reachable by its PRINCIPAL.
     function test_Invariant_A06_SeederFundsUnreachable() public {
-        
+
         vm.skip(!active);
         _summonProgressive();
 
-        assertTrue(seeder.seeding(), "campaign live");
-        assertGt(address(seeder).balance + IERC20(registry.currentToken()).balanceOf(address(seeder)), 0,
-            "seeder holds ledger A");
+        assertFalse(seeder.seeding(), "no campaign: the full-range base took all of ledger A");
+        assertEq(seeder.deployedWad(), 0, "nothing was streamed");
+        assertEq(IERC20(registry.currentToken()).balanceOf(address(seeder)), 0,
+            "seeder custodies none of ledger A");
+
+        // The one door value can still come through: a prime budget (CauldronSeeder.sol:347).
+        seeder.fundPrime{value: 3 ether}(address(this));
+        assertEq(address(seeder).balance, 3 ether, "seeder holds the prime budget");
 
         vm.startPrank(attacker);
         vm.expectRevert(); // OnlyRegistry
@@ -158,14 +170,24 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
         seeder.rescue(attacker);
         vm.expectRevert(); // OnlyHook
         seeder.pokeInSwap();
+        vm.expectRevert(); // OnlyRegistry — the K5b exit is principal-only
+        seeder.refundPrime(attacker);
         vm.stopPrank();
+        assertEq(address(seeder).balance, 3 ether, "no outsider moved a wei");
 
         // The permissionless poke() only ever ADDS liquidity — it pays the caller
-        // nothing and cannot be accelerated past the time schedule.
+        // nothing. With no campaign armed it is inert; either way it must not pay.
         uint256 attBalBefore = attacker.balance;
         vm.prank(attacker);
-        seeder.poke();
+        address(seeder).call(abi.encodeWithSignature("poke()"));
         assertEq(attacker.balance, attBalBefore, "poke() paid the caller nothing");
+        assertEq(address(seeder).balance, 3 ether, "poke() moved no prime budget");
+
+        // NOT STRANDED: the principal who funded it can take it back (audit K5b).
+        uint256 mine = address(this).balance;
+        seeder.refundPrime(address(this));
+        assertEq(address(seeder).balance, 0, "prime budget fully returned");
+        assertEq(address(this).balance, mine + 3 ether, "and it went to the principal");
     }
 
     // =====================================================================
@@ -176,12 +198,39 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
         vm.skip(!active);
         _summonProgressive();
 
-        assertGt(registry.generationReservePositionId(1), 0, "reserve placed by registry");
-        assertEq(seeder.deployedWad(), 0.1e18, "only 10% streamed");
+        uint256 reserveId = registry.generationReservePositionId(1);
+        uint256 baseId = registry.generationPositionId(1);
+
+        assertGt(reserveId, 0, "reserve placed by registry");
         // The reserve is a DISTINCT position from any active book, owned by the
         // registry — the seeder (ledger A) can never reach it.
-        assertTrue(registry.generationReservePositionId(1) != registry.generationPositionId(1),
-            "reserve is a distinct position");
+        assertTrue(reserveId != baseId, "reserve is a distinct position");
+
+        //  SAME PROPERTY, NEW PATH (commit 40b9608). This used to read
+        //  `deployedWad() == 0.1e18` — i.e. "the floor is backed because 10% has
+        //  streamed". At SEED_BASE_WAD = 1e18 nothing streams at all, so the floor
+        //  is asserted DIRECTLY instead, which is strictly stronger: the reserve
+        //  and a two-sided full-range base are both live in the summon block with
+        //  no poke, no tranche and no campaign anywhere in the story.
+        assertFalse(seeder.seeding(), "no campaign was ever armed");
+        assertEq(seeder.deployedWad(), 0, "the floor owes nothing to a stream");
+        assertGt(baseId, 0, "the base is a registry-owned position");
+        assertGt(IPositionManagerOps(posm).getPositionLiquidity(reserveId), 0,
+            "the 69x reserve is funded at block zero");
+        assertGt(IPositionManagerOps(posm).getPositionLiquidity(baseId), 0,
+            "the full-range base is funded at block zero");
+
+        // Executed, not read: buy in the summon block, then sell straight back.
+        // Both legs filling proves the base is genuinely TWO-SIDED spot depth.
+        uint256 bought = _buyTo(address(this), 1 ether);
+        assertGt(bought, 0, "block-zero buy filled from the base");
+        vm.roll(block.number + hook.snipeWindowBlocks() + 1); // rolling adds no liquidity
+        uint256 backOut = _sellFrom(bought / 2);
+        assertGt(backOut, 0, "sell filled too - the base is two-sided");
+
+        assertEq(seeder.deployedWad(), 0, "and still nothing was ever streamed");
+        assertGt(IPositionManagerOps(posm).getPositionLiquidity(reserveId), 0,
+            "trading never touched the 69x reserve");
     }
 
     // =====================================================================
@@ -246,6 +295,12 @@ contract A05_ReserveFloorSeederTest is Test, IUnlockCallback {
 
     function _buyTo(address to, uint256 ethIn) internal returns (uint256 got) {
         bytes memory r = pm.unlock(abi.encode(uint8(0), ethIn, to));
+        got = abi.decode(r, (uint256));
+    }
+
+    /// @dev Sell `tokIn` of the live token held by THIS contract back into the pool.
+    function _sellFrom(uint256 tokIn) internal returns (uint256 got) {
+        bytes memory r = pm.unlock(abi.encode(uint8(1), tokIn, address(this)));
         got = abi.decode(r, (uint256));
     }
 

@@ -73,6 +73,15 @@ contract Z04_SeederRescueStrandsLp is ZAuditBase {
         }
     }
 
+    /// @dev Liquidity of generation `g`'s registry-owned full-range base. Since
+    ///      commit 40b9608 (`SEED_BASE_WAD = 1e18`, PoolOps.sol:168) this — not a
+    ///      streamed set of seeder ranges — IS the book.
+    function _baseLiquidity(uint256 g) internal view returns (uint128) {
+        uint256 id = registry.generationPositionId(g);
+        if (id == 0) return 0;
+        return IPositionManagerOps(posm).getPositionLiquidity(id);
+    }
+
     /// REGRESSION: the break-glass returns the loose funds but keeps the recovery path
     /// armed, so the already-placed book is no longer orphaned.
     function test_FIXED_RescueLeavesTheRecoveryPathOpen() public {

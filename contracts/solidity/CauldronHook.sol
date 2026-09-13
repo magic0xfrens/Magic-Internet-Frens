@@ -1660,7 +1660,13 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     }
 
     event VolumeLinked(PoolId indexed primary, PoolId indexed secondary);
-
+    //  OPEN (audit L3, SPACE row in the FINAL_BLIND_2026-09-13 ledger): there is
+    //  deliberately NO unlinkVolume yet. MAX_SIBLINGS is therefore a one-way
+    //  ratchet — the 10th DISTINCT rotation destination makes the gate above
+    //  revert, and RedemptionExt:473 calls linkVolume unconditionally, so the
+    //  whole rotation is refused for the rest of the generation. The fix is a
+    //  registry/owner-gated unlink; it measured 236 bytes over EIP-170 on this
+    //  contract and is blocked on freeing that space.
 
     function isDead(PoolId id) external view returns (bool) {
         if (!trackedPools[id]) return false;
@@ -1696,7 +1702,10 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         if (nftContract == address(0)) return defaultTaxBps;
 
         try INFTContract(nftContract).getHolderTaxRate(holder) returns (uint256 rate) {
-            return rate;
+            // Clamp: setDefaultTaxBps is capped at MAX_TAX_BPS, so the NFT path
+            // must be too — otherwise wiring an NFT contract silently lifts the
+            // fee ceiling the owner is bound by (audit L2).
+            return rate > MAX_TAX_BPS ? MAX_TAX_BPS : rate;
         } catch {
             return defaultTaxBps;
         }

@@ -5,6 +5,7 @@ import {console2} from "forge-std/Test.sol";
 import {YBase} from "../attacks/YBase.sol";
 import {CauldronSeeder} from "../../cauldron/CauldronSeeder.sol";
 import {MockQuoteToken} from "../../cauldron/MockQuoteToken.sol";
+import {IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -84,17 +85,39 @@ contract B19_ProgressiveNonNative is YBase {
         console2.log("gen quote after rebirth:", registry.generationQuote(genBefore + 1));
     }
 
-    /// @notice REGRESSION: a NATIVE brew must still stream. The fix must degrade
-    ///         only the non-native case, not disable progressive seeding.
-    function test_B19_NativeStillStreams() public {
+    /// @notice REGRESSION: a NATIVE brew must still get a funded book out of the
+    ///         rebirth. The B-19 fix must degrade only the non-native case.
+    ///
+    ///  RESTATED FOR full-range-always (commit 40b9608, PoolOps.sol:168
+    ///  `SEED_BASE_WAD = 1e18`). This used to assert `seeder.seeding()` — the
+    ///  hand-off to the streaming campaign. There is no longer anything left to
+    ///  stream after the base is laid, so `startSeed` is deliberately not called
+    ///  (PoolOps.sol:405) and the campaign is never armed. What the test was
+    ///  really protecting — "the native branch is intact, the newborn is native
+    ///  and it has depth" — is asserted on the full-range base instead.
+    function test_B19_NativeRebirthLaysAFullRangeBase() public {
         vm.skip(!active);
 
         hook.setDeathThreshold(type(uint256).max, address(0), 0, 0, 0);
         _warp(registry.minLifetime() + 1 days + 1);
         vm.roll(vm.getBlockNumber() + 60);
 
+        uint256 g = registry.currentGeneration();
         registry.relaunch(); // the default governor proposes a NATIVE brew
-        assertTrue(seeder.seeding(), "a native rebirth must still hand off to the seeder");
+        uint256 n = registry.currentGeneration();
+
+        assertEq(n, g + 1, "the native rebirth completed");
+        assertEq(registry.generationQuote(n), address(0), "the newborn is native");
+
+        // No campaign: ledger A went in whole as the base.
+        assertFalse(seeder.seeding(), "nothing left to stream, so no campaign is armed");
+        assertEq(seeder.deployedWad(), 0, "no tranche was streamed");
+
+        // ...and the depth is there anyway, as a registry-owned full-range position.
+        uint256 baseId = registry.generationPositionId(n);
+        assertGt(baseId, 0, "the newborn has a base position");
+        assertGt(IPositionManagerOps(posm).getPositionLiquidity(baseId), 0,
+            "the native rebirth's base is funded");
     }
 }
 

@@ -17,6 +17,9 @@ interface IPerpEngineVault {
     function freeToken() external view returns (uint256);
     // side-attributed token-side ETH reward pot
     function tokYieldCumulative() external view returns (uint256);
+    /// The POT standing behind that cumulative. A rotation write-off makes the two
+    /// disagree; that gap is how {_syncTokYield} detects it.
+    function tokYieldEth() external view returns (uint256);
     function withdrawTokYieldTo(uint256 amount, address to) external;
 }
 
@@ -123,6 +126,35 @@ contract PerpVault is ReentrancyGuard {
     mapping(address => uint256) public tokRewardDebt; // 1e18-scaled baseline per user
     mapping(address => uint256) public tokRewardOwed; // settled, claimable ETH per user
 
+    //  ── THE WRITE-OFF EPOCH (red-team T3b) ────────────────────────────────
+    //  A quote rotation zeroes the engine's `tokYieldEth` pot (PerpEngine.sol:1359)
+    //  but deliberately does NOT rewind `tokYieldCumulative`. Every entitlement here
+    //  is built out of that cumulative, so a staker who was staked across the
+    //  rotation permanently carried an `owed` no pot stood behind — and
+    //  {PerpEngine.withdrawTokYieldTo} reverts wholesale on `amount > tokYieldEth`,
+    //  so EVERY later claim of theirs reverted, including the yield they genuinely
+    //  earned in the NEW quote. Clamping the claim to the pot does not fix it: the
+    //  carried nominal then eats the NEXT staker's yield instead.
+    //
+    //  So the write-off is recognised where it happened, in the accumulator, and the
+    //  entitlement it backed is FORFEITED — which is what the engine's own logged
+    //  write-off already means. No iteration and no rewind: the vault stamps an
+    //  epoch, and a staker still on an older epoch has their pre-write-off `owed`
+    //  dropped and their baseline moved to {epochAcc} on their next interaction.
+    //  Anything credited AFTER the write-off line survives untouched.
+    /// @notice ETH this vault has pulled out of the engine's pot, plus every
+    ///         cumulative level already written off. `tokYieldEth() + this` is what
+    ///         the cumulative SHOULD be; a shortfall is a rotation write-off.
+    uint256 public totalTokYieldPulled;
+    /// @notice {accEthPerTokShare} at the moment of the last write-off — the line
+    ///         below which entitlements are forfeited and above which they stand.
+    uint256 public epochAcc;
+    /// @notice Bumped once per observed write-off.
+    uint32 public yieldEpoch;
+    /// @notice The epoch a staker's `tokRewardDebt`/`tokRewardOwed` were last
+    ///         rebased against. Behind {yieldEpoch} == carrying a written-off claim.
+    mapping(address => uint32) public stakerEpoch;
+
     event DepositEth(address indexed user, uint256 assets, uint256 shares);
     event WithdrawEth(address indexed user, uint256 shares, uint256 paid, uint256 queued);
     event ClaimEth(address indexed user, uint256 paid);
@@ -134,6 +166,9 @@ contract PerpVault is ReentrancyGuard {
     ///         rightful claimant and is deliberately NOT back-paid to the next
     ///         depositor; it stays in the engine's segregated pot. (Audit H-05.)
     event UnattributedYield(uint256 amount);
+    /// @notice A rotation write-off was observed: every token-side entitlement
+    ///         accrued at or below the new {epochAcc} line is forfeited.
+    event TokYieldForfeited(uint32 indexed epoch, uint256 amount);
 
     error ZeroAmount();
     error ZeroShares();
@@ -375,17 +410,57 @@ contract PerpVault is ReentrancyGuard {
     ///      accrued pot regardless of size — ordering, not capital, decided the
     ///      payout. The orphaned ETH stays in the engine's segregated
     ///      `tokYieldEth` pot; governance can redirect it (treasury or insurance).
+    ///  ── AND IT DETECTS THE ROTATION WRITE-OFF (red-team T3b) ─────────────
+    ///  `tokYieldEth` moves in exactly three ways: up with `tokYieldCumulative` on
+    ///  every credit, down by {totalTokYieldPulled} when THIS vault pulls, and down
+    ///  by the rotation write-off. So `pot + pulled < cum` is a write-off and
+    ///  nothing else, and the gap is exactly how much was lost — no new call, no
+    ///  new byte in {PerpEngine}. The lost slice is folded into the accumulator
+    ///  FIRST and {epochAcc} stamped at that level, so the forfeit lands on exactly
+    ///  the accrual the pot lost and post-rotation yield is preserved for everyone.
     function _syncTokYield() internal {
         uint256 cum = engine.tokYieldCumulative();
-        if (cum == lastTokYieldCum) return;
-        uint256 delta = cum - lastTokYieldCum;
-        lastTokYieldCum = cum;                     // ALWAYS advance
-        if (tokShares == 0) { emit UnattributedYield(delta); return; }
-        accEthPerTokShare += FullMath.mulDiv(delta, ACC, tokShares);
+        uint256 pulled = totalTokYieldPulled;
+        uint256 backed = engine.tokYieldEth() + pulled;
+        uint256 lost = cum > backed ? cum - backed : 0;
+        uint256 last = lastTokYieldCum;
+        uint256 sh = tokShares;
+        if (cum != last) {
+            lastTokYieldCum = cum;                 // ALWAYS advance
+            if (sh == 0) {
+                emit UnattributedYield(cum - last);
+            } else {
+                uint256 cut = pulled + lost;       // the cum level the write-off ate up to
+                if (lost != 0 && cut > last && cut < cum) {
+                    accEthPerTokShare += FullMath.mulDiv(cut - last, ACC, sh);
+                    epochAcc = accEthPerTokShare;  // the forfeit line
+                    accEthPerTokShare += FullMath.mulDiv(cum - cut, ACC, sh);
+                } else {
+                    accEthPerTokShare += FullMath.mulDiv(cum - last, ACC, sh);
+                    if (lost != 0) epochAcc = accEthPerTokShare;
+                }
+            }
+        } else if (lost != 0) {
+            epochAcc = accEthPerTokShare;
+        }
+        if (lost != 0) {
+            //  Re-base so the same write-off is never counted twice; one bump.
+            totalTokYieldPulled = cum;
+            unchecked { yieldEpoch++; }
+            emit TokYieldForfeited(yieldEpoch, lost);
+        }
     }
     /// @dev Bank a user's earned-so-far ETH into their owed balance (call before
     ///      any change to their token-share count).
     function _settleTok(address user) internal {
+        //  Carrying a claim from before a write-off? It is forfeited with the pot
+        //  that backed it — see the {yieldEpoch} note. The baseline moves to the
+        //  write-off line, NOT to today, so post-write-off yield is still earned.
+        if (stakerEpoch[user] != yieldEpoch) {
+            tokRewardOwed[user] = 0;
+            tokRewardDebt[user] = FullMath.mulDiv(tokShareOf[user], epochAcc, ACC);
+            stakerEpoch[user] = yieldEpoch;
+        }
         uint256 sh = tokShareOf[user];
         if (sh > 0) {
             uint256 acc = FullMath.mulDiv(sh, accEthPerTokShare, ACC);
@@ -424,6 +499,7 @@ contract PerpVault is ReentrancyGuard {
         paid = tokRewardOwed[msg.sender];
         if (paid == 0) revert ZeroAmount();
         tokRewardOwed[msg.sender] = 0;
+        totalTokYieldPulled += paid;                  // see {_syncTokYield}'s detector
         engine.withdrawTokYieldTo(paid, msg.sender);  // from the segregated pot
         emit ClaimTokYield(msg.sender, paid);
     }

@@ -58,7 +58,8 @@ contract K3b_TokYieldLockout is Test {
 
     // ── ATTACK: a rotation write-off permanently locks the SAME staker out of
     //    all FUTURE yield, while a staker who joined afterwards is paid. ──────
-    struct R { bool aliceReverted; uint256 bobGot; uint256 alicePrincipal; uint256 aliceStillOwed; }
+    struct R { bool aliceReverted; uint256 bobGot; uint256 alicePrincipal; uint256 aliceStillOwed;
+              uint256 aliceGot; uint256 aliceCarried; }
 
     function _afterRotation() internal returns (R memory r) {
         (MockEngine e, PerpVault v, MockToken t) = _fresh();
@@ -87,8 +88,11 @@ contract K3b_TokYieldLockout is Test {
 
         // Alice's owed is built from the whole cumulative, including the swept part.
         r.aliceStillOwed = v.pendingTokYield(alice);
+        uint256 aliceBefore = alice.balance;
         vm.prank(alice);
         try v.claimTokYield() { r.aliceReverted = false; } catch { r.aliceReverted = true; }
+        r.aliceGot = alice.balance - aliceBefore;
+        r.aliceCarried = v.pendingTokYield(alice);
 
         uint256 bobBefore = bob.balance;
         vm.prank(bob);
@@ -102,12 +106,40 @@ contract K3b_TokYieldLockout is Test {
         r.alicePrincipal = t.balanceOf(alice) - pb;
     }
 
+    /// REGRESSION (was the attack). The vault now RECOGNISES the write-off — it
+    /// sees the engine's pot fall below `cumulative - what this vault pulled` —
+    /// stamps a {PerpVault.yieldEpoch}, and forfeits exactly the entitlement the
+    /// swept pot backed. Alice loses the 5 ETH that was written off (it was, on
+    /// the record, by the engine) and KEEPS the yield she earned afterwards, so
+    /// her claim succeeds instead of reverting for the rest of the generation.
+    /// Bob's post-rotation yield is untouched by her stale nominal.
     function test_attack_rotationPermanentlyLocksTokStakerOutOfFutureYield() public {
         R memory r = _afterRotation();
-        assertGt(r.aliceStillOwed, 5 ether, "alice's entitlement still carries the swept 5 ETH");
-        assertTrue(r.aliceReverted, "alice can never claim - not even her post-rotation earnings");
+        assertFalse(r.aliceReverted, "alice's claim no longer reverts wholesale");
+        assertLt(r.aliceStillOwed, 5 ether, "the swept 5 ETH is forfeited, not carried");
+        assertApproxEqAbs(r.aliceGot, 1.5 ether, 1e9,
+            "alice is paid EXACTLY her post-rotation yield: 1 ETH solo + half of the next 1");
+        assertEq(r.aliceCarried, 0, "nothing un-backed is left hanging over future pots");
         assertGt(r.bobGot, 0, "a staker who joined AFTER the rotation is paid normally");
+        assertApproxEqAbs(r.bobGot, 0.5 ether, 1e9,
+            "and in full - alice's stale claim takes nothing from him");
         assertApproxEqAbs(r.alicePrincipal, 1000 ether, 1e9, "token principal itself is safe");
+    }
+
+    /// Positive control: with NO write-off the epoch never moves and nothing is
+    /// forfeited - the fix is inert on the healthy path.
+    function test_FIXED_noWriteOffMeansNoForfeit() public {
+        (MockEngine e, PerpVault v, MockToken t) = _fresh();
+        vm.startPrank(alice);
+        t.approve(address(v), type(uint256).max);
+        v.depositToken(1000 ether);
+        vm.stopPrank();
+        e.accrueTokYield(3 ether);
+        uint256 b = alice.balance;
+        vm.prank(alice);
+        v.claimTokYield();
+        assertApproxEqAbs(alice.balance - b, 3 ether, 1e9, "full yield, untouched");
+        assertEq(v.yieldEpoch(), 0, "no write-off observed, so no epoch bump");
     }
 }
 

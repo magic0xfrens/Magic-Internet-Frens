@@ -88,52 +88,61 @@ contract ProgressiveSeedForkTest is Test {
     }
 
     // ---------------------------------------------------------------------------
-    // Full lifecycle: summon(progressive) → stream to 100% → teardown → relaunch
+    // Full lifecycle: summon(FULL-RANGE base) → trade → teardown → relaunch
+    //
+    //  Commit 40b9608 ("fix(pool): full range always") raised PoolOps.SEED_BASE_WAD
+    //  from 0.15e18 to 1e18 (cauldron/PoolOps.sol:168), so the WHOLE of ledger A is
+    //  laid as a two-sided full-range base in the ignition tx and the streamed
+    //  campaign is deliberately never started (PoolOps.sol:404-408: "NOTHING LEFT TO
+    //  STREAM once the base is the whole of ledger A ... the campaign is simply not
+    //  started"). This test used to drive that campaign; it now proves the launch
+    //  state that replaced it, and the teardown/relaunch half is untouched.
     // ---------------------------------------------------------------------------
-    function test_Summon_Stream_Teardown_Relaunch_OnFork() public {
-        
+    function test_Summon_FullRange_Teardown_Relaunch_OnFork() public {
+
         vm.skip(!active);
 
         SeedGov gov = new SeedGov();
         registry.setGovernor(address(gov));
 
-        // --- SUMMON (progressive) ---
+        // --- SUMMON (seeder + window armed, but the base is 100% of ledger A) ---
         (address token1,) = registry.summon{value: 1 ether}();
         uint256 supply = registry.TOTAL_SUPPLY();
 
-        // HYBRID markers. The registry owns the BASE position (laid and then bought
-        // through in the ignition tx by the green candle); the seeder owns the N
-        // streamed minis. This assertion used to read `generationPositionId == 0`,
-        // encoding the old design where the progressive path placed the reserve
-        // silently and handed the WHOLE active tranche to the seeder. That launch
-        // opened with no trade at all, which is what left round 35 stalled at 23.5%.
-        // Both owners must now be non-empty, and teardown must still recover from
-        // both (asserted at the end of this test).
-        assertGt(registry.generationPositionId(1), 0, "hybrid: registry owns the base position");
+        // FULL-RANGE markers. The registry owns the whole base position (laid and
+        // then bought through in the ignition tx by the green candle); the seeder
+        // owns nothing at all, because there is no remainder to hand it.
+        assertGt(registry.generationPositionId(1), 0, "registry owns the full-range base position");
         assertGt(registry.generationReservePositionId(1), 0, "reserve (ledger B) placed at summon");
-        assertTrue(seeder.seeding(), "seeder armed");
-        assertEq(seeder.gen(), 1, "campaign is gen 1");
-        assertGt(seeder.rangeCount(), 0, "seed-floor slice placed");
-        assertEq(seeder.deployedWad(), 0.1e18, "10% seed floor deployed at t0");
-        // Ledger separation: the seeder holds ONLY ledger A (never the reserve).
-        // The 69x reserve backs redemption from block 0 regardless of seed progress.
+        assertFalse(seeder.seeding(), "no campaign: nothing left to stream (40b9608)");
+        assertEq(seeder.gen(), 0, "campaign never armed");
+        assertEq(seeder.rangeCount(), 0, "no streamed bands exist");
+        assertEq(seeder.deployedWad(), 0, "seeder received no tranche");
+        // Ledger separation is unchanged: the 69x reserve backs redemption from
+        // block 0, and it is out of range, so it is not the spot depth below.
+        assertGt(pm.getLiquidity(registry.generationPoolId(1)), 0, "spot depth from block 0");
 
-        // --- STREAM: poke over the window (permissionless keeper/frontend tx) ---
-        vm.warp(block.timestamp + WINDOW / 2);
+        // --- THE STREAM IS INERT, AND THE BOOK DOES NOT NEED IT ---
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 2);
         seeder.poke();
-        assertApproxEqAbs(seeder.deployedWad(), 0.55e18, 0.02e18, "~55% streamed at half-window");
+        assertEq(seeder.deployedWad(), 0, "poke() is inert with no campaign");
 
-        // A real buy against the (now half-streamed) book still works.
+        // Real buys fill against the full-range base, and the book stays CONTINUOUS:
+        // a second identical buy is not starved by an exhausted band (the r42 failure
+        // 40b9608 removes). Constant product puts got2/got1 near 0.83 here; under the
+        // old single-sided 15% band a buy past the last band returned ~nothing.
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
         uint256 bought = _buy(0.1 ether);
-        assertGt(bought, 0, "buy fills against the streamed book");
+        assertGt(bought, 0, "buy fills against the full-range base");
+        uint256 bought2 = _buy(0.1 ether);
+        assertGt(bought2, bought / 2, "book is continuous: no teleport past a last band");
 
-        // Finish the window → fully seeded.
-        vm.warp(block.timestamp + WINDOW);
+        // Time still passes to the end of the launch window; nothing changes.
+        vm.warp(vm.getBlockTimestamp() + WINDOW);
         seeder.poke();
-        assertEq(seeder.deployedWad(), 1e18, "100% deployed by window end");
-        assertTrue(seeder.isComplete(), "campaign complete");
+        assertEq(seeder.deployedWad(), 0, "still nothing to stream at window end");
+        assertGt(pm.getLiquidity(registry.generationPoolId(1)), 0, "spot depth persists through the window");
 
         // --- TEARDOWN + RELAUNCH ---
         // Switch the NEXT generation to the atomic path so we can assert the gen-1
@@ -165,12 +174,15 @@ contract ProgressiveSeedForkTest is Test {
     }
 
     // ---------------------------------------------------------------------------
-    // PARTIAL FILL → DEATH → FULL RECOVERY (the design's explicit teardown case):
-    // a campaign killed mid-stream (live mini-positions + un-streamed ledger A)
-    // must recover EVERYTHING at relaunch — nothing stranded.
+    // MID-LIFE DEATH → FULL RECOVERY (the design's explicit teardown case). This
+    // used to kill a campaign MID-STREAM; since 40b9608 (PoolOps.sol:168,
+    // SEED_BASE_WAD 0.15e18 -> 1e18) there is no campaign to kill — the whole of
+    // ledger A is a registry-owned full-range base. The recovery property is the
+    // same and is asserted unchanged: everything is unwound at relaunch, nothing
+    // stranded, supply conserved.
     // ---------------------------------------------------------------------------
-    function test_PartialStream_Death_FullRecovery_OnFork() public {
-        
+    function test_NoCampaign_Death_FullRecovery_OnFork() public {
+
         vm.skip(!active);
 
         SeedGov gov = new SeedGov();
@@ -178,36 +190,36 @@ contract ProgressiveSeedForkTest is Test {
 
         (address token1,) = registry.summon{value: 1 ether}();
 
-        // Stream only partway (past the throttle, well short of 100%).
-        vm.warp(block.timestamp + WINDOW / 4);
+        // There is no partial fill to reach: the seeder never took a tranche.
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 4);
         seeder.poke();
-        uint256 mid = seeder.deployedWad();
-        assertGt(mid, 0.1e18, "streamed past the floor");
-        assertLt(mid, 1e18, "NOT complete (partial fill)");
-        assertFalse(seeder.isComplete(), "campaign still live");
-        assertGt(seeder.rangeCount(), 0, "live mini-positions exist");
+        assertEq(seeder.deployedWad(), 0, "nothing streamed (base is 100% of ledger A)");
+        assertFalse(seeder.seeding(), "no campaign is live");
+        assertEq(seeder.rangeCount(), 0, "no mini-positions exist");
+        // ...and the depth the bands used to provide is in the pool already.
+        assertGt(pm.getLiquidity(registry.generationPoolId(1)), 0, "full-range base is the book");
 
-        // Some organic trading against the partial book → real circulating supply
+        // Some organic trading against the full-range book → real circulating supply
         // to migrate (so the newborn's reserve reseed is non-degenerate) and mixed
-        // ETH/token in the mini-positions the teardown must recover.
+        // ETH/token in the position the teardown must recover.
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
         uint256 circulating = _buy(0.15 ether);
         assertGt(circulating, 0, "acquired real circulating supply");
 
-        // Kill it mid-stream and rebirth on the atomic path.
+        // Kill it mid-life and rebirth on the atomic path.
         registry.setSeedWindow(0);
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
 
         uint256 supply = registry.TOTAL_SUPPLY();
         (address token2,) = registry.relaunch();
 
-        // FULL RECOVERY: the partial campaign is unwound, nothing stranded, supply
-        // conserved — the newborn seeded from the recovered ledger-A + reserve.
-        assertFalse(seeder.seeding(), "partial campaign torn down");
-        assertEq(CauldronToken(token1).balanceOf(address(seeder)), 0, "no tokens stranded (partial)");
-        assertEq(address(seeder).balance, 0, "no ETH stranded (partial)");
-        assertEq(registry.currentGeneration(), 2, "gen2 born from a mid-stream death");
+        // FULL RECOVERY: nothing stranded, supply conserved — the newborn seeded
+        // from the recovered ledger-A + reserve.
+        assertFalse(seeder.seeding(), "no campaign left armed after relaunch");
+        assertEq(CauldronToken(token1).balanceOf(address(seeder)), 0, "no tokens stranded");
+        assertEq(address(seeder).balance, 0, "no ETH stranded");
+        assertEq(registry.currentGeneration(), 2, "gen2 born from a mid-life death");
         assertEq(CauldronToken(token2).totalSupply(), supply, "supply conserved");
         assertGt(registry.generationPositionId(2), 0, "gen2 seeded");
     }
@@ -230,26 +242,36 @@ contract ProgressiveSeedForkTest is Test {
     }
 
     // ---------------------------------------------------------------------------
-    // IN-SWAP AUTOMATIC STREAMING (the headline): a plain buy through the hook
-    // advances the stream via afterSwap → seeder.pokeInSwap — NO explicit poke().
+    // IN-SWAP STREAMING IS WIRED BUT HAS NOTHING TO DO. The hook still points at
+    // the seeder and afterSwap still calls pokeInSwap, but since 40b9608
+    // (PoolOps.sol:168, SEED_BASE_WAD -> 1e18) no campaign is armed, so the nudge
+    // is a no-op — and the depth it used to add is in the pool from block 0. The
+    // property that replaced "the swap streamed the book deeper" is "the swap
+    // did not need to: the book was already there and stays continuous".
     // ---------------------------------------------------------------------------
-    function test_InSwap_AutoStreams_OnFork() public {
-        
+    function test_InSwap_NoStreamNeeded_FullRangeFromSummon_OnFork() public {
+
         vm.skip(!active);
         registry.setGovernor(address(new SeedGov()));
         registry.summon{value: 1 ether}();
-        assertEq(seeder.deployedWad(), 0.1e18, "floor at t0");
+        PoolId pid = registry.generationPoolId(1);
+        assertEq(seeder.deployedWad(), 0, "nothing streamed at t0");
+        assertFalse(seeder.seeding(), "no campaign armed (40b9608)");
         assertEq(hook.seeder(), address(seeder), "registry propagated the seeder to the hook");
+        uint256 liq0 = pm.getLiquidity(pid);
+        assertGt(liq0, 0, "full-range base is live at t0");
 
         // Advance the schedule, then just TRADE — no poke() call anywhere.
-        vm.warp(block.timestamp + WINDOW / 2);
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 2);
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
-        uint256 wadBefore = seeder.deployedWad();
-        _buy(0.05 ether);
+        uint256 got = _buy(0.05 ether);
 
-        assertGt(seeder.deployedWad(), wadBefore, "the swap itself streamed (in-swap pokeInSwap)");
-        assertApproxEqAbs(seeder.deployedWad(), 0.55e18, 0.06e18, "streamed to ~schedule via the swap");
+        assertGt(got, 0, "the swap filled against the base, not against a streamed band");
+        assertEq(seeder.deployedWad(), 0, "the in-swap nudge is inert: there is nothing to stream");
+        // The liquidity the swap traded against is the SAME position it started
+        // with — full range, so it is still in range after the price moved up.
+        assertEq(pm.getLiquidity(pid), liq0, "one full-range position, unchanged and still in range");
     }
 
     // ---------------------------------------------------------------------------
