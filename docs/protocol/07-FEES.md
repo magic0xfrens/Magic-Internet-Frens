@@ -24,12 +24,12 @@ in, and how it is claimed.
 | 3 | **Proposer slice** — `proposerBps` of the fee | off the top of the fee | **native wei only** (`CauldronHook.sol:1303`) | `proposerOwed[activeProposer]` (`:497`, `:1307`) | `claimProposerFees()` (`:2071`), pull, `nonReentrant` | non-native fee ⇒ the slice is **not carved at all**; it stays in `feeAmount` and ends in `relaunchAsset[]` |
 | 4 | **Guild slice** — `guildBps` of the fee | after the proposer slice | fee asset | pushed to `guild` (`:469`) — native `.call{value:}` or ERC20 `approve` + `fundToken` (`FeeRouteLib.sol:129-133`) | `MiFrensDividend.claim` / `claimMany` / `claimTokens` | send fails, guild is `address(0)`, or **guild address has no code** ⇒ returned as `leftover` (`FeeRouteLib.sol:65`) and credited to the relaunch reserve |
 | 5 | **Legacy-buyback carve** — `legacyBps` of the post-guild fee | taken from the floor share first, then the relaunch share (`:1369-1373`) | **must equal `_liveKey.currency0`** (`:1365`) | `legacyBuffer` (`:318`) + `legacyBufferAsset` (`:2470`) | spent by `legacyBuyStep` (`:1083`); the tokens bought are counted in `legacyOwedToReserve` (`:1119`) | asset mismatch ⇒ carve skipped, the share stays on the floor/relaunch route |
-| 6 | **Floor share** — `floorBps` of the post-guild fee | after guild and carve | fee asset | `vault` (`:453`), a `CauldronVault` | `CauldronVault.redeem(tokenId)` | `vault == 0` **and** native ⇒ joins `legacyBuffer` (`:1390-1393`); `vault == 0` otherwise ⇒ folded into relaunch (`:1395`); `vault != 0` but fee is non-native ⇒ folded into relaunch (`:1396-1405`); `vault != 0`, native, send fails ⇒ `leftover` ⇒ relaunch |
+| 6 | **Floor share** — `floorBps` of the post-guild fee | after guild and carve | fee asset | `vault` (`:453`), a `CauldronVault` | **not a live claim path** — every shipped config calls `hook.setVault(address(0))` at both collection-deploy sites (`CauldronRegistry.sol:1124,1148`), so this share folds into `legacyBuffer` and `CauldronVault.redeem` reverts `UnifiedFloorActive()`. The real creature-floor claim is `recycleCollectionNFT(tokenId, gen)` on the registry, paid out of the legacy reserve that `materializeLegacyReserve()` tops up. See the unified-floor note below. | `vault == 0` **and** native ⇒ joins `legacyBuffer` (`:1390-1393`); `vault == 0` otherwise ⇒ folded into relaunch (`:1395`); `vault != 0` but fee is non-native ⇒ folded into relaunch (`:1396-1405`); `vault != 0`, native, send fails ⇒ `leftover` ⇒ relaunch |
 | 7 | **Relaunch residual** | the remainder, by subtraction | fee asset | `relaunchETH` (`:286`) if native, else `relaunchAsset[asset]` (`:2452`) | `releaseRelaunchETH()` (`:1662`) / `releaseRelaunchAsset(asset)` (`:1690`) — **registry only** | send failure reverts `SendFailed` and the counter is restored by the revert |
 | 8 | **Anti-sniper surtax** — 100% | on top of the base fee, same leg | fee asset | `guild` in full (`:1484`) | dividend claims, as leg 4 | guild unset **or** the guild send returns non-zero leftover ⇒ the whole surtax re-enters the ordinary fee route `_routeEthFee` (`:1485`) |
 | 9 | **Perp-swap fee, guild part** — 30% (`3000` bps, `:1239`) | of the base fee when `sender == perpEngine` | fee asset | `guild` (`FeeRouteLib.sol:97`) | dividend claims | failure ⇒ `leftover` ⇒ relaunch reserve (`:1243`) |
 | 10 | **Perp-swap fee, staker part** — 70% (remainder, `:1240`) | same | fee asset | the perp engine, via `creditPerpFee()` (buys) / `creditPerpFeeToken()` (sells) / `creditPerpFeeAsset(asset,amount)` (`:1245-1246`) | out of scope — see the perp doc | **codeless engine** ⇒ `_deliver` returns false **before any value leaves** (`FeeRouteLib.sol:162`) ⇒ `leftover` ⇒ relaunch reserve |
-| 11 | **ERC-2981 royalties** | marketplace secondary sales | native wei | `legacyBuffer` via `fundLegacyBuffer()` (`:1129`), forwarded by `RoyaltyRouter.receive()` (`RoyaltyRouter.sol:32-34`) | — | `fundLegacyBuffer` **reverts `BadParam`** unless the live quote is native and the buffer is empty-or-native (`:1136-1137`); the router's forward is unguarded, so the whole `receive()` reverts |
+| 11 | **ERC-2981 royalties** | marketplace secondary sales | native wei | `legacyBuffer` via `fundLegacyBuffer()` (`:1129`), forwarded by `RoyaltyRouter.receive()` (`RoyaltyRouter.sol:32-34`) | — | `fundLegacyBuffer` now **accepts every payment**: it routes into the buyback buffer when the live generation is ether-quoted and into `relaunchETH` when it is not. The router's forward is also no longer fatal — it is skipped below a gas floor and never bubbles, so a marketplace paying with the 2300-gas `transfer` stipend can no longer revert the sale; anything not forwarded is held and delivered by `sweep(address(0))` |
 | 12 | **Bought-back tokens** | the output of `legacyBuyStep` | the iteration token | `legacyOwedToReserve` (`:332`) | `sweepLegacyReserve(token, to)` (`:1154`) — **`legacyRegistry` only**; pulled by `RedemptionExt.materializeLegacyReserve()` (`cauldron/RedemptionExt.sol:147`) | the amount is clamped to the hook's live token balance (`:1158`), so the counter cannot outrun the balance |
 
 **12 rows.**
@@ -338,9 +338,23 @@ self-call and the feature went silently dead with no reset path at any privilege
 level; where it held more, the buy paid for the donation out of `relaunchAsset[q]`
 without debiting that counter (`:2454-2469`).
 
-**The consequence, stated plainly:** on a generation whose quote is an ERC20,
-`fundLegacyBuffer` reverts, and therefore **any ether sent to `RoyaltyRouter`
-reverts**. The router holds nothing and has no recovery path.
+**The consequence, stated plainly (updated — this describes the shipped
+contract, not the one that used to be here):** `fundLegacyBuffer` accepts every
+payment on every quote, routing to the buyback buffer on an ether-quoted
+generation and to `relaunchETH` otherwise. Ether sent to `RoyaltyRouter` does
+**not** revert, and neither does the sale that paid it: the forward is skipped
+below a gas floor and swallowed on failure, so a stipend-paying marketplace
+settles normally and the router simply holds the wei.
+
+The router also has an exit now. `RoyaltyRouter.sweep(address)` is
+**permissionless and takes no destination** — both destinations are immutable, so
+anyone may push funds along and nobody can redirect them. `sweep(address(0))`
+delivers held ether to `fundLegacyBuffer`; `sweep(token)` delivers an ERC20
+royalty (Blur settles in WETH; Seaport offers are routinely WETH or USDC) to the
+**genesis dividend**, and calls its `adopt` best-effort so it is booked for
+holders. The keeper (`scripts/keeper.sh`) and a button beside the dividend claim
+both call it; before that fix a WETH royalty was stranded at every privilege
+level, forever.
 
 ---
 

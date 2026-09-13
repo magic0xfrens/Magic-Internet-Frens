@@ -308,8 +308,16 @@ The window is denominated in **wall-clock seconds**, not blocks:
 | `SECONDS_PER_HOUR` | `1 hours` | 196 |
 | `SECONDS_PER_DAY` | `1 days` | 197 |
 
-`_getCurrentBucket() = (block.timestamp / SECONDS_PER_HOUR) % HOURS_PER_DAY`
-(`:1627-1629`). The rationale is recorded at `:175-199`: on Arbitrum Nitro and
+`_getCurrentBucket() = (block.timestamp / SECONDS_PER_HOUR) % HOURS_PER_DAY`.
+
+> **UPDATED (audit K1a / C-7).** The ring is stepped on the **absolute** hour
+> index, not the mod-24 one: `uint256 steps = block.timestamp / SECONDS_PER_HOUR
+> - lastTs / SECONDS_PER_HOUR;`. Under the old mod-24 arithmetic a gap of, say,
+> 25 hours looked like a gap of 1, so stale buckets survived and the reported
+> window could stretch to ~46 h. It now cannot exceed 24 h. Every `file:line`
+> in this section is roughly 50 lines stale against the tree — `_recordVolume`
+> is near `:1553`, `getVolume24h` near `:1586`, `linkVolume` near `:1633` — so
+> trust the names, not the numbers. The rationale is recorded at `:175-199`: on Arbitrum Nitro and
 Orbit chains `block.number` reports the *parent* chain's block number, so a
 block-counted window would have had a wall-clock length set by the settlement
 layer.
@@ -318,18 +326,19 @@ layer.
 
 `_recordVolume` (`:1502-1530`):
 
-- if more than a day has passed since the last update, **all 24 buckets are wiped**
-  (`:1507-1510`);
+- `steps` is the count of **absolute** hours elapsed, so a gap can no longer be
+  mistaken for a short one by wrapping at 24;
+- if `steps >= 24`, **all 24 buckets are wiped**;
 - otherwise every bucket strictly between the last written index and the current
-  one is zeroed, capped at 24 steps (`:1511-1520`);
+  one is zeroed, capped at 24 steps;
 - the add into the current bucket **saturates** at `type(uint128).max` rather than
   wrapping (`:1523-1525`).
 
 Buckets are `uint128[24]` (`:273`) so two share a storage slot and the sum costs 12
 SLOADs.
 
-`getVolume24h` (`:1532-1540`) returns **`0` outright** if
-`block.timestamp > _lastUpdateTs[id] + SECONDS_PER_DAY` (`:1533`) — a hard cliff for
+`getVolume24h` skips the gap the lazy ring has not cleared yet and returns **`0`
+outright** once `gap >= HOURS_PER_DAY` — a hard cliff for
 total inactivity, independent of per-bucket eviction.
 
 ### Aggregating siblings

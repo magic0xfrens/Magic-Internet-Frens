@@ -114,9 +114,17 @@ computable at mint time, letting them take the better of two; re-anchoring keeps
 **Stated honestly, the property that remains:** the current draw *is* computable
 off-chain for the 256 blocks in which `blockhash(mb)` is available, and only the
 owner may call `reveal` (`:248`). A holder who computes an unfavourable tier can
-simply not reveal, wait out the 256-block window, and re-anchor to a fresh seed.
-The cost of one re-roll is ~256 blocks of patience plus one transaction. The design
-prevents *knowing two draws at once*; it does not prevent *sequential re-rolling*.
+simply not reveal, wait out the 256-block window, and re-anchor to a fresh seed —
+**once, and only once.** The re-anchor is one-shot: `CauldronCollection.sol:300-312`
+sets `reanchored[tokenId] = true` on the first expiry, and on the SECOND expiry it
+does not re-anchor at all — it silently commits the base tier
+(`rarityOf[tokenId] = 0; revealed[tokenId] = true;`), i.e. Common. `MiFrensGenesis`
+has the same shape at `:560-563`.
+
+So the grind is bounded at exactly one re-roll, and it is not free: an inattentive
+holder who lets a second window lapse is **downgraded to Common with no warning**,
+on chain and in the UI. The design prevents *knowing two draws at once*; it permits
+*one* sequential re-roll and punishes a third attempt.
 
 ---
 

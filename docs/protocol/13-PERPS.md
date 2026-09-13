@@ -239,7 +239,14 @@ with one exception, below.
 **B. Inside the mark source — `PerpMarkSource.weightedTick()`
 (`PerpMarkSource.sol:158-187`).**
 
-1. `!armed` → returns **tick 0** (`:159`).
+1. `!armed` → **reverts `NotArmed()`** (`PerpMarkSource.sol:183`, error declared
+   `:83`). It no longer returns tick 0, so the sharp edge described below is gone:
+   the engine's staticcall fails soft and it falls back to its own pool.
+
+   **The operational duty this creates.** `markSource` is cleared on EVERY
+   `syncGeneration`, not only on a rotation — so governance must re-arm it with
+   `setRouting` after **every relaunch as well as every rotation**. Until it is
+   re-armed the engine prices off its own pool alone.
 2. no sibling pools → the primary's tick (`:165`).
 3. siblings present but no in-range liquidity anywhere → the primary's tick
    (`:185`).
@@ -551,11 +558,27 @@ asset — but a claim left unclaimed against zero backing is worth nothing.
 
 When a rotation's migration mandate is spent, `RedemptionExt.rotateSliceFrom`
 flips `generationQuote[gen]` and calls `syncGeneration()` on the engine
-**in the same transaction**, best-effort (`RedemptionExt.sol:526-562`). That is
-safe without a new guard: reaching that line required `linkVolume` to succeed
-earlier in the same call, and `linkVolume` reverts `PerpsOpen` unless
-`openCount == 0` (`CauldronHook.sol:1596-1600`). The book is provably empty, and
-no user can interleave an open inside one transaction.
+**in the same transaction**, best-effort. Reaching that line required
+`linkVolume` to succeed earlier in the same call, and `linkVolume` reverts
+`PerpsOpen` unless `openCount == 0`, so the book is empty and no user can
+interleave an open inside one transaction.
+
+**But "best-effort" is load-bearing, and the failure mode is a PARKED engine.**
+The sync is wrapped in `try … {} catch {}` (`RedemptionExt.sol:617`), and
+`syncGeneration` reverts `VaultStaked` for any caller but the owner while
+**one wei** of quote-side vault stake is live (`PerpEngine.sol:1388-1389`,
+`IPerpVaultStake(vault).hasQuoteStake()`). When that happens the rotation still
+completes and the engine is left unsynced: `_isDead()` returns true because
+`quote != registry.generationQuote(gen)` (`:1883`), so `_guardOpen` refuses every
+open with `TokenDead`.
+
+That state is **parked, not dead**. Volume is fine and the death floor is
+irrelevant; the market is closed purely because the engine has not been pointed
+at the new quote. Nothing revives it automatically — an **owner or timelock**
+call to `syncGeneration` is required, and it is the only caller the
+`hasQuoteStake` guard exempts. The UI now says exactly this rather than
+reporting a dead token (audit C-1). Plan a rotation accordingly: either drain
+quote-side stake first, or expect to follow the rotation with a governed sync.
 
 If the engine is unset, both guards vanish at once. Do not "just unset the
 engine" to work around the interlock (`CauldronHook.sol:1587-1595`).
@@ -635,11 +658,13 @@ the swap fills at spot. The two are deliberately different.
 BPS`, and `cap > 0` gates the check (`:884`, `:989`). A pool with no in-range
 liquidity has no per-block liquidation bound.
 
-**An unarmed mark source reports tick 0 as a real answer.**
-`PerpMarkSource.weightedTick` returns 0 when `armed` is false
-(`PerpMarkSource.sol:159`), and `_currentTick` cannot distinguish that from a
-genuine tick of 0 (`PerpEngine.sol:563-566`). Call `setPrimary` before pointing
-the engine at a mark source.
+**An unarmed mark source used to report tick 0 as a real answer — it no longer
+does.** `PerpMarkSource.weightedTick` now **reverts `NotArmed()`** when `armed`
+is false (`:183`), so `_currentTick` can distinguish "not armed" from "a genuine
+tick of 0" and falls back to the engine's own pool. Still call `setPrimary`
+before pointing the engine at a mark source — and remember that `markSource` is
+cleared on every `syncGeneration`, so a relaunch or a rotation leaves it unarmed
+until governance calls `setRouting` again.
 
 **Bad debt lands on quote-side depositors.** Insurance absorbs first, then LP
 principal, saturating at zero so an extreme gap cannot brick a liquidation

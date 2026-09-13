@@ -287,12 +287,13 @@ All live on `CauldronBase` and are shared with the `RedemptionExt` facet.
 
 ## 5. Known limitations of this lifecycle
 
-- **`hasClaimed()` always returns false.** The `claimed[gen][holder]` mapping
-  (`CauldronBase.sol:209`) has exactly one reader,
-  `CauldronRegistry.hasClaimed` (`:1774-1776`), and **no writer anywhere in the
-  non-test tree**. It is a dead storage slot retained for layout stability; the
-  view built on it is meaningless. Migration is tracked by burning the real old
-  balance, not by a flag (`:1344-1345`).
+- **`hasClaimed()` no longer exists.** The accessor was REMOVED — see the notes
+  left in its place at `CauldronRegistry.sol:1822` and `CauldronBase.sol:222`.
+  The `claimed[gen][holder]` mapping it read is a dead storage slot retained for
+  layout stability, with no writer anywhere in the non-test tree, so the view was
+  meaningless and is gone rather than misleading. **Do not wire it**: a repo-wide
+  grep finds only those two comments. Migration is tracked by burning the real old
+  balance, not by a flag.
 - **A progressive generation has no single active position.**
   `generationPositionId[g] == 0`; the active book is N core positions owned by the
   seeder, recoverable only through `ISeeder.withdrawAll`, which is
