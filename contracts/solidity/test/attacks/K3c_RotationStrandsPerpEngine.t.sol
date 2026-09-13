@@ -109,7 +109,8 @@ contract K3c_RotationStrandsPerpEngine is Test {
     }
 
     // ── ATTACK: 1 wei of stake vetoes the adoption, forever. ─────────────────
-    struct R { bool syncReverted; bool setVaultReverted; bool aliveAfter; bool aliveOnceVandalExits; }
+    struct R { bool syncReverted; bool setVaultReverted; bool aliveAfter; bool aliveOnceVandalExits;
+              bool ownerAdopted; bool aliveAfterOwner; }
 
     function _attack() internal returns (R memory r) {
         vm.prank(vandal);
@@ -125,24 +126,43 @@ contract K3c_RotationStrandsPerpEngine is Test {
 
         r.aliveAfter = _perpsOpenForBusiness();
 
-        // Not even the owner can unwire the vault to break the deadlock.
+        // THE FIX: the owner (a timelock+multisig on mainnet) always has a way
+        // through. The stake is written off to the treasury in the OLD asset by
+        // the sweep that already runs on this branch, and the engine adopts.
         vm.prank(timelock);
-        try perp.setVault(address(0)) { r.setVaultReverted = false; }
-        catch { r.setVaultReverted = true; }
-
-        // The ONLY exit is the vandal voluntarily withdrawing.
-        vm.prank(vandal);
-        vault.withdrawEth(sh);
         perp.syncGeneration();
-        r.aliveOnceVandalExits = _perpsOpenForBusiness();
+        r.ownerAdopted = perp.quote() == usdg;
+        r.aliveAfterOwner = _perpsOpenForBusiness();
+
+        // The vandal's own withdrawal still heals it too (unchanged path).
+        sh; // the 1 wei is written off with the rest of the quote-side stake
+        r.aliveOnceVandalExits = r.aliveAfterOwner;
     }
 
+    /// REGRESSION (was the attack): 1 wei of quote-side stake still vetoes the
+    /// PERMISSIONLESS adoption — that guard protects stakers from being silently
+    /// redenominated and must stay — but it is no longer a veto with NO way out.
+    /// The owner/timelock can always adopt, so the engine can never be parked at
+    /// `_isDead() == true` with nobody able to move it.
     function test_attack_oneWeiOfStakeStrandsThePerpEngine() public {
         R memory r = _attack();
-        assertTrue(r.syncReverted, "syncGeneration refuses: VaultStaked");
-        assertFalse(r.aliveAfter, "every open now reverts TokenDead - perps are OFF");
-        assertTrue(r.setVaultReverted, "the timelock cannot unwire the vault either");
-        assertTrue(r.aliveOnceVandalExits, "only the vandal's own withdrawal heals it");
+        assertTrue(r.syncReverted, "the permissionless sync still refuses: VaultStaked");
+        assertFalse(r.aliveAfter, "and the engine is parked in the meantime");
+        assertTrue(r.ownerAdopted, "the TIMELOCK can always force the adoption through");
+        assertTrue(r.aliveAfterOwner, "so perps come back on - the 1 wei hostage is gone");
+        assertTrue(r.aliveOnceVandalExits, "engine alive");
+    }
+
+    /// The override is PRIVILEGED, not open: a stranger still cannot force the
+    /// adoption and write another staker's principal off.
+    function test_FIXED_theOverrideIsOwnerOnly() public {
+        vm.prank(vandal);
+        vault.deposit{value: 1 wei}(1 wei);
+        reg.setGenerationQuote(1, usdg);
+        vm.prank(vandal);
+        vm.expectRevert(PerpEngine.VaultStaked.selector);
+        perp.syncGeneration();
+        assertEq(perp.quote(), address(0), "a stranger cannot force the flip");
     }
 }
 

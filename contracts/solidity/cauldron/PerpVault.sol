@@ -138,6 +138,9 @@ contract PerpVault is ReentrancyGuard {
     error ZeroAmount();
     error ZeroShares();
     error InsufficientShares();
+    /// The queued-exit nominal outruns the engine's ETH backing; deposits are shut
+    /// until the queue banks its haircut through {claimPendingEth}. See {deposit}.
+    error QueueInsolvent();
     error TransferFailed();
 
     constructor(address _engine, address _registry) {
@@ -220,6 +223,20 @@ contract PerpVault is ReentrancyGuard {
      */
     function deposit(uint256 amount) public payable nonReentrant returns (uint256 shares) {
         if (amount == 0) revert ZeroAmount();
+        //  ── NO NEW MONEY INTO AN INSOLVENT QUEUE (red-team T3a) ─────────────
+        //  {assetsEth} saturates at zero (`:196`), so once `pendingEth` outruns the
+        //  engine's backing the share price collapses to the 1-wei OFFSET base and
+        //  a fresh depositor mints shares worth ~nothing — while `engine.totalEth()`
+        //  jumps by exactly his principal, which {_haircut} (`:263-278`) then hands
+        //  to the stale queue in full. Measured: a 10 ETH deposit was worth < 1 gwei
+        //  the instant it minted and paid a queue that was already worthless.
+        //  The seniority note above says a queued exit is a CLAIM, not a guarantee,
+        //  and must bear its share of the loss. Letting a newcomer's principal pay
+        //  it instead inverts that. So refuse until the queue has recognised its own
+        //  write-down: {claimPendingEth} banks the haircut permissionlessly (and
+        //  banks a zero rather than reverting, see `:333`), which drains `pendingEth`
+        //  and reopens the side. No privilege, no timelock, no stuck vault.
+        if (pendingEth > engine.totalEth()) revert QueueInsolvent();
         //  Read defensively. An engine that predates multi-quote has no
         //  `quote()`, and an interface call would revert the whole deposit
         //  rather than fall back — turning a compatibility gap into an outage.

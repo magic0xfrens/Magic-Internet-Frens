@@ -171,7 +171,16 @@ contract PerpMarkSource is Ownable {
      *         falling back to the primary's tick when nothing is weighable.
      */
     function weightedTick() external view returns (int24 tick) {
-        if (!armed) return 0;
+        //  ── FAIL CLOSED, NEVER ANSWER TICK 0 (red-team T3e) ─────────────────
+        //  This used to `return 0`, which is not "no answer" — tick 0 is a VALID,
+        //  perfectly plausible price of 1:1. {PerpEngine._currentTick} (`:666-684`)
+        //  accepts any well-formed 32-byte answer with no sanity check and marks the
+        //  whole book against it, so an unarmed source silently repriced every
+        //  position to parity and drove liquidations off a number nobody set.
+        //  Reverting is the honest answer: the engine's staticcall then fails, `ok`
+        //  is false, and it falls back to its OWN pool's slot0 — the same mark it
+        //  uses when no source is wired at all.
+        if (!armed) revert NotArmed();
         PoolKey memory p = primary;
         int24 primaryTick;
         (, primaryTick,,) = poolManager.getSlot0(p.toId());

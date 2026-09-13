@@ -106,6 +106,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint8 internal constant MODE_NORMAL = 0;
     uint8 internal constant MODE_LIQUIDATION = 1;
     uint8 internal constant MODE_DEATH = 2;
+    /**
+     *  ── THE DEATH PATH IS NOT A FREE OPTION ON THE POOL (red-team T3d) ──────
+     *  {forceCloseDead} / {forceCloseAllDead} are PERMISSIONLESS, pay the caller
+     *  `keeperBps` of the residual, and passed a literal `minOut` of `0` into
+     *  {_settle} — which enforces slippage only on `MODE_NORMAL`. So once the token
+     *  reads dead (and T3d showed an ARMED mark source lets `linkVolume`, and with
+     *  it a quote rotation, through over an OPEN book, so solvent positions ARE on
+     *  the book when death lands) anyone could sandwich their own force-close and
+     *  take the difference, with the keeper cut on top.
+     *
+     *  So the dead path gets a floor of its own, derived from the engine's own TWAP
+     *  mark rather than from the caller: the sale must clear at least this fraction
+     *  of the marked value, and a buy-back must not cost more than the reciprocal.
+     *  Wide on purpose — it is a theft filter, not a slippage setting. Honest depth
+     *  moves nowhere near it, and a keeper who has to move the pool 10% to profit is
+     *  paying more for the privilege than the cut is worth.
+     *
+     *  Not a brick: the check reverts, it does not write anything off, so the very
+     *  next block retries; the position's own trader can always exit through
+     *  {close} (its `_guardOpen` gate is on OPENING, not closing); and the mark is a
+     *  TWAP, so an attacker holding the pool below the band drags the band down with
+     *  it. Contrast a write-off, which would be permanent.
+     */
+    uint256 internal constant DEATH_SLIP_BPS = 1000; // 10% band around the mark
 
     // ── config (owner-tunable) ──
     address public dividend;
@@ -978,10 +1002,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // Community PLV: cap utilization so a share of depositor liquidity stays
         // instantly withdrawable, and pause opens if the insurance buffer is
         // depleted below the circuit-breaker floor (bad-debt protection).
-        if (vault != address(0)) {
-            if (longOiEth + borrow > (totalEth() * maxUtilBps) / BPS) revert UtilCapped();
-            if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
-        }
+        _utilGate(longOiEth + borrow, totalEth());
         uint256 buyEth = collateral + borrow;
         _checkNotional(buyEth);
         if (longOiEth + borrow > (activeEthDepth() * maxOiBps) / BPS) revert OiCapped();
@@ -1016,10 +1037,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         uint256 tokenToSell = _ethToToken(notionalEth); // ETH notional → token at spot
         if (tokenToSell > plvToken) revert PlvInsufficient();
         // Community PLV: token-side utilization cap + insurance circuit breaker.
-        if (vault != address(0)) {
-            if (shortOiToken + tokenToSell > (totalTokenAssets() * maxUtilBps) / BPS) revert UtilCapped();
-            if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
-        }
+        _utilGate(shortOiToken + tokenToSell, totalTokenAssets());
         if (shortOiToken + tokenToSell > (_ethToToken(activeEthDepth()) * maxOiBps) / BPS) revert OiCapped();
 
         plvToken -= tokenToSell; shortOiToken += tokenToSell;
@@ -1159,11 +1177,19 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         (keeperBps of residual), so bots clear every position the instant a
     ///         token dies, well before a relaunch could strand it. The trader
     ///         keeps the rest of their equity.
+    /// @dev The two-line preamble both force-close entry points share, byte for
+    ///      byte (EIP-170). Behaviour identical: refuse unless the token is dead,
+    ///      then bring funding and the TWAP observation up to date so the band the
+    ///      dead path is checked against ({_deathBand}) is the current mark.
+    function _deadPrep() private {
+        if (!_isDead()) revert NotDead();
+        _pokeFunding();
+    }
+
     function forceCloseDead(uint256 id) external nonReentrant notNested {
         Position memory p = _pos(id);
         if (p.trader == address(0)) revert NotOpen();
-        if (!_isDead()) revert NotDead();
-        _pokeFunding();
+        _deadPrep();
         _settle(id, p, 0, MODE_DEATH, msg.sender);
     }
 
@@ -1175,8 +1201,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         settlement swaps don't touch the hook fee/buyback), so a staker's PLV
     ///         auto-migrates with no manual step. Reverts if not dead (no-op guard).
     function forceCloseAllDead() external nonReentrant notNested {
-        if (!_isDead()) revert NotDead();
-        _pokeFunding();
+        _deadPrep();
         // Close the front of the open set repeatedly — O(n) (the old per-close
         // min-scan was O(n²) and could OOG under many positions). `_settle`
         // swap-pops the closed id, so `_openIds[0]` always holds the next to close.
@@ -1334,7 +1359,24 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  script's own PLV_SEED_ETH reaches the same state by doing nothing
             //  wrong. Ask the QUOTE-side question the vault's header (PerpVault.sol
             //  :174-186) always documented as the one being asked:
-            if (vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) revert VaultStaked();
+            //  ── ...BUT IT MUST NOT BE A VETO WITH NO WAY OUT (red-team T3c) ─
+            //  One wei of `ethShares` makes {hasQuoteStake} true, this reverted, and
+            //  {RedemptionExt} `:617` swallows the revert — so the quote flipped in
+            //  the registry, `_isDead()` (`:1797`) read the divergence as death, every
+            //  open reverted `TokenDead`, and {setVault} (`:2435`) was vetoed by the
+            //  same dust. Nothing owner, timelock or registry could call un-stranded
+            //  it: only the vandal's own withdrawal, or the next relaunch. A 1-wei,
+            //  un-evictable shutdown of all leverage for a generation.
+            //  So the guard stands for EVERYONE EXCEPT the owner (a timelock+multisig
+            //  on mainnet), which now always has a way through. The stakers are not
+            //  silently redenominated when it uses it — the sweep below zeroes `plv`
+            //  in the OLD asset and sends it to the treasury BEFORE `quote` flips, the
+            //  same explicit, logged write-off shape this block already applies to
+            //  `tokYieldEth`, so governance can make them whole in the old unit
+            //  instead of the vault paying an 18-decimal figure out of a 6-decimal pot.
+            if (msg.sender != owner() && vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) {
+                revert VaultStaked();
+            }
             //  ...and with nobody left owning them, the protocol's own old-asset
             //  equity is swept to the treasury IN THE OLD ASSET — `quote` has not
             //  flipped yet, so `_payOut` still pays the right thing — and the
@@ -1381,7 +1423,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  weighted mark on the new pair through {setRouting} when it is ready;
             //  until then the primary pool's tick is used, exactly as it is on any
             //  engine with no mark source wired.
-            markSource = address(0);
+            //  ── AND NOT ONLY THE ROTATION (red-team T3e) ──────────────────
+            //  The drop used to live HERE, inside the `newQuote != quote` branch, so
+            //  a RELAUNCH — which clamps its quote to native and therefore never
+            //  enters this branch — left the source armed on the DEAD generation's
+            //  pool, marking the new token off the old one's price. Moved below, out
+            //  of the branch: {syncGeneration} only ever runs on a generation change
+            //  or a quote change, and BOTH invalidate the pointer.
             //  And the decimals the thresholds are compared in (see {_q}).
             //  ── AND THE VALUE THE THRESHOLDS ARE COMPARED IN (see {_q}) ────
             //  This was `unitOf(newQuote)`, which rescaled the UNITS only: on a
@@ -1391,6 +1439,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             quoteUnit = PerpSwapLib.quoteFactor(quoteOracle, newQuote);
         }
         quote = newQuote;
+        //  The mark pointer never survives a sync — see the note in the branch above.
+        markSource = address(0);
 
         syncedGeneration = gen;
         syncedToken = newTok;
@@ -1521,6 +1571,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @dev The dead path's price band, both directions, folded out of {_settle}'s
+    ///      two branches (EIP-170 — the duplicated mul/div/revert did not fit).
+    ///      `buy`: `realised` is what the buy-back COST for `size` tokens and must
+    ///      not exceed the mark plus the band. Otherwise `realised` is the sale
+    ///      proceeds for `size` tokens and must clear the mark minus it.
+    ///      See {DEATH_SLIP_BPS} for why this exists and why reverting is safe.
+    function _deathBand(bool buy, uint256 realised, uint256 size) internal view {
+        uint256 lim = _quoteMark(size) * (buy ? BPS + DEATH_SLIP_BPS : BPS - DEATH_SLIP_BPS);
+        uint256 got = realised * BPS;
+        if (buy ? got > lim : got < lim) revert Slippage();
+    }
+
     function _settle(uint256 id, Position memory p, uint256 minOut, uint8 mode, address keeper) internal {
         delete positions[id];
         _removeOpen(id); // enumerable set
@@ -1532,6 +1594,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             longOiEth -= p.principal;
             uint256 proceeds = _swapExactIn(false, p.size); // sell held token → ETH
             if (ownerSlippage && proceeds < minOut) revert Slippage();
+            // The dead path's own floor, off the mark, not off the caller. See
+            // {DEATH_SLIP_BPS}.
+            if (mode == MODE_DEATH) _deathBand(false, proceeds, p.size);
             uint256 repay = proceeds >= p.principal ? p.principal : proceeds;
             plv += repay;
             // Bad debt (proceeds < principal): `plv` already booked the reduced
@@ -1547,6 +1612,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             // the pool's token side unclosable by anyone, its owner included.
             uint256 backing = uint256(p.collateral) + p.principal;
             (uint256 cost, uint256 bought) = _buyUpTo(p.size, backing + insuranceEth + plv);
+            // Same floor, mirrored: the buy-back must not cost materially more than
+            // the marked value of what it actually bought. See {DEATH_SLIP_BPS}.
+            if (mode == MODE_DEATH) _deathBand(true, cost, bought);
             shortOiToken -= bought;              // only what came back is off the books
             plvToken += bought;                  // ...and back in inventory
             // The buy-back may have spent MORE ETH than this position's backing;
@@ -1860,6 +1928,17 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         p.collateral = 0;
         p.principal = newBacking;
         _addOpen(id, p); // enumerable re-add
+    }
+
+    /// @dev Community-PLV admission gate, shared by {openLong} and {openShort}
+    ///      byte for byte (EIP-170). Behaviour identical to the two inline copies
+    ///      it replaces: while a vault is wired, cap the side's utilization at
+    ///      `maxUtilBps` of that side's total assets, and pause opens while the
+    ///      insurance buffer sits below its circuit-breaker floor. No vault, no gate.
+    function _utilGate(uint256 used, uint256 total) private view {
+        if (vault == address(0)) return;
+        if (used > (total * maxUtilBps) / BPS) revert UtilCapped();
+        if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
     }
 
     /// @dev Remove a settled position from the enumerable open set (swap-and-pop).

@@ -7,7 +7,7 @@ Status: CLAIMED → DONE | RELEASED ; WAIT (blocked on another claim) ; SPACE (n
 |---|---|---|---|
 | CauldronCollection | 11,553 | 13,023 | 13,023 |
 | CauldronGachaRouter | 8,580 | 15,996 | 15,996 |
-| CauldronGovernor | 9,302 | 15,274 | 15,274 |
+| CauldronGovernor | 9,341 | 15,274 | 15,235 |
 | CauldronHook | 24,530 | 46 | 46 |
 | CauldronRegistry | 24,492 | 84 | 84 |
 | CauldronSeeder (cauldron/CauldronSeeder.sol) | 15,260 | 9,316 | 9,316 |
@@ -30,7 +30,7 @@ Status: CLAIMED → DONE | RELEASED ; WAIT (blocked on another claim) ; SPACE (n
 | RedemptionExt | 13,973 | 10,603 | 10,603 |
 | RoyaltyRouter | 293 | 24,283 | 24,283 |
 | SurtaxLib | 723 | 23,853 | 23,853 |
-| TreasuryGovernor | 6,653 | 17,923 | 17,923 |
+| TreasuryGovernor | 6,646 | 17,923 | 17,930 |
 
 ## Rows
 | agent | finding | files (comma-separated) | functions | status | note |
@@ -44,9 +44,9 @@ Status: CLAIMED → DONE | RELEASED ; WAIT (blocked on another claim) ; SPACE (n
 | fixPERP | T3a | contracts/solidity/cauldron/PerpVault.sol, contracts/solidity/test/attacks/K3a_StaleQueueEatsDeposit.t.sol | depositEth | CLAIMED | stale exit queue eats a fresh deposit |
 | fixPERP | T3e | contracts/solidity/cauldron/PerpMarkSource.sol, contracts/solidity/cauldron/PerpEngine.sol, contracts/solidity/test/attacks/K3e_StaleMarkSource.t.sol | weightedTick, syncGeneration | CLAIMED | unarmed mark source returns tick 0; stale source survives relaunch |
 | fixPERP | T3f | contracts/solidity/cauldron/PerpEngine.sol | _rebook | CLAIMED | rebook zeroes collateral -> no funding, no liq penalty |
-| fixGOV | T2a | contracts/solidity/cauldron/TreasuryGovernor.sol, contracts/solidity/test/attacks/K2a_PartialEnvelopeStarve.t.sol | allowance, consume | CLAIMED | partial envelopes meter on shared movedBps; secondary-leg slice spends whole voted budget + 7d lockout |
-| fixGOV | T2b | contracts/solidity/cauldron/TreasuryGovernor.sol, contracts/solidity/test/attacks/K2b_MandateErasedAfterVoteCloses.t.sol | _benchRecord, winner (comment) | CLAIMED | open proposals evict a settled PASSED mandate off the bench |
-| fixGOV | T2c | contracts/solidity/cauldron/CauldronGovernor.sol, contracts/solidity/test/attacks/K2c_RelaunchStalledByOpenBrews.t.sol | _benchRecord | CLAIMED | open brews evict a settled brew; hasProposals() false, relaunch reverts NoProposal |
+| fixGOV | T2a | contracts/solidity/cauldron/TreasuryGovernor.sol, contracts/solidity/test/attacks/K2a_PartialEnvelopeStarve.t.sol | allowance, consume | DONE 5b2f2b5 | BEHAVIOUR: allowance()/consume() now meter and deactivate EVERY envelope on movedPrimaryBps (was movedBps for partial). A secondary-leg slice no longer reduces the reported remainder nor retires the envelope; it is still capped by movedBps <= maxTotalBps. No ABI change. 6,653 -> 6,646 B |
+| fixGOV | T2b | contracts/solidity/cauldron/TreasuryGovernor.sol, contracts/solidity/test/attacks/K2b_MandateErasedAfterVoteCloses.t.sol | _benchRecord, winner (comment) | DONE 5b2f2b5 | BEHAVIOUR: bench eviction is lexicographic (unprotected before protected, then fewer votes); an _executable (settled+passed+in-window) slot is displaced only when ALL 8 slots are executable and only by strictly more votes. winner() is unchanged. No ABI change. 6,653 -> 6,646 B |
+| fixGOV | T2c | contracts/solidity/cauldron/CauldronGovernor.sol, contracts/solidity/test/attacks/K2c_RelaunchStalledByOpenBrews.t.sol | _benchRecord | DONE c660538 | BEHAVIOUR: same eviction order in CauldronGovernor; a SETTLED unconsumed brew (the only kind _recomputeLeader elects) survives any number of open filings, so hasProposals()/winner() stay true for the registry at CauldronRegistry.sol:841. No ABI change. 9,302 -> 9,341 B (+39) |
 | fixSEED | K5b-residual | contracts/solidity/cauldron/CauldronSeeder.sol, contracts/solidity/deploy/DeployLaunchpad.s.sol, contracts/solidity/test/attacks/K5b_ProgressiveSeederUnreachable.t.sol | fundPrime, refundPrime (NEW), rescue, NatSpec; deploy PRIME_BUY_ETH comment | CLAIMED | fundPrime ETH trapped forever while SEED_BASE_WAD=1e18; adding a pre-campaign exit (ABI CHANGE) |
 | fixSEED | K5c | contracts/solidity/cauldron/CauldronSeeder.sol, contracts/solidity/test/attacks/K5b_ProgressiveSeederUnreachable.t.sol | rescue | CLAIMED | rescue() reverts pre-campaign on IERC20(address(0)).balanceOf |
 | fixSEED | K5e | contracts/solidity/cauldron/MiFrensGenesis.sol | mint per-wallet cap | CLAIMED | balanceOf-based cap resets on transfer; append-only mintedBy slot if it fits |
@@ -58,3 +58,5 @@ Status: CLAIMED → DONE | RELEASED ; WAIT (blocked on another claim) ; SPACE (n
 | fixNFT | K4c (cont) | contracts/solidity/test/attacks/X4b_ChurnConfiscatesRefund.t.sol, contracts/solidity/cauldron/CauldronFactory.sol | playChurn call sites, deployBrew | DONE 0c80fe9 / 0503a09 | X4b: 4 call sites take a 0 floor (prior behaviour preserved). CauldronFactory.deployBrew passes c.royaltyReceiver as the router's erc20Sink. |
 | fixPERP | SPACE | contracts/solidity/cauldron/PerpEngine.sol, contracts/solidity/cauldron/PerpSwapLib.sol | tier scan / mark math | SPACE | PerpEngine 24,687 after T3c+T3d+T3e (limit 24,576): need >=111 B. Sourcing from PerpEngine itself (fold the two death-band checks into one internal fn) and, if short, moving a pure math block into PerpSwapLib (18,266 B free). |
 | fixNFT | K4a (cont) | contracts/solidity/test/attacks/X1e_RoyaltyRouterRevertsOnErc20Quote.t.sol, contracts/solidity/test/attacks/Z9_ScopeProbe.t.sol | RoyaltyRouter constructor | DONE 0503a09 | Both fixtures on `new RoyaltyRouter(hook, address(0))`; assertions untouched, both suites green. Tree compiles again. |
+| fixPERP | BYTES | — | — | DONE | PerpEngine 24,460 -> 24,543 (free 116 -> 33). PerpVault 8,002 -> 8,339. PerpMarkSource 3,607 -> 3,603. PerpSwapLib unchanged 6,310. Bytes found IN PerpEngine, behaviour-neutral, in the same commit as the fixes: `_deathBand` folds the two dead-path band checks; `_deadPrep` folds the `!_isDead()->NotDead + _pokeFunding` preamble shared by forceCloseDead/forceCloseAllDead; `_utilGate` folds the identical vault util-cap + insurance-floor block out of openLong and openShort. Tried and REVERTED: moving the maxLeverage tier scan into PerpSwapLib COSTS 94 B (storage array -> memory ABI encode is bigger than the loop) - do not retry. |
+

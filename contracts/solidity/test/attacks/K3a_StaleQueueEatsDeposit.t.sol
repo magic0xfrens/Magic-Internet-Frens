@@ -50,8 +50,13 @@ contract K3a_StaleQueueEatsDeposit is Test {
         assertApproxEqAbs(bobRedeemable, 10 ether, 1e12, "bob keeps his deposit");
     }
 
-    // ── ATTACK: same flow, but the lent capital is lost before bob deposits. ──
-    function _insolventRun() internal returns (uint256 bobRedeemable, uint256 aliceGot, uint256 bobPaid) {
+    // ── REGRESSION (was the ATTACK): same flow, but the lent capital is lost
+    //    before bob deposits. {PerpVault.deposit} now REFUSES while the queue
+    //    outruns the backing, and the honest recovery path still works. ────────
+    function _insolventRun()
+        internal
+        returns (bool bobRefused, uint256 aliceGot, uint256 bobRedeemable, uint256 bobPaid)
+    {
         vm.prank(alice);
         uint256 sh = vault.depositEth{value: 10 ether}();
         engine.lend(10 ether);
@@ -62,27 +67,38 @@ contract K3a_StaleQueueEatsDeposit is Test {
 
         engine.wipe(10 ether); // total bad debt: totalEth() == 0, pendingEth == 10e18
         assertEq(engine.totalEth(), 0, "backing wiped");
-        // alice deliberately does NOT call claimPendingEth (that would write her
-        // claim down to zero via _haircut). Her nominal stays at 10 ETH.
         assertApproxEqAbs(vault.pendingEth(), 10 ether, 1e12, "stale claim stands at full size");
 
         uint256 aliceBefore = alice.balance;
+
+        // THE FIX: no new money into an insolvent queue.
+        vm.prank(bob);
+        try vault.depositEth{value: 10 ether}() { bobRefused = false; }
+        catch (bytes memory err) {
+            bobRefused = bytes4(err) == PerpVault.QueueInsolvent.selector;
+        }
+
+        // The recovery path is permissionless and unchanged: alice banks her own
+        // haircut (a zero, against zero backing), which drains `pendingEth`...
+        vm.prank(alice);
+        vault.claimPendingEth();
+        aliceGot = alice.balance - aliceBefore;
+
+        // ...and the side reopens for honest money, which is now worth what it paid.
         uint256 bobBefore = bob.balance;
         vm.prank(bob);
-        vault.depositEth{value: 10 ether}();      // no guard, no revert
+        vault.depositEth{value: 10 ether}();
         bobPaid = bobBefore - bob.balance;
         (bobRedeemable,,) = vault.ethPosition(bob);
-
-        vm.prank(alice);
-        vault.claimPendingEth();                  // backing >= claims again → NO haircut
-        aliceGot = alice.balance - aliceBefore;
     }
 
     function test_attack_staleQueueTakes100PctOfAFreshDeposit() public {
-        (uint256 bobRedeemable, uint256 aliceGot, uint256 bobPaid) = _insolventRun();
-        assertEq(bobPaid, 10 ether, "bob paid 10 ETH in");
-        assertLt(bobRedeemable, 1e9, "bob's shares are worth ~0 the instant they mint");
-        assertApproxEqAbs(aliceGot, 10 ether, 1e12, "alice's already-worthless claim took bob's whole deposit");
+        (bool bobRefused, uint256 aliceGot, uint256 bobRedeemable, uint256 bobPaid) = _insolventRun();
+        assertTrue(bobRefused, "the deposit into an insolvent queue is REFUSED (QueueInsolvent)");
+        assertEq(aliceGot, 0, "alice's worthless claim is recognised as worthless, not paid from bob");
+        assertEq(vault.pendingEth(), 0, "the stale queue is drained by its own haircut");
+        assertEq(bobPaid, 10 ether, "bob's later, honest deposit still goes in");
+        assertApproxEqAbs(bobRedeemable, 10 ether, 1e12, "and it is worth what he paid - nobody eats it");
     }
 }
 
