@@ -274,8 +274,8 @@ the real tree; none needed copying.
 
 ## 10. Fixes and space
 
-35 commits on `redteam/2026-09-13` from snapshot `a19550e` to the gate (see `git log`), one per
-finding except where the owner's blanket `71396b6 "push"` at 16:59 swept four fixers' in-flight
+62 commits on `redteam/2026-09-13` from snapshot `a19550e` to this report (fix and test commits
+plus audit artifacts and gate rounds; see `git log`), one per finding except where the owner's blanket `71396b6 "push"` at 16:59 swept four fixers' in-flight
 work into one commit (flagged in the ledger, not rewritten). No `refactor(size):` commit was
 needed: every byte was found inside the contract being fixed. Measured under viaIR and logged as
 do-not-retry: `_openPrep` fold +210 B, `maxLev`→PerpSwapLib +94, `this.markSqrtPriceX96()` +62,
