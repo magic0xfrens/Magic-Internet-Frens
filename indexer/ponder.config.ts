@@ -15,7 +15,7 @@ import { TreasuryGovAbi, RotationExecAbi, Erc721TransferAbi } from "./abis/Treas
 // manifest the frontend reads. NOT from env: stale Railway env vars from a prior
 // round silently overrode these and pinned the indexer to a dead deploy (r29
 // served as r31). To ship a round: edit round.json, run scripts/deploy-round.mjs.
-import round from "./deployments/round.json";
+import round from "./deployments/active";
 
 // Deployment identity comes from the manifest ONLY. A CHAIN_ID env var here
 // could point this indexer at a different network than the manifest it is
@@ -92,8 +92,12 @@ export default createConfig({
           "https://sepolia.drpc.org",
           "https://eth-sepolia.public.blastapi.io",
         ];
-        const ROBINHOOD = ["https://rpc.chain.robinhood.com"];
-        const DEFAULTS = chainId === 4663 ? ROBINHOOD : SEPOLIA;
+        //  Arc testnet. Measured before relying on it: `eth_getLogs` works, and
+        //  an ADDRESS-FILTERED 10,000-block range returns fine (unfiltered ranges
+        //  are refused with "requested range too large", which is why the pool
+        //  filter below is load-bearing here rather than merely an optimisation).
+        const ARC = ["https://rpc.testnet.arc.network"];
+        const DEFAULTS = chainId === 5042002 ? ARC : SEPOLIA;
         const env = (process.env.PONDER_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
         const list = env.length > 0 ? env : DEFAULTS;
         return list.length > 1 ? list : list[0];
@@ -105,9 +109,10 @@ export default createConfig({
       // new block within a few seconds of it landing, at a third of the request
       // volume. The Orbit L2 target has sub-second blocks, where fast polling is
       // genuinely useful — so pick from the manifest's chainId rather than
-      // running the L2 cadence against an L1 testnet.
+      // running the L2 cadence against an L1 testnet. Arc produces blocks far
+      // faster than Sepolia, so it gets the fast cadence.
       pollingInterval: Number(
-        process.env.POLLING_INTERVAL_MS ?? (chainId === 4663 ? 1000 : 4000),
+        process.env.POLLING_INTERVAL_MS ?? (chainId === 5042002 ? 1000 : 4000),
       ),
       // Per-endpoint request cap. With N rotated keys the effective throughput is
       // N × this. Default scales with the number of endpoints provided.

@@ -5,6 +5,13 @@ import { useUserNFTs } from "@/hooks/useUserNFTs";
 import { frenFromSeed } from "@/data/frens";
 import FrenSprite from "@/components/shared/FrenSprite";
 import { explorerAddressUrl, NETWORK_SHORT } from "@/config/chains";
+import {
+  DEPLOY_CHAIN_IDS,
+  DEPLOYMENTS,
+  DEPLOYMENT_LABELS,
+  SELECTED_CHAIN_ID,
+  selectDeployChain,
+} from "@/config/deployments";
 import { truncateAddress } from "./navItems";
 
 /**
@@ -137,6 +144,41 @@ export function WalletProfileCard() {
             </span>
           </a>
           <div className="wpc__sep" />
+
+          {/* ── DEPLOYMENT SWITCHER ────────────────────────────────────────
+              Each chain is its OWN deployment with its own addresses and its
+              own indexer, so this is not a wallet network toggle — it changes
+              which protocol instance the whole app is reading. Selecting one
+              reloads the page (see src/config/deployments.ts), so the current
+              chain is rendered as a non-interactive checked row rather than a
+              button that would reload to where you already are. */}
+          <div className="wpc__group-label">Deployment</div>
+          {DEPLOY_CHAIN_IDS.map((id) => {
+            const active = id === SELECTED_CHAIN_ID;
+            const noIndexer = !(DEPLOYMENTS[id].indexerUrl ?? "").trim();
+            return (
+              <button
+                key={id}
+                className={`wpc__item wpc__item--chain${active ? " wpc__item--chain-on" : ""}`}
+                role="menuitemradio"
+                aria-checked={active}
+                disabled={active}
+                onClick={() => selectDeployChain(id)}
+              >
+                <span className="wpc__chain-name">
+                  {DEPLOYMENT_LABELS[id].name}
+                  {/* Say it plainly. An Arc view with empty charts looks broken
+                      unless the reason is on screen before you click. */}
+                  {noIndexer && <em className="wpc__chain-note">on-chain reads only</em>}
+                </span>
+                <span className="wpc__item-chev" aria-hidden>
+                  {active ? "✓" : "→"}
+                </span>
+              </button>
+            );
+          })}
+
+          <div className="wpc__sep" />
           <button
             className="wpc__item wpc__item--danger"
             role="menuitem"
@@ -261,6 +303,16 @@ const CSS = `
   .wpc__item--danger:hover { background: rgba(255,77,109,0.12); color: var(--red); }
   .wpc__item-chev { color: var(--mute); font-size: 13px; }
   .wpc__sep { height: 1px; margin: 4px 6px; background: rgba(255,255,255,0.07); }
+  .wpc__group-label { padding: 6px 10px 3px; font-size: 10px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--mute); opacity: 0.75; }
+  .wpc__item--chain { align-items: flex-start; }
+  /* The current deployment is a state, not an action — disabled, but kept at full
+     opacity so it reads as "selected" rather than "unavailable". */
+  .wpc__item--chain:disabled { cursor: default; opacity: 1; }
+  .wpc__item--chain-on { color: var(--lime); }
+  .wpc__item--chain-on .wpc__item-chev { color: var(--lime); }
+  .wpc__chain-name { display: flex; flex-direction: column; gap: 1px; text-align: left; }
+  .wpc__chain-note { font-style: normal; font-size: 10px; color: var(--mute); opacity: 0.8; }
 
   @media (prefers-reduced-motion: reduce) {
     .wpc__menu { animation: none; }

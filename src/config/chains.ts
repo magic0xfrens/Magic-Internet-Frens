@@ -2,6 +2,7 @@ import { defineChain, http, fallback } from "viem";
 import { sepolia } from "viem/chains";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { injectedWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wallets";
+import { SELECTED_CHAIN_ID } from "./deployments";
 
 /**
  * THE DEPLOYMENT TARGET CHAIN — defined entirely from env, named by no vendor.
@@ -29,7 +30,11 @@ const RAW_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID);
 //  Default 5042002 (Arc testnet) because that is where the second deployment
 //  actually lives — a default nobody has deployed to is just a slower way to
 //  fail. Overridden by VITE_CHAIN_ID for any other target.
-const CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 5042002;
+//  The SELECTED chain leads when it is not Sepolia, so choosing Arc in the UI
+//  actually points `targetChain` at Arc rather than at whatever VITE_CHAIN_ID
+//  happened to say. Falls back to the env value, then to Arc.
+const ENV_CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 5042002;
+const CHAIN_ID = SELECTED_CHAIN_ID !== sepolia.id ? SELECTED_CHAIN_ID : ENV_CHAIN_ID;
 
 /** Empty-string-safe env read: Vercel sets declared-but-blank vars to "". */
 const env = (key: string, fallbackValue: string) => {
@@ -114,18 +119,18 @@ const sepoliaFixed = {
 } as const;
 
 // ── SINGLE NETWORK SWITCH ───────────────────────────────────────────────────
-// The whole app targets ONE chain, chosen by VITE_NETWORK. Default "testnet" so
-// the live Sepolia site keeps working; set VITE_NETWORK=target (once that
-// chain's contracts + indexer exist) to cut over in ONE env change. Everything —
-// config chainIds, wallet switch, explorer/marketplace links, copy — reads from
-// ACTIVE_* / IS_TARGET / NETWORK_LABEL below so there's no per-file drift.
-// Declared ABOVE wagmiConfig because the chain order depends on it.
+// The app targets ONE chain at a time, and the user picks which from the wallet
+// card. Everything — config chainIds, wallet switch, explorer links, copy —
+// reads from ACTIVE_* / IS_TARGET / NETWORK_LABEL below, so there is no
+// per-file drift. Declared ABOVE wagmiConfig because the chain order depends
+// on it.
 //
-//  "mainnet" is still accepted as a synonym for "target" so existing
-//  deployments' env values keep working; the switch is about WHICH chain the app
-//  points at, and that chain no longer has to be a mainnet.
-const NETWORK = ((import.meta.env.VITE_NETWORK as string) ?? "testnet").trim().toLowerCase();
-export const IS_TARGET = NETWORK === "target" || NETWORK === "mainnet";
+//  ONE RESOLUTION ORDER, NOT TWO. `SELECTED_CHAIN_ID` already folds
+//  in the env default, the `?chain=` param and the persisted choice, so deriving
+//  from it here keeps ONE resolution order for the whole app — two independent
+//  ones would eventually disagree, and the symptom would be a header naming one
+//  chain while the addresses came from the other.
+export const IS_TARGET = SELECTED_CHAIN_ID !== sepolia.id;
 /** @deprecated Prefer {@link IS_TARGET} — the target chain need not be a mainnet. */
 export const IS_MAINNET = IS_TARGET;
 export const IS_TESTNET = !IS_TARGET;

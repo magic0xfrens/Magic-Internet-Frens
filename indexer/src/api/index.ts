@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { graphql, eq, desc, and, gte, ne } from "ponder";
 import { createPublicClient, fallback, http, formatEther, keccak256, encodeAbiParameters } from "viem";
 // SINGLE SOURCE OF TRUTH — same manifest as ponder.config.ts + the frontend.
-import round from "../../deployments/round.json";
+import round from "../../deployments/active";
 
 const app = new Hono();
 app.use("*", cors({ origin: process.env.CORS_ORIGIN ?? "*" }));

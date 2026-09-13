@@ -1,7 +1,7 @@
 import { ponder } from "ponder:registry";
 import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vote, enchant, dividendStat, iteration, perpPosition, perpStat, liquidator, genesisFloor, floorEvent, collectionFloor, collectionFloorEvent, proposerEarning, seedEvent, seedState, rotationProposal, rotationVote, rotationSlice, ownedPosition } from "ponder:schema";
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
-import round from "../deployments/round.json";
+import round from "../deployments/active";
 
 const CANDLE_SECONDS = Number(process.env.CANDLE_SECONDS ?? 30);
 const Q96 = 2 ** 96;

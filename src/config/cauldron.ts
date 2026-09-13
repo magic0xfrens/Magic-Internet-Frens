@@ -7,24 +7,27 @@ import { ACTIVE_CHAIN_ID } from "@/config/chains";
 // can NEVER drift (that drift served r29 data as r31). To ship a round: edit that
 // file + run scripts/deploy-round.mjs. Per-iteration token/collection/vault rotate
 // on relaunch — read those live from the registry, don't pin them here.
-import round from "../../indexer/deployments/round.json";
+//  ONE MANIFEST PER CHAIN, picked by the user's selection. `ACTIVE_ROUND` is
+//  `round.json` for Sepolia and `round.arc.json` for Arc — see
+//  src/config/deployments.ts for why switching reloads rather than re-rendering.
+import { ACTIVE_ROUND as round } from "./deployments";
 
 //  ── THE MANIFEST AND THE SELECTED CHAIN MUST AGREE ──────────────────────────
-//  `chainId` below follows VITE_NETWORK while every ADDRESS comes from the
-//  manifest, which pins one chain of its own. Flipping the network switch
-//  without shipping a matching manifest therefore produces the worst kind of
-//  wrong: a UI that talks to the right chain using another chain's addresses.
-//  Those addresses hold no code there, so reads return empty and the app renders
-//  a plausible "nothing has happened yet" instead of an error.
+//  Both now derive from `SELECTED_CHAIN_ID`, so this should be unreachable. It
+//  stays as an assertion precisely BECAUSE it should be: the failure it catches
+//  is a UI talking to one chain using another chain's addresses, which hold no
+//  code there — so reads come back empty and the app renders a plausible
+//  "nothing has happened yet" rather than an error. Silent and expensive to
+//  diagnose, trivial to detect.
 //
-//  Cheap to detect, so it is detected. A throw would blank the whole app over
-//  what may be a deliberate local experiment, so this is loud but non-fatal.
+//  Loud but non-fatal: a throw would blank the whole app over what might be a
+//  deliberate local experiment.
 if (round.chainId !== ACTIVE_CHAIN_ID) {
   console.error(
-    `[cauldron] MANIFEST/CHAIN MISMATCH — VITE_NETWORK selects chain ${ACTIVE_CHAIN_ID}, ` +
-      `but indexer/deployments/round.json pins chain ${round.chainId}. Every address below ` +
-      `belongs to chain ${round.chainId} and has no code on ${ACTIVE_CHAIN_ID}: reads will ` +
-      `come back empty rather than failing. Ship a round.json for chain ${ACTIVE_CHAIN_ID}.`,
+    `[cauldron] MANIFEST/CHAIN MISMATCH — the app is on chain ${ACTIVE_CHAIN_ID}, but the ` +
+      `selected manifest pins chain ${round.chainId}. Every address below belongs to ` +
+      `${round.chainId} and has no code on ${ACTIVE_CHAIN_ID}: reads will come back empty ` +
+      `rather than failing. Check DEPLOYMENTS in src/config/deployments.ts.`,
   );
 }
 

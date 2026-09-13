@@ -1,0 +1,56 @@
+{
+    "_comment": "ARC TESTNET MANIFEST (chainId 5042002). Sibling of round.json, which is Sepolia. Same schema, read through src/config/deployments.ts, which picks ONE manifest per selected chain. Uniswap v4 did not exist on Arc, so poolManager/positionManager here are contracts WE deployed (contracts/solidity/deploy/DeployV4Core.s.sol), not canonical ones. indexerUrl is deliberately EMPTY: no Ponder instance is deployed for Arc yet, so indexer-backed panels degrade to the IndexerHealthBanner while the 11 on-chain hooks keep working. Fill it in and bump `schema` once an Arc indexer exists.",
+    "round": 1,
+    "schema": "cauldron_arc_r1",
+    "chainId": 5042002,
+    "indexerUrl": "",
+    "blocks": {
+        "deploy": 61879181,
+        "perp": 61879181,
+        "indexer": 61878846
+    },
+    "contracts": {
+        "registry": "0x4e60D157E951898521A97dD5217e50D6187aB432",
+        "hook": "0x8864eE50a7fb9Ed8Dd8b78aA4BBfBaf3Aa9310cc",
+        "poolManager": "0x6495341CF36fD399d74b58A5B125c07E15747d54",
+        "positionManager": "0x6EEA2bDee8c49168146f7015D717D9fe8fD252ae",
+        "governor": "0x3E710eb675333585c9092175a52fCC395D3b5c7b",
+        "dividend": "0x9D3BF0E3045e8a6642815bCE5F74564c4c033b40",
+        "presale": "0x5ddCd156fc0ff37eC3dD20b53f070f7Ff8B4f48a",
+        "gachaRouter": "0x217462bB791bb6846846776B6Df244ABfEFD8e69",
+        "timelock": "0x95ab3D345e25A8B180Af3Ca6071ed3C595df8BcB",
+        "collectionLedger": "0xD6176EbFb61CEDaE6D5663C796AbE80779229754",
+        "perpEngine": "0x12962E69CD005A42ed1d7669e43A8Ad81ac16A22",
+        "perpVault": "0x0F4eE6f937bAb5450beb453953D7c46EFe84d5E7",
+        "quoteRotator": "0x4b0d6f5C7756dA303a91d5dA29B7D970229DacA1",
+        "factory": "0xEb2E7040589E3E110F8a80c00585f88AA3a25DAA",
+        "collection": "__ASK_CHAIN_COLLECTION__",
+        "treasuryGovernor": "0x092f4009174422E778e88047158D9e806f6e210a",
+        "quoteOracle": "0x6E90562150ad6aD42c8744A0683528b8DA9ee9AE",
+        "seeder": "0xfb76a4E2FC2975353Fa2Db3DccB8a39112DC59f1",
+        "nativeZap": "0x402153517cF6B1229311726adE59240B9d9b298b"
+    },
+    "poolIds": [],
+    "genesisSupply": 1111,
+    "deathThresholdEth": 0,
+    "quoteAssets": [
+        {
+            "address": "0x0000000000000000000000000000000000000000",
+            "symbol": "USDC",
+            "name": "Arc gas token",
+            "decimals": 18,
+            "glyph": "$",
+            "blurb": "Arc's native gas token. USD-denominated but EIGHTEEN decimals, which is why the wei-denominated maths ported unchanged."
+        },
+        {
+            "address": "0x3bfccfE1bBAaBcD9CaF81e2a1Ead367b4D4048e3",
+            "symbol": "USDG",
+            "name": "Magic USD",
+            "decimals": 6,
+            "glyph": "$",
+            "blurb": "Stable pair. Park the LP here when the guild wants out of the gas token."
+        }
+    ],
+    "legacyThresholdEth": 0.02,
+    "legacyBps": 4000
+}
