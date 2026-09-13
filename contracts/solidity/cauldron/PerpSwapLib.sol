@@ -362,6 +362,96 @@ library PerpSwapLib {
         pure
         returns (uint160)
     {
+        return _spend(sp, L, budget, down);
+    }
+
+    /**
+     * @notice The DEAD-PATH PRICE BAND, as a sqrt-price limit.
+     *
+     *  ── WHY A LIMIT AND NOT A REVERT (red-team T3d x LIQ-02) ───────────────
+     *  The first cut of the band REVERTED when a forced close realised a price
+     *  more than 10% off the engine's TWAP mark. That closed T3d (a stranger
+     *  force-closing a SOLVENT position at any price for the keeper cut) but
+     *  re-opened LIQ-02: a short bigger than the pool's token side can only ever
+     *  be cleared in bites, and its terminal bite is on the DEATH path, so a
+     *  reverting band made the book unclearable and blocked the relaunch
+     *  (XL1_LiqTwapAndDepthCap:520). Both properties hold at once if the band is
+     *  a PRICE LIMIT instead: the pool fills whatever it can INSIDE the band, the
+     *  remainder rebooks (or, on the terminal death path, is written off by name),
+     *  and nobody is ever filled outside the band. Same shape as {spendLimit},
+     *  which is already how LIQ-02 was closed.
+     *
+     *  ── THE ARITHMETIC ─────────────────────────────────────────────────────
+     *  {PerpEngine._quoteAt} values a position at `size·(Q96/sp)²`, so VALUE moves
+     *  with the inverse SQUARE of the sqrt price and a ±10% value band is a
+     *  1/√(1±0.1) sqrt-price band:
+     *    selling  — proceeds must clear 90% of mark  → sp ≤ mark·√(1/0.90) = 1.054093
+     *    buying   — cost must stay under 110% of mark → sp ≥ mark·√(1/1.10) = 0.953463
+     *
+     * @param mark the engine's TWAP mark sqrt price. ZERO disables the band and
+     *        returns 0 (= the direction's extreme), which is the pre-band behaviour.
+     * @param sp   the live sqrt price. When it is ALREADY outside the band the
+     *        limit is pinned one wei away from it, so the swap fills ~nothing
+     *        rather than reverting — the caller's partial-fill path takes over.
+     * @param buy  true = acquiring the token (price moves DOWN, the band is a
+     *        FLOOR); false = selling it (price moves UP, the band is a CEILING).
+     */
+    /// @param quoteIsCurrency0 the engine's value convention (`value ∝ (Q96/sp)²`,
+    ///        {PerpEngine._quoteAt}) only holds while the quote sorts FIRST. On a
+    ///        pool where an ERC20 quote sorts second it is already inverted, and a
+    ///        limit on the wrong side of the live price would make v4 revert the
+    ///        settle and brick the book — so that configuration gets NO band and
+    ///        keeps exactly its pre-band behaviour. Gated here rather than in the
+    ///        engine, which has double-digit bytes of EIP-170 headroom.
+    function bandLimit(uint160 mark, uint160 sp, bool buy, bool quoteIsCurrency0)
+        external
+        pure
+        returns (uint160)
+    {
+        return quoteIsCurrency0 ? _band(mark, sp, buy) : 0;
+    }
+
+    /**
+     * @notice The limit a bounded exact-output BUY-BACK must respect: the TIGHTER
+     *         of what the budget can pay for ({spendLimit}) and what the mark band
+     *         permits ({bandLimit}). Folded into one call so {PerpEngine._buyUpTo}
+     *         pays for one external hop instead of two plus the comparison
+     *         (EIP-170 — the engine has double-digit bytes of headroom).
+     *
+     *  A buy moves the price DOWN when the quote is currency0, so "tighter" is the
+     *  HIGHER sqrt price. `mark == 0` means the caller did not ask for a band.
+     */
+    /// @param band an ALREADY-COMPUTED {bandLimit} (0 = no band). Deliberately not
+    ///        the raw mark: the caller has it, and re-deriving it here once applied
+    ///        the 0.953463 factor a SECOND time and silently tightened the band to
+    ///        ~91% of the mark.
+    function closeLimit(uint160 sp, uint128 L, uint256 budget, bool down, uint160 band)
+        external
+        pure
+        returns (uint160)
+    {
+        uint160 lim = _spend(sp, L, budget, down);
+        return band > lim ? band : lim;
+    }
+
+    function _band(uint160 mark, uint160 sp, bool buy) private pure returns (uint160) {
+        if (mark == 0 || sp == 0) return 0;
+        uint256 r = (uint256(mark) * (buy ? 953463 : 1054093)) / 1e6;
+        if (buy) {
+            // Price moves DOWN into the band, so the limit is a FLOOR.
+            if (r >= uint256(sp)) return sp - 1;        // already past it: fill ~nothing
+            return uint160(r < MIN_LIMIT ? MIN_LIMIT : r);
+        }
+        // Price moves UP into the band, so the limit is a CEILING.
+        if (r <= uint256(sp)) return sp + 1;            // already past it: fill ~nothing
+        return uint160(r >= SQRT_MAX ? SQRT_MAX - 1 : r);
+    }
+
+    function _spend(uint160 sp, uint128 L, uint256 budget, bool down)
+        private
+        pure
+        returns (uint160)
+    {
         if (sp == 0 || L == 0) return down ? MIN_LIMIT : SQRT_MAX - 1;
         if (down) {
             // amount0 in = L * (Q96/sp' - Q96/sp)  =>  sp' = Q96*L / (Q96*L/sp + budget)
