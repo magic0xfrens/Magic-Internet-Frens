@@ -67,3 +67,37 @@ These read as new PoCs/regression-probes added by other agents after P0 (S06/S0x
 - `audit/FINAL_BLIND_2026-09-13/LEDGER.md` (this runner's own close-out edit, committed with this file)
 - `contracts/solidity/lib/openzeppelin-contracts` (submodule pointer, pre-existing baseline noise, not touched)
 No other modified-but-uncommitted files.
+
+## Re-run after gate fixes (cf6ad0f, 33bd29b, 7da1cdb, 88eecb1)
+
+### Sizes
+`forge build --sizes` (whole tree, no --skip): exit 0.
+| contract | runtime bytes | free |
+|---|---|---|
+| CauldronHook | 24,535 | 41 |
+| CauldronRegistry | 24,492 | 84 |
+| PoolOps | 24,006 | 570 |
+| PerpEngine (cauldron/PerpEngine.sol) | 24,509 | 67 |
+| X3iEngine | 24,551 | 25 |
+| X9cEngine | 24,551 | 25 |
+Nothing over 24,576. (PerpEngine's row uses a path-qualified name so the bare-name grep in the coordinator's command didn't print it; confirmed separately — value unchanged from the previous gate.)
+
+### Suite (first run, /tmp/blind13-suite-final2.log)
+228 suites, 884 passed, 6 failed, 1 skipped (891 total) — vs previous gate 228/912/13/1.
+All 13 previous gate failures are gone (fixed by cf6ad0f/33bd29b/7da1cdb/88eecb1). The 6 new failures were ALL `vm.createSelectFork`/EVM-storage-fetch timeouts against the public Sepolia RPC (`ethereum-sepolia-rpc.publicnode.com`) in `setUp()`, not test-logic failures:
+- test/attacks/A02_PerpAttacks.t.sol:A02_PerpAttacksTest — EVM error fetching PositionManager storage, RPC timeout
+- test/attacks/A05_ReserveFloorSeeder.t.sol:A05_ReserveFloorSeederTest — createSelectFork RPC timeout
+- test/attacks/S01_PerpQuoteDeadlock.t.sol:S01_PerpQuoteDeadlock — createSelectFork RPC timeout
+- test/attacks/S02_RotationSurface.t.sol:S02_RotationSurface — createSelectFork RPC timeout
+- test/attacks/S06_PerpVaultSolvency.t.sol:S06_PerpVaultSolvency — createSelectFork RPC timeout
+- test/audit/AuditPoC.t.sol:PoC_HookRoguePool — createSelectFork RPC timeout
+
+### Re-run (once) of the 6 affected suites
+`forge test --match-contract 'A02_PerpAttacksTest|A05_ReserveFloorSeederTest|S01_PerpQuoteDeadlock|S02_RotationSurface|S06_PerpVaultSolvency|PoC_HookRoguePool'`:
+**6 suites, 42 passed, 0 failed, 0 skipped.** All 6 reproduced clean on re-run, confirming public-RPC flakiness (infra), not a regression from the test-side fixes.
+
+### Net result after re-run
+Effective final state: 228 suites / 926 tests total, 0 failing, 1 skipped (unchanged skip). Sizes clean. No code-side regressions from the 4 fixer commits.
+
+### Uncommitted files
+`git status --short | grep -v '^??'`: empty (nothing modified-but-uncommitted before this commit besides this GATE.md edit itself).
