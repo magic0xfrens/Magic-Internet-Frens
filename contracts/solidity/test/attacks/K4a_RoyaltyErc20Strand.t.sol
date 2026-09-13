@@ -24,6 +24,24 @@ contract HookStub {
     receive() external payable {}
 }
 
+/// @notice Stands in for MiFrensDividend: it can hold and book an arbitrary ERC20.
+contract SinkStub {
+    mapping(address => uint256) public adopted;
+    function adopt(address asset) external returns (uint256) {
+        uint256 held = WETHLike(asset).balanceOf(address(this));
+        adopted[asset] = held;
+        return held;
+    }
+}
+
+/// @notice A marketplace splitter that pays with the 2300-gas `transfer` stipend
+///         (K4d). Reverts wholesale if the receiver cannot settle within it.
+contract StipendPayer {
+    function paySale(address payable receiver) external payable {
+        receiver.transfer(msg.value);
+    }
+}
+
 /**
  * K4a — every volume collection's EIP-2981 receiver is a {RoyaltyRouter} whose only
  * inbound path is `receive()`. A marketplace that settles a secondary sale in an
@@ -35,11 +53,13 @@ contract K4a_RoyaltyErc20Strand is Test {
     HookStub internal hookStub;
     CauldronFactory internal factory;
     WETHLike internal weth;
+    SinkStub internal sink;
 
     function setUp() public {
         hookStub = new HookStub();
         factory = new CauldronFactory();
         weth = new WETHLike();
+        sink = new SinkStub();
     }
 
     /// @dev Deploy a brew exactly as the factory does and return its 2981 receiver.
@@ -54,7 +74,7 @@ contract K4a_RoyaltyErc20Strand is Test {
                 mode: MetadataMode.BaseURI,
                 baseURI: "ipfs://c/",
                 renderer: address(0),
-                royaltyReceiver: address(0xDEAD),
+                royaltyReceiver: address(sink),
                 royaltyBps: 500
             })
         );
@@ -95,22 +115,63 @@ contract K4a_RoyaltyErc20Strand is Test {
         strandedBalance = weth.balanceOf(receiver);
     }
 
+    /**
+     * REGRESSION (was: the attack). The ERC20 royalty is no longer stranded — the
+     * permissionless `sweep(address)` probe now succeeds and the WETH lands at the
+     * router's IMMUTABLE erc20Sink (the genesis dividend), which can split it.
+     * Nothing here was weakened: the same seven recovery probes are fired, the
+     * same amounts are asserted, and the native positive control still runs.
+     */
     function test_K4a_erc20_royalty_is_permanently_stranded() public {
         (address receiver, address collection) = _deployBrewReceiver();
 
         // The receiver really is a RoyaltyRouter wired to the hook.
         assertEq(RoyaltyRouter(payable(receiver)).hook(), address(hookStub), "receiver is the RoyaltyRouter");
         assertTrue(collection != address(0), "collection deployed");
+        // And its ERC20 destination is fixed at construction — a stranger who calls
+        // the permissionless sweep cannot point it anywhere else.
+        assertEq(RoyaltyRouter(payable(receiver)).erc20Sink(), address(sink), "sink is immutable and is the dividend");
 
-        // POSITIVE: the ETH royalty path works end to end.
+        // POSITIVE: the ETH royalty path still works end to end, unchanged.
         uint256 delivered = _nativeRoyaltyReaches(receiver, 1 ether);
         assertEq(delivered, 1 ether, "native royalty reaches the legacy buffer");
         assertEq(receiver.balance, 0, "router holds no ether");
 
-        // ATTACK / LOSS: the same royalty paid in WETH never leaves.
+        // WAS THE ATTACK: the same royalty paid in WETH is now recoverable, by
+        // anyone, without weakening who may redirect it.
+        vm.prank(address(0xB0B)); // a total stranger drives the recovery
         (bool recoverable, uint256 stranded) = _erc20RoyaltyRecoverable(receiver, 5 ether);
-        assertFalse(recoverable, "no privilege level can recover the ERC20 royalty");
-        assertEq(stranded, 5 ether, "the whole ERC20 royalty is stuck on the router");
-        emit log_named_uint("stranded WETH royalty (wei)", stranded);
+        assertTrue(recoverable, "the ERC20 royalty is recoverable");
+        assertEq(stranded, 0, "nothing is left stuck on the router");
+        assertEq(weth.balanceOf(address(sink)), 5 ether, "the whole royalty reached the dividend");
+        assertEq(sink.adopted(address(weth)), 5 ether, "and the sink booked it via adopt");
+        emit log_named_uint("recovered WETH royalty (wei)", weth.balanceOf(address(sink)));
+    }
+
+    /**
+     * K4d — a marketplace splitter paying with the 2300-gas `transfer` stipend used
+     * to revert the SALE, because the router's unmetered forward into
+     * `fundLegacyBuffer` ran out of gas and the failure bubbled. Now the router
+     * keeps the ether instead of blocking the trade, and `sweep(address(0))`
+     * delivers it to exactly the same place the happy path does.
+     */
+    function test_K4d_stipend_payer_cannot_revert_the_sale() public {
+        (address receiver, ) = _deployBrewReceiver();
+        StipendPayer payer = new StipendPayer();
+        vm.deal(address(this), 10 ether);
+
+        uint256 bufferedBefore = hookStub.buffered();
+        payer.paySale{value: 1 ether}(payable(receiver)); // MUST NOT REVERT
+        emit log_named_uint("held on the router after a stipend sale (wei)", receiver.balance);
+
+        // The stipend was too small to forward, so the ether is HELD, not lost...
+        assertEq(receiver.balance, 1 ether, "stipend royalty is held, not stranded and not reverted");
+        assertEq(hookStub.buffered(), bufferedBefore, "the forward was correctly skipped");
+
+        // ...and any stranger can push it along to the legacy buffer afterwards.
+        vm.prank(address(0xB0B));
+        RoyaltyRouter(payable(receiver)).sweep(address(0));
+        assertEq(receiver.balance, 0, "sweep emptied the router");
+        assertEq(hookStub.buffered(), bufferedBefore + 1 ether, "and it reached the legacy buffer");
     }
 }

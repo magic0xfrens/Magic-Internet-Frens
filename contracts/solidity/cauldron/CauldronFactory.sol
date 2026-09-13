@@ -78,7 +78,13 @@ contract CauldronFactory {
         // RoyaltyRouter → the hook's buyback buffer, so they MARKET-BUY the live
         // token and back this collection's own per-gen TOKEN floor (not inert ETH in
         // the vault). Genesis (MiFrensGenesis) royalties still go to the dividend.
-        RoyaltyRouter router = new RoyaltyRouter(c.hook);
+        //  `c.royaltyReceiver` is the genesis dividend, which is the only thing
+        //  in the system that can take an arbitrary ERC20 and split it out
+        //  (`adopt`). It becomes the router's ERC20 sink, so a WETH- or
+        //  USDC-settled secondary sale is recoverable instead of stranded on a
+        //  receive()-only address (audit K4a). It is immutable on the router, so
+        //  the permissionless `sweep` cannot be turned into a redirect.
+        RoyaltyRouter router = new RoyaltyRouter(c.hook, c.royaltyReceiver);
         col.setRoyalty(address(router), c.royaltyBps);
         // Badge metadata from the chain rather than a metadata server. This
         // factory is the collection's deployer, so it is the only address

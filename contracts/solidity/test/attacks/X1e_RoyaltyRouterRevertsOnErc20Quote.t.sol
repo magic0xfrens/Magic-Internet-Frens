@@ -61,7 +61,7 @@ contract X1eRoyaltyRouterOnErc20Quote is Test {
         // This test IS the registry, so it can set the live key and pull the
         // reserve back out the same way the real registry does.
         hook.setRegistry(address(this));
-        router = new RoyaltyRouter(address(hook));
+        router = new RoyaltyRouter(address(hook), address(0));
     }
 
     function _key(address c0, address c1) internal view returns (PoolKey memory) {

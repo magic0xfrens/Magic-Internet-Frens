@@ -120,7 +120,7 @@ contract Z9ScopeProbe is Test {
 
     function test_Z9b_RoyaltyRouterCannotTakeA2300GasPayment() public {
         BufferHook hook = new BufferHook();
-        RoyaltyRouter router = new RoyaltyRouter(address(hook));
+        RoyaltyRouter router = new RoyaltyRouter(address(hook), address(0));
         StipendPayer payer = new StipendPayer();
         vm.deal(address(payer), 10 ether);
 
