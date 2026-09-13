@@ -1551,20 +1551,23 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // -----------------------------------------------------------------------
 
     function _recordVolume(PoolId id, uint256 amount) private {
+        uint256 lastTs = _lastUpdateTs[id];
+        // ABSOLUTE hour index, not the mod-24 ring index. A bucket index of
+        // 24 hours ago is IDENTICAL to the current one, so deriving the number
+        // of expired buckets from `currentBucket - lastBucket` cannot tell
+        // "same hour" from "exactly one day later" — a dust ping placed in the
+        // same hour-of-day once a day then stepped over ZERO buckets and kept
+        // ancient volume inside the 24h window forever, pinning `isDead` false
+        // and reverting `relaunch` with TokenStillAlive (audit K1a).
+        uint256 steps = block.timestamp / SECONDS_PER_HOUR - lastTs / SECONDS_PER_HOUR;
         uint256 currentBucket = _getCurrentBucket();
         uint256 lastBucket = _lastBucketIndex[id];
-        uint256 lastTs = _lastUpdateTs[id];
 
-        if (block.timestamp > lastTs + SECONDS_PER_DAY) {
+        if (steps >= HOURS_PER_DAY) {
             for (uint256 i = 0; i < HOURS_PER_DAY; i++) {
                 _volumeBuckets[id][i] = 0;
             }
-        } else if (currentBucket != lastBucket) {
-            uint256 steps = currentBucket > lastBucket
-                ? currentBucket - lastBucket
-                : HOURS_PER_DAY - lastBucket + currentBucket;
-            if (steps > HOURS_PER_DAY) steps = HOURS_PER_DAY;
-
+        } else if (steps != 0) {
             for (uint256 i = 1; i <= steps; i++) {
                 _volumeBuckets[id][(lastBucket + i) % HOURS_PER_DAY] = 0;
             }
@@ -1581,12 +1584,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     }
 
     function getVolume24h(PoolId id) public view returns (uint256 total) {
-        if (block.timestamp > _lastUpdateTs[id] + SECONDS_PER_DAY) return 0;
+        // Same ABSOLUTE-hour arithmetic as _recordVolume (audit K1a): the ring
+        // is cleared lazily on write, so the buckets the clock has stepped over
+        // since the last write still hold >24h-old volume and must be skipped
+        // here or the window stretches to ~46h.
+        uint256 gap = block.timestamp / SECONDS_PER_HOUR - _lastUpdateTs[id] / SECONDS_PER_HOUR;
+        if (gap >= HOURS_PER_DAY) return 0;
+        uint256 base = _lastBucketIndex[id] + 1 + gap;
         uint128[24] storage b = _volumeBuckets[id];
         unchecked {
             // 24 uint128 buckets pack into 12 slots; the sum cannot overflow a
             // uint256 (24 * 2^128 << 2^256), so `unchecked` is safe here.
-            for (uint256 i = 0; i < HOURS_PER_DAY; ++i) total += b[i];
+            for (uint256 i = gap; i < HOURS_PER_DAY; ++i) total += b[(base++) % HOURS_PER_DAY];
         }
     }
 
