@@ -41,18 +41,21 @@ contract T02_MarkSourceUnarmed is Test {
     function test_T02_POC_UnarmedMarkSourceAnswersTickZeroInsteadOfFailing() public {
         assertFalse(src.armed(), "precondition: setPrimary has not been called");
 
-        // Does NOT revert, and does NOT return a short word. Both of the
-        // engine's fail-soft triggers are missed.
-        int24 t = src.weightedTick();
-        console2.log("weightedTick() while unarmed:", int256(t));
-        assertEq(int256(t), 0, "a confident, wrong answer");
+        //  ── INVERTED (red-team T3e) ───────────────────────────────────────
+        //  This asserted the bug: an unarmed source answering a CONFIDENT tick 0,
+        //  which is not "no answer" but a perfectly valid price of 1:1, and which
+        //  {PerpEngine._currentTick} adopts because it passes both of the engine's
+        //  fail-soft triggers (call succeeded, returndatasize == 32). It now fails
+        //  CLOSED, which is exactly what makes the engine's `ok` false and sends it
+        //  to its OWN pool's slot0 instead.
+        vm.expectRevert(PerpMarkSource.NotArmed.selector);
+        src.weightedTick();
 
         // Reproduce the engine's acceptance test byte for byte.
         (bool ok, bytes memory ret) =
             address(src).staticcall(abi.encodeWithSelector(PerpMarkSource.weightedTick.selector));
-        assertTrue(ok, "the engine's `ok` is TRUE");
-        assertEq(ret.length, 32, "the engine's returndatasize check PASSES");
-        console2.log("engine would adopt tick     :", abi.decode(ret, (int256)));
+        assertFalse(ok, "the engine's `ok` is FALSE, so it falls soft to its own pool");
+        assertEq(bytes4(ret), PerpMarkSource.NotArmed.selector, "and it says why");
 
         // Tick 0 means sqrtPriceX96 == Q96 == price 1.0 — every perp mark in the
         // protocol becomes "one raw token unit is worth one raw quote unit".
