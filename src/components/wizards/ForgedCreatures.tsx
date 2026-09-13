@@ -9,6 +9,7 @@ import FrenSprite from "@/components/shared/FrenSprite";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { frenFromSeed } from "@/data/frens";
 import { resolveTokenArt } from "@/lib/tokenArt";
+import { RARITY_NAMES, RARITY_COLORS } from "@/lib/rarity";
 
 /**
  * ForgedCreatures — the iteration-token NFTs the connected wallet forged through
@@ -30,8 +31,12 @@ interface Creature {
   name?: string;
 }
 
-const RARITY = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
-const RARITY_COLOR = ["#8A7BAA", "#4FA3E3", "#8B5CF6", "#E0851B", "#d5fd51"];
+//  ONE SHARED TABLE (audit A-02). This file used to carry
+//  ["Common","Uncommon","Rare","Epic","Legendary"], off by one against
+//  CauldronCollection.sol:99-101 for every non-Common tier — an Ultra rendered
+//  as "Epic" — while CreatureModal.tsx had the correct table right next to it.
+const RARITY = RARITY_NAMES;
+const RARITY_COLOR = RARITY_COLORS;
 
 const TOKENURI_ABI = [
   { type: "function", name: "tokenURI", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "string" }] },

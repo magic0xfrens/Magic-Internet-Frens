@@ -58,6 +58,12 @@ const GOVERNOR_ABI = [
       { name: "quote", type: "address" }, { name: "maxTotalBps", type: "uint16" },
       { name: "movedBps", type: "uint16" }, { name: "expiry", type: "uint64" },
       { name: "active", type: "bool" },
+      //  THE SIXTH MEMBER (audit C-6). `TreasuryGovernor.sol:119-129` grew
+      //  `movedPrimaryBps`, which is the counter a WHOLE-POSITION mandate
+      //  (`maxTotalBps >= 10000`) is actually metered against. viem silently
+      //  ignored the extra trailing word, so the panel structurally could not
+      //  display the number that gates a migration.
+      { name: "movedPrimaryBps", type: "uint16" },
     ] },
   { type: "function", name: "lastEnvelopeAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "function", name: "MAX_ENVELOPE_BPS", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
@@ -289,7 +295,8 @@ export function useTreasuryRotation() {
 
       const [allow, envelope, lastAt, cooldown, votingPeriod, executionWindow, envelopeLifetime] = await Promise.all([
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "allowance" }) as Promise<readonly [Address, number]>,
-        pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "envelope" }) as Promise<readonly [Address, number, number, bigint, boolean]>,
+        pc.readContract({ address: governor, abi: GOVERNOR_ABI, //  Six members now — `movedPrimaryBps` last (audit C-6).
+        functionName: "envelope" }) as Promise<readonly [Address, number, number, bigint, boolean, number]>,
         pc.readContract({ address: governor, abi: GOVERNOR_ABI, functionName: "lastEnvelopeAt" }).catch(() => 0n) as Promise<bigint>,
         secs("COOLDOWN"),
         secs("VOTING_PERIOD"),

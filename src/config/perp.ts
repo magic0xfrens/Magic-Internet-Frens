@@ -157,6 +157,30 @@ export const PERP_VAULT_ABI = [
   { type: "function", name: "pendingTokYield", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "ethShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "tokShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  //  ── VIEWS THE YIELD PANEL NEEDS (audit C-3) ──────────────────────────
+  //  A staker whose accrual was forfeited saw `pendingTokYield` fall to 0 with
+  //  no reason. These are the accounting trail: which epoch the vault is in,
+  //  which epoch the staker last touched, and how much yield has ever been
+  //  pulled. Regenerated from out/PerpVault.sol/PerpVault.json.
+  { type: "function", name: "totalTokYieldPulled", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "epochAcc", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "yieldEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint32" }] },
+  { type: "function", name: "stakerEpoch", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint32" }] },
+  //  Whether any quote-side stake is live. `PerpEngine.syncGeneration` reverts
+  //  `VaultStaked` while this is true for anyone but the owner — which is what
+  //  parks the engine after a rotation (audit C-1).
+  { type: "function", name: "hasQuoteStake", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  //  ── ERRORS (audit C-3) ───────────────────────────────────────────────
+  //  This ABI declared NONE, so every vault revert reached the user as an
+  //  undecodable hex blob and they retried and paid gas again. Full error set
+  //  from the artifact.
+  { type: "error", name: "QueueInsolvent", inputs: [] },
+  { type: "error", name: "InsufficientShares", inputs: [] },
+  { type: "error", name: "TransferFailed", inputs: [] },
+  { type: "error", name: "ZeroAmount", inputs: [] },
+  { type: "error", name: "ZeroShares", inputs: [] },
+  //  ── EVENTS ───────────────────────────────────────────────────────────
+  { type: "event", name: "TokYieldForfeited", inputs: [{ name: "epoch", type: "uint32", indexed: true }, { name: "amount", type: "uint256", indexed: false }] },
 ] as const;
 
 /** Human-readable explanations for the engine's revert reasons. */
@@ -165,7 +189,19 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   BadLeverage: "That leverage is too high for the current pool depth, or the position is too large for the market. Lower the size or leverage.",
   PlvInsufficient: "The liquidity vault doesn't have enough to front this leverage right now. Try a smaller size.",
   OiCapped: "Open interest on this side is at its cap. Try the other side or a smaller size.",
+  //  ── TWO DIFFERENT STATES, ONE ERROR (audit C-1) ──────────────────────
+  //  `_isDead()` returns true for BOTH "volume below the death floor" and
+  //  "the engine's quote no longer matches the generation's" — the parked state
+  //  after a rotation whose in-transaction `syncGeneration` was refused because
+  //  someone held quote stake (`VaultStaked`). Telling a parked user "the token
+  //  died" is simply false: volume is fine and nothing but a governance
+  //  `syncGeneration` (owner/timelock) revives it. The caller passes `parked`
+  //  when it can see the divergence; see {explainPerpError}.
   TokenDead: "This token is dead (volume below the death floor). Perps are paused until it revives.",
+  TokenDeadParked: "Perps are PARKED, not dead — the treasury rotated this generation's quote and the engine has not been re-synced to it yet. Volume is fine. A governance call to syncGeneration re-opens the market; it is refused while anyone holds quote-side vault stake, so it needs the owner or the timelock.",
+  //  Both of these used to arrive as raw hex.
+  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. This clears as positions close and fees arrive — retrying now will fail identically.",
+  NotArmed: "The perp mark source is not armed. It is cleared on EVERY generation sync, so governance must re-arm it with setRouting after a relaunch or a quote rotation. Until then the engine falls back to its own pool.",
   UtilCapped: "The vault is near full utilization — a slice stays reserved for depositors. Try a smaller size.",
   InsurancePaused: "Opens are paused: the insurance buffer (which absorbs bad debt so losses do not hit the vault) is below its floor. It refills from trading fees, or anyone can top it up with fundInsurance.",
   DustPosition: "Position too small — increase the collateral.",
@@ -196,6 +232,10 @@ export const PERP_ERROR_SELECTORS: Record<string, string> = {
   "0x522007a5": "BadLeverage",
   "0x0078695a": "DustPosition",
   "0xefba5120": "TokenDead",
+  //  From `cast sig`, not guessed (audit C-2/C-3).
+  "0x8db2750a": "NotArmed",       // PerpMarkSource.NotArmed()
+  "0x42b0b17a": "QueueInsolvent", // PerpVault.QueueInsolvent()
+  "0x4803e4a2": "VaultStaked",    // PerpEngine.VaultStaked()
 };
 
 /** Map any error (viem decoded name or message) → a friendly explanation. */

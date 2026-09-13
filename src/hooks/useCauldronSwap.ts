@@ -288,7 +288,10 @@ export function useCauldronSwap() {
    *  is credited as Mana, so a small stake generates a multiple of itself in
    *  volume → more chances to summon a crystal. `openMax=0` opens all earned. */
   const spin = useCallback(
-    async (ethIn: number, loops = 3, openMax = 0, minTokenOut: bigint = 0n): Promise<`0x${string}`> => {
+    async (
+      ethIn: number, loops = 3, openMax = 0, minTokenOut: bigint = 0n,
+      quote: Address = NATIVE_QUOTE, quoteExpected: bigint = 0n, quoteSymbol = "the quote",
+    ): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
       //  A CHURN MUST CARRY A FLOOR. Up to 10 buys and 9 sells run inside one
@@ -302,6 +305,56 @@ export function useCauldronSwap() {
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
+      //  ── AN ERC20-QUOTED GENERATION CHURNS DIFFERENTLY (audit FG-4) ────
+      //  `_pullQuote` takes no value on a non-native quote, so this hard-coded
+      //  native `value` reverted `ErcQuoteTakesNoValue` and SPIN was simply dead
+      //  — with an opaque error — on any rotated generation. Same shape `buy`
+      //  uses: zap ether into the quote, spend the TYPED amount in the quote's
+      //  own decimals, approval bounded to exactly that, floor scaled with it.
+      if (!isNativeQuote(quote)) {
+        if (quoteExpected <= 0n) {
+          throw new Error("No oracle price for this quote — refusing to sign an unbounded spin");
+        }
+        const bal = () => pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "balanceOf", args: [address],
+        }) as Promise<bigint>;
+        const before = (await bal()) as bigint;
+        let delivered: bigint | null = null;
+        if (before < quoteExpected) {
+          if (!CAULDRON.nativeZap) {
+            throw new Error(`This round has no zap, so spinning with ETH is not possible. Acquire ${quoteSymbol} first.`);
+          }
+          const zh = await zapNativeToQuote(quote, ethIn, quoteExpected);
+          await pc!.waitForTransactionReceipt({ hash: zh });
+          const after = (await bal()) as bigint;
+          if (after <= before) throw new Error("The zap delivered nothing — refusing to continue");
+          delivered = after - before;
+        }
+        const walletNow = delivered === null ? before : before + delivered;
+        const spend = quoteInForTypedAmount(quoteExpected, delivered, walletNow);
+        if (spend === 0n) throw new Error(`No ${quoteSymbol} to spin with`);
+        const floor = scaleFloor(minTokenOut, spend, quoteExpected);
+
+        const current = (await pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "allowance",
+          args: [address, CAULDRON.gachaRouter as Address],
+        })) as bigint;
+        if (current < spend) {
+          const ah = await writeContractAsync({
+            address: quote, abi: ERC20_SWAP_ABI, functionName: "approve",
+            args: [CAULDRON.gachaRouter as Address, spend],
+          });
+          await pc!.waitForTransactionReceipt({ hash: ah });
+        }
+        return writeContractAsync({
+          address: CAULDRON.gachaRouter as Address,
+          abi: GACHA_ROUTER_ABI,
+          functionName: "playChurn",
+          args: [spend, BigInt(loops), floor, BigInt(openMax)],
+          value: 0n,
+        });
+      }
+
       return writeContractAsync({
         address: CAULDRON.gachaRouter as Address,
         abi: GACHA_ROUTER_ABI,
@@ -311,7 +364,7 @@ export function useCauldronSwap() {
         value: parseEther(ethIn.toFixed(18)),
       });
     },
-    [address, chainId, switchChainAsync, writeContractAsync],
+    [address, chainId, switchChainAsync, writeContractAsync, pc, zapNativeToQuote],
   );
 
   /** Open a sealed crystal you own → reveals the creature inside. */
