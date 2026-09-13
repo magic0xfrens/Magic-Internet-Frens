@@ -154,7 +154,10 @@ contract F12_IgniteEconomicsForkTest is Test {
         assertGt(swaps, 0, "ignition must print at least one real swap (the green candle)");
         assertGt(registry.generationPositionId(1), 0, "base position placed by the registry");
         assertGt(registry.generationReservePositionId(1), 0, "reserve re-parked out of range");
-        assertTrue(seeder.seeding(), "stream armed for the remainder");
+        //  40b9608 (`SEED_BASE_WAD` 0.15e18 -> 1e18) put the whole of ledger A into
+        //  the base asserted above, so there is no remainder to arm - and that is
+        //  the point: the book is COMPLETE at ignition rather than promised.
+        assertFalse(seeder.seeding(), "nothing left to stream: the base IS the book");
 
         //  ── THE FIRST CANDLE MUST BE ATTRIBUTABLE ────────────────────────
         //  Emitting a swap is not enough for it to reach the chart. The indexer
@@ -236,7 +239,7 @@ contract F12_IgniteEconomicsForkTest is Test {
     /// @notice The prime budget is spent ACROSS the window, never in one lump, and
     ///         it closes out exactly. A lump sum at t0 would meet the thinnest book
     ///         of the entire launch — the single worst moment to spend it.
-    function test_F12_PrimeBuyIsTranchedAndCompletes_OnFork() public {
+    function test_F12_PrimeBuyIsInertAndUnspent_OnFork() public {
         vm.skip(!active);
 
         uint256 budget = 0.2 ether;
@@ -246,17 +249,17 @@ contract F12_IgniteEconomicsForkTest is Test {
         registry.summon{value: RAISE}();
         address token = registry.currentToken();
 
-        // At t0 only the seed floor is placed, so at most a floor-sized slice is due.
-        uint256 dueAtStart = seeder.primePending();
-        assertLt(dueAtStart, budget, "t0 must not authorise the whole budget");
+        //  ── THE TRANCHED PRIME BUY IS DORMANT, AND MUST BE HARMLESS (40b9608) ─
+        //  `SEED_BASE_WAD` 0.15e18 -> 1e18 means no campaign is started, so no
+        //  tranche is ever authorised. That is only safe if the machinery is inert
+        //  rather than half-running: nothing authorised, nothing spent, nothing
+        //  bought, and a keeper's poke cannot revert or drift it.
+        assertFalse(seeder.seeding(), "no campaign, so no tranche schedule exists");
+        assertEq(seeder.primePending(), 0, "t0 authorises nothing at all");
 
-        // Stream to completion in steps, poking as a keeper would — ONE POKE PER BLOCK.
-        // The prime tranche is now impact-capped against the seeder's rate-limited
-        // price reference (audit Z-17), which by construction only advances between
-        // blocks: six pokes inside a single block is the grind the cap exists to stop,
-        // not the keeper behaviour this test means to model. `vm.getBlockNumber()` /
-        // `vm.getBlockTimestamp()` rather than `block.number` / `block.timestamp`
-        // because via_ir hoists those opcode reads out of the loop.
+        // Poke as a keeper would over the whole old window - ONE POKE PER BLOCK.
+        // `vm.getBlockNumber()` / `vm.getBlockTimestamp()` rather than the opcodes
+        // because via_ir hoists those reads out of the loop.
         uint256 b0 = vm.getBlockNumber();
         uint256 t0 = vm.getBlockTimestamp();
         for (uint256 i; i < 60; i++) {
@@ -266,38 +269,43 @@ contract F12_IgniteEconomicsForkTest is Test {
         }
 
         assertEq(seeder.primePending(), 0, "nothing left pending");
-        assertEq(seeder.primeSpent(), budget, "budget spent in full by completion");
-        assertGt(IERC20(token).balanceOf(TREASURY), 0, "treasury received the bought token");
-        assertTrue(seeder.complete(), "stream complete");
+        assertEq(seeder.primeSpent(), 0, "and nothing was ever spent");
+        assertEq(seeder.primeBudget(), budget, "the committed budget is intact, not consumed");
+        assertEq(IERC20(token).balanceOf(TREASURY), 0, "no token was bought on the treasury's behalf");
+        assertEq(seeder.deployedWad(), 0, "sixty pokes changed nothing");
     }
 
-    /// @notice Each tranche meets a deeper book than the one before, so the marginal
-    ///         price impact of the prime buy FALLS as the launch proceeds. This is
-    ///         the whole reason for tranching.
-    function test_F12_LaterTranchesMoveThePriceLess_OnFork() public {
+    /// @notice Tranching existed so each slice met a deeper book than the last.
+    ///         40b9608 removed the reason for it: the WHOLE active tranche is in
+    ///         the book at ignition, so there is no shallow early phase to ration
+    ///         against and no tranche to compare. What replaced the property is
+    ///         asserted here - the depth is all present at t0, none of it is parked
+    ///         with the seeder awaiting a stream, and the price does not drift as
+    ///         the old window elapses.
+    function test_F12_TheWholeActiveTrancheIsInTheBookAtIgnition_OnFork() public {
         vm.skip(!active);
 
         seeder.fundPrime{value: 0.2 ether}(TREASURY);
         registry.summon{value: RAISE}();
+        address token = registry.currentToken();
 
-        vm.warp(block.timestamp + WINDOW / 5);
-        uint256 a0 = _price();
-        seeder.poke();
-        uint256 a1 = _price();
-        uint256 firstMove = FullMath.mulDiv(a1 - a0, 1e18, a0);
+        // Every active token is in the pool, not held back by the seeder.
+        assertEq(IERC20(token).balanceOf(address(seeder)), 0, "the seeder holds no token to stream");
+        assertGt(registry.generationPositionId(1), 0, "the registry owns the full-range base");
 
-        // Run most of the way out, then measure a late tranche.
-        vm.warp(block.timestamp + WINDOW / 2);
-        seeder.poke();
-        vm.warp(block.timestamp + WINDOW / 5);
-        uint256 b0 = _price();
-        seeder.poke();
-        uint256 b1 = _price();
-        uint256 lateMove = b1 > b0 ? FullMath.mulDiv(b1 - b0, 1e18, b0) : 0;
+        // And the price is stable across the whole of the old streaming window,
+        // because nothing is being added to the book behind the market's back.
+        uint256 p0 = _price();
+        uint256 t0 = vm.getBlockTimestamp();
+        for (uint256 i; i < 5; i++) {
+            vm.warp(t0 + (WINDOW * (i + 1)) / 5);
+            seeder.poke();
+        }
+        uint256 p1 = _price();
 
-        emit log_named_uint("first tranche move (wad)", firstMove);
-        emit log_named_uint("late  tranche move (wad)", lateMove);
-        assertLt(lateMove, firstMove, "a later tranche must move price less than an early one");
+        emit log_named_uint("price at ignition", p0);
+        emit log_named_uint("price after the old window", p1);
+        assertEq(p1, p0, "no tranche lands later, so the launch price does not drift");
     }
 
     /// @notice Unspent budget is never stranded: teardown returns it and clears the
@@ -308,8 +316,11 @@ contract F12_IgniteEconomicsForkTest is Test {
         seeder.fundPrime{value: 0.2 ether}(TREASURY);
         registry.summon{value: RAISE}();
 
-        // Stop early — most of the budget is still uncommitted.
-        vm.warp(block.timestamp + WINDOW / 5);
+        //  Under 40b9608 no campaign starts, so NONE of the budget is ever
+        //  committed - which makes "unspent budget is never stranded" the property
+        //  that matters most, not least. The original assertions below are kept
+        //  verbatim; only the way the unspent state is reached has changed.
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 5);
         seeder.poke();
         assertLt(seeder.primeSpent(), 0.2 ether, "budget only partly spent");
 

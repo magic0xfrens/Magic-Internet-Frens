@@ -100,34 +100,39 @@ contract LaunchSnipeForkTest is Test {
         registry.summon{value: 1 ether}();
         PoolId pid = registry.generationPoolId(1);
 
-        uint256 snap = vm.snapshotState();
+        //  ── WHERE THE ANTI-SNIPE LIVES NOW (commit 40b9608) ─────────────────
+        //  This used to measure the DEPTH edge of a thin streamed book: the same
+        //  whale buy cost more early than late. `SEED_BASE_WAD` 0.15e18 -> 1e18 laid
+        //  the whole of ledger A as a two-sided full-range base at summon, so there
+        //  is no thin phase left and no depth edge to measure - deliberately,
+        //  because "a single-sided band is exhaustible by definition". 40b9608 says
+        //  in terms where the property went: "Anti-snipe is unaffected - the surtax
+        //  and LaunchSniper are the real defences and both are untouched."
+        //  So it is asserted here in its real home, CauldronHook.snipeSurtaxBps
+        //  (CauldronHook.sol:1469), rather than deleted.
+        uint256 atLaunch = hook.snipeSurtaxBps(pid);
+        assertGt(atLaunch, 0, "a block-0 buy IS surtaxed");
+        assertGe(atLaunch, hook.snipeMaxBps() / 2, "and surtaxed near the peak, not nominally");
 
-        // EARLY: block-0 whale into the thin 10% floor.
-        (, int24 e0,,) = pm.getSlot0(pid);
-        uint256 gotEarly = _buy(SNIPE_ETH);
-        (, int24 e1,,) = pm.getSlot0(pid);
-        int24 impactEarly = e0 - e1; // buy pushes tick DOWN → positive
-        console2.log("progressive block-0  tokens/1E:", gotEarly);
-        console2.log("progressive block-0  tick impact:", uint256(int256(impactEarly)));
+        // It decays across the window...
+        vm.roll(vm.getBlockNumber() + hook.snipeWindowBlocks() / 2);
+        uint256 midway = hook.snipeSurtaxBps(pid);
+        assertLt(midway, atLaunch, "the surtax decays as the window runs");
 
-        vm.revertToState(snap); // undo the early buy → back to the fresh 10% floor
+        // ...and is gone for an honest late buyer.
+        vm.roll(vm.getBlockNumber() + hook.snipeWindowBlocks());
+        assertEq(hook.snipeSurtaxBps(pid), 0, "no surtax once the window has passed");
+        console2.log("surtax bps at launch / midway:", atLaunch, midway);
 
-        // LATE: fully stream the book, then the SAME whale buy.
-        vm.warp(block.timestamp + WINDOW + 1);
-        seeder.poke();
-        assertEq(seeder.deployedWad(), 1e18, "fully seeded");
-        (, int24 l0,,) = pm.getSlot0(pid);
-        uint256 gotLate = _buy(SNIPE_ETH);
-        (, int24 l1,,) = pm.getSlot0(pid);
-        int24 impactLate = l0 - l1;
-        console2.log("progressive full     tokens/1E:", gotLate);
-        console2.log("progressive full     tick impact:", uint256(int256(impactLate)));
-
-        // Anti-snipe: the same buy moves price much more early (thin) and the sniper
-        // gets fewer tokens per ETH than a buyer once the book has fully streamed.
-        assertGt(impactEarly, impactLate, "thin book: block-0 buy eats MORE price impact");
-        assertLt(gotEarly, gotLate, "block-0 sniper gets FEWER tokens/ETH than the late buyer");
-        console2.log("impact early/late ratio (x100):", (uint256(int256(impactEarly)) * 100) / uint256(int256(impactLate)));
+        //  AND the depth the band used to ration is now permanent: the whale buy
+        //  fills against a continuous full-range book instead of walking off the end
+        //  of the last band into empty space (the 39x teleport 40b9608 measured).
+        (, int24 t0,,) = pm.getSlot0(pid);
+        uint256 got = _buy(SNIPE_ETH);
+        (, int24 t1,,) = pm.getSlot0(pid);
+        assertGt(got, 0, "the whale buy fills");
+        assertGt(pm.getLiquidity(pid), 0, "and the book is still continuous afterwards");
+        console2.log("full-range whale tick impact:", uint256(int256(t0 - t1)));
     }
 
     /// ATOMIC (window 0): the book is fully deep from block 0, so a block-0 buy has

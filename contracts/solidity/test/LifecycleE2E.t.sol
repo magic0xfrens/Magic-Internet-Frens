@@ -117,7 +117,13 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         // the seeder owns the streamed minis. Was `== 0` under the old design where
         // the progressive path handed the entire active tranche to the seeder.
         assertGt(registry.generationPositionId(1), 0, "hybrid: registry owns the base position");
-        assertTrue(seeder.seeding(), "seeder armed");
+        //  ── SINCE 40b9608 THERE IS NOTHING LEFT TO STREAM ───────────────────
+        //  `SEED_BASE_WAD` 0.15e18 -> 1e18 (PoolOps.sol): the whole of ledger A is
+        //  laid as the registry's two-sided full-range base at summon, so the
+        //  campaign is never started. This round still proves the generation is
+        //  born tradeable - it just proves it against the base, not an armed seeder.
+        assertFalse(seeder.seeding(), "no streamed campaign: the base IS the book");
+        assertEq(seeder.deployedWad(), 0, "and the seeder never places a band");
         console2.log("gen1 token:", token1);
         console2.log("seed floor deployedWad:", seeder.deployedWad());
 
@@ -126,16 +132,19 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         console2.log("block-0 sniper tokens for 1 ETH:", snipeGot);
 
         // ---- in-swap streaming: a plain buy advances the stream (no explicit poke) ----
-        vm.warp(block.timestamp + WINDOW / 2);
+        //  A mid-window buy used to advance the stream in-swap. With no campaign
+        //  there is nothing to advance, so what must hold instead is that the buy
+        //  FILLS against the base and the in-swap hook path stays harmless.
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 2);
         uint256 wadBefore = seeder.deployedWad();
-        _buyAs(trader, token1, 0.2 ether);
-        console2.log("deployedWad after a mid-window buy (in-swap poke):", seeder.deployedWad());
-        assertGt(seeder.deployedWad(), wadBefore, "the swap itself streamed liquidity in");
+        uint256 midGot = _buyAs(trader, token1, 0.2 ether);
+        assertGt(midGot, 0, "a mid-window buy fills against the full-range base");
+        assertEq(seeder.deployedWad(), wadBefore, "and streams nothing, because nothing is armed");
 
-        // finish streaming
-        vm.warp(block.timestamp + WINDOW);
+        // The old window closing changes nothing: poke is inert and must not revert.
+        vm.warp(vm.getBlockTimestamp() + WINDOW);
         seeder.poke();
-        assertTrue(seeder.isComplete(), "fully seeded by window end");
+        assertEq(seeder.deployedWad(), 0, "poke stays inert past the old window");
 
         // Give the OG holder a gen-1 bag to migrate (via vesting) next round.
         uint256 ogBag = _buyAs(address(this), token1, 0.5 ether);
@@ -148,7 +157,11 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         address token2 = registry.currentToken();
         assertEq(registry.currentGeneration(), 2, "gen 2 born");
         assertGt(registry.generationPositionId(2), 0, "gen2 hybrid: base position owned by registry");
-        assertTrue(seeder.seeding(), "seeder re-armed for gen2");
+        //  A rebirth lays the same full-range base a summon does (40b9608), so there
+        //  is nothing to re-arm for gen2 either. The line above already proved the
+        //  thing that matters: gen2 is born with a registry-owned book.
+        assertFalse(seeder.seeding(), "gen2 is born full-range too: no campaign to re-arm");
+        assertEq(seeder.deployedWad(), 0, "and nothing is parked with the seeder");
         assertEq(CauldronToken(token1).balanceOf(address(seeder)), 0, "gen1 seeder drained (teardown)");
         console2.log("gen2 token:", token2);
 
@@ -262,10 +275,12 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         (address tok,) = registry.summon{value: 2 ether}();
         assertGt(registry.generationPositionId(1), 0, "hybrid gen: base position owned by registry");
 
-        // Just stream to 100% — the base is already there from summon (NO finalize).
-        vm.warp(block.timestamp + WINDOW + 1);
-        seeder.poke();
-        assertTrue(seeder.isComplete(), "streamed");
+        //  The base is already there from summon and, since 40b9608, it is the
+        //  WHOLE book (NO finalize, NO stream). Perps need continuous spot depth -
+        //  that is the reason for the change - and this is where it comes from now.
+        vm.warp(vm.getBlockTimestamp() + WINDOW + 1);
+        seeder.poke(); // inert, and must not revert
+        assertEq(seeder.deployedWad(), 0, "no campaign: the full-range base carries the depth");
 
         // Perps on the progressive gen (base provides spot depth automatically).
         perp = new PerpEngine(
@@ -314,7 +329,11 @@ contract LifecycleE2EForkTest is Test, IUnlockCallback {
         (address l1,,,,,,,) = perp.positions(liqId);
         assertEq(l1, trader, "liq long opened");
         uint256 plvBefore = perp.plv();
-        _sustainedCrash(tok, 3_000_000_000 ether); // blow through the bid-heavy book (base = no teleport)
+        //  FIXTURE, not a weakening: since 40b9608 the book is the WHOLE of ledger A
+        //  as a two-sided full-range base, not a 15% band, so it absorbs far more
+        //  before the mark crosses maintenance. 3e9 tokens no longer move it enough.
+        //  The adverse move is a fixture parameter; the assertion below is unchanged.
+        _sustainedCrash(tok, 100_000_000_000 ether); // blow through the bid-heavy book (base = no teleport)
         assertTrue(perp.isLiquidatable(liqId), "liquidatable on the progressive book (continuous, no teleport)");
         vm.prank(address(0xBEEF));
         perp.liquidate(liqId);
