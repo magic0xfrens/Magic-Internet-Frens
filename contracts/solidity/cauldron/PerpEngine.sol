@@ -870,8 +870,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  EIP-170 headroom; the hook swaps one external call for another and does
      *  not grow.
      */
+    ///  ── AND A RELAUNCH MUST NOT RE-ARM THE HOSTAGE (red-team Jc) ─────────
+    ///  T3e moved the `markSource = address(0)` drop OUT of the `newQuote != quote`
+    ///  branch so a RELAUNCH could not inherit a source armed on the DEAD
+    ///  generation's pool. Necessary, but it made this predicate true again after
+    ///  every generation change, because the only writer that can re-arm is
+    ///  `setRouting` (onlyOwner). One ~0.0007 ETH position — refundable on close —
+    ///  then vetoed every treasury-rotation slice for the whole generation, until
+    ///  the timelock manually re-ran `setRouting`. That is an off-chain step the
+    ///  permissionless-relaunch promise does not have.
+    ///
+    ///  The hazard this guard was built for is a rotation happening while the
+    ///  engine can only see ONE pool's price. That is now covered by something
+    ///  better and always-on: the T3d death band prices every forced close during a
+    ///  rotation off THIS engine's own TWAP ({DEATH_SLIP_BPS}), so a rotated book
+    ///  cannot be settled outside a 10% band of the mark whether a weighted source
+    ///  is wired or not. So the question is no longer "is a weighted mark armed"
+    ///  but "does this engine have a trustworthy mark AT ALL".
+    ///
+    ///  Still fails CLOSED: with no source AND no usable TWAP history the engine is
+    ///  genuinely blind and an open book still refuses the link.
     function blocksVolumeLink() external view returns (bool) {
-        return openCount != 0 && markSource == address(0);
+        if (openCount == 0 || markSource != address(0)) return false;
+        (, bool ok) = twapTick();
+        return !ok;
     }
 
     function markSqrtPriceX96() public view returns (uint160) {
