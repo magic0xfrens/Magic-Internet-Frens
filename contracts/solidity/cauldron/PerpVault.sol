@@ -430,14 +430,32 @@ contract PerpVault is ReentrancyGuard {
             if (sh == 0) {
                 emit UnattributedYield(cum - last);
             } else {
-                uint256 cut = pulled + lost;       // the cum level the write-off ate up to
-                if (lost != 0 && cut > last && cut < cum) {
+                //  ── THE BOUNDARY IS `>=`, NOT `>` (red-team Ja) ───────────
+                //  `cut` is the cumulative level the write-off ate up to. When the
+                //  vault happened to be synced AT the rotation, `last` already sat
+                //  exactly there, so `cut > last` was false, the split never ran,
+                //  and the `else` stamped {epochAcc} at the TOP of the fold —
+                //  ABOVE the post-rotation accrual. Every wei of fully-backed NEW
+                //  yield was then forfeited on the owner's next interaction and
+                //  left stranded in the engine's pot with no claimant. Measured in
+                //  Ja_VaultEpochOverForfeit: 2 ETH credited after the write-off,
+                //  0 ETH claimable.
+                //
+                //  `cut` is always within `[last, cum]` — it cannot precede what is
+                //  already folded, and it cannot exceed what has been credited —
+                //  so clamp it and let the SPLIT be the only shape. `cut == last`
+                //  then folds nothing before the line (correct: it is already
+                //  there) and `cut == cum` folds nothing after it (correct: no new
+                //  yield). Both boundaries fall out instead of being special cases.
+                uint256 cut = pulled + lost;
+                if (cut < last) cut = last;
+                if (cut > cum) cut = cum;
+                if (lost != 0) {
                     accEthPerTokShare += FullMath.mulDiv(cut - last, ACC, sh);
                     epochAcc = accEthPerTokShare;  // the forfeit line
                     accEthPerTokShare += FullMath.mulDiv(cum - cut, ACC, sh);
                 } else {
                     accEthPerTokShare += FullMath.mulDiv(cum - last, ACC, sh);
-                    if (lost != 0) epochAcc = accEthPerTokShare;
                 }
             }
         } else if (lost != 0) {
@@ -585,14 +603,15 @@ contract PerpVault is ReentrancyGuard {
         //  into the UI. Same detector, same split fold, same epoch line.
         if (cum != last) {
             if (shTot != 0) {
-                uint256 cut = pulled + lost;
-                if (lost != 0 && cut > last && cut < cum) {
+                uint256 cut = pulled + lost;        // same clamp+split as _syncTokYield
+                if (cut < last) cut = last;
+                if (cut > cum) cut = cum;
+                if (lost != 0) {
                     acc += FullMath.mulDiv(cut - last, ACC, shTot);
                     eAcc = acc;
                     acc += FullMath.mulDiv(cum - cut, ACC, shTot);
                 } else {
                     acc += FullMath.mulDiv(cum - last, ACC, shTot);
-                    if (lost != 0) eAcc = acc;
                 }
             }
         } else if (lost != 0) {
