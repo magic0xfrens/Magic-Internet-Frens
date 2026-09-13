@@ -390,7 +390,17 @@ contract PerpVault is ReentrancyGuard {
         if (owed == 0) { emit ClaimEth(msg.sender, 0); return 0; }
         uint256 free = engine.freeEth();
         paid = owed <= free ? owed : free;
-        if (paid == 0) revert ZeroAmount();
+        //  ── ...AND SO DOES A PARTIAL ONE (red-team Jb) ────────────────────
+        //  This was `revert ZeroAmount()`, which is the SAME rollback the note
+        //  above closed, one branch further down. A queue standing against a
+        //  PARTIAL loss writes a real haircut two lines up, but if the engine has
+        //  no FREE ETH right now — every wei lent to open positions, the normal
+        //  state — `paid` is 0 and the revert threw the haircut away with it.
+        //  `pendingEth` could therefore never come back under `totalEth()`, so
+        //  {deposit}'s `QueueInsolvent` guard LATCHED: the release documented
+        //  there was unreachable and the ETH side was shut for good. Bank the
+        //  write-down and return, exactly as the `owed == 0` branch does.
+        if (paid == 0) { emit ClaimEth(msg.sender, 0); return 0; }
         pendingEthOf[msg.sender] = owed - paid;
         pendingEth -= paid;
         engine.withdrawPlvTo(paid, msg.sender);
