@@ -1650,11 +1650,17 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  with a generation that can never be declared dead and never
         //  relaunched. Seven pools is already a wide treasury; the cap is
         //  headroom above any allocation a guild would plausibly vote for.
-        if (sib.length >= MAX_SIBLINGS) revert OnlyRegistry();
         // Idempotent: re-linking must not double-count the same pool forever.
+        // The dedup scan runs BEFORE the cap (audit L3): with the cap first, a
+        // full list made EVERY link revert, including a re-link of a pool that
+        // is already a sibling — and RedemptionExt:473 links unconditionally,
+        // so at nine siblings even rotating back into an already-linked quote
+        // reverted the whole rotation. Only a genuinely NEW 10th pool is
+        // refused now.
         for (uint256 i; i < sib.length; ++i) {
             if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return;
         }
+        if (sib.length >= MAX_SIBLINGS) revert OnlyRegistry();
         sib.push(secondary);
         emit VolumeLinked(primary, secondary);
     }
