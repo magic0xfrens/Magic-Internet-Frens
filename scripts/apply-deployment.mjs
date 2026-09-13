@@ -61,10 +61,22 @@ if (!launchpad.found && !rotation.found && !perp.found) {
   process.exit(1);
 }
 
-/** Last CREATE with this contractName across the given broadcasts. */
+/**
+ * Last CREATE with this contractName across the given broadcasts.
+ *
+ *  MATCHES `Name` AND `Name.0.8.30`. Foundry disambiguates the contractName with
+ *  a solc version suffix when the same contract compiles under more than one
+ *  version — our tree has both 0.8.26 and 0.8.30 artifacts for `PerpEngine`, so
+ *  the broadcast records `PerpEngine.0.8.30` and an exact-equality match found
+ *  NOTHING. That returned null, the caller fell back to the previous round's
+ *  value, and r44's manifest shipped r43's perp engine: the frontend would have
+ *  pointed at a dead engine sitting against a live registry, which reads as
+ *  "perps are broken" rather than as a bad address.
+ */
 function pick(name, ...sources) {
+  const matches = (n) => n === name || (typeof n === "string" && n.startsWith(name + "."));
   for (const src of sources) {
-    const hit = [...src.creates].reverse().find((t) => t.contractName === name);
+    const hit = [...src.creates].reverse().find((t) => matches(t.contractName));
     if (hit) return hit.contractAddress;
   }
   return null;
