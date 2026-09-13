@@ -214,6 +214,7 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     event SeedComplete(uint256 indexed gen);
     event BasePlaced(uint256 indexed gen, uint128 fullRangeLiquidity);
     event PrimeFunded(address indexed to, uint256 amount, uint256 budget);
+    event PrimeRefunded(address indexed to, uint256 amount);
     event PrimeBought(uint256 indexed gen, uint256 ethIn, uint256 tokenOut, uint256 spent, uint256 budget);
     /// @notice A poke did nothing because spot was too far from the rate-limited
     ///         reference. Emitted so the stream can never die SILENTLY (audit Z-17/Z-18).
@@ -333,8 +334,16 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     ///         campaign; funding before ignition is the normal path.
     ///
     ///  Gated because `primeTo` decides where bought tokens land. The ETH itself is
-    ///  a gift to the campaign — {withdrawAll} returns any unspent remainder to the
-    ///  registry at relaunch, so nothing here can be stranded.
+    ///  a gift to the campaign: once a campaign is running, {withdrawAll} returns any
+    ///  unspent remainder to the registry at relaunch.
+    ///
+    ///  NOTHING HERE IS STRANDED BEFORE A CAMPAIGN EITHER (audit K5b). The older
+    ///  NatSpec claimed {withdrawAll} covered every case; it does not. `withdrawAll`
+    ///  is only reached from the registry behind `if (ISeeder(_seeder).seeding())`,
+    ///  and `seeding` is armed only by {startSeed} — which the atomic launch
+    ///  deliberately never calls while `PoolOps.SEED_BASE_WAD == 1e18` ("the campaign
+    ///  is simply not started", PoolOps.sol:402-405). So money funded into a seeder
+    ///  that never gets a campaign had no exit at all. {refundPrime} is that exit.
     function fundPrime(address to) external payable {
         if (msg.sender != deployer && msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry();
         if (to == address(0)) revert BadConfig();
@@ -353,6 +362,30 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
         primeTo = to;
         primeBudget += msg.value;
         emit PrimeFunded(to, msg.value, primeBudget);
+    }
+
+    /// @notice Return a prime budget that no campaign will ever spend (audit K5b).
+    ///
+    ///  Same principal as {fundPrime} — the deploying EOA or the registry owner — so
+    ///  whoever could put the ETH in can take it back out, and nobody else can.
+    ///
+    ///  GATED ON "NO CAMPAIGN HAS EVER STARTED", NOT ON `!seeding`. A finished
+    ///  generation also has `seeding == false`, and its residual ETH is ledger-A
+    ///  money owed to the registry through {withdrawAll}/{_teardown}, not to this
+    ///  caller — draining it here would be a theft of the next launch's backing. The
+    ///  `gen == 0` half is what makes this exit pre-campaign-only: {startSeed} writes
+    ///  a non-zero `gen` and never clears it, so this door shuts for good the first
+    ///  time a campaign is armed and can never reopen on a live or spent budget.
+    function refundPrime(address to) external lock {
+        if (msg.sender != deployer && msg.sender != IRegistryOwner(registry).owner()) revert OnlyRegistry();
+        if (to == address(0)) revert BadConfig();
+        if (seeding || gen != 0) revert AlreadySeeding();
+        primeBudget = 0;
+        primeSpent = 0;
+        primeTo = address(0);
+        uint256 e = address(this).balance;
+        if (e > 0) { (bool ok,) = to.call{value: e}(""); require(ok, "eth"); }
+        emit PrimeRefunded(to, e);
     }
 
     /// @notice ETH the prime buy should spend right now (0 = nothing to do).
@@ -835,9 +868,16 @@ contract CauldronSeeder is ISeeder, IUnlockCallback {
     ///  partial by construction. Leaving `seeding` armed keeps `withdrawAll` reachable
     ///  so the positions are still recovered at the next relaunch/handoff. The next
     ///  generation cannot start until that teardown runs, which is the correct order.
+    ///  THE TOKEN LEG IS SKIPPED WHEN THERE IS NO CAMPAIGN (audit K5c). `token` is
+    ///  written only by {startSeed}, so before the first campaign it is `address(0)`
+    ///  — and `IERC20(address(0)).balanceOf` reverts on the extcodesize check, which
+    ///  made this break-glass hatch itself revert exactly in the state that needs it
+    ///  most (an unarmed seeder holding a prime budget). Guarding the leg lets the
+    ///  native sweep below run pre-campaign.
     function rescue(address to) external onlyRegistry lock {
-        uint256 bal = IERC20(token).balanceOf(address(this));
-        if (bal > 0) IERC20(token).transfer(to, bal);
+        address t = token;
+        uint256 bal = t == address(0) ? 0 : IERC20(t).balanceOf(address(this));
+        if (bal > 0) IERC20(t).transfer(to, bal);
         uint256 e = address(this).balance;
         if (e > 0) { (bool ok,) = to.call{value: e}(""); require(ok, "eth"); }
     }

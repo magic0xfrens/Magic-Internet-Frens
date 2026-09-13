@@ -133,19 +133,24 @@ contract K5b_ProgressiveSeederUnreachable is Test {
         assertEq(address(seeder).balance - seederEthBefore, 1 ether, "stranger moved nothing");
 
         uint256 treasuryBefore = TREASURY.balance;
+        // NOTE: on a live fork the seeder's CREATE address can already hold ETH
+        // (`seederEthBefore`), and refundPrime sweeps the whole pre-campaign balance,
+        // so compare against the balance actually held rather than the 1 ETH funded.
+        uint256 seederHeld = address(seeder).balance;
+        assertGe(seederHeld, 1 ether, "the funded ETH is in there");
         seeder.refundPrime(TREASURY); // caller == the seeder's deployer EOA
-        assertEq(TREASURY.balance - treasuryBefore, 1 ether, "K5b FIXED: the 1 ETH came back");
-        assertEq(address(seeder).balance - seederEthBefore, 0, "K5b FIXED: nothing left trapped");
+        assertEq(TREASURY.balance - treasuryBefore, seederHeld, "K5b FIXED: the 1 ETH came back");
+        assertEq(address(seeder).balance, 0, "K5b FIXED: nothing left trapped");
         assertEq(seeder.primeBudget(), 0, "K5b FIXED: budget accounting cleared");
         assertEq(seeder.primeTo(), address(0), "K5b FIXED: recipient unpinned again");
 
         // --- FIXED (K5c): the break-glass hatch also works pre-campaign now. ---
         seeder.fundPrime{value: 0.5 ether}(TREASURY);
-        assertEq(address(seeder).balance - seederEthBefore, 0.5 ether, "re-funded for the rescue leg");
+        assertEq(address(seeder).balance, 0.5 ether, "re-funded for the rescue leg");
         registry.armEmergency();
         bool rescueWorks = _tryRescue();
         assertTrue(rescueWorks, "K5c FIXED: registry.rescueSeeder() no longer reverts pre-campaign");
-        assertEq(address(seeder).balance - seederEthBefore, 0, "K5c FIXED: rescue swept the ETH out");
+        assertEq(address(seeder).balance, 0, "K5c FIXED: rescue swept the ETH out");
     }
 
     function _tryRescue() internal returns (bool ok) {

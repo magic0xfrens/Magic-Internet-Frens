@@ -394,7 +394,20 @@ contract DeployLaunchpad is Script {
 
                 // LEDGER C: the treasury's own ETH, spent by poke() in tranches that
                 // ride the same schedule (see CauldronSeeder.primePending). Optional —
-                // PRIME_BUY_ETH=0 simply skips it.
+                // PRIME_BUY_ETH=0 simply skips it, and 0 IS THE RIGHT VALUE TODAY.
+                //
+                // DO NOT FUND THIS ON THE SHIPPED CONFIGURATION (audit K5b). The
+                // atomic launch lays the whole of ledger A as the base, so
+                // `PoolOps.SEED_BASE_WAD == 1e18` and `startSeed` is deliberately
+                // never called (PoolOps.sol:402-405). `seeding` therefore stays false
+                // forever, `primePending()` returns 0 forever, and poke() is a no-op:
+                // ETH sent here buys nothing. It is no longer STUCK — the seeder's
+                // deployer / registry owner can call `seeder.refundPrime(to)` while no
+                // campaign has started — but it does nothing until someone lowers
+                // SEED_BASE_WAD below 1e18 and brings the streamed launch back.
+                //
+                // The genesis first-block market buy is a DIFFERENT, live mechanism:
+                // `registry.fundPrimeBuy()` (see the PRIME BUY note further down).
                 uint256 primeEth = vm.envOr("PRIME_BUY_ETH", uint256(0));
                 if (primeEth > 0) {
                     seeder.fundPrime{value: primeEth}(vm.envOr("PRIME_TO", deployer));
