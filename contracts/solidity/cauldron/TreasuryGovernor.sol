@@ -531,20 +531,47 @@ contract TreasuryGovernor {
 
     /// @dev Keep `id` on the bench if it out-weighs the weakest mandate already
     ///      there. See {_bench}. O(BENCH_SLOTS), and only on a FOR-vote.
+    ///
+    ///  ── A SETTLED, PASSED MANDATE IS EVICTED LAST (red-team T2b) ───────────
+    ///  This used to rank purely on raw `forVotes` and exclude only `_dead`
+    ///  entries. `_benchRecord` is reached from {vote}, and {vote} reverts past
+    ///  `votingEndsAt` — so every CANDIDATE is a proposal whose vote is still
+    ///  OPEN, i.e. something nobody knows will pass. Ranking it against a
+    ///  proposal that has already settled AND passed let eight open filings, each
+    ///  carrying one wallet's power, push the guild's decided mandate off all
+    ///  eight slots. `winner()` then returned 0, `execute` reverted `DidNotPass`
+    ///  (:566), and the mandate could never be re-benched because `vote` was
+    ///  closed on it — erased after the guild had already decided, for gas.
+    ///
+    ///  The rule is now an ORDER, not a weight: prefer to evict a slot that is
+    ///  not currently executable (empty, dead, or still open) over one that is.
+    ///  An executable entry is only displaced when EVERY slot holds one — which
+    ///  keeps the bench live rather than freezing it for an execution window —
+    ///  and even then only by strictly more votes, exactly as before.
     function _benchRecord(uint256 id, uint256 votes) private {
         uint256 weakSlot;
         uint256 weakVotes = type(uint256).max;
+        bool weakProtected = true;
         for (uint256 i; i < BENCH_SLOTS; ++i) {
             uint256 b = _bench[i];
             if (b == id) return;                       // already tracked
             uint256 v;
+            bool prot;
             if (b != 0) {
                 Proposal storage q = proposals[b];
                 //  Anything that can never be executed again is dead weight, not
                 //  a mandate — same monotone test the hint retires on.
                 if (!_dead(q)) v = q.forVotes;
+                //  Settled, passed, still inside its execution window: the guild
+                //  has spoken and this slot outranks anything unsettled.
+                prot = _executable(q);
             }
-            if (v < weakVotes) { weakVotes = v; weakSlot = i; }
+            //  Lexicographic: unprotected beats protected, then fewer votes.
+            if (weakProtected != prot ? !prot : v < weakVotes) {
+                weakVotes = v;
+                weakSlot = i;
+                weakProtected = prot;
+            }
         }
         if (votes > weakVotes) _bench[weakSlot] = id;
     }
@@ -686,8 +713,10 @@ contract TreasuryGovernor {
         //  execution window, was pushed out by 64 later filings and `winner()`
         //  returned 0. The guild's mandate was erased by spam that cost gas.
         //
-        //  Walking BACKWARDS and stopping at the first proposal too old to
-        //  execute is bounded without being positional. `votingEndsAt` is
+        //  The SECOND fix — no longer the code below, see the bench paragraph at
+        //  the end of this comment — walked the proposal list BACKWARDS and
+        //  stopped at the first proposal too old to execute: bounded without
+        //  being positional. `votingEndsAt` is
         //  `block.timestamp + VOTING_PERIOD` fixed at creation and ids are
         //  chronological, so it is monotonic non-decreasing in `i` — once one is
         //  stale, every older one is too, and the loop can stop rather than
@@ -770,9 +799,22 @@ contract TreasuryGovernor {
         //  {consume} bounds it separately — it simply can no longer eat the budget
         //  the guild voted for the migration.
         //
-        //  Partial envelopes are unchanged: below a whole position there is no
-        //  migration to protect and one shared budget is the honest accounting.
-        uint16 spent = e.maxTotalBps >= BPS_ONE ? e.movedPrimaryBps : e.movedBps;
+        //  ── AND A PARTIAL MANDATE NEEDS THE SAME PROTECTION (red-team T2a) ──
+        //  The first version of this exempted partial envelopes: "below a whole
+        //  position there is no migration to protect". Wrong — what needs
+        //  protecting is not the migration, it is the LEG THE GUILD VOTED ABOUT.
+        //  A 2,500-bps mandate over the generation's own position was reported
+        //  against the shared `movedBps`, so ONE permissionless
+        //  `rotateSliceFrom(fromLeg = 1, 2500)` out of a side pool drove the
+        //  remainder to zero, deactivated the envelope (:855) and left COOLDOWN
+        //  (7 days) blocking the replacement — repeatable at gas cost at every
+        //  envelope, so a partial mandate could never execute against the primary.
+        //
+        //  EVERY envelope now reports the progress of the position it is about.
+        //  Leg-to-leg rebalancing stays available and stays capped by the voted
+        //  total ({consume} bounds it on `movedBps` separately); it simply cannot
+        //  spend, or retire, a budget that was voted for the primary.
+        uint16 spent = e.movedPrimaryBps;
         if (spent >= e.maxTotalBps) return (address(0), 0);
         return (e.quote, e.maxTotalBps - spent);
     }
@@ -864,10 +906,11 @@ contract TreasuryGovernor {
         //  leaving the guild unable to even FILE a correction to a bad rotation.
         //  `allowance()` already reported this envelope as finished; this makes
         //  the stored state agree with what it reports.
-        //  DEACTIVATION FOLLOWS THE SAME COUNTER {allowance} REPORTS: a migration
-        //  envelope is finished when the MIGRATION is finished, not when a stranger
-        //  has spent the shared total on side pools.
-        if (cap >= BPS_ONE ? e.movedPrimaryBps >= cap : e.movedBps >= cap) e.active = false;
+        //  DEACTIVATION FOLLOWS THE SAME COUNTER {allowance} REPORTS: an envelope
+        //  is finished when the position the guild voted about has moved, not when
+        //  a stranger has spent the shared total on side pools. That holds for
+        //  partial mandates too (red-team T2a) — see {allowance}.
+        if (e.movedPrimaryBps >= cap) e.active = false;
         emit EnvelopeConsumed(bps, e.movedBps);
     }
 

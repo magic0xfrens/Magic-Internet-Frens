@@ -113,43 +113,53 @@ contract K2a_PartialEnvelopeStarve is Test {
     }
 
     // ---------------------------------------------------------------
-    // ATTACK: a PARTIAL mandate is destroyed by ONE secondary slice.
+    // REGRESSION (was the T2a attack): a PARTIAL mandate now survives a
+    // secondary slice exactly the way a migration mandate does.
     // ---------------------------------------------------------------
     function test_K2a_partialEnvelopeNulledBySingleSecondarySlice() public {
         _installEnvelope(2500); // guild voted "move at most 25% into USDG"
         uint16 before_ = _remaining();
 
         // One permissionless rotateSliceFrom(fromLeg=1, sliceBps=2500, ...) —
-        // MAX_SLICE_BPS is exactly 2500, so ONE call is enough.
+        // MAX_SLICE_BPS is exactly 2500, so ONE call was enough to null it.
         _consumeSecondary(2500);
 
         uint16 after_ = _remaining();
         (, , , , bool active, ) = gov.envelope();
         bool migrationDone = gov.migrationMandateSpent();
-        bool cannotRepropose = _proposeReverts();
 
         assertEq(before_, 2500, "envelope opens at the voted budget");
-        assertEq(after_, 0, "ATTACK: the whole voted budget is gone");
-        assertFalse(active, "ATTACK: envelope deactivated without the primary moving");
-        assertFalse(migrationDone, "no migration happened; the primary pair never moved");
-        assertTrue(cannotRepropose, "ATTACK: COOLDOWN locks the guild out of re-proposing");
+        assertEq(after_, 2500, "FIXED: the voted budget is untouched by a secondary slice");
+        assertTrue(active, "FIXED: the envelope stays live; the primary never moved");
+        assertFalse(migrationDone, "no migration happened; a partial mandate never migrates");
+
+        // And the mandate can still do the thing the guild voted for: spend its
+        // whole budget out of the PRIMARY position.
+        gov.consume(2500, true);
+        (, , , , bool activeAfterPrimary, ) = gov.envelope();
+        assertEq(_remaining(), 0, "FIXED: the primary slice is what spends the budget");
+        assertFalse(activeAfterPrimary, "FIXED: and what retires the envelope");
     }
 
-    // The cooldown is 7 days: quantify the lockout.
+    // The 7-day COOLDOWN lockout the attack bought no longer exists: there is
+    // nothing for a stranger to spend, so there is nothing to lock out.
     function test_K2a_lockoutLastsFullCooldown() public {
         _installEnvelope(2500);
         _consumeSecondary(2500);
 
-        bool blockedAtSixDays = _proposeReverts();
         uint256 tBefore = vm.getBlockTimestamp();
         _warpBy(7 days + 1);
         bool warpTookEffect = vm.getBlockTimestamp() == tBefore + 7 days + 1;
-        bool blockedAfterCooldown = _proposeReverts();
 
         assertTrue(warpTookEffect, "the 7-day warp actually moved the clock");
-
-        assertTrue(blockedAtSixDays, "still inside cooldown");
-        assertFalse(blockedAfterCooldown, "cooldown eventually clears: the grief is repeatable, not permanent");
+        assertEq(_remaining(), 2500, "FIXED: a full cooldown later the budget is still the guild's");
+        // A second secondary slice is refused outright: leg-to-leg rebalancing
+        // is still capped by the voted total, it just cannot spend the primary's.
+        vm.expectRevert();
+        gov.consume(1, false);
+        // The primary spend the guild voted for still goes through.
+        gov.consume(2500, true);
+        assertEq(_remaining(), 0, "FIXED: the mandate executes against the primary after the cooldown");
     }
 
     /// @dev The registry is `address(this)` here, standing in for the delegatecall

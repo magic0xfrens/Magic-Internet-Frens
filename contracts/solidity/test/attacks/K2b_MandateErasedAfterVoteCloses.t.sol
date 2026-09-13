@@ -130,20 +130,19 @@ contract K2b_MandateErasedAfterVoteCloses is Test {
         (, , uint64 junkEnd, , , , , , ) = gov.proposals(junk[0]);
         vm.warp(uint256(junkEnd) + 1);
         bool secondWarpTookEffect = vm.getBlockTimestamp() == uint256(junkEnd) + 1;
-        bool canExecuteLater = _executeSucceeds(good);
         bool attackerCanExecute = _executeSucceeds(junk[0]);
-        (address q, ) = gov.allowance();
+        (address q, uint16 rem) = gov.allowance();
 
         assertGt(t1, uint256(goodEnd), "the guild's vote really did close before the attack");
         assertTrue(secondWarpTookEffect, "the second warp actually moved the clock");
         assertEq(winnerBefore, good, "before the attack the guild's mandate wins");
         assertTrue(passingBefore, "it passed quorum");
         assertTrue(stillPassing, "it STILL passes: the votes were never contested");
-        assertEq(winnerAfter, 0, "ATTACK: winner() now sees nothing executable at all");
-        assertFalse(canExecute, "ATTACK: the passed mandate cannot be executed");
-        assertFalse(canExecuteLater, "ATTACK: and it is stale forever after the window");
-        assertTrue(attackerCanExecute, "ATTACK: the attacker's envelope installs instead");
-        assertEq(q, XNVDA, "ATTACK: the treasury is pointed at the attacker's choice");
+        assertEq(winnerAfter, good, "FIXED: eight open filings cannot unseat a settled, passed mandate");
+        assertTrue(canExecute, "FIXED: the passed mandate still executes");
+        assertFalse(attackerCanExecute, "FIXED: the attacker's envelope does not install over it");
+        assertEq(q, USDG, "FIXED: the treasury points at the asset the guild voted for");
+        assertEq(rem, 10_000, "FIXED: with the whole budget the guild voted");
     }
 
     // The attacker never voted AGAINST anything, so this is not ordinary
@@ -161,6 +160,6 @@ contract K2b_MandateErasedAfterVoteCloses is Test {
         assertGt(t, uint256(goodEnd), "the guild's vote really did close");
         assertEq(forVotes, GUILD_POWER, "the mandate's FOR count is untouched");
         assertEq(againstVotes, 0, "no AGAINST vote was ever cast against it");
-        assertEq(gov.winner(), 0, "and it still cannot be executed");
+        assertEq(gov.winner(), good, "FIXED: and it is still the winner, so it can still be executed");
     }
 }
