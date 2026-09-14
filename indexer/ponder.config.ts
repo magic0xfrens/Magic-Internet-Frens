@@ -85,11 +85,29 @@ export default createConfig({
         // CHAIN-AWARE default: pick the fallback set from the manifest's chainId so
         // an unset PONDER_RPC_URL can NEVER silently point Sepolia nodes at a
         // Robinhood (4663) manifest — that mismatch = wrong/empty data or a crash.
+        //  ── A REORG CAN TAKE THIS SERVICE DOWN, AND IT DID ──────────────────
+        //  Sepolia forked at block 11704817 (two children of 0xcc99f76b). Ponder
+        //  refuses to index when a log's `blockHash` disagrees with the block it
+        //  fetched for the same height — correctly — and treats it as FATAL, so
+        //  it crash-looped and the whole API served 502s.
+        //
+        //  The provider was wrong, not Ponder, and not in the direction it looked:
+        //  the LOGS were canonical and `eth_getBlockByNumber` was serving the
+        //  ORPHAN. Proven by following the parent pointer — #11704818's
+        //  `parentHash` is 0xbc625e, the hash the logs carried, while publicnode
+        //  and 1rpc both returned 0x5c315a (the losing sibling) for that height.
+        //  Tenderly returned the canonical block; ankr and blastapi had neither.
+        //
+        //  So order this list by what survived that test, and pin PONDER_RPC_URL
+        //  to a single provider when it happens again — a comma-separated list
+        //  makes Ponder round-robin, which only widens the window for two
+        //  providers to disagree. Recovery: set PONDER_RPC_URL, `railway up`.
+        //  A dedicated endpoint (Alchemy/Infura) avoids the whole class.
         const SEPOLIA = [
+          "https://sepolia.gateway.tenderly.co",
           "https://ethereum-sepolia-rpc.publicnode.com",
           "https://1rpc.io/sepolia",
           "https://rpc.ankr.com/eth_sepolia",
-          "https://sepolia.drpc.org",
           "https://eth-sepolia.public.blastapi.io",
         ];
         //  Arc testnet. Measured before relying on it: `eth_getLogs` works, and
