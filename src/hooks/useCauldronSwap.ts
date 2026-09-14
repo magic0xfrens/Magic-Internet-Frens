@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { parseEther, parseUnits, maxUint256, type Address } from "viem";
+import { parseEther, parseUnits, maxUint256, type Address, toFunctionSelector} from "viem";
 import {
   useAccount,
   useSwitchChain,
@@ -68,6 +68,38 @@ const MOCK_MINT_ABI = [{
 //  sweep budget derived above: ~4.1M + ~3.4M. 8M funds both in full; a heavy
 //  pre-sweep no longer starves the swap's own gacha step of gas.
 const LIQ_SWAP_GAS = 8_000_000n;
+
+/**
+ * Does the DEPLOYED router actually implement `playChurn`?
+ *
+ *  Rounds 43 and 44 both shipped a router whose runtime is 8,580 bytes while the
+ *  source compiles to 8,814 — the 234-byte gap is `playChurn`, so the selector is
+ *  missing from the dispatcher and the call reverts with EMPTY data after ~537
+ *  gas. The user sees "spin reverted" with nothing to go on.
+ *
+ *  No test could catch this: tests compile the local source, the app calls the
+ *  deployed bytecode. So the app asks the chain rather than trusting the ABI, and
+ *  falls back to `play` — which is the same trade minus the extra churn loops and
+ *  is present on every round.
+ *
+ *  Cached per address: it is immutable code, so one `eth_getCode` per session.
+ */
+const churnSupport = new Map<string, boolean>();
+async function routerHasChurn(pc: NonNullable<ReturnType<typeof usePublicClient>>, router: Address) {
+  const key = router.toLowerCase();
+  const hit = churnSupport.get(key);
+  if (hit !== undefined) return hit;
+  let ok = false;
+  try {
+    const code = await pc.getCode({ address: router });
+    const sel = toFunctionSelector("playChurn(uint256,uint256,uint256,uint256)").slice(2).toLowerCase();
+    ok = !!code && code.toLowerCase().includes(sel);
+  } catch {
+    ok = false; // cannot tell -> take the path that exists everywhere
+  }
+  churnSupport.set(key, ok);
+  return ok;
+}
 
 /**
  * useCauldronSwap — buy the current iteration's token with ETH.
@@ -379,11 +411,17 @@ export function useCauldronSwap() {
           });
           await pc!.waitForTransactionReceipt({ hash: ah });
         }
+        const canChurn = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
         return writeContractAsync({
           address: CAULDRON.gachaRouter as Address,
           abi: GACHA_ROUTER_ABI,
-          functionName: "playChurn",
-          args: [spend, BigInt(loops), floor, BigInt(openMax)],
+          //  `play` is the same trade without the extra loops; on a router that
+          //  lacks `playChurn` it is the difference between spinning and a bare
+          //  revert. See {routerHasChurn}.
+          functionName: canChurn ? "playChurn" : "play",
+          args: canChurn
+            ? [spend, BigInt(loops), floor, BigInt(openMax)]
+            : [spend, 0n, floor, 0n, BigInt(openMax)],
           value: 0n,
           //  A churn is N pool swaps, so it can trigger the sweep exactly like a
           //  plain buy. This path set no gas at all and relied on estimation.
@@ -391,12 +429,15 @@ export function useCauldronSwap() {
         });
       }
 
+      const canChurnNative = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
       return writeContractAsync({
         address: CAULDRON.gachaRouter as Address,
         abi: GACHA_ROUTER_ABI,
-        functionName: "playChurn",
+        functionName: canChurnNative ? "playChurn" : "play",
         //  See the note in `buy`: native value, so `quoteIn` is 0.
-        args: [0n, BigInt(loops), minTokenOut, BigInt(openMax)],
+        args: canChurnNative
+          ? [0n, BigInt(loops), minTokenOut, BigInt(openMax)]
+          : [0n, 0n, minTokenOut, 0n, BigInt(openMax)],
         value: parseEther(ethIn.toFixed(18)),
         gas: LIQ_SWAP_GAS,
       });
