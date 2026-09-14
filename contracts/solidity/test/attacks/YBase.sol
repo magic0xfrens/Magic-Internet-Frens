@@ -220,6 +220,17 @@ abstract contract YBase is Test, IUnlockCallback {
 
     /// @dev Exact-input token -> ETH. `payer` must have approved the PoolManager
     ///      (we prank the transfer, so an approval is not actually needed).
+    /// An exact-OUTPUT buy: asks for exactly `tokenOut` and pays what it costs.
+    /// The shape `SWAP_EXACT_OUT_SINGLE` builds, and the one the protocol's own
+    /// relaunch green candle uses.
+    function _buyExactOut(uint256 tokenOut, address to) internal returns (uint256 ethSpent) {
+        bytes memory r = pm.unlock(
+            abi.encode(OP_SWAP, abi.encode(YSwap(true, int256(tokenOut), address(this), to)), _key())
+        );
+        (int128 a0, ) = abi.decode(r, (int128, int128));
+        ethSpent = uint256(uint128(-a0));
+    }
+
     /// A buy that stops at `limit` — the shape a griefer would use: huge nominal,
     /// limit at spot, so almost nothing fills.
     function _buyWithLimit(uint256 ethIn, uint160 limit, address to) internal returns (uint256 got) {

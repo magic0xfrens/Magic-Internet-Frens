@@ -584,7 +584,7 @@ contract XL1Hook {
             //  reverting sweep can never revert the triggering swap. Solidity's
             //  try/catch is NOT equivalent here and measurably let a
             //  `SafeCastOverflow()` out of v4's swap math escape into the swap.
-            (bool ok, ) = perp.call(abi.encodeWithSelector(IXL1Sweep.sweepLiquidations.selector, tx.origin, uint256(0), false, uint160(0)));
+            (bool ok, ) = perp.call(abi.encodeWithSelector(IXL1Sweep.sweepLiquidations.selector, tx.origin, int256(0), false, uint160(0)));
             ok;
         }
         return (IHooks.afterSwap.selector, int128(0));
@@ -592,5 +592,10 @@ contract XL1Hook {
 }
 
 interface IXL1Sweep {
-    function sweepLiquidations(address liquidator, uint256 amountIn, bool isBuy, uint160 limit) external;
+    //  int256, matching PerpEngine. This stub's selector is computed from its own
+    //  declaration, so a `uint256` here is a DIFFERENT selector: the low-level
+    //  call below finds no such function, reverts, and — because the result is
+    //  ignored, exactly as the real hook ignores it — the sweep silently does
+    //  nothing and the position survives a swap that should have closed it.
+    function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit) external;
 }

@@ -57,7 +57,7 @@ interface IPerpOpenCount {
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
-    function sweepLiquidations(address liquidator, uint256 amountIn, bool isBuy, uint160 limit) external;
+    function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit) external;
 }
 
 /// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
@@ -173,7 +173,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Native in-swap gacha (direct Uniswap/aggregator buys forge crystals with no
     // router). Fired LAST in afterSwap with leftover gas, isolated in a self-call.
     uint256 internal constant GACHA_GAS_RESERVE = 200_000; // keep for fee collection + return
-    uint256 internal constant GACHA_GAS_MIN = 500_000;     // need room for commit+resolve+mint
+    //  700k, not 500k (red-team GACHA1-f). The step forwards gasleft - RESERVE,
+    //  so the FLOOR it can receive is MIN - RESERVE = 300k, while a commit(4) +
+    //  resolve(6) measures ~488k: on a gas-tight direct buy the step OOGed,
+    //  burned the buyer's gas and committed nothing, silently.
+    uint256 internal constant GACHA_GAS_MIN = 700_000;     // need room for commit+resolve+mint
     uint256 internal constant NATIVE_COMMIT_MAX = 4;       // crystals committed per native swap
     uint256 internal constant NATIVE_RESOLVE_MAX = 6;      // matured crystals resolved per native swap
     // ── VOLUME WINDOW CLOCK (audit Z-05 — High, L2) ─────────────────────────────
@@ -402,8 +406,14 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // lifted the floor vault for every holder.
     //  `Batch` is declared in {GachaLib}, which owns the resolution loop.
     GachaLib.Batch[] public batches;             // FIFO queue of commit batches
-    uint256 internal batchCursor;         // index of the batch being resolved
-    uint256 public outstandingCrystals; // unresolved crystals across all players
+    /// @dev `batchCursor` + `outstandingCrystals`, grouped so {GachaLib} mutates
+    ///      them IN PLACE through one storage reference (red-team GACHA1-g). They
+    ///      briefly crossed by value and were written back after the call, which
+    ///      is exactly the shape a re-entrant resolve turns into a stale overwrite.
+    GachaLib.State internal gacha;
+    /// @notice Unresolved crystals across all players (kept as a getter so the
+    ///         ABI is unchanged by the struct move).
+    function outstandingCrystals() external view returns (uint256) { return gacha.outstandingCrystals; }
     mapping(address => uint256) internal outstandingOf; // per-collection unresolved
     mapping(address => uint256) public opened;      // creatures a player has won (lifetime)
     mapping(address => uint256) public committedOf; // crystals a player has opened
@@ -778,13 +788,13 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      Gas-bounded and result-ignored: it can never revert or starve the swap
     ///      it rides on. The pre-trade reserve is larger because the user's swap
     ///      and the whole afterSwap still have to run AFTER this returns.
-    function _liqSweep(address sender, uint256 amountIn, bool isBuy, uint160 limit) private {
+    function _liqSweep(address sender, int256 amountSpecified, bool isBuy, uint160 limit) private {
         if (perpEngine == address(0) || sender == perpEngine) return;
-        uint256 reserve = amountIn != 0 ? LIQ_GAS_RESERVE + LIQ_GAS_MIN : LIQ_GAS_RESERVE;
+        uint256 reserve = amountSpecified != 0 ? LIQ_GAS_RESERVE + LIQ_GAS_MIN : LIQ_GAS_RESERVE;
         uint256 g = gasleft();
         if (g > reserve + LIQ_GAS_MIN) {
             perpEngine.call{gas: g - reserve}(
-                abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountIn, isBuy, limit)
+                abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountSpecified, isBuy, limit)
             );
         }
     }
@@ -956,7 +966,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // LIQ_GAS_RESERVE for this afterSwap to finish, forwarding the rest — so
         // the sweep can never OOG the parent swap (best-effort; low-level call
         // with ignored result).
-        _liqSweep(sender, 0, false, 0); // post-trade: catches what the trade just moved
+        _liqSweep(sender, int256(0), false, 0); // post-trade: catches what the trade just moved
 
         // --- NATIVE in-swap gacha ---
         // A direct/aggregator buy (no router hookData) forges crystals RIGHT HERE:
@@ -1255,16 +1265,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  quadrant inverts. One derivation serves both tests below; deriving it
         //  twice is how the two drift apart.
         bool inputIsQuote = params.zeroForOne == q0;
-        //  ── PRE-EMPTIVE LIQUIDATION ──────────────────────────────────────────
-        //  Close any position this trade is about to push past maintenance NOW,
-        //  at the pre-trade price, instead of after the trade at the price it just
-        //  created. Runs for buys AND sells (a sell endangers longs), before the
-        //  sell early-return below. Exact-OUTPUT swaps pass 0: their input is not
-        //  known until execution, so they keep the post-trade sweep only.
-        if (exactInput) {
-            _liqSweep(sender, uint256(-params.amountSpecified), inputIsQuote, params.sqrtPriceLimitX96);
-        }
+        //  ── PRE-EMPTIVE LIQUIDATION, ON BOTH SWAP SHAPES (red-team LIQ04-A) ──
+        //  Exact-OUTPUT buys were skipping the pre-sweep — their input is unknown
+        //  until execution — which left the one quadrant with no projection as
+        //  the one an attacker would route through: 27 mETH of PLV, measured, on
+        //  a trade the exact-input route handles for free.
+        //
+        //  REFUSING them was the wrong fix, twice over. The protocol's own
+        //  relaunch green candle (`PoolOps.executeBuy`) and the engine's short
+        //  buy-back (`PerpSwapLib.swap` with `exactOut`) are both exact-output
+        //  buys, so a blanket refusal bricked summon and settlement — caught by
+        //  twelve test setUps, not by review. And a hook that reverts on
+        //  `SWAP_EXACT_OUT_SINGLE` is NOT ROUTABLE: the Universal Router and any
+        //  aggregator quoting exact-output would fail against this pool, which is
+        //  the opposite of the no-custom-router property this hook is built for.
+        //
+        //  So v4's own SIGNED amount goes across instead and the projection
+        //  handles both shapes — under constant product the exact-output input is
+        //  as closed-form as the exact-input output.
+        //  EXACT-OUTPUT SELLS STAY REFUSED (audit Z-01): v4's afterSwap return
+        //  delta applies to the UNSPECIFIED currency, so the fee cannot be taken
+        //  on that leg and the swap would execute free. Only BUYS are served
+        //  exact-output — and now projected, above.
         if (!exactInput && !inputIsQuote) revert ExactOutSellUnsupported();
+        _liqSweep(sender, params.amountSpecified, inputIsQuote, params.sqrtPriceLimitX96);
         if (!exactInput || !inputIsQuote) {
             return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
@@ -2297,7 +2321,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Unresolved crystals across all players.
     function outstandingTickets() external view returns (uint256) {
-        return outstandingCrystals;
+        return gacha.outstandingCrystals;
     }
 
     /// @notice Whether the current collection is fully minted out.
@@ -2394,7 +2418,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         nftCredit[epoch][player] = credit - spent;
         committedOf[player] += n;
         pendingOf[player] += n;
-        outstandingCrystals += n;
+        gacha.outstandingCrystals += n;
         outstandingOf[col] += n;
 
         uint16 odds = uint16(oddsForPlay(playWei));
@@ -2434,17 +2458,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         internal
         returns (uint256 processed, uint256 won)
     {
-        //  Body lives in {GachaLib} for EIP-170 headroom. Mappings and the batch
-        //  array go across as storage references (one word each); the two plain
-        //  scalars it mutates come back as return values.
-        uint256 cursor;
-        uint256 outstanding;
-        (cursor, outstanding, processed, won) = GachaLib.resolveTickets(
-            batches, missStreak, pendingOf, outstandingOf, opened,
-            batchCursor, pityThreshold, outstandingCrystals, maxCount
+        //  Body lives in {GachaLib} for EIP-170 headroom. Everything it mutates
+        //  goes across as a storage reference (one word each), so every write
+        //  lands in place, exactly as the inline loop wrote it.
+        (processed, won) = GachaLib.resolveTickets(
+            batches, missStreak, pendingOf, outstandingOf, opened, gacha, pityThreshold, maxCount
         );
-        batchCursor = cursor;
-        outstandingCrystals = outstanding;
     }
 
     /// @notice NATIVE in-swap gacha for a direct (non-router) buy: commit the

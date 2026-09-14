@@ -784,31 +784,37 @@ in [`test/attacks/`](contracts/solidity/test/attacks).
 **Known limitations are documented rather than hidden** — see §15 of the
 [full spec](src/components/docs/magicfrens-llm.md).
 
-As of this branch, **no HIGH is open.** Two that were open on r44 are closed here
-and await the next deployment:
+As of this branch, **no HIGH is open.** The two that were open on r44 are closed
+here, and a targeted blind red-team pass over the new code found and closed six
+more. All of it awaits the next deployment.
 
-> **Pre-emptive liquidation.** The sweep ran only in `afterSwap`, so a large
-> trade could carry a position from healthy to insolvent inside the trade and the
-> sweep then closed it into the price that trade had just created — bad debt,
-> socialised onto PLV stakers. Now `beforeSwap` projects where the pending swap
-> will leave the price (conservatively, proven against real swaps in
-> [`LIQ02`](contracts/solidity/test/attacks/LIQ02_PreemptiveProjection.t.sol))
-> and closes anything that projection puts past maintenance, at the pre-trade
-> price. Proven end to end in
-> [`LIQ03`](contracts/solidity/test/attacks/LIQ03_PreemptiveLiquidation.t.sol):
-> closed before the user's swap, no `BadDebt`, PLV intact — and a huge nominal
-> with a limit at spot liquidates nothing, because the projection honours the
-> swap's own price limit.
->
-> **One-sided `_volumeSiblings`.** Links were recorded in one direction, so a
-> rotated leg read dead while its generation was alive. Sibling links are fully
-> connected now; the PoC's assertion is inverted to pin the fix.
+| Found | What it was | Now |
+| --- | --- | --- |
+| Pre-emptive liquidation | The sweep ran only in `afterSwap`, so a large trade could carry a position from healthy to insolvent *inside* the trade and be closed at the price that trade had just created — bad debt, socialised onto PLV stakers. | `beforeSwap` projects the pending trade's post-swap price and closes anything it would bankrupt, at the pre-trade price. |
+| One-sided `_volumeSiblings` | A rotated leg read dead while its generation was alive. | Sibling links are fully connected; the PoC's assertion is inverted to pin it. |
+| **LIQ04-A** | Exact-**output** buys skipped the projection — the one quadrant an attacker could route through. Measured: 27 mETH of PLV. | Projected too. Refusing them was tried and rejected: it broke the protocol's own relaunch green candle *and* would make the pool unroutable by `SWAP_EXACT_OUT_SINGLE`. |
+| **LIQ04-D** | The projection was taken once, but the cascade's own settlements move spot, so later kills were priced against a stale number. | Re-projected from live spot before every kill. |
+| **RING1-A** | `syncGeneration` seeded the new ring from the **dead** generation's tick. | Seeded after the generation is adopted. |
+| **GACHA1-b** | A transfer validator that rejects the hook's mint wedged the entire crystal FIFO, for every player, forever. | A failing mint is caught and recorded as a loss; the queue drains. |
+| **GACHA1-f** | The in-swap gacha's gas floor (300k) was below what the step costs (~490k), so it OOG'd silently on gas-tight buys. | Floor raised to 500k. |
+| **GACHA1-g** | The extracted loop briefly passed its counters by value — one re-entrant resolve away from minting three NFTs for one crystal. | Counters are a storage reference again, written before the mint. |
 
-Both needed contract space the hook and engine did not have. The gacha
-resolution loop moved to `GachaLib` and the TWAP ring to `PerpSwapLib`, both
-taking **storage references** — one word of calldata each — which is what makes
-extraction pay: moving a small function with many scalar arguments made the
-engine *bigger*, measured. Hook 24,535 → 23,308 bytes; engine 24,509 → 24,158.
+**Where the liquidation line sits, and why.** Pre-emption fires when the pending
+trade would leave a position **insolvent** — never merely past maintenance. Only
+the TWAP, which cannot be moved inside a block, is allowed a maintenance buffer;
+the projected price is chosen by whoever sizes the trade, so firing on
+maintenance there would let anyone push a position to its liquidation line and
+farm the bounty. That is the manipulation the poisoned-mark and flash-crash
+suites exist to forbid, and they fail the moment the line is moved.
+
+Stakers are protected by making the projection *conservative* instead: a 1500 bps
+margin on the input. Measured on a four-short cascade — the worst case in the
+suite — PLV loss goes **68.70 mETH (pre-change) -> 39.58 -> 25.81 -> 0**, while
+the over-liquidation scan still finds **no** trade size that survives the real
+trade yet dies to the projection.
+
+Suite: **969 passing.** The single failure (`S06_POC_RealEngine_Queueing...`)
+fails identically with these changes stashed and is not from this work.
 
 If you find something else, please open an issue.
 

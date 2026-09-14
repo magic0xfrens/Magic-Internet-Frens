@@ -31,11 +31,20 @@ contract LIQ02_PreemptiveProjection is YBase {
         _boot(3 ether, 24);
     }
 
-    /// @dev Projected post-swap price for a buy of `ethIn`.
+    /// @dev Projected post-swap price for an exact-INPUT buy of `ethIn`.
     function _project(uint256 ethIn) internal view returns (uint160) {
         uint160 sp = _sqrtP();
         uint256 depth = PerpSwapLib.ethDepth(_inRangeLiquidity(), sp);
-        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true, 0);
+        uint256 tokDepth = PerpSwapLib.ethToToken(depth, sp);
+        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, tokDepth, -int256(ethIn), true, 0);
+    }
+
+    /// @dev Projected post-swap price for an exact-OUTPUT buy of `tokenOut`.
+    function _projectExactOut(uint256 tokenOut) internal view returns (uint160) {
+        uint160 sp = _sqrtP();
+        uint256 depth = PerpSwapLib.ethDepth(_inRangeLiquidity(), sp);
+        uint256 tokDepth = PerpSwapLib.ethToToken(depth, sp);
+        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, tokDepth, int256(tokenOut), true, 0);
     }
 
     /**
@@ -95,7 +104,8 @@ contract LIQ02_PreemptiveProjection is YBase {
             FullMath.mulDivRoundingUp(sellSize, 1 << 96, uint256(before_)), 1 << 96, uint256(before_)
         );
         uint160 projected =
-            PerpSwapLib.projectedSqrtPriceX96(before_, depth, ethEquiv, false, 0);
+            //  reserveOut is unused on the exact-INPUT branch, so 0 is honest here.
+            PerpSwapLib.projectedSqrtPriceX96(before_, depth, 0, -int256(ethEquiv), false, 0);
 
         _sell(sellSize, address(this));
         uint160 actual = _sqrtP();
@@ -127,9 +137,37 @@ contract LIQ02_PreemptiveProjection is YBase {
 
         //  Exact constant-product move, no margin: sqrtP * E / (E + dE).
         uint256 exact = (uint256(sp) * depth) / (depth + ethIn);
-        uint256 projected = PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true, 0);
+        uint256 projected = PerpSwapLib.projectedSqrtPriceX96(sp, depth, 0, -int256(ethIn), true, 0);
 
         assertLt(projected, exact, "projection must overshoot the exact move, not merely match it");
+    }
+
+    /**
+     * LIQ-02.5 — the EXACT-OUTPUT branch is a bound as well.
+     *
+     *  Exact-output is served rather than refused, because a hook that reverts on
+     *  `SWAP_EXACT_OUT_SINGLE` is not routable by the Universal Router or any
+     *  aggregator quoting exact-out. That only holds if its projection is as
+     *  conservative as the exact-input one, so it is asserted the same way:
+     *  against real swaps, at several sizes.
+     */
+    function test_LIQ02_ExactOutputProjectionIsAlsoABound() public {
+        uint256[3] memory outs = [uint256(1_000_000e18), 20_000_000e18, 80_000_000e18];
+        for (uint256 i; i < outs.length; ++i) {
+            uint160 before_ = _sqrtP();
+            uint160 projected = _projectExactOut(outs[i]);
+
+            uint256 spent = _buyExactOut(outs[i], address(this));
+            uint160 actual = _sqrtP();
+
+            assertLt(actual, before_, "an exact-out buy must lower sqrtP when quote is currency0");
+            assertLe(
+                uint256(projected), uint256(actual),
+                "exact-output projection UNDERSHOT the real move - stakers would eat the gap"
+            );
+            console2.log("exact-out tokens", outs[i]);
+            console2.log("  ethSpent / projected / actual", spent, uint256(projected), uint256(actual));
+        }
     }
 
     /**
@@ -142,8 +180,8 @@ contract LIQ02_PreemptiveProjection is YBase {
      */
     function test_LIQ02_DegenerateInputsFallBackToSpot() public view {
         uint160 sp = _sqrtP();
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 1 ether, true, 0), sp, "zero reserve");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, true, 0), sp, "zero amount");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 1 ether, true, 0), 0, "zero price");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 0, -1 ether, true, 0), sp, "zero reserve");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, 0, true, 0), sp, "zero amount");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 0, -1 ether, true, 0), 0, "zero price");
     }
 }

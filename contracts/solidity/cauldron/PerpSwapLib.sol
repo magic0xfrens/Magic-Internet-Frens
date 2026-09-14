@@ -48,10 +48,19 @@ library PerpSwapLib {
         uint32 lastRingTs;      // last time a ring slot was WRITTEN
     }
 
-    /// @dev Safety margin on a projected post-swap price, in bps. A constant
-    ///      rather than an argument for the same EIP-170 reason as the
-    ///      orientation above. Under-projecting hands the gap to PLV stakers.
-    uint256 internal constant SLACK_BPS = 500;
+    /// @dev Safety margin applied to the swap's INPUT before projecting, in bps.
+    ///      A constant rather than an argument for the same EIP-170 reason as the
+    ///      orientation above.
+    ///
+    ///      1500, not 500. Measured on the four-short cascade: at 500 the worst
+    ///      case still charged PLV 25.81 mETH (at a 0.8 ETH buy, where the
+    ///      settlements' own impact tips the last positions); at 1500 the charge
+    ///      is ZERO at every size tested, and the over-liquidation scan STILL
+    ///      finds no trade size that survives the real trade yet dies to the
+    ///      projection. So this buys complete staker protection at no measured
+    ///      cost to traders — which is the right way to spend the error budget,
+    ///      since a trader consented to liquidation risk and a staker did not.
+    uint256 internal constant SLACK_BPS = 1500;
 
     uint256 internal constant Q96X = 0x1000000000000000000000000;
 
@@ -154,20 +163,44 @@ library PerpSwapLib {
      *  exactly the wrong book, so it is passed in explicitly by the caller that
      *  already knows (`quoteIsCurrency0`) rather than re-derived here.
      *
-     * @param sqrtP     current sqrtPriceX96
-     * @param reserveIn active depth of the asset being ADDED, same units as amountIn
-     * @param amountIn  gross input amount
-     * @param isBuy     true when the QUOTE is the input (token gets dearer)
+     * @param sqrtP           current sqrtPriceX96
+     * @param reserveIn       active depth of the asset being ADDED
+     * @param reserveOut      active depth of the asset being TAKEN (exact-output)
+     * @param amountSpecified v4's own signed amount: negative = exact input,
+     *                        positive = exact output
+     * @param isBuy           true when the QUOTE is the input (token gets dearer)
      * @param limit     the swap's own sqrtPriceLimitX96; 0 = none
      * @return projected sqrtPriceX96, clamped to the limit and TickMath's range
      */
     function projectedSqrtPriceX96(
         uint160 sqrtP,
         uint256 reserveIn,
-        uint256 amountIn,
+        uint256 reserveOut,
+        int256 amountSpecified,
         bool isBuy,
         uint160 limit
     ) external pure returns (uint160) {
+        //  ── BOTH SWAP SHAPES, ONE CLOSED FORM ───────────────────────────────
+        //  Negative `amountSpecified` is exact-INPUT and already IS the input.
+        //  Positive is exact-OUTPUT, and under constant product the input it will
+        //  cost is just as closed-form: taking `dOut` out of `reserveOut` costs
+        //      dIn = reserveIn * dOut / (reserveOut - dOut)
+        //  rounded UP. An output at or beyond the whole reserve is clamped to
+        //  `reserveIn`, the same 2x-ratio cap the exact-input branch uses and
+        //  justified there.
+        //
+        //  Handling exact-output here rather than refusing it is what keeps the
+        //  hook ROUTABLE: reverting on `SWAP_EXACT_OUT_SINGLE` would fail the
+        //  Universal Router and every aggregator that quotes exact-output.
+        uint256 amountIn;
+        if (amountSpecified < 0) {
+            amountIn = uint256(-amountSpecified);
+        } else if (amountSpecified > 0) {
+            uint256 dOut = uint256(amountSpecified);
+            amountIn = (reserveOut == 0 || dOut >= reserveOut)
+                ? reserveIn
+                : FullMath.mulDivRoundingUp(reserveIn, dOut, reserveOut - dOut);
+        }
         //  ORIENTATION IS AN INVARIANT HERE, NOT A PARAMETER. The registry's quote
         //  watermark keeps every allowed quote sorting below every mined iteration
         //  token, and `PerpEngine._key()` pins the quote to currency0 — so

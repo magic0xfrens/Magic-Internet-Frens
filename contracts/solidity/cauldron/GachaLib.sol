@@ -23,8 +23,10 @@ import {ICauldronCollection} from "./ICauldron.sol";
  *  emitted from inside the DELEGATECALL, so they carry the HOOK's address and an
  *  indexer cannot tell the difference — the same property {FeeRouteLib} already
  *  relies on. The two plain-uint scalars the loop mutates (`batchCursor`,
- *  `outstandingCrystals`) cannot be passed by reference, so they go in by value
- *  and come back as return values for the hook to store.
+ *  `outstandingCrystals`) are grouped into {State} so they too cross as ONE
+ *  storage reference and are written in place — they briefly went by value and
+ *  came back as return values, which is exactly the shape a re-entrant resolve
+ *  turns into a stale overwrite (GACHA1-g).
  */
 library GachaLib {
     /// @dev One commit: the crystals a player opened in a single play, rolled
@@ -36,6 +38,13 @@ library GachaLib {
         uint16 oddsBps;      // win probability, fixed at commit from play size
         uint16 count;        // crystals in this batch
         uint16 resolved;     // how many rolled so far
+    }
+
+    /// @dev The two loop scalars, as ONE storage reference so the loop writes
+    ///      them in place (GACHA1-g).
+    struct State {
+        uint256 batchCursor;         // index of the batch being resolved
+        uint256 outstandingCrystals; // unresolved crystals across all players
     }
 
     //  Declared here so the library can emit them; identical signatures to the
@@ -52,8 +61,6 @@ library GachaLib {
      *  and re-stamps a batch whose blockhash has aged out of the 256-block window
      *  so it is rolled against a fresh, still-unknown seed on a later call.
      *
-     * @return newCursor      value for the hook to store into `batchCursor`
-     * @return newOutstanding value for the hook to store into `outstandingCrystals`
      * @return processed      crystals rolled this call
      * @return won            creatures minted this call
      */
@@ -63,12 +70,11 @@ library GachaLib {
         mapping(address => uint256) storage pendingOf,
         mapping(address => uint256) storage outstandingOf,
         mapping(address => uint256) storage opened,
-        uint256 batchCursor,
+        State storage st,
         uint256 pityThreshold,
-        uint256 outstandingCrystals,
         uint256 maxCount
-    ) external returns (uint256 newCursor, uint256 newOutstanding, uint256 processed, uint256 won) {
-        uint256 bi = batchCursor;
+    ) external returns (uint256 processed, uint256 won) {
+        uint256 bi = st.batchCursor;
         uint256 end = batches.length;
         while (processed < maxCount && bi < end) {
             Batch storage b = batches[bi];
@@ -90,24 +96,44 @@ library GachaLib {
                 bool forced = missStreak[player] >= pityThreshold;
                 bool win = (forced || roll < odds) && minted < max;
                 pendingOf[player] -= 1;
-                outstandingCrystals -= 1;
+                st.outstandingCrystals -= 1;
                 outstandingOf[col] -= 1;
+                //  EFFECTS BEFORE THE ONLY EXTERNAL INTERACTION (GACHA1-g). The
+                //  crystal is consumed and the batch cursor advanced BEFORE the
+                //  mint, so a re-entrant resolve — impossible today (`_mint`, a
+                //  view validator, `nonReentrant` on both callers) but one
+                //  `_safeMint` away — finds the queue already moved past this roll
+                //  instead of rolling it again.
+                unchecked { r++; processed++; }
+                b.resolved = uint16(r);
                 if (win) {
                     missStreak[player] = 0;
                     opened[player] += 1;
-                    uint256 tokenId = ICauldronCollection(col).mint(player);
-                    unchecked { minted++; won++; }
-                    emit TicketWon(player, bi, tokenId);
+                    //  A MINT THAT REVERTS MUST NOT WEDGE THE QUEUE (GACHA1-b). The
+                    //  cursor can never pass a batch whose mint reverts, so one
+                    //  transfer-validator policy that rejects the hook as operator
+                    //  would freeze every player's crystals forever. The crystal is
+                    //  already spent; a failed mint is recorded as a loss, WITHOUT
+                    //  counting against the player's pity streak — it was not their
+                    //  miss.
+                    try ICauldronCollection(col).mint(player) returns (uint256 tokenId) {
+                        unchecked { minted++; won++; }
+                        emit TicketWon(player, bi, tokenId);
+                    } catch {
+                        emit TicketLost(player, bi);
+                    }
                 } else {
                     if (roll >= odds && minted < max) missStreak[player] += 1;
                     emit TicketLost(player, bi);
                 }
-                unchecked { r++; processed++; }
             }
-            b.resolved = uint16(r);
             if (r == total) { unchecked { bi++; } } else break;
         }
-        newCursor = bi;
-        newOutstanding = outstandingCrystals;
+        //  MONOTONIC. A re-entrant inner resolve (impossible today, see above)
+        //  may have advanced the cursor past this frame's `bi`; a plain write
+        //  here would rewind it. Harmless — `b.resolved` stops any re-roll and
+        //  the next call self-heals — but a cursor that only moves forward costs
+        //  nothing and removes the transient lie.
+        if (bi > st.batchCursor) st.batchCursor = bi;
     }
 }

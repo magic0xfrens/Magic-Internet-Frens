@@ -1053,23 +1053,28 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         ≤ MAX_LIQ_PER_SWAP kills) so it can never OOG the parent swap, and
     ///         the cursor rotates so every position is eventually checked across
     ///         swaps. Hook-only, best-effort (never reverts the triggering swap).
-    /// @param amountIn size of the PENDING swap in its INPUT asset, or 0 for a
-    ///                 plain post-trade sweep (the `afterSwap` path, unchanged).
-    /// @param isBuy    true when the quote is the input (token gets dearer).
-    /// @param limit    the swap's own sqrtPriceLimitX96 — the projection may not
-    ///                 exceed it, which is what stops a tight-limit swap with a
-    ///                 huge nominal from liquidating a whole side for free.
-    function sweepLiquidations(address liquidator, uint256 amountIn, bool isBuy, uint160 limit) external {
+    /// @param spec  v4's own signed amount for the PENDING swap (negative = exact
+    ///              input, positive = exact output), or 0 for a plain post-trade
+    ///              sweep — the `afterSwap` path, unchanged.
+    /// @param isBuy true when the quote is the input (token gets dearer).
+    /// @param limit the swap's own sqrtPriceLimitX96 — the projection may not
+    ///              exceed it, which is what stops a tight-limit swap with a huge
+    ///              nominal from liquidating a whole side for free.
+    function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit) external {
         if (msg.sender != hookAddr) revert OnlyHook();
-        if (amountIn != 0) {
-            //  `dT/T == dE/E` under constant product because `E/T` IS the price,
-            //  so the reserve just has to be in the INPUT asset's units.
-            uint256 reserve = activeEthDepth();
-            if (!isBuy) reserve = _ethToToken(reserve);
-            _projSqrtP = PerpSwapLib.projectedSqrtPriceX96(_sqrtP(), reserve, amountIn, isBuy, limit);
-        }
-        _doSweep(liquidator, true);   // in-swap: settle swaps run in-place
-        _projSqrtP = 0;
+        _doSweep(liquidator, true, spec, isBuy, limit);   // in-swap: settle swaps run in-place
+    }
+
+    /// @dev The pending trade's projected post-swap price from the CURRENT spot.
+    ///      BOTH reserves go across: an exact-OUTPUT swap's input is derived from
+    ///      the side being taken. `dT/T == dE/E` under constant product because
+    ///      `E/T` IS the price, so the units cancel either way.
+    function _project(int256 spec, bool isBuy, uint160 limit) internal view returns (uint160) {
+        uint256 eDepth = activeEthDepth();
+        uint256 tDepth = _ethToToken(eDepth);
+        return PerpSwapLib.projectedSqrtPriceX96(
+            _sqrtP(), isBuy ? eDepth : tDepth, isBuy ? tDepth : eDepth, spec, isBuy, limit
+        );
     }
 
     /// @dev Post-open sweep entrypoint — called by the engine ON ITSELF (external
@@ -1078,7 +1083,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      cascade ever reverting the trader's own open (best-effort).
     function selfSweep(address liquidator) external {
         if (msg.sender != address(this)) revert OnlyHook();
-        _doSweep(liquidator, false);
+        _doSweep(liquidator, false, int256(0), false, 0);
     }
     /// @dev Fire the post-open sweep best-effort, reserving gas so it can never
     ///      revert the open, and capping it so a cascade can't consume everything.
@@ -1098,7 +1103,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      set-then-clear shape as `_liqReentry` / `_inLocked` right beside it.
     uint160 internal _projSqrtP;
 
-    function _doSweep(address liquidator, bool inLocked) internal {
+    function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit) internal {
         if (_liqReentry) return;
         // SAMPLE THE ORACLE FIRST, ALWAYS (audit Z-02). This used to sit AFTER the
         // empty-book early-return, which meant that while no position was open no
@@ -1139,6 +1144,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
             uint256 id = _openIds[cursor];
+            //  RE-PROJECT PER KILL, FROM LIVE SPOT (red-team LIQ04-D). Each
+            //  settlement swap in this loop moves spot, so a projection taken once
+            //  before the loop valued kills 2..N against a price that no longer
+            //  existed and let positions the trade WOULD sink slip through to the
+            //  post-trade sweep. Settlement impact is real and permanent while the
+            //  pending trade's impact is still entirely ahead, so projecting from
+            //  the moved spot with the full pending size is still a bound.
+            //  Measured residual before this: 39.6 mETH of PLV at a 0.8 ETH buy.
+            if (spec != 0) _projSqrtP = _project(spec, isBuy, limit);
             _tryLiquidate(id, liquidator);
             // If it liquidated, _removeOpen swap-popped the LAST id into `cursor`,
             // so DON'T advance (re-check the slot's new occupant); else advance.
@@ -1148,6 +1162,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         sweepCursor = cursor;
         _inLocked = false;
         _liqReentry = false;
+        _projSqrtP = 0;
     }
 
     /// @dev Liquidate one position if {_liqTest} trips it and the per-block
@@ -1284,9 +1299,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         ring.obsIndex = 1;
         ring.lastObsTs = uint32(block.timestamp);
         ring.lastRingTs = uint32(block.timestamp);
-        ringArmedAt = uint32(block.timestamp);
-        ring.lastTick = _currentTick();
-        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
+        //  `ringArmedAt`, `ring.lastTick` and `observations[0]` are seeded BELOW,
+        //  after `quote`/`syncedToken`/`markSource` are adopted — see RING1-A.
 
         //  ADOPT THE GENERATION'S QUOTE. Done at the single point the engine
         //  takes on a generation, so `quote` can never disagree with the pool it
@@ -1443,6 +1457,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         syncedGeneration = gen;
         syncedToken = newTok;
+        //  ── SEED THE NEW RING FROM THE NEW GENERATION, NOT THE DEAD ONE (RING1-A)
+        //  This used to run with the reset above, BEFORE `quote`, `syncedToken` and
+        //  `markSource` were adopted, so `_currentTick()` read the dying pool (or
+        //  its still-armed mark source) and the new generation's mark started as
+        //  the OLD tick — measured 60000 vs a live 0 — and, with
+        //  `observations[0].tickCumulative == 0`, stayed exactly that for a whole
+        //  `twapWindow`. Downgraded to Low only because the 24h open warmup
+        //  outlasts it; fixed anyway, because a correct seed costs nothing.
+        //  `_key()` reads BOTH `quote` and `syncedToken`, so this sits after both.
+        ringArmedAt = uint32(block.timestamp);
+        ring.lastTick = _currentTick();
+        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
         emit GenerationSynced(fromGen, gen, migratedIn, newInv);
     }
 
@@ -1502,18 +1528,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *                   gas audit G-02).
      */
     function _liqTest(Position memory p) internal view returns (bool trip, bool insolvent, uint256 notional) {
-        //  ── PRE-EMPTION: VALUE THE POSITION WHERE THE PENDING TRADE WILL LEAVE IT
-        //  Inside a pre-sweep the maintenance test runs against the projected
-        //  post-swap price instead of the TWAP mark, so a position the trade
-        //  would push past maintenance is closed BEFORE the trade, at the
-        //  pre-trade price. Maintenance rather than bare insolvency on purpose:
-        //  the settlement swap has its own impact and penalty, and `maintenanceBps`
-        //  is precisely the buffer that keeps proceeds above debt — close at the
-        //  insolvency line and the settlement itself can create the bad debt.
-        //  Outside a pre-sweep `_projSqrtP` is zero and this is byte-for-byte the
-        //  TWAP test it always was.
-        uint160 pj = _projSqrtP;
-        notional = pj != 0 ? _quoteAt(p.size, pj) : _quoteMark(p.size);
+        notional = _quoteMark(p.size);
         trip = _underwaterVal(p, notional);
         insolvent = _insolventVal(p, notional);
         if (!insolvent) {
@@ -1521,7 +1536,25 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  there is no spot price to judge by — leave the mark's answer alone
             //  rather than dividing by zero on a path the hook cannot afford to
             //  have revert.
-            uint160 sp = _sqrtP();
+            //  ── THE PRICE THE TRADE WILL LEAVE, NOT THE ONE IT FOUND ─────────
+            //  Outside a pre-sweep `_projSqrtP` is zero and this is the live-spot
+            //  insolvency trigger, unchanged. INSIDE one it becomes the PROJECTED
+            //  post-trade price — which is the honest question ("does this trade
+            //  bankrupt the position?") and deliberately NOT the pre-trade spot.
+            //
+            //  Using pre-trade spot here would be a real regression: mid
+            //  round-trip the spot can be crashed by a move the pending trade is
+            //  about to undo, so an atomic crash-and-restore could farm a
+            //  liquidation on a position the restore leg makes solvent again.
+            //  The poisoned-mark suite (A02) caught exactly that.
+            //
+            //  INSOLVENCY, never maintenance. Only the TWAP is allowed a
+            //  maintenance buffer, so an ORDINARY liquidation still needs a
+            //  SUSTAINED move and cannot be fired by one block's price. No buffer
+            //  is needed to absorb the settlement's own impact either, because
+            //  closing BEFORE the trade is itself the buffer.
+            uint160 pj = _projSqrtP;
+            uint160 sp = pj != 0 ? pj : _sqrtP();
             if (sp != 0) insolvent = _insolventVal(p, _quoteAt(p.size, sp));
         }
         if (insolvent) trip = true;
