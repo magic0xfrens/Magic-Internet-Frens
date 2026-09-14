@@ -527,7 +527,7 @@ contract PerpEngineForkTest is Test, IUnlockCallback {
         vm.prank(trader);
         perp.openLong{value: 0.02 ether}(2, 0, 0, 0.02 ether);
         vm.expectRevert(PerpEngine.OnlyHook.selector);
-        perp.sweepLiquidations(address(0xBEEF));
+        perp.sweepLiquidations(address(0xBEEF), 0, false, 0);
     }
 
     /// The full path: wire the engine into the hook + the collection, open a

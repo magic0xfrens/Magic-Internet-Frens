@@ -28,6 +28,26 @@ import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
  *  engine.
  */
 library PerpSwapLib {
+    // ── TWAP ring, shared with PerpEngine ─────────────────────────────────
+    //  The struct is declared HERE so the engine's `observations` storage array
+    //  and this library's storage-reference parameter are the same type. The
+    //  constants mirror the engine's (which it keeps for its own array length);
+    //  they are inlined everywhere and must stay equal.
+    struct Observation { uint32 ts; int56 tickCumulative; }
+    uint16 internal constant OBS_CARDINALITY = 32;
+    uint16 internal constant OBS_MASK = OBS_CARDINALITY - 1;
+    uint32 internal constant MIN_TWAP = 1 seconds;
+    /// @dev The ring's scalar state, grouped so it crosses into this library as
+    ///      ONE storage reference. Packs into a single slot (20 bytes), exactly as
+    ///      the five separate declarations it replaces already did.
+    struct Ring {
+        uint16 obsIndex;        // next slot to write
+        int56 tickCumulative;   // sum of tick*dt up to lastObsTs
+        uint32 lastObsTs;       // last time tickCumulative was INTEGRATED
+        int24 lastTick;         // last observed tick — never left stale
+        uint32 lastRingTs;      // last time a ring slot was WRITTEN
+    }
+
     /// @dev Safety margin on a projected post-swap price, in bps. A constant
     ///      rather than an argument for the same EIP-170 reason as the
     ///      orientation above. Under-projecting hands the gap to PLV stakers.
@@ -138,13 +158,15 @@ library PerpSwapLib {
      * @param reserveIn active depth of the asset being ADDED, same units as amountIn
      * @param amountIn  gross input amount
      * @param isBuy     true when the QUOTE is the input (token gets dearer)
-     * @return projected sqrtPriceX96, clamped to TickMath's valid range
+     * @param limit     the swap's own sqrtPriceLimitX96; 0 = none
+     * @return projected sqrtPriceX96, clamped to the limit and TickMath's range
      */
     function projectedSqrtPriceX96(
         uint160 sqrtP,
         uint256 reserveIn,
         uint256 amountIn,
-        bool isBuy
+        bool isBuy,
+        uint160 limit
     ) external pure returns (uint160) {
         //  ORIENTATION IS AN INVARIANT HERE, NOT A PARAMETER. The registry's quote
         //  watermark keeps every allowed quote sorting below every mined iteration
@@ -163,9 +185,15 @@ library PerpSwapLib {
 
         //  ratio = 1 + (amountIn * (1 + slack)) / reserveIn, in 1e18 fixed point.
         uint256 inflated = amountIn + FullMath.mulDiv(amountIn, slackBps, 10_000);
-        //  Cap the modelled input at the reserve. Beyond that the constant-product
-        //  form is still finite but the result is far outside anything the pool
-        //  could fill, and the clamp keeps the arithmetic well conditioned.
+        //  Cap the modelled input at the reserve, i.e. at a 2x ratio (4x in price).
+        //  This is the one place the projection knowingly UNDERSTATES — a trade
+        //  larger than the reserve moves price further than 4x — and it is safe
+        //  because 4x already exceeds any move a leveraged position can survive:
+        //  a short's backing is at most 2x its notional, so 4x is insolvent; a
+        //  long at 2x or more has principal >= half its notional, so a 4x fall is
+        //  under water; and a 1x long has no debt to liquidate. Every position
+        //  the cap could hide is one it trips anyway. What the cap buys is
+        //  arithmetic that stays well conditioned for absurd nominals.
         if (inflated > reserveIn) inflated = reserveIn;
         //  ROUND THE RATIO UP, ALWAYS. Truncation is not neutral here: it shrinks
         //  the projected move, which is the one direction this function must never
@@ -191,11 +219,109 @@ library PerpSwapLib {
             ? FullMath.mulDivRoundingUp(uint256(sqrtP), ratio, 1e18)
             : FullMath.mulDiv(uint256(sqrtP), 1e18, ratio);
 
+        //  ── THE TRADE CANNOT MOVE PRICE PAST ITS OWN LIMIT ─────────────────
+        //  Without this clamp a swap with a huge `amountSpecified` and a limit at
+        //  spot would fill NOTHING yet project an enormous move — liquidating every
+        //  position on one side for the price of gas. The limit is a hard bound
+        //  the PoolManager enforces, so clamping to it keeps the projection a real
+        //  bound rather than a griefing lever. Only honoured when the limit sits
+        //  on the trade's side of spot; a limit on the wrong side makes the swap
+        //  itself revert (`PriceLimitAlreadyExceeded`), taking any pre-sweep
+        //  liquidations with it, so it is simply ignored here.
+        if (limit != 0) {
+            if (up ? (limit > sqrtP && out > limit) : (limit < sqrtP && out < limit)) out = limit;
+        }
         uint256 lo = uint256(TickMath.MIN_SQRT_PRICE) + 1;
         uint256 hi = uint256(TickMath.MAX_SQRT_PRICE) - 1;
         if (out < lo) out = lo;
         if (out > hi) out = hi;
         return uint160(out);
+    }
+
+    /**
+     * @notice The liquidation mark: time-weighted average tick over `window`.
+     *         {PerpEngine.twapTick}'s body, moved here for EIP-170 headroom.
+     *
+     *  Storage-reference extraction: the 32-slot ring arrives as ONE word of
+     *  calldata, the five scalars as five more. Same algorithm, same results —
+     *  every TWAP-dependent test in the suite is the differential check.
+     */
+    function twapTick(
+        Observation[OBS_CARDINALITY] storage observations,
+        Ring storage r,
+        uint32 twapWindow
+    ) external view returns (int24 tick, bool ok) {
+        uint16 next = r.obsIndex;
+        int56 tickCumulative = r.tickCumulative;
+        int24 lastTick = r.lastTick;
+        uint32 lastObsTs = r.lastObsTs;
+        uint32 nowTs = uint32(block.timestamp);
+        if (nowTs <= MIN_TWAP) return (0, false);
+        uint32 target;
+        unchecked { target = nowTs - twapWindow; }
+        uint16 n;      // how many observations are populated
+        uint16 start;  // physical index of the OLDEST
+        if (observations[next & OBS_MASK].ts != 0) {
+            n = OBS_CARDINALITY; start = next;   // wrapped: `next` is the oldest
+        } else {
+            n = next; start = 0;                 // not yet wrapped: 0..next-1
+        }
+        if (n == 0) return (0, false);
+        uint32 useTs; int56 useCum;
+        Observation memory oldest = observations[start];
+        if (oldest.ts > target) {
+            unchecked { if (nowTs - oldest.ts < MIN_TWAP) return (0, false); }
+            useTs = oldest.ts; useCum = oldest.tickCumulative;
+        } else {
+            uint16 lo; uint16 hi = n - 1;
+            while (lo < hi) {
+                uint16 mid = (lo + hi + 1) >> 1;
+                if (observations[(start + mid) & OBS_MASK].ts <= target) lo = mid;
+                else hi = mid - 1;
+            }
+            Observation memory best = observations[(start + lo) & OBS_MASK];
+            useTs = best.ts; useCum = best.tickCumulative;
+        }
+        int56 cumNow;
+        int56 span;
+        unchecked {
+            cumNow = tickCumulative + int56(lastTick) * int56(uint56(nowTs - lastObsTs));
+            span = int56(uint56(nowTs - useTs));
+        }
+        if (span == 0) return (0, false);
+        tick = int24((cumNow - useCum) / span);
+        ok = true;
+    }
+
+    /**
+     * @notice Integrate the tick since the last call and, if `obsInterval` has
+     *         elapsed, write a ring slot. {PerpEngine._writeObs}'s body.
+     *
+     *  `currentTick` is passed in rather than read here because only the engine
+     *  knows its mark source; it is evaluated before the call, which yields the
+     *  same value the original read after the ring write (a pure view of pool /
+     *  mark state that the write does not touch).
+     */
+    function writeObs(
+        Observation[OBS_CARDINALITY] storage observations,
+        Ring storage r,
+        uint32 obsInterval,
+        int24 currentTick
+    ) external {
+        uint32 nowTs = uint32(block.timestamp);
+        unchecked {
+            uint32 dt = nowTs - r.lastObsTs;
+            if (dt > 0) {
+                r.tickCumulative += int56(r.lastTick) * int56(uint56(dt));
+                r.lastObsTs = nowTs;
+            }
+            if (nowTs - r.lastRingTs >= obsInterval) {
+                observations[r.obsIndex] = Observation(nowTs, r.tickCumulative);
+                r.obsIndex = (r.obsIndex + 1) & OBS_MASK;
+                r.lastRingTs = nowTs;
+            }
+        }
+        r.lastTick = currentTick; // ALWAYS refresh — never leave a stale tick
     }
 
     /// @notice tick -> sqrtPriceX96.

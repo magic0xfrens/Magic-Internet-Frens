@@ -310,28 +310,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint32 internal constant OBS_INTERVAL = 15 seconds; // min spacing between writes
     uint32 internal constant MIN_TWAP = 1 seconds;      // shortest mark we'll trust (fast L2: sub-second blocks → even 1s spans many blocks)
                                                         // (floor for a tunable window)
-    struct Observation { uint32 ts; int56 tickCumulative; }
+    //  `Observation` is declared in {PerpSwapLib} so the ring can be passed to it.
     //  `internal`, not `public` (EIP-170). The auto-generated array getter cost
     //  a dispatcher entry plus a bounds-checked struct return, and NOTHING read it
     //  — not a test, script, indexer or frontend (verified by grep). Everything
     //  anyone actually wants from the ring is already exposed by {twapTick} and
     //  {markSqrtPriceX96}; the raw slots are readable from storage off-chain. Same
-    //  trade already made for `lastTick`, `maxUtilBps` and the tier arrays.
-    Observation[OBS_CARDINALITY] internal observations;
-    uint16 internal obsIndex;          // next slot to write
-    int56 internal tickCumulative;     // Σ tick·dt up to lastObsTs
-    uint32 internal lastObsTs;         // last time tickCumulative was INTEGRATED
+    //  trade already made for `ring.lastTick`, `maxUtilBps` and the tier arrays.
+    PerpSwapLib.Observation[OBS_CARDINALITY] internal observations;
+    /// @dev The ring's scalars, grouped so they cross into PerpSwapLib as one
+    ///      storage reference. See {PerpSwapLib.Ring}.
+    PerpSwapLib.Ring internal ring;
     //  `internal` to fund the R-07/L-2 guards against the EIP-170 ceiling. No
     //  reader anywhere in the tree (tests, deploy scripts, frontend, indexer or
     //  another contract) — verified by grep. Read it from storage off-chain, the
     //  same trade already made for `markSource` and the tier arrays.
-    int24 internal lastTick;
-    /// @dev Last time a RING ENTRY was appended. Kept separate from `lastObsTs`
+    /// @dev Last time a RING ENTRY was appended. Kept separate from `ring.lastObsTs`
     ///      (audit A-02) so the integration clock can advance on EVERY observation
     ///      while ring appends stay throttled to OBS_INTERVAL — the two used to
     ///      share one clock, which is what let a stale tick poison the mark.
     ///      Packs into the same slot as the four fields above (16+56+32+24+32 bits).
-    uint32 internal lastRingTs;
     /// @dev When the observation ring was last WIPED ({syncGeneration}). A wiped
     ///      ring reports a mark off one second of history: measured, the same 10 s
     ///      push moved the mark tick 1929 on a warm ring and 54545 on a fresh one,
@@ -545,11 +543,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         lastFundingAt = uint64(block.timestamp);
         // Seed the TWAP oracle with the live tick so the mark is meaningful from
         // block one (the ring fills as trades/pokes arrive).
-        lastObsTs = uint32(block.timestamp);
-        lastRingTs = uint32(block.timestamp);
-        lastTick = _currentTick();
-        observations[0] = Observation(uint32(block.timestamp), 0);
-        obsIndex = 1;
+        ring.lastObsTs = uint32(block.timestamp);
+        ring.lastRingTs = uint32(block.timestamp);
+        ring.lastTick = _currentTick();
+        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
+        ring.obsIndex = 1;
         // Arm the token-side for whatever generation is live at deploy (0 if the
         // engine is deployed before the first summon — the first syncGeneration()
         // then arms gen-1). One engine serves every generation from here on.
@@ -723,22 +721,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      * @dev Sample the oracle.
      *
      *  MARK POISONING (audit A-02 — Critical). This used to bail out entirely when
-     *  `dt < OBS_INTERVAL`, which left `lastTick` holding a STALE value. An attacker
+     *  `dt < OBS_INTERVAL`, which left `ring.lastTick` holding a STALE value. An attacker
      *  could exploit that with one atomic round-trip:
      *    1. CRASH spot with a large sell. The hook's afterSwap sweep pokes us, a
-     *       write lands, and `lastTick` is frozen at the crashed tick.
+     *       write lands, and `ring.lastTick` is frozen at the crashed tick.
      *    2. RESTORE spot by buying back in the SAME transaction. `dt == 0`, so the
-     *       old code returned early and `lastTick` stayed CRASHED.
+     *       old code returned early and `ring.lastTick` stayed CRASHED.
      *    3. Wait. `twapTick` extrapolates the un-recorded tail as
-     *       `lastTick * (now - lastObsTs)`, so the crashed tick is integrated over
+     *       `ring.lastTick * (now - ring.lastObsTs)`, so the crashed tick is integrated over
      *       the entire window even though spot never actually moved.
      *  The mark then reads far below reality and SOLVENT positions become
      *  liquidatable — the attacker collects the keeper reward and the trader is
      *  wrongly closed, for only the cost of the round-trip's fee and slippage.
      *
-     *  Fix: ALWAYS integrate the elapsed interval and ALWAYS refresh `lastTick`, so
+     *  Fix: ALWAYS integrate the elapsed interval and ALWAYS refresh `ring.lastTick`, so
      *  the tail is extrapolated at the tick that is genuinely in force. Ring
-     *  APPENDS remain throttled on their own clock (`lastRingTs`), preserving the
+     *  APPENDS remain throttled on their own clock (`ring.lastRingTs`), preserving the
      *  flood-resistance that made the ring un-evictable.
      */
     ///
@@ -746,7 +744,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  same trick Uniswap's oracle uses — but Uniswap performs every timestamp
     ///  DELTA inside an `unchecked` block, and this contract did not. `uint32` wraps
     ///  at 2^32 seconds (07 Feb 2106), after which `uint32(block.timestamp)` is
-    ///  SMALLER than the stored `lastObsTs`, and a CHECKED `nowTs - lastObsTs`
+    ///  SMALLER than the stored `ring.lastObsTs`, and a CHECKED `nowTs - ring.lastObsTs`
     ///  PANICS instead of yielding the correct modulo-2^32 delta.
     ///  `_writeObs` is reached from `_pokeFunding`, which every single mutating perp
     ///  entrypoint calls — open, close, liquidate, `forceCloseDead`,
@@ -757,22 +755,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  Doing the deltas `unchecked` restores Uniswap's semantics, under which the
     ///  arithmetic is exact for any span shorter than 2^32 seconds.
     function _writeObs() internal {
-        uint32 nowTs = uint32(block.timestamp);
-        unchecked {
-            uint32 dt = nowTs - lastObsTs;
-            if (dt > 0) {
-                // Integrate the interval at the tick that was in force FOR it.
-                tickCumulative += int56(lastTick) * int56(uint56(dt));
-                lastObsTs = nowTs;
-            }
-            // Ring appends stay throttled on their OWN clock → still flood-proof.
-            if (nowTs - lastRingTs >= OBS_INTERVAL) {
-                observations[obsIndex] = Observation(nowTs, tickCumulative);
-                obsIndex = (obsIndex + 1) & OBS_MASK;
-                lastRingTs = nowTs;
-            }
-        }
-        lastTick = _currentTick(); // ALWAYS refresh — never leave a stale tick
+        //  Body lives in {PerpSwapLib} for EIP-170 headroom; ring and observations
+        //  go across as storage references. The current tick is read here because
+        //  only the engine knows its mark source.
+        PerpSwapLib.writeObs(observations, ring, OBS_INTERVAL, _currentTick());
     }
 
     /// @notice Time-weighted average tick for the liquidation mark. Prefers a
@@ -783,7 +769,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         which the 24h open-warmup covers.
     ///  GAS (gas audit G-06). Observations are written in strictly increasing
     ///  timestamp order into a wrapping ring, so the populated slots are already
-    ///  SORTED when read from the oldest. `obsIndex` is the next slot to write,
+    ///  SORTED when read from the oldest. `ring.obsIndex` is the next slot to write,
     ///  which is therefore the OLDEST entry once the ring has wrapped. That lets us
     ///  BINARY SEARCH for the newest observation at or before `target` — about 5
     ///  SLOADs instead of the 32 the old linear scan always paid, on a path that
@@ -794,49 +780,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  `markSqrtPriceX96` → `_quoteMark` → `_underwater`, i.e. from inside every
     ///  liquidation and settlement, so a panic here bricks those too.
     function twapTick() public view returns (int24 tick, bool ok) {
-        uint32 nowTs = uint32(block.timestamp);
-        if (nowTs <= MIN_TWAP) return (0, false);
-        uint32 target;
-        unchecked { target = nowTs - twapWindow; }
-
-        // Locate the populated span in chronological order.
-        uint16 next = obsIndex;
-        uint16 n;      // how many observations are populated
-        uint16 start;  // physical index of the OLDEST
-        if (observations[next & OBS_MASK].ts != 0) {
-            n = OBS_CARDINALITY; start = next;   // wrapped: `next` is the oldest
-        } else {
-            n = next; start = 0;                 // not yet wrapped: 0..next-1
-        }
-        if (n == 0) return (0, false);
-
-        uint32 useTs; int56 useCum;
-        Observation memory oldest = observations[start];
-        if (oldest.ts > target) {
-            // Ring can't reach back to the window — fall back to the OLDEST entry,
-            // but only if it still spans MIN_TWAP so a flash move can't be the mark.
-            unchecked { if (nowTs - oldest.ts < MIN_TWAP) return (0, false); }
-            useTs = oldest.ts; useCum = oldest.tickCumulative;
-        } else {
-            // Largest i in [0, n) with obs(i).ts <= target.
-            uint16 lo; uint16 hi = n - 1;
-            while (lo < hi) {
-                uint16 mid = (lo + hi + 1) >> 1;
-                if (observations[(start + mid) & OBS_MASK].ts <= target) lo = mid;
-                else hi = mid - 1;
-            }
-            Observation memory best = observations[(start + lo) & OBS_MASK];
-            useTs = best.ts; useCum = best.tickCumulative;
-        }
-        int56 cumNow;
-        int56 span;
-        unchecked {
-            cumNow = tickCumulative + int56(lastTick) * int56(uint56(nowTs - lastObsTs));
-            span = int56(uint56(nowTs - useTs));
-        }
-        if (span == 0) return (0, false);
-        tick = int24((cumNow - useCum) / span);
-        ok = true;
+        //  Body lives in {PerpSwapLib} for EIP-170 headroom; the ring goes across
+        //  as a storage reference. See the library for the algorithm.
+        return PerpSwapLib.twapTick(observations, ring, twapWindow);
     }
 
     /// @dev The manipulation-resistant mark sqrtPrice (TWAP tick; spot fallback).
@@ -1107,9 +1053,23 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         ≤ MAX_LIQ_PER_SWAP kills) so it can never OOG the parent swap, and
     ///         the cursor rotates so every position is eventually checked across
     ///         swaps. Hook-only, best-effort (never reverts the triggering swap).
-    function sweepLiquidations(address liquidator) external {
+    /// @param amountIn size of the PENDING swap in its INPUT asset, or 0 for a
+    ///                 plain post-trade sweep (the `afterSwap` path, unchanged).
+    /// @param isBuy    true when the quote is the input (token gets dearer).
+    /// @param limit    the swap's own sqrtPriceLimitX96 — the projection may not
+    ///                 exceed it, which is what stops a tight-limit swap with a
+    ///                 huge nominal from liquidating a whole side for free.
+    function sweepLiquidations(address liquidator, uint256 amountIn, bool isBuy, uint160 limit) external {
         if (msg.sender != hookAddr) revert OnlyHook();
+        if (amountIn != 0) {
+            //  `dT/T == dE/E` under constant product because `E/T` IS the price,
+            //  so the reserve just has to be in the INPUT asset's units.
+            uint256 reserve = activeEthDepth();
+            if (!isBuy) reserve = _ethToToken(reserve);
+            _projSqrtP = PerpSwapLib.projectedSqrtPriceX96(_sqrtP(), reserve, amountIn, isBuy, limit);
+        }
         _doSweep(liquidator, true);   // in-swap: settle swaps run in-place
+        _projSqrtP = 0;
     }
 
     /// @dev Post-open sweep entrypoint — called by the engine ON ITSELF (external
@@ -1132,11 +1092,17 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @dev Shared bounded rotating-window sweep. `inLocked` = we're already inside
     ///      PoolManager's lock (hook path → in-place swaps) vs a fresh unlock
     ///      (post-open path). Best-effort; the `_liqReentry` guard blocks nesting.
+    /// @dev Non-zero ONLY for the duration of a pre-emptive sweep: the price the
+    ///      pending swap is conservatively projected to leave behind. Storage, not
+    ///      `transient`, so this file keeps compiling on 0.8.26 — same
+    ///      set-then-clear shape as `_liqReentry` / `_inLocked` right beside it.
+    uint160 internal _projSqrtP;
+
     function _doSweep(address liquidator, bool inLocked) internal {
         if (_liqReentry) return;
         // SAMPLE THE ORACLE FIRST, ALWAYS (audit Z-02). This used to sit AFTER the
         // empty-book early-return, which meant that while no position was open no
-        // swap ever wrote an observation: `lastTick` stayed frozen at whatever it was
+        // swap ever wrote an observation: `ring.lastTick` stayed frozen at whatever it was
         // when the book last emptied, `_writeObs` then integrated the whole quiet
         // period at that stale tick, and `twapTick()` extrapolated it over the entire
         // lookback. The mark therefore returned the PRE-quiet-period price no matter
@@ -1314,13 +1280,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         // Reset the TWAP oracle — old-pool ticks are meaningless for the new token.
         delete observations;
-        tickCumulative = 0;
-        obsIndex = 1;
-        lastObsTs = uint32(block.timestamp);
-        lastRingTs = uint32(block.timestamp);
+        ring.tickCumulative = 0;
+        ring.obsIndex = 1;
+        ring.lastObsTs = uint32(block.timestamp);
+        ring.lastRingTs = uint32(block.timestamp);
         ringArmedAt = uint32(block.timestamp);
-        lastTick = _currentTick();
-        observations[0] = Observation(uint32(block.timestamp), 0);
+        ring.lastTick = _currentTick();
+        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
 
         //  ADOPT THE GENERATION'S QUOTE. Done at the single point the engine
         //  takes on a generation, so `quote` can never disagree with the pool it
@@ -1536,7 +1502,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *                   gas audit G-02).
      */
     function _liqTest(Position memory p) internal view returns (bool trip, bool insolvent, uint256 notional) {
-        notional = _quoteMark(p.size);
+        //  ── PRE-EMPTION: VALUE THE POSITION WHERE THE PENDING TRADE WILL LEAVE IT
+        //  Inside a pre-sweep the maintenance test runs against the projected
+        //  post-swap price instead of the TWAP mark, so a position the trade
+        //  would push past maintenance is closed BEFORE the trade, at the
+        //  pre-trade price. Maintenance rather than bare insolvency on purpose:
+        //  the settlement swap has its own impact and penalty, and `maintenanceBps`
+        //  is precisely the buffer that keeps proceeds above debt — close at the
+        //  insolvency line and the settlement itself can create the bad debt.
+        //  Outside a pre-sweep `_projSqrtP` is zero and this is byte-for-byte the
+        //  TWAP test it always was.
+        uint160 pj = _projSqrtP;
+        notional = pj != 0 ? _quoteAt(p.size, pj) : _quoteMark(p.size);
         trip = _underwaterVal(p, notional);
         insolvent = _insolventVal(p, notional);
         if (!insolvent) {

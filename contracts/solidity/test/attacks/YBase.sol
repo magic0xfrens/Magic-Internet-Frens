@@ -66,6 +66,16 @@ abstract contract YBase is Test, IUnlockCallback {
     // op codes for unlockCallback
     uint8 internal constant OP_SWAP = 0;
     uint8 internal constant OP_LIQ = 1;
+    uint8 internal constant OP_SWAP_LIMIT = 2;
+    /// Like {YSwap} but with an explicit sqrtPriceLimitX96 — needed to prove the
+    /// pre-emptive sweep honours the trade's own limit (LIQ-03).
+    struct YSwapLimit {
+        bool zeroForOne;
+        int256 amountSpecified;
+        uint160 limit;
+        address payer;
+        address recipient;
+    }
 
     struct YSwap {
         bool zeroForOne;
@@ -210,6 +220,15 @@ abstract contract YBase is Test, IUnlockCallback {
 
     /// @dev Exact-input token -> ETH. `payer` must have approved the PoolManager
     ///      (we prank the transfer, so an approval is not actually needed).
+    /// A buy that stops at `limit` — the shape a griefer would use: huge nominal,
+    /// limit at spot, so almost nothing fills.
+    function _buyWithLimit(uint256 ethIn, uint160 limit, address to) internal returns (uint256 got) {
+        bytes memory r = pm.unlock(
+            abi.encode(OP_SWAP_LIMIT, abi.encode(YSwapLimit(true, -int256(ethIn), limit, address(this), to)), _key())
+        );
+        (, int128 a1) = abi.decode(r, (int128, int128));
+        got = uint256(uint128(a1));
+    }
     function _sell(uint256 tokenIn, address payer) internal returns (uint256 got) {
         bytes memory r = pm.unlock(
             abi.encode(OP_SWAP, abi.encode(YSwap(false, -int256(tokenIn), payer, address(this))), _key())
@@ -247,6 +266,19 @@ abstract contract YBase is Test, IUnlockCallback {
                     zeroForOne: s.zeroForOne,
                     amountSpecified: s.amountSpecified,
                     sqrtPriceLimitX96: s.zeroForOne ? MIN_LIMIT : MAX_LIMIT
+                }),
+                ""
+            );
+            _settleDelta(key, d.amount0(), d.amount1(), s.payer, s.recipient);
+            return abi.encode(d.amount0(), d.amount1());
+        } else if (op == OP_SWAP_LIMIT) {
+            YSwapLimit memory s = abi.decode(payload, (YSwapLimit));
+            BalanceDelta d = pm.swap(
+                key,
+                SwapParams({
+                    zeroForOne: s.zeroForOne,
+                    amountSpecified: s.amountSpecified,
+                    sqrtPriceLimitX96: s.limit
                 }),
                 ""
             );

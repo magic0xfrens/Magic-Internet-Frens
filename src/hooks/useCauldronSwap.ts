@@ -61,7 +61,13 @@ const MOCK_MINT_ABI = [{
  *  Costs the user nothing extra: EIP-1559 charges for gas USED, not the limit.
  *  The only side effect is a higher "max fee" figure in the wallet prompt.
  */
-const LIQ_SWAP_GAS = 5_000_000n;
+//  TWO sweeps per swap now, not one. Pre-emptive liquidation runs in
+//  `beforeSwap` (closing what the pending trade would sink, at the pre-trade
+//  price) and the original post-trade sweep still runs in `afterSwap`. Each is
+//  bounded at 8 kills, so the honest worst case is roughly double the single
+//  sweep budget derived above: ~4.1M + ~3.4M. 8M funds both in full; a heavy
+//  pre-sweep no longer starves the swap's own gacha step of gas.
+const LIQ_SWAP_GAS = 8_000_000n;
 
 /**
  * useCauldronSwap — buy the current iteration's token with ETH.

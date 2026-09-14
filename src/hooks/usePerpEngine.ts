@@ -53,7 +53,9 @@ const INITIAL_STATS: PerpStats = { ...EMPTY_STATS, live: PERP_LIVE, maxLev: 3 };
  *  post-open reserve, plus the open's own swap. 5M leaves honest headroom, and
  *  EIP-1559 bills gas USED, so the unused limit costs nothing.
  */
-const LIQ_OPEN_GAS = 5_000_000n;
+//  An open's own swap also passes through the hook's pre-emptive sweep before
+//  the engine's post-open self-sweep, so it can fund two bounded sweeps too.
+const LIQ_OPEN_GAS = 8_000_000n;
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
 /** `expected × (1 - slippage)`, in the engine's own units. */

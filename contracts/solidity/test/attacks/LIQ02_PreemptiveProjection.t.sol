@@ -35,7 +35,7 @@ contract LIQ02_PreemptiveProjection is YBase {
     function _project(uint256 ethIn) internal view returns (uint160) {
         uint160 sp = _sqrtP();
         uint256 depth = PerpSwapLib.ethDepth(_inRangeLiquidity(), sp);
-        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true);
+        return PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true, 0);
     }
 
     /**
@@ -95,7 +95,7 @@ contract LIQ02_PreemptiveProjection is YBase {
             FullMath.mulDivRoundingUp(sellSize, 1 << 96, uint256(before_)), 1 << 96, uint256(before_)
         );
         uint160 projected =
-            PerpSwapLib.projectedSqrtPriceX96(before_, depth, ethEquiv, false);
+            PerpSwapLib.projectedSqrtPriceX96(before_, depth, ethEquiv, false, 0);
 
         _sell(sellSize, address(this));
         uint160 actual = _sqrtP();
@@ -127,7 +127,7 @@ contract LIQ02_PreemptiveProjection is YBase {
 
         //  Exact constant-product move, no margin: sqrtP * E / (E + dE).
         uint256 exact = (uint256(sp) * depth) / (depth + ethIn);
-        uint256 projected = PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true);
+        uint256 projected = PerpSwapLib.projectedSqrtPriceX96(sp, depth, ethIn, true, 0);
 
         assertLt(projected, exact, "projection must overshoot the exact move, not merely match it");
     }
@@ -142,8 +142,8 @@ contract LIQ02_PreemptiveProjection is YBase {
      */
     function test_LIQ02_DegenerateInputsFallBackToSpot() public view {
         uint160 sp = _sqrtP();
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 1 ether, true), sp, "zero reserve");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, true), sp, "zero amount");
-        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 1 ether, true), 0, "zero price");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 0, 1 ether, true, 0), sp, "zero reserve");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(sp, 1 ether, 0, true, 0), sp, "zero amount");
+        assertEq(PerpSwapLib.projectedSqrtPriceX96(0, 1 ether, 1 ether, true, 0), 0, "zero price");
     }
 }

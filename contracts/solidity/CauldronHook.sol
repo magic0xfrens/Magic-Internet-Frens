@@ -25,6 +25,7 @@ import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/I
 import {SurtaxLib} from "./cauldron/SurtaxLib.sol";
 import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 import {FeeRouteLib} from "./cauldron/FeeRouteLib.sol";
+import {GachaLib} from "./cauldron/GachaLib.sol";
 
 /// @notice The hook-native perp engine — auto-liquidated from afterSwap.
 /// @notice The registry's treasury-curated quote allowlist. The hook reads it to
@@ -56,7 +57,7 @@ interface IPerpOpenCount {
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
-    function sweepLiquidations(address liquidator) external;
+    function sweepLiquidations(address liquidator, uint256 amountIn, bool isBuy, uint160 limit) external;
 }
 
 /// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
@@ -399,15 +400,8 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Win chance scales with the ETH size of the play; a pity counter guarantees
     // a creature after enough misses. A MISS isn't wasted — its swap fee already
     // lifted the floor vault for every holder.
-    struct Batch {
-        address player;      // who the creature mints to on a win
-        address collection;  // the iteration's collection (so tickets survive relaunch)
-        uint48 commitBlock;  // block the crystals were opened in (seeds the rolls)
-        uint16 oddsBps;      // win probability, fixed at commit from play size
-        uint16 count;        // crystals in this batch
-        uint16 resolved;     // how many rolled so far
-    }
-    Batch[] public batches;             // FIFO queue of commit batches
+    //  `Batch` is declared in {GachaLib}, which owns the resolution loop.
+    GachaLib.Batch[] public batches;             // FIFO queue of commit batches
     uint256 internal batchCursor;         // index of the batch being resolved
     uint256 public outstandingCrystals; // unresolved crystals across all players
     mapping(address => uint256) internal outstandingOf; // per-collection unresolved
@@ -779,6 +773,22 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
      *  ETH fees go to relaunchETH (self-funding the next generation). The fee is
      *  ALWAYS taken in ETH — there is no token-fee path (audit I-01).
      */
+    /// @dev The liquidation sweep, shared by both swap callbacks so the body exists
+    ///      once. `amountIn != 0` makes it PRE-emptive (see the call in beforeSwap).
+    ///      Gas-bounded and result-ignored: it can never revert or starve the swap
+    ///      it rides on. The pre-trade reserve is larger because the user's swap
+    ///      and the whole afterSwap still have to run AFTER this returns.
+    function _liqSweep(address sender, uint256 amountIn, bool isBuy, uint160 limit) private {
+        if (perpEngine == address(0) || sender == perpEngine) return;
+        uint256 reserve = amountIn != 0 ? LIQ_GAS_RESERVE + LIQ_GAS_MIN : LIQ_GAS_RESERVE;
+        uint256 g = gasleft();
+        if (g > reserve + LIQ_GAS_MIN) {
+            perpEngine.call{gas: g - reserve}(
+                abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountIn, isBuy, limit)
+            );
+        }
+    }
+
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -946,14 +956,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // LIQ_GAS_RESERVE for this afterSwap to finish, forwarding the rest — so
         // the sweep can never OOG the parent swap (best-effort; low-level call
         // with ignored result).
-        if (perpEngine != address(0) && sender != perpEngine) {
-            uint256 g = gasleft();
-            if (g > LIQ_GAS_RESERVE + LIQ_GAS_MIN) {
-                perpEngine.call{gas: g - LIQ_GAS_RESERVE}(
-                    abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin)
-                );
-            }
-        }
+        _liqSweep(sender, 0, false, 0); // post-trade: catches what the trade just moved
 
         // --- NATIVE in-swap gacha ---
         // A direct/aggregator buy (no router hookData) forges crystals RIGHT HERE:
@@ -1252,6 +1255,15 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  quadrant inverts. One derivation serves both tests below; deriving it
         //  twice is how the two drift apart.
         bool inputIsQuote = params.zeroForOne == q0;
+        //  ── PRE-EMPTIVE LIQUIDATION ──────────────────────────────────────────
+        //  Close any position this trade is about to push past maintenance NOW,
+        //  at the pre-trade price, instead of after the trade at the price it just
+        //  created. Runs for buys AND sells (a sell endangers longs), before the
+        //  sell early-return below. Exact-OUTPUT swaps pass 0: their input is not
+        //  known until execution, so they keep the post-trade sweep only.
+        if (exactInput) {
+            _liqSweep(sender, uint256(-params.amountSpecified), inputIsQuote, params.sqrtPriceLimitX96);
+        }
         if (!exactInput && !inputIsQuote) revert ExactOutSellUnsupported();
         if (!exactInput || !inputIsQuote) {
             return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
@@ -1657,12 +1669,35 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // so at nine siblings even rotating back into an already-linked quote
         // reverted the whole rotation. Only a genuinely NEW 10th pool is
         // refused now.
+        //  ── LINKS ARE FULLY CONNECTED, NOT ONE-WAY (red-team HIGH #2) ────────
+        //  This used to push `secondary` into `primary`'s list and stop. `isDead`
+        //  sums a pool's OWN list, so `isDead(primary)` saw the whole generation
+        //  while `isDead(leg)` saw only the leg — which has no volume of its own,
+        //  and so read DEAD while the generation was alive. The engine has since
+        //  been taught to ask about the primary, but the hook's answer for the
+        //  leg was still a lie waiting for the next caller. Now every pool in the
+        //  generation lists every other, so the sum is identical from any starting
+        //  pool. `_addSibling` dedups, so no pool is counted twice, and the
+        //  self-link guard above still holds.
         for (uint256 i; i < sib.length; ++i) {
-            if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return;
+            if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return; // already linked
+            _addSibling(sib[i], secondary);
+            _addSibling(secondary, sib[i]);
         }
-        if (sib.length >= MAX_SIBLINGS) revert OnlyRegistry();
-        sib.push(secondary);
+        _addSibling(primary, secondary);
+        _addSibling(secondary, primary);
         emit VolumeLinked(primary, secondary);
+    }
+
+    /// @dev Idempotent, capped push of `b` into `a`'s sibling list. Dedup runs
+    ///      before the cap for the reason documented in {linkVolume}.
+    function _addSibling(PoolId a, PoolId b) private {
+        PoolId[] storage s = _volumeSiblings[a];
+        for (uint256 i; i < s.length; ++i) {
+            if (PoolId.unwrap(s[i]) == PoolId.unwrap(b)) return;
+        }
+        if (s.length >= MAX_SIBLINGS) revert OnlyRegistry();
+        s.push(b);
     }
 
     event VolumeLinked(PoolId indexed primary, PoolId indexed secondary);
@@ -2363,7 +2398,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         outstandingOf[col] += n;
 
         uint16 odds = uint16(oddsForPlay(playWei));
-        batches.push(Batch({
+        batches.push(GachaLib.Batch({
             player: player,
             collection: col,
             commitBlock: uint48(block.number),
@@ -2399,56 +2434,17 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         internal
         returns (uint256 processed, uint256 won)
     {
-        uint256 bi = batchCursor;
-        uint256 end = batches.length;
-        while (processed < maxCount && bi < end) {
-            Batch storage b = batches[bi];
-            if (block.number <= b.commitBlock) break; // seed not known yet
-            bytes32 bh = blockhash(b.commitBlock);
-            // EXPIRED SEED (audit M-04): substituting a DETERMINISTIC fallback made
-            // the outcome computable from `commitBlock` + `bi`, both known at commit
-            // time. A player who let their batch age past 256 blocks knew their roll
-            // in advance and could choose whether to resolve at all — and because a
-            // miss feeds the pity counter, selective resolution is a real lever on
-            // future odds. RE-ANCHOR to a fresh future block instead: FIFO order and
-            // every ticket are preserved, but the roll is always unknowable.
-            if (bh == 0) {
-                b.commitBlock = uint48(block.number);
-                break; // FIFO: resume from here on the next call
-            }
-
-            address player = b.player;
-            address col = b.collection;
-            uint256 odds = b.oddsBps;
-            uint256 minted = ICauldronCollection(col).totalMinted();
-            uint256 max = ICauldronCollection(col).maxSupply();
-            uint256 r = b.resolved;
-            uint256 total = b.count;
-
-            while (processed < maxCount && r < total) {
-                uint256 roll = uint256(keccak256(abi.encodePacked(bh, player, bi, r))) % 10_000;
-                bool forced = missStreak[player] >= pityThreshold;
-                bool win = (forced || roll < odds) && minted < max;
-
-                pendingOf[player] -= 1;
-                outstandingCrystals -= 1;
-                outstandingOf[col] -= 1;
-                if (win) {
-                    missStreak[player] = 0;
-                    opened[player] += 1;
-                    uint256 tokenId = ICauldronCollection(col).mint(player);
-                    unchecked { minted++; won++; }
-                    emit TicketWon(player, bi, tokenId);
-                } else {
-                    if (roll >= odds && minted < max) missStreak[player] += 1;
-                    emit TicketLost(player, bi);
-                }
-                unchecked { r++; processed++; }
-            }
-            b.resolved = uint16(r);
-            if (r == total) { unchecked { bi++; } } else break;
-        }
-        batchCursor = bi;
+        //  Body lives in {GachaLib} for EIP-170 headroom. Mappings and the batch
+        //  array go across as storage references (one word each); the two plain
+        //  scalars it mutates come back as return values.
+        uint256 cursor;
+        uint256 outstanding;
+        (cursor, outstanding, processed, won) = GachaLib.resolveTickets(
+            batches, missStreak, pendingOf, outstandingOf, opened,
+            batchCursor, pityThreshold, outstandingCrystals, maxCount
+        );
+        batchCursor = cursor;
+        outstandingCrystals = outstanding;
     }
 
     /// @notice NATIVE in-swap gacha for a direct (non-router) buy: commit the

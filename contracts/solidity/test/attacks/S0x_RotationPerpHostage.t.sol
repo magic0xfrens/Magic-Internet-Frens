@@ -185,7 +185,11 @@ contract S0x_RotationPerpHostage is YBase {
         assertGt(primaryVol, 0, "the generation is trading");
         assertEq(legVol, 0, "the destination pool has no volume of its own");
         assertFalse(genDead, "the generation is ALIVE on its primary pool");
-        assertTrue(legDead, "ATTACK: the pool the engine now marks reads DEAD");
+        //  FIXED at the HOOK too: sibling links are fully connected now, so the
+        //  leg's own death read sums the whole generation and agrees with the
+        //  primary's. Before this the engine-side fix below left `isDead(leg)`
+        //  as a lie waiting for its next caller.
+        assertFalse(legDead, "FIXED: the leg's death read must agree with the generation's");
         console2.logBytes4(lastOpenErr); // 0xefba5120 TokenDead / 0x949682a5 NotWarm
         assertTrue(openRefused, "an open is refused right after the rotation");
         //  THE FIX: the refusal must no longer be TokenDead. `_isDead()` now asks

@@ -782,28 +782,33 @@ in [`test/attacks/`](contracts/solidity/test/attacks).
 ### Open findings, stated plainly
 
 **Known limitations are documented rather than hidden** — see §15 of the
-[full spec](src/components/docs/magicfrens-llm.md). One HIGH is open *on purpose*
-as of r44, and it is better for you to read it here than to find it:
+[full spec](src/components/docs/magicfrens-llm.md).
 
-> **After a completed quote rotation, `_volumeSiblings` is one-sided.** The link
-> from a generation's primary pool to a rotated sibling is recorded in one
-> direction, so an engine pointed at the *sibling* sums volume that misses the
-> primary and can read its own live generation as dead — refusing new positions
-> for the rest of the generation. Self-inflicted; no attacker is required.
-> Reproduced in
-> [`S0x_RotationPerpHostage.t.sol`](contracts/solidity/test/attacks/S0x_RotationPerpHostage.t.sol)
-> (`test_S0x_RotatedLegDeathReadIsOneSided`).
+As of this branch, **no HIGH is open.** Two that were open on r44 are closed here
+and await the next deployment:
 
-It is open because the fix lands in `CauldronHook`, which has **46 bytes** of
-EIP-170 headroom, and because it changes death semantics on a path that every
-open, close, liquidate and in-swap sweep runs through. A previous remediation
-round that rushed exactly this kind of change introduced two of its own three
-findings. It is a hook-redeploy task — free contract space first, fix it with the
-one-sided read together, then re-run the rotation and perp suites — not a patch to
-squeeze in before a deadline.
+> **Pre-emptive liquidation.** The sweep ran only in `afterSwap`, so a large
+> trade could carry a position from healthy to insolvent inside the trade and the
+> sweep then closed it into the price that trade had just created — bad debt,
+> socialised onto PLV stakers. Now `beforeSwap` projects where the pending swap
+> will leave the price (conservatively, proven against real swaps in
+> [`LIQ02`](contracts/solidity/test/attacks/LIQ02_PreemptiveProjection.t.sol))
+> and closes anything that projection puts past maintenance, at the pre-trade
+> price. Proven end to end in
+> [`LIQ03`](contracts/solidity/test/attacks/LIQ03_PreemptiveLiquidation.t.sol):
+> closed before the user's swap, no `BadDebt`, PLV intact — and a huge nominal
+> with a limit at spot liquidates nothing, because the projection honours the
+> swap's own price limit.
+>
+> **One-sided `_volumeSiblings`.** Links were recorded in one direction, so a
+> rotated leg read dead while its generation was alive. Sibling links are fully
+> connected now; the PoC's assertion is inverted to pin the fix.
 
-Its sibling finding, the **dust-perp rotation hostage**, was closed in r44 by
-arming a `PerpMarkSource` at deploy; see [Live deployments](#live-deployments).
+Both needed contract space the hook and engine did not have. The gacha
+resolution loop moved to `GachaLib` and the TWAP ring to `PerpSwapLib`, both
+taking **storage references** — one word of calldata each — which is what makes
+extraction pay: moving a small function with many scalar arguments made the
+engine *bigger*, measured. Hook 24,535 → 23,308 bytes; engine 24,509 → 24,158.
 
 If you find something else, please open an issue.
 
