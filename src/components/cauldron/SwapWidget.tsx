@@ -10,6 +10,7 @@ import { useLiquidatoorWatch } from "@/hooks/useLiquidatoorWatch";
 import LiquidatoorModal from "@/components/cauldron/LiquidatoorModal";
 import { CAULDRON, ERC20_SWAP_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
 import { explorerTxUrl } from "@/config/chains";
+import { explainPerpError } from "@/config/perp";
 
 interface SwapWidgetProps {
   ticker: string;
@@ -305,8 +306,15 @@ export default function SwapWidget({
         await sell(tokensIn, minOut, 0, liqHint, balanceWei as bigint | undefined);
       }
     } catch (e: unknown) {
-      const m = e as { shortMessage?: string; message?: string };
-      setErr(m?.shortMessage || m?.message || "Swap failed");
+      //  Route through the shared explainer, not viem's raw text. A swap can now
+      //  revert `LiqGasStarved()` when the pool has open perp positions to
+      //  liquidate and the wallet capped gas below what the in-swap sweep needs;
+      //  the only thing the user can act on is the gas limit, so they must be
+      //  told that rather than shown a selector. The explainer also decodes by
+      //  selector and handles user-rejection, so this is strictly more than the
+      //  shortMessage it replaces.
+      const explained = explainPerpError(e);
+      setErr(explained && explained !== "Transaction failed." ? explained : "Swap failed");
     }
   };
 

@@ -8,6 +8,7 @@ import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS } from "@/config/caul
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { useLpComposition } from "@/hooks/useLpComposition";
 import { resolveTokenArt } from "@/lib/tokenArt";
+import { explainPerpError } from "@/config/perp";
 
 /** Tolerance on top of the fee model for a spin's floor. See {spinFloor}. */
 const SPIN_SLIP_BPS = 2_500;
@@ -218,6 +219,14 @@ export default function CrystalCauldronGame({
   const busy = isPending || phase === "spinning" || phase === "opening";
 
   const friendlyErr = (e: unknown, fallback: string) => {
+    //  Try the shared explainer first: a spin swaps through the hook, so it can
+    //  revert `LiqGasStarved()` when the perp book is open and the wallet capped
+    //  gas below what the in-swap liquidation sweep needs. That message tells the
+    //  user to raise the gas limit, which is the only thing they can act on.
+    //  Explained text is already curated, so it is NOT truncated; only an
+    //  unrecognised raw string still is.
+    const explained = explainPerpError(e);
+    if (explained && explained !== "Transaction failed.") return explained;
     const m = e as { shortMessage?: string; message?: string };
     const raw = m?.shortMessage || m?.message || fallback;
     return raw.length > 140 ? raw.slice(0, 140) + "…" : raw;
