@@ -53,3 +53,12 @@ Re-run (--match-path, fork env, same tenderly RPC) on both failing files individ
 - Expected: 969 passing, 1 failing (S06 POC), pre-existing. ACTUAL: 969 passing, 1 skipped, but 2 FAILING (S06 as expected, PLUS an additional CHURN1_LiveRevert failure not mentioned in the brief). DISAGREEMENT FLAGGED: CHURN1_playWorksButChurnReverts is a new/unexpected failure, confirmed non-infrastructure on re-run.
 - Byte sizes: all 5 named contracts match expected exactly (see above). No disagreement.
 - Skipped count: 1 (out of 972) — small fraction, fork env was present and correct (not a missing-fork-env signature).
+
+## P0 step 1 — session check (orchestrator)
+`ListAgents` at run start showed one peer session in this repo: `magic-internet-frens-71`, interactive, **idle** for ~3h, nothing queued. The brief says to stop if another session is *active*; an idle session was judged not active, so the run proceeded. No concurrent edits were observed at snapshot time (`git status` matched the pre-run snapshot). Flagged here and in the final recap.
+
+## Orchestrator notes on the P0 result
+- Second baseline failure `test_CHURN1_playWorksButChurnReverts` is not in the brief's expected set; it fails deterministically at HEAD e4ea3dc with no uncommitted contract changes, so it is a baseline failure, not a regression from this run. Classification delegated to P2.5 (artifact parity), since it concerns the live churn seam.
+- PerpSwapLib measured 8,968 B (brief said 8,978); real and blind trees agree, so the brief's number is the stale one.
+- Blind tree required `--skip 'lib/v4-periphery/lib/permit2/script/**'` for a clean build; the real tree only builds because a stale `out/` cache masks the broken vendored import. A clean-clone build of this tree currently fails. Referred to P2.5 as a deploy-pipeline hygiene item.
+- `test/attacks/YBase.sol` is a shared helper, not an answer-key PoC; it was restored into the blind tree (3 comment tags hand-stripped).
