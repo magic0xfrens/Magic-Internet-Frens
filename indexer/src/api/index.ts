@@ -6,6 +6,7 @@ import { graphql, eq, desc, and, gte, ne } from "ponder";
 import { createPublicClient, fallback, http, formatEther, keccak256, encodeAbiParameters } from "viem";
 // SINGLE SOURCE OF TRUTH — same manifest as ponder.config.ts + the frontend.
 import round from "../../deployments/active";
+import { rawToQuoteAmount } from "../quoteUnits";
 
 const app = new Hono();
 app.use("*", cors({ origin: process.env.CORS_ORIGIN ?? "*" }));
@@ -262,6 +263,11 @@ const HOOK_READ = [
   { type: "function", name: "isDead", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "deathThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "relaunchETH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  //  B-3: the NON-native rebirth reserve. `relaunchETH` holds only the ether
+  //  bucket; PoolOps seeds the next generation from `relaunchAsset[quote]` when
+  //  the generation is ERC20-quoted (CauldronHook.sol:1177, :1386). Reading only
+  //  the ether slot made a funded rebirth look unfunded on a rotated generation.
+  { type: "function", name: "relaunchAsset", stateMutability: "view", inputs: [{ name: "asset", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 const COL_READ = [
   { type: "function", name: "maxSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -371,7 +377,7 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
       perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "lastSummonAt" }).catch(() => 0n) as Promise<bigint>,
       perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "minLifetime" }).catch(() => 0n) as Promise<bigint>,
       perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "deathThreshold" }).catch(() => 0n) as Promise<bigint>,
-      perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }).catch(() => 0n) as Promise<bigint>,
+      relaunchReserveRaw(),
       perpClient.readContract({ address: collectionAddr, abi: COL_READ, functionName: "maxSupply" }).catch(() => 0n) as Promise<bigint>,
       lpEthOf(poolId, g), // ETH in the active LP → the real "available for next launch"
     ]);
@@ -379,8 +385,9 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
       ? await perpClient.getBalance({ address: vault }).catch(() => 0n) : 0n;
     const v: BrewChain = {
       deathThresholdEth: Number(formatEther(deathThr)),
-      // available for next launch = LP ETH (recovered on relaunch) + hook reserve.
-      relaunchEth: lpEth + Number(formatEther(relaunchWei)),
+      // available for next launch = LP quote (recovered on relaunch) + hook
+      // reserve, BOTH in the live quote's own units (B-3).
+      relaunchEth: lpEth + rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
       nftMax: Number(maxSupply),
       vaultEth: Number(formatEther(vaultBal)),
       relaunchAt: Number(lastSummonAt + minLifetime),
@@ -431,6 +438,46 @@ const TGOV_READ = [
  * deployment/manifest mismatch, so it is logged rather than quietly rendered as
  * a number a trillion times too small.
  */
+/**  ── THE LIVE GENERATION'S QUOTE (audit A-3) ────────────────────────────────
+ *  Every figure the perp/vault panels label "ETH" is really denominated in the
+ *  GENERATION'S QUOTE. `formatEther` on a 6-decimal USDG book reports balances
+ *  1e12 too small — the write path was fixed and the read path was not, so the
+ *  UI contradicted the deposit the user had just made. Cached: the quote only
+ *  changes on a rotation.  */
+const NATIVE_ADDR = "0x0000000000000000000000000000000000000000";
+let liveQuoteCache: { at: number; addr: string } = { at: 0, addr: NATIVE_ADDR };
+async function liveQuoteAddress(): Promise<string> {
+  if (Date.now() - liveQuoteCache.at < 30_000) return liveQuoteCache.addr;
+  try {
+    const genRows = await db.select().from(schema.pool).orderBy(desc(schema.pool.generation)).limit(1);
+    const gen = genRows[0]?.generation ?? 0;
+    const addr = gen
+      ? (await perpClient.readContract({ address: REGISTRY, abi: REG_QUOTE, functionName: "generationQuote", args: [BigInt(gen)] }) as string)
+      : NATIVE_ADDR;
+    liveQuoteCache = { at: Date.now(), addr: addr ?? NATIVE_ADDR };
+  } catch { liveQuoteCache = { at: Date.now(), addr: liveQuoteCache.addr }; }
+  return liveQuoteCache.addr;
+}
+/** Decimals of the live generation's quote. 18 on a native (ether) generation. */
+async function liveQuoteDecimals(): Promise<number> {
+  const a = await liveQuoteAddress();
+  return a.toLowerCase() === NATIVE_ADDR ? 18 : decimalsOf(a);
+}
+
+/**  The rebirth reserve in the LIVE quote, RAW. Native → `relaunchETH()`;
+ *  ERC20 → `relaunchAsset(quote)`, which is the bucket PoolOps actually seeds
+ *  from (CauldronHook.sol:1177). Reading only the ether slot on a rotated
+ *  generation reported 0 for a reserve that was fully funded.  */
+async function relaunchReserveRaw(): Promise<bigint> {
+  const a = await liveQuoteAddress();
+  try {
+    if (a.toLowerCase() === NATIVE_ADDR) {
+      return await perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }) as bigint;
+    }
+    return await perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchAsset", args: [a as `0x${string}`] }) as bigint;
+  } catch { return 0n; }
+}
+
 function decimalsOf(addr: string): number {
   const a = addr.toLowerCase();
   const hit = QUOTES.find((q) => q.address.toLowerCase() === a);
@@ -1112,7 +1159,11 @@ async function exactLiqPrice(id: bigint, entryFallback: number, lev: number, isL
       perpClient.readContract({ address: PERP_ENGINE, abi: POS_READ, functionName: "positions", args: [id] }) as Promise<readonly [string, boolean, bigint, bigint, bigint, bigint, number, bigint]>,
       maintenanceM(),
     ]);
-    const collateral = Number(formatEther(p[2])), size = Number(formatEther(p[3])), principal = Number(formatEther(p[4]));
+    //  A-4: collateral and principal are QUOTE-denominated; `size` is the
+    //  creature-token leg (18). The price this returns is quote-per-token, so
+    //  mixing the two decimal bases moved the liquidation line by 1e12 on USDG.
+    const qd = await liveQuoteDecimals();
+    const collateral = rawToQuoteAmount(p[2], qd), size = Number(formatEther(p[3])), principal = rawToQuoteAmount(p[4], qd);
     if (size <= 0) return c?.v ?? liqFrom(entryFallback, lev, isLong);
     const price = isLong
       ? (principal * (1 + m)) / size          // LONG liquidates below this
@@ -1345,6 +1396,10 @@ let vaultCache: { at: number; v: { assetsEth: number; assetsTok: number; ethShar
 async function vaultState() {
   if (Date.now() - vaultCache.at < 5000 && vaultCache.v) return vaultCache.v;
   try {
+    //  QUOTE side by the QUOTE's decimals; TOKEN side is the creature token and
+    //  is always 18, so it keeps formatEther. Shares are unitless counts.
+    const qd = await liveQuoteDecimals();
+    const q = (v: bigint) => rawToQuoteAmount(v, qd);
     const n = (v: bigint) => Number(formatEther(v));
     const [aEth, aTok, eSh, tSh] = await Promise.all([
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "assetsEth" }) as Promise<bigint>,
@@ -1353,7 +1408,7 @@ async function vaultState() {
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "tokShares" }) as Promise<bigint>,
     ]);
     const v = {
-      assetsEth: n(aEth), assetsTok: n(aTok), ethShares: n(eSh), tokShares: n(tSh),
+      assetsEth: q(aEth), assetsTok: n(aTok), ethShares: n(eSh), tokShares: n(tSh),
       //  NORMALISED BY THE VAULT'S VIRTUAL-SHARE OFFSET. PerpVault mints at
       //  OFFSET x assets (`shares = amount * (ethShares + 1e6) / (assetsEth + 1)`,
       //  PerpVault.sol:225) as ERC-4626-style inflation protection, so raw
@@ -1363,7 +1418,7 @@ async function vaultState() {
       //  reporting that it had lost everything. Measured live: assetsEth 5e17
       //  against ethShares 5e23, exactly the offset.
       //  1.0 means par, which is the convention the client already defaults to.
-      ethSharePrice: eSh > 0n ? (n(aEth) / n(eSh)) * SHARE_OFFSET : 1,
+      ethSharePrice: eSh > 0n ? (q(aEth) / n(eSh)) * SHARE_OFFSET : 1,
       tokSharePrice: tSh > 0n ? (n(aTok) / n(tSh)) * SHARE_OFFSET : 1,
     };
     vaultCache = { at: Date.now(), v };
@@ -1373,6 +1428,10 @@ async function vaultState() {
 app.get("/perp-vault", async (c) => c.json({ vault: await vaultState() }));
 app.get("/perp-vault/:user", async (c) => {
   const user = c.req.param("user").toLowerCase() as `0x${string}`;
+  //  See {vaultState}: the "eth" side is the QUOTE side. StakePanel renders these
+  //  numbers as quote units, so formatEther here understated a USDG stake 1e12x.
+  const qd = await liveQuoteDecimals();
+  const q = (v: bigint) => rawToQuoteAmount(v, qd);
   const n = (v: bigint) => Number(formatEther(v));
   let ethPos = { redeemable: 0, instant: 0, pending: 0, shares: "0" };
   let tokPos = { redeemable: 0, instant: 0, pending: 0, shares: "0", ethReward: 0 };
@@ -1383,7 +1442,7 @@ app.get("/perp-vault/:user", async (c) => {
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "ethShareOf", args: [user] }) as Promise<bigint>,
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "tokShareOf", args: [user] }) as Promise<bigint>,
     ]);
-    ethPos = { redeemable: n(e[0]), instant: n(e[1]), pending: n(e[2]), shares: eSh.toString() };
+    ethPos = { redeemable: q(e[0]), instant: q(e[1]), pending: q(e[2]), shares: eSh.toString() };
     tokPos = { redeemable: n(t[0]), instant: n(t[1]), pending: n(t[2]), shares: tSh.toString(), ethReward: 0 };
   } catch { /* zeros */ }
   // token-side ETH reward (short-attributed yield) — separate try so an older
@@ -1512,11 +1571,11 @@ app.get("/liquidity", async (c) => {
     //  CollectionLedger. Reporting an ether figure for either would invite the
     //  reader to add it to the pool, which is exactly the wrong sum.
     //
-    //  The hook's fee reserve IS ether and IS additive to the next launch, so it
-    //  stays.
-    const relaunchWei = await perpClient.readContract({
-      address: HOOK, abi: HOOK_READ, functionName: "relaunchETH",
-    }).catch(() => 0n) as bigint;
+    //  The hook's fee reserve IS additive to the next launch, so it stays — but
+    //  it is NOT always ether: on a rotated generation the bucket PoolOps seeds
+    //  from is `relaunchAsset[quote]` (B-3). {relaunchReserveRaw} picks the right
+    //  slot and the figure below is scaled by that asset's own decimals.
+    const relaunchWei = await relaunchReserveRaw();
 
     // USD, when an oracle can price it. 0 from the oracle means CANNOT JUDGE,
     // never "worthless" — it stays null and the UI omits the figure rather than
@@ -1548,9 +1607,9 @@ app.get("/liquidity", async (c) => {
       assets,
       totalUsd: usd,
       reserves: {
-        hookReserve: Number(formatEther(relaunchWei)),
+        hookReserve: rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
       },
-      nextLaunch: poolAmount + Number(formatEther(relaunchWei)),
+      nextLaunch: poolAmount + rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
     };
     realLiqCache = { at: Date.now(), v };
     return c.json(v);
