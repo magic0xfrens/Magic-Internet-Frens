@@ -75,6 +75,10 @@ skip = [
     "lib/**/mocks/**",
     "lib/**/fv/**",
     "lib/**/certora/**",
+    # permit2's own deploy scripts carry a relative import that does not resolve
+    # from this tree. A clean build (empty out/) fails on them; a stale out/ hid
+    # it. Skipped so `forge clean && forge build` is reproducible from scratch.
+    "lib/v4-periphery/lib/permit2/script/**",
     "MagicFrensPeg.sol",
     "MagicFrensPresale.sol",
     "deploy/DeployMagicFrensPeg.s.sol",
