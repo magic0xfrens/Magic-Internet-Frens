@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { parseEther, formatEther, type Address } from "viem";
+import { parseEther, formatEther, parseUnits, formatUnits, type Address } from "viem";
 import { useAccount } from "wagmi";
 import { waitForTransactionReceipt } from "@wagmi/core";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -12,6 +12,10 @@ interface StakePanelProps {
   quote?: `0x${string}`;
   /** Display symbol for that quote — "ETH", "USDG", … */
   quoteSymbol?: string;
+  /** The quote asset's decimals. USDG is 6; parsing its amounts with
+   *  `parseEther` overstates them by 1e12, which used to stake the whole
+   *  wallet when the user typed "1". */
+  quoteDecimals?: number;
   ticker: string;
   token?: Address;   // the current iteration token (for the token side)
   spotPrice: number; // ETH per token
@@ -35,7 +39,7 @@ function compact(n: number): string {
  * rises as yield accrues). Withdraw any time (instant up to free liquidity, the
  * rest queued until traders close). Reads via Ponder; writes via the wallet.
  */
-export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quote, quoteSymbol = "ETH" }: StakePanelProps) {
+export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quote, quoteSymbol = "ETH", quoteDecimals = 18 }: StakePanelProps) {
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const v = usePerpVault(token, quote);
@@ -81,13 +85,23 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quot
           //  `deposit(amount)` reads the engine's quote and does the right
           //  transport; an ERC20 quote needs an allowance first, exactly like
           //  the token side below.
-          let raw = parseEther(amount.toFixed(18));
+          //  PARSE IN THE QUOTE'S OWN DECIMALS. `parseEther` here read "1" as
+          //  1e18 raw units, which on 6-decimal USDG is 1e12 USDG — over any
+          //  real balance — and the clamp below then silently substituted the
+          //  ENTIRE WALLET. So: parse with the live decimals, and if the amount
+          //  still exceeds the balance, REFUSE rather than stake something the
+          //  user never typed.
+          const qDec = v.quoteIsErc20 ? quoteDecimals : 18;
+          const raw = parseUnits(amount.toFixed(Math.min(qDec, 18)), qDec);
           if (v.quoteIsErc20) {
-            if (raw > v.quoteBalance) raw = v.quoteBalance;
             if (raw <= 0n) { setToast({ kind: "err", msg: `No ${quoteSymbol} to stake` }); return; }
+            if (raw > v.quoteBalance) {
+              setToast({ kind: "err", msg: `Not enough ${quoteSymbol} — you hold ${formatUnits(v.quoteBalance, qDec)}. Lower the amount.` });
+              return;
+            }
             if (v.needsQuoteApproval(raw)) {
-              setToast({ kind: "ok", msg: `Approving ${quoteSymbol}…` });
-              const ah = await v.approveQuote();
+              setToast({ kind: "ok", msg: `Approving ${formatUnits(raw, qDec)} ${quoteSymbol}…` });
+              const ah = await v.approveQuote(raw);
               await waitForTransactionReceipt(wagmiConfig, { hash: ah as `0x${string}`, chainId: PERP.chainId });
               v.refetchQuote();
             }
@@ -96,14 +110,20 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quot
         } else {
           // Clamp to your EXACT on-chain balance — entering the full amount can
           // round a hair OVER the real balance → transferFrom reverts. Never over.
-          let raw = parseEther(amount.toFixed(18));
-          if (raw > v.tokenBalance) raw = v.tokenBalance;
+          //  The creature token is always 18-dec, so `parseEther` is the right
+          //  unit here — but the same "substitute the balance" clamp is not: a
+          //  typo of an extra zero must be an error, not a full-balance stake.
+          const raw = parseEther(amount.toFixed(18));
           if (raw <= 0n) { setToast({ kind: "err", msg: `No $${ticker} to stake` }); return; }
+          if (raw > v.tokenBalance) {
+            setToast({ kind: "err", msg: `Not enough $${ticker} — you hold ${formatEther(v.tokenBalance)}. Lower the amount.` });
+            return;
+          }
           if (v.needsTokenApproval(raw)) {
             // approve THEN deposit in one flow — wait for the approval to land so
             // the deposit doesn't fail on a not-yet-mined allowance.
             setToast({ kind: "ok", msg: `Approving $${ticker}…` });
-            const ah = await v.approveToken();
+            const ah = await v.approveToken(raw);
             await waitForTransactionReceipt(wagmiConfig, { hash: ah as `0x${string}`, chainId: PERP.chainId });
           }
           hash = await v.depositToken(raw);
