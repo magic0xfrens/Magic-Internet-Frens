@@ -1,5 +1,5 @@
 import { createConfig, factory } from "ponder";
-import { parseAbiItem } from "viem";
+import { parseAbiItem, fallback, http } from "viem";
 import { PoolManagerAbi } from "./abis/PoolManagerAbi";
 import { RegistryAbi } from "./abis/RegistryAbi";
 import { CollectionAbi } from "./abis/CollectionAbi";
@@ -72,15 +72,18 @@ export default createConfig({
   chains: {
     cauldron: {
       id: chainId,
-      // PONDER_RPC_URL may be a COMMA-SEPARATED list; Ponder load-balances across
-      // them. DEFAULT = publicnode. ⚠️ DO NOT use Alchemy FREE keys here: the free
+      // PONDER_RPC_URL may be a COMMA-SEPARATED list; the FIRST entry is the
+      // primary and the rest are ORDERED FAILOVER (viem `fallback`, rank:false),
+      // never a round-robin. DEFAULT = a SINGLE pinned provider (tenderly on
+      // Sepolia). ⚠️ DO NOT use Alchemy FREE keys here: the free
       // tier caps eth_getLogs at a 10-BLOCK range, but Ponder syncs in bigger
       // chunks → RpcRequestError → Ponder shuts down (crash-loop). publicnode has
       // no block-range cap and (with the OUR-pool filter below) syncs to realtime
       // in seconds. Paid Alchemy tiers are fine.
       rpc: (() => {
-        // Full public nodes → Ponder fails over on any DNS/network/rate blip
-        // instead of crashing (v0.11 treats an RPC error as fatal). ⚠️ NOT Alchemy
+        // ORDERED failover, not load balancing: the primary answers every request
+        // and a secondary is used only when the primary errors, so two providers
+        // can never be asked about the same height in the same sync. ⚠️ NOT Alchemy
         // free keys here — their 10-block eth_getLogs cap breaks Ponder's sync.
         // CHAIN-AWARE default: pick the fallback set from the manifest's chainId so
         // an unset PONDER_RPC_URL can NEVER silently point Sepolia nodes at a
@@ -98,18 +101,14 @@ export default createConfig({
         //  and 1rpc both returned 0x5c315a (the losing sibling) for that height.
         //  Tenderly returned the canonical block; ankr and blastapi had neither.
         //
-        //  So order this list by what survived that test, and pin PONDER_RPC_URL
-        //  to a single provider when it happens again — a comma-separated list
-        //  makes Ponder round-robin, which only widens the window for two
-        //  providers to disagree. Recovery: set PONDER_RPC_URL, `railway up`.
-        //  A dedicated endpoint (Alchemy/Infura) avoids the whole class.
-        const SEPOLIA = [
-          "https://sepolia.gateway.tenderly.co",
-          "https://ethereum-sepolia-rpc.publicnode.com",
-          "https://1rpc.io/sepolia",
-          "https://rpc.ankr.com/eth_sepolia",
-          "https://eth-sepolia.public.blastapi.io",
-        ];
+        //  Hence the default below is ONE provider — tenderly, the one that
+        //  served the canonical block — and never a set. A multi-provider default
+        //  round-robins reads across nodes that can disagree about the same
+        //  height, which is what produced the fatal crash-loop in the first place.
+        //  Override with PONDER_RPC_URL (comma-separated = ordered failover, the
+        //  first entry is primary); recovery is still: set it, `railway up`.
+        //  A dedicated endpoint (Alchemy/Infura paid) avoids the whole class.
+        const SEPOLIA = ["https://sepolia.gateway.tenderly.co"];
         //  Arc testnet. Measured before relying on it: `eth_getLogs` works, and
         //  an ADDRESS-FILTERED 10,000-block range returns fine (unfiltered ranges
         //  are refused with "requested range too large", which is why the pool
@@ -118,7 +117,13 @@ export default createConfig({
         const DEFAULTS = chainId === 5042002 ? ARC : SEPOLIA;
         const env = (process.env.PONDER_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
         const list = env.length > 0 ? env : DEFAULTS;
-        return list.length > 1 ? list : list[0];
+        // One URL → plain transport. Several → ORDERED failover: `rank: false`
+        // keeps viem from reshuffling by latency, so list[0] is always primary
+        // and the others are only ever touched after it errors. This is NOT a
+        // round-robin; see the reorg note above for why that distinction is fatal.
+        return list.length > 1
+          ? fallback(list.map((url) => http(url)), { rank: false })
+          : http(list[0]);
       })(),
       // Block polling, matched to the chain's actual block time.
       //
