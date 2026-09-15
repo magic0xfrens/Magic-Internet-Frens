@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { parseEther, parseUnits, maxUint256, type Address, toFunctionSelector} from "viem";
+import { parseEther, parseUnits, type Address, toFunctionSelector} from "viem";
 import {
   useAccount,
   useSwitchChain,
@@ -508,16 +508,23 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync],
   );
 
-  /** Approve the router to spend the iteration token (needed before selling). */
+  /** Approve the router to spend the iteration token (needed before selling).
+   *  BOUNDED TO `amount`, exactly as the buy leg bounds its quote approval to
+   *  `spend`. This granted the router an INFINITE allowance on the seller's whole
+   *  token balance for one sale — so a later router bug, or a router address that
+   *  is ever wrong in the manifest, could pull the entire position with no further
+   *  signature. The allowance is the last line of defence when the calldata is
+   *  wrong; an unbounded one is no defence at all. */
   const approveToken = useCallback(
-    async (token: Address): Promise<`0x${string}`> => {
+    async (token: Address, amount: bigint): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
+      if (amount <= 0n) throw new Error("Nothing to approve");
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
       return writeContractAsync({
         address: token, abi: ERC20_SWAP_ABI, functionName: "approve",
-        args: [CAULDRON.gachaRouter as Address, maxUint256],
+        args: [CAULDRON.gachaRouter as Address, amount],
       });
     },
     [address, chainId, switchChainAsync, writeContractAsync],

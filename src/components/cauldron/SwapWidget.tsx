@@ -233,8 +233,19 @@ export default function SwapWidget({
   //  zap's floor, and without one there is no honest number to sign.
   const priceable = spotPrice > 0 && (qNative || mode === "sell" || quoteExpected > 0n);
 
-  const needsApproval = mode === "sell" && tokensIn > 0 &&
-    (allowanceWei == null || (allowanceWei as bigint) < (() => { try { return parseEther((tokensIn).toFixed(18)); } catch { return 0n; } })());
+  //  The raw amount a sell will actually pull: the typed figure, clamped to the
+  //  on-chain balance the same way `sell` clamps it. The approval is bounded to
+  //  exactly this (never maxUint256) — see {useCauldronSwap.approveToken}.
+  const sellRaw = useMemo(() => {
+    if (mode !== "sell" || tokensIn <= 0) return 0n;
+    let raw: bigint;
+    try { raw = parseEther(tokensIn.toFixed(18)); } catch { return 0n; }
+    const bal = balanceWei as bigint | undefined;
+    if (bal != null && raw > bal) raw = bal;
+    return raw;
+  }, [mode, tokensIn, balanceWei]);
+  const needsApproval = sellRaw > 0n &&
+    (allowanceWei == null || (allowanceWei as bigint) < sellRaw);
 
   useEffect(() => {
     try { localStorage.setItem(SLIP_KEY, String(slipPct)); } catch { /* private mode */ }
@@ -286,7 +297,7 @@ export default function SwapWidget({
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
-        if (needsApproval) { await approveToken(token); return; } // approve first
+        if (needsApproval) { await approveToken(token, sellRaw); return; } // approve first, bounded to this sale
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         // Pass the exact on-chain balance so a "MAX" that rounds a hair high
