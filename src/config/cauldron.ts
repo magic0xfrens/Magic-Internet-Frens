@@ -228,6 +228,15 @@ export const HOOK_ABI = [
     { name: "player", type: "address", indexed: true },
     { name: "ticketId", type: "uint256", indexed: true },
   ] },
+  //  ── ERRORS ───────────────────────────────────────────────────────────
+  //  The PRE-TRADE liquidation sweep (CauldronHook.sol:835) reverts this when
+  //  the swap did not supply enough gas to fund the sweep AND the perp book is
+  //  non-empty — skipping it would leave realized bad debt on PLV stakers. It
+  //  needs ~1.05M gas; every path in this app pins 8,000,000, so only a wallet
+  //  or aggregator that CAPS gas can trip it. Declared here so viem decodes it
+  //  by name instead of handing the user a raw selector; the human text is
+  //  PERP_ERROR_HELP.LiqGasStarved (src/config/perp.ts).
+  { type: "error", name: "LiqGasStarved", inputs: [] },
 ] as const;
 
 /** CollectionLedger — the per-collection legacy-floor cap table (r28). Each past

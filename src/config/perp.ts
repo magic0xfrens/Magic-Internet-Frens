@@ -174,6 +174,21 @@ export const PERP_VAULT_ABI = [
   //  This ABI declared NONE, so every vault revert reached the user as an
   //  undecodable hex blob and they retried and paid gas again. Full error set
   //  from the artifact.
+  //  ── UN-STICKING A SHUT QUEUE (red-team R2C) ──────────────────────────
+  //  `QueueInsolvent` shuts deposits for EVERYONE while the exit queue is owed
+  //  more than the engine holds, and until these landed its release depended on
+  //  one queued address choosing to act — a holdout could latch the vault shut
+  //  for the life of the engine. Both are PERMISSIONLESS and move no value: they
+  //  bank the write-down the claimant would take anyway, so the part of his
+  //  nominal the backing cannot cover stops blocking everyone else. He still
+  //  claims his full pro-rata entitlement himself via claimPendingEth/Token.
+  { type: "function", name: "settlePendingEth", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
+  { type: "function", name: "settlePendingToken", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
+  { type: "event", name: "QueueWrittenDown", inputs: [
+    { name: "user", type: "address", indexed: true },
+    { name: "tokenSide", type: "bool", indexed: false },
+    { name: "writtenOff", type: "uint256", indexed: false },
+  ] },
   { type: "error", name: "QueueInsolvent", inputs: [] },
   { type: "error", name: "InsufficientShares", inputs: [] },
   { type: "error", name: "TransferFailed", inputs: [] },
@@ -200,7 +215,16 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   TokenDead: "This token is dead (volume below the death floor). Perps are paused until it revives.",
   TokenDeadParked: "Perps are PARKED, not dead — the treasury rotated this generation's quote and the engine has not been re-synced to it yet. Volume is fine. A governance call to syncGeneration re-opens the market; it is refused while anyone holds quote-side vault stake, so it needs the owner or the timelock.",
   //  Both of these used to arrive as raw hex.
-  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. This clears as positions close and fees arrive — retrying now will fail identically.",
+  //  The old text said only "wait". That was wrong after R2C: a queued holdout
+  //  could keep this true forever, and the release no longer depends on him —
+  //  anyone may bank a queued address's write-down with settlePendingEth /
+  //  settlePendingToken. Name the escape hatch rather than tell the user to wait
+  //  on something that may never happen on its own.
+  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. It clears as positions close and fees arrive — or anyone can unstick it by calling settlePendingEth/settlePendingToken for a queued address, which banks that address's write-down without moving any of their funds. Retrying this deposit right now will fail identically.",
+  //  ── THE GAS-STARVED LIQUIDATION SWEEP (CauldronHook.sol:835) ──────────
+  //  Actionable, not a selector: the ONLY thing the user can change is the gas
+  //  limit, so say that in the first clause.
+  LiqGasStarved: "This swap needs a higher gas limit because there are open perp positions to liquidate. Raise the gas limit and retry. (The pool liquidates underwater perps inside the swap so their losses do not land on liquidity stakers; that sweep needs roughly 1.05M gas and your wallet offered less.)",
   NotArmed: "The perp mark source is not armed. It is cleared on EVERY generation sync, so governance must re-arm it with setRouting after a relaunch or a quote rotation. Until then the engine falls back to its own pool.",
   UtilCapped: "The vault is near full utilization — a slice stays reserved for depositors. Try a smaller size.",
   InsurancePaused: "Opens are paused: the insurance buffer (which absorbs bad debt so losses do not hit the vault) is below its floor. It refills from trading fees, or anyone can top it up with fundInsurance.",
@@ -236,6 +260,8 @@ export const PERP_ERROR_SELECTORS: Record<string, string> = {
   "0x8db2750a": "NotArmed",       // PerpMarkSource.NotArmed()
   "0x42b0b17a": "QueueInsolvent", // PerpVault.QueueInsolvent()
   "0x4803e4a2": "VaultStaked",    // PerpEngine.VaultStaked()
+  //  toFunctionSelector("LiqGasStarved()") — computed, not guessed.
+  "0x38dc5cd1": "LiqGasStarved",  // CauldronHook.LiqGasStarved()
 };
 
 /** Map any error (viem decoded name or message) → a friendly explanation. */
