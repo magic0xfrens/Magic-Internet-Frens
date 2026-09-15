@@ -1035,6 +1035,9 @@ export default function TheCauldron() {
                       nftMinted={m.nftMinted}
                       nftMax={m.nftMax}
                       onBought={m.refresh}
+                      quote={liveQuoteAddr}
+                      quoteSymbol={liveQuote.symbol}
+                      quoteDecimals={liveQuote.decimals}
                     />
                   </div>
                 )}
@@ -1123,7 +1126,7 @@ export default function TheCauldron() {
             <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
               Stake ETH or ${m.ticker} into the perp liquidity vault that fronts every trader’s leverage — and earn 30% of all perp fees as your share price grows. This is the community-funded sink that powers the whole engine.
             </p>
-            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} quote={liveQuoteAddr} quoteSymbol={liveQuote.symbol} />
+            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} quote={liveQuoteAddr} quoteSymbol={liveQuote.symbol} quoteDecimals={liveQuote.decimals} />
           </section>
         )}
 
