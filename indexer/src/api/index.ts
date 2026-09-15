@@ -1006,9 +1006,26 @@ app.get("/cauldron", async (c) => {
 });
 
 /* ── charting ──────────────────────────────────────────────────────────── */
+/** A path segment that must be a non-negative integer generation. `Number("abc")`
+ *  is NaN, which used to reach the query builder and surface as a 500 carrying a
+ *  `pg-pool` stack trace — an internal path leak on a public, unauthenticated
+ *  GET. Returns null so the caller answers 400 with a plain message instead. */
+const genParam = (raw: string | undefined): number | null => {
+  if (raw == null || !/^\d{1,9}$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+};
+/** Query `limit`: clamp into [1, max]; anything unparseable falls back to `dflt`. */
+const limitParam = (raw: string | undefined, dflt: number, max: number): number => {
+  const n = Number(raw ?? dflt);
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(Math.max(Math.trunc(n), 1), max);
+};
+
 app.get("/candles/:generation", async (c) => {
-  const gen = Number(c.req.param("generation"));
-  const limit = Math.min(Number(c.req.query("limit") ?? 120), 500);
+  const gen = genParam(c.req.param("generation"));
+  if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
+  const limit = limitParam(c.req.query("limit"), 120, 500);
   const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
   const p = pools[0];
   if (!p) return c.json({ pool: null, candles: [], last: 0 });
@@ -1017,8 +1034,9 @@ app.get("/candles/:generation", async (c) => {
   return c.json({ pool: { id: p.id, generation: p.generation, token: p.token, name: p.name, symbol: p.symbol, dead: p.dead }, candles, last: p.lastPrice, volumeEth: p.volumeEth, swapCount: p.swapCount });
 });
 app.get("/recent/:generation", async (c) => {
-  const gen = Number(c.req.param("generation"));
-  const limit = Math.min(Number(c.req.query("limit") ?? 150), 5000);
+  const gen = genParam(c.req.param("generation"));
+  if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
+  const limit = limitParam(c.req.query("limit"), 150, 5000);
   const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
   const p = pools[0];
   if (!p) return c.json({ swaps: [] });
@@ -1244,26 +1262,36 @@ async function evaluateHealth() {
 
     // A chain read that returned the fallback 0/zero → RPC blip, not a real divergence.
     const chainReadable = chainGen > 0 && curPoolId !== ZERO_POOL;
-    const poolMismatch = chainReadable && !indexedIds.has(curPoolId.toLowerCase());
+    // BEHIND vs DIVERGED. These are different faults and must not share a flag:
+    //   BEHIND  = the DB is a correct PREFIX of the chain and is still filling in
+    //             (nothing indexed yet, or fewer open positions than the chain).
+    //             Expected during a backfill → still `ok`.
+    //   DIVERGED = the DB indexed something and it is the WRONG something (a pool
+    //             that is not the live one, or a generation it never saw launch).
+    //             That never self-heals by waiting → not `ok`, past the grace.
+    // The old code OR-ed all three into one `diverged` and then masked it with
+    // `!everHealthy`, so a container that booted STRAIGHT INTO divergence (it had
+    // never once been clean) reported ok forever and the watchdog never fired.
+    const nothingIndexedYet = indexedIds.size === 0;
+    const poolMismatch = chainReadable && !nothingIndexedYet && !indexedIds.has(curPoolId.toLowerCase());
     const missedLaunch = chainReadable && indexedGen > 0 && chainGen > indexedGen;
     const missedOpens = chainOpen > dbOpen;                 // chain has opens the DB lacks
-    const diverged = poolMismatch || missedLaunch || missedOpens;
+    const behind = missedOpens || (chainReadable && nothingIndexedYet);
+    const diverged = poolMismatch || missedLaunch;
 
     const now = Date.now();
     if (diverged) { if (!divergingSince) divergingSince = now; }
-    else { divergingSince = 0; everHealthy = true; }
+    else { divergingSince = 0; if (!behind) everHealthy = true; }
     const persistedMs = divergingSince ? now - divergingSince : 0;
-    // NOT-ok only once we've been healthy at least once (a fresh backfill has
-    // dbOpen<chainOpen for its whole duration — that's expected, not a fault) AND
-    // the divergence has persisted past the grace. `everHealthy` gates out the
-    // startup window so this can never deadlock a deploy.
-    const ok = !diverged || !everHealthy || persistedMs <= HEALTH_GRACE_MS;
+    // NOT-ok as soon as a REAL divergence has outlasted the grace — regardless of
+    // whether this process was ever healthy. History cannot excuse divergence.
+    const ok = !diverged || persistedMs <= HEALTH_GRACE_MS;
 
     const body = {
       ok, chainGen, indexedGen, curPoolId, indexedPools: [...indexedIds],
       chainOpenPositions: chainOpen, dbOpenPositions: dbOpen,
       reasons: { poolMismatch, missedLaunch, missedOpens },
-      divergingForMs: persistedMs, warmingUp: !everHealthy,
+      divergingForMs: persistedMs, behind, warmingUp: behind && !everHealthy,
     };
     healthCache = { at: now, body, ok };
     return healthCache;
@@ -1289,16 +1317,17 @@ app.get("/freshness", async (c) => {
 
 // In-process WATCHDOG: if the indexer diverges from the chain and STAYS diverged
 // well past the /health grace, exit non-zero so Railway's ON_FAILURE policy
-// restarts the container (a fresh worker re-syncs). Only armed once we've been
-// healthy at least once, so a genuinely misconfigured deploy fails the healthcheck
-// (blocking promotion + alerting) instead of crash-looping pointlessly. Opt out
-// with HEALTH_WATCHDOG=0.
+// restarts the container (a fresh worker re-syncs). Armed on a FRESH BOOT too:
+// `diverged` now means "indexed the wrong thing", which a container can do from
+// its very first pass, and which waiting never fixes. Merely BEHIND (backfilling)
+// is not divergence and never trips this. Railway's retry cap bounds the loop.
+// Opt out with HEALTH_WATCHDOG=0.
 if (process.env.HEALTH_WATCHDOG !== "0") {
   const WATCHDOG_KILL_MS = HEALTH_GRACE_MS * 3; // ~9 min of sustained divergence
   setInterval(async () => {
     try {
       const { ok } = await evaluateHealth();
-      if (!ok && everHealthy && divergingSince && Date.now() - divergingSince > WATCHDOG_KILL_MS) {
+      if (!ok && divergingSince && Date.now() - divergingSince > WATCHDOG_KILL_MS) {
         console.error(`[watchdog] indexer diverged from chain for ${Math.round((Date.now() - divergingSince) / 1000)}s — exiting for a clean restart`);
         process.exit(1);
       }
