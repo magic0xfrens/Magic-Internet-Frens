@@ -74,7 +74,8 @@ export FORK_RPC="$RPC"
 export POOL_MANAGER=0xE03A1074c86CFeDd5C142C4F04F1a1536e203543
 export POSITION_MANAGER=0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4
 
-forge build --sizes > /tmp/ad-sizes.log 2>&1 || {
+# --force: a cached out/ is how r43/r44 shipped a router missing playChurn.
+forge build --sizes --force > /tmp/ad-sizes.log 2>&1 || {
   echo "--- first error ---"; grep -m3 -E "^Error|error\[" /tmp/ad-sizes.log; die "build failed."; }
 
 OVER=$(awk -F'|' '/^\| [A-Za-z]/ {gsub(/[ ,]/,"",$4); if ($4 ~ /^-/) print $2" ("$4" B)"}' /tmp/ad-sizes.log \
@@ -172,6 +173,13 @@ if missing: sys.exit("manifest contracts missing: %s" % missing)
 if not d.get("poolIds"): sys.exit("manifest has no poolIds - the pool was never summoned")
 print("manifest ok: round=%s schema=%s registry=%s hook=%s" % (d.get("round","?"), d.get("schema","?"), c["registry"], c["hook"]))
 PYEOF
+
+# ── SELECTOR PARITY: the app's call list vs the DEPLOYED bytecode ───────────
+# Belt to apply-deployment.mjs's braces. Every function the frontend can send
+# must exist in the runtime that is actually on chain; r43 and r44 both shipped
+# a gacha router without `playChurn` and every spin reverted with empty data.
+say "WIRE  selector parity"
+node "$ROOT/scripts/verify-selectors.mjs" || die "selector parity FAILED - the deployed code is missing function(s) the app sends. Do NOT ship this round."
 
 say "WIRE  regenerating ABIs from the compiled artifacts"
 cd "$ROOT/contracts/solidity"
