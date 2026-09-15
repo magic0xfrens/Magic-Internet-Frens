@@ -21,6 +21,10 @@ contract ReserveStub {
     constructor(uint256 a) { amt = a; }
     function releaseRelaunchETH() external view returns (uint256) { return 0; }
     function releaseRelaunchAsset(address) external view returns (uint256) { return amt; }
+    //  The real hook publishes both counters as public getters (CauldronHook.sol:294,
+    //  :2566) and `seedFunding` READS them before it decides to pull (audit R4A).
+    function relaunchETH() external pure returns (uint256) { return 0; }
+    function relaunchAsset(address) external view returns (uint256) { return amt; }
 }
 
 /**

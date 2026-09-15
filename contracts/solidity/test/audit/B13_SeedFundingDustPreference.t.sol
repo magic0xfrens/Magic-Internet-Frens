@@ -83,7 +83,7 @@ contract B13_SeedFundingDustPreference is Test {
 
         assertEq(quoteUsed, address(0), "seeds where the recovered value already is");
         assertEq(amount, 25 ether, "20 recovered + 5 reserve, nothing abandoned");
-        assertEq(hook.asset(USDG), 10_000e6, "and the USDG is left claimable, not stranded");
+        assertEq(hook.relaunchAsset(USDG), 10_000e6, "and the USDG is left claimable, not stranded");
     }
 
     /// @notice INVARIANT: a dust balance in the requested quote must not be
@@ -152,21 +152,26 @@ contract B13_SeedFundingDustPreference is Test {
 
 /// @dev The two reserve entrypoints `seedFunding` pulls, and nothing else.
 contract HookStub13 {
-    mapping(address => uint256) public asset;
-    uint256 public eth;
+    //  Slot NAMES matter: the real hook exposes `relaunchAsset(address)` and
+    //  `relaunchETH()` as public getters (CauldronHook.sol:2566, :294) and
+    //  `PoolOps.seedFunding` READS them to decide whether a pull is worth making
+    //  before it makes one (audit R4A). A stub that hid the same numbers behind
+    //  `asset`/`eth` made every branch decline.
+    mapping(address => uint256) public relaunchAsset;
+    uint256 public relaunchETH;
 
-    function setAsset(address a, uint256 v) external { asset[a] = v; }
-    function setEth(uint256 v) external { eth = v; }
+    function setAsset(address a, uint256 v) external { relaunchAsset[a] = v; }
+    function setEth(uint256 v) external { relaunchETH = v; }
 
     function releaseRelaunchAsset(address a) external returns (uint256 amt) {
-        amt = asset[a];
+        amt = relaunchAsset[a];
         require(amt > 0, "NoETHToRelease"); // mirrors the real revert-at-zero
-        asset[a] = 0;
+        relaunchAsset[a] = 0;
     }
 
     function releaseRelaunchETH() external returns (uint256 amt) {
-        amt = eth;
+        amt = relaunchETH;
         require(amt > 0, "NoETHToRelease");
-        eth = 0;
+        relaunchETH = 0;
     }
 }
