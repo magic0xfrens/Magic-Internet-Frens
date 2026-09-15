@@ -53,13 +53,50 @@ library GachaLib {
     event TicketLost(address indexed player, uint256 indexed ticketId);
 
     /**
+     * @dev Base of an ERC-7201-style namespaced mapping `batchIndex => bool`
+     *      recording whether a batch has already spent its ONE expiry re-anchor.
+     *
+     *  ── ONE RE-ANCHOR, EVER (red-team R3A) ──────────────────────────────────
+     *  The re-anchor above used to be UNCAPPED, and that is a free, unlimited
+     *  re-roll of a mint-or-nothing draw: the outcome of a committed batch is
+     *  public the moment its commit block is mined, so a player who peeks and
+     *  sees a loser simply declines to resolve it. 256 blocks later `blockhash`
+     *  returns zero and ANY later `resolveTickets` call — gas only, no fee —
+     *  re-stamps the batch to a fresh block, i.e. a brand-new draw. Measured at
+     *  20 re-anchors turning a 900-bps ticket into a mint. The two sibling reveal
+     *  paths already cap exactly this at one ({CauldronCollection.reanchored},
+     *  {MiFrensGenesis.reanchored}); the gacha path, which governs the NFT itself
+     *  rather than cosmetic rarity, had no cap at all.
+     *
+     *  The flag lives in a HASHED namespace rather than in {Batch} on purpose:
+     *  this library is DELEGATECALLed, so it writes into the hook's storage, and
+     *  a hashed slot cannot collide with any slot the hook declares. Adding a
+     *  field to {Batch} would instead change the hook's public
+     *  `batches(uint256)` getter (an ABI break for the indexer and the frontend)
+     *  and its push site. Behaviour, not layout, is what needed to change.
+     */
+    bytes32 private constant REANCHORED_SLOT = keccak256("cauldron.gacha.reanchored.v1");
+
+    function _reanchored(uint256 bi) private view returns (bool v) {
+        bytes32 s = keccak256(abi.encode(bi, REANCHORED_SLOT));
+        assembly ("memory-safe") { v := iszero(iszero(sload(s))) }
+    }
+
+    function _markReanchored(uint256 bi) private {
+        bytes32 s = keccak256(abi.encode(bi, REANCHORED_SLOT));
+        assembly ("memory-safe") { sstore(s, 1) }
+    }
+
+    /**
      * @notice Resolve up to `maxCount` pending crystals, in commit order.
      *
      *  Each crystal's outcome is seeded by the blockhash of its commit block —
      *  unknown at commit, so it cannot be foreseen, grinded, or re-rolled by
      *  reverting. Stops (no revert) at a batch committed in the current block,
      *  and re-stamps a batch whose blockhash has aged out of the 256-block window
-     *  so it is rolled against a fresh, still-unknown seed on a later call.
+     *  so it is rolled against a fresh, still-unknown seed on a later call — ONCE
+     *  per batch, ever (see {REANCHORED_SLOT}); a batch that ages out a second
+     *  time commits its base outcome rather than drawing again.
      *
      * @return processed      crystals rolled this call
      * @return won            creatures minted this call
@@ -80,9 +117,22 @@ library GachaLib {
             Batch storage b = batches[bi];
             if (block.number <= b.commitBlock) break; // seed not known yet
             bytes32 bh = blockhash(b.commitBlock);
+            //  Set when the batch has aged out AND already spent its single
+            //  re-anchor: the remaining crystals commit their base outcome (a
+            //  loss) instead of being re-rolled. See {REANCHORED_SLOT}.
+            bool expired;
             if (bh == 0) {
-                b.commitBlock = uint48(block.number);
-                break; // FIFO: resume from here on the next call
+                if (!_reanchored(bi)) {
+                    _markReanchored(bi);
+                    b.commitBlock = uint48(block.number);
+                    break; // FIFO: resume from here on the next call
+                }
+                //  SECOND EXPIRY: the honest re-draw was offered and declined.
+                //  We must NOT roll against `bh == 0` — that seed is known, which
+                //  is the deterministic-fallback hazard the sibling paths document.
+                //  Commit the base outcome instead, so the batch always resolves
+                //  and the queue can never wedge.
+                expired = true;
             }
             address player = b.player;
             address col = b.collection;
@@ -94,7 +144,10 @@ library GachaLib {
             while (processed < maxCount && r < total) {
                 uint256 roll = uint256(keccak256(abi.encodePacked(bh, player, bi, r))) % 10_000;
                 bool forced = missStreak[player] >= pityThreshold;
-                bool win = (forced || roll < odds) && minted < max;
+                //  An expired batch cannot win on its roll — the seed is zero and
+                //  therefore known — but the PITY guarantee still pays out, because
+                //  that outcome was already owed and is not seed-dependent.
+                bool win = (forced || (!expired && roll < odds)) && minted < max;
                 pendingOf[player] -= 1;
                 st.outstandingCrystals -= 1;
                 outstandingOf[col] -= 1;
@@ -123,7 +176,10 @@ library GachaLib {
                         emit TicketLost(player, bi);
                     }
                 } else {
-                    if (roll >= odds && minted < max) missStreak[player] += 1;
+                    //  A forfeited (twice-expired) crystal is not counted as a
+                    //  miss: it was not a draw the player lost, so it must not
+                    //  buy pity credit toward a forced win either.
+                    if (!expired && roll >= odds && minted < max) missStreak[player] += 1;
                     emit TicketLost(player, bi);
                 }
             }
