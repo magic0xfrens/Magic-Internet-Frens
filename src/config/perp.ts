@@ -184,11 +184,27 @@ export const PERP_VAULT_ABI = [
   //  claims his full pro-rata entitlement himself via claimPendingEth/Token.
   { type: "function", name: "settlePendingEth", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
   { type: "function", name: "settlePendingToken", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
+  //  ONE event per shortfall, not one per claimant. The queue is UNITS x a single
+  //  INDEX, so a shortfall is recognised once by scaling the index — there is no
+  //  per-user write-down to report, and `newIndex` is what every entitlement is
+  //  re-derived from (PerpVault.sol:193). An earlier draft of this ABI carried the
+  //  per-user shape `(address indexed user, bool tokenSide, uint256 writtenOff)`;
+  //  it never shipped, and decoding the current event against it would have
+  //  mis-read the topic as an address. Keep this in step with the contract.
   { type: "event", name: "QueueWrittenDown", inputs: [
-    { name: "user", type: "address", indexed: true },
-    { name: "tokenSide", type: "bool", indexed: false },
+    { name: "tokenSide", type: "bool", indexed: true },
     { name: "writtenOff", type: "uint256", indexed: false },
+    { name: "newIndex", type: "uint256", indexed: false },
   ] },
+  //  Queue internals, additive. `pendingEth()/pendingEthOf()` and the token twins
+  //  kept their selectors and return types when the public vars became views, so
+  //  nothing that read them had to change.
+  { type: "function", name: "ethQueueUnits", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ethQueueIndex", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ethQueueEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "tokQueueUnits", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "tokQueueIndex", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "tokQueueEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
   { type: "error", name: "QueueInsolvent", inputs: [] },
   { type: "error", name: "InsufficientShares", inputs: [] },
   { type: "error", name: "TransferFailed", inputs: [] },
