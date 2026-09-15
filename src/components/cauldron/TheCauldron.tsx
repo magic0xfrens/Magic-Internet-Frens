@@ -1071,6 +1071,9 @@ export default function TheCauldron() {
                 open-position ticket in a right rail beside it — so the trade
                 form sits next to the price it's trading, not below the fold. */}
             <PerpPanel
+              quote={liveQuoteAddr}
+              quoteSymbol={liveQuote.symbol}
+              quoteDecimals={liveQuote.decimals}
               ticker={m.ticker}
               spotPrice={livePerpPrice}
               priceUsd={livePerpPrice > 0 ? livePerpPrice * (m.ethUsd ?? 0) : m.priceUsd}

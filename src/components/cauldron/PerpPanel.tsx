@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { usePerpEngine, type PerpPosition } from "@/hooks/usePerpEngine";
+import { usePerpEngine, type PerpPosition, type PerpQuote } from "@/hooks/usePerpEngine";
+import { type Address } from "viem";
+import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { PERP_SLIPPAGE_BPS } from "@/config/perp";
 import { usePerpRekt } from "@/hooks/usePerpRekt";
 import { usePerpLiqHint } from "@/hooks/usePerpLiqHint";
@@ -22,6 +24,14 @@ interface PerpPanelProps {
   onTraded?: () => void; // called after a position opens/closes → refresh chart
   chart?: ReactNode;   // the price/heatmap chart — rendered LEFT of the open-position ticket
   badges?: ReactNode;  // liquidatoor trophies — fills the right rail under the ticket
+  //  ── THE GENERATION'S QUOTE (audit A-1) ────────────────────────────────
+  //  Collateral, notional, depth and OI are denominated in the QUOTE, not in
+  //  ether. Without these the panel hard-coded parseEther + a native msg.value,
+  //  so every open on a 6-decimal USDG generation reverted `BadParam()`
+  //  (PerpEngine.sol:231) under a UI that still said "ETH". Native by default.
+  quote?: Address;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
 }
 
 const MAINTENANCE = 0.15; // mirrors PerpEngine.maintenanceBps (1500)
@@ -58,7 +68,17 @@ const gwei = (p: number) => (p > 0 ? `${(p * 1e9).toFixed(2)} gw` : "—");
  * PnL, health, and the liquidation price. Gated to a graceful "activates on
  * deploy" state until the PerpEngine address is configured.
  */
-export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded, chart, badges }: PerpPanelProps) {
+export default function PerpPanel({
+  ticker, spotPrice, priceUsd, ethUsd, col, warm, generation = 1, onTraded, chart, badges,
+  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
+}: PerpPanelProps) {
+  const qNative = isNativeQuote(quote);
+  //  The collateral asset as the forms need it. `decimals` is forced to 18 on a
+  //  native book so the ether path is arithmetically unchanged.
+  const perpQuote: PerpQuote = useMemo(
+    () => ({ address: quote as Address, decimals: qNative ? 18 : quoteDecimals, symbol: qNative ? "ETH" : quoteSymbol }),
+    [quote, qNative, quoteDecimals, quoteSymbol],
+  );
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const perp = usePerpEngine(generation);
@@ -283,8 +303,10 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           : `The ${side} vault is fully utilized right now — no liquidity to borrow. Try the other side, or stake ${side === "long" ? "ETH" : `$${ticker}`} in the vault.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
-      if (side === "long") await perp.openLong(collateral, lev, liqHint, spotPrice, slipBps);
-      else await perp.openShort(collateral, lev, liqHint, spotPrice, slipBps);
+      //  Pass the live quote so the engine gets the transport it expects:
+      //  ERC20 → bounded approve + raw amount + value 0; native → msg.value.
+      if (side === "long") await perp.openLong(collateral, lev, liqHint, spotPrice, slipBps, perpQuote);
+      else await perp.openShort(collateral, lev, liqHint, spotPrice, slipBps, perpQuote);
     } catch (e: unknown) {
       const why = explainPerpError(e);       // decoded, human-readable reason
       setErr(why);
@@ -490,7 +512,13 @@ export default function PerpPanel({ ticker, spotPrice, priceUsd, ethUsd, col, wa
           <div className="pp-row">
             <input className="pp-input" inputMode="decimal" placeholder="0.0" value={amt}
               onChange={(e) => setAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
-            <span className="pp-coin"><span style={{ color: "#627EEA" }}>Ξ</span>ETH</span>
+            {/*  NAME THE ASSET THE USER IS ACTUALLY POSTING. This said "Ξ ETH"
+                 unconditionally, which is simply false on a rotated (USDG /
+                 xNVDA) generation — the collateral is the quote. The remaining
+                 Ξ glyphs on the figures below are logged as B-7. */}
+            <span className="pp-coin">{qNative
+              ? <><span style={{ color: "#627EEA" }}>Ξ</span>ETH</>
+              : perpQuote.symbol}</span>
           </div>
         </div>
         <div className="pp-chips">

@@ -136,6 +136,9 @@ export const PERP_ABI = [
   { type: "error", name: "UtilCapped", inputs: [] },
   { type: "error", name: "InsurancePaused", inputs: [] },
   { type: "error", name: "DustPosition", inputs: [] },
+  //  The collateral transport guard (PerpEngine.sol:231/479). Undeclared until
+  //  now, so every wrong-transport open reached the user as a hex blob.
+  { type: "error", name: "BadParam", inputs: [] },
 ] as const;
 
 /** Community PLV vault (staking) — deposit/withdraw ETH + token for perp-fee yield. */
@@ -252,6 +255,12 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   Slippage: "The fill was worse than your Max slippage — this pool is thin, so a bigger open pays real price impact. Raise Max slippage or reduce the size.",
   Healthy: "This position isn't liquidatable.",
   ZeroValue: "Enter a collateral amount.",
+  //  ── THE COLLATERAL ARRIVED IN THE WRONG TRANSPORT (PerpEngine.sol:231) ─
+  //  `_pullQuote` reverts this when a native book gets `msg.value != amount` or
+  //  an ERC20 book gets any value at all, and when the ERC20 pull itself fails
+  //  (no allowance, or a non-standard token returning false). All three read to
+  //  the user as "the app sent the wrong thing", so say what to do about it.
+  BadParam: "The collateral did not arrive in the form this market expects. If this generation is quoted in an ERC20 (not ETH), the open needs an approval for the collateral first — approve and retry. If it persists, reload so the app re-reads the live quote asset.",
 };
 
 /**
@@ -278,6 +287,8 @@ export const PERP_ERROR_SELECTORS: Record<string, string> = {
   "0x4803e4a2": "VaultStaked",    // PerpEngine.VaultStaked()
   //  toFunctionSelector("LiqGasStarved()") — computed, not guessed.
   "0x38dc5cd1": "LiqGasStarved",  // CauldronHook.LiqGasStarved()
+  //  `cast sig "BadParam()"` — computed, not guessed. PerpEngine.sol:479.
+  "0xde17a3af": "BadParam",       // PerpEngine.BadParam()
 };
 
 /** Map any error (viem decoded name or message) → a friendly explanation. */
