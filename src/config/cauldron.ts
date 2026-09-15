@@ -478,6 +478,15 @@ export const GACHA_ROUTER_ABI = [
     ],
     outputs: [{ name: "opened", type: "uint256" }],
   },
+  //  ── THE CURVE'S OWN UNITS (audit B-2) ────────────────────────────────
+  //  `oddsForPlay` is a function of the play measured in CURVE units, and the
+  //  router converts a raw quote notional into them with `_playInCurveUnits`
+  //  (CauldronGachaRouter.sol:120,136-145). The UI was passing the raw wei
+  //  straight to `oddsForPlay`, which agrees with the chain ONLY while the
+  //  router's `oracle()` is 0x0 — a coincidence that dies the moment setOracle
+  //  is called, which the USDG path requires. Route the display through this so
+  //  it tracks the chain instead of happening to match it.
+  { type: "function", name: "playInCurveUnits", stateMutability: "view", inputs: [{ name: "playWei", type: "uint256" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
 /** V4 PoolManager Swap event — the source of the live price/volume chart. */

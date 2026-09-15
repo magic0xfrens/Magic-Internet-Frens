@@ -4,7 +4,7 @@ import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { fetchGachaStats, fetchIndexerLagSec, fetchOwnedNfts, type IndexedGacha } from "@/lib/cauldronIndexer";
-import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
+import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS, GACHA_ROUTER_ABI } from "@/config/cauldron";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { useLpComposition } from "@/hooks/useLpComposition";
 import { resolveTokenArt } from "@/lib/tokenArt";
@@ -159,7 +159,6 @@ export default function CrystalCauldronGame({
   //  STAYS ON CHAIN. The mana bar is the live gate on whether the NEXT spin can
   //  summon, and no table records it.
   const { data: prog, refetch: refProg } = useReadContract({ ...hook, functionName: "progress", args: address ? [address] : undefined, ...qEnabled });
-  const spinWei = parseEther((stake * loops).toFixed(18));
 
   //  ── THE SPIN'S SLIPPAGE FLOOR (audit K4c) ────────────────────────────
   //  `playChurn` runs `loops` buys and `loops - 1` sells inside one unlock, all
@@ -182,6 +181,33 @@ export default function CrystalCauldronGame({
     return (parseEther(stake.toFixed(18)) * un) / uq;
   }, [qNative, stake, lp.prices, quote]);
 
+  //  The spin's notional in the QUOTE's OWN raw units — wei on a native
+  //  generation, 6-decimal units on USDG. `playChurn` is handed exactly this.
+  const spinWei = useMemo(() => {
+    const total = stake * loops;
+    if (!(total > 0)) return 0n;
+    try {
+      return qNative
+        ? parseEther(total.toFixed(18))
+        : (quoteExpected * BigInt(loops));   // oracle-converted stake, per leg
+    } catch { return 0n; }
+  }, [stake, loops, qNative, quoteExpected]);
+
+  //  ── ODDS IN THE CURVE'S UNITS, NOT THE QUOTE'S (audit B-2) ───────────
+  //  `oddsForPlay` takes a CURVE-unit play; the chain computes it with
+  //  `_playInCurveUnits(playWei)` inside `playChurn`. Passing the raw notional
+  //  matched only because the live router's `oracle()` is 0x0. Ask the router.
+  const { data: curveUnits } = useReadContract({
+    address: CAULDRON.gachaRouter as Address,
+    abi: GACHA_ROUTER_ABI,
+    functionName: "playInCurveUnits",
+    args: [spinWei],
+    query: { enabled: spinWei > 0n, placeholderData: (p) => p },
+  });
+  //  Fall back to the raw notional only while the read is in flight — that is
+  //  the old behaviour and is exactly right on an un-oracled native router.
+  const oddsInput = (curveUnits as bigint | undefined) ?? spinWei;
+
   const spinFloor = useMemo(() => {
     if (!(spotPrice > 0) || stake <= 0) return 0n;
     //  `spotPrice` is QUOTE per token. On a non-native generation the amount
@@ -199,7 +225,7 @@ export default function CrystalCauldronGame({
   }, [spotPrice, stake, loops, qNative, quoteExpected, quoteDecimals]);
   //  STAYS ON CHAIN. A pure function of live hook state for the stake about to be
   //  signed; not indexed, and stale odds would misprice the spin.
-  const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [spinWei], query: { placeholderData: (p) => p } });
+  const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [oddsInput], query: { placeholderData: (p) => p } });
 
   //  null when neither source could answer → the footer says so instead of
   //  printing a confident "0" over a wallet that has summoned creatures.
