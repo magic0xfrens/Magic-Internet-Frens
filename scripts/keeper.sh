@@ -56,11 +56,20 @@ KEEPER="$(cast wallet address "${SIGNER[@]}")"
 # floor reflects recent volume. No-op (returns 0) when nothing is pending, so it's
 # always safe to call. Run alongside the liquidation sweep.
 materialize() {
-  if cast send "$REGISTRY" 'materializeLegacyReserve()' "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1; then
+  #  DO NOT SWALLOW THE ERROR. `>/dev/null 2>&1` made a keeper that had been
+  #  failing every call for days look exactly like a keeper with nothing to do.
+  local out
+  if out=$(cast send "$REGISTRY" 'materializeLegacyReserve()' "${SIGNER[@]}" --rpc-url "$RPC" 2>&1); then
     echo "  ◆ materialized legacy buybacks → reserve/floor"
+  else
+    echo "  ✗ materializeLegacyReserve FAILED: $(echo "$out" | tr '\n' ' ' | cut -c1-300)" >&2
   fi
 }
 
+# NOTE (logged, not fixed): this sweep is O(nextId) in `cast call`s per pass —
+# every closed position is re-read forever. Fine at r45 volumes; it wants a
+# cursor or an indexer-driven candidate list before it is left running unattended
+# on a busy round.
 sweep() {
   local next; next=$(cast call "$PERP" 'nextId()(uint256)' --rpc-url "$RPC" 2>/dev/null | awk '{print $1}')
   [ -n "$next" ] || { echo "  (engine unreachable)"; return; }
@@ -73,11 +82,14 @@ sweep() {
     local liq; liq=$(cast call "$PERP" 'isLiquidatable(uint256)(bool)' "$id" --rpc-url "$RPC" 2>/dev/null)
     if [ "$liq" = "true" ]; then
       echo "  ⚡ position #$id is UNDERWATER → liquidating…"
-      if cast send "$PERP" 'liquidate(uint256)' "$id" "${SIGNER[@]}" --rpc-url "$RPC" >/dev/null 2>&1; then
+      #  Log the reason with the ID. A silent failure here is a position that
+      #  stays underwater while the keeper reports a clean sweep.
+      local lout
+      if lout=$(cast send "$PERP" 'liquidate(uint256)' "$id" "${SIGNER[@]}" --rpc-url "$RPC" 2>&1); then
         echo "     ✅ liquidated #$id (keeper reward → $KEEPER)"
         liquidated=$((liquidated+1))
       else
-        echo "     ✗ liquidate #$id reverted (healthy at TWAP mark, or per-block cap)"
+        echo "     ✗ liquidate #$id FAILED (healthy at TWAP mark, per-block cap, or a real fault): $(echo "$lout" | tr '\n' ' ' | cut -c1-300)" >&2
       fi
     fi
   done
