@@ -58,6 +58,9 @@ interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
     function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit) external;
+    /// @dev Live open-position count. Read by the hook's pre-trade gas gate so a
+    ///      gas-starved swap only reverts when there is actually a book to protect.
+    function openCount() external view returns (uint256);
 }
 
 /// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
@@ -146,6 +149,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     error OnlySelf();
     /// @dev The one swap quadrant the hook cannot charge an ETH fee on (audit Z-01).
     error ExactOutSellUnsupported();
+    /// @dev The transaction did not carry enough gas to fund the PRE-TRADE
+    ///      liquidation sweep while perp positions were open. See {_liqSweep}.
+    error LiqGasStarved();
 
     // -----------------------------------------------------------------------
     // Constants
@@ -796,6 +802,37 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             perpEngine.call{gas: g - reserve}(
                 abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountSpecified, isBuy, limit)
             );
+        } else if (amountSpecified != 0) {
+            //  ── A GAS-STARVED TRADE FAILS LOUDLY, IT DOES NOT TRADE BLIND (R1C) ──
+            //  The caller picks the transaction's gas, so before this branch existed
+            //  the entire liquidation engine was OPTIONAL: capping gas under the
+            //  980k pre-trade floor executed a FULL-SIZE price-moving trade with the
+            //  pre-emptive sweep silently skipped, leaving the victim it bankrupted
+            //  open and insolvent (measured 0.30798 ETH of bad debt to PLV/insurance,
+            //  at NEGATIVE attacker cost, repeatable every block). No keeper can run
+            //  inside someone else's transaction before their swap, so there is no
+            //  later rescue: the loss is realized at the price this trade sets.
+            //
+            //  We cannot MAKE a caller supply gas. We can refuse to execute the
+            //  trade. This branch is reached only on the PRE-trade call (the
+            //  `amountSpecified != 0` one from {_beforeSwap}); the post-trade sweep
+            //  still degrades silently, because by then the swap's own sweep has
+            //  legitimately consumed the budget and reverting would punish honest
+            //  swappers for work the protocol asked them to do.
+            //
+            //  Gated on an OPEN BOOK so routability is untouched when there is
+            //  nothing to protect: with `openCount == 0` no gas floor applies at
+            //  all, and an ordinary swap through the Universal Router or any
+            //  aggregator carries far more than this (the uncapped control swap
+            //  measures ~1.70M gas). Only a deliberately tight cap trips it.
+            //  Trade-off, stated plainly: a swap on a pool with a live perp book
+            //  that supplies under ~1.05M gas now REVERTS instead of filling.
+            //  staticcall, not call: this must not be able to mutate anything, and
+            //  a non-conforming engine (ok == false) is treated as an empty book
+            //  rather than as a pool-wide brick.
+            (bool ok, bytes memory ret) =
+                perpEngine.staticcall(abi.encodeWithSelector(IPerpEngineLiq.openCount.selector));
+            if (ok && ret.length >= 32 && abi.decode(ret, (uint256)) != 0) revert LiqGasStarved();
         }
     }
 
