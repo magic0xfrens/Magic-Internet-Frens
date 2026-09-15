@@ -162,6 +162,9 @@ contract PerpVault is ReentrancyGuard {
     event WithdrawTok(address indexed user, uint256 shares, uint256 paid, uint256 queued);
     event ClaimTok(address indexed user, uint256 paid);
     event ClaimTokYield(address indexed user, uint256 paid);
+    /// @notice A queued exit's nominal was written down to its pro-rata share of
+    ///         the backing that actually exists. `tokenSide` false = ETH queue.
+    event QueueWrittenDown(address indexed user, bool tokenSide, uint256 writtenOff);
     /// @notice Short-side yield that accrued while NO token shares existed. It has no
     ///         rightful claimant and is deliberately NOT back-paid to the next
     ///         depositor; it stays in the engine's segregated pot. (Audit H-05.)
@@ -268,9 +271,11 @@ contract PerpVault is ReentrancyGuard {
         //  The seniority note above says a queued exit is a CLAIM, not a guarantee,
         //  and must bear its share of the loss. Letting a newcomer's principal pay
         //  it instead inverts that. So refuse until the queue has recognised its own
-        //  write-down: {claimPendingEth} banks the haircut permissionlessly (and
-        //  banks a zero rather than reverting, see `:333`), which drains `pendingEth`
-        //  and reopens the side. No privilege, no timelock, no stuck vault.
+        //  write-down: {settlePendingEth} banks the haircut for ANY queued address,
+        //  permissionlessly and without paying anyone (red-team R2C — when only the
+        //  claimant himself could bank it, one holdout latched this gate shut), and
+        //  {claimPendingEth} banks a zero rather than reverting. Either drains
+        //  `pendingEth` and reopens the side. No privilege, no timelock, no stuck vault.
         if (pendingEth > engine.totalEth()) revert QueueInsolvent();
         //  Read defensively. An engine that predates multi-quote has no
         //  `quote()`, and an interface call would revert the whole deposit
@@ -372,13 +377,50 @@ contract PerpVault is ReentrancyGuard {
         return FullMath.mulDiv(owed, backing, claims);
     }
 
-    /// @notice Claim a previously-queued ETH exit as liquidity frees up.
-    function claimPendingEth() external nonReentrant returns (uint256 paid) {
-        uint256 owed = pendingEthOf[msg.sender];
-        if (owed == 0) revert ZeroAmount();
+    /// @dev Bank `user`'s share of any queue-wide shortfall and return what is
+    ///      left owed. Pure bookkeeping: it never transfers, so it cannot be made
+    ///      to revert by a hostile claimant's receive().
+    function _bankEthWriteDown(address user) private returns (uint256 owed) {
+        owed = pendingEthOf[user];
+        if (owed == 0) return 0;
         //  Share any shortfall across the whole queue before paying (see {_haircut}).
         uint256 capped = _haircut(owed, engine.totalEth(), pendingEth);
-        if (capped < owed) { pendingEth -= (owed - capped); pendingEthOf[msg.sender] = capped; owed = capped; }
+        if (capped < owed) {
+            emit QueueWrittenDown(user, false, owed - capped);
+            pendingEth -= (owed - capped);
+            pendingEthOf[user] = capped;
+            owed = capped;
+        }
+    }
+
+    /// @notice Permissionlessly recognise a queued ETH exit's write-down. Pays
+    ///         nobody; only marks a claim down to what the backing can support.
+    ///
+    ///  ── ONE HOLDOUT MUST NOT LATCH THE DEPOSIT GATE (red-team R2C) ────────
+    ///  `pendingEth` used to shrink ONLY inside {claimPendingEth}, and only for
+    ///  `msg.sender`'s own entry. After a death-settle write-off the queue's
+    ///  nominal outran `engine.totalEth()`, so {deposit}'s `QueueInsolvent` guard
+    ///  (`:274`) shut the ETH side — and the only key was held by a claimant who
+    ///  forfeited almost nothing by never turning it (measured: refusing cost the
+    ///  holdout 0.001 ETH of a 10 ETH claim while shutting deposits for everyone,
+    ///  for the life of the engine). The guard is right — a newcomer's principal
+    ///  must not pay a stale queue (`:274`, and `depositToken` `:507`) — but its
+    ///  release cannot depend on one address choosing to act. Anyone may now bank
+    ///  the write-down FOR a queued address. It moves no value: the claimant keeps
+    ///  his full pro-rata entitlement and still claims it himself via
+    ///  {claimPendingEth}; all that changes is that the part of his nominal the
+    ///  backing cannot cover stops blocking everyone else. Deliberately does NOT
+    ///  transfer — a queued contract that reverts on receive would otherwise
+    ///  re-create exactly the latch this closes.
+    function settlePendingEth(address user) external nonReentrant returns (uint256 stillOwed) {
+        if (pendingEthOf[user] == 0) revert ZeroAmount();
+        return _bankEthWriteDown(user);
+    }
+
+    /// @notice Claim a previously-queued ETH exit as liquidity frees up.
+    function claimPendingEth() external nonReentrant returns (uint256 paid) {
+        if (pendingEthOf[msg.sender] == 0) revert ZeroAmount();
+        uint256 owed = _bankEthWriteDown(msg.sender);
         //  ── THE WRITE-DOWN HAS TO SURVIVE THE CALL (red-team H-2) ─────────
         //  This was `revert ZeroAmount()`, which rolled back the two assignments
         //  on the line above. A queue standing against ZERO backing therefore
@@ -506,6 +548,16 @@ contract PerpVault is ReentrancyGuard {
     ///         that, you earn ETH from short-side fees (claim via {claimTokYield}).
     function depositToken(uint256 amount) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert ZeroAmount();
+        //  ── NO NEW MONEY INTO AN INSOLVENT TOKEN QUEUE (red-team R2B) ──────
+        //  The ETH side has refused this since T3a (`:274`); the token side did
+        //  not, and the asymmetry was not cosmetic. {assetsTok} saturates at zero
+        //  (`:241`), so once `pendingTok` outruns the engine's inventory a fresh
+        //  staker mints against the 1-wei OFFSET base and his ENTIRE principal is
+        //  handed to the stale queue by {_haircut}. Measured: 100e18 in, 100e18
+        //  straight out to a queue that was already worthless, 0 redeemable.
+        //  Release is permissionless and needs no cooperation from the queue:
+        //  {settlePendingToken} banks the write-down for any queued address.
+        if (pendingTok > engine.totalTokenAssets()) revert QueueInsolvent();
         address tok = registry.currentToken();
         _syncTokYield(); _settleTok(msg.sender);      // bank rewards at old share count
         shares = FullMath.mulDiv(amount, tokShares + OFFSET, assetsTok() + 1);
@@ -556,17 +608,43 @@ contract PerpVault is ReentrancyGuard {
         emit WithdrawTok(msg.sender, shares, paid, queued);
     }
 
-    /// @notice Claim a previously-queued token exit as inventory frees up.
-    function claimPendingToken() external nonReentrant returns (uint256 paid) {
-        uint256 owed = pendingTokOf[msg.sender];
-        if (owed == 0) revert ZeroAmount();
+    /// @dev Token twin of {_bankEthWriteDown}. Never transfers.
+    function _bankTokWriteDown(address user) private returns (uint256 owed) {
+        owed = pendingTokOf[user];
+        if (owed == 0) return 0;
         //  Same pro-rata write-down as the ETH side (see {_haircut}).
         uint256 capped = _haircut(owed, engine.totalTokenAssets(), pendingTok);
-        if (capped < owed) { pendingTok -= (owed - capped); pendingTokOf[msg.sender] = capped; owed = capped; }
-        if (owed == 0) revert ZeroAmount();
+        if (capped < owed) {
+            emit QueueWrittenDown(user, true, owed - capped);
+            pendingTok -= (owed - capped);
+            pendingTokOf[user] = capped;
+            owed = capped;
+        }
+    }
+
+    /// @notice Token twin of {settlePendingEth} — permissionless, pays nobody.
+    function settlePendingToken(address user) external nonReentrant returns (uint256 stillOwed) {
+        if (pendingTokOf[user] == 0) revert ZeroAmount();
+        return _bankTokWriteDown(user);
+    }
+
+    /// @notice Claim a previously-queued token exit as inventory frees up.
+    ///
+    ///  ── THE TOKEN PATH NOW MIRRORS THE ETH PATH (red-team R2B) ────────────
+    ///  Both branches below used to `revert ZeroAmount()`, which rolled back the
+    ///  haircut banked one line up — the exact defect the ETH side closed at
+    ///  `:376-405` and never propagated here. Once token backing fell under
+    ///  `pendingTok` the token queue could never shrink: `hasStakers()` (`:205`)
+    ///  stayed true forever, so {PerpEngine.setVault} could never replace a buggy
+    ///  vault for the life of the engine. Bank the write-down and return, exactly
+    ///  as {claimPendingEth} does.
+    function claimPendingToken() external nonReentrant returns (uint256 paid) {
+        if (pendingTokOf[msg.sender] == 0) revert ZeroAmount();
+        uint256 owed = _bankTokWriteDown(msg.sender);
+        if (owed == 0) { emit ClaimTok(msg.sender, 0); return 0; }
         uint256 free = engine.freeToken();
         paid = owed <= free ? owed : free;
-        if (paid == 0) revert ZeroAmount();
+        if (paid == 0) { emit ClaimTok(msg.sender, 0); return 0; }
         pendingTokOf[msg.sender] = owed - paid;
         pendingTok -= paid;
         engine.withdrawPlvTokenTo(paid, msg.sender);
