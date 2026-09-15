@@ -416,7 +416,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256[] internal _openIds;                    // live position ids
     mapping(uint256 => uint256) internal _openPos;  // id → 1-based index in _openIds
     uint256 internal sweepCursor;                     // rotating scan start
-    uint256 internal constant SWEEP_SCAN = 12;      // positions checked per swap
+    //  REMOVED (red-team R1B): `SWEEP_SCAN = 12` capped the per-swap scan at a
+    //  POSITIONAL window over a 64-slot book, and `sweepCursor` persists, so the
+    //  window was AIMABLE — dust padding plus two dust sells hid a victim from
+    //  both windows of the swap that bankrupted it. The scan is now bounded by
+    //  `_openIds.length` (≤ MAX_OPEN_POSITIONS) and by SWEEP_KILL_RESERVE below,
+    //  which is the guard that actually protects the parent swap. See {_doSweep}.
     /// @dev Gas a single in-swap liquidation needs to finish. Measured at ~388k
     ///      for one real kill (swap + settle + payouts); rounded up so the last
     ///      iteration the loop starts can always complete rather than reverting
@@ -1049,7 +1054,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         bots, our UI) — it scans a bounded, ROTATING window of open
     ///         positions and liquidates whatever is underwater at the mark,
     ///         crediting `liquidator` (the swapper / tx.origin) a keeper reward +
-    ///         a Liquidatoor badge per kill. Gas is bounded (≤ SWEEP_SCAN checks,
+    ///         a Liquidatoor badge per kill. Gas is bounded (one pass over the
+    ///         ≤ MAX_OPEN_POSITIONS book, stopping at SWEEP_KILL_RESERVE,
     ///         ≤ MAX_LIQ_PER_SWAP kills) so it can never OOG the parent swap, and
     ///         the cursor rotates so every position is eventually checked across
     ///         swaps. Hook-only, best-effort (never reverts the triggering swap).
@@ -1123,7 +1129,25 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         uint256 cursor = sweepCursor;
         uint256 scanned;
         uint256 kills;
-        while (scanned < SWEEP_SCAN && scanned < len && kills < MAX_LIQ_PER_SWAP) {
+        //  ── THE BOOK IS THE WINDOW, AND GAS IS THE BOUND (red-team R1B) ─────
+        //  `scanned < SWEEP_SCAN` (12) capped the scan at a POSITIONAL window over
+        //  a book that holds MAX_OPEN_POSITIONS (64). Because `sweepCursor`
+        //  persists across swaps, an attacker could pad the book with dust and
+        //  then advance the cursor with two dust sells so that a chosen victim sat
+        //  outside BOTH the pre- and the post-trade window of the very swap that
+        //  bankrupted it — measured 0.31526 ETH of bad debt, at ~0.40 ETH of
+        //  RECOVERABLE short collateral. A window an attacker can aim is not a
+        //  bound, it is a blind spot.
+        //
+        //  The count cap was never the thing keeping this sweep from OOGing the
+        //  parent swap — the SWEEP_KILL_RESERVE break below is, and it is the
+        //  strictly stronger guard because it measures the resource it is
+        //  protecting instead of proxying it. Dropping the positional cap lets the
+        //  scan cover the whole (already hard-capped, ≤ 64) book when gas allows
+        //  and degrade to however many slots the gas actually funds when it does
+        //  not: exactly the graceful behaviour the reserve break was added for.
+        //  `scanned < len` still terminates in one pass over the book.
+        while (scanned < len && kills < MAX_LIQ_PER_SWAP) {
             //  ── STOP BEFORE RUNNING OUT, NOT AFTER (red-team L-2) ───────────
             //  The hook fires this with a fixed gas budget and discards the
             //  result (CauldronHook.sol:912), so an OOG in here is not a partial
