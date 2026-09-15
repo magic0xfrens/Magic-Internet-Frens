@@ -516,7 +516,15 @@ export default function CrystalCauldronGame({
     if (phase === "spinning") return "Churning volume… summoning…";
     if (phase === "opening") return "Cracking the crystal…";
     if (phase === "summoned") return result?.won ? `✦ ${result.won} crystal${result.won > 1 ? "s" : ""} summoned! Open below.` : "✦ Crystal summoned! Open it below.";
-    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — resolves on your next spin.`;
+    //  ── A COMMITTED CRYSTAL EXPIRES (audit B-1) ─────────────────────────
+    //  Resolution reads the commit block's hash, which the EVM only keeps for
+    //  256 blocks. A crystal left unresolved past that window ages out to its
+    //  base outcome and takes no pity credit with it (GachaLib.sol:135,150,182),
+    //  and it emits the same TicketLost a fair loss does — so without this line
+    //  the player is never told the draw was lost to time rather than to luck.
+    //  The keeper's permissionless resolveTickets sweep is the real remedy;
+    //  this is the safety net.
+    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — resolve soon: spin again to settle them.`;
     if (phase === "fizzle") return "Not enough Mana yet — spin again.";
     if (phase === "opened") return flash?.name ? `${flash.name} revealed!` : "Creature revealed!";
     return "Spin volume to summon a crystal.";
@@ -569,6 +577,12 @@ export default function CrystalCauldronGame({
           <div className="ccg-resolve ccg-resolve--forged">
             <div className="ccg-resolve-big" style={{ color: col }}>{result.forged} sealed</div>
             <div className="ccg-resolve-sub">🔮 forged — reveal on your next spin</div>
+            {/*  Short and non-alarming, but it must be SAID: an unresolved
+                 crystal is settled from the commit block's hash, and the chain
+                 only remembers that for a few minutes. */}
+            <div className="ccg-resolve-sub" style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
+              Settle them within the hour — a crystal left unresolved too long expires and the draw is lost.
+            </div>
           </div>
         )}
         {phase === "fizzle" && (

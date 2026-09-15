@@ -40,12 +40,19 @@ PERP="${PERP_ENGINE:-$PERP_MANIFEST}"
 # Registry — for materializeLegacyReserve() (deposits the hook's held live-buyback
 # tokens into the reserve + credits the collection floor; permissionless + cheap).
 REGISTRY="${CAULDRON_REGISTRY:-$REGISTRY_MANIFEST}"
+# Hook — for resolveTickets() (permissionless; settles committed crystals before
+# their commit blockhash ages out of the EVM's 256-block window). Same
+# manifest-is-truth rule as the two above.
+HOOK_MANIFEST="$(manifest hook)"
+HOOK="${CAULDRON_HOOK:-$HOOK_MANIFEST}"
 lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 [ -n "$PERP" ] && [ -n "$REGISTRY" ] || { echo "no perpEngine/registry in indexer/deployments/round.json"; exit 1; }
 if [ "$(lc "$PERP")" != "$(lc "$PERP_MANIFEST")" ]; then
   echo "STALE PERP_ENGINE: env says $PERP, the manifest says $PERP_MANIFEST"; exit 1; fi
 if [ "$(lc "$REGISTRY")" != "$(lc "$REGISTRY_MANIFEST")" ]; then
   echo "STALE CAULDRON_REGISTRY: env says $REGISTRY, the manifest says $REGISTRY_MANIFEST"; exit 1; fi
+if [ -n "$HOOK" ] && [ "$(lc "$HOOK")" != "$(lc "$HOOK_MANIFEST")" ]; then
+  echo "STALE CAULDRON_HOOK: env says $HOOK, the manifest says $HOOK_MANIFEST"; exit 1; fi
 
 # shellcheck source=lib/signer.sh
 source "scripts/lib/signer.sh"
@@ -70,6 +77,24 @@ materialize() {
 # every closed position is re-read forever. Fine at r45 volumes; it wants a
 # cursor or an indexer-driven candidate list before it is left running unattended
 # on a busy round.
+#  ── RESOLVE COMMITTED CRYSTALS (audit B-1) ─────────────────────────────────
+#  `resolveTickets` is PERMISSIONLESS (CauldronHook.sol:2482). Resolution reads
+#  the commit block's hash, which the EVM keeps for only 256 blocks; a crystal
+#  that ages out past that window is settled at its base outcome with NO pity
+#  credit (GachaLib.sol:135,150,182), and it emits the same TicketLost a fair
+#  loss does, so the player is never told why. The keeper did not call this at
+#  all, which made honest crystals forfeit to nothing but inactivity. Bounded
+#  per pass so one call can never run out of gas.
+resolve() {
+  local out
+  [ -n "$HOOK" ] || { echo "  ✗ no hook in the manifest — cannot resolve crystals" >&2; return; }
+  if out=$(cast send "$HOOK" 'resolveTickets(uint256)' 64 "${SIGNER[@]}" --rpc-url "$RPC" 2>&1); then
+    echo "  ◆ resolved up to 64 committed crystals"
+  else
+    echo "  ✗ resolveTickets FAILED: $(echo "$out" | tr '\n' ' ' | cut -c1-300)" >&2
+  fi
+}
+
 sweep() {
   local next; next=$(cast call "$PERP" 'nextId()(uint256)' --rpc-url "$RPC" 2>/dev/null | awk '{print $1}')
   [ -n "$next" ] || { echo "  (engine unreachable)"; return; }
@@ -128,6 +153,9 @@ if [ "${1:-}" = "watch" ]; then
   n=0
   while true; do
     sweep; n=$((n+1))
+    #  Every ~64s. The commit blockhash survives 256 blocks (~51 min on Sepolia),
+    #  so this is an order of magnitude inside the window that forfeits a draw.
+    [ $((n % 8)) -eq 0 ] && resolve
     [ $((n % 8)) -eq 0 ] && materialize
     # Royalties trickle in from marketplace sales, so a slower cadence is plenty.
     [ $((n % 60)) -eq 0 ] && royalty_sweep
@@ -136,6 +164,7 @@ if [ "${1:-}" = "watch" ]; then
 else
   echo "keeper single sweep · engine $PERP"
   sweep
+  resolve
   materialize
   royalty_sweep
 fi
