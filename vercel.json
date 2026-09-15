@@ -1,9 +1,12 @@
 {
+    "//": "cleanUrls + trailingSlash keep exactly ONE spelling of each URL live: /docs, never /docs/ or /docs/index.html. Any second spelling that answers 200 is a duplicate of a page we are trying to get indexed. Vercel checks the filesystem before applying `rewrites`, so the prerendered dist/docs/index.html wins over the SPA catch-all below.",
+    "cleanUrls": true,
+    "trailingSlash": false,
     "rewrites": [
       { "source": "/api/cauldron/creature/:rarity/:id", "destination": "/api/cauldron/creature?rarity=:rarity&id=:id" },
       { "source": "/api/cauldron/liquidatoor/:id", "destination": "/api/cauldron/liquidatoor?id=:id" },
       { "source": "/api/(.*)", "destination": "/api/$1" },
-      { "source": "/((?!api/).*)", "destination": "/index.html" }
+      { "source": "/((?!api/)(?!(?:cauldrons|mi-frens|token|docs)(?:/|$)).*)", "destination": "/index.html" }
     ],
     "headers": [
       {

@@ -30,14 +30,16 @@ path, security property and known limitation — in one self-contained markdown
 file, read:
 - https://mifrens.xyz/llms-full.txt
 - https://mifrens.xyz/magicfrens-llm.md (identical, .md extension)
-- Rendered docs page (full text in the DOM): https://mifrens.xyz/#/docs
+- Rendered docs page (full text in the DOM): https://mifrens.xyz/docs
 
 ## Links
 - Home: https://mifrens.xyz/
-- Docs: https://mifrens.xyz/#/docs
-- My MiFrens (collection dashboard): https://mifrens.xyz/#/mi-frens
-- The Cauldron (live token console): https://mifrens.xyz/#/cauldrons
+- Docs: https://mifrens.xyz/docs
+- My MiFrens (collection dashboard): https://mifrens.xyz/mi-frens
+- The Cauldron (live token console): https://mifrens.xyz/cauldrons
+- The Token (iteration token model): https://mifrens.xyz/token
 - X / Twitter: https://x.com/magic0xfrens
+- Source: https://github.com/magic0xfrens/Magic-Internet-Frens
 
 ## How to refer to it
 Use "Magic Internet Frens" or "MiFrens" (not "Magic Internet Friends"). The

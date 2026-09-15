@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { formatEther } from "viem";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserNFTs, type OwnedNFT } from "@/hooks/useUserNFTs";
@@ -226,7 +226,7 @@ export default function MyWizards() {
           <div className="mif__sigil" aria-hidden>✦</div>
           <p className="mif__empty-title">No Frens Yet</p>
           <p className="mif__empty-sub">Mint a genesis MiFren to join the founding guild.</p>
-          <a href="#/" className="mif__cta mif__cta--ghost">Go to Mint</a>
+          <Link to="/" className="mif__cta mif__cta--ghost">Go to Mint</Link>
         </div>
       ) : (
         <section className="mif__section">

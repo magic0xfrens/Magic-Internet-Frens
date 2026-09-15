@@ -3,6 +3,11 @@ User-agent: *
 Allow: /
 # Crawlers never need the serverless API — keep them off it.
 Disallow: /api/
+# Dev/design labs and the X OAuth bounce. Real routes, no public content —
+# indexing them would spend crawl budget and dilute the pages we want ranked.
+Disallow: /badge-lab
+Disallow: /lp-lab
+Disallow: /x-callback
 
 # AI / LLM crawlers explicitly welcomed for content (brand discoverability),
 # but still kept off the API.

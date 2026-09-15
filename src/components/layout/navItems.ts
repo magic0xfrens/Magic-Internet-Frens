@@ -25,10 +25,17 @@ export interface NavItem {
   children?: SubNavItem[];
 }
 
+/**
+ * Labels are title case, not the SHOUTED form they render in — both shells
+ * apply `text-transform: uppercase`, so this is pixel-identical on screen. It
+ * is written this way for the crawler: Google names a sitelink after the anchor
+ * text that points at the URL, and "THE CAULDRON" is a worse label than
+ * "The Cauldron".
+ */
 export const NAV_ITEMS: NavItem[] = [
-  { label: "HOME", path: "/" },
+  { label: "Home", path: "/" },
   {
-    label: "MI FRENS",
+    label: "Mi Frens",
     path: "/mi-frens",
     children: [
       { label: "Frens", view: "frens", badge: "frens" },
@@ -37,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    label: "THE CAULDRON",
+    label: "The Cauldron",
     path: "/cauldrons",
     children: [
       { label: "The Brew", view: "reactor" },
@@ -50,7 +57,11 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Lineage", view: "lineage", badge: "gen" },
     ],
   },
-  { label: "DOCS", path: "/docs" },
+  // `/token` existed as a route but nothing on the site linked to it, so it was
+  // an orphan: not crawlable by following links, and a page with no internal
+  // links is not a sitelink candidate at all.
+  { label: "The Token", path: "/token" },
+  { label: "Docs", path: "/docs" },
 ];
 
 /**

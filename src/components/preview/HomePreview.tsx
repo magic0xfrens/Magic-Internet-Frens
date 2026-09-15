@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/hooks/useWallet";
 import { useXAuth } from "@/hooks/useXAuth";
 import { BODIES, FACES, GNOME_FACES, ELF_FACES, ITEMS, CLASS_ORDER, type TraitLayer } from "@/data/frens";
@@ -81,6 +82,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 function HomePreview() {
+  const navigate = useNavigate();
   const { isConnected, openConnectModal } = useWallet();
   const { xUser, connectX, disconnectX } = useXAuth();
 
@@ -489,7 +491,7 @@ function HomePreview() {
             <button
               className={`pp__btn pp__btn--wide ${genesis.finalized ? "pp__btn--live" : "pp__btn--primary"}`}
               onClick={() => {
-                if (genesis.finalized) { window.location.hash = "#/cauldrons"; return; }
+                if (genesis.finalized) { navigate("/cauldrons"); return; }
                 setShowPresale(true);
               }}
             >
@@ -595,7 +597,7 @@ function HomePreview() {
                 Buy and sell frens directly on {NETWORK_LABEL}. No middlemen, no bridges &mdash;
                 just trustless swaps between wallets. Browse listings or put yours up for sale.
               </p>
-              <ArrowBtn label="BROWSE" href="#/marketplace" />
+              <ArrowBtn label="BROWSE" href="/marketplace" />
             </div>
             <div className="pp__feature-art">
               <img src="/images/wizard-market.png" alt="Wizard Market" className="pp__feature-mascot" />

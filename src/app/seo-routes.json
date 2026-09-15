@@ -1,0 +1,48 @@
+{
+  "origin": "https://www.mifrens.xyz",
+  "brand": "Magic Internet Frens",
+  "ogImage": "https://www.mifrens.xyz/og-image.png",
+  "routes": [
+    {
+      "path": "/",
+      "name": "Home",
+      "title": "Magic Internet Frens — 2222 Pixel Wizards, Fully On-Chain",
+      "description": "Magic Internet Frens (MiFrens): 2222 hand-crafted pixel wizards summoned fully on-chain. Home of The Cauldron — an eternal, autonomous token machine.",
+      "changefreq": "daily",
+      "priority": "1.0"
+    },
+    {
+      "path": "/cauldrons",
+      "name": "The Cauldron",
+      "title": "Magic Internet Frens: The Cauldron",
+      "description": "An eternal, autonomous token machine on Uniswap v4. Each iteration lives, trades and is reborn by MiFren-holder governance, funded by its own swap fees.",
+      "changefreq": "hourly",
+      "priority": "0.9"
+    },
+    {
+      "path": "/mi-frens",
+      "name": "Mi Frens",
+      "title": "Magic Internet Frens: Mi Frens",
+      "description": "1111 genesis pixel wizards, knights, gnomes and degens. Every genesis fren earns a perpetual share of Cauldron fees and holds a live redemption floor.",
+      "changefreq": "daily",
+      "priority": "0.9"
+    },
+    {
+      "path": "/token",
+      "name": "The Token",
+      "title": "Magic Internet Frens: The Token",
+      "description": "777,000,000 fixed supply per iteration — non-mintable, non-freezable, no team allocation. Holders migrate 1:1 into each new iteration by burning the old.",
+      "changefreq": "daily",
+      "priority": "0.8"
+    },
+    {
+      "path": "/docs",
+      "name": "About",
+      "title": "Magic Internet Frens: How It Works",
+      "description": "Every mechanic in one place: the fee split, gacha odds, perps and liquidation, governance, the genesis redemption floor, and the rebirth lifecycle.",
+      "changefreq": "weekly",
+      "priority": "0.8"
+    }
+  ],
+  "noindex": ["/badge-lab", "/lp-lab", "/x-callback"]
+}
