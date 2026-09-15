@@ -239,7 +239,13 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   //  anyone may bank a queued address's write-down with settlePendingEth /
   //  settlePendingToken. Name the escape hatch rather than tell the user to wait
   //  on something that may never happen on its own.
-  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. It clears as positions close and fees arrive — or anyone can unstick it by calling settlePendingEth/settlePendingToken for a queued address, which banks that address's write-down without moving any of their funds. Retrying this deposit right now will fail identically.",
+  //  Re-worded after the queue was restructured to units x a single index: a
+  //  shortfall is now recognised ONCE, globally, by scaling that index
+  //  (PerpVault._syncEthQueue), not per claimant. The earlier text described a
+  //  per-user write-down, which is why it implied aiming the call at a specific
+  //  address did something to that address — it no longer does, and an earlier
+  //  version where it DID was a confiscation bug (red-team NB).
+  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. It clears as positions close and fees arrive — or anyone can unstick it by calling settlePendingEth/settlePendingToken, which re-prices the whole queue against what the engine actually holds. That is a queue-wide recalculation, so it takes nothing from any individual staker and every queued exit keeps its pro-rata share. Retrying this deposit right now will fail identically.",
   //  ── THE GAS-STARVED LIQUIDATION SWEEP (CauldronHook.sol:835) ──────────
   //  Actionable, not a selector: the ONLY thing the user can change is the gas
   //  limit, so say that in the first clause.
