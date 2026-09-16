@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE for the Robinhood MAINNET cutover — NOT live. At mainnet launch: copy this over round.json, fill every <FILL> from the DeployLaunchpad + DeployPerp broadcast logs + the first-summon tx, then `node scripts/deploy-round.mjs --push` (frontend) and redeploy the indexer on Railway. Keep `schema` a NEW value so Ponder does a clean reindex on the new chain. poolManager is the CONFIRMED Uniswap v4 PoolManager on Robinhood (chain 4663).",
+  "_comment": "TEMPLATE for the Robinhood MAINNET cutover — NOT live. At mainnet launch: copy this over round.json, fill every <FILL> (including quoteAssets for every quote governance will approve) from the DeployLaunchpad + DeployPerp broadcast logs + the first-summon tx, then `node scripts/deploy-round.mjs --push` (frontend) and redeploy the indexer on Railway. Keep `schema` a NEW value so Ponder does a clean reindex on the new chain. poolManager is the CONFIRMED Uniswap v4 PoolManager on Robinhood (chain 4663).",
   "round": 1,
   "schema": "cauldron_rh1",
   "chainId": 4663,
@@ -14,6 +14,7 @@
     "registry": "<FILL from DeployLaunchpad>",
     "hook": "<FILL from DeployLaunchpad>",
     "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "positionManager": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
     "governor": "<FILL from DeployLaunchpad>",
     "dividend": "<FILL from DeployLaunchpad>",
     "presale": "<FILL from DeployLaunchpad>",
@@ -27,5 +28,18 @@
     "<FILL: gen-1 poolId from the summon tx>"
   ],
   "genesisSupply": 1111,
-  "deathThresholdEth": 0
+  "deathThresholdEth": 0,
+  "legacyThresholdEth": 0.02,
+  "legacyBps": 4000,
+  "_quoteAssetsNote": "REQUIRED, not optional. The app reads the LIVE generation's quote ADDRESS from the registry on-chain; this list is where its decimals/symbol come from. An entry missing here used to fall back to 18 decimals, which signs a sell floor 10^(18-d) too large on any non-18-decimal quote. Decimals are now also read on-chain (useQuoteDecimals) and the trade panel refuses to sign until they resolve — but an unlisted quote still renders as a bare address. Add every quote governance will approve.",
+  "quoteAssets": [
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "name": "Ether",
+      "decimals": 18,
+      "glyph": "\u039e",
+      "blurb": "The default. Deepest liquidity, and the only pair perps support today."
+    }
+  ]
 }

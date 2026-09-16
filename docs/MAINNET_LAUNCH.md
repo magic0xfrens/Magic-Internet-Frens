@@ -1,16 +1,32 @@
 # Robinhood Mainnet Launch — Runbook
 
-The frontend is now a **one-env-flip**: everything reads the active chain from
-`VITE_NETWORK` (`testnet` → Sepolia, `mainnet` → Robinhood Chain) via
-`src/config/chains.ts`. Default is `testnet`, so the live site stays on Sepolia
-until you deliberately flip. Cutover = deploy contracts + indexer, point
-`round.json` at them, set `VITE_NETWORK=mainnet`, redeploy.
+The frontend targets **the chain the manifest itself declares**. `DEPLOYMENTS`
+(`src/config/deployments.ts`) is keyed by each bundled manifest's own `chainId`,
+so repointing `indexer/deployments/round.json` at chain 4663 is what makes the
+app target 4663. `VITE_CHAIN_ID` is the authoritative override and **must** name
+a chain a bundled manifest declares — anything else is a build failure
+(`scripts/verify-manifest.mjs`) and a module-init throw, never a silent fallback.
+A manifest whose `chainId` disagrees with the resolved chain throws in
+`src/config/cauldron.ts` rather than logging: the old `console.error` let a user
+sign Robinhood calldata with their wallet force-switched to Sepolia.
 
-## Robinhood Chain params (confirmed)
-- chainId **4663**, RPC `https://rpc.chain.robinhood.com`, explorer
-  `https://robinhoodchain.blockscout.com` (Arbitrum-Orbit L2, gas token ETH).
-- Overridable via `VITE_ROBINHOOD_CHAIN_ID` / `VITE_ROBINHOOD_RPC_URL` /
-  `VITE_ROBINHOOD_EXPLORER`.
+Cutover = deploy contracts + indexer, copy
+`indexer/deployments/round.robinhood.template.json` over `round.json` and fill
+it (including `quoteAssets`), set `VITE_CHAIN_ID=4663`, redeploy.
+
+## Robinhood Chain params (VERIFIED on-chain 2026-09-15)
+- chainId **4663** — confirmed three ways: live `cast chain-id`,
+  `ArbSys.arbChainID()`, and `ethereum-lists/chains` `eip155-4663.json`.
+- RPC **`https://rpc.mainnet.chain.robinhood.com`** (nitro v3.11.4-rc.3, ArbOS
+  116, ~0.10 s blocks). ⚠️ The host this doc previously carried,
+  `https://rpc.chain.robinhood.com`, **does not exist** — it refuses TLS
+  (`handshake_failure`) from three independent TLS stacks. Do not use it.
+- Explorer `https://robinhoodchain.blockscout.com` (Arbitrum-Orbit L2).
+- Native currency: **real ETH, 18 decimals**.
+- **Testnet is `46630`** (`https://rpc.testnet.chain.robinhood.com`). `46646`,
+  which older revisions of these docs cited, is not a chain id at all.
+- Overridable via `VITE_CHAIN_ID` / `VITE_RPC_URL` / `VITE_EXPLORER_URL` — the
+  `VITE_ROBINHOOD_*` names this doc used to list are read by no code.
 
 ## Uniswap v4 on Robinhood (confirmed — Uniswap/contracts deployments/4663.md)
 Uniswap v2/v3/v4 + UniswapX are LIVE on Robinhood. Canonical v4 addresses:
@@ -36,7 +52,7 @@ export TREASURY=<treasury addr>     # defaults to deployer if unset
 # (optional) GENESIS_BONUS_BPS=2000  LEGACY_BPS=4000  PRESALE_MAXWALLET=100
 
 FOUNDRY_PROFILE=cauldron forge script deploy/DeployLaunchpad.s.sol:DeployLaunchpad \
-  --rpc-url https://rpc.chain.robinhood.com --broadcast --slow -vvv
+  --rpc-url https://rpc.mainnet.chain.robinhood.com --broadcast --slow -vvv
 ```
 After it mints out → anyone calls `finalize()` → gen-1 summons (token+pool+collection).
 THEN run DeployPerp (§ below) and set `setTwapWindow(15)` + `warmup` via the timelock
