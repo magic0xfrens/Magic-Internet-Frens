@@ -375,6 +375,21 @@ contract CauldronCollection is ERC721, ERC2981, ICreatorToken, ICauldronCollecti
         liquidatorURI = uri;
     }
 
+    /// @notice Repoint the shared sealed-crystal metadata (deployer only).
+    /// @dev    This URI is the `tokenURI` of EVERY unrevealed token in EVERY
+    ///         brew, so it is fetched once per token by every marketplace,
+    ///         wallet and indexer that sees one — forever, with no user of ours
+    ///         involved. Shipped hardcoded at a domain we pay per-request for,
+    ///         it billed 2.1M edge requests in a month against a pool with no
+    ///         real visitors, and being unsettable the only remedy was a
+    ///         redeploy. Point it at content-addressed storage (IPFS/Arweave)
+    ///         and the cost disappears; keep it settable so that choice is never
+    ///         again welded to a deployment.
+    function setUnrevealedURI(string calldata uri) external {
+        if (msg.sender != deployer) revert OnlyMinter();
+        unrevealedURI = uri;
+    }
+
     /// @notice Mint a Liquidatoor badge to `to`. Only the wired PerpEngine.
     ///         Uncapped, always revealed, in the LIQUIDATOR_ID_BASE id range so
     ///         it never consumes the art supply.

@@ -302,6 +302,19 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         emit MaxPerWalletSet(newCap);
     }
 
+    /// @notice Repoint the shared sealed-crystal metadata (deployer only).
+    /// @dev    This URI is the `tokenURI` of every unrevealed token, so it is
+    ///         fetched once per token by every marketplace, wallet and indexer
+    ///         that sees one — forever, with no user of ours involved. Shipped
+    ///         hardcoded at a domain we pay per-request for, it billed 2.1M edge
+    ///         requests in a month against a site with no real visitors, and
+    ///         being unsettable the only remedy was a redeploy. Point it at
+    ///         content-addressed storage (IPFS/Arweave) and the cost disappears.
+    function setUnrevealedURI(string calldata uri) external {
+        if (msg.sender != deployer) revert NotAuthorized();
+        unrevealedURI = uri;
+    }
+
     /// @notice One-time wiring of the registry (which this presale must own).
     function setRegistry(address _registry) external {
         if (msg.sender != deployer) revert ZeroAddress();
