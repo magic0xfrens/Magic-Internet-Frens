@@ -79,6 +79,21 @@ const RPC_URL = (() => {
   return u;
 })();
 const EXPLORER_URL = env("VITE_EXPLORER_URL", D?.explorer ?? "");
+
+/** Additional VERIFIED endpoints per chain, used only as ordered failover
+ *  BEHIND `RPC_URL`. Sourced from CHAIN_PROFILE.md §8 — two independent nodes
+ *  that agreed on the same block hash at a fixed height. Nothing unverified
+ *  goes in here: a hostile RPC chooses the prices a user signs against. */
+const BACKUP_RPCS: Record<number, string[]> = {
+  4663: ["https://robinhood-rpc.publicnode.com"],
+};
+/** `VITE_RPC_URL` may itself be a COMMA-SEPARATED list, same as the Sepolia
+ *  one — several keys multiply the effective rate limit. */
+const TARGET_RPCS: string[] = [
+  ...RPC_URL.split(",").map((u) => u.trim()).filter(Boolean),
+  ...(BACKUP_RPCS[CHAIN_ID] ?? []),
+].filter((u, i, a) => a.indexOf(u) === i);
+
 const EXPLORER_NAME = env("VITE_EXPLORER_NAME", D?.explorerName ?? "Explorer");
 
 //  Decimals are VALIDATED, not trusted. A bad value here would not throw — it
@@ -100,8 +115,8 @@ export const targetChain = defineChain({
     decimals: CHAIN_DECIMALS,
   },
   rpcUrls: {
-    default: { http: [RPC_URL] },
-    public: { http: [RPC_URL] },
+    default: { http: TARGET_RPCS },
+    public: { http: TARGET_RPCS },
   },
   blockExplorers: {
     default: { name: EXPLORER_NAME, url: EXPLORER_URL },
@@ -188,7 +203,23 @@ export const wagmiConfig = getDefaultConfig({
       SEPOLIA_RPCS.map((u) => http(u, { batch: { wait: 24 }, retryCount: 2, retryDelay: 250 })),
       { retryCount: 2, retryDelay: 300 },
     ),
-    [targetChain.id]: http(RPC_URL),
+    //  ── THE TARGET CHAIN GETS FAILOVER TOO ──────────────────────────────
+    //  This was a single `http(RPC_URL)`: one endpoint, no retry, no failover,
+    //  while Sepolia kept a four-way fallback. On chain 4663 there are only TWO
+    //  working public endpoints and no free archive, so an RPC error is normal
+    //  rather than exceptional — and because the quote/decimals reads poll on a
+    //  300 s cadence, ONE 429 left the trade panel unpriceable for five minutes.
+    //  Ordered (`rank: false`), never latency-shuffled, so the configured
+    //  primary stays primary.
+    //  ONLY endpoints verified in audit/RH_MAINNET_2026-09-16/CHAIN_PROFILE.md
+    //  §8 appear here: two independent nodes agreed on the same block hash at a
+    //  fixed height. Lookalike/phishing RPC hosts exist for this chain (one
+    //  serves HTML, another prunes), so do NOT add an endpoint that document has
+    //  not verified — a hostile RPC picks the prices a user signs against.
+    [targetChain.id]: fallback(
+      TARGET_RPCS.map((u) => http(u, { batch: { wait: 24 }, retryCount: 2, retryDelay: 250 })),
+      { rank: false, retryCount: 1, retryDelay: 300 },
+    ),
   },
   // Curated connectors. `injectedWallet` (all browser-extension wallets via
   // window.ethereum) needs NO projectId, so it's always safe. WalletConnect is

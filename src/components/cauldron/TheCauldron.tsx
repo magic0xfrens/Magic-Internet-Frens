@@ -491,7 +491,7 @@ export default function TheCauldron() {
   );
   // What THIS brew is priced in. Fixed at summon, so it is read once per
   // generation rather than polled hard.
-  const liveQuoteAddr = useCurrentQuote(m.gen);
+  const { quote: liveQuoteAddr, resolved: quoteResolved } = useCurrentQuote(m.gen);
   // Progressive launch: depth streams in over a window rather than landing at
   // once, so the page shows it filling instead of just looking thin.
   // Fed by the live-swap socket: the green candle and every prime-buy tranche are
@@ -509,8 +509,23 @@ export default function TheCauldron() {
   //  manifest is a split source of truth, and the manifest's fallback is a
   //  silent 18. `null` = not known yet, which the trade widgets must treat as
   //  "cannot sign a floor" rather than as 18.
-  const onChainQuoteDecimals = useQuoteDecimals(liveQuoteAddr);
-  const quoteDecimalsKnown = onChainQuoteDecimals !== null || liveQuote.decimalsKnown === true;
+  //  `null` until the registry has answered FOR THIS generation: the native
+  //  placeholder an unresolved read returns is indistinguishable from a real
+  //  ETH-quoted brew, and treating it as native prices an ERC20 generation at
+  //  18 decimals.
+  const onChainQuoteDecimals = useQuoteDecimals(quoteResolved ? liveQuoteAddr : null);
+  //  ── THE CHAIN IS AUTHORITATIVE, AND A DISAGREEMENT IS "UNKNOWN" ──────────
+  //  AND, not OR. With OR, a manifest entry alone satisfied "known", so an
+  //  on-chain read that failed outright still let a floor be signed off a
+  //  bundled number — which is the split source of truth the read exists to
+  //  remove. If the manifest and the chain disagree, one of them is describing
+  //  a different token: refuse rather than silently pick a winner.
+  const manifestDecimals = liveQuote.decimalsKnown === true ? liveQuote.decimals : null;
+  const quoteDecimalsKnown =
+    quoteResolved &&
+    onChainQuoteDecimals !== null &&
+    (manifestDecimals === null || manifestDecimals === onChainQuoteDecimals);
+  //  Display falls back to the manifest; SIGNING is gated by the flag above.
   const liveQuoteDecimals = onChainQuoteDecimals ?? liveQuote.decimals;
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
