@@ -149,17 +149,48 @@ royalty_sweep() {
 }
 
 if [ "${1:-}" = "watch" ]; then
-  echo "keeper watching (every ~8s, Ctrl+C to stop)… engine $PERP"
+  # ── THE GACHA WINDOW IS 256 BLOCKS, WHICH IS A TIME ONLY ONCE YOU KNOW THE
+  #    CHAIN ────────────────────────────────────────────────────────────────
+  #  A crystal's commit blockhash survives 256 blocks. That is ~51 min on
+  #  Sepolia (12s blocks) but only ~25.6 SECONDS on Robinhood Chain 4663, whose
+  #  blocks land about every 0.10s (measured — CHAIN_PROFILE.md §1). The old
+  #  fixed "resolve every ~64s" cadence was justified in a comment by the
+  #  Sepolia number and was 2.5x OUTSIDE the window on 4663: quiet-pool crystals
+  #  aged past their blockhash and fell to GachaLib's deterministic fallback.
+  #  (Ordinary traffic immunises the queue — any resolve landing while the hash
+  #  is live pins the batch's seed — but a quiet pool is exactly the case with
+  #  no traffic, which is when this keeper is the only thing running.)
+  #
+  #  So derive the cadence from the chain instead of asserting it. Aim to resolve
+  #  at least 4x inside the window; never slower than the old 64s, never faster
+  #  than 2s of pointless RPC.
+  CHAIN_ID="$(cast chain-id --rpc-url "$RPC" 2>/dev/null || echo 0)"
+  case "$CHAIN_ID" in
+    4663|46630) BLOCK_MS=100 ;;   # Robinhood Chain — measured ~0.10s
+    5042002)    BLOCK_MS=1000 ;;  # Arc testnet
+    11155111)   BLOCK_MS=12000 ;; # Sepolia
+    *)          BLOCK_MS=12000 ;; # unknown: assume the SLOW case, which is the
+                                  # conservative one — it resolves too often, not
+                                  # too rarely. Guessing fast would forfeit draws.
+  esac
+  WINDOW_S=$(( 256 * BLOCK_MS / 1000 ))
+  SLEEP_S=$(( WINDOW_S / 4 )); [ "$SLEEP_S" -lt 2 ] && SLEEP_S=2; [ "$SLEEP_S" -gt 8 ] && SLEEP_S=8
+  #  Target period: a quarter of the window, but never SLOWER than the 64s this
+  #  script has always used on Sepolia — that cadence is fine there and players
+  #  notice a crystal that sits unresolved. The cap only ever makes it faster.
+  RESOLVE_S=$(( WINDOW_S / 4 )); [ "$RESOLVE_S" -gt 64 ] && RESOLVE_S=64
+  RESOLVE_EVERY=$(( RESOLVE_S / SLEEP_S )); [ "$RESOLVE_EVERY" -lt 1 ] && RESOLVE_EVERY=1
+  ROYALTY_EVERY=$(( 480 / SLEEP_S )); [ "$ROYALTY_EVERY" -lt 1 ] && ROYALTY_EVERY=1
+  echo "keeper watching (chain $CHAIN_ID · ~${BLOCK_MS}ms blocks · gacha window ${WINDOW_S}s)"
+  echo "  sweep every ${SLEEP_S}s · resolve every $((SLEEP_S * RESOLVE_EVERY))s · engine $PERP"
   n=0
   while true; do
     sweep; n=$((n+1))
-    #  Every ~64s. The commit blockhash survives 256 blocks (~51 min on Sepolia),
-    #  so this is an order of magnitude inside the window that forfeits a draw.
-    [ $((n % 8)) -eq 0 ] && resolve
-    [ $((n % 8)) -eq 0 ] && materialize
+    [ $((n % RESOLVE_EVERY)) -eq 0 ] && resolve
+    [ $((n % RESOLVE_EVERY)) -eq 0 ] && materialize
     # Royalties trickle in from marketplace sales, so a slower cadence is plenty.
-    [ $((n % 60)) -eq 0 ] && royalty_sweep
-    sleep 8
+    [ $((n % ROYALTY_EVERY)) -eq 0 ] && royalty_sweep
+    sleep "$SLEEP_S"
   done
 else
   echo "keeper single sweep · engine $PERP"
