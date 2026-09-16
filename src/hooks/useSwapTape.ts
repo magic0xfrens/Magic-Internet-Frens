@@ -21,13 +21,24 @@ const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
  * fired once, otherwise a single early fetch returns the pre-swap tape and the
  * chart looks unchanged until the next interval.
  */
+/** Stable identity so an unresolved tape does not re-render every consumer. */
+const EMPTY_TRADES: Trade[] = [];
+
 export function useSwapTape(
   generation = 1,
   enabled = true,
   intervalMs = 5000,
   refreshKey?: string | null,
 ): Trade[] {
-  const [trades, setTrades] = useState<Trade[]>([]);
+  //  KEYED BY THE GENERATION IT WAS READ FOR. This tape is the app's live price
+  //  source: TheCauldron:510 takes its last row as `livePerpPrice`, which becomes
+  //  SwapWidget's `spotPrice` and therefore the SIGNED slippage floor. `usePoll`'s
+  //  effect deps are [intervalMs, enabled] only, and `enabled` does not change on
+  //  a relaunch — so an unkeyed array kept serving the PREVIOUS generation's last
+  //  trade, i.e. a different token's price, for a whole poll period. Returning
+  //  nothing for a generation we have not read makes TheCauldron fall back to the
+  //  machine's own `m.spotPrice`, which is generation-correct.
+  const [state, setState] = useState<{ gen: number; rows: Trade[] }>({ gen: 0, rows: [] });
 
   const load = useCallback(async () => {
     if (!INDEXER) return;
@@ -43,10 +54,17 @@ export function useSwapTape(
           // same-block liquidation buy-backs share `t`, and a t-sort leaves them
           // reversed → the candle closes on the wrong sub-swap (phantom red bar).
           .sort((a, b) => a.o - b.o);
-        setTrades(rows);
+        setState({ gen: generation, rows });
       } catch { /* keep last */ }
     }
   }, [generation]);
+
+  //  Invalidate, then re-read, the moment the generation changes — `usePoll`
+  //  alone never restarts on a `load` change when `enabled` is already true.
+  useEffect(() => {
+    setState((s) => (s.gen === generation ? s : { gen: 0, rows: [] }));
+    void load();
+  }, [load, generation]);
 
   usePoll(load, intervalMs, enabled && !!INDEXER);
 
@@ -62,5 +80,5 @@ export function useSwapTape(
     return () => clearInterval(id);
   }, [refreshKey, enabled, load]);
 
-  return trades;
+  return state.gen === generation ? state.rows : EMPTY_TRADES;
 }
