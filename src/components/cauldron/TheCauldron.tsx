@@ -16,7 +16,7 @@ import { useCauldronMachine, type Proposal, type Phase, type MigratableBalance }
 import { useGenesisBonus } from "@/hooks/useGenesisBonus";
 import { usePerpHeatmap } from "@/hooks/usePerpHeatmap";
 import { useSwapTape } from "@/hooks/useSwapTape";
-import { useAllowedQuotes, useCurrentQuote } from "@/hooks/useAllowedQuotes";
+import { useAllowedQuotes, useCurrentQuote, useQuoteDecimals } from "@/hooks/useAllowedQuotes";
 import { TreasuryRotation, RotationHistory, RotationBallots } from "@/components/cauldron/TreasuryRotation";
 import { LpBasisPanel } from "@/components/cauldron/LpBasisPanel";
 import { useSeedProgress, seedFeedMessage } from "@/hooks/useSeedProgress";
@@ -504,6 +504,14 @@ export default function TheCauldron() {
   //  CollectionLedger — not the ether vault the stat used to read.
   const colFloor = useCollectionFloor();
   const liveQuote = quoteMeta(liveQuoteAddr);
+  //  ── DECIMALS COME FROM THE CHAIN, LIKE THE ADDRESS ──────────────────────
+  //  `liveQuoteAddr` is a registry read; taking its decimals from the bundled
+  //  manifest is a split source of truth, and the manifest's fallback is a
+  //  silent 18. `null` = not known yet, which the trade widgets must treat as
+  //  "cannot sign a floor" rather than as 18.
+  const onChainQuoteDecimals = useQuoteDecimals(liveQuoteAddr);
+  const quoteDecimalsKnown = onChainQuoteDecimals !== null || liveQuote.decimalsKnown === true;
+  const liveQuoteDecimals = onChainQuoteDecimals ?? liveQuote.decimals;
   // The freshest spot = the latest trade on the Ponder tape (updates every ~5s,
   // same source as the chart). Falls back to the machine's spot until the tape
   // loads. Used for live perp PnL so it tracks the chart, not a slower feed.
@@ -1017,7 +1025,8 @@ export default function TheCauldron() {
                       onBought={m.refresh}
                       quote={liveQuoteAddr}
                       quoteSymbol={liveQuote.symbol}
-                      quoteDecimals={liveQuote.decimals}
+                      quoteDecimals={liveQuoteDecimals}
+                      quoteDecimalsKnown={quoteDecimalsKnown}
                     />
                   )}
                 </div>
@@ -1037,7 +1046,7 @@ export default function TheCauldron() {
                       onBought={m.refresh}
                       quote={liveQuoteAddr}
                       quoteSymbol={liveQuote.symbol}
-                      quoteDecimals={liveQuote.decimals}
+                      quoteDecimals={liveQuoteDecimals}
                     />
                   </div>
                 )}
@@ -1073,7 +1082,7 @@ export default function TheCauldron() {
             <PerpPanel
               quote={liveQuoteAddr}
               quoteSymbol={liveQuote.symbol}
-              quoteDecimals={liveQuote.decimals}
+              quoteDecimals={liveQuoteDecimals}
               ticker={m.ticker}
               spotPrice={livePerpPrice}
               priceUsd={livePerpPrice > 0 ? livePerpPrice * (m.ethUsd ?? 0) : m.priceUsd}
@@ -1129,7 +1138,7 @@ export default function TheCauldron() {
             <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 12, color: C.mute, margin: "0 0 16px", maxWidth: 620, lineHeight: 1.5 }}>
               Stake ETH or ${m.ticker} into the perp liquidity vault that fronts every trader’s leverage — and earn 30% of all perp fees as your share price grows. This is the community-funded sink that powers the whole engine.
             </p>
-            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} quote={liveQuoteAddr} quoteSymbol={liveQuote.symbol} quoteDecimals={liveQuote.decimals} />
+            <StakePanel ticker={m.ticker} token={m.token} spotPrice={livePerpPrice} ethUsd={m.ethUsd ?? 0} col={col} quote={liveQuoteAddr} quoteSymbol={liveQuote.symbol} quoteDecimals={liveQuoteDecimals} />
           </section>
         )}
 

@@ -1,5 +1,8 @@
 import type { Address } from "viem";
-import round from "../../indexer/deployments/round.json";
+//  The ACTIVE manifest, not `round.json` directly: reading the Sepolia file
+//  here while every address came from another chain's manifest is the same
+//  split-source-of-truth bug this file warns about below.
+import { ACTIVE_ROUND as round } from "./deployments";
 
 /**
  * Quote assets — what an iteration's token is PRICED IN.
@@ -23,6 +26,10 @@ export interface QuoteAsset {
   /** Decimals matter for display, not for pool maths: `_sqrtPrice` takes raw
    *  amounts. Getting this wrong misprices the UI by orders of magnitude. */
   decimals: number;
+  /** False when `decimals` is a GUESS rather than a fact from the manifest —
+   *  i.e. an address the chain approved that this manifest does not describe.
+   *  Never sign a floor derived from a guessed decimals; read it on-chain. */
+  decimalsKnown?: boolean;
   /** Shown next to a price, e.g. "Ξ" or "$". */
   glyph: string;
   /** One line on why a brew might choose this pair. */
@@ -45,6 +52,7 @@ export const KNOWN_QUOTES: QuoteAsset[] = (round.quoteAssets ?? []).map((q) => (
   symbol: q.symbol,
   name: q.name,
   decimals: q.decimals,
+  decimalsKnown: true,
   glyph: q.glyph,
   blurb: q.blurb,
 }));
@@ -59,7 +67,13 @@ export function quoteMeta(quote?: Address | null): QuoteAsset {
     address: (quote ?? NATIVE_QUOTE) as Address,
     symbol: `${(quote ?? "").slice(0, 6)}…${(quote ?? "").slice(-4)}`,
     name: "Unlisted quote",
+    //  A PLACEHOLDER FOR DISPLAY ONLY — see `decimalsKnown`. 18 is a guess, and
+    //  a 6-decimal quote guessed at 18 produces a sell floor 1e12 too large
+    //  while rendering a number that looks right. Anything that SIGNS must read
+    //  `decimalsKnown` and refuse, or read `decimals()` from the chain (which is
+    //  where the quote ADDRESS came from) — see useQuoteDecimals.
     decimals: 18,
+    decimalsKnown: false,
     glyph: "",
     blurb: "Approved on-chain, but not yet described in the app.",
   };

@@ -29,6 +29,11 @@ interface SwapWidgetProps {
   quote?: Address;
   quoteSymbol?: string;
   quoteDecimals?: number;
+  /** False while the live quote's decimals are UNKNOWN (an on-chain read that
+   *  has not landed, or a token that does not answer `decimals()`). A floor
+   *  scaled by a guessed decimals is off by 10^(18-d) and reverts every sell,
+   *  so this panel refuses to sign rather than guess. */
+  quoteDecimalsKnown?: boolean;
   /** Accent colour for the current phase. */
   col: string;
   /** Called after a trade confirms so the parent can refresh telemetry. */
@@ -94,7 +99,7 @@ function compact(n: number): string {
  */
 export default function SwapWidget({
   ticker, token, spotPrice, priceUsd, ethUsd, col, onBought,
-  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
+  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18, quoteDecimalsKnown = true,
 }: SwapWidgetProps) {
   //  The buy leg is denominated in the GENERATION'S quote, which is ETH for
   //  every generation until a rotation completes. `qNative` drives both the
@@ -232,7 +237,14 @@ export default function SwapWidget({
   //  ETH-denominated `spotPrice` is the right unit again and the earlier refusal
   //  no longer applies. A non-native buy still needs an oracle rate to size the
   //  zap's floor, and without one there is no honest number to sign.
-  const priceable = spotPrice > 0 && (qNative || mode === "sell" || quoteExpected > 0n);
+  //  ── A GUESSED DECIMALS IS NOT A DECIMALS ────────────────────────────────
+  //  On a non-native quote whose decimals we could not read from the chain,
+  //  `minOutFor` would scale the payout floor by 10^18 against a token that may
+  //  pay in 10^6 — a floor 1e12 above the best possible fill, so the swap
+  //  executes and then reverts on slippage, burning the gas, while the screen
+  //  showed a plausible "970.000000". Refuse instead.
+  const decimalsResolved = qNative || quoteDecimalsKnown;
+  const priceable = spotPrice > 0 && decimalsResolved && (qNative || mode === "sell" || quoteExpected > 0n);
 
   //  The raw amount a sell will actually pull: the typed figure, clamped to the
   //  on-chain balance the same way `sell` clamps it. The approval is bounded to
@@ -293,6 +305,7 @@ export default function SwapWidget({
       if (mode === "buy") {
         if (eth <= 0) { setErr(`Enter a ${qGlyph} amount`); return; }
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (!decimalsResolved) { setErr(`Cannot price ${quoteSymbol}: its decimals are not known yet — refusing to sign a floor`); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         await buy(eth, minOut, 0, liqHint, quote, quoteDecimals, quoteExpected, quoteSymbol);
       } else {
@@ -300,6 +313,7 @@ export default function SwapWidget({
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
         if (needsApproval) { await approveToken(token, sellRaw); return; } // approve first, bounded to this sale
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (!decimalsResolved) { setErr(`Cannot price ${quoteSymbol}: its decimals are not known yet — refusing to sign a floor`); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         // Pass the exact on-chain balance so a "MAX" that rounds a hair high
         // (float precision on big balances) is clamped instead of reverting.

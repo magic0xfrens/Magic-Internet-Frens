@@ -101,3 +101,58 @@ export function useCurrentQuote(generation: number): Address {
 
   return quote;
 }
+
+const ERC20_DECIMALS_ABI = [{
+  type: "function",
+  name: "decimals",
+  stateMutability: "view",
+  inputs: [],
+  outputs: [{ type: "uint8" }],
+}] as const;
+
+/**
+ * The live quote's decimals, READ FROM THE SAME PLACE THE ADDRESS CAME FROM.
+ *
+ *  ── WHY THIS HOOK EXISTS ──────────────────────────────────────────────────
+ *  `useCurrentQuote` reads the generation's quote ADDRESS from the registry —
+ *  on-chain — while its DECIMALS used to come from the bundled manifest, with a
+ *  silent 18 for anything the manifest did not list. Those two sources drift by
+ *  construction: any quote governance approves after the bundle was built (and
+ *  EVERY quote on a manifest with no `quoteAssets` key) lands on the guess. A
+ *  6-decimal quote guessed at 18 signs a sell floor 1e12 above anything the
+ *  pool can pay — every sell reverts — while the screen renders a number that
+ *  looks correct, so the revert is unexplainable from the UI.
+ *
+ *  `null` means NOT KNOWN YET (or the read failed), and it is deliberately not
+ *  a number: callers that sign must refuse rather than substitute a default.
+ *  Native ETH needs no read — it is 18 by definition of the pool's ETH side.
+ */
+export function useQuoteDecimals(quote?: Address | null): number | null {
+  const pc = usePublicClient({ chainId: CAULDRON.chainId });
+  const native = !quote || quote.toLowerCase() === NATIVE_QUOTE;
+  const [dec, setDec] = useState<number | null>(native ? 18 : null);
+
+  const load = useCallback(async () => {
+    if (native) { setDec(18); return; }
+    if (!pc || !quote) return;
+    try {
+      const d = (await pc.readContract({
+        address: quote as Address,
+        abi: ERC20_DECIMALS_ABI,
+        functionName: "decimals",
+      })) as number;
+      //  Validated, not trusted: a token reporting something absurd must not
+      //  become a `parseUnits` argument.
+      setDec(Number.isSafeInteger(Number(d)) && Number(d) >= 0 && Number(d) <= 36 ? Number(d) : null);
+    } catch {
+      //  Unknown stays unknown. Returning 18 here would reintroduce the exact
+      //  guess this hook exists to remove.
+      setDec(null);
+    }
+  }, [pc, quote, native]);
+
+  //  A token's decimals are immutable, so this only has to survive a quote flip.
+  usePoll(load, 300_000, !!quote);
+
+  return dec;
+}
