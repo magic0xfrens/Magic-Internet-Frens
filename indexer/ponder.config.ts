@@ -114,8 +114,33 @@ export default createConfig({
         //  are refused with "requested range too large", which is why the pool
         //  filter below is load-bearing here rather than merely an optimisation).
         const ARC = ["https://rpc.testnet.arc.network"];
-        const DEFAULTS = chainId === 5042002 ? ARC : SEPOLIA;
+        //  Robinhood Chain — VERIFIED: chain id 4663, rpc.MAINNET.chain.robinhood.com
+        //  (the shorter `rpc.chain.robinhood.com` our docs used to carry refuses
+        //  TLS and is not a real endpoint). Testnet is 46630, NOT 46646.
+        const ROBINHOOD = ["https://rpc.mainnet.chain.robinhood.com"];
+        const ROBINHOOD_TESTNET = ["https://rpc.testnet.chain.robinhood.com"];
+        //  KEYED BY CHAIN ID, AND UNKNOWN IS FATAL. The previous
+        //  `chainId === 5042002 ? ARC : SEPOLIA` made Sepolia the default for
+        //  EVERY other chain — including 4663 — so an unset PONDER_RPC_URL
+        //  indexed Sepolia blocks while declaring chain 4663 to every consumer.
+        //  The comment above claimed that could NEVER happen; this is the code
+        //  that makes the claim true.
+        const BY_CHAIN: Record<number, string[]> = {
+          11155111: SEPOLIA,
+          5042002: ARC,
+          4663: ROBINHOOD,
+          46630: ROBINHOOD_TESTNET,
+        };
         const env = (process.env.PONDER_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        const DEFAULTS = BY_CHAIN[chainId];
+        if (env.length === 0 && !DEFAULTS) {
+          throw new Error(
+            `[ponder] NO RPC FOR CHAIN ${chainId} — round.json pins chainId ${chainId}, which has no ` +
+              `built-in RPC default. Set PONDER_RPC_URL (comma-separated = ordered failover) or add the ` +
+              `chain to BY_CHAIN in indexer/ponder.config.ts. Refusing to start rather than indexing ` +
+              `another chain and serving it as chain ${chainId}.`,
+          );
+        }
         const list = env.length > 0 ? env : DEFAULTS;
         // One URL → plain transport. Several → ORDERED failover: `rank: false`
         // keeps viem from reshuffling by latency, so list[0] is always primary
@@ -134,8 +159,12 @@ export default createConfig({
       // genuinely useful — so pick from the manifest's chainId rather than
       // running the L2 cadence against an L1 testnet. Arc produces blocks far
       // faster than Sepolia, so it gets the fast cadence.
+      //  Also keyed by chain id rather than by a single `=== 5042002` test: 4663
+      //  has ~0.1s blocks and was getting the 4s L1-testnet cadence.
       pollingInterval: Number(
-        process.env.POLLING_INTERVAL_MS ?? (chainId === 5042002 ? 1000 : 4000),
+        process.env.POLLING_INTERVAL_MS ??
+          ({ 11155111: 4000, 5042002: 1000, 4663: 1000, 46630: 1000 } as Record<number, number>)[chainId] ??
+          4000,
       ),
       // Per-endpoint request cap. With N rotated keys the effective throughput is
       // N × this. Default scales with the number of endpoints provided.

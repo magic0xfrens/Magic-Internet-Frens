@@ -124,14 +124,39 @@ const PERP_ENGINE = round.contracts.perpEngine as `0x${string}`;
 // was starving/rate-limiting these calls on a shared endpoint (perp stats + vault
 // read 0 despite the contracts being funded). Use API_RPC_URL if set, else a
 // multi-node public fallback distinct from the sync's single node.
-const API_RPCS = (process.env.API_RPC_URL ?? [
-  "https://ethereum-sepolia-rpc.publicnode.com",
-  "https://sepolia.drpc.org",
-  "https://1rpc.io/sepolia",
-  "https://rpc.ankr.com/eth_sepolia",
-  "https://eth-sepolia.public.blastapi.io",
-].join(","))
-  .split(",").map((s) => s.trim()).filter(Boolean);
+//
+//  KEYED BY THE MANIFEST'S CHAIN, AND UNKNOWN IS FATAL. This list used to be a
+//  flat Sepolia fallback for every deployment, so on a chain-4663 manifest the
+//  API — and with it /freshness, which is the divergence beacon — read SEPOLIA.
+//  /freshness would then compare Sepolia against Sepolia and report healthy
+//  while the service served another chain's data.
+const API_RPC_DEFAULTS: Record<number, string[]> = {
+  11155111: [
+    "https://ethereum-sepolia-rpc.publicnode.com",
+    "https://sepolia.drpc.org",
+    "https://1rpc.io/sepolia",
+    "https://rpc.ankr.com/eth_sepolia",
+    "https://eth-sepolia.public.blastapi.io",
+  ],
+  5042002: ["https://rpc.testnet.arc.network"],
+  //  VERIFIED endpoints: mainnet 4663, testnet 46630. `rpc.chain.robinhood.com`
+  //  (no `mainnet.`) does not exist and must never appear here.
+  4663: ["https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"],
+  46630: ["https://rpc.testnet.chain.robinhood.com"],
+};
+const API_RPCS = (() => {
+  const env = (process.env.API_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (env.length > 0) return env;
+  const d = API_RPC_DEFAULTS[Number(round.chainId)];
+  if (!d) {
+    throw new Error(
+      `[api] NO API RPC FOR CHAIN ${round.chainId} — set API_RPC_URL, or add the chain to ` +
+        `API_RPC_DEFAULTS in indexer/src/api/index.ts. Refusing to read another chain and report it ` +
+        `as chain ${round.chainId}.`,
+    );
+  }
+  return d;
+})();
 const perpClient = createPublicClient({ transport: fallback(API_RPCS.map((u) => http(u, { retryCount: 2, retryDelay: 200 }))) });
 const STATS_ABI = [{
   type: "function", name: "stats", stateMutability: "view", inputs: [],
