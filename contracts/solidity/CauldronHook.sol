@@ -57,7 +57,9 @@ interface IPerpOpenCount {
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
-    function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit) external;
+    function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit)
+        external
+        returns (bool complete);
     /// @dev Live open-position count. Read by the hook's pre-trade gas gate so a
     ///      gas-starved swap only reverts when there is actually a book to protect.
     function openCount() external view returns (uint256);
@@ -799,9 +801,25 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         uint256 reserve = amountSpecified != 0 ? LIQ_GAS_RESERVE + LIQ_GAS_MIN : LIQ_GAS_RESERVE;
         uint256 g = gasleft();
         if (g > reserve + LIQ_GAS_MIN) {
-            perpEngine.call{gas: g - reserve}(
+            (bool swept, bytes memory out) = perpEngine.call{gas: g - reserve}(
                 abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountSpecified, isBuy, limit)
             );
+            //  ── THE FLOOR IS CONSTANT; THE WORK IS NOT (red-team H1) ────────
+            //  Passing the fixed floor below only ever proved the caller funded
+            //  ONE in-swap kill (~440k measured). A trade that bankrupts four
+            //  shorts passed it and stranded three of them insolvent at the
+            //  price it had just set — 4.36 ETH of bad debt to PLV on a 30 ETH
+            //  vault, for the gas of an ordinary buy, repeatable. No constant
+            //  can express "enough gas for the work THIS trade creates", so we
+            //  do not try: the sweep itself now reports whether it finished its
+            //  pass, and a PRE-trade sweep that ran out of gas mid-book fails
+            //  loudly exactly like a sub-floor one. Honest callers and
+            //  `eth_estimateGas` simply supply what the book asks for; the swap
+            //  stays routable (exact-output included) because an empty or fully
+            //  scanned book always returns true.
+            if (amountSpecified != 0 && swept && out.length >= 32 && !abi.decode(out, (bool))) {
+                revert LiqGasStarved();
+            }
         } else if (amountSpecified != 0) {
             //  ── A GAS-STARVED TRADE FAILS LOUDLY, IT DOES NOT TRADE BLIND (R1C) ──
             //  The caller picks the transaction's gas, so before this branch existed

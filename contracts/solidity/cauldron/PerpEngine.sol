@@ -1066,9 +1066,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @param limit the swap's own sqrtPriceLimitX96 — the projection may not
     ///              exceed it, which is what stops a tight-limit swap with a huge
     ///              nominal from liquidating a whole side for free.
-    function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit) external {
+    /// @return complete false IFF the scan was cut short by {SWEEP_KILL_RESERVE}
+    ///         with book left unscanned — i.e. the caller's gas did not fund the
+    ///         liquidation work THIS trade creates. The hook turns that into a
+    ///         `LiqGasStarved` revert on the PRE-trade call (H1): a constant gas
+    ///         floor cannot express "enough gas for N kills", but the sweep that
+    ///         actually does the work can report that it ran out.
+    function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit)
+        external
+        returns (bool complete)
+    {
         if (msg.sender != hookAddr) revert OnlyHook();
-        _doSweep(liquidator, true, spec, isBuy, limit);   // in-swap: settle swaps run in-place
+        complete = _doSweep(liquidator, true, spec, isBuy, limit); // in-swap: settle swaps run in-place
     }
 
     /// @dev The pending trade's projected post-swap price from the CURRENT spot.
@@ -1091,6 +1100,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (msg.sender != address(this)) revert OnlyHook();
         _doSweep(liquidator, false, int256(0), false, 0);
     }
+
     /// @dev Fire the post-open sweep best-effort, reserving gas so it can never
     ///      revert the open, and capping it so a cascade can't consume everything.
     function _sweepAfterOpen(address liquidator) internal {
@@ -1109,8 +1119,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      set-then-clear shape as `_liqReentry` / `_inLocked` right beside it.
     uint160 internal _projSqrtP;
 
-    function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit) internal {
-        if (_liqReentry) return;
+    function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit)
+        internal
+        returns (bool complete)
+    {
+        complete = true;
+        if (_liqReentry) return complete;
         // SAMPLE THE ORACLE FIRST, ALWAYS (audit Z-02). This used to sit AFTER the
         // empty-book early-return, which meant that while no position was open no
         // swap ever wrote an observation: `ring.lastTick` stayed frozen at whatever it was
@@ -1123,7 +1137,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // keeperless; it costs one observation write on an otherwise idle sweep.
         _pokeFunding();
         uint256 len = _openIds.length;
-        if (len == 0) return;
+        if (len == 0) return complete;
         _liqReentry = true;
         _inLocked = inLocked;
         uint256 cursor = sweepCursor;
@@ -1163,7 +1177,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  Breaking on the reserve makes the sweep DEGRADE instead: it banks
             //  the kills it could afford and leaves the rest for the next swap,
             //  which is the behaviour the bounded scan was already reaching for.
-            if (gasleft() < SWEEP_KILL_RESERVE) break;
+            //  ...and REPORTS the degradation (H1). Degrading silently is what
+            //  let a constant pre-trade gas floor pass a trade that bankrupts N
+            //  positions with gas for one kill: measured 4.36 ETH of bad debt
+            //  charged to PLV on a 30 ETH vault, at ordinary-swap attacker cost.
+            //  The floor cannot know N; this loop does. `complete == false` is
+            //  the hook's signal to refuse the PRE-trade swap outright.
+            if (gasleft() < SWEEP_KILL_RESERVE) { complete = false; break; }
             uint256 n = _openIds.length;
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
