@@ -45,6 +45,45 @@ been removed).
 `VITE_CHAIN_IS_TESTNET=false`. Testnet is `46630`. `46646` is not a chain id,
 and the host `rpc.chain.robinhood.com` (no `mainnet.`) does not exist.
 
+### 1.1b Operational constraints that are NOT expressible in config
+
+**Reorg tolerance is patched into Ponder, not configured.** VERIFIED against
+ponder 0.11.44: `finalityBlockCount` is assigned only by
+`getFinalityBlockCount()` (`dist/esm/build/config.js:115`) and the user-facing
+`ChainConfig` type has no such field, so `ponder.config.ts` cannot express it.
+Ponder's unknown-chain default is **30 blocks** ("assume a 2-second block
+time") — about **3 seconds** on Robinhood 4663, whose `finalized` tag lags the
+head by ~9,650 blocks (~16 min). `indexer/scripts/patch-ponder-finality.mjs`
+raises it to 12,000 blocks for 4663/46630 and 1,200 for Arc. It runs from
+`postinstall` **and** from `start.mjs` before Ponder is spawned, is idempotent,
+and **verifies itself by calling the patched module**; any failure is fatal —
+the indexer refuses to boot rather than index with an unproven tolerance.
+*If you upgrade Ponder, run `node indexer/scripts/patch-ponder-finality.mjs`
+and expect it to fail loudly if the upstream source changed shape.*
+
+**`/freshness` is the machine-readable beacon.** It now reports `chainHeight`,
+`indexedHeight`, `lagBlocks`, `lagSeconds`, `finalizedHeight`,
+`finalityLagBlocks`, `finalityBlockCount` and `reorgToleranceOk`, and returns
+**503 when the chain's own finality lag exceeds the configured tolerance** —
+which is the continuous check that keeps the patched constant honest. Alert on
+`lagSeconds` (chain-speed independent) rather than `lagBlocks`. Note the only
+in-repo poller is a **browser** (`src/hooks/useIndexerHealth.ts`), so nothing
+alerts when nobody is looking: **external monitoring is a launch prerequisite,
+not something the code provides.**
+
+**Railway restarts are capped at 10** (`indexer/railway.json:8`,
+`restartPolicyMaxRetries`). After ten consecutive failures the service stays
+down permanently and only a manual redeploy brings it back. The in-process
+watchdog deliberately relies on that cap to bound a restart loop, so raising it
+trades "stays down" for "restarts forever" — a decision, not a bug. **Operator
+action: watch for the tenth restart.**
+
+**`indexer/deployments/round.json` pins `chainId: 11155111` today, and that is
+correct** — it is the live *Sepolia* round manifest, and every consumer is now
+keyed by the manifest's own `chainId`. The Robinhood cutover *replaces* this
+file with `round.robinhood.template.json` (chainId 4663); nothing ships 11155111
+to a 4663 build.
+
 ### 1.2 Indexer (Ponder / Railway)
 
 | Variable | Purpose | Read at |

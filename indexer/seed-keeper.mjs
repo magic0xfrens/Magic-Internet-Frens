@@ -34,7 +34,7 @@
 import { readFileSync } from "node:fs";
 import { createPublicClient, createWalletClient, http, formatEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { defineChain } from "viem";
 
 const ABI = [
   { type: "function", name: "poke", inputs: [], outputs: [], stateMutability: "nonpayable" },
@@ -62,7 +62,7 @@ function deployedTargetWad(startTs, window, nowTs, seedFloorWad) {
   return seedFloorWad + ((WAD - seedFloorWad) * (nowTs - startTs)) / window;
 }
 
-export function startSeedKeeper() {
+export async function startSeedKeeper() {
   const pk = process.env.SEED_KEEPER_PK;
   if (!pk) {
     console.log("[keeper] SEED_KEEPER_PK unset - launch poke keeper disabled");
@@ -78,14 +78,57 @@ export function startSeedKeeper() {
     return;
   }
 
-  const rpc = (process.env.PONDER_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com")
+  //  ── THE KEEPER MUST SIGN FOR THE CHAIN THE MANIFEST PINS ─────────────────
+  //  This used to be `chain: sepolia`, hardcoded, so on any other chain every
+  //  transaction was signed with chainId 11155111 and rejected by the node —
+  //  and the rejection was swallowed by the catch below as "poke skipped", once
+  //  every 20 seconds, forever. The launch-liquidity stream simply never
+  //  advanced, with nothing in the logs saying why. Same class as the frontend
+  //  Critical: a hardcoded chain identity that fails quietly.
+  const CHAIN_RPCS = {
+    11155111: "https://ethereum-sepolia-rpc.publicnode.com",
+    5042002: "https://rpc.testnet.arc.network",
+    4663: "https://rpc.mainnet.chain.robinhood.com",
+    46630: "https://rpc.testnet.chain.robinhood.com",
+  };
+  const chainId = Number(manifest.chainId);
+  const rpc = (process.env.PONDER_RPC_URL ?? CHAIN_RPCS[chainId] ?? "")
     .split(",")[0]
     .trim();
+  if (!rpc) {
+    console.error(`[keeper] NO RPC for chain ${chainId} — set PONDER_RPC_URL. Keeper not started.`);
+    return;
+  }
   const intervalMs = Number(process.env.SEED_KEEPER_INTERVAL ?? 20) * 1000;
 
   const account = privateKeyToAccount(pk.startsWith("0x") ? pk : `0x${pk}`);
-  const pub = createPublicClient({ chain: sepolia, transport: http(rpc) });
-  const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
+  //  Minimal chain object: viem needs an id to sign with and an RPC to talk to.
+  //  Nothing else here is used by `writeContract`.
+  const chain = defineChain({
+    id: chainId,
+    name: `chain-${chainId}`,
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [rpc] }, public: { http: [rpc] } },
+  });
+  const pub = createPublicClient({ chain, transport: http(rpc) });
+  const wallet = createWalletClient({ account, chain, transport: http(rpc) });
+
+  //  Prove the identity before signing anything. A keeper pointed at the wrong
+  //  chain can never succeed, so retrying it every 20 s is noise, not recovery —
+  //  refuse LOUDLY instead of skipping quietly.
+  try {
+    const live = await pub.getChainId();
+    if (live !== chainId) {
+      console.error(
+        `[keeper] CHAIN MISMATCH — round.json pins chain ${chainId} but ${rpc} answers ${live}. ` +
+          `Every poke would be signed for the wrong chain and rejected. Keeper not started.`,
+      );
+      return;
+    }
+  } catch (e) {
+    console.error(`[keeper] cannot reach ${rpc}: ${String(e?.shortMessage ?? e?.message ?? e)}. Keeper not started.`);
+    return;
+  }
 
   console.log(`[keeper] poking ${seeder} every ${intervalMs / 1000}s as ${account.address}`);
 
@@ -132,7 +175,14 @@ export function startSeedKeeper() {
       // A revert here is not fatal and usually is not even a fault: the step can
       // become 0 between simulate and send, and public RPCs rate-limit. Log and
       // retry on the next tick rather than taking the indexer down with us.
-      console.log(`[keeper] poke skipped: ${String(e?.shortMessage ?? e?.message ?? e).slice(0, 140)}`);
+      const msg = String(e?.shortMessage ?? e?.message ?? e);
+      //  A chain-id rejection is NOT the benign "step became 0" case this catch
+      //  was written for: it can never succeed, so it must not look like routine
+      //  noise in the logs.
+      const identity = /chain|chainId|EIP-155|invalid sender/i.test(msg);
+      (identity ? console.error : console.log)(
+        `[keeper] poke ${identity ? "REJECTED (chain identity?)" : "skipped"}: ${msg.slice(0, 160)}`,
+      );
     } finally {
       inFlight = false;
     }

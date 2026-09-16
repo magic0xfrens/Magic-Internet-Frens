@@ -6,6 +6,12 @@ import { graphql, eq, desc, and, gte, ne } from "ponder";
 import { createPublicClient, fallback, http, formatEther, keccak256, encodeAbiParameters } from "viem";
 // SINGLE SOURCE OF TRUTH — same manifest as ponder.config.ts + the frontend.
 import round from "../../deployments/active";
+//  ONE source for the reorg tolerance: the same table the node_modules patch
+//  applies, so /freshness cannot report a tolerance the indexer does not have.
+import { FINALITY_BLOCKS } from "../../scripts/patch-ponder-finality.mjs";
+/** Ponder's own fallback when it does not know the chain — "assume a 2s block
+ *  time", which is ~3 seconds of tolerance on a 0.1s chain. */
+const PONDER_DEFAULT_FINALITY = 30;
 import { rawToQuoteAmount } from "../quoteUnits";
 
 const app = new Hono();
@@ -1363,13 +1369,57 @@ async function evaluateHealth() {
     // whether this process was ever healthy. History cannot excuse divergence.
     const ok = !diverged || persistedMs <= HEALTH_GRACE_MS;
 
+    //  ── STALENESS AND REORG TOLERANCE, AS NUMBERS A MACHINE CAN READ ────────
+    //  This beacon used to report only divergence, so a 40-minute-stale indexer
+    //  was "healthy": nothing here said how far behind the chain we are, and the
+    //  only poller is a BROWSER (src/hooks/useIndexerHealth.ts), which means
+    //  nobody is looking when nobody is looking. Heights and lags below are the
+    //  machine-checkable part.
+    //
+    //  `finalityBlockCount` is Ponder's reorg tolerance for THIS chain, and
+    //  `finalityLagBlocks` is the chain's own `latest - finalized` distance. If
+    //  the second exceeds the first, Ponder is treating as final blocks the
+    //  chain can still rewrite — and it PRUNES the reorg journals for those, so
+    //  the corruption is unrevertable and silent. That is a not-ok condition in
+    //  its own right, independent of divergence: it is the assumption check for
+    //  indexer/scripts/patch-ponder-finality.mjs, run continuously instead of
+    //  once at deploy time so the constant cannot quietly drift from the chain.
+    const [latestBlk, finalizedBlk, newestSwap] = await Promise.all([
+      rd(perpClient.getBlock({ blockTag: "latest" }), null as null | { number: bigint; timestamp: bigint }),
+      rd(perpClient.getBlock({ blockTag: "finalized" }), null as null | { number: bigint; timestamp: bigint }),
+      rd(
+        db.select().from(schema.swap).orderBy(desc(schema.swap.block)).limit(1),
+        [] as Array<{ block: bigint; timestamp: bigint }>,
+      ),
+    ]);
+    const chainHeight = latestBlk ? Number(latestBlk.number) : null;
+    const chainBlockTs = latestBlk ? Number(latestBlk.timestamp) : null;
+    const finalizedHeight = finalizedBlk ? Number(finalizedBlk.number) : null;
+    const finalityLagBlocks =
+      chainHeight !== null && finalizedHeight !== null ? chainHeight - finalizedHeight : null;
+    const finalityBlockCount = FINALITY_BLOCKS[Number(round.chainId)] ?? PONDER_DEFAULT_FINALITY;
+    //  `null` lag = the chain does not expose a `finalized` tag; we cannot prove
+    //  the tolerance either way, so do not claim it is fine.
+    const reorgToleranceOk = finalityLagBlocks === null ? null : finalityLagBlocks <= finalityBlockCount;
+    const indexedHeight = newestSwap.length ? Number(newestSwap[0].block) : null;
+    const indexedTs = newestSwap.length ? Number(newestSwap[0].timestamp) : null;
+    const lagBlocks = chainHeight !== null && indexedHeight !== null ? chainHeight - indexedHeight : null;
+    //  Seconds behind the chain's own clock — the number to alert on, because it
+    //  is chain-speed independent (30 blocks means 6 minutes on Sepolia and 3
+    //  seconds on a 0.1s chain).
+    const lagSeconds = chainBlockTs !== null && indexedTs !== null ? chainBlockTs - indexedTs : null;
+
     const body = {
-      ok, chainGen, indexedGen, curPoolId, indexedPools: [...indexedIds],
+      ok: ok && reorgToleranceOk !== false,
+      chainGen, indexedGen, curPoolId, indexedPools: [...indexedIds],
       chainOpenPositions: chainOpen, dbOpenPositions: dbOpen,
-      reasons: { poolMismatch, missedLaunch, missedOpens },
+      reasons: { poolMismatch, missedLaunch, missedOpens, reorgToleranceExceeded: reorgToleranceOk === false },
       divergingForMs: persistedMs, behind, warmingUp: behind && !everHealthy,
+      chainId: Number(round.chainId),
+      chainHeight, chainBlockTs, indexedHeight, indexedTs, lagBlocks, lagSeconds,
+      finalizedHeight, finalityLagBlocks, finalityBlockCount, reorgToleranceOk,
     };
-    healthCache = { at: now, body, ok };
+    healthCache = { at: now, body, ok: body.ok };
     return healthCache;
   } catch (e) {
     // Startup / transient (tables not created yet, RPC blip): report OK so the
