@@ -434,7 +434,10 @@ contract TreasuryGovernor {
         //  This mirrors CauldronGovernor, which already picks brews this way.
         //
         //  Only the ENVELOPE is exclusive: one rotation may be live at a time.
-        if (envelope.active && block.timestamp < envelope.expiry) revert ProposalActive();
+        //  Unless it is stalled — an envelope that has moved nothing at all and
+        //  is past its cooldown is not "a rotation in progress", it is a mandate
+        //  nobody can execute, and it must not silence the guild. See {stalled}.
+        if (envelope.active && block.timestamp < envelope.expiry && !stalled()) revert ProposalActive();
         if (lastEnvelopeAt != 0 && block.timestamp < lastEnvelopeAt + COOLDOWN) revert CooldownActive();
 
         id = ++proposalCount;
@@ -614,7 +617,12 @@ contract TreasuryGovernor {
         //  `active` but not `lastEnvelopeAt`, which is exactly how `propose`
         //  already behaves after a cancel, and an emergency stop that let a
         //  second envelope straight through would not be a stop.
-        if (envelope.active && block.timestamp < envelope.expiry) revert ProposalActive();
+        //
+        //  `stalled()` is the one exception, and it is safe HERE for the reason
+        //  it is written the way it is: it requires `movedBps == 0`, so the
+        //  envelope being overwritten has spent none of its budget and the
+        //  two-envelopes-in-one-cooldown concern above cannot arise.
+        if (envelope.active && block.timestamp < envelope.expiry && !stalled()) revert ProposalActive();
         if (lastEnvelopeAt != 0 && block.timestamp < lastEnvelopeAt + COOLDOWN) revert CooldownActive();
         // Re-checked, because the timelock may have de-listed the asset during
         // the vote and the allowlist is the guardrail that must not be stale.
@@ -866,6 +874,64 @@ contract TreasuryGovernor {
     /// @param  fromPrimary whether the source was the generation's own position.
     ///                     Only these advance {migrationMandateSpent} — bps of a
     ///                     secondary leg are not bps of the generation.
+    /**
+     * @notice True when the live envelope has not moved a single basis point
+     *         since it was installed and its cooldown has already elapsed. Such
+     *         an envelope no longer blocks {propose} or {execute}.
+     *
+     * @dev  ── A MANDATE NOBODY CAN EXECUTE MUST NOT WEDGE GOVERNANCE ────────
+     *  `propose` (:437) and `execute` (:617) both refuse while
+     *  `envelope.active && now < envelope.expiry`. That is right for a mandate
+     *  that is being carried out — one rotation at a time is the point. It is
+     *  wrong for one that CANNOT be carried out: if the destination is de-listed
+     *  by the timelock after the vote, or its route disappears, or the leg the
+     *  slice would come out of is dead, then every `rotateSliceFrom` reverts,
+     *  nothing ever advances, and the guild cannot even FILE the correction
+     *  until the envelope expires — ENVELOPE_LIFETIME, 30 days on mainnet
+     *  defaults. The only escape was the guardian's `cancel` (:643), which makes
+     *  governance liveness depend on a privileged party being present and
+     *  willing. The de-risking switch exists precisely for when they are not.
+     *
+     *  ── WHY THIS CANNOT BE USED AGAINST A HEALTHY MANDATE ──────────────────
+     *  The test is ZERO PROGRESS, not "slow progress" and not "a slice failed".
+     *  `rotateSliceFrom` is PERMISSIONLESS, so a single successful slice of any
+     *  size, out of any leg, by any address, sets `movedBps != 0` and immunises
+     *  the envelope against this path for the rest of its life. To hold an
+     *  envelope at zero a griefer would have to keep EVERY slice reverting for
+     *  the whole COOLDOWN — which is not an attack on the envelope, it IS the
+     *  condition this clears. Deliberately not a failed-attempt counter for the
+     *  same reason: a counter can be driven up by an attacker calling into a
+     *  route they have temporarily broken, while zero-progress can be refuted by
+     *  anyone, at any moment, with one transaction.
+     *
+     *  BOTH counters must be zero, not just `movedPrimaryBps`. `execute`
+     *  overwrites the live envelope, so letting a partially-spent one be
+     *  superseded would put two envelopes' worth of movement inside one
+     *  COOLDOWN — exactly the budget the check at :617 was added to bound. At
+     *  zero spent, the replacement can move no more than the original could.
+     *
+     *  THE GRACE PERIOD IS COOLDOWN, borrowed rather than invented: `propose`
+     *  and `execute` already refuse until `lastEnvelopeAt + COOLDOWN` on the
+     *  very next line, so a stalled envelope stops blocking at exactly the
+     *  moment the cooldown stops blocking anyway. No new constant, no new
+     *  storage slot, and no new timing surface for an attacker to aim at.
+     *
+     *  THIS DOES NOT CANCEL ANYTHING. The envelope stays `active` and stays
+     *  spendable, so if the route recovers the original mandate still works. All
+     *  that changes is that it no longer silences the guild: a replacement must
+     *  still clear PROPOSAL_THRESHOLD, a full VOTING_PERIOD and QUORUM_BPS of
+     *  total supply before it can overwrite anything. The guardian `cancel`
+     *  remains as the immediate backstop.
+     */
+    function stalled() public view returns (bool) {
+        Envelope storage e = envelope;
+        return e.active
+            && e.movedBps == 0
+            && e.movedPrimaryBps == 0
+            && lastEnvelopeAt != 0
+            && block.timestamp >= uint256(lastEnvelopeAt) + COOLDOWN;
+    }
+
     function consume(uint16 bps, bool fromPrimary) external {
         if (msg.sender != registry) revert NotGuardian();
         Envelope storage e = envelope;
