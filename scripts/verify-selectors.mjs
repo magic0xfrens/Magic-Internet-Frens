@@ -24,11 +24,33 @@ import { readFileSync } from "node:fs";
 import { toFunctionSelector } from "viem";
 
 const round = JSON.parse(readFileSync(new URL("../indexer/deployments/round.json", import.meta.url), "utf8"));
-//  Default pinned to the gateway that served the CANONICAL block through the
-//  Sepolia reorg at 11704817 (see indexer/ponder.config.ts). Override with
-//  RPC_URL — a paid endpoint is better for a deploy gate, but never write a
-//  keyed URL into this file.
-const RPC = process.env.RPC_URL ?? "https://sepolia.gateway.tenderly.co";
+//  ── THE DEFAULT RPC MUST FOLLOW THE MANIFEST'S OWN CHAIN ───────────────────
+//  This used to default to a SEPOLIA gateway unconditionally. Against a chain
+//  4663 manifest that is not a near-miss: every address returns `0x`, so the
+//  gate prints "NO CODE" for every contract and exits non-zero. The operator
+//  then reads a misaimed gate as "the deploy is broken" — and the likeliest
+//  recovery from that is to ignore or disable the gate, which is precisely how
+//  `playChurn` shipped twice.
+//
+//  The manifest already declares its own chainId, so derive the endpoint from
+//  it. RPC_URL still overrides (a paid endpoint is better for a deploy gate),
+//  but an UNSET RPC_URL can no longer silently point at the wrong chain.
+//  Never write a keyed URL into this file.
+const DEFAULT_RPC_BY_CHAIN = {
+  11155111: "https://sepolia.gateway.tenderly.co",
+  //  VERIFIED 2026-09-16: eth_chainId -> 0x1237 (4663). The host
+  //  `rpc.chain.robinhood.com` carried by older docs does not exist.
+  4663: "https://rpc.mainnet.chain.robinhood.com",
+  46630: "https://rpc.testnet.chain.robinhood.com",
+};
+const RPC = process.env.RPC_URL ?? DEFAULT_RPC_BY_CHAIN[round.chainId];
+if (!RPC) {
+  console.error(
+    `no default RPC known for chainId ${round.chainId}. Set RPC_URL explicitly —\n` +
+      `refusing to guess, because guessing Sepolia is what made this gate lie.`,
+  );
+  process.exit(1);
+}
 
 const sel = (sig) => toFunctionSelector(sig).slice(2).toLowerCase();
 
@@ -96,6 +118,60 @@ async function code(address) {
   const j = await r.json();
   if (j.error) throw new Error(`${address}: ${j.error.message}`);
   return (j.result ?? "0x").toLowerCase();
+}
+
+async function ethCall(to, data) {
+  const r = await fetch(RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }),
+  });
+  const j = await r.json();
+  if (j.error || !j.result) return null;
+  return j.result;
+}
+
+//  ── ASSERT THE ENDPOINT IS THE MANIFEST'S CHAIN ────────────────────────────
+//  RPC_URL overrides the default, so it can still be pointed at the wrong
+//  chain by hand. Every address would then read `0x` and the gate would blame
+//  the deploy. Check once, up front, and say so plainly.
+{
+  const r = await fetch(RPC, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }),
+  });
+  const j = await r.json();
+  const live = j.result ? parseInt(j.result, 16) : null;
+  if (live === null) { console.error(`cannot read eth_chainId from the RPC — it is unreachable.`); process.exit(1); }
+  if (live !== round.chainId) {
+    console.error(
+      `RPC is chain ${live} but the manifest declares ${round.chainId}.\n` +
+        `Every lookup would report NO CODE and blame the deploy. Refusing.`,
+    );
+    process.exit(1);
+  }
+  console.log(`  rpc chain ${live} matches the manifest`);
+}
+
+//  ── THE VAULT CHECK THAT COULD NEVER RUN ───────────────────────────────────
+//  `vault` is a PER-GENERATION address created during the summon, so it is
+//  never a manifest key — which meant `vault: ["redeem(uint256)"]` hit the
+//  `not in the manifest` SKIP on every single run. A listed check that can
+//  never execute is exactly the `playChurn` shape this file exists to catch:
+//  it reads as covered and verifies nothing.
+//
+//  `CauldronCollection.vault` is public (CauldronCollection.sol:51) and
+//  `collection` IS a manifest key, so the address is resolvable. Resolve it and
+//  run the check for real.
+if (!round.contracts.vault && round.contracts.collection) {
+  const got = await ethCall(round.contracts.collection, "0xfbfa77cf"); // vault()
+  const addr = got && got.length >= 42 ? "0x" + got.slice(-40) : null;
+  if (addr && !/^0x0{40}$/.test(addr)) {
+    round.contracts.vault = addr;
+    console.log(`  resolved vault ${addr} from collection.vault()`);
+  } else {
+    console.log(`  NOTE vault unresolved from collection.vault() — redeem(uint256) stays unchecked`);
+  }
 }
 
 let bad = 0;

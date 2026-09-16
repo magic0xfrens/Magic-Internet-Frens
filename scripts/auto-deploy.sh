@@ -61,8 +61,18 @@ import sys
 if int('$BAL') < 3*10**18: sys.exit('ABORT: balance ${BAL_ETH} ETH is thin for a full deploy (badge art alone is ~33M gas). Top up first.')
 " || exit 1
 
+#  ASSERT THE CHAIN, BUT DO NOT HARDCODE SEPOLIA AS THE ONLY LEGAL ANSWER.
+#  This line used to be `[ "$CHAIN" = "11155111" ]`, which made this pipeline
+#  structurally incapable of deploying anywhere else — so the Robinhood mainnet
+#  (4663) path had to be built outside it (scripts/deploy-mainnet-rh.sh). The
+#  assertion itself is right and stays: what matters is that the chain we
+#  CONNECTED to is the chain we INTENDED. The intent is now a parameter with a
+#  Sepolia default, so an unset EXPECT_CHAIN behaves exactly as before.
+EXPECT_CHAIN="${EXPECT_CHAIN:-11155111}"
 CHAIN=$(cast chain-id --rpc-url "$RPC" 2>/dev/null)
-[ "$CHAIN" = "11155111" ] || die "expected Sepolia (11155111), got '${CHAIN:-<no response>}'."
+[ -n "$CHAIN" ] || die "no chain id from the RPC — it is unreachable. An error is not a match."
+[ "$CHAIN" = "$EXPECT_CHAIN" ] || die "connected to chain '$CHAIN' but EXPECT_CHAIN is $EXPECT_CHAIN."
+echo "chain id $CHAIN verified"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GATE 1 — build must be clean and every contract under EIP-170
@@ -78,9 +88,48 @@ export POSITION_MANAGER=0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4
 forge build --sizes --force > /tmp/ad-sizes.log 2>&1 || {
   echo "--- first error ---"; grep -m3 -E "^Error|error\[" /tmp/ad-sizes.log; die "build failed."; }
 
-OVER=$(awk -F'|' '/^\| [A-Za-z]/ {gsub(/[ ,]/,"",$4); if ($4 ~ /^-/) print $2" ("$4" B)"}' /tmp/ad-sizes.log \
-       | grep -viE "test|mock|harness" || true)
-if [ -n "$OVER" ]; then echo "$OVER"; die "contract(s) over the 24,576 B runtime limit."; fi
+#  ── THIS GATE NEVER FIRED. ─────────────────────────────────────────────────
+#  It used to read `$4` of the `--sizes` table. The header is
+#
+#     Contract | Runtime Size (B) | Initcode Size (B) | Runtime Margin (B) | ...
+#
+#  so under -F'|' the fields are $2 Contract, $3 Runtime Size, $4 INITCODE SIZE,
+#  $5 Runtime Margin. A SIZE is never negative, so `if ($4 ~ /^-/)` could not be
+#  true for any input and the gate reported "no contract over EIP-170" on every
+#  run — including the runs where one was. Measured: PerpEngine is 25,185 B with
+#  a runtime margin of -609 B and this gate stayed silent.
+#
+#  The defect is a HARDCODED COLUMN INDEX, so the repair is not a better index.
+#  Find "Runtime Margin" in the header and use whatever column it actually is,
+#  and FAIL CLOSED when the header cannot be found — a gate that does not
+#  understand its input must never report success. Same logic as
+#  scripts/deploy-mainnet-rh.sh's `eip170_over`, which self-tests it.
+OVER=$(awk '
+  hdr == 0 && /Runtime Margin/ {
+    n = split($0, f, "|")
+    for (i = 1; i <= n; i++) if (f[i] ~ /Runtime Margin/) { col = i; hdr = 1; break }
+    next
+  }
+  hdr == 1 && /^[[:space:]]*\|/ {
+    n = split($0, f, "|")
+    if (n < col) next
+    name = f[2]; margin = f[col]
+    gsub(/[[:space:],]/, "", name)
+    gsub(/[[:space:],]/, "", margin)
+    if (name == "" || margin == "") next
+    if (margin ~ /^-[0-9]+$/) printf "%s (%s B)\n", name, margin
+  }
+  END { if (hdr == 0) print "__NO_HEADER__" }
+' /tmp/ad-sizes.log)
+
+if [ "$OVER" = "__NO_HEADER__" ]; then
+  die "EIP-170 gate found no 'Runtime Margin' column in /tmp/ad-sizes.log — FAILING CLOSED."
+fi
+#  Anchored on the whole contract NAME, not a substring of the whole line: the
+#  old `grep -viE "test|mock|harness"` would have waved through any real
+#  contract whose name merely contained one of those words.
+OVER=$(echo "$OVER" | grep -vE '^([A-Za-z0-9_]*(Harness|Mock)[A-Za-z0-9_]*|Test[A-Za-z0-9_]*|[A-Za-z0-9_]*Test) \(' || true)
+if [ -n "$OVER" ]; then echo "$OVER"; die "contract(s) over the 24,576 B runtime limit — they cannot be deployed."; fi
 echo "build OK; no contract over EIP-170"
 
 # ─────────────────────────────────────────────────────────────────────────────
