@@ -596,9 +596,18 @@ export default function SwapWidget({
       <div className="sw__min">
         {!priceable
           ? <span className="sw__min-warn">
-              {!qNative && mode === "buy"
-                ? `price is quoted in ETH, pool takes ${quoteSymbol} · will not sign`
-                : "unpriceable · will not sign"}
+              {/*  NAME THE ACTUAL REASON. This used to read "price is quoted in
+                   ETH, pool takes X", which described a structural refusal of
+                   ERC20-quoted buys that no longer exists — the zap converts the
+                   ether and the buy is signable as soon as the oracle rate and
+                   the quote's decimals have landed. Telling a user the feature
+                   is unsupported, when it is merely still loading, is the same
+                   class of mismatch as promising them an hour they do not have. */}
+              {!decimalsResolved
+                ? `reading ${quoteSymbol} decimals · will not sign yet`
+                : !qNative && mode === "buy" && quoteExpected <= 0n
+                  ? `waiting for the ${quoteSymbol}/ETH rate · will not sign yet`
+                  : "unpriceable · will not sign"}
             </span>
           : <>min {mode === "buy"
               ? `${compact(Number(formatEther(minOut)))} $${ticker}`

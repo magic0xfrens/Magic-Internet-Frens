@@ -52,16 +52,16 @@ const env = (key: string, fallbackValue: string) => {
  */
 const CHAIN_DEFAULTS: Record<
   number,
-  { name: string; rpc: string; explorer: string; explorerName: string; currency: string; currencyName: string; decimals: number; testnet: boolean }
+  { name: string; rpc: string; explorer: string; explorerName: string; currency: string; currencyName: string; decimals: number; testnet: boolean; blockMs: number }
 > = {
-  5042002: { name: "Arc Testnet", rpc: "https://rpc.testnet.arc.network", explorer: "https://testnet.arcscan.app", explorerName: "Arcscan", currency: "USD", currencyName: "US Dollar", decimals: 18, testnet: true },
+  5042002: { name: "Arc Testnet", rpc: "https://rpc.testnet.arc.network", explorer: "https://testnet.arcscan.app", explorerName: "Arcscan", currency: "USD", currencyName: "US Dollar", decimals: 18, testnet: true, blockMs: 1000 },
   //  VERIFIED against the live chain and ethereum-lists/chains eip155-4663:
   //  id 4663, native ETH/18, rpc.MAINNET.chain.robinhood.com. The host
   //  `rpc.chain.robinhood.com` that our docs used to carry does not exist — it
   //  refuses TLS from every client — so it must never appear as a default.
-  4663: { name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: false },
-  46630: { name: "Robinhood testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true },
-  11155111: { name: "Sepolia", rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io", explorerName: "Etherscan", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true },
+  4663: { name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: false, blockMs: 100 },
+  46630: { name: "Robinhood testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true, blockMs: 100 },
+  11155111: { name: "Sepolia", rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io", explorerName: "Etherscan", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true, blockMs: 12000 },
 };
 
 const D = CHAIN_DEFAULTS[CHAIN_ID];
@@ -268,3 +268,39 @@ export const nftCollectionUrl = (addr: string) =>
   IS_TARGET ? `${EXPLORER_URL}/token/${addr}` : `https://testnets.opensea.io/assets/sepolia/${addr}`;
 export const nftTokenUrl = (addr: string, tokenId: string | number) =>
   IS_TARGET ? `${EXPLORER_URL}/token/${addr}/instance/${tokenId}` : `https://testnets.opensea.io/assets/sepolia/${addr}/${tokenId}`;
+
+/**
+ * THE GACHA COMMIT WINDOW, IN SECONDS, FOR THE CHAIN WE ARE ACTUALLY ON.
+ *
+ *  A crystal is settled from its commit block's hash, and the EVM keeps only
+ *  the last **256** block hashes. That is a count of BLOCKS, not a duration:
+ *  ~51 minutes on Sepolia's 12 s blocks, but ~26 SECONDS on Robinhood Chain,
+ *  which produces a block roughly every 0.10 s. The UI used to say "within the
+ *  hour", which on 4663 promised the player ~140x more time than exists — and a
+ *  crystal that ages out forfeits its draw. Copy that hardcodes any duration is
+ *  the same defect one chain later, so derive it.
+ *
+ *  `null` when the chain's block time is not known: say nothing about duration
+ *  rather than assert a number we cannot justify.
+ */
+export const COMMIT_WINDOW_BLOCKS = 256;
+export const COMMIT_WINDOW_SECONDS: number | null =
+  (() => {
+    //  The ACTIVE chain, not `targetChain` — when Sepolia is selected `D` above
+    //  describes the OTHER chain, and a 26-second warning on a 51-minute chain
+    //  is the same lie in the opposite direction.
+    const a = CHAIN_DEFAULTS[ACTIVE_CHAIN_ID];
+    return a ? Math.round((COMMIT_WINDOW_BLOCKS * a.blockMs) / 1000) : null;
+  })();
+
+/** The window as a phrase to drop into a sentence ("settle them {phrase}"),
+ *  or a truthful vague form when the block time is unknown. */
+export const COMMIT_WINDOW_PHRASE: string = (() => {
+  const s = COMMIT_WINDOW_SECONDS;
+  if (s == null) return "right away";
+  if (s < 90) return `within ~${s} seconds`;
+  const mins = Math.round(s / 60);
+  if (mins < 90) return `within ~${mins} minute${mins === 1 ? "" : "s"}`;
+  const hrs = Math.round(mins / 60);
+  return `within ~${hrs} hour${hrs === 1 ? "" : "s"}`;
+})();

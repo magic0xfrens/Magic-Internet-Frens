@@ -9,6 +9,7 @@ import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { useLpComposition } from "@/hooks/useLpComposition";
 import { resolveTokenArt } from "@/lib/tokenArt";
 import { explainPerpError } from "@/config/perp";
+import { COMMIT_WINDOW_PHRASE } from "@/config/chains";
 
 /** Tolerance on top of the fee model for a spin's floor. See {spinFloor}. */
 const SPIN_SLIP_BPS = 2_500;
@@ -550,7 +551,7 @@ export default function CrystalCauldronGame({
     //  the player is never told the draw was lost to time rather than to luck.
     //  The keeper's permissionless resolveTickets sweep is the real remedy;
     //  this is the safety net.
-    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — resolve soon: spin again to settle them.`;
+    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — settle ${COMMIT_WINDOW_PHRASE}: spin again to resolve them.`;
     if (phase === "fizzle") return "Not enough Mana yet — spin again.";
     if (phase === "opened") return flash?.name ? `${flash.name} revealed!` : "Creature revealed!";
     return "Spin volume to summon a crystal.";
@@ -603,11 +604,14 @@ export default function CrystalCauldronGame({
           <div className="ccg-resolve ccg-resolve--forged">
             <div className="ccg-resolve-big" style={{ color: col }}>{result.forged} sealed</div>
             <div className="ccg-resolve-sub">🔮 forged — reveal on your next spin</div>
-            {/*  Short and non-alarming, but it must be SAID: an unresolved
-                 crystal is settled from the commit block's hash, and the chain
-                 only remembers that for a few minutes. */}
+            {/*  Short and non-alarming, but it must be SAID — and it must be
+                 TRUE. An unresolved crystal is settled from its commit block's
+                 hash, which the EVM keeps for 256 BLOCKS. That is ~51 minutes on
+                 Sepolia and ~26 SECONDS on Robinhood Chain, so this line used to
+                 promise a 4663 player ~140x more time than they have, and an
+                 expired crystal forfeits the draw. Derived, never hardcoded. */}
             <div className="ccg-resolve-sub" style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-              Settle them within the hour — a crystal left unresolved too long expires and the draw is lost.
+              Settle them {COMMIT_WINDOW_PHRASE} — a crystal left unresolved too long expires and the draw is lost.
             </div>
           </div>
         )}

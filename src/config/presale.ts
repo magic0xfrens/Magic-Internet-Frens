@@ -28,8 +28,23 @@ export const PRESALE = {
   /** EXACT wei, so value = priceWei * quantity cannot drift into WrongPrice. */
   priceWei: 6200000000000000n,
   maxSupply: round.genesisSupply ?? 1111,
-  /** Contract enforces MAX_PER_WALLET; this is only a UI hint. */
-  maxPerWallet: 100,
+  /**
+   *  ── THERE IS NO EFFECTIVE ANTI-WHALE CAP ON THE DEPLOYED CONTRACT ────────
+   *  This used to read `maxPerWallet: 100` with a comment saying the contract
+   *  enforced it. VERIFIED by `cast call` against the live genesis contract
+   *  (0xfd488978…92ba): `MAX_PER_WALLET() = 1111 = GENESIS_SUPPLY()`, so the
+   *  cap at MiFrensGenesis.sol:268 can never bind — one wallet could hold the
+   *  entire genesis supply, and with it `getVotes = 1111`.
+   *
+   *  `MAX_PER_WALLET` is `immutable` (MiFrensGenesis.sol:119, set once at :243)
+   *  with no setter, so this is NOT fixable in code on a deployed contract: it
+   *  is a constructor argument, chosen at deploy time. The honest thing the app
+   *  can do is stop asserting a limit that does not exist.
+   *
+   *  `null` = no cap the UI may claim. Anything rendering a per-wallet limit
+   *  must read `MAX_PER_WALLET()` from the chain and show THAT, or show nothing.
+   */
+  maxPerWallet: null as number | null,
 };
 
 /** Minimal ABI — only what the mint UI needs. */
