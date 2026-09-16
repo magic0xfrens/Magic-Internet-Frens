@@ -73,6 +73,12 @@ export default function PerpPanel({
   quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
 }: PerpPanelProps) {
   const qNative = isNativeQuote(quote);
+  //  ── LABEL THE BOOK IN WHAT IT IS ACTUALLY DENOMINATED IN (audit CA-2) ────
+  //  Every figure on this panel — collateral, OI, depth, vault, PnL — is in the
+  //  LIVE QUOTE, which is only ether until a generation rotates. A hardcoded Ξ
+  //  on a USDG book is a different lie about the same number as the 1e18 scaling
+  //  that made them all read zero.
+  const qGlyph = qNative ? "Ξ" : quoteSymbol;
   //  The collateral asset as the forms need it. `decimals` is forced to 18 on a
   //  native book so the ether path is arithmetically unchanged.
   const perpQuote: PerpQuote = useMemo(
@@ -284,8 +290,8 @@ export default function PerpPanel({
       // (would revert BadLeverage on _checkNotional). Notional is the tighter cap.
       if (overNotional) {
         const msg = maxCollByNotional >= 0.0001
-          ? `Position too big for POOL depth — one position is capped at ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of the Uniswap pool's ${compact(stats.depthEth)} Ξ, i.e. ~${compact(notionalCap)} Ξ notional. Try ~${compact(maxCollByNotional)} Ξ at ${lev}×, or lower leverage. Staking in the vault does NOT raise this cap — it is the pool's liquidity, not the vault's.`
-          : `The pool is too thin to open a position right now — depth ${compact(stats.depthEth)} Ξ. Wait for more liquidity.`;
+          ? `Position too big for POOL depth — one position is capped at ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of the Uniswap pool's ${compact(stats.depthEth)} ${qGlyph}, i.e. ~${compact(notionalCap)} ${qGlyph} notional. Try ~${compact(maxCollByNotional)} ${qGlyph} at ${lev}×, or lower leverage. Staking in the vault does NOT raise this cap — it is the pool's liquidity, not the vault's.`
+          : `The pool is too thin to open a position right now — depth ${compact(stats.depthEth)} ${qGlyph}. Wait for more liquidity.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
       // Block a "born-underwater" open BEFORE the wallet — spot has diverged from
@@ -299,7 +305,7 @@ export default function PerpPanel({
       // Block a doomed open BEFORE the wallet — the vault can't front this borrow.
       if (overLiquidity) {
         const msg = maxCollByLiquidity >= 0.0001
-          ? `Vault can only lend ${compact(sideCap)} Ξ to ${side}s right now — max ~${compact(maxCollByLiquidity)} Ξ at ${lev}×. Lower size/leverage, or stake ETH in the vault.`
+          ? `Vault can only lend ${compact(sideCap)} ${qGlyph} to ${side}s right now — max ~${compact(maxCollByLiquidity)} ${qGlyph} at ${lev}×. Lower size/leverage, or stake in the vault.`
           : `The ${side} vault is fully utilized right now — no liquidity to borrow. Try the other side, or stake ${side === "long" ? "ETH" : `$${ticker}`} in the vault.`;
         setErr(msg); setToast({ kind: "err", msg }); return;
       }
@@ -502,10 +508,10 @@ export default function PerpPanel({
                 <button
                   className="pp-max"
                   title={bindingCap === "notional"
-                    ? `Capped by POOL depth (${compact(stats.depthEth)} Ξ): one position may not exceed ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of it. Staking in the vault does not raise this — only deeper pool liquidity does.`
-                    : `Capped by what the vault can lend to ${side}s (${compact(sideCap)} Ξ). Staking in the vault raises this.`}
+                    ? `Capped by POOL depth (${compact(stats.depthEth)} ${qGlyph}): one position may not exceed ${((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of it. Staking in the vault does not raise this — only deeper pool liquidity does.`
+                    : `Capped by what the vault can lend to ${side}s (${compact(sideCap)} ${qGlyph}). Staking in the vault raises this.`}
                   onClick={() => setAmt(maxCollLabel)}
-                >max {maxCollLabel} Ξ</button>
+                >max {maxCollLabel} {qGlyph}</button>
               ) : null}
             </span>
           </div>
@@ -596,13 +602,13 @@ export default function PerpPanel({
 
         <div className="pp-summary">
           <div className="pp-line">
-            <span className="pp-line-l">Notional <span style={{ opacity: 0.6 }}>({((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of pool depth {compact(stats.depthEth)} Ξ)</span></span>
-            <span className={`pp-line-v ${overNotional ? "warn" : ""}`}>{notional.toFixed(4)} Ξ{stats.depthEth > 0 ? ` / ${compact(notionalCap)} max` : ""}</span>
+            <span className="pp-line-l">Notional <span style={{ opacity: 0.6 }}>({((stats.maxNotionalBps || 500) / 100).toFixed(0)}% of pool depth {compact(stats.depthEth)} {qGlyph})</span></span>
+            <span className={`pp-line-v ${overNotional ? "warn" : ""}`}>{notional.toFixed(4)} {qGlyph}{stats.depthEth > 0 ? ` / ${compact(notionalCap)} max` : ""}</span>
           </div>
           <div className="pp-line"><span className="pp-line-l">Entry price</span><span className="pp-line-v">{priceUsd > 0 ? `$${priceUsd < 0.01 ? priceUsd.toPrecision(2) : priceUsd.toFixed(4)}` : gwei(spotPrice)}</span></div>
           <div className="pp-line"><span className="pp-line-l">Est. liquidation</span><span className="pp-line-v warn">{gwei(liqPrice)} <span style={{ opacity: 0.7 }}>(−{liqDeltaPct.toFixed(0)}%)</span></span></div>
-          <div className="pp-line"><span className="pp-line-l">Open fee ({(feeBps / 100).toFixed(1)}% collat.)</span><span className="pp-line-v">{feeEth.toFixed(5)} Ξ</span></div>
-          <div className="pp-line"><span className="pp-line-l">Vault can lend ({side}s)</span><span className={`pp-line-v ${overLiquidity ? "warn" : ""}`}>{compact(sideCap)} Ξ{overLiquidity ? ` · max ~${compact(maxCollateral)} Ξ` : ""}</span></div>
+          <div className="pp-line"><span className="pp-line-l">Open fee ({(feeBps / 100).toFixed(1)}% collat.)</span><span className="pp-line-v">{feeEth.toFixed(5)} {qGlyph}</span></div>
+          <div className="pp-line"><span className="pp-line-l">Vault can lend ({side}s)</span><span className={`pp-line-v ${overLiquidity ? "warn" : ""}`}>{compact(sideCap)} {qGlyph}{overLiquidity ? ` · max ~${compact(maxCollateral)} ${qGlyph}` : ""}</span></div>
         </div>
 
         {wouldLiquidateOnOpen && collateral > 0 && (
@@ -616,8 +622,23 @@ export default function PerpPanel({
           {btnLabel}
         </button>
         {err && <div className="pp-err">{err}</div>}
+        {/*  ── DISCLOSE THE THING THAT CLOSES YOUR POSITION FOR YOU ──────────
+             The in-swap liquidation sweep was only ever described in the
+             `LiqGasStarved` error string (src/config/perp.ts), which is shown to
+             the under-gassed SWAPPER — never to the trader being swept. Since
+             the sweep became mandatory (a large trade must clear every position
+             it bankrupts or revert), a stranger's swap really can close your
+             position inside their transaction, at a PROJECTED price rather than
+             the one on the chart. That belongs where someone is deciding to open
+             a position, not in an error nobody sees. */}
         <p className="pp-note">
           Leverage executes <b>real swaps</b> — your position moves the chart. Liquidations trigger off a manipulation-resistant TWAP mark; fees fund the OG dividend + treasury.
+        </p>
+        <p className="pp-note">
+          <b>Another trader's swap can liquidate you inside their transaction.</b> A trade large
+          enough to bankrupt open positions must close them in the same tx, at the price that
+          trade <i>projects</i> — so your position can be closed between blocks, without your
+          own transaction and before the chart shows the move.
         </p>
       </div>
 
@@ -634,13 +655,13 @@ export default function PerpPanel({
               <div className="pp-oi-short" style={{ width: `${100 - longShare}%` }} />
             </div>
             <div className="pp-oi-legend">
-              <span className="l">Longs {stats.longOiEth.toFixed(2)} Ξ</span>
-              <span className="s">{stats.shortOiEth.toFixed(2)} Ξ Shorts</span>
+              <span className="l">Longs {stats.longOiEth.toFixed(2)} {qGlyph}</span>
+              <span className="s">{stats.shortOiEth.toFixed(2)} {qGlyph} Shorts</span>
             </div>
           </div>
           <div className="pp-vault">
-            <div><div className="k">Depth</div><div className="v">{compact(stats.depthEth)} Ξ</div></div>
-            <div><div className="k">Vault ETH</div><div className="v">{compact(stats.plvEth)} Ξ</div></div>
+            <div><div className="k">Depth</div><div className="v">{compact(stats.depthEth)} {qGlyph}</div></div>
+            <div><div className="k">Vault {qGlyph}</div><div className="v">{compact(stats.plvEth)} {qGlyph}</div></div>
             <div><div className="k">Vault {ticker}</div><div className="v">{compact(stats.plvToken)}</div></div>
           </div>
         </div>
@@ -664,10 +685,10 @@ export default function PerpPanel({
                 <div>
                   <div className="pp-agg__k">Total unrealized PnL</div>
                   <div className="pp-agg__v" style={{ color: agg.pnlEth >= 0 ? col : C.red }}>
-                    {agg.pnlEth >= 0 ? "+" : ""}{agg.pnlEth.toFixed(4)} Ξ
+                    {agg.pnlEth >= 0 ? "+" : ""}{agg.pnlEth.toFixed(4)} {qGlyph}
                     <span className="pp-agg__pct"> ({agg.pnlEth >= 0 ? "+" : ""}{agg.roiPct.toFixed(1)}%)</span>
                   </div>
-                  <div className="pp-agg__sub tc-mono">{agg.collateralEth.toFixed(4)} Ξ collateral · {perp.positions.length} open</div>
+                  <div className="pp-agg__sub tc-mono">{agg.collateralEth.toFixed(4)} {qGlyph} collateral · {perp.positions.length} open</div>
                 </div>
                 <div className="pp-agg__btns">
                   <button className="pp-agg__closeall" onClick={() => perp.closeAll((p) => expectedCloseEth(p, spotPrice))} disabled={perp.closingBusy}>
@@ -677,7 +698,7 @@ export default function PerpPanel({
               </div>
               <div className="pp-pos">
                 {perp.positions.map((p) => (
-                  <PositionCard key={p.id.toString()} p={p} col={col} ticker={ticker} spotPrice={spotPrice}
+                  <PositionCard key={p.id.toString()} p={p} col={col} ticker={ticker} spotPrice={spotPrice} qGlyph={qGlyph}
                     onClose={(c) => onClosePosition(p.id, c)} busy={perp.closingBusy}
                     onCard={(c) => setCard(c)} />
                 ))}
@@ -723,9 +744,11 @@ export function positionPnl(p: PerpPosition, spotPrice: number): number {
   return p.isLong ? markValueEth - p.notionalEth : p.notionalEth - markValueEth;
 }
 
-function PositionCard({ p, col, spotPrice, onClose, busy, onCard }: {
+function PositionCard({ p, col, spotPrice, onClose, busy, onCard, qGlyph = "Ξ" }: {
   p: PerpPosition; col: string; ticker: string; spotPrice: number;
   onClose: (card: CardData) => void; busy: boolean; onCard: (c: CardData) => void;
+  /** The live quote's glyph — these figures are quote-denominated, not ether. */
+  qGlyph?: string;
 }) {
   const priced = spotPrice > 0 && p.entryPrice > 0;
   const markValueEth = priced ? p.notionalEth * (spotPrice / p.entryPrice) : p.notionalEth;
@@ -745,12 +768,12 @@ function PositionCard({ p, col, spotPrice, onClose, busy, onCard }: {
         <span className="pp-pnl" style={{ color: up ? col : C.red, cursor: "pointer" }}
           title="Share PnL card"
           onClick={() => onCard({ pnlEth, roiPct: pnlPct, kind: up ? "win" : "loss", leverage: p.leverage, isLong: p.isLong, entryPrice: p.entryPrice })}>
-          {up ? "+" : ""}{pnlEth.toFixed(4)} Ξ <span style={{ fontSize: 11, opacity: 0.8 }}>({up ? "+" : ""}{pnlPct.toFixed(1)}%)</span>
+          {up ? "+" : ""}{pnlEth.toFixed(4)} {qGlyph} <span style={{ fontSize: 11, opacity: 0.8 }}>({up ? "+" : ""}{pnlPct.toFixed(1)}%)</span>
         </span>
       </div>
       <div className="pp-grid">
-        <div className="pp-cell"><div className="k">Collateral</div><div className="v">{p.collateralEth.toFixed(4)} Ξ</div></div>
-        <div className="pp-cell"><div className="k">Mark value</div><div className="v">{markValueEth.toFixed(4)} Ξ</div></div>
+        <div className="pp-cell"><div className="k">Collateral</div><div className="v">{p.collateralEth.toFixed(4)} {qGlyph}</div></div>
+        <div className="pp-cell"><div className="k">Mark value</div><div className="v">{markValueEth.toFixed(4)} {qGlyph}</div></div>
         <div className="pp-cell"><div className="k">Liq. price</div><div className="v">{gwei(liqPrice)}</div></div>
       </div>
       {liquidatable && <div className="pp-liq-tag" style={{ marginBottom: 8 }}>⚠ At liquidation risk</div>}

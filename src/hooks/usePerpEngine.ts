@@ -15,6 +15,11 @@ export interface PerpStats {
   plvEth: number;
   plvToken: number;
   depthEth: number;
+  /** The unit every *Eth field above is actually denominated in. Only "ETH"
+   *  until a generation rotates into an ERC20 quote — label with this, never
+   *  with a hardcoded Ξ (audit CA-2). */
+  quoteSymbol: string;
+  quoteDecimals: number;
   maxLev: number;
   fundingIdx: number;   // signed; >0 longs pay, <0 shorts pay
   dead: boolean;
@@ -36,7 +41,7 @@ export interface PerpPosition {
 
 const EMPTY_STATS: PerpStats = {
   live: false, longOiEth: 0, shortOiEth: 0, plvEth: 0, plvToken: 0,
-  depthEth: 0, maxLev: 0, fundingIdx: 0, dead: false, openFeeBps: 690, ogDiscountBps: 5000,
+  depthEth: 0, quoteSymbol: "ETH", quoteDecimals: 18, maxLev: 0, fundingIdx: 0, dead: false, openFeeBps: 690, ogDiscountBps: 5000,
   maxNotionalBps: 500, stale: false,
 };
 // Live the moment the engine is deployed; the indexer reads enrich the numbers.
@@ -180,6 +185,7 @@ export function usePerpEngine(generation = 1) {
           live: true,
           longOiEth: d.longOiEth ?? 0, shortOiEth: d.shortOiEth ?? 0,
           plvEth: d.plvEth ?? 0, plvToken: d.plvToken ?? 0, depthEth: d.depthEth ?? 0,
+          quoteSymbol: d.quoteSymbol || "ETH", quoteDecimals: d.quoteDecimals ?? 18,
           maxLev: d.maxLev || 3, fundingIdx: d.fundingIdx ?? 0, dead: !!d.dead,
           openFeeBps: d.openFeeBps ?? 690, ogDiscountBps: d.ogDiscountBps ?? 5000,
           maxNotionalBps: d.maxNotionalBps ?? 500, stale: !!d.stale,
