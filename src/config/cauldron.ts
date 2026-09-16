@@ -20,10 +20,14 @@ import { ACTIVE_ROUND as round } from "./deployments";
 //  "nothing has happened yet" rather than an error. Silent and expensive to
 //  diagnose, trivial to detect.
 //
-//  Loud but non-fatal: a throw would blank the whole app over what might be a
-//  deliberate local experiment.
+//  FATAL, not logged. This used to be a `console.error` and "loud but
+//  non-fatal" — which in practice meant a user on the wrong chain saw an empty
+//  but plausible UI, clicked Buy, and had their wallet force-switched to
+//  `CAULDRON.chainId` before signing calldata addressed to the OTHER chain.
+//  A blank page with this message in the console is strictly better than a
+//  value-bearing signature aimed at a chain the addresses do not live on.
 if (round.chainId !== ACTIVE_CHAIN_ID) {
-  console.error(
+  throw new Error(
     `[cauldron] MANIFEST/CHAIN MISMATCH — the app is on chain ${ACTIVE_CHAIN_ID}, but the ` +
       `selected manifest pins chain ${round.chainId}. Every address below belongs to ` +
       `${round.chainId} and has no code on ${ACTIVE_CHAIN_ID}: reads will come back empty ` +

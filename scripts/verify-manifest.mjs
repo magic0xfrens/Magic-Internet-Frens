@@ -42,6 +42,37 @@ try {
 
 /* ── 1. the manifest is well-formed ──────────────────────────────────────── */
 if (!Number.isInteger(m.chainId)) errors.push("`chainId` must be an integer");
+
+/*  THE BUILD IS THE RIGHT PLACE TO CATCH A CHAIN MISMATCH.
+ *  `Number.isInteger(chainId)` alone let a chain-4663 manifest through a build
+ *  whose VITE_CHAIN_ID said something else; the app then loaded it under the
+ *  wrong key, force-switched the wallet to the wrong chain and signed real-value
+ *  calldata there. Assert the two agree HERE, before a bundle exists. */
+const envChainId = Number(process.env.VITE_CHAIN_ID ?? "");
+if (Number.isSafeInteger(envChainId) && envChainId > 0 && Number.isInteger(m.chainId) && envChainId !== m.chainId) {
+  errors.push(
+    `VITE_CHAIN_ID=${envChainId} but ${relative(ROOT, MANIFEST)} pins chainId ${m.chainId} — ` +
+      `the app would load ${m.chainId}'s addresses while telling the wallet it is on ${envChainId}`,
+  );
+}
+/*  VITE_NETWORK=arc selects round.arc.json, so it must NOT be set alongside a
+ *  primary manifest for a different chain and then be expected to ship it. */
+const envNetwork = (process.env.VITE_NETWORK ?? "").trim().toLowerCase();
+if (envNetwork && !["testnet", "sepolia", "primary", "target", "mainnet", "arc"].includes(envNetwork)) {
+  errors.push(`VITE_NETWORK="${envNetwork}" is not one of testnet|sepolia|primary|target|mainnet|arc`);
+}
+
+/*  Quote decimals are signed into slippage floors. An approved quote missing
+ *  from `quoteAssets` renders as a bare address and cannot be described. */
+if (!Array.isArray(m.quoteAssets) || m.quoteAssets.length === 0) {
+  warnings.push("`quoteAssets` is empty/missing — every quote will render as a bare address");
+} else {
+  for (const [i, q] of m.quoteAssets.entries()) {
+    if (!isAddress(q?.address)) errors.push(`quoteAssets[${i}].address is not a 20-byte address: ${q?.address}`);
+    if (!Number.isInteger(q?.decimals) || q.decimals < 0 || q.decimals > 36)
+      errors.push(`quoteAssets[${i}].decimals must be an integer 0..36 (it scales signed slippage floors)`);
+  }
+}
 if (typeof m.schema !== "string" || !/^[a-z0-9_]+$/.test(m.schema))
   errors.push("`schema` must be lowercase [a-z0-9_] — it becomes a Postgres schema name");
 if (typeof m.indexerUrl !== "string" || !/^https?:\/\/[^/]+/.test(m.indexerUrl))

@@ -2,7 +2,7 @@ import { defineChain, http, fallback } from "viem";
 import { sepolia } from "viem/chains";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { injectedWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wallets";
-import { SELECTED_CHAIN_ID } from "./deployments";
+import { SELECTED_CHAIN_ID, DEPLOY_CHAIN_IDS } from "./deployments";
 
 /**
  * THE DEPLOYMENT TARGET CHAIN — defined entirely from env, named by no vendor.
@@ -21,20 +21,19 @@ import { SELECTED_CHAIN_ID } from "./deployments";
  *  1e12. So symbol/name/decimals are env-driven too, and the decimals are
  *  validated rather than trusted.
  */
-// NOTE: `??` does NOT catch an env var set to an empty string (Vercel does this
-// when a var is declared but left blank), and `Number("")` is 0 — a chain id of
-// 0 or NaN builds a chain wagmi can never resolve, so `usePublicClient()` returns
-// undefined and RainbowKit's TransactionStoreProvider dereferences it. Coerce
-// explicitly and fall back on anything that isn't a positive integer.
-const RAW_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID);
-//  Default 5042002 (Arc testnet) because that is where the second deployment
-//  actually lives — a default nobody has deployed to is just a slower way to
-//  fail. Overridden by VITE_CHAIN_ID for any other target.
-//  The SELECTED chain leads when it is not Sepolia, so choosing Arc in the UI
-//  actually points `targetChain` at Arc rather than at whatever VITE_CHAIN_ID
-//  happened to say. Falls back to the env value, then to Arc.
-const ENV_CHAIN_ID = Number.isSafeInteger(RAW_CHAIN_ID) && RAW_CHAIN_ID > 0 ? RAW_CHAIN_ID : 5042002;
-const CHAIN_ID = SELECTED_CHAIN_ID !== sepolia.id ? SELECTED_CHAIN_ID : ENV_CHAIN_ID;
+//  NO HARDCODED CHAIN ID HERE ANY MORE. `SELECTED_CHAIN_ID` is resolved in
+//  deployments.ts from the MANIFEST'S OWN `chainId` (and VITE_CHAIN_ID is
+//  validated against the bundled set there, fatally). A second, independent
+//  default here — it used to be 5042002, Arc testnet — is exactly how a
+//  Robinhood build ended up describing itself as Arc: `targetChain` said one
+//  chain while the addresses came from another.
+//
+//  `targetChain` is the NON-Sepolia chain the app offers. When the selection is
+//  itself non-Sepolia that is the selection; when Sepolia is selected it is the
+//  other bundled manifest, so the switcher has somewhere to switch TO. Never an
+//  env guess.
+const OTHER_CHAIN_ID = DEPLOY_CHAIN_IDS.find((id) => id !== sepolia.id) ?? sepolia.id;
+const CHAIN_ID = SELECTED_CHAIN_ID !== sepolia.id ? SELECTED_CHAIN_ID : OTHER_CHAIN_ID;
 
 /** Empty-string-safe env read: Vercel sets declared-but-blank vars to "". */
 const env = (key: string, fallbackValue: string) => {
@@ -42,10 +41,45 @@ const env = (key: string, fallbackValue: string) => {
   return raw ? raw : fallbackValue;
 };
 
-const CHAIN_NAME = env("VITE_CHAIN_NAME", "Arc Testnet");
-const RPC_URL = env("VITE_RPC_URL", "https://rpc.testnet.arc.network");
-const EXPLORER_URL = env("VITE_EXPLORER_URL", "https://testnet.arcscan.app");
-const EXPLORER_NAME = env("VITE_EXPLORER_NAME", "Arcscan");
+/**
+ *  Per-chain metadata defaults, keyed by chain id.
+ *
+ *  A single flat default ("Arc Testnet", the Arc RPC) is wrong for every chain
+ *  but one, and wrong SILENTLY: an unset `VITE_RPC_URL` on chain 4663 used to
+ *  point a mainnet app at a testnet RPC. Keying by the chain the app actually
+ *  resolved to means the unset case is at worst incomplete, never misdirected —
+ *  and for a chain not listed here, `RPC_URL` below refuses rather than guesses.
+ */
+const CHAIN_DEFAULTS: Record<
+  number,
+  { name: string; rpc: string; explorer: string; explorerName: string; currency: string; currencyName: string; decimals: number; testnet: boolean }
+> = {
+  5042002: { name: "Arc Testnet", rpc: "https://rpc.testnet.arc.network", explorer: "https://testnet.arcscan.app", explorerName: "Arcscan", currency: "USD", currencyName: "US Dollar", decimals: 18, testnet: true },
+  //  VERIFIED against the live chain and ethereum-lists/chains eip155-4663:
+  //  id 4663, native ETH/18, rpc.MAINNET.chain.robinhood.com. The host
+  //  `rpc.chain.robinhood.com` that our docs used to carry does not exist — it
+  //  refuses TLS from every client — so it must never appear as a default.
+  4663: { name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: false },
+  46630: { name: "Robinhood testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", explorerName: "Blockscout", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true },
+  11155111: { name: "Sepolia", rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io", explorerName: "Etherscan", currency: "ETH", currencyName: "Ether", decimals: 18, testnet: true },
+};
+
+const D = CHAIN_DEFAULTS[CHAIN_ID];
+
+const CHAIN_NAME = env("VITE_CHAIN_NAME", D?.name ?? `Chain ${CHAIN_ID}`);
+//  An RPC is the one value with no safe guess. Unknown chain + unset env = stop.
+const RPC_URL = (() => {
+  const u = env("VITE_RPC_URL", D?.rpc ?? "");
+  if (!u) {
+    throw new Error(
+      `[cauldron] NO RPC FOR CHAIN ${CHAIN_ID} — set VITE_RPC_URL, or add the chain to CHAIN_DEFAULTS ` +
+        `in src/config/chains.ts. Refusing to fall back to another chain's RPC.`,
+    );
+  }
+  return u;
+})();
+const EXPLORER_URL = env("VITE_EXPLORER_URL", D?.explorer ?? "");
+const EXPLORER_NAME = env("VITE_EXPLORER_NAME", D?.explorerName ?? "Explorer");
 
 //  Decimals are VALIDATED, not trusted. A bad value here would not throw — it
 //  would silently shift every balance the UI formats by orders of magnitude,
@@ -53,14 +87,16 @@ const EXPLORER_NAME = env("VITE_EXPLORER_NAME", "Arcscan");
 //  config error. Anything outside 0..36 falls back to 18.
 const RAW_DECIMALS = Number(import.meta.env.VITE_CHAIN_DECIMALS);
 const CHAIN_DECIMALS =
-  Number.isSafeInteger(RAW_DECIMALS) && RAW_DECIMALS >= 0 && RAW_DECIMALS <= 36 ? RAW_DECIMALS : 18;
+  Number.isSafeInteger(RAW_DECIMALS) && RAW_DECIMALS >= 0 && RAW_DECIMALS <= 36
+    ? RAW_DECIMALS
+    : (D?.decimals ?? 18);
 
 export const targetChain = defineChain({
   id: CHAIN_ID,
   name: CHAIN_NAME,
   nativeCurrency: {
-    name: env("VITE_CHAIN_CURRENCY_NAME", "Ether"),
-    symbol: env("VITE_CHAIN_CURRENCY", "ETH"),
+    name: env("VITE_CHAIN_CURRENCY_NAME", D?.currencyName ?? "Ether"),
+    symbol: env("VITE_CHAIN_CURRENCY", D?.currency ?? "ETH"),
     decimals: CHAIN_DECIMALS,
   },
   rpcUrls: {
@@ -72,7 +108,7 @@ export const targetChain = defineChain({
   },
   //  Declared, not inferred from the id — the previous `=== 46646` check was a
   //  single hardcoded chain's testnet id and read `false` for every other chain.
-  testnet: env("VITE_CHAIN_IS_TESTNET", "true") !== "false",
+  testnet: env("VITE_CHAIN_IS_TESTNET", D ? String(D.testnet) : "true") !== "false",
 });
 
 /** WalletConnect Cloud project id (required by RainbowKit for WC transports). */
@@ -173,12 +209,17 @@ export const TARGET_CHAIN_NAME = CHAIN_NAME;
 export const TARGET_RPC_URL = RPC_URL;
 export const TARGET_EXPLORER_URL = EXPLORER_URL;
 /** Native gas-token symbol of the ACTIVE chain. Not always "ETH" — see above. */
-export const NATIVE_SYMBOL = IS_TARGET ? targetChain.nativeCurrency.symbol : "ETH";
-export const NATIVE_DECIMALS = IS_TARGET ? targetChain.nativeCurrency.decimals : 18;
 
 // ── ACTIVE NETWORK (switch itself lives above wagmiConfig) ──────────────────
 export const ACTIVE_CHAIN = IS_TARGET ? targetChain : sepoliaFixed;
 export const ACTIVE_CHAIN_ID = ACTIVE_CHAIN.id;
+
+//  Read off the ACTIVE chain, not re-derived from IS_TARGET: the old form
+//  hardcoded ETH/18 for the whole non-target branch, which silently discarded
+//  VITE_CHAIN_DECIMALS/VITE_CHAIN_CURRENCY on any build where IS_TARGET was
+//  false for the wrong reason.
+export const NATIVE_SYMBOL = ACTIVE_CHAIN.nativeCurrency.symbol;
+export const NATIVE_DECIMALS = ACTIVE_CHAIN.nativeCurrency.decimals;
 export const NETWORK_LABEL = IS_TARGET ? CHAIN_NAME : "Sepolia testnet";
 //  First word of the chain name, so a rename needs no second edit here.
 export const NETWORK_SHORT = IS_TARGET ? (CHAIN_NAME.split(/\s+/)[0] || CHAIN_NAME) : "Sepolia";
