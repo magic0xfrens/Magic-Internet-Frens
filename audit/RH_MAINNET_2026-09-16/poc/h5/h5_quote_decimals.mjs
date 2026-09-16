@@ -39,10 +39,16 @@ console.log("── src/hooks/useAllowedQuotes.ts ──");
 chk("useQuoteDecimals exists and reads ERC20 decimals() on-chain",
   /export function useQuoteDecimals/.test(hook) && /functionName:\s*"decimals"/.test(hook));
 chk("an unreadable/absurd decimals stays null — no 18 guess",
-  /setDec\(null\)/.test(hook) && /<=\s*36\s*\?\s*Number\(d\)\s*:\s*null/.test(hook));
+  /setState\(\{ key, dec: null \}\)/.test(hook) && /n <= 36 \? n : null/.test(hook));
+// RH1A hardened this further: the read is KEYED to the quote, so it cannot
+// latch a stale value when the quote address changes under it.
+chk("the read is keyed to the quote it read (RH1A)",
+  /useState<\{ key: string; dec: number \| null \}>/.test(hook)
+  && /\}, \[load, key\]\);/.test(hook));
 
 console.log("── src/components/cauldron/TheCauldron.tsx ──");
-chk("the live quote's decimals come from the chain read", /useQuoteDecimals\(liveQuoteAddr\)/.test(cauldron));
+chk("the live quote's decimals come from the chain read, and only once the quote itself resolved",
+  /useQuoteDecimals\(quoteResolved \? liveQuoteAddr : null\)/.test(cauldron));
 chk("and the 'known' flag is threaded to the trade panel",
   /quoteDecimalsKnown=\{quoteDecimalsKnown\}/.test(cauldron));
 chk("no panel is still fed liveQuote.decimals from the manifest",
