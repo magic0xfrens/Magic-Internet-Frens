@@ -88,6 +88,75 @@ library GachaLib {
     }
 
     /**
+     * @dev Base of a second namespaced mapping `batchIndex => bytes32`: the
+     *      batch's PINNED seed, `blockhash(commitBlock)` copied into storage
+     *      while it was still inside the EVM's 256-block horizon.
+     *
+     *  ── WHY (red-team T3B) ─────────────────────────────────────────────────
+     *  `blockhash` returns zero past 256 blocks. That is an EVM constant, not a
+     *  tunable: on a 12-second chain it is ~51 minutes, on Robinhood Chain —
+     *  measured at 0.1012 s/block — it is 25.9 SECONDS, and the second expiry
+     *  that forfeits the batch lands at 51.8 seconds. An honest player who pays
+     *  for a 9,000-bps draw and hits a slow RPC loses the whole stake, with no
+     *  attacker involved.
+     *
+     *  Pinning fixes that WITHOUT handing anyone a second draw. The pinned value
+     *  is the ORIGINAL commit block's hash — the very seed the player could
+     *  already read off-chain — so a pinned batch's outcome is frozen: waiting
+     *  cannot improve it, and there is nothing to re-roll. Any single
+     *  `resolveTickets` call that lands inside the batch's first 256 blocks
+     *  (every swap fires one via `nativeGachaStep`, and all three router
+     *  entrypoints call it) immunises the batch FOREVER.
+     *
+     *  What is deliberately NOT changed: a batch that no call touches at all
+     *  inside its window still gets exactly ONE re-anchor and then commits a
+     *  loss. That terminal forfeit is the only outcome a player who peeks at a
+     *  losing seed and declines to resolve cannot profit from; every softer
+     *  ending (refund, extra re-anchor, longer grace) is a free option on a
+     *  draw whose result is already public. See {REANCHORED_SLOT}.
+     *
+     *  Hashed namespace, same reason as {REANCHORED_SLOT}: this library is
+     *  DELEGATECALLed into the hook's storage, and adding a field to {Batch}
+     *  would break the hook's public `batches(uint256)` getter for the indexer
+     *  and the frontend.
+     */
+    bytes32 private constant SEED_SLOT = keccak256("cauldron.gacha.seed.v1");
+
+    /// @dev How far past the cursor the pin sweep reaches. Batches behind a
+    ///      long head batch age out too when `maxCount` is exhausted before the
+    ///      loop reaches them, so the sweep cannot only cover the head. Bounded
+    ///      so the gas-capped in-swap path ({CauldronHook.nativeGachaStep}) can
+    ///      still afford it.
+    uint256 private constant PIN_SPAN = 4;
+
+    function _seed(uint256 bi) private view returns (bytes32 v) {
+        bytes32 s = keccak256(abi.encode(bi, SEED_SLOT));
+        assembly ("memory-safe") { v := sload(s) }
+    }
+
+    function _pinSeed(uint256 bi, bytes32 v) private {
+        bytes32 s = keccak256(abi.encode(bi, SEED_SLOT));
+        assembly ("memory-safe") { sstore(s, v) }
+    }
+
+    /// @dev Copy the still-live blockhash of every unresolved batch in
+    ///      `[from, from+PIN_SPAN)` into storage. `blockhash` of the current or
+    ///      a future block is zero and is skipped — nothing is ever pinned to a
+    ///      seed that is not yet determined, so pinning can never fix an outcome
+    ///      the roller could have chosen.
+    function _pinSeeds(Batch[] storage batches, uint256 from, uint256 end) private {
+        uint256 stop = from + PIN_SPAN;
+        if (stop > end) stop = end;
+        for (uint256 k = from; k < stop; ) {
+            if (_seed(k) == bytes32(0)) {
+                bytes32 bh = blockhash(batches[k].commitBlock);
+                if (bh != bytes32(0)) _pinSeed(k, bh);
+            }
+            unchecked { k++; }
+        }
+    }
+
+    /**
      * @notice Resolve up to `maxCount` pending crystals, in commit order.
      *
      *  Each crystal's outcome is seeded by the blockhash of its commit block —
@@ -116,7 +185,12 @@ library GachaLib {
         while (processed < maxCount && bi < end) {
             Batch storage b = batches[bi];
             if (block.number <= b.commitBlock) break; // seed not known yet
-            bytes32 bh = blockhash(b.commitBlock);
+            //  PINNED seed first (T3B): once any call has copied this batch's
+            //  commit-block hash into storage the outcome is frozen and the
+            //  256-block wall-clock deadline no longer applies. Falls back to
+            //  the live `blockhash` for a batch nothing has pinned yet.
+            bytes32 bh = _seed(bi);
+            if (bh == bytes32(0)) bh = blockhash(b.commitBlock);
             //  Set when the batch has aged out AND already spent its single
             //  re-anchor: the remaining crystals commit their base outcome (a
             //  loss) instead of being re-rolled. See {REANCHORED_SLOT}.
@@ -191,5 +265,10 @@ library GachaLib {
         //  the next call self-heals — but a cursor that only moves forward costs
         //  nothing and removes the transient lie.
         if (bi > st.batchCursor) st.batchCursor = bi;
+        //  PIN THE SEEDS OF WHAT IS LEFT (T3B). Runs after the cursor is final,
+        //  so it covers the batch the loop stopped inside (partially resolved,
+        //  `maxCount` exhausted) and the next few behind it. Costs one SLOAD per
+        //  already-pinned batch in steady state.
+        _pinSeeds(batches, st.batchCursor, end);
     }
 }
