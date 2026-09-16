@@ -889,7 +889,11 @@ app.get("/floor", async (c) => {
     markPriceEth: mark,                                  // ETH per token (live mark)
     redeemFloorEth,                                      // floor × mark = fren's live ETH value
     floorPctOfMcap,                                      // % of FDV each fren backs (rises)
-    ticker: ps?.airdropTicker ?? "",
+    //  `airdropTicker` comes from getCreatureForGeneration(1) — generation ONE,
+    //  hardcoded — so on any later round, or if that read reverts, it is "" and
+    //  the panel renders "N $" with no symbol. The LIVE token's own symbol() is
+    //  the correct source and is what /legacy already uses; fall back to it.
+    ticker: ps?.airdropTicker || (await liveTicker()),
     //  WEI, AS A STRING. `floorPerFren` above is a float in whole tokens, which
     //  loses the low digits of a 1e18 value — fine for a chart label, wrong for
     //  the "recycle N frens for X $TOKEN" figure, which is share × count. The
@@ -939,6 +943,26 @@ const REG_CURGEN = [
   { type: "function", name: "generationCollection", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
 ] as const;
 const SYMBOL_ABI = [{ type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] }] as const;
+const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
+const REG_GENQUOTE = [{ type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] }] as const;
+
+/** The LIVE generation's token symbol, cached briefly. The presale's
+ *  `airdropTicker` is pinned to generation 1, so it goes blank on every later
+ *  round; this is the symbol the chain actually has right now. */
+let tickerCache: { at: number; v: string } = { at: 0, v: "" };
+async function liveTicker(): Promise<string> {
+  if (Date.now() - tickerCache.at < 30_000) return tickerCache.v;
+  try {
+    const gen = Number(await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentGeneration" }) as bigint);
+    if (gen <= 0) return tickerCache.v;
+    const token = await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentToken" }) as `0x${string}`;
+    if (!token || token === ZERO) return tickerCache.v;
+    const sym = await perpClient.readContract({ address: token, abi: SYMBOL_ABI, functionName: "symbol" }) as string;
+    //  Keep the last good symbol on a blip rather than blanking the label.
+    if (sym) tickerCache = { at: Date.now(), v: sym };
+  } catch { /* keep last good */ }
+  return tickerCache.v;
+}
 let colFloorCache: { at: number; v: unknown } = { at: 0, v: null };
 app.get("/collection-floors", async (c) => {
   if (Date.now() - colFloorCache.at < 5000 && colFloorCache.v) return c.json(colFloorCache.v);
@@ -965,6 +989,25 @@ app.get("/collection-floors", async (c) => {
       rd(HOOK, HOOK_LEGACY, "legacyBuffer"),
       curGen > 0 ? rd(LEDGER_ADDR, LEDGER_READ, "entitledTokens", [BigInt(curGen)]) : Promise.resolve(0n),
     ]);
+    //  ── THE BUFFER IS IN THE GENERATION'S QUOTE, NOT ALWAYS IN 1e18 ─────────
+    //  `Number(buffer) / 1e18` assumed every quote is 18-decimal. On a 6-decimal
+    //  quote (USDG-class) that divides the real figure by 1e12, so the progress
+    //  bar rendered a confident **0%** no matter how full the buffer was. Same
+    //  split-source-of-truth as the frontend's quote decimals: the quote ADDRESS
+    //  is on-chain, so read its decimals from the chain too rather than assuming.
+    const liveQuote = curGen > 0
+      ? await perpClient.readContract({ address: REGISTRY, abi: REG_GENQUOTE, functionName: "generationQuote", args: [BigInt(curGen)] }).catch(() => ZERO) as `0x${string}`
+      : ZERO as `0x${string}`;
+    const quoteIsNative = !liveQuote || liveQuote === ZERO;
+    const bufferDecimals = quoteIsNative
+      ? 18
+      : Number(await perpClient.readContract({ address: liveQuote, abi: DECIMALS_ABI, functionName: "decimals" }).catch(() => 18));
+    const bufferUnits = Number(buffer) / 10 ** bufferDecimals;
+    //  `thresholdEth` is a MANIFEST figure denominated in ether. Once a
+    //  generation has rotated into an ERC20 quote the two are different units,
+    //  and a percentage of one against the other is meaningless. Say so instead
+    //  of quietly dividing them.
+    const bufferUnitMatchesThreshold = quoteIsNative;
     // LIVE collection is now redeemable (post-unify): read its per-NFT floor at the
     // live mint count so the panel can show "redeem a creature for N $TOKEN now".
     let liveFloorPerNFT = 0, liveOutstanding = 0;
@@ -999,7 +1042,12 @@ app.get("/collection-floors", async (c) => {
       livePending: Number(liveEntitled) / 1e18,
       liveFloorPerNFT,   // token redeemable per LIVE creature NFT right now
       liveOutstanding,   // entitled (redeemable) live NFTs
-      bufferEth: Number(buffer) / 1e18,
+      bufferEth: bufferUnits,
+      //  Raw + decimals + asset, so a consumer never has to guess the unit.
+      bufferRaw: buffer.toString(),
+      bufferDecimals,
+      bufferQuote: liveQuote,
+      bufferUnitMatchesThreshold,
       //  DEPLOY-TIME CONFIGURATION, FROM THE MANIFEST — not from the chain.
       //  The hook exposes no getter for either (see HOOK_LEGACY above), so there
       //  is nothing to prefer a chain read to; pretending otherwise is what
@@ -1008,8 +1056,8 @@ app.get("/collection-floors", async (c) => {
       thresholdEth: LEGACY_THRESHOLD_ETH,
       legacyBps: LEGACY_BPS,
       thresholdSource: "manifest" as const,
-      bufferPct: LEGACY_THRESHOLD_ETH > 0
-        ? Math.min(100, (Number(buffer) / 1e18 / LEGACY_THRESHOLD_ETH) * 100)
+      bufferPct: LEGACY_THRESHOLD_ETH > 0 && bufferUnitMatchesThreshold
+        ? Math.min(100, (bufferUnits / LEGACY_THRESHOLD_ETH) * 100)
         : 0,
       past,
       //  Empty unless a chain read actually failed. A caller that sees a 0 here
