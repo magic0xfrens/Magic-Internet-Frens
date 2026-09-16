@@ -314,9 +314,26 @@ contract XL1_LiqTwapAndDepthCap is Test {
         console2.log("bad debt charged to vault  ", badDebt);
         console2.log("openCount after the swap   ", perp.openCount());
 
-        // (a) it is liquidated in the SAME transaction as the swap.
-        assertEq(perp.openCount(), 0, "the swap that made it insolvent must also close it");
-        assertEq(_traderOf(id), address(0), "position must be gone");
+        // (a) E1A CHANGED THIS EXPECTATION DELIBERATELY. Was:
+        //       assertEq(perp.openCount(), 0, "the swap that made it insolvent must also close it");
+        //       assertEq(_traderOf(id), address(0), "position must be gone");
+        //     The buy-back is now bounded by the mark band, because the settlement
+        //     price and an attacker's pushed price are indistinguishable (see the
+        //     comment on `band` in PerpEngine._settle). A position this size
+        //     cannot be bought back inside the band, so the sweep leaves it
+        //     ALONE rather than buying it at a price this swap just made.
+        //     Same-swap closure was traded for "no staker is charged at a price
+        //     the caller made". What must still hold, and is asserted here:
+        //     the position is NOT stranded — it stays open, stays liquidatable,
+        //     and closes once depth recovers (pinned end-to-end by
+        //     test_XL1_ShortLargerThanThePoolIsStillCloseable).
+        if (perp.openCount() == 0) {
+            assertEq(_traderOf(id), address(0), "a fully closed position must be gone");
+        } else {
+            assertEq(_size(id), size, "an unbanked position must be left intact, not part-sold");
+            assertTrue(perp.isLiquidatable(id), "it must remain liquidatable, not stranded");
+            assertTrue(_traderOf(id) != address(0), "the position must still exist to be closed later");
+        }
 
         // (b) the loss is bounded near the collateral, not 88x it.
         assertLt(badDebt, COLLATERAL * 3, "bad debt must be bounded by the one swap's impact");
@@ -398,8 +415,17 @@ contract XL1_LiqTwapAndDepthCap is Test {
 
         perp.liquidate(id); // MUST NOT revert LiqCapped()
 
-        assertEq(perp.openCount(), 0, "an insolvent position must be closeable at any size");
-        assertEq(_traderOf(id), address(0), "position must be gone");
+        // E1A: the buy-back is bounded by the mark band, so a position larger
+        // than the band can absorb is REDUCED here rather than fully closed. The
+        // property that survives — and the one that matters for solvency — is
+        // that liquidation always makes PROGRESS and never strands the remainder.
+        // Full finishability is pinned by test_XL1_ShortLargerThanThePoolIsStillCloseable.
+        if (perp.openCount() == 0) {
+            assertEq(_traderOf(id), address(0), "a fully closed position must be gone");
+        } else {
+            assertLt(_size(id), size, "liquidation must make progress, not revert or no-op");
+            assertTrue(perp.isLiquidatable(id), "the remainder must stay liquidatable");
+        }
         console2.log("vault ETH before liq      ", vaultBefore);
         console2.log("vault ETH after liq       ", _vaultEth());
         console2.log("bad debt realised         ", vaultBefore > _vaultEth() ? vaultBefore - _vaultEth() : 0);
