@@ -198,17 +198,25 @@ const VAULT_ABI = [
   { type: "function", name: "pendingTokYield", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
-let statsCache: { at: number; v: { depthEth: number; plvEth: number; plvToken: number; maxLev: number; longOiEth: number; shortOiEth: number; fundingIdx: number; dead: boolean; markSqrt: bigint } | null } = { at: 0, v: null };
+let statsCache: { at: number; v: { depthEth: number; plvEth: number; plvToken: number; maxLev: number; longOiEth: number; shortOiEth: number; fundingIdx: number; dead: boolean; markSqrt: bigint; quoteDecimals: number; quoteSymbol: string; quote: `0x${string}` } | null } = { at: 0, v: null };
 async function liveStats() {
   if (PERP_ENGINE === "0x0000000000000000000000000000000000000000") return null;
   if (Date.now() - statsCache.at < 5000 && statsCache.v) return statsCache.v;
-  const n = (v: bigint) => Number(formatEther(v));
+  //  `formatEther` is 1e18, hardcoded. Every value below is QUOTE-denominated,
+  //  so scale by the quote's own decimals — see liveQuoteMeta. The field names
+  //  keep their `Eth` suffix on purpose: renaming them would touch every
+  //  consumer in the app for no behavioural gain, and the payload now states
+  //  `quoteDecimals`/`quoteSymbol` so nothing has to infer the unit from a name.
+  const qm = await liveQuoteMeta();
+  const n = (v: bigint) => Number(v) / 10 ** qm.decimals;
+  //  plvToken is the brew's own 18-decimal token, NOT the quote.
+  const nTok = (v: bigint) => Number(formatEther(v));
   // Try the bundled stats() first (one call). If it fails on the RPC, fall back
   // to individual cheap getters so plvEth/plvToken/depth still populate.
   try {
     const s = await perpClient.readContract({ address: PERP_ENGINE, abi: STATS_ABI, functionName: "stats" }) as
       readonly [bigint, bigint, bigint, bigint, bigint, number, bigint, bigint, boolean];
-    const v = { longOiEth: n(s[0]), shortOiEth: n(s[1]), plvEth: n(s[2]), plvToken: n(s[3]), depthEth: n(s[4]), maxLev: Number(s[5]), markSqrt: s[6], fundingIdx: Number(s[7]) / 1e18, dead: s[8] };
+    const v = { longOiEth: n(s[0]), shortOiEth: n(s[1]), plvEth: n(s[2]), plvToken: nTok(s[3]), depthEth: n(s[4]), maxLev: Number(s[5]), markSqrt: s[6], fundingIdx: Number(s[7]) / 1e18, dead: s[8], quoteDecimals: qm.decimals, quoteSymbol: qm.symbol, quote: qm.address };
     statsCache = { at: Date.now(), v };
     return v;
   } catch { /* fall back to per-getter reads below */ }
@@ -218,12 +226,12 @@ async function liveStats() {
     const [plv, plvTok, longOi] = await Promise.all([rd("plv"), rd("plvToken"), rd("longOiEth")]) as [bigint, bigint, bigint];
     // heavy pool-math getters — each optional (keep the last good / sane default)
     const [depth, maxLev, mark, fidx] = await Promise.all([
-      rd("activeEthDepth").catch(() => statsCache.v ? BigInt(Math.round(statsCache.v.depthEth * 1e18)) : 0n),
+      rd("activeEthDepth").catch(() => statsCache.v ? BigInt(Math.round(statsCache.v.depthEth * 10 ** qm.decimals)) : 0n),
       rd("maxLeverage").catch(() => statsCache.v?.maxLev ?? 2),
       rd("markSqrtPriceX96").catch(() => statsCache.v?.markSqrt ?? 0n),
       rd("fundingIndex").catch(() => 0n),
     ]) as [bigint, number, bigint, bigint];
-    const v = { longOiEth: n(longOi), shortOiEth: statsCache.v?.shortOiEth ?? 0, plvEth: n(plv), plvToken: n(plvTok), depthEth: n(depth), maxLev: Number(maxLev), markSqrt: mark, fundingIdx: Number(fidx) / 1e18, dead: false };
+    const v = { longOiEth: n(longOi), shortOiEth: statsCache.v?.shortOiEth ?? 0, plvEth: n(plv), plvToken: nTok(plvTok), depthEth: n(depth), maxLev: Number(maxLev), markSqrt: mark, fundingIdx: Number(fidx) / 1e18, dead: false, quoteDecimals: qm.decimals, quoteSymbol: qm.symbol, quote: qm.address };
     statsCache = { at: Date.now(), v };
     return v;
   } catch { return statsCache.v; }
@@ -369,7 +377,9 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
     //    carry no PositionManager id, so they are invisible to the read above.
     const seeder = await perpClient.readContract({ address: REGISTRY, abi: REG_SEEDER, functionName: "seeder" }) as `0x${string}`;
     if (!seeder || seeder === "0x0000000000000000000000000000000000000000") {
-      return Number(formatEther(quoteWei));
+      //  `quoteWei` is the QUOTE side of the LP, which is only wei until a
+      //  rotation. `formatEther` here was the same 1e18 assumption as CA-1.
+      return rawToQuoteAmount(quoteWei, await liveQuoteDecimals());
     }
     // ethTotal is the exact ETH the seeder was funded with at start — the
     // contract enforces `msg.value == cfg.ethTotal` — and the seeder holds no
@@ -394,7 +404,7 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
       }) as bigint;
       quoteWei += ethTotalWei;
     }
-    return Number(formatEther(quoteWei));
+    return rawToQuoteAmount(quoteWei, await liveQuoteDecimals());
   } catch (e) { console.error("lpEthOf failed:", String(e).slice(0,200)); return 0; }
 }
 type BrewChain = { deathThresholdEth: number; relaunchEth: number; nftMax: number; vaultEth: number; relaunchAt: number };
@@ -946,6 +956,49 @@ const SYMBOL_ABI = [{ type: "function", name: "symbol", stateMutability: "view",
 const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
 const REG_GENQUOTE = [{ type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] }] as const;
 
+/**
+ * The LIVE generation's QUOTE asset: address, decimals and symbol.
+ *
+ *  ── WHY (audit CA-1 / CA-2) ───────────────────────────────────────────────
+ *  `PerpEngine` denominates collateral, OI, PLV and depth in the LIVE QUOTE's
+ *  raw units. This file `formatEther`d all of them, so after a rotation into a
+ *  6-decimal quote every absolute figure on the perp panel read ~0 — while
+ *  `roiPct`, a ratio of two equally wrong numbers, stayed correct and made the
+ *  panel look consistent. The symbol matters for the same reason: a USDG book
+ *  labelled "Ξ" is a different lie about the same number.
+ *
+ *  Native (address(0)) is 18/ETH by definition. A token that will not answer is
+ *  left at the LAST GOOD value rather than reset to a guess.
+ */
+let quoteMetaCache: { at: number; v: { address: `0x${string}`; decimals: number; symbol: string } } =
+  { at: 0, v: { address: ZERO as `0x${string}`, decimals: 18, symbol: "ETH" } };
+async function liveQuoteMeta() {
+  if (Date.now() - quoteMetaCache.at < 30_000) return quoteMetaCache.v;
+  try {
+    const gen = Number(await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentGeneration" }) as bigint);
+    if (gen <= 0) return quoteMetaCache.v;
+    const q = await perpClient.readContract({ address: REGISTRY, abi: REG_GENQUOTE, functionName: "generationQuote", args: [BigInt(gen)] }) as `0x${string}`;
+    if (!q || q === ZERO) {
+      quoteMetaCache = { at: Date.now(), v: { address: ZERO as `0x${string}`, decimals: 18, symbol: "ETH" } };
+      return quoteMetaCache.v;
+    }
+    const [d, sym] = await Promise.all([
+      perpClient.readContract({ address: q, abi: DECIMALS_ABI, functionName: "decimals" }) as Promise<number>,
+      perpClient.readContract({ address: q, abi: SYMBOL_ABI, functionName: "symbol" }).catch(() => "") as Promise<string>,
+    ]);
+    const dec = Number(d);
+    quoteMetaCache = {
+      at: Date.now(),
+      v: {
+        address: q,
+        decimals: Number.isFinite(dec) && dec >= 0 && dec <= 36 ? dec : quoteMetaCache.v.decimals,
+        symbol: sym || quoteMetaCache.v.symbol,
+      },
+    };
+  } catch { /* keep last good */ }
+  return quoteMetaCache.v;
+}
+
 /** The LIVE generation's token symbol, cached briefly. The presale's
  *  `airdropTicker` is pinned to generation 1, so it goes blank on every later
  *  round; this is the symbol the chain actually has right now. */
@@ -1311,6 +1364,15 @@ app.get("/perp-heatmap/:generation", async (c) => {
     maxLev: live?.maxLev ?? 3,
     fundingIdx: live?.fundingIdx ?? 0,
     dead: live?.dead ?? false,
+    //  ── THE UNIT, STATED RATHER THAN INFERRED FROM A FIELD NAME ────────────
+    //  Every *Eth field above is denominated in the LIVE QUOTE, which is only
+    //  ether until a rotation completes. The names keep their `Eth` suffix (too
+    //  many consumers to rename safely at this stage, and a rename fixes no
+    //  behaviour), so the unit travels with the data instead: a client must
+    //  label these with `quoteSymbol`, never a hardcoded Ξ.
+    quoteSymbol: live?.quoteSymbol ?? "ETH",
+    quoteDecimals: live?.quoteDecimals ?? 18,
+    quote: live?.quote ?? "0x0000000000000000000000000000000000000000",
     openFeeBps: 690, ogDiscountBps: 5000,
     // per-position notional cap (mirrors PerpEngine.maxNotionalBps) so the UI can
     // block a doomed open BEFORE it hits _checkNotional's BadLeverage() revert.
