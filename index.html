@@ -6,7 +6,9 @@
 
     <!-- ─────────── Core SEO ─────────── -->
     <title>Magic Internet Frens — 2222 Pixel Wizards, Fully On-Chain</title>
-    <meta name="description" content="Magic Internet Frens (MiFrens): 2222 hand-crafted pixel wizards, knights, gnomes and degens summoned fully on-chain. Home of The Cauldron — an eternal, autonomous token machine. Join the guild. wagmi." />
+    <!-- Google cuts the SERP snippet around 155 chars. The old copy ran to 246
+         and was being truncated mid-clause at "an eternal, …". -->
+    <meta name="description" content="Magic Internet Frens (MiFrens): 2222 hand-crafted pixel wizards summoned fully on-chain. Home of The Cauldron — an eternal, autonomous token machine." />
     <meta name="keywords" content="Magic Internet Frens, MiFrens, pixel wizard NFT, on-chain NFT, The Cauldron, eternal token, fren, magic internet, wizard NFT, ethereum NFT, autonomous token, wagmi, gm" />
     <meta name="author" content="Magic Internet Frens" />
     <link rel="canonical" href="https://www.mifrens.xyz/" />
@@ -38,12 +40,15 @@
     <meta name="twitter:image:alt" content="Magic Internet Frens — a guild of pixel wizards" />
 
     <!-- ─────────── Icons / PWA ─────────── -->
-    <link rel="icon" type="image/png" href="favicon/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg" />
-    <link rel="shortcut icon" href="favicon/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png" />
+    <!-- Absolute, not relative. These files are now also served from /docs/,
+         /token/ … where a relative "favicon/…" would resolve to /docs/favicon/
+         and 404 — taking the favicon out of the Google result with it. -->
+    <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Magic Internet Frens" />
-    <link rel="manifest" href="favicon/site.webmanifest" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
 
     <!-- ─────────── Perf: warm up data origins before the app boots ─────────── -->
     <link rel="preconnect" href="https://ethereum-sepolia-rpc.publicnode.com" crossorigin />
@@ -73,16 +78,42 @@
           "logo": "https://www.mifrens.xyz/mifrens-logo.png",
           "image": "https://www.mifrens.xyz/og-image.png",
           "description": "Magic Internet Frens (MiFrens) is a collection of 2222 pixel wizard NFTs summoned fully on-chain, and the home of The Cauldron — an eternal, autonomous token machine.",
-          "sameAs": ["https://x.com/magic0xfrens"]
+          "sameAs": [
+            "https://x.com/magic0xfrens",
+            "https://github.com/magic0xfrens/Magic-Internet-Frens"
+          ]
         },
         {
           "@type": "WebSite",
           "@id": "https://www.mifrens.xyz/#website",
           "url": "https://www.mifrens.xyz/",
           "name": "Magic Internet Frens",
+          "alternateName": ["MiFrens", "Magic Internet Frens NFT"],
           "description": "2222 pixel wizards, fully on-chain. Home of The Cauldron.",
           "publisher": { "@id": "https://www.mifrens.xyz/#org" }
         },
+        {
+          "@type": "SiteNavigationElement",
+          "@id": "https://www.mifrens.xyz/#nav",
+          "name": ["The Cauldron", "Mi Frens", "The Token", "Docs"],
+          "url": [
+            "https://www.mifrens.xyz/cauldrons",
+            "https://www.mifrens.xyz/mi-frens",
+            "https://www.mifrens.xyz/token",
+            "https://www.mifrens.xyz/docs"
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <!-- Landing-page-only markup. `scripts/prerender-seo.mjs` strips this block
+         from every sub-page: five URLs all declaring themselves the same
+         WebApplication blurs the entity Google is trying to resolve. -->
+    <script type="application/ld+json" data-seo="home-only">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
         {
           "@type": "FAQPage",
           "mainEntity": [
@@ -113,7 +144,7 @@
           "name": "The Cauldron — Crystal Gacha",
           "applicationCategory": "GameApplication",
           "operatingSystem": "Web",
-          "url": "https://www.mifrens.xyz/#/cauldrons",
+          "url": "https://www.mifrens.xyz/cauldrons",
           "description": "Spin trading volume to summon sealed crystals, open them to reveal fully on-chain creatures, or burn them for floor-vault ETH. A commit-reveal gacha on Uniswap v4.",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ETH" },
           "isPartOf": { "@id": "https://www.mifrens.xyz/#website" }

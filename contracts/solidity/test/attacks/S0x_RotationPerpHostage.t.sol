@@ -109,16 +109,23 @@ contract S0x_RotationPerpHostage is YBase {
         console2.log("slice revert selector:", vm.toString(lastSliceRevert));
         console2.log("PerpsOpen selector:", vm.toString(CauldronHook.PerpsOpen.selector));
 
+        //  ── INVERTED (red-team Jc) ────────────────────────────────────────
+        //  This asserted the HOSTAGE: that a stranger's dust position blocked the
+        //  guild's approved slice. {PerpEngine.blocksVolumeLink} no longer treats an
+        //  open book as a reason to refuse once the engine has a trustworthy mark —
+        //  either an armed weighted source OR its own populated TWAP — because the
+        //  T3d death band now prices any rotation-time forced close off that mark,
+        //  which is the guarantee this interlock existed for. So the property to
+        //  hold is the opposite one, and the stranger must still not be confiscated.
         assertEq(openCount, 1, "one dust position is open");
-        assertFalse(firstSlice, "ATTACK: the approved slice must have been blocked");
-        assertEq(remAfterBlock, remAtStart, "the envelope was never spent");
-        assertFalse(lateSlice, "ATTACK: still blocked when the envelope expires");
-        assertEq(destAfter, address(0), "envelope expired unspent");
-        assertEq(remAfterExpiry, 0, "envelope expired unspent");
+        assertTrue(firstSlice, "FIXED: the approved slice is NOT hostage to a dust position");
+        assertLt(remAfterBlock, remAtStart, "the envelope actually spent");
         assertGt(remSecond, 0, "a second envelope was approved");
-        assertFalse(secondEnvelopeSlice, "ATTACK: the second envelope is blocked by the same position");
+        assertTrue(secondEnvelopeSlice, "FIXED: and the second envelope executes too");
+        assertEq(perp.openCount(), 0, "the stranger closed voluntarily - never confiscated");
         assertEq(registry.generationQuote(1), address(0), "no re-denomination happened");
-        assertLt(netCost, 0.01 ether, "the whole grief costs less than 0.01 ETH of stake");
+        assertLt(netCost, 0.01 ether, "the dust is still cheap - it just no longer buys a veto");
+        lateSlice; destAfter; remAfterExpiry; // read above; the expiry leg is now envelope-bound, not perp-bound
     }
 
 
@@ -178,7 +185,11 @@ contract S0x_RotationPerpHostage is YBase {
         assertGt(primaryVol, 0, "the generation is trading");
         assertEq(legVol, 0, "the destination pool has no volume of its own");
         assertFalse(genDead, "the generation is ALIVE on its primary pool");
-        assertTrue(legDead, "ATTACK: the pool the engine now marks reads DEAD");
+        //  FIXED at the HOOK too: sibling links are fully connected now, so the
+        //  leg's own death read sums the whole generation and agrees with the
+        //  primary's. Before this the engine-side fix below left `isDead(leg)`
+        //  as a lie waiting for its next caller.
+        assertFalse(legDead, "FIXED: the leg's death read must agree with the generation's");
         console2.logBytes4(lastOpenErr); // 0xefba5120 TokenDead / 0x949682a5 NotWarm
         assertTrue(openRefused, "an open is refused right after the rotation");
         //  THE FIX: the refusal must no longer be TokenDead. `_isDead()` now asks
@@ -230,8 +241,17 @@ contract S0x_RotationPerpHostage is YBase {
         _openDust();
         assertEq(perp.openCount(), 1, "one dust position is open");
 
-        //  Control: with no mark source armed the engine still blocks the link.
-        assertTrue(perp.blocksVolumeLink(), "control: blocked while the mark is single-pool");
+        //  ── CONTROL INVERTED (red-team Jc) ────────────────────────────────
+        //  This used to assert the fail-closed half of the old interlock: with no
+        //  weighted source armed, an open book blocked the link. It no longer does,
+        //  because opening that position REQUIRED the engine's own TWAP ring to be
+        //  warm ({_guardOpen}'s NotWarm gate), and a warm ring is a trustworthy
+        //  mark. The half this test exists for — arming a weighted source lets the
+        //  approved rotation proceed — is asserted unchanged below.
+        assertFalse(
+            perp.blocksVolumeLink(),
+            "a populated own-TWAP already lifts the block, with or without a weighted mark"
+        );
 
         //  The guild arms the liquidity-weighted mark for this generation.
         PerpMarkSource ms = new PerpMarkSource(pm, address(this));

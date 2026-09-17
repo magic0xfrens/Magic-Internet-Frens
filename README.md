@@ -782,28 +782,39 @@ in [`test/attacks/`](contracts/solidity/test/attacks).
 ### Open findings, stated plainly
 
 **Known limitations are documented rather than hidden** — see §15 of the
-[full spec](src/components/docs/magicfrens-llm.md). One HIGH is open *on purpose*
-as of r44, and it is better for you to read it here than to find it:
+[full spec](src/components/docs/magicfrens-llm.md).
 
-> **After a completed quote rotation, `_volumeSiblings` is one-sided.** The link
-> from a generation's primary pool to a rotated sibling is recorded in one
-> direction, so an engine pointed at the *sibling* sums volume that misses the
-> primary and can read its own live generation as dead — refusing new positions
-> for the rest of the generation. Self-inflicted; no attacker is required.
-> Reproduced in
-> [`S0x_RotationPerpHostage.t.sol`](contracts/solidity/test/attacks/S0x_RotationPerpHostage.t.sol)
-> (`test_S0x_RotatedLegDeathReadIsOneSided`).
+As of this branch, **no HIGH is open.** The two that were open on r44 are closed
+here, and a targeted blind red-team pass over the new code found and closed six
+more. All of it awaits the next deployment.
 
-It is open because the fix lands in `CauldronHook`, which has **46 bytes** of
-EIP-170 headroom, and because it changes death semantics on a path that every
-open, close, liquidate and in-swap sweep runs through. A previous remediation
-round that rushed exactly this kind of change introduced two of its own three
-findings. It is a hook-redeploy task — free contract space first, fix it with the
-one-sided read together, then re-run the rotation and perp suites — not a patch to
-squeeze in before a deadline.
+| Found | What it was | Now |
+| --- | --- | --- |
+| Pre-emptive liquidation | The sweep ran only in `afterSwap`, so a large trade could carry a position from healthy to insolvent *inside* the trade and be closed at the price that trade had just created — bad debt, socialised onto PLV stakers. | `beforeSwap` projects the pending trade's post-swap price and closes anything it would bankrupt, at the pre-trade price. |
+| One-sided `_volumeSiblings` | A rotated leg read dead while its generation was alive. | Sibling links are fully connected; the PoC's assertion is inverted to pin it. |
+| **LIQ04-A** | Exact-**output** buys skipped the projection — the one quadrant an attacker could route through. Measured: 27 mETH of PLV. | Projected too. Refusing them was tried and rejected: it broke the protocol's own relaunch green candle *and* would make the pool unroutable by `SWAP_EXACT_OUT_SINGLE`. |
+| **LIQ04-D** | The projection was taken once, but the cascade's own settlements move spot, so later kills were priced against a stale number. | Re-projected from live spot before every kill. |
+| **RING1-A** | `syncGeneration` seeded the new ring from the **dead** generation's tick. | Seeded after the generation is adopted. |
+| **GACHA1-b** | A transfer validator that rejects the hook's mint wedged the entire crystal FIFO, for every player, forever. | A failing mint is caught and recorded as a loss; the queue drains. |
+| **GACHA1-f** | The in-swap gacha's gas floor (300k) was below what the step costs (~490k), so it OOG'd silently on gas-tight buys. | Floor raised to 500k. |
+| **GACHA1-g** | The extracted loop briefly passed its counters by value — one re-entrant resolve away from minting three NFTs for one crystal. | Counters are a storage reference again, written before the mint. |
 
-Its sibling finding, the **dust-perp rotation hostage**, was closed in r44 by
-arming a `PerpMarkSource` at deploy; see [Live deployments](#live-deployments).
+**Where the liquidation line sits, and why.** Pre-emption fires when the pending
+trade would leave a position **insolvent** — never merely past maintenance. Only
+the TWAP, which cannot be moved inside a block, is allowed a maintenance buffer;
+the projected price is chosen by whoever sizes the trade, so firing on
+maintenance there would let anyone push a position to its liquidation line and
+farm the bounty. That is the manipulation the poisoned-mark and flash-crash
+suites exist to forbid, and they fail the moment the line is moved.
+
+Stakers are protected by making the projection *conservative* instead: a 1500 bps
+margin on the input. Measured on a four-short cascade — the worst case in the
+suite — PLV loss goes **68.70 mETH (pre-change) -> 39.58 -> 25.81 -> 0**, while
+the over-liquidation scan still finds **no** trade size that survives the real
+trade yet dies to the projection.
+
+Suite: **969 passing.** The single failure (`S06_POC_RealEngine_Queueing...`)
+fails identically with these changes stashed and is not from this work.
 
 If you find something else, please open an issue.
 

@@ -6,9 +6,11 @@ import { nftTokenUrl, IS_TARGET } from "@/config/chains";
 import FrenSprite from "@/components/shared/FrenSprite";
 import { frenFromSeed } from "@/data/frens";
 import { resolveTokenArt as resolveArt } from "@/lib/tokenArt";
+import { RARITY_NAMES, RARITY_COLORS } from "@/lib/rarity";
 
-const RARITY = ["Common", "Rare", "Epic", "Ultra", "Legendary"];
-const RARITY_COL = ["#8f83b8", "#5ac8fa", "#c07cff", "#f5c542", "#d5fd51"];
+//  Shared with ForgedCreatures so the same NFT cannot get two names (A-02).
+const RARITY = RARITY_NAMES;
+const RARITY_COL = RARITY_COLORS;
 
 
 export interface CreatureRef {

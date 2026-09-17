@@ -150,10 +150,16 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
   });
   const needsQuoteApproval = (amount: bigint) =>
     quoteIsErc20 && (quoteAllow == null || (quoteAllow as bigint) < amount);
-  const approveQuote = useCallback(async () => {
+  //  BOUNDED APPROVAL. This granted the vault an INFINITE allowance on the
+  //  user's quote balance for one stake; a later vault bug or a compromised
+  //  upgrade path could then pull everything they hold, forever, with no
+  //  further signature. Approve exactly what is about to be staked — the buy
+  //  path in useCauldronSwap has bounded its approvals for the same reason.
+  const approveQuote = useCallback(async (amount: bigint) => {
     if (!quoteToken) throw new Error("No quote token");
+    if (amount <= 0n) throw new Error("Nothing to approve");
     await ensureChain(); setPendingAction("approve-quote");
-    return writeContractAsync({ address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.vault, maxUint256] });
+    return writeContractAsync({ address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.vault, amount] });
   }, [quoteToken, ensureChain, writeContractAsync]);
 
   /** Stake the QUOTE asset, whatever it is. Native sends value; ERC20 sends 0. */
@@ -166,10 +172,12 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
   }, [ensureChain, writeContractAsync, quoteIsErc20]);
 
   const needsTokenApproval = (amount: bigint) => (allowance == null || (allowance as bigint) < amount);
-  const approveToken = useCallback(async () => {
+  /** Bounded to the stake, not infinite — see {approveQuote}. */
+  const approveToken = useCallback(async (amount: bigint) => {
     if (!token) throw new Error("No token");
+    if (amount <= 0n) throw new Error("Nothing to approve");
     await ensureChain(); setPendingAction("approve");
-    return writeContractAsync({ address: token, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.vault, maxUint256] });
+    return writeContractAsync({ address: token, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.vault, amount] });
   }, [token, ensureChain, writeContractAsync]);
 
   const depositToken = useCallback(async (amount: bigint) => {

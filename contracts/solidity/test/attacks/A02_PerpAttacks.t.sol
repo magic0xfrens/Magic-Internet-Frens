@@ -218,7 +218,17 @@ contract A02_PerpAttacksTest is Test, IUnlockCallback {
         deal(token, address(this), dump, true);
         vm.deal(address(this), 100_000_000 ether); // fund the (self-reverting) buy-back leg
         IERC20Minimal(token).approve(address(pm), type(uint256).max);
+        //  The engine is detached from the hook for the CRASH leg only. Since
+        //  `9d5cd46` (red-team LIQ-01) the liquidation trigger is the WORSE of
+        //  the TWAP mark and LIVE SPOT, so the dump's own afterSwap sweep now
+        //  liquidates the victim at the crashed spot BEFORE the restore leg ever
+        //  runs — and this test is about whether the poisoned MARK can kill a
+        //  position that is solvent at true spot, not about the spot leg. With
+        //  the sweep out of the way the round-trip is what it always modelled:
+        //  an atomic move that leaves spot where it found it.
+        hook.setPerpEngine(address(0));
         _sellFrom(address(this), dump);   // CRASH   -> _writeObs freezes lastTick (post-crash)
+        hook.setPerpEngine(address(perp));
         _buyExactOut(dump);               // RESTORE -> buy back EXACTLY what was sold; dt==0, no write
 
         // Nothing else touches the engine; `lastTick` stays poisoned and accrues.

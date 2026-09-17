@@ -123,11 +123,17 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  moves nowhere near it, and a keeper who has to move the pool 10% to profit is
      *  paying more for the privilege than the cut is worth.
      *
-     *  Not a brick: the check reverts, it does not write anything off, so the very
-     *  next block retries; the position's own trader can always exit through
-     *  {close} (its `_guardOpen` gate is on OPENING, not closing); and the mark is a
-     *  TWAP, so an attacker holding the pool below the band drags the band down with
-     *  it. Contrast a write-off, which would be permanent.
+     *  ── AND IT IS A LIMIT, NOT A REFUSAL (red-team T3d x LIQ-02) ────────────
+     *  The first cut REVERTED outside the band, which re-opened LIQ-02: a short
+     *  bigger than the pool's token side is cleared in bites and its terminal bite
+     *  is on THIS path, so a reverting band left the book unclearable and blocked
+     *  the relaunch (XL1_LiqTwapAndDepthCap:520). It is now folded into the swap's
+     *  own `sqrtPriceLimitX96` through {PerpSwapLib.bandLimit} / {closeLimit}: the
+     *  pool fills whatever it can INSIDE the band, and the piece it could not take
+     *  is rebooked (non-terminal paths) or written off by name (death). Nobody is
+     *  ever filled outside the band, and the book always reaches `openCount == 0`.
+     *  The mark is a TWAP, so an attacker holding the pool below the band drags the
+     *  band down with him rather than freezing anything.
      */
     uint256 internal constant DEATH_SLIP_BPS = 1000; // 10% band around the mark
 
@@ -304,28 +310,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint32 internal constant OBS_INTERVAL = 15 seconds; // min spacing between writes
     uint32 internal constant MIN_TWAP = 1 seconds;      // shortest mark we'll trust (fast L2: sub-second blocks → even 1s spans many blocks)
                                                         // (floor for a tunable window)
-    struct Observation { uint32 ts; int56 tickCumulative; }
+    //  `Observation` is declared in {PerpSwapLib} so the ring can be passed to it.
     //  `internal`, not `public` (EIP-170). The auto-generated array getter cost
     //  a dispatcher entry plus a bounds-checked struct return, and NOTHING read it
     //  — not a test, script, indexer or frontend (verified by grep). Everything
     //  anyone actually wants from the ring is already exposed by {twapTick} and
     //  {markSqrtPriceX96}; the raw slots are readable from storage off-chain. Same
-    //  trade already made for `lastTick`, `maxUtilBps` and the tier arrays.
-    Observation[OBS_CARDINALITY] internal observations;
-    uint16 internal obsIndex;          // next slot to write
-    int56 internal tickCumulative;     // Σ tick·dt up to lastObsTs
-    uint32 internal lastObsTs;         // last time tickCumulative was INTEGRATED
+    //  trade already made for `ring.lastTick`, `maxUtilBps` and the tier arrays.
+    PerpSwapLib.Observation[OBS_CARDINALITY] internal observations;
+    /// @dev The ring's scalars, grouped so they cross into PerpSwapLib as one
+    ///      storage reference. See {PerpSwapLib.Ring}.
+    PerpSwapLib.Ring internal ring;
     //  `internal` to fund the R-07/L-2 guards against the EIP-170 ceiling. No
     //  reader anywhere in the tree (tests, deploy scripts, frontend, indexer or
     //  another contract) — verified by grep. Read it from storage off-chain, the
     //  same trade already made for `markSource` and the tier arrays.
-    int24 internal lastTick;
-    /// @dev Last time a RING ENTRY was appended. Kept separate from `lastObsTs`
+    /// @dev Last time a RING ENTRY was appended. Kept separate from `ring.lastObsTs`
     ///      (audit A-02) so the integration clock can advance on EVERY observation
     ///      while ring appends stay throttled to OBS_INTERVAL — the two used to
     ///      share one clock, which is what let a stale tick poison the mark.
     ///      Packs into the same slot as the four fields above (16+56+32+24+32 bits).
-    uint32 internal lastRingTs;
     /// @dev When the observation ring was last WIPED ({syncGeneration}). A wiped
     ///      ring reports a mark off one second of history: measured, the same 10 s
     ///      push moved the mark tick 1929 on a warm ring and 54545 on a fresh one,
@@ -412,7 +416,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint256[] internal _openIds;                    // live position ids
     mapping(uint256 => uint256) internal _openPos;  // id → 1-based index in _openIds
     uint256 internal sweepCursor;                     // rotating scan start
-    uint256 internal constant SWEEP_SCAN = 12;      // positions checked per swap
+    //  REMOVED (red-team R1B): `SWEEP_SCAN = 12` capped the per-swap scan at a
+    //  POSITIONAL window over a 64-slot book, and `sweepCursor` persists, so the
+    //  window was AIMABLE — dust padding plus two dust sells hid a victim from
+    //  both windows of the swap that bankrupted it. The scan is now bounded by
+    //  `_openIds.length` (≤ MAX_OPEN_POSITIONS) and by SWEEP_KILL_RESERVE below,
+    //  which is the guard that actually protects the parent swap. See {_doSweep}.
     /// @dev Gas a single in-swap liquidation needs to finish. Measured at ~388k
     ///      for one real kill (swap + settle + payouts); rounded up so the last
     ///      iteration the loop starts can always complete rather than reverting
@@ -539,11 +548,11 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         lastFundingAt = uint64(block.timestamp);
         // Seed the TWAP oracle with the live tick so the mark is meaningful from
         // block one (the ring fills as trades/pokes arrive).
-        lastObsTs = uint32(block.timestamp);
-        lastRingTs = uint32(block.timestamp);
-        lastTick = _currentTick();
-        observations[0] = Observation(uint32(block.timestamp), 0);
-        obsIndex = 1;
+        ring.lastObsTs = uint32(block.timestamp);
+        ring.lastRingTs = uint32(block.timestamp);
+        ring.lastTick = _currentTick();
+        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
+        ring.obsIndex = 1;
         // Arm the token-side for whatever generation is live at deploy (0 if the
         // engine is deployed before the first summon — the first syncGeneration()
         // then arms gen-1). One engine serves every generation from here on.
@@ -589,15 +598,27 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      ERC20 quote sorts against a CREATE-deployed token and may land
     ///      either side. Building the key with the quote pinned to currency0
     ///      would produce a key that hashes to a pool which does not exist.
+    /// @dev EIP-170: one copy of each registry read instead of one per call site.
+    function _tok() internal view returns (address) { return registry.currentToken(); }
+    function _gq(uint256 g) internal view returns (address) { return registry.generationQuote(g); }
+    /// @dev EIP-170: one copy of the `balanceOf(address)` read. The ERC721 and the
+    ///      ERC20 share that selector and its `uint256` return, so both callers use it.
+    function _bal(address t, address who) internal view returns (uint256) { return IERC20(t).balanceOf(who); }
+    function _liq() internal view returns (uint128) { return poolManager.getLiquidity(_pid()); }
+    function _col() internal view returns (address) { return IPerpHook(hookAddr).collection(); }
+    function _gen() internal view returns (uint256) { return registry.currentGeneration(); }
+
     function _key() internal view returns (PoolKey memory) {
         address q = quote;
-        address t = registry.currentToken();
+        address t = _tok();
         (address c0, address c1) = q < t ? (q, t) : (t, q);
         return PoolKey({currency0: Currency.wrap(c0), currency1: Currency.wrap(c1),
             fee: POOL_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(hookAddr)});
     }
     function _pid() internal view returns (PoolId) { return _key().toId(); }
-    function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_pid()); }
+    /// @dev EIP-170: one copy of the slot0 read, shared by {_sqrtP} and {_currentTick}.
+    function _slot0() internal view returns (uint160 s, int24 t) { (s, t,,) = poolManager.getSlot0(_pid()); }
+    function _sqrtP() internal view returns (uint160 s) { (s, ) = _slot0(); }
 
     /// @notice Optional liquidity-weighted mark across the generation's pools.
     ///         Zero = read the primary pool's tick (the original behaviour).
@@ -704,7 +725,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             }
             if (ok) return int24(v);
         }
-        (, t,,) = poolManager.getSlot0(_pid());
+        (, t) = _slot0();
     }
 
     // ── TWAP oracle ──────────────────────────────────────────────────────
@@ -717,22 +738,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      * @dev Sample the oracle.
      *
      *  MARK POISONING (audit A-02 — Critical). This used to bail out entirely when
-     *  `dt < OBS_INTERVAL`, which left `lastTick` holding a STALE value. An attacker
+     *  `dt < OBS_INTERVAL`, which left `ring.lastTick` holding a STALE value. An attacker
      *  could exploit that with one atomic round-trip:
      *    1. CRASH spot with a large sell. The hook's afterSwap sweep pokes us, a
-     *       write lands, and `lastTick` is frozen at the crashed tick.
+     *       write lands, and `ring.lastTick` is frozen at the crashed tick.
      *    2. RESTORE spot by buying back in the SAME transaction. `dt == 0`, so the
-     *       old code returned early and `lastTick` stayed CRASHED.
+     *       old code returned early and `ring.lastTick` stayed CRASHED.
      *    3. Wait. `twapTick` extrapolates the un-recorded tail as
-     *       `lastTick * (now - lastObsTs)`, so the crashed tick is integrated over
+     *       `ring.lastTick * (now - ring.lastObsTs)`, so the crashed tick is integrated over
      *       the entire window even though spot never actually moved.
      *  The mark then reads far below reality and SOLVENT positions become
      *  liquidatable — the attacker collects the keeper reward and the trader is
      *  wrongly closed, for only the cost of the round-trip's fee and slippage.
      *
-     *  Fix: ALWAYS integrate the elapsed interval and ALWAYS refresh `lastTick`, so
+     *  Fix: ALWAYS integrate the elapsed interval and ALWAYS refresh `ring.lastTick`, so
      *  the tail is extrapolated at the tick that is genuinely in force. Ring
-     *  APPENDS remain throttled on their own clock (`lastRingTs`), preserving the
+     *  APPENDS remain throttled on their own clock (`ring.lastRingTs`), preserving the
      *  flood-resistance that made the ring un-evictable.
      */
     ///
@@ -740,7 +761,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  same trick Uniswap's oracle uses — but Uniswap performs every timestamp
     ///  DELTA inside an `unchecked` block, and this contract did not. `uint32` wraps
     ///  at 2^32 seconds (07 Feb 2106), after which `uint32(block.timestamp)` is
-    ///  SMALLER than the stored `lastObsTs`, and a CHECKED `nowTs - lastObsTs`
+    ///  SMALLER than the stored `ring.lastObsTs`, and a CHECKED `nowTs - ring.lastObsTs`
     ///  PANICS instead of yielding the correct modulo-2^32 delta.
     ///  `_writeObs` is reached from `_pokeFunding`, which every single mutating perp
     ///  entrypoint calls — open, close, liquidate, `forceCloseDead`,
@@ -751,22 +772,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  Doing the deltas `unchecked` restores Uniswap's semantics, under which the
     ///  arithmetic is exact for any span shorter than 2^32 seconds.
     function _writeObs() internal {
-        uint32 nowTs = uint32(block.timestamp);
-        unchecked {
-            uint32 dt = nowTs - lastObsTs;
-            if (dt > 0) {
-                // Integrate the interval at the tick that was in force FOR it.
-                tickCumulative += int56(lastTick) * int56(uint56(dt));
-                lastObsTs = nowTs;
-            }
-            // Ring appends stay throttled on their OWN clock → still flood-proof.
-            if (nowTs - lastRingTs >= OBS_INTERVAL) {
-                observations[obsIndex] = Observation(nowTs, tickCumulative);
-                obsIndex = (obsIndex + 1) & OBS_MASK;
-                lastRingTs = nowTs;
-            }
-        }
-        lastTick = _currentTick(); // ALWAYS refresh — never leave a stale tick
+        //  Body lives in {PerpSwapLib} for EIP-170 headroom; ring and observations
+        //  go across as storage references. The current tick is read here because
+        //  only the engine knows its mark source.
+        PerpSwapLib.writeObs(observations, ring, OBS_INTERVAL, _currentTick());
     }
 
     /// @notice Time-weighted average tick for the liquidation mark. Prefers a
@@ -777,7 +786,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         which the 24h open-warmup covers.
     ///  GAS (gas audit G-06). Observations are written in strictly increasing
     ///  timestamp order into a wrapping ring, so the populated slots are already
-    ///  SORTED when read from the oldest. `obsIndex` is the next slot to write,
+    ///  SORTED when read from the oldest. `ring.obsIndex` is the next slot to write,
     ///  which is therefore the OLDEST entry once the ring has wrapped. That lets us
     ///  BINARY SEARCH for the newest observation at or before `target` — about 5
     ///  SLOADs instead of the 32 the old linear scan always paid, on a path that
@@ -788,49 +797,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  `markSqrtPriceX96` → `_quoteMark` → `_underwater`, i.e. from inside every
     ///  liquidation and settlement, so a panic here bricks those too.
     function twapTick() public view returns (int24 tick, bool ok) {
-        uint32 nowTs = uint32(block.timestamp);
-        if (nowTs <= MIN_TWAP) return (0, false);
-        uint32 target;
-        unchecked { target = nowTs - twapWindow; }
-
-        // Locate the populated span in chronological order.
-        uint16 next = obsIndex;
-        uint16 n;      // how many observations are populated
-        uint16 start;  // physical index of the OLDEST
-        if (observations[next & OBS_MASK].ts != 0) {
-            n = OBS_CARDINALITY; start = next;   // wrapped: `next` is the oldest
-        } else {
-            n = next; start = 0;                 // not yet wrapped: 0..next-1
-        }
-        if (n == 0) return (0, false);
-
-        uint32 useTs; int56 useCum;
-        Observation memory oldest = observations[start];
-        if (oldest.ts > target) {
-            // Ring can't reach back to the window — fall back to the OLDEST entry,
-            // but only if it still spans MIN_TWAP so a flash move can't be the mark.
-            unchecked { if (nowTs - oldest.ts < MIN_TWAP) return (0, false); }
-            useTs = oldest.ts; useCum = oldest.tickCumulative;
-        } else {
-            // Largest i in [0, n) with obs(i).ts <= target.
-            uint16 lo; uint16 hi = n - 1;
-            while (lo < hi) {
-                uint16 mid = (lo + hi + 1) >> 1;
-                if (observations[(start + mid) & OBS_MASK].ts <= target) lo = mid;
-                else hi = mid - 1;
-            }
-            Observation memory best = observations[(start + lo) & OBS_MASK];
-            useTs = best.ts; useCum = best.tickCumulative;
-        }
-        int56 cumNow;
-        int56 span;
-        unchecked {
-            cumNow = tickCumulative + int56(lastTick) * int56(uint56(nowTs - lastObsTs));
-            span = int56(uint56(nowTs - useTs));
-        }
-        if (span == 0) return (0, false);
-        tick = int24((cumNow - useCum) / span);
-        ok = true;
+        //  Body lives in {PerpSwapLib} for EIP-170 headroom; the ring goes across
+        //  as a storage reference. See the library for the algorithm.
+        return PerpSwapLib.twapTick(observations, ring, twapWindow);
     }
 
     /// @dev The manipulation-resistant mark sqrtPrice (TWAP tick; spot fallback).
@@ -864,8 +833,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  EIP-170 headroom; the hook swaps one external call for another and does
      *  not grow.
      */
+    ///  ── AND A RELAUNCH MUST NOT RE-ARM THE HOSTAGE (red-team Jc) ─────────
+    ///  T3e moved the `markSource = address(0)` drop OUT of the `newQuote != quote`
+    ///  branch so a RELAUNCH could not inherit a source armed on the DEAD
+    ///  generation's pool. Necessary, but it made this predicate true again after
+    ///  every generation change, because the only writer that can re-arm is
+    ///  `setRouting` (onlyOwner). One ~0.0007 ETH position — refundable on close —
+    ///  then vetoed every treasury-rotation slice for the whole generation, until
+    ///  the timelock manually re-ran `setRouting`. That is an off-chain step the
+    ///  permissionless-relaunch promise does not have.
+    ///
+    ///  The hazard this guard was built for is a rotation happening while the
+    ///  engine can only see ONE pool's price. That is now covered by something
+    ///  better and always-on: the T3d death band prices every forced close during a
+    ///  rotation off THIS engine's own TWAP ({DEATH_SLIP_BPS}), so a rotated book
+    ///  cannot be settled outside a 10% band of the mark whether a weighted source
+    ///  is wired or not. So the question is no longer "is a weighted mark armed"
+    ///  but "does this engine have a trustworthy mark AT ALL".
+    ///
+    ///  Still fails CLOSED: with no source AND no usable TWAP history the engine is
+    ///  genuinely blind and an open book still refuses the link.
     function blocksVolumeLink() external view returns (bool) {
-        return openCount != 0 && markSource == address(0);
+        if (openCount == 0 || markSource != address(0)) return false;
+        (, bool ok) = twapTick();
+        return !ok;
     }
 
     function markSqrtPriceX96() public view returns (uint160) {
@@ -874,10 +865,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     function activeEthDepth() public view returns (uint256) {
-        PoolId id = _pid();
         uint160 sp = _sqrtP();
         if (sp == 0) return 0;
-        return PerpSwapLib.ethDepth(poolManager.getLiquidity(id), sp);
+        return PerpSwapLib.ethDepth(_liq(), sp);
     }
 
     function maxLeverage() public view returns (uint8 lev) {
@@ -990,10 +980,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function openLong(uint8 leverage, uint256 minTokenOut, uint256 liqHint, uint256 amount)
         public payable nonReentrant notNested returns (uint256 id)
     {
-        if (amount == 0) revert ZeroValue();
-        _pullQuote(msg.sender, amount);
-        _guardOpen(leverage);
-        _pokeFunding();
+        _openPrologue(leverage, amount);
 
         uint256 collateral = _takeFee(amount, true);
         if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
@@ -1008,7 +995,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (longOiEth + borrow > (activeEthDepth() * maxOiBps) / BPS) revert OiCapped();
 
         plv -= borrow; longOiEth += borrow;
-        uint256 sizeOut = _swapExactIn(true, buyEth); // ETH → token (price UP)
+        (, uint256 sizeOut) = _swapExactIn(true, buyEth, 0); // ETH → token (price UP)
         if (sizeOut < minTokenOut) revert Slippage();
 
         id = _book(msg.sender, true, collateral, sizeOut, borrow, leverage);
@@ -1024,10 +1011,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function openShort(uint8 leverage, uint256 minEthOut, uint256 liqHint, uint256 amount)
         public payable nonReentrant notNested returns (uint256 id)
     {
-        if (amount == 0) revert ZeroValue();
-        _pullQuote(msg.sender, amount);
-        _guardOpen(leverage);
-        _pokeFunding();
+        _openPrologue(leverage, amount);
 
         uint256 collateral = _takeFee(amount, false);
         if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
@@ -1041,7 +1025,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         if (shortOiToken + tokenToSell > (_ethToToken(activeEthDepth()) * maxOiBps) / BPS) revert OiCapped();
 
         plvToken -= tokenToSell; shortOiToken += tokenToSell;
-        uint256 proceeds = _swapExactIn(false, tokenToSell); // sell borrowed token (price DOWN)
+        (, uint256 proceeds) = _swapExactIn(false, tokenToSell, 0); // sell borrowed token (price DOWN)
         if (proceeds < minEthOut) revert Slippage();
 
         // The engine holds collateral + proceeds ETH as backing for the token debt.
@@ -1061,12 +1045,31 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     function liquidate(uint256 id) external nonReentrant notNested {
-        Position memory p = _pos(id);
-        if (p.trader == address(0)) revert NotOpen();
+        Position memory p = _open(id);
         _pokeFunding();
         // Mark loop ONCE, reused for the health test + the per-block-cap notional.
         (bool trip, bool insolvent, uint256 notional) = _liqTest(p);
         if (!trip) revert Healthy();
+        //  ── E1A, AND WHY THE GATE IS NOT HERE ──────────────────────────────
+        //  This entrypoint is permissionless and, off the in-swap sweep,
+        //  {_liqTest}'s second leg reads RAW LIVE SPOT — the price whatever swap
+        //  ran last in this same transaction left behind. So a caller could push
+        //  spot past a HEALTHY short's entire equity, call this, and have the
+        //  vault buy the position back at the price they had just made, with
+        //  {_absorbPlvLoss} socialising the overspend onto the stakers (measured:
+        //  0.0307 ETH of PLV to close a position whose whole collateral was
+        //  0.02 ETH). The in-swap sweep is not exposed to this: there the price
+        //  is the PROJECTED post-trade price of a trade the caller PAYS the
+        //  impact of, which is what lets it close a position in the very swap
+        //  that sank it (XL1/S08) — that path is deliberately untouched.
+        //  Requiring the mark to ALSO condemn before this entrypoint may fire
+        //  was tried and is WRONG: S08_A's backstop ("anyone can liquidate the
+        //  position the gas-capped swap declined to") runs on a victim that is
+        //  MEASURED mark-healthy — markValue 0.1822 ETH against 0.0931 ETH of
+        //  backing at maintenanceBps 1500 — and condemned by SPOT alone, which
+        //  is a real crash, not a manipulation. Spot-only liquidatability is
+        //  load-bearing. E1A is therefore closed at the SETTLEMENT: see the mark
+        //  band on MODE_LIQUIDATION in {_settle}.
         if (!_throttle(insolvent, notional)) revert LiqCapped();
         _settle(id, p, 0, MODE_LIQUIDATION, msg.sender);
     }
@@ -1076,13 +1079,42 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         bots, our UI) — it scans a bounded, ROTATING window of open
     ///         positions and liquidates whatever is underwater at the mark,
     ///         crediting `liquidator` (the swapper / tx.origin) a keeper reward +
-    ///         a Liquidatoor badge per kill. Gas is bounded (≤ SWEEP_SCAN checks,
+    ///         a Liquidatoor badge per kill. Gas is bounded (one pass over the
+    ///         ≤ MAX_OPEN_POSITIONS book, stopping at SWEEP_KILL_RESERVE,
     ///         ≤ MAX_LIQ_PER_SWAP kills) so it can never OOG the parent swap, and
     ///         the cursor rotates so every position is eventually checked across
     ///         swaps. Hook-only, best-effort (never reverts the triggering swap).
-    function sweepLiquidations(address liquidator) external {
+    /// @param spec  v4's own signed amount for the PENDING swap (negative = exact
+    ///              input, positive = exact output), or 0 for a plain post-trade
+    ///              sweep — the `afterSwap` path, unchanged.
+    /// @param isBuy true when the quote is the input (token gets dearer).
+    /// @param limit the swap's own sqrtPriceLimitX96 — the projection may not
+    ///              exceed it, which is what stops a tight-limit swap with a huge
+    ///              nominal from liquidating a whole side for free.
+    /// @return complete false IFF the scan was cut short by {SWEEP_KILL_RESERVE}
+    ///         with book left unscanned — i.e. the caller's gas did not fund the
+    ///         liquidation work THIS trade creates. The hook turns that into a
+    ///         `LiqGasStarved` revert on the PRE-trade call (H1): a constant gas
+    ///         floor cannot express "enough gas for N kills", but the sweep that
+    ///         actually does the work can report that it ran out.
+    function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit)
+        external
+        returns (bool complete)
+    {
         if (msg.sender != hookAddr) revert OnlyHook();
-        _doSweep(liquidator, true);   // in-swap: settle swaps run in-place
+        complete = _doSweep(liquidator, true, spec, isBuy, limit); // in-swap: settle swaps run in-place
+    }
+
+    /// @dev The pending trade's projected post-swap price from the CURRENT spot.
+    ///      BOTH reserves go across: an exact-OUTPUT swap's input is derived from
+    ///      the side being taken. `dT/T == dE/E` under constant product because
+    ///      `E/T` IS the price, so the units cancel either way.
+    function _project(int256 spec, bool isBuy, uint160 limit) internal view returns (uint160) {
+        uint256 eDepth = activeEthDepth();
+        uint256 tDepth = _ethToToken(eDepth);
+        return PerpSwapLib.projectedSqrtPriceX96(
+            _sqrtP(), isBuy ? eDepth : tDepth, isBuy ? tDepth : eDepth, spec, isBuy, limit
+        );
     }
 
     /// @dev Post-open sweep entrypoint — called by the engine ON ITSELF (external
@@ -1091,8 +1123,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      cascade ever reverting the trader's own open (best-effort).
     function selfSweep(address liquidator) external {
         if (msg.sender != address(this)) revert OnlyHook();
-        _doSweep(liquidator, false);
+        _doSweep(liquidator, false, int256(0), false, 0);
     }
+
     /// @dev Fire the post-open sweep best-effort, reserving gas so it can never
     ///      revert the open, and capping it so a cascade can't consume everything.
     function _sweepAfterOpen(address liquidator) internal {
@@ -1105,11 +1138,21 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @dev Shared bounded rotating-window sweep. `inLocked` = we're already inside
     ///      PoolManager's lock (hook path → in-place swaps) vs a fresh unlock
     ///      (post-open path). Best-effort; the `_liqReentry` guard blocks nesting.
-    function _doSweep(address liquidator, bool inLocked) internal {
-        if (_liqReentry) return;
+    /// @dev Non-zero ONLY for the duration of a pre-emptive sweep: the price the
+    ///      pending swap is conservatively projected to leave behind. Storage, not
+    ///      `transient`, so this file keeps compiling on 0.8.26 — same
+    ///      set-then-clear shape as `_liqReentry` / `_inLocked` right beside it.
+    uint160 internal _projSqrtP;
+
+    function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit)
+        internal
+        returns (bool complete)
+    {
+        complete = true;
+        if (_liqReentry) return complete;
         // SAMPLE THE ORACLE FIRST, ALWAYS (audit Z-02). This used to sit AFTER the
         // empty-book early-return, which meant that while no position was open no
-        // swap ever wrote an observation: `lastTick` stayed frozen at whatever it was
+        // swap ever wrote an observation: `ring.lastTick` stayed frozen at whatever it was
         // when the book last emptied, `_writeObs` then integrated the whole quiet
         // period at that stale tick, and `twapTick()` extrapolated it over the entire
         // lookback. The mark therefore returned the PRE-quiet-period price no matter
@@ -1119,13 +1162,31 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // keeperless; it costs one observation write on an otherwise idle sweep.
         _pokeFunding();
         uint256 len = _openIds.length;
-        if (len == 0) return;
+        if (len == 0) return complete;
         _liqReentry = true;
         _inLocked = inLocked;
         uint256 cursor = sweepCursor;
         uint256 scanned;
         uint256 kills;
-        while (scanned < SWEEP_SCAN && scanned < len && kills < MAX_LIQ_PER_SWAP) {
+        //  ── THE BOOK IS THE WINDOW, AND GAS IS THE BOUND (red-team R1B) ─────
+        //  `scanned < SWEEP_SCAN` (12) capped the scan at a POSITIONAL window over
+        //  a book that holds MAX_OPEN_POSITIONS (64). Because `sweepCursor`
+        //  persists across swaps, an attacker could pad the book with dust and
+        //  then advance the cursor with two dust sells so that a chosen victim sat
+        //  outside BOTH the pre- and the post-trade window of the very swap that
+        //  bankrupted it — measured 0.31526 ETH of bad debt, at ~0.40 ETH of
+        //  RECOVERABLE short collateral. A window an attacker can aim is not a
+        //  bound, it is a blind spot.
+        //
+        //  The count cap was never the thing keeping this sweep from OOGing the
+        //  parent swap — the SWEEP_KILL_RESERVE break below is, and it is the
+        //  strictly stronger guard because it measures the resource it is
+        //  protecting instead of proxying it. Dropping the positional cap lets the
+        //  scan cover the whole (already hard-capped, ≤ 64) book when gas allows
+        //  and degrade to however many slots the gas actually funds when it does
+        //  not: exactly the graceful behaviour the reserve break was added for.
+        //  `scanned < len` still terminates in one pass over the book.
+        while (scanned < len && kills < MAX_LIQ_PER_SWAP) {
             //  ── STOP BEFORE RUNNING OUT, NOT AFTER (red-team L-2) ───────────
             //  The hook fires this with a fixed gas budget and discards the
             //  result (CauldronHook.sol:912), so an OOG in here is not a partial
@@ -1141,11 +1202,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  Breaking on the reserve makes the sweep DEGRADE instead: it banks
             //  the kills it could afford and leaves the rest for the next swap,
             //  which is the behaviour the bounded scan was already reaching for.
-            if (gasleft() < SWEEP_KILL_RESERVE) break;
+            //  ...and REPORTS the degradation (H1). Degrading silently is what
+            //  let a constant pre-trade gas floor pass a trade that bankrupts N
+            //  positions with gas for one kill: measured 4.36 ETH of bad debt
+            //  charged to PLV on a 30 ETH vault, at ordinary-swap attacker cost.
+            //  The floor cannot know N; this loop does. `complete == false` is
+            //  the hook's signal to refuse the PRE-trade swap outright.
+            if (gasleft() < SWEEP_KILL_RESERVE) { complete = false; break; }
             uint256 n = _openIds.length;
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
             uint256 id = _openIds[cursor];
+            //  RE-PROJECT PER KILL, FROM LIVE SPOT (red-team LIQ04-D). Each
+            //  settlement swap in this loop moves spot, so a projection taken once
+            //  before the loop valued kills 2..N against a price that no longer
+            //  existed and let positions the trade WOULD sink slip through to the
+            //  post-trade sweep. Settlement impact is real and permanent while the
+            //  pending trade's impact is still entirely ahead, so projecting from
+            //  the moved spot with the full pending size is still a bound.
+            //  Measured residual before this: 39.6 mETH of PLV at a 0.8 ETH buy.
+            if (spec != 0) _projSqrtP = _project(spec, isBuy, limit);
             _tryLiquidate(id, liquidator);
             // If it liquidated, _removeOpen swap-popped the LAST id into `cursor`,
             // so DON'T advance (re-check the slot's new occupant); else advance.
@@ -1155,6 +1231,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         sweepCursor = cursor;
         _inLocked = false;
         _liqReentry = false;
+        _projSqrtP = 0;
     }
 
     /// @dev Liquidate one position if {_liqTest} trips it and the per-block
@@ -1180,15 +1257,21 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @dev The two-line preamble both force-close entry points share, byte for
     ///      byte (EIP-170). Behaviour identical: refuse unless the token is dead,
     ///      then bring funding and the TWAP observation up to date so the band the
-    ///      dead path is checked against ({_deathBand}) is the current mark.
+    ///      dead path is limited by ({_band}) is the current mark.
     function _deadPrep() private {
         if (!_isDead()) revert NotDead();
         _pokeFunding();
     }
 
-    function forceCloseDead(uint256 id) external nonReentrant notNested {
-        Position memory p = _pos(id);
+    /// @dev Load a position that MUST be open. The load-and-check both external
+    ///      entry points share, byte for byte (EIP-170 — the T3d death band).
+    function _open(uint256 id) private view returns (Position memory p) {
+        p = _pos(id);
         if (p.trader == address(0)) revert NotOpen();
+    }
+
+    function forceCloseDead(uint256 id) external nonReentrant notNested {
+        Position memory p = _open(id);
         _deadPrep();
         _settle(id, p, 0, MODE_DEATH, msg.sender);
     }
@@ -1226,7 +1309,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///           3. resets the TWAP oracle for the new pool.
     ///         The ETH vault (plv) carries over untouched.
     function syncGeneration() external nonReentrant notNested {
-        uint256 gen = registry.currentGeneration();
+        uint256 gen = _gen();
         //  A ROTATION CHANGES THE QUOTE WITHOUT CHANGING THE GENERATION.
         //  This used to refuse on `gen == syncedGeneration` alone, which made a
         //  live quote rotation unfollowable: `quote` is assigned only below, so
@@ -1235,7 +1318,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  with no reachable call able to correct it until the next relaunch.
         //  Re-syncing on a quote change closes that, and costs nothing when the
         //  quote has not moved (the common case still reverts `AlreadySynced`).
-        address newQuote = registry.generationQuote(gen);
+        address newQuote = _gq(gen);
         if (gen == syncedGeneration && newQuote == quote) revert AlreadySynced();
         if (openCount != 0) revert PositionsOpen(); // force-close everything first
 
@@ -1252,8 +1335,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         // Re-arm the token side to whatever the engine now actually holds of the
         // current token, and clear the stale per-token OI (already 0 via settles).
-        address newTok = registry.currentToken();
-        uint256 newInv = newTok != address(0) ? IERC20(newTok).balanceOf(address(this)) : 0;
+        address newTok = _tok();
+        uint256 newInv = newTok != address(0) ? _bal(newTok, address(this)) : 0;
         //  ── TRACK THE SHORTFALL, DO NOT PAPER OVER IT ─────────────────────
         //  This was a bare `plvToken = newInv`. The migration above is BEST-EFFORT,
         //  so when it brought nothing across, the LP's token principal was silently
@@ -1281,13 +1364,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         // Reset the TWAP oracle — old-pool ticks are meaningless for the new token.
         delete observations;
-        tickCumulative = 0;
-        obsIndex = 1;
-        lastObsTs = uint32(block.timestamp);
-        lastRingTs = uint32(block.timestamp);
-        ringArmedAt = uint32(block.timestamp);
-        lastTick = _currentTick();
-        observations[0] = Observation(uint32(block.timestamp), 0);
+        ring.tickCumulative = 0;
+        ring.obsIndex = 1;
+        ring.lastObsTs = uint32(block.timestamp);
+        ring.lastRingTs = uint32(block.timestamp);
+        //  `ringArmedAt`, `ring.lastTick` and `observations[0]` are seeded BELOW,
+        //  after `quote`/`syncedToken`/`markSource` are adopted — see RING1-A.
 
         //  ADOPT THE GENERATION'S QUOTE. Done at the single point the engine
         //  takes on a generation, so `quote` can never disagree with the pool it
@@ -1444,6 +1526,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         syncedGeneration = gen;
         syncedToken = newTok;
+        //  ── SEED THE NEW RING FROM THE NEW GENERATION, NOT THE DEAD ONE (RING1-A)
+        //  This used to run with the reset above, BEFORE `quote`, `syncedToken` and
+        //  `markSource` were adopted, so `_currentTick()` read the dying pool (or
+        //  its still-armed mark source) and the new generation's mark started as
+        //  the OLD tick — measured 60000 vs a live 0 — and, with
+        //  `observations[0].tickCumulative == 0`, stayed exactly that for a whole
+        //  `twapWindow`. Downgraded to Low only because the 24h open warmup
+        //  outlasts it; fixed anyway, because a correct seed costs nothing.
+        //  `_key()` reads BOTH `quote` and `syncedToken`, so this sits after both.
+        ringArmedAt = uint32(block.timestamp);
+        ring.lastTick = _currentTick();
+        observations[0] = PerpSwapLib.Observation(uint32(block.timestamp), 0);
         emit GenerationSynced(fromGen, gen, migratedIn, newInv);
     }
 
@@ -1511,7 +1605,46 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  there is no spot price to judge by — leave the mark's answer alone
             //  rather than dividing by zero on a path the hook cannot afford to
             //  have revert.
-            uint160 sp = _sqrtP();
+            //  ── THE PRICE THE TRADE WILL LEAVE, NOT THE ONE IT FOUND ─────────
+            //  Outside a pre-sweep `_projSqrtP` is zero and this is the live-spot
+            //  insolvency trigger, unchanged. INSIDE one it becomes the PROJECTED
+            //  post-trade price — which is the honest question ("does this trade
+            //  bankrupt the position?") and deliberately NOT the pre-trade spot.
+            //
+            //  Using pre-trade spot here would be a real regression: mid
+            //  round-trip the spot can be crashed by a move the pending trade is
+            //  about to undo, so an atomic crash-and-restore could farm a
+            //  liquidation on a position the restore leg makes solvent again.
+            //  The poisoned-mark suite (A02) caught exactly that.
+            //
+            //  INSOLVENCY, never maintenance. Only the TWAP is allowed a
+            //  maintenance buffer, so an ORDINARY liquidation still needs a
+            //  SUSTAINED move and cannot be fired by one block's price. No buffer
+            //  is needed to absorb the settlement's own impact either, because
+            //  closing BEFORE the trade is itself the buffer.
+            //  ── WHO IS ALLOWED TO USE THIS LEG (E1A) ────────────────────────
+            //  This leg reads a price the caller's own swap may have just made.
+            //  Its two callers are NOT symmetric:
+            //    * INSIDE the hook's in-swap sweep (`_inLocked`) the price is the
+            //      PROJECTED post-trade price of a trade the caller has to PAY
+            //      the impact of, and the whole point of that sweep is to close a
+            //      position in the very swap that sank it. Spot stands alone
+            //      there — unchanged, and that is what XL1/S08 pin down.
+            //    * OFF the sweep — permissionless {liquidate}, or the post-open
+            //      sweep — `_projSqrtP` is 0 and this read is RAW LIVE SPOT: the
+            //      price whatever swap ran last in this same transaction left
+            //      behind. A liquidator could therefore push spot past a HEALTHY
+            //      short's entire equity, call {liquidate}, and have the vault
+            //      buy the position back at the price they had just made, with
+            //      `_absorbPlvLoss` socialising the overspend onto the stakers
+            //      (measured: 0.0307 ETH of PLV to close 0.02 ETH of collateral).
+            //  Gating the leg HERE was tried and is wrong: `isLiquidatable` /
+            //  `positionHealth` are this function's other callers, and a view
+            //  that hides a spot-insolvent position from keepers and from the UI
+            //  is a worse answer than the drain. The gate therefore lives on the
+            //  one caller that SPENDS staker capital — see {liquidate}.
+            uint160 pj = _projSqrtP;
+            uint160 sp = pj != 0 ? pj : _sqrtP();
             if (sp != 0) insolvent = _insolventVal(p, _quoteAt(p.size, sp));
         }
         if (insolvent) trip = true;
@@ -1571,16 +1704,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @dev The dead path's price band, both directions, folded out of {_settle}'s
-    ///      two branches (EIP-170 — the duplicated mul/div/revert did not fit).
-    ///      `buy`: `realised` is what the buy-back COST for `size` tokens and must
-    ///      not exceed the mark plus the band. Otherwise `realised` is the sale
-    ///      proceeds for `size` tokens and must clear the mark minus it.
-    ///      See {DEATH_SLIP_BPS} for why this exists and why reverting is safe.
-    function _deathBand(bool buy, uint256 realised, uint256 size) internal view {
-        uint256 lim = _quoteMark(size) * (buy ? BPS + DEATH_SLIP_BPS : BPS - DEATH_SLIP_BPS);
-        uint256 got = realised * BPS;
-        if (buy ? got > lim : got < lim) revert Slippage();
+    /// @dev The trader's OWN slippage floor, shared by {_settle}'s two branches
+    ///      byte for byte (EIP-170). Only a MODE_NORMAL close enforces `minOut`.
+    function _ownerFloor(bool on, uint256 got, uint256 minOut) private pure {
+        if (on && got < minOut) revert Slippage();
     }
 
     function _settle(uint256 id, Position memory p, uint256 minOut, uint8 mode, address keeper) internal {
@@ -1589,14 +1716,75 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         openCount--;
         uint256 residual;
         bool ownerSlippage = mode == MODE_NORMAL; // only the trader's own close enforces minOut
+        //  ONE call: {markSqrtPriceX96} is a 32-slot ring scan and viaIR inlines
+        //  {_band}, so asking for it in both branches duplicated the whole loop
+        //  (measured: +1,224 bytes, 1,191 over EIP-170). A long SELLS, a short BUYS.
+        //  The dead path's mark band as a sqrt-price LIMIT (0 = no band). A long
+        //  SELLS, a short BUYS. See {DEATH_SLIP_BPS} and {PerpSwapLib.bandLimit}.
+        //  ── THE SPLIT BAND: OWN MONEY UNBANDED, STAKER MONEY BANDED (E1A) ──
+        //  MODE_LIQUIDATION used to settle with `band == 0`, i.e. at ANY price,
+        //  against ONE budget spanning `backing + insuranceEth + plv` — so a
+        //  liquidator who had just pushed spot in the SAME transaction got the
+        //  short's buy-back executed at the price they had made, and
+        //  {_absorbPlvLoss} socialised the overspend onto the stakers (measured:
+        //  1 ETH push → PLV −0.0719, attacker +0.0435; 3 ETH → −0.4400/+0.2720).
+        //  A FLAT band over that whole budget closes the drain but breaks
+        //  CLOSEABILITY (XL1): an insolvent short by definition needs more than
+        //  its own backing, so a flat band pushes every genuine cascade into the
+        //  partial-fill path. The two properties in tension are about DIFFERENT
+        //  money, so they are settled against different budgets:
+        //    * the position's OWN backing is spent UNBANDED — closeability at any
+        //      size, in the swap that sank it, costs the stakers nothing;
+        //    * the SOCIALISED tranche (`insuranceEth + plv`), which is the only
+        //      money {_absorbPlvLoss} can ever charge, is spent only INSIDE the
+        //      mark band. That tranche IS the E1A drain, so capping it kills the
+        //      attack while a real cascade still closes from its own collateral.
+        //  What the band refuses is not lost: the `_rebook` + PartiallyClosed
+        //  path below leaves the remainder OPEN, smaller and fully
+        //  re-liquidatable by the next sweep, {liquidate}, or {close}.
+        //  MODE_NORMAL (the trader's own close, which enforces their own
+        //  `minOut`) keeps its pre-band behaviour: `band` stays 0 there.
+        //  ── E1A: WHY THE BAND CANNOT BE PATH-SPECIFIC ───────────────────────
+        //  MEASURED, do not re-derive: gating on `_projSqrtP == 0` (i.e. band the
+        //  permissionless {liquidate} but not the in-swap sweep) changes NOTHING
+        //  — `_projSqrtP` is already 0 in the post-trade sweep, so both paths see
+        //  raw live spot and are indistinguishable by price. They are the same
+        //  shape: "a swap moved spot, now settle against it". The attacker's push
+        //  and an honest trade's impact cannot be told apart at settlement, and
+        //  the mark cannot be the discriminator either — S08_A's backstop runs on
+        //  a MEASURED mark-healthy victim condemned by spot alone.
+        //  So the band applies to every settlement that can spend staker money.
+        //  The LONG leg bands only on death (it SELLS — no staker capital is
+        //  spent to execute it); the SHORT leg bands on every non-NORMAL mode
+        //  (it BUYS, and that buy is the money {_absorbPlvLoss} can charge).
+        //  Folded into ONE predicate so the band is computed at ONE call site
+        //  and each leg uses it directly — identical behaviour, fewer bytes.
+        uint160 band = (p.isLong ? mode == MODE_DEATH : mode != MODE_NORMAL)
+            ? PerpSwapLib.bandLimit(markSqrtPriceX96(), _sqrtP(), !p.isLong, quote < syncedToken)
+            : 0;
 
         if (p.isLong) {
             longOiEth -= p.principal;
-            uint256 proceeds = _swapExactIn(false, p.size); // sell held token → ETH
-            if (ownerSlippage && proceeds < minOut) revert Slippage();
-            // The dead path's own floor, off the mark, not off the caller. See
-            // {DEATH_SLIP_BPS}.
-            if (mode == MODE_DEATH) _deathBand(false, proceeds, p.size);
+            //  On the DEATH path the sale is capped at the band edge instead of
+            //  being refused above it (see {DEATH_SLIP_BPS}): a keeper cannot buy
+            //  the position off the trader 10% under the mark, and a pool too thin
+            //  to take the whole size inside the band still clears the book.
+            //  The long leg spends no staker capital to execute (it SELLS), so
+            //  E1A's split band does not apply here: the band stays exactly the
+            //  death-path bound it already was.
+            (uint256 sold, uint256 proceeds) = _swapExactIn(false, p.size, band);
+            _ownerFloor(ownerSlippage, proceeds, minOut);
+            //  `sold <= p.size` by construction: this is an exact-INPUT sell of
+            //  `p.size`, so v4 can never take more than was specified.
+            uint256 unsold;
+            unchecked { unsold = p.size - sold; }
+            //  DEATH IS TERMINAL (see the short leg's note): {forceCloseAllDead}
+            //  is on the relaunch path and {syncGeneration} refuses while the book
+            //  is non-empty, so the piece the pool could not take INSIDE the band
+            //  must not keep the position open. The engine already holds that
+            //  token, so it stays as LP inventory rather than being dumped below
+            //  the band — loud, by name, so it is never inferred.
+            _writeOffTok(id, unsold, true);
             uint256 repay = proceeds >= p.principal ? p.principal : proceeds;
             plv += repay;
             // Bad debt (proceeds < principal): `plv` already booked the reduced
@@ -1611,10 +1799,24 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             // {_buyUpTo} — an unbounded exact-output buy made a short bigger than
             // the pool's token side unclosable by anyone, its owner included.
             uint256 backing = uint256(p.collateral) + p.principal;
-            (uint256 cost, uint256 bought) = _buyUpTo(p.size, backing + insuranceEth + plv);
-            // Same floor, mirrored: the buy-back must not cost materially more than
-            // the marked value of what it actually bought. See {DEATH_SLIP_BPS}.
-            if (mode == MODE_DEATH) _deathBand(true, cost, bought);
+            //  E1A — the WHOLE buy-back budget is spent inside the mark band, so
+            //  no price a caller makes in this same transaction can charge a
+            //  staker. What the band refuses is NOT written off: the `_rebook` +
+            //  PartiallyClosed path below leaves the remainder OPEN, smaller and
+            //  fully re-liquidatable by the next sweep, {liquidate} or {close}
+            //  (pinned by `test_XL1_ShortLargerThanThePoolIsStillCloseable`).
+            //
+            //  COST, ACCEPTED DELIBERATELY: a position too big to clear inside
+            //  the band no longer closes in ONE swap. Splitting the budget into
+            //  an UNBANDED tranche (the position's own backing) and a BANDED one
+            //  (`insuranceEth + plv`, the only money `_absorbPlvLoss` can charge)
+            //  keeps same-swap closeability AND kills the drain — it is the right
+            //  shape and it is written up in `audit/RH_MAINNET_2026-09-16/`. It
+            //  is not here because the second `_buyUpTo` call site costs ~987 B
+            //  and puts this contract 715 B over EIP-170. Land it behind a
+            //  `refactor(size):` that frees the bytes first.
+            (uint256 cost, uint256 bought) =
+                _buyUpTo(p.size, backing + insuranceEth + plv, band);
             shortOiToken -= bought;              // only what came back is off the books
             plvToken += bought;                  // ...and back in inventory
             // The buy-back may have spent MORE ETH than this position's backing;
@@ -1636,21 +1838,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
                 emit PartiallyClosed(id, bought, cost, unbought);
                 return;
             }
-            if (unbought > 0) {
-                //  ── DEATH IS TERMINAL, OR A RELAUNCH COULD BE BLOCKED ───────
-                //  {forceCloseAllDead} is on relaunch's path and {syncGeneration}
-                //  refuses while `openCount != 0`, so a position the pool can NEVER
-                //  unwind must not be allowed to keep the book non-empty for good —
-                //  that is the R-07 brick by another door. On the DEATH path only,
-                //  the token we could not buy back is written off: the debt leaves
-                //  `shortOiToken` and never returns to `plvToken`, i.e. the TOKEN
-                //  side of the vault carries it. Loud, by name, so operators and
-                //  indexers see the shortfall rather than inferring it.
-                shortOiToken -= unbought;
-                emit TokenDebtWrittenOff(id, unbought);
-            }
+            _writeOffTok(id, unbought, false);
             residual = backing > cost ? backing - cost : 0;
-            if (ownerSlippage && residual < minOut) revert Slippage();
+            _ownerFloor(ownerSlippage, residual, minOut);
         }
 
         // Settlement tail — funding transfer + (on a liquidation) the penalty and
@@ -1727,8 +1917,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     /// @dev Exact-INPUT swap. buy=true → spend `amount` ETH for token (returns
     ///      token out); buy=false → sell `amount` token for ETH (returns ETH out).
-    function _swapExactIn(bool buy, uint256 amount) internal returns (uint256 out) {
-        (, out) = _run(SwapReq(buy, false, amount, 0));
+    ///      `lim` is the sqrt-price the leg may not pass (0 = the direction's
+    ///      extreme, i.e. every ordinary open). Both legs are returned because a
+    ///      LIMITED exact-in sell can fill partially — see {_settle}'s death path.
+    function _swapExactIn(bool buy, uint256 amount, uint160 lim)
+        internal
+        returns (uint256 inDone, uint256 out)
+    {
+        return _run(SwapReq(buy, false, amount, lim));
     }
 
     /**
@@ -1754,14 +1950,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  needed. When the full buy-back fits inside it — every ordinary close —
      *  the limit never binds and the behaviour is byte-for-byte the old one.
      */
-    function _buyUpTo(uint256 tokenOut, uint256 budget)
+    function _buyUpTo(uint256 tokenOut, uint256 budget, uint160 band)
         internal
         returns (uint256 spent, uint256 got)
     {
         //  `quote < syncedToken` is exactly `quote == currency0` (see {_key}), and
-        //  paying currency0 in moves the pool price DOWN.
-        uint160 lim = PerpSwapLib.spendLimit(
-            _sqrtP(), poolManager.getLiquidity(_key().toId()), budget, quote < syncedToken
+        //  paying currency0 in moves the pool price DOWN. `band` is 0 off the death
+        //  path; {PerpSwapLib.closeLimit} then returns the budget bound unchanged.
+        uint160 lim = PerpSwapLib.closeLimit(
+            _sqrtP(), _liq(), budget, quote < syncedToken, band
         );
         (spent, got) = _run(SwapReq(true, true, tokenOut, lim));
     }
@@ -1803,6 +2000,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
+    /// @dev The opening prologue {openLong} and {openShort} shared byte for byte
+    ///      (EIP-170). Same order, same checks, same reverts.
+    function _openPrologue(uint8 leverage, uint256 amount) internal {
+        if (amount == 0) revert ZeroValue();
+        _pullQuote(msg.sender, amount);
+        _guardOpen(leverage);
+        _pokeFunding();
+    }
+
     function _guardOpen(uint8 leverage) internal view {
         //  TWO gates, one comparison (EIP-170). The SUMMON warmup, and — since a
         //  mid-generation quote rotation does not move `lastSummonAt` but
@@ -1861,8 +2067,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  the hook 37 bytes OVER EIP-170 and undeployable. This engine has room.
      */
     function _isDead() internal view returns (bool) {
-        uint256 gen = registry.currentGeneration();
-        if (quote != registry.generationQuote(gen)) return true;
+        uint256 gen = _gen();
+        if (quote != _gq(gen)) return true;
         //  GUARDED, AND IT FAILS BACK TO OUR OWN POOL. `_isDead` sits on every
         //  mutating path — open, close, liquidate, the in-swap sweep, and both
         //  force-close entrypoints — so an unguarded read here turns a registry
@@ -1879,7 +2085,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral) {
         uint256 fee = (sent * openFeeBps) / BPS;
-        if (mifrens.balanceOf(msg.sender) > 0) fee = (fee * (BPS - ogDiscountBps)) / BPS;
+        if (_bal(address(mifrens), msg.sender) > 0) fee = (fee * (BPS - ogDiscountBps)) / BPS;
         collateral = sent - fee;
         _routeFee(fee, longSide);
     }
@@ -1935,10 +2141,44 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      it replaces: while a vault is wired, cap the side's utilization at
     ///      `maxUtilBps` of that side's total assets, and pause opens while the
     ///      insurance buffer sits below its circuit-breaker floor. No vault, no gate.
+    /// @dev The insurance buffer the LIVE book actually requires: the greater of
+    ///      the configured floor and maintenance margin on current open interest.
+    ///      Shared by {_utilGate} and {skimInsurance} so the two can never drift.
+    function _insuranceNeed() internal view returns (uint256) {
+        uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
+        uint256 floorQ = _q(insuranceFloor);
+        return floorQ > riskMin ? floorQ : riskMin;
+    }
+
     function _utilGate(uint256 used, uint256 total) private view {
         if (vault == address(0)) return;
         if (used > (total * maxUtilBps) / BPS) revert UtilCapped();
-        if (insuranceFloor > 0 && insuranceEth < _q(insuranceFloor)) revert InsurancePaused();
+        //  ── OPENS PAUSE ON A RISK-SCALED FLOOR, NOT A STATIC ONE ────────────
+        //  This checked `insuranceFloor` alone — a constant set once at deploy —
+        //  while the risk it has to cover scales with OPEN INTEREST. The buffer
+        //  could therefore be a fraction of a single max-size position and still
+        //  admit new leverage: measured on r44, insurance 0.0608 ETH against a
+        //  0.1493 ETH max notional, i.e. 0.41x. The shortfall path is
+        //  `_absorbPlvLoss`, which spends the buffer and then writes the rest off
+        //  against `plv` — LP PRINCIPAL. Stakers did not opt into backstopping
+        //  traders, and a static floor let new risk stack on top of a buffer that
+        //  no longer covered the old risk.
+        //
+        //  `skimInsurance` already refused to let the OWNER drop below this same
+        //  number (audit M-05). It was only ever missing on the path that ADDS
+        //  the exposure.
+        //
+        //  SCOPE, STATED HONESTLY: this runs BEFORE the OI state update, so it
+        //  tests the buffer against the book AS IT STANDS — the position being
+        //  opened is covered by the check on the NEXT open. The residual is
+        //  therefore one position's worth of lag, and `_checkNotional`
+        //  (`maxNotionalBps`) already bounds a single position, so the gap is
+        //  bounded rather than open-ended. Closing it exactly would mean
+        //  denominating the pending size consistently across the long path
+        //  (ETH) and the short path (token), which is a bigger change than the
+        //  bound it buys.
+        uint256 need = _insuranceNeed();
+        if (need > 0 && insuranceEth < need) revert InsurancePaused();
     }
 
     /// @dev Remove a settled position from the enumerable open set (swap-and-pop).
@@ -2092,7 +2332,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  Converged: this is ordinary bookkeeping and belongs to the timelock.
             //  Diverged: this entry is what stands between the engine and recovery,
             //  so anyone may clear it — see the liveness note above.
-            if (quote == registry.generationQuote(registry.currentGeneration())) _checkOwner();
+            if (quote == _gq(_gen())) _checkOwner();
         }
         payoutOwed[to] = 0;                     // effects before interaction
         payoutOwedTotal -= amount;
@@ -2124,10 +2364,33 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @dev LONG bad debt: `plv` already booked the reduced repayment, so ADD the
     ///      insurance cover back into plv to make depositors whole up to the
     ///      buffer. Any uncovered remainder is already reflected as a lower plv.
+    /// @dev The `BadDebt` tail both insurance paths share, byte for byte (EIP-170
+    ///      — the T3d death band needed the bytes). Same event, same order.
+    function _bd(uint256 amount, uint256 fromInsurance) private {
+        emit BadDebt(amount, fromInsurance);
+    }
+    /// @dev The token a DEATH settle could not move inside the mark band, retired
+    ///      by name. Both legs of {_settle} share this byte for byte (EIP-170).
+    ///
+    ///      LONG: the engine is holding token it could not sell inside the band, so
+    ///      it becomes LP inventory. SHORT: the debt leaves `shortOiToken` and never
+    ///      returns to `plvToken`, i.e. the TOKEN side of the vault carries it —
+    ///      the terminal write-off LIQ-02 added, unchanged.
+    function _writeOffTok(uint256 id, uint256 amount, bool isLong) private {
+        if (amount == 0) return;
+        if (isLong) plvToken += amount; else shortOiToken -= amount;
+        emit TokenDebtWrittenOff(id, amount);
+    }
+    /// @dev The `VaultFunded` / `VaultWithdrawn` tails their two sites share (EIP-170).
+    function _vf(bool ethSide, uint256 amount) private { emit VaultFunded(ethSide, amount); }
+    function _vw(bool ethSide, uint256 amount, address to) private {
+        emit VaultWithdrawn(ethSide, amount, to);
+    }
+
     function _replenishPlv(uint256 shortfall) internal {
         uint256 cover = shortfall < insuranceEth ? shortfall : insuranceEth;
         if (cover > 0) { insuranceEth -= cover; plv += cover; }
-        emit BadDebt(shortfall, cover);
+        _bd(shortfall, cover);
     }
     /// @dev SHORT bad debt: the buy-back overspent the engine's raw ETH by `loss`,
     ///      which was NOT yet booked against plv. Absorb it — insurance first,
@@ -2138,7 +2401,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         insuranceEth -= fromIns;
         uint256 rest = loss - fromIns;
         if (rest > 0) plv = plv > rest ? plv - rest : 0; // socialized LP loss
-        emit BadDebt(loss, fromIns);
+        _bd(loss, fromIns);
     }
     /// @dev Mint the Liquidatoor badge to `to` from the ACTIVE brew's collection
     ///      (read live off the hook, so it always targets whatever iteration is
@@ -2218,7 +2481,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  for a collection deployed before stats existed. It is a DELEGATECALL, so
         //  the collection still sees THIS ENGINE as `msg.sender`.
         if (gasleft() > 300_000) {
-            if (PerpSwapLib.tryMintBadge(IPerpHook(hookAddr).collection(), to, st)) minted = 1;
+            if (PerpSwapLib.tryMintBadge(_col(), to, st)) minted = 1;
         }
         if (minted == 0) { unchecked { badgesOwed[to] += 1; } }
         emit LiquidatoorAwarded(id, to, minted);
@@ -2231,7 +2494,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function claimLiquidatorBadges(uint256 n) external nonReentrant {
         uint256 owed = badgesOwed[msg.sender];
         if (n == 0 || n > owed) n = owed; // n==0 (nothing owed) → the loop no-ops
-        address col = IPerpHook(hookAddr).collection();
+        address col = _col();
         // Mirror of the L-06 guard in _awardBadge: without this, a code-less
         // collection would let the loop "succeed" and BURN the owed count for
         // nothing. Revert instead so the badges stay claimable once one is wired.
@@ -2263,8 +2526,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         permanent donation; use `PerpVault.depositToken` for recoverable
     ///         inventory. Caller must approve the token. (Audit L-02)
     function fundPlvToken(uint256 amount) external onlyOwner notNested {
-        IERC20(registry.currentToken()).transferFrom(msg.sender, address(this), amount);
-        plvToken += amount; emit PlvFunded(0, amount);
+        _pullTokenIn(amount); emit PlvFunded(0, amount);
+    }
+    /// @dev The token-side pull {fundPlvToken} and {fundTokenFromVault} shared byte
+    ///      for byte (EIP-170). Caller must have approved this engine.
+    function _pullTokenIn(uint256 amount) private {
+        IERC20(_tok()).transferFrom(msg.sender, address(this), amount);
+        plvToken += amount;
     }
     /// @notice Seed insurance directly (owner or anyone topping up the buffer).
     /// @notice Fund the insurance buffer (see fundPlv on the amount argument).
@@ -2317,7 +2585,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function _pullIntoPlv(uint256 amount) private {
         _pullQuote(msg.sender, amount);
         plv += amount;
-        emit VaultFunded(true, amount);
+        _vf(true, amount);
     }
 
     function _creditPerp(bool ethSide) private {
@@ -2344,7 +2612,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             tokYieldEth += amount;
             tokYieldCumulative += amount;
         }
-        emit VaultFunded(ethSide, amount);
+        _vf(ethSide, amount);
     }
 
 
@@ -2367,7 +2635,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      Kept AFTER the counter is debited so the CEI order of both callers is
     ///      exactly what it was: effects, then the single external send.
     function _vaultPaid(uint256 amount, address to) private {
-        _sendEth(to, amount); emit VaultWithdrawn(true, amount, to);
+        _sendEth(to, amount); _vw(true, amount, to);
     }
     /// @notice The PerpVault pulls a token staker's accrued short-side ETH reward
     ///         out of the segregated `tokYieldEth` pot (never touches `plv`).
@@ -2377,16 +2645,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     /// @notice The PerpVault routes a depositor's TOKEN into the short inventory.
     function fundTokenFromVault(uint256 amount) external onlyVault {
-        IERC20(registry.currentToken()).transferFrom(msg.sender, address(this), amount);
-        plvToken += amount; emit VaultFunded(false, amount);
+        _pullTokenIn(amount); emit VaultFunded(false, amount);
     }
     /// @notice The PerpVault pulls FREE token inventory (≤ plvToken) out to pay a
     ///         withdrawal. Lent inventory returns as shorts close.
     function withdrawPlvTokenTo(uint256 amount, address to) external onlyVault notNested nonReentrant {
         if (amount > plvToken) revert PlvInsufficient();
         plvToken -= amount;
-        _safeTransfer(registry.currentToken(), to, amount);
-        emit VaultWithdrawn(false, amount, to);
+        _safeTransfer(_tok(), to, amount);
+        _vw(false, amount, to);
     }
 
     function setFees(uint256 _openBps, uint256 _ogDiscBps, uint256 _liqBps, uint256 _divShareBps, uint256 _keeperBps) external onlyOwner {
@@ -2539,10 +2806,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///  can never be emptied while positions depend on it.
     function skimInsurance(uint256 amount, address to) external onlyOwner {
         if (to == address(0)) revert BadParam();
-        uint256 riskMin = ((longOiEth + _quoteEth(shortOiToken)) * maintenanceBps) / BPS;
-        uint256 floorQ = _q(insuranceFloor);
-        uint256 protect = floorQ > riskMin ? floorQ : riskMin;
-        if (insuranceEth < protect + amount) revert BadParam();
+        if (insuranceEth < _insuranceNeed() + amount) revert BadParam();
         insuranceEth -= amount;
         _sendEth(to, amount);
     }

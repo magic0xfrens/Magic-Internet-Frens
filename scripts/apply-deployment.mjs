@@ -20,6 +20,7 @@
  *   node scripts/apply-deployment.mjs [--chain 11155111] [--dry]
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -397,5 +398,27 @@ if (dry) {
 }
 writeFileSync(manifestPath, JSON.stringify(m, null, 2) + "\n");
 console.log(`\nWrote ${manifestPath}`);
+
+//  ── SELECTOR PARITY GATE (audit C-1) ────────────────────────────────────────
+//  THIS is the one place every deploy path passes through: auto-deploy.sh,
+//  deploy-testnet.sh and go-testnet.sh all reach the manifest through here.
+//  r43 AND r44 both shipped a gacha router whose runtime was MISSING
+//  `playChurn`, so every spin reverted with empty data — for two whole rounds,
+//  because nothing ever compared the app's call list against the DEPLOYED
+//  bytecode. verify-selectors.mjs does exactly that; a non-zero exit ABORTS the
+//  deploy here rather than letting a dead round reach users.
+//  RPC: override with RPC_URL (a paid endpoint is better); default is pinned.
+const gate = spawnSync(process.execPath, [new URL("verify-selectors.mjs", import.meta.url).pathname], {
+  stdio: "inherit",
+  env: process.env,
+});
+if (gate.status !== 0) {
+  console.error("\nABORT: selector parity FAILED — the deployed bytecode is missing");
+  console.error("       function(s) the app sends. Those calls will revert with EMPTY");
+  console.error("       data. Redeploy the offending contract (check for a stale out/:");
+  console.error("       `cd contracts/solidity && FOUNDRY_PROFILE=cauldron forge clean`).");
+  console.error(`       The manifest at ${manifestPath} was written and is NOT safe to ship.`);
+  process.exit(1);
+}
 console.log("Next: cd indexer && railway up   (schema bumped -> clean reindex)");
 console.log("      npm run build");

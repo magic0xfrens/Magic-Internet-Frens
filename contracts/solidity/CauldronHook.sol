@@ -25,6 +25,7 @@ import {ISurtaxPolicy, IOddsPolicy, ICurvePolicy, IFeeRouter} from "./cauldron/I
 import {SurtaxLib} from "./cauldron/SurtaxLib.sol";
 import {LegacyBuyLib} from "./cauldron/LegacyBuyLib.sol";
 import {FeeRouteLib} from "./cauldron/FeeRouteLib.sol";
+import {GachaLib} from "./cauldron/GachaLib.sol";
 
 /// @notice The hook-native perp engine — auto-liquidated from afterSwap.
 /// @notice The registry's treasury-curated quote allowlist. The hook reads it to
@@ -56,7 +57,12 @@ interface IPerpOpenCount {
 interface IPerpEngineLiq {
     function liquidateInSwap(uint256 id, address liquidator) external;
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
-    function sweepLiquidations(address liquidator) external;
+    function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit)
+        external
+        returns (bool complete);
+    /// @dev Live open-position count. Read by the hook's pre-trade gas gate so a
+    ///      gas-starved swap only reverts when there is actually a book to protect.
+    function openCount() external view returns (uint256);
 }
 
 /// @notice A collection whose Liquidatoor badge minter the hook can auto-wire.
@@ -145,6 +151,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     error OnlySelf();
     /// @dev The one swap quadrant the hook cannot charge an ETH fee on (audit Z-01).
     error ExactOutSellUnsupported();
+    /// @dev The transaction did not carry enough gas to fund the PRE-TRADE
+    ///      liquidation sweep while perp positions were open. See {_liqSweep}.
+    error LiqGasStarved();
 
     // -----------------------------------------------------------------------
     // Constants
@@ -172,7 +181,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Native in-swap gacha (direct Uniswap/aggregator buys forge crystals with no
     // router). Fired LAST in afterSwap with leftover gas, isolated in a self-call.
     uint256 internal constant GACHA_GAS_RESERVE = 200_000; // keep for fee collection + return
-    uint256 internal constant GACHA_GAS_MIN = 500_000;     // need room for commit+resolve+mint
+    //  700k, not 500k (red-team GACHA1-f). The step forwards gasleft - RESERVE,
+    //  so the FLOOR it can receive is MIN - RESERVE = 300k, while a commit(4) +
+    //  resolve(6) measures ~488k: on a gas-tight direct buy the step OOGed,
+    //  burned the buyer's gas and committed nothing, silently.
+    uint256 internal constant GACHA_GAS_MIN = 700_000;     // need room for commit+resolve+mint
     uint256 internal constant NATIVE_COMMIT_MAX = 4;       // crystals committed per native swap
     uint256 internal constant NATIVE_RESOLVE_MAX = 6;      // matured crystals resolved per native swap
     // ── VOLUME WINDOW CLOCK (audit Z-05 — High, L2) ─────────────────────────────
@@ -399,17 +412,16 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     // Win chance scales with the ETH size of the play; a pity counter guarantees
     // a creature after enough misses. A MISS isn't wasted — its swap fee already
     // lifted the floor vault for every holder.
-    struct Batch {
-        address player;      // who the creature mints to on a win
-        address collection;  // the iteration's collection (so tickets survive relaunch)
-        uint48 commitBlock;  // block the crystals were opened in (seeds the rolls)
-        uint16 oddsBps;      // win probability, fixed at commit from play size
-        uint16 count;        // crystals in this batch
-        uint16 resolved;     // how many rolled so far
-    }
-    Batch[] public batches;             // FIFO queue of commit batches
-    uint256 internal batchCursor;         // index of the batch being resolved
-    uint256 public outstandingCrystals; // unresolved crystals across all players
+    //  `Batch` is declared in {GachaLib}, which owns the resolution loop.
+    GachaLib.Batch[] public batches;             // FIFO queue of commit batches
+    /// @dev `batchCursor` + `outstandingCrystals`, grouped so {GachaLib} mutates
+    ///      them IN PLACE through one storage reference (red-team GACHA1-g). They
+    ///      briefly crossed by value and were written back after the call, which
+    ///      is exactly the shape a re-entrant resolve turns into a stale overwrite.
+    GachaLib.State internal gacha;
+    /// @notice Unresolved crystals across all players (kept as a getter so the
+    ///         ABI is unchanged by the struct move).
+    function outstandingCrystals() external view returns (uint256) { return gacha.outstandingCrystals; }
     mapping(address => uint256) internal outstandingOf; // per-collection unresolved
     mapping(address => uint256) public opened;      // creatures a player has won (lifetime)
     mapping(address => uint256) public committedOf; // crystals a player has opened
@@ -779,6 +791,69 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
      *  ETH fees go to relaunchETH (self-funding the next generation). The fee is
      *  ALWAYS taken in ETH — there is no token-fee path (audit I-01).
      */
+    /// @dev The liquidation sweep, shared by both swap callbacks so the body exists
+    ///      once. `amountIn != 0` makes it PRE-emptive (see the call in beforeSwap).
+    ///      Gas-bounded and result-ignored: it can never revert or starve the swap
+    ///      it rides on. The pre-trade reserve is larger because the user's swap
+    ///      and the whole afterSwap still have to run AFTER this returns.
+    function _liqSweep(address sender, int256 amountSpecified, bool isBuy, uint160 limit) private {
+        if (perpEngine == address(0) || sender == perpEngine) return;
+        uint256 reserve = amountSpecified != 0 ? LIQ_GAS_RESERVE + LIQ_GAS_MIN : LIQ_GAS_RESERVE;
+        uint256 g = gasleft();
+        if (g > reserve + LIQ_GAS_MIN) {
+            (bool swept, bytes memory out) = perpEngine.call{gas: g - reserve}(
+                abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin, amountSpecified, isBuy, limit)
+            );
+            //  ── THE FLOOR IS CONSTANT; THE WORK IS NOT (red-team H1) ────────
+            //  Passing the fixed floor below only ever proved the caller funded
+            //  ONE in-swap kill (~440k measured). A trade that bankrupts four
+            //  shorts passed it and stranded three of them insolvent at the
+            //  price it had just set — 4.36 ETH of bad debt to PLV on a 30 ETH
+            //  vault, for the gas of an ordinary buy, repeatable. No constant
+            //  can express "enough gas for the work THIS trade creates", so we
+            //  do not try: the sweep itself now reports whether it finished its
+            //  pass, and a PRE-trade sweep that ran out of gas mid-book fails
+            //  loudly exactly like a sub-floor one. Honest callers and
+            //  `eth_estimateGas` simply supply what the book asks for; the swap
+            //  stays routable (exact-output included) because an empty or fully
+            //  scanned book always returns true.
+            if (amountSpecified != 0 && swept && out.length >= 32 && !abi.decode(out, (bool))) {
+                revert LiqGasStarved();
+            }
+        } else if (amountSpecified != 0) {
+            //  ── A GAS-STARVED TRADE FAILS LOUDLY, IT DOES NOT TRADE BLIND (R1C) ──
+            //  The caller picks the transaction's gas, so before this branch existed
+            //  the entire liquidation engine was OPTIONAL: capping gas under the
+            //  980k pre-trade floor executed a FULL-SIZE price-moving trade with the
+            //  pre-emptive sweep silently skipped, leaving the victim it bankrupted
+            //  open and insolvent (measured 0.30798 ETH of bad debt to PLV/insurance,
+            //  at NEGATIVE attacker cost, repeatable every block). No keeper can run
+            //  inside someone else's transaction before their swap, so there is no
+            //  later rescue: the loss is realized at the price this trade sets.
+            //
+            //  We cannot MAKE a caller supply gas. We can refuse to execute the
+            //  trade. This branch is reached only on the PRE-trade call (the
+            //  `amountSpecified != 0` one from {_beforeSwap}); the post-trade sweep
+            //  still degrades silently, because by then the swap's own sweep has
+            //  legitimately consumed the budget and reverting would punish honest
+            //  swappers for work the protocol asked them to do.
+            //
+            //  Gated on an OPEN BOOK so routability is untouched when there is
+            //  nothing to protect: with `openCount == 0` no gas floor applies at
+            //  all, and an ordinary swap through the Universal Router or any
+            //  aggregator carries far more than this (the uncapped control swap
+            //  measures ~1.70M gas). Only a deliberately tight cap trips it.
+            //  Trade-off, stated plainly: a swap on a pool with a live perp book
+            //  that supplies under ~1.05M gas now REVERTS instead of filling.
+            //  staticcall, not call: this must not be able to mutate anything, and
+            //  a non-conforming engine (ok == false) is treated as an empty book
+            //  rather than as a pool-wide brick.
+            (bool ok, bytes memory ret) =
+                perpEngine.staticcall(abi.encodeWithSelector(IPerpEngineLiq.openCount.selector));
+            if (ok && ret.length >= 32 && abi.decode(ret, (uint256)) != 0) revert LiqGasStarved();
+        }
+    }
+
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -946,14 +1021,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         // LIQ_GAS_RESERVE for this afterSwap to finish, forwarding the rest — so
         // the sweep can never OOG the parent swap (best-effort; low-level call
         // with ignored result).
-        if (perpEngine != address(0) && sender != perpEngine) {
-            uint256 g = gasleft();
-            if (g > LIQ_GAS_RESERVE + LIQ_GAS_MIN) {
-                perpEngine.call{gas: g - LIQ_GAS_RESERVE}(
-                    abi.encodeWithSelector(IPerpEngineLiq.sweepLiquidations.selector, tx.origin)
-                );
-            }
-        }
+        _liqSweep(sender, int256(0), false, 0); // post-trade: catches what the trade just moved
 
         // --- NATIVE in-swap gacha ---
         // A direct/aggregator buy (no router hookData) forges crystals RIGHT HERE:
@@ -1252,7 +1320,30 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  quadrant inverts. One derivation serves both tests below; deriving it
         //  twice is how the two drift apart.
         bool inputIsQuote = params.zeroForOne == q0;
+        //  ── PRE-EMPTIVE LIQUIDATION, ON BOTH SWAP SHAPES (red-team LIQ04-A) ──
+        //  Exact-OUTPUT buys were skipping the pre-sweep — their input is unknown
+        //  until execution — which left the one quadrant with no projection as
+        //  the one an attacker would route through: 27 mETH of PLV, measured, on
+        //  a trade the exact-input route handles for free.
+        //
+        //  REFUSING them was the wrong fix, twice over. The protocol's own
+        //  relaunch green candle (`PoolOps.executeBuy`) and the engine's short
+        //  buy-back (`PerpSwapLib.swap` with `exactOut`) are both exact-output
+        //  buys, so a blanket refusal bricked summon and settlement — caught by
+        //  twelve test setUps, not by review. And a hook that reverts on
+        //  `SWAP_EXACT_OUT_SINGLE` is NOT ROUTABLE: the Universal Router and any
+        //  aggregator quoting exact-output would fail against this pool, which is
+        //  the opposite of the no-custom-router property this hook is built for.
+        //
+        //  So v4's own SIGNED amount goes across instead and the projection
+        //  handles both shapes — under constant product the exact-output input is
+        //  as closed-form as the exact-input output.
+        //  EXACT-OUTPUT SELLS STAY REFUSED (audit Z-01): v4's afterSwap return
+        //  delta applies to the UNSPECIFIED currency, so the fee cannot be taken
+        //  on that leg and the swap would execute free. Only BUYS are served
+        //  exact-output — and now projected, above.
         if (!exactInput && !inputIsQuote) revert ExactOutSellUnsupported();
+        _liqSweep(sender, params.amountSpecified, inputIsQuote, params.sqrtPriceLimitX96);
         if (!exactInput || !inputIsQuote) {
             return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
@@ -1650,13 +1741,42 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         //  with a generation that can never be declared dead and never
         //  relaunched. Seven pools is already a wide treasury; the cap is
         //  headroom above any allocation a guild would plausibly vote for.
-        if (sib.length >= MAX_SIBLINGS) revert OnlyRegistry();
         // Idempotent: re-linking must not double-count the same pool forever.
+        // The dedup scan runs BEFORE the cap (audit L3): with the cap first, a
+        // full list made EVERY link revert, including a re-link of a pool that
+        // is already a sibling — and RedemptionExt:473 links unconditionally,
+        // so at nine siblings even rotating back into an already-linked quote
+        // reverted the whole rotation. Only a genuinely NEW 10th pool is
+        // refused now.
+        //  ── LINKS ARE FULLY CONNECTED, NOT ONE-WAY (red-team HIGH #2) ────────
+        //  This used to push `secondary` into `primary`'s list and stop. `isDead`
+        //  sums a pool's OWN list, so `isDead(primary)` saw the whole generation
+        //  while `isDead(leg)` saw only the leg — which has no volume of its own,
+        //  and so read DEAD while the generation was alive. The engine has since
+        //  been taught to ask about the primary, but the hook's answer for the
+        //  leg was still a lie waiting for the next caller. Now every pool in the
+        //  generation lists every other, so the sum is identical from any starting
+        //  pool. `_addSibling` dedups, so no pool is counted twice, and the
+        //  self-link guard above still holds.
         for (uint256 i; i < sib.length; ++i) {
-            if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return;
+            if (PoolId.unwrap(sib[i]) == PoolId.unwrap(secondary)) return; // already linked
+            _addSibling(sib[i], secondary);
+            _addSibling(secondary, sib[i]);
         }
-        sib.push(secondary);
+        _addSibling(primary, secondary);
+        _addSibling(secondary, primary);
         emit VolumeLinked(primary, secondary);
+    }
+
+    /// @dev Idempotent, capped push of `b` into `a`'s sibling list. Dedup runs
+    ///      before the cap for the reason documented in {linkVolume}.
+    function _addSibling(PoolId a, PoolId b) private {
+        PoolId[] storage s = _volumeSiblings[a];
+        for (uint256 i; i < s.length; ++i) {
+            if (PoolId.unwrap(s[i]) == PoolId.unwrap(b)) return;
+        }
+        if (s.length >= MAX_SIBLINGS) revert OnlyRegistry();
+        s.push(b);
     }
 
     event VolumeLinked(PoolId indexed primary, PoolId indexed secondary);
@@ -2256,7 +2376,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
 
     /// @notice Unresolved crystals across all players.
     function outstandingTickets() external view returns (uint256) {
-        return outstandingCrystals;
+        return gacha.outstandingCrystals;
     }
 
     /// @notice Whether the current collection is fully minted out.
@@ -2353,11 +2473,11 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         nftCredit[epoch][player] = credit - spent;
         committedOf[player] += n;
         pendingOf[player] += n;
-        outstandingCrystals += n;
+        gacha.outstandingCrystals += n;
         outstandingOf[col] += n;
 
         uint16 odds = uint16(oddsForPlay(playWei));
-        batches.push(Batch({
+        batches.push(GachaLib.Batch({
             player: player,
             collection: col,
             commitBlock: uint48(block.number),
@@ -2393,56 +2513,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         internal
         returns (uint256 processed, uint256 won)
     {
-        uint256 bi = batchCursor;
-        uint256 end = batches.length;
-        while (processed < maxCount && bi < end) {
-            Batch storage b = batches[bi];
-            if (block.number <= b.commitBlock) break; // seed not known yet
-            bytes32 bh = blockhash(b.commitBlock);
-            // EXPIRED SEED (audit M-04): substituting a DETERMINISTIC fallback made
-            // the outcome computable from `commitBlock` + `bi`, both known at commit
-            // time. A player who let their batch age past 256 blocks knew their roll
-            // in advance and could choose whether to resolve at all — and because a
-            // miss feeds the pity counter, selective resolution is a real lever on
-            // future odds. RE-ANCHOR to a fresh future block instead: FIFO order and
-            // every ticket are preserved, but the roll is always unknowable.
-            if (bh == 0) {
-                b.commitBlock = uint48(block.number);
-                break; // FIFO: resume from here on the next call
-            }
-
-            address player = b.player;
-            address col = b.collection;
-            uint256 odds = b.oddsBps;
-            uint256 minted = ICauldronCollection(col).totalMinted();
-            uint256 max = ICauldronCollection(col).maxSupply();
-            uint256 r = b.resolved;
-            uint256 total = b.count;
-
-            while (processed < maxCount && r < total) {
-                uint256 roll = uint256(keccak256(abi.encodePacked(bh, player, bi, r))) % 10_000;
-                bool forced = missStreak[player] >= pityThreshold;
-                bool win = (forced || roll < odds) && minted < max;
-
-                pendingOf[player] -= 1;
-                outstandingCrystals -= 1;
-                outstandingOf[col] -= 1;
-                if (win) {
-                    missStreak[player] = 0;
-                    opened[player] += 1;
-                    uint256 tokenId = ICauldronCollection(col).mint(player);
-                    unchecked { minted++; won++; }
-                    emit TicketWon(player, bi, tokenId);
-                } else {
-                    if (roll >= odds && minted < max) missStreak[player] += 1;
-                    emit TicketLost(player, bi);
-                }
-                unchecked { r++; processed++; }
-            }
-            b.resolved = uint16(r);
-            if (r == total) { unchecked { bi++; } } else break;
-        }
-        batchCursor = bi;
+        //  Body lives in {GachaLib} for EIP-170 headroom. Everything it mutates
+        //  goes across as a storage reference (one word each), so every write
+        //  lands in place, exactly as the inline loop wrote it.
+        (processed, won) = GachaLib.resolveTickets(
+            batches, missStreak, pendingOf, outstandingOf, opened, gacha, pityThreshold, maxCount
+        );
     }
 
     /// @notice NATIVE in-swap gacha for a direct (non-router) buy: commit the

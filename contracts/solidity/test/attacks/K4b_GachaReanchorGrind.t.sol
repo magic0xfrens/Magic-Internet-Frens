@@ -76,9 +76,11 @@ contract K4b_GachaReanchorGrind is FinalAuditBase {
             // Losing seed: never resolve it. Let it expire, re-anchor for free.
             vm.roll(commitBlock + 300);
             hook.resolveTickets(30);
-            // Ground truth from the hook itself: nothing was consumed, so it took
-            // the `bh == 0` RE-ANCHOR branch rather than resolving the loss.
-            require(hook.outstandingTickets() == 1, "batch resolved, not re-anchored");
+            // Ground truth from the hook itself. Before the fix, nothing was ever
+            // consumed here — every expiry took the `bh == 0` RE-ANCHOR branch.
+            // AFTER the fix (R3A) the cap bites on the SECOND expiry: the batch
+            // commits its base outcome (a loss) and is consumed, so the grind ends.
+            if (hook.outstandingTickets() == 0) break;
             commitBlock = vm.getBlockNumber();
             reanchors += 1;
         }
@@ -105,11 +107,12 @@ contract K4b_GachaReanchorGrind is FinalAuditBase {
         emit log_named_uint("free re-anchors used", reanchors);
         emit log_named_uint("NFTs minted from ONE crystal", minted);
 
-        // The cap the collection enforces (one re-anchor, best-of-two) does not
-        // exist here: the grind ran past it and converted a low-odds ticket into a
-        // certain win.
-        assertGt(reanchors, 1, "more than the best-of-two the collection allows");
-        assertTrue(won, "the ground ticket won");
-        assertEq(hook.outstandingTickets(), 0, "ticket consumed");
+        // REGRESSION (was: assertGt(reanchors, 1) / assertTrue(won)). The cap the
+        // collection enforces now exists in GachaLib too: one re-anchor per batch,
+        // then the base outcome is committed. The grind cannot run past it.
+        assertLe(reanchors, 1, "re-anchor capped at ONE (GachaLib.REANCHORED_SLOT)");
+        assertFalse(won, "a low-odds ticket can no longer be ground into a win");
+        assertEq(minted, 0, "no NFT from the ground crystal");
+        assertEq(hook.outstandingTickets(), 0, "ticket consumed exactly once, no wedge");
     }
 }

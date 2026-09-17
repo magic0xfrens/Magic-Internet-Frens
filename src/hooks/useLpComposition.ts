@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 import { NATIVE_QUOTE, quoteMeta, type QuoteAsset } from "@/config/quotes";
@@ -170,7 +170,20 @@ export function useLpComposition(generation: number): LpComposition {
   //  8s, was 30s. This panel sits beside the control that changes it, so a
   //  rotation the user just signed should be visible before they wonder whether
   //  it worked.
-  usePoll(load, 8_000, !!generation);
+  //  ── `generation` IS A RE-FETCH KEY, NOT AN ON/OFF SWITCH ────────────────
+  //  `load` closes over nothing generation-dependent (the endpoint resolves the
+  //  basis itself), so there is no stale-per-generation value to key here. But
+  //  gating the POLL on `!!generation` meant the two call sites that pass 0 —
+  //  SwapWidget.tsx:175 and CrystalCauldronGame.tsx:175, both of which need
+  //  `prices` to size an ERC20-quoted buy — never fetched at all: `prices` stayed
+  //  `{}`, `quoteExpected` stayed 0n, and the panel refused to price every
+  //  non-native buy. Fail-closed, but permanently. Poll unconditionally and use
+  //  `generation` for what its own docstring says it is for: re-fetching across
+  //  a rebirth, which `usePoll` cannot do on its own because its effect deps are
+  //  [intervalMs, enabled] and `enabled` does not change.
+  useEffect(() => { void load(); }, [load, generation]);
+
+  usePoll(load, 8_000);
 
   return state;
 }

@@ -2,9 +2,13 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
-import { HashRouter } from "react-router-dom";
+// Real paths, not `#/` fragments — a fragment is invisible to Google, which
+// left the whole site indexable as exactly one URL. See {rewriteLegacyHashUrl}
+// for how the old hash links keep working.
+import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AppRoutes } from "./routes";
+import { RouteSeo } from "./RouteSeo";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { wagmiConfig } from "@/config/chains";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -20,7 +24,8 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <WagmiClientGate>
         <RainbowKitProvider>
-          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <RouteSeo />
             <AppLayout>
               <AppRoutes />
             </AppLayout>
@@ -42,7 +47,7 @@ export function App() {
                 },
               }}
             />
-          </HashRouter>
+          </BrowserRouter>
         </RainbowKitProvider>
         </WagmiClientGate>
       </QueryClientProvider>

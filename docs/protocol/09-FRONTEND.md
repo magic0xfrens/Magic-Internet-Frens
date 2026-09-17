@@ -36,16 +36,21 @@ There is deliberately **no environment override** for the indexer URL
 point the UI at a different deployment than the indexer reports on, which
 surfaces as empty panels rather than an error.
 
-Chain selection is a single switch. `VITE_NETWORK` chooses testnet (Sepolia) or
-mainnet (Robinhood Chain), and `ACTIVE_CHAIN_ID` flows into `CAULDRON.chainId`
-and `PERP.chainId` (`src/config/chains.ts:85-90`, `src/config/cauldron.ts:13`,
-`src/config/perp.ts:14`). Sepolia RPC endpoints are a viem `fallback` list;
-`VITE_SEPOLIA_RPC_URL` accepts a comma-separated list and its entries are tried
-first (`src/config/chains.ts:63-71`). The Robinhood chain id defaults to `4663`
-and is overridable (`src/config/chains.ts:19-20`); the repo's own note says
-sources have shown 4663 for mainnet and 46646 for testnet and that the value
-should be confirmed (`src/config/chains.ts:9-12`). **Unverified:** which of
-those two ids is correct.
+Chain selection is driven by the MANIFEST. `DEPLOYMENTS` in
+`src/config/deployments.ts` is keyed by each bundled manifest's own `chainId`,
+so there is no hardcoded chain id to drift: `SELECTED_CHAIN_ID` can only ever be
+a chain some manifest declares. `VITE_CHAIN_ID` is authoritative and throws at
+module init when it names an unbundled chain; `VITE_NETWORK` only picks a
+manifest *slot* (`arc` = `round.arc.json`, otherwise `round.json`).
+`ACTIVE_CHAIN_ID` flows into `CAULDRON.chainId` and `PERP.chainId`
+(`src/config/cauldron.ts`, `src/config/perp.ts`), and a manifest/chain
+disagreement is a throw there, not a `console.error`. Sepolia RPC endpoints are
+a viem `fallback` list; `VITE_SEPOLIA_RPC_URL` accepts a comma-separated list
+and its entries are tried first.
+
+**Robinhood chain ids are VERIFIED, not open:** mainnet is **4663**
+(`cast chain-id`, `ArbSys.arbChainID()`, `ethereum-lists/chains`), testnet is
+**46630**. `46646` is not a registered chain id.
 
 Two addresses are read from the manifest rather than from the chain because the
 contracts cannot expose them: `treasuryGovernor` is `internal` on
@@ -322,5 +327,6 @@ than hanging, which catches the "wallet was on the wrong network" trap
 - Selectors computed with `cast sig` (foundry, nightly) against the signatures
   encoded by the app's ABIs.
 - Disagreements found: the three listed in section 4.
-- Not verified: the correct Robinhood Chain id (4663 vs 46646); the ERC20-quote
-  buy path has no implementation to inspect.
+- Robinhood Chain id: RESOLVED — mainnet **4663**, testnet **46630**, verified
+  on-chain and against `ethereum-lists/chains` (2026-09-15). `46646` is not a
+  chain id. The ERC20-quote buy path still has no implementation to inspect.

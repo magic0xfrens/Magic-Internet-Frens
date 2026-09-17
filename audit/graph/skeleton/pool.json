@@ -1,10 +1,10 @@
 {
  "cluster": "pool",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-12T11:37:55",
+ "generated": "2026-09-13T18:22:53",
  "files": {
   "cauldron/CauldronBase.sol": 539,
-  "cauldron/PoolOps.sol": 1463
+  "cauldron/PoolOps.sol": 1598
  },
  "nodes": [
   {
@@ -559,7 +559,7 @@
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 153,
+   "line": 176,
    "kind": "function",
    "name": "creatureFor",
    "signature": "function creatureFor(uint256 gen) external pure returns (string memory name, string memory symbol)",
@@ -568,14 +568,14 @@
    "modifiers": [],
    "body_sha1": "49686c039f1875f292e613a651f15718371b9a76",
    "body_lines": [
-    153,
-    161
+    176,
+    184
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 176,
+   "line": 199,
    "kind": "function",
    "name": "_approve",
    "signature": "function _approve(address token, address pm, uint256 amount) private",
@@ -584,30 +584,46 @@
    "modifiers": [],
    "body_sha1": "870fb2895a5b6b07e9b52c10b15dec5b680fe614",
    "body_lines": [
-    176,
-    179
+    199,
+    202
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 181,
+   "line": 208,
+   "kind": "function",
+   "name": "_minQuoteFor",
+   "signature": "function _minQuoteFor(uint256 tokenAmount) private pure returns (uint256)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ec81254e680cdbc1b884f422fd74a531d15e5548",
+   "body_lines": [
+    208,
+    210
+   ]
+  },
+  {
+   "contract": "PoolOps",
+   "file": "cauldron/PoolOps.sol",
+   "line": 222,
    "kind": "function",
    "name": "_sqrtPrice",
    "signature": "function _sqrtPrice(uint256 tokenAmount, uint256 ethAmount) private pure returns (uint160)",
    "visibility": "private",
    "mutability": "pure",
    "modifiers": [],
-   "body_sha1": "4c249ed8b78ecc48eab6d39cdea13d748f4a6f2e",
+   "body_sha1": "22c3e05ddc7c16062c5bf33cda14f1466d6f5b34",
    "body_lines": [
-    181,
-    190
+    222,
+    250
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 197,
+   "line": 257,
    "kind": "function",
    "name": "createAndSeed",
    "signature": "function createAndSeed( IPoolManager poolManager, IPositionManagerOps pm, address hook, address token, uint256 activeTokens, uint256 ethAmount, uint256 reserveTokens, int24 tickSpacing, uint24 poolFee, int24 ceilingOffset, /// The asset this pool is PRICED IN (address(0) = native ETH). /// Always currency0: the token is deployed to sort above it. address quote ) external returns (SeedResult memory r)",
@@ -616,30 +632,30 @@
    "modifiers": [],
    "body_sha1": "3ce4ba31b8681a2a54a03313a8959954147084c1",
    "body_lines": [
-    211,
-    233
+    271,
+    293
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 252,
+   "line": 312,
    "kind": "function",
    "name": "createAndSeedProgressive",
    "signature": "function createAndSeedProgressive( IPoolManager poolManager, IPositionManagerOps pm, address hook, address token, uint256 activeTokens, uint256 ethAmount, uint256 reserveTokens, int24 tickSpacing, uint24 poolFee, int24 ceilingOffset, SeedParams calldata sp, /// The asset this pool is PRICED IN (address(0) = native ETH). /// Always currency0: the token is deployed to sort above it. address quote ) external returns (SeedResult memory r)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "826e2c4b1a75939fb8535a3f83cda74b1df3d179",
+   "body_sha1": "aeef54587d8b35ebaacd56925135daa32eb7b6ac",
    "body_lines": [
-    267,
-    351
+    327,
+    417
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 375,
+   "line": 441,
    "kind": "function",
    "name": "createAndSeedWithBuy",
    "signature": "function createAndSeedWithBuy( IPoolManager poolManager, IPositionManagerOps pm, address hook, address token, uint256 activeTokens, uint256 ethAmount, uint256 reserveTokens, int24 tickSpacing, uint24 poolFee, int24 ceilingOffset, /// The asset this pool is PRICED IN (address(0) = native ETH). /// Always currency0: the token is deployed to sort above it. address quote ) external returns (SeedResult memory r)",
@@ -648,14 +664,14 @@
    "modifiers": [],
    "body_sha1": "6b61a44bd70dc8a0ade1a6331010b716d1c2a6cb",
    "body_lines": [
-    389,
-    403
+    455,
+    469
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 448,
+   "line": 514,
    "kind": "function",
    "name": "_greenCandle",
    "signature": "function _greenCandle( IPoolManager poolManager, IPositionManagerOps pm, SeedResult memory r, address token, uint256 activeTok, uint256 ethAmt, uint256 reserveTok, int24 tickSpacing, int24 ceilingOffset, address quote ) private",
@@ -664,14 +680,14 @@
    "modifiers": [],
    "body_sha1": "d0a5b8c98d808b37833f9d2d029b722e9a1f1670",
    "body_lines": [
-    459,
-    488
+    525,
+    554
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 498,
+   "line": 564,
    "kind": "function",
    "name": "executeBuy",
    "signature": "function executeBuy(bytes calldata data) external returns (bytes memory)",
@@ -680,14 +696,14 @@
    "modifiers": [],
    "body_sha1": "6dbbcfa5d8748871833a57dcbd15237f85fcb71e",
    "body_lines": [
-    498,
-    570
+    564,
+    636
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 581,
+   "line": 647,
    "kind": "function",
    "name": "primeBuy",
    "signature": "function primeBuy(IPoolManager poolManager, PoolKey memory key, uint256 ethIn, address recipient) external returns (uint256 got)",
@@ -696,14 +712,14 @@
    "modifiers": [],
    "body_sha1": "388d4ca7c7e32ac97ad708fbb5bf46f00e96e156",
    "body_lines": [
-    584,
-    587
+    650,
+    653
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 682,
+   "line": 748,
    "kind": "function",
    "name": "deployTokenAbove",
    "signature": "function deployTokenAbove( string memory name, string memory symbol, uint256 gen, uint256 totalSupply, address quote ) external returns (address token, address quoteUsed)",
@@ -712,14 +728,14 @@
    "modifiers": [],
    "body_sha1": "4f302a4eb2a76c2ba7f4a50884642dcd0e3a105a",
    "body_lines": [
-    688,
-    719
+    754,
+    785
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 722,
+   "line": 788,
    "kind": "function",
    "name": "_seedActive",
    "signature": "function _seedActive( address quote, IPositionManagerOps pm, PoolKey memory key, uint160 sqrtPriceX96, uint256 ethAmount, uint256 tokenAmount, address token, int24 tickSpacing ) private returns (uint256 positionId)",
@@ -728,14 +744,14 @@
    "modifiers": [],
    "body_sha1": "24098eddfd0ad7bccd94d93082600fc325c09a45",
    "body_lines": [
-    731,
-    766
+    797,
+    832
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 770,
+   "line": 836,
    "kind": "function",
    "name": "_seedReserve",
    "signature": "function _seedReserve( address quote, IPositionManagerOps pm, PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 tokenAmount, address token ) private returns (uint256 positionId)",
@@ -744,14 +760,14 @@
    "modifiers": [],
    "body_sha1": "37ec028b40972c042c4ef259bd06ecf885788049",
    "body_lines": [
-    778,
-    810
+    844,
+    876
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 834,
+   "line": 900,
    "kind": "function",
    "name": "openOrAddPair",
    "signature": "function openOrAddPair( IPoolManager poolManager, IPositionManagerOps pm, address hook, address token, address quote, uint256 quoteAmount, uint256 tokenAmount, int24 tickSpacing, uint24 poolFee ) external returns (PoolId poolId, uint256 positionId)",
@@ -760,14 +776,14 @@
    "modifiers": [],
    "body_sha1": "b24dada3e31dbe26515ed3a16956016e59cd32c5",
    "body_lines": [
-    844,
-    888
+    910,
+    954
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 905,
+   "line": 971,
    "kind": "function",
    "name": "removePartial",
    "signature": "function removePartial( IPositionManagerOps pm, uint256 positionId, PoolKey memory key, address token, address quote, uint16 bps ) external returns (uint256 quoteRecovered, uint256 tokensRecovered)",
@@ -776,30 +792,30 @@
    "modifiers": [],
    "body_sha1": "a7e008d29cef268920a631a6dc9fdf1f5cf353b2",
    "body_lines": [
-    912,
-    936
+    978,
+    1002
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1000,
+   "line": 1066,
    "kind": "function",
    "name": "seedFunding",
    "signature": "function seedFunding( address hookAddr, address wantQuote, address oldQuote, uint256 recovered, address oldVault ) external returns (address quoteUsed, uint256 amount, uint256 vaultSwept)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "3675e33a8cc89071c463c4b36c99a0eebbbc53b7",
+   "body_sha1": "e9ce97db272fca41b73d03e20db518e1cf226b85",
    "body_lines": [
-    1006,
-    1091
+    1072,
+    1188
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1098,
+   "line": 1195,
    "kind": "function",
    "name": "_pullAsset",
    "signature": "function _pullAsset(address hookAddr, address asset) private returns (uint256 got)",
@@ -808,14 +824,14 @@
    "modifiers": [],
    "body_sha1": "b09b1716d05d22c2cc57fc475a11aed8847f26ef",
    "body_lines": [
-    1098,
-    1100
+    1195,
+    1197
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1105,
+   "line": 1202,
    "kind": "function",
    "name": "_pullEth",
    "signature": "function _pullEth(address hookAddr) private returns (uint256 got)",
@@ -824,14 +840,14 @@
    "modifiers": [],
    "body_sha1": "a5e48b67bf2cb68906cbf21023629fdd7a661c4c",
    "body_lines": [
-    1105,
-    1107
+    1202,
+    1204
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1109,
+   "line": 1206,
    "kind": "function",
    "name": "sendAsset",
    "signature": "function sendAsset(address asset, address to, uint256 amount) external",
@@ -840,14 +856,14 @@
    "modifiers": [],
    "body_sha1": "690d0ed7c8e15dda0ee78e05511ee89140ad14e2",
    "body_lines": [
-    1109,
-    1119
+    1206,
+    1216
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1121,
+   "line": 1218,
    "kind": "function",
    "name": "_balance",
    "signature": "function _balance(address asset) private view returns (uint256)",
@@ -856,14 +872,14 @@
    "modifiers": [],
    "body_sha1": "f57b621ffd3e3bef07d74d33057c77936ba20efe",
    "body_lines": [
-    1121,
-    1123
+    1218,
+    1220
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1140,
+   "line": 1237,
    "kind": "function",
    "name": "removeAll",
    "signature": "function removeAll(IPositionManagerOps pm, uint256 positionId, PoolKey memory key, address token) external returns (uint256 quoteRecovered, uint256 tokensRecovered)",
@@ -872,14 +888,14 @@
    "modifiers": [],
    "body_sha1": "8ede07e954f434efc3a01b6187db76f992a1362e",
    "body_lines": [
-    1143,
-    1163
+    1240,
+    1260
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1171,
+   "line": 1268,
    "kind": "function",
    "name": "claimFromReserve",
    "signature": "function claimFromReserve( IPositionManagerOps pm, uint256 positionId, PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 amount, address recipient ) public returns (uint256 taken)",
@@ -888,14 +904,14 @@
    "modifiers": [],
    "body_sha1": "dde26519b2d7bd8d07d5a2d29f179be9d77643aa",
    "body_lines": [
-    1179,
-    1200
+    1276,
+    1297
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1211,
+   "line": 1308,
    "kind": "function",
    "name": "addToReserve",
    "signature": "function addToReserve( IPositionManagerOps pm, uint256 positionId, PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 amount ) public returns (uint256 added)",
@@ -904,14 +920,14 @@
    "modifiers": [],
    "body_sha1": "00d6fc2b9997dae031b3a7145306bc5a95aa536a",
    "body_lines": [
-    1218,
-    1239
+    1315,
+    1336
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1261,
+   "line": 1358,
    "kind": "function",
    "name": "migrateUpTo",
    "signature": "function migrateUpTo( IPositionManagerOps pm, address prevToken, address from, uint256 maxAmount, ReserveRef memory r ) external returns (uint256 got)",
@@ -920,14 +936,14 @@
    "modifiers": [],
    "body_sha1": "7210caba0867f3e883d9653eac63064049370887",
    "body_lines": [
-    1263,
-    1270
+    1360,
+    1367
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1272,
+   "line": 1369,
    "kind": "function",
    "name": "migrateOne",
    "signature": "function migrateOne( IPositionManagerOps pm, address prevToken, address from, uint256 amount, ReserveRef memory r ) public returns (uint256 got)",
@@ -936,14 +952,14 @@
    "modifiers": [],
    "body_sha1": "be36cec883a6411acb0893db889ba3193b4ba772",
    "body_lines": [
-    1274,
-    1282
+    1371,
+    1379
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1298,
+   "line": 1395,
    "kind": "function",
    "name": "autoMigrateBatch",
    "signature": "function autoMigrateBatch( IPositionManagerOps pm, address prevToken, uint256 fromGen, address[] calldata holders, ReserveRef memory r ) external",
@@ -952,14 +968,14 @@
    "modifiers": [],
    "body_sha1": "22c81f6dc3b0bec9971f046b1f646405b5c17740",
    "body_lines": [
-    1301,
-    1314
+    1398,
+    1411
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1322,
+   "line": 1419,
    "kind": "function",
    "name": "doLegacyNote",
    "signature": "function doLegacyNote( address ledger, address mifrens, uint256 ogCount, uint256 gen, address genCollection, uint256 tokensBought ) public returns (uint256 ogShare)",
@@ -968,14 +984,14 @@
    "modifiers": [],
    "body_sha1": "6618e3ee39a4fa6abab17e1b0b25e0a159c2a361",
    "body_lines": [
-    1325,
-    1339
+    1422,
+    1436
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1349,
+   "line": 1446,
    "kind": "function",
    "name": "materializeLegacy",
    "signature": "function materializeLegacy( IPositionManagerOps pm, address hook, address registryAddr, address ledger, address mifrens, uint256 genesisShares, uint256 gen, address genColl, address token, ReserveRef memory r, bool toReserve ) external returns (uint256 credited, uint256 ogShare)",
@@ -984,14 +1000,14 @@
    "modifiers": [],
    "body_sha1": "c6551e4d0685bb44405e3ef6644930883db2fc61",
    "body_lines": [
-    1354,
-    1367
+    1451,
+    1464
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1374,
+   "line": 1471,
    "kind": "function",
    "name": "crystallizeCollection",
    "signature": "function crystallizeCollection( address ledger, address collection, address vault, uint256 gen, uint256 swept, uint256 activeBase, uint256 totalETH ) external returns (uint256 entitled)",
@@ -1000,40 +1016,72 @@
    "modifiers": [],
    "body_sha1": "2440650dcd53f4e2839ffbe9a8fb0a4375ee29b3",
    "body_lines": [
-    1377,
-    1389
+    1474,
+    1486
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1395,
+   "line": 1517,
+   "kind": "function",
+   "name": "_eligible",
+   "signature": "function _eligible(address collection, uint256 ogCount) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "2f6f0dcccc39368b117f34f53f9f95fda58ef542",
+   "body_lines": [
+    1517,
+    1520
+   ]
+  },
+  {
+   "contract": "PoolOps",
+   "file": "cauldron/PoolOps.sol",
+   "line": 1523,
+   "kind": "function",
+   "name": "_ogCount",
+   "signature": "function _ogCount(address collection) private view returns (uint256 n)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f27772293868a26b33e57e982bbd0bfab8e8353e",
+   "body_lines": [
+    1523,
+    1527
+   ]
+  },
+  {
+   "contract": "PoolOps",
+   "file": "cauldron/PoolOps.sol",
+   "line": 1529,
    "kind": "function",
    "name": "recycleCollection",
    "signature": "function recycleCollection( IPositionManagerOps pm, address ledger, address collection, uint256 gen, uint256 tokenId, address caller, ReserveRef memory r ) external returns (uint256 amount)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "11e7762b7fbea1ab63a65dd5901b6a154737faa3",
+   "body_sha1": "5e03860d21b5a930ade2bd8a1bf71393f4ce5ff4",
    "body_lines": [
-    1403,
-    1438
+    1537,
+    1573
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1443,
+   "line": 1578,
    "kind": "function",
    "name": "buyCollection",
    "signature": "function buyCollection( IPositionManagerOps pm, address ledger, address collection, address token, uint256 gen, uint256 tokenId, address caller, ReserveRef memory r ) external returns (uint256 added)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "b7b8e6633d5d1e9d23cd26de9a77ba673f1a5b53",
+   "body_sha1": "432fab84bb3ae34c095af34e3c16c25498f01f57",
    "body_lines": [
-    1452,
-    1461
+    1587,
+    1596
    ]
   }
  ]

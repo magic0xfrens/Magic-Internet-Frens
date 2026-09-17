@@ -165,11 +165,20 @@ contract X3cStaleQueueSurvivesRotation is Test {
 
     /// Control: with NO rotation the same queue is bounded to its honest size.
     function test_Control_NoRotation_QueueTakesOnlyItsNominal() public {
+        //  ── BOB JOINS BEFORE THE LOSS, NOT AFTER (red-team T3a) ───────────
+        //  {PerpVault.deposit} now refuses while `pendingEth > engine.totalEth()`:
+        //  a deposit made into an insolvent queue mints shares worth ~nothing and
+        //  the haircut hands the newcomer's whole principal to the stale queue
+        //  (measured: 10 ETH in, < 1 gwei out). This control is not about that —
+        //  it is the no-rotation baseline showing alice's queued claim is bounded
+        //  to its own nominal and cannot reach into bob's stake. Ordering bob's
+        //  deposit BEFORE the loss keeps the vault solvent to its queue, so the
+        //  guard is not in the way and the property under test is unchanged.
         _aliceQueuesExit();
-        engine.longTotalLoss(8 ether);
         vm.deal(bob, 1_000 ether);
         vm.prank(bob);
         vault.deposit{value: 1_000 ether}(1_000 ether);
+        engine.longTotalLoss(8 ether);
         (bool ok, uint256 paid) = _claim(alice);
         assertTrue(ok, "claim succeeds");
         assertEq(paid, 8 ether, "bounded to the 8 ETH actually queued");

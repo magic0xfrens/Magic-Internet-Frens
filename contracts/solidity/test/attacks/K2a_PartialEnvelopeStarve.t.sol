@@ -162,6 +162,54 @@ contract K2a_PartialEnvelopeStarve is Test {
         assertEq(_remaining(), 0, "FIXED: the mandate executes against the primary after the cooldown");
     }
 
+    // ---------------------------------------------------------------
+    // REFUTATION of re-hunt finding Jd (claimed Low, DERIVED, no PoC).
+    //
+    //  Jd says deactivating on `movedPrimaryBps` alone leaves an envelope whose
+    //  slices all came from secondary legs stuck live "with a budget that can no
+    //  longer be spent", locking `propose` until expiry.
+    //
+    //  The second half is false, and that is the whole finding. Exhausting the
+    //  SHARED counter bounds further leg-to-leg rebalancing (`consume`'s else
+    //  branch), but it does not touch the primary budget: `allowance()` still
+    //  reports the full voted remainder and a primary slice still spends it. The
+    //  envelope stays live because it IS live — the guild's own mandate is
+    //  entirely unspent — which is exactly the T2a protection, not the R-05 lock.
+    //
+    //  Deactivating on `e.movedBps >= cap` as Jd proposes would reinstate T2a
+    //  verbatim: one permissionless `rotateSliceFrom(fromLeg != 0, 2500)` would
+    //  again retire a 2500-bps mandate the guild never got to use. That is why
+    //  this is a test and not a code change.
+    // ---------------------------------------------------------------
+    function test_K2a_secondaryExhaustionLeavesThePrimaryBudgetSpendable() public {
+        _installEnvelope(2500);
+
+        // A stranger spends the SHARED counter to its cap out of a side leg.
+        _consumeSecondary(2500);
+
+        (, , , , bool activeAfterSecondary, ) = gov.envelope();
+        assertTrue(activeAfterSecondary, "the envelope is still live");
+        assertEq(_remaining(), 2500, "and the whole voted budget is still reported");
+
+        // Further leg-to-leg rebalancing is bounded, as the guild voted.
+        vm.expectRevert();
+        gov.consume(1, false);
+
+        // THE POINT: the mandate the guild actually voted for still executes in
+        // full. Jd's "budget that can no longer be spent" does not exist.
+        gov.consume(2500, true);
+        (, , , , bool activeAfterPrimary, ) = gov.envelope();
+        assertEq(_remaining(), 0, "the primary spend consumed the voted budget");
+        assertFalse(activeAfterPrimary, "and THAT is what retires the envelope");
+
+        // And governance reopens on the normal cooldown, so nothing is locked out
+        // until expiry.
+        uint256 tBefore = vm.getBlockTimestamp();
+        _warpBy(7 days + 1);
+        assertEq(vm.getBlockTimestamp(), tBefore + 7 days + 1, "the 7-day warp moved the clock");
+        assertFalse(_proposeReverts(), "propose reopens once the cooldown clears");
+    }
+
     /// @dev The registry is `address(this)` here, standing in for the delegatecall
     ///      frame RedemptionExt.rotateSliceFrom runs in. `fromPrimary = false` is
     ///      exactly what that function passes for any `fromLeg != 0`.

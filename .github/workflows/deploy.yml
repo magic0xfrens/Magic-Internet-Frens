@@ -62,6 +62,15 @@ jobs:
       - run: npm ci
       - name: Verify the deployment manifest
         run: node scripts/verify-manifest.mjs
+      # Nothing ships past this job, so the selector gate belongs here too: the
+      # manifest can be perfectly coherent and still point at a runtime that is
+      # MISSING a function the app sends (r43 and r44 both shipped a gacha
+      # router without `playChurn`; every spin reverted with empty data).
+      # Reads only; set RPC_URL as a repo secret to use a paid endpoint.
+      - name: Verify selector parity against the deployed bytecode
+        run: node scripts/verify-selectors.mjs
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
       - name: Type-check the frontend
         run: npm run type-check
 

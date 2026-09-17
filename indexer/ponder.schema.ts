@@ -147,6 +147,24 @@ export const dividendStat = onchainTable("dividend_stat", (t) => ({
   treasuryFunded: t.bigint().notNull().default(0n), // fees swept out when nobody cast
 }));
 
+/**
+ * ONE ROW PER ERC20 BASKET ASSET (audit FG-1).
+ *
+ * `dividendStat` counts only the native rail. On a generation whose quote is not
+ * ether the ENTIRE guild slice arrives through `fundToken`, so without this table
+ * every "dividends paid" figure undercounts by the whole basket. `decimals` is
+ * read once from the token so a reader never has to guess 18.
+ */
+export const dividendAsset = onchainTable("dividend_asset", (t) => ({
+  id: t.hex().primaryKey(),                        // the ERC20 address
+  decimals: t.integer().notNull().default(18),
+  symbol: t.text().notNull().default(""),
+  deposited: t.bigint().notNull().default(0n),     // TokenDeposited
+  claimed: t.bigint().notNull().default(0n),       // TokenClaimed
+  withdrawn: t.bigint().notNull().default(0n),     // TokenWithdrawn (settled pull)
+  updatedAt: t.bigint().notNull().default(0n),
+}));
+
 /* ── perps: positions + liquidation heatmap source ─────────────────────── */
 // One row per opened position. liqPrice is computed at open from the event args
 // (entryPrice = notionalEth/size; liq level from leverage + maintenance margin),
@@ -171,6 +189,14 @@ export const perpPosition = onchainTable("perp_position", (t) => ({
   openedAt: t.bigint().notNull(),
   closedAt: t.bigint(),
   openTx: t.hex(),
+  /** Remaining size after a PARTIAL death-band close (audit C-4). The dead path
+   *  now fills what the pool can supply inside the mark band and rebooks the
+   *  rest, so a close is routinely partial on a thin pool; without this the row
+   *  kept its pre-close size forever, because the final `Closed` may never come. */
+  sizeRemaining: t.bigint().notNull().default(0n),
+  /** Cumulative bad debt the death band could not fill (`TokenDebtWrittenOff`),
+   *  so a shrinking position is not mistaken for a clean exit. */
+  writtenOff: t.bigint().notNull().default(0n),
 }), (table) => ({
   genIdx: index().on(table.generation),
   statusIdx: index().on(table.status),

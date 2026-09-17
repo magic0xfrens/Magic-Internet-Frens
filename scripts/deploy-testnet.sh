@@ -202,6 +202,14 @@ else
   SIGNER=(--account deployer --sender "$DEPLOYER")
 fi
 
+
+# ── NEVER BROADCAST A STALE ARTIFACT (audit C-1 / F6) ───────────────────────
+# r43 and r44 both deployed a gacha router built from a cached out/ that was
+# missing `playChurn`. A forced rebuild costs minutes; a dead round costs a
+# round. Also proves the tree compiles CLEAN, not just incrementally.
+FOUNDRY_PROFILE=cauldron forge build --force || {
+  echo "clean build FAILED - refusing to broadcast a stale out/." >&2; exit 1; }
+
 forge script deploy/DeployLaunchpad.s.sol --tc DeployLaunchpad \
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
   "${SIGNER[@]}" \

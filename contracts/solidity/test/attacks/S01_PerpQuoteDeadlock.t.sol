@@ -280,14 +280,30 @@ contract S01_PerpQuoteDeadlock is YBase {
 
         vm.deal(trader, 1 ether);
         vm.prank(trader, trader);
-        perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
+        uint256 id = perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
         assertGt(perp.openCount(), 0, "a position is open");
+        uint256 openBefore = perp.openCount();
 
-        vm.expectRevert();
+        //  ── INVERTED (red-team Jc x T3d) ──────────────────────────────────
+        //  This asserted that the rotation is REFUSED while any position is open.
+        //  That interlock was a hostage: ~0.0007 ETH of dust, refundable on close,
+        //  blocked every governance-approved rotation slice for a whole generation
+        //  (S0x). It is gone, and what replaced it is stronger — the T3d death band
+        //  means a forced close during a rotation can only settle within 10% of the
+        //  engine's OWN TWAP mark, instead of the literal `minOut = 0` the dead path
+        //  used to pass. So the property to hold is: the rotation PROCEEDS, and the
+        //  open position is neither confiscated nor settled at any price the taker
+        //  chooses.
         registry.rotateSlice(2500, 0, route);
 
-        assertEq(registry.generationQuote(1), address(0), "nothing was flipped");
-        assertEq(perp.quote(), address(0), "engine untouched");
+        assertEq(perp.openCount(), openBefore, "the rotation did not confiscate the open position");
+
+        //  It is still the owner's to close, and it pays out — not zeroed.
+        uint256 before = trader.balance;
+        vm.prank(trader, trader);
+        perp.close(id, 0);   // only its owner can: this is the ownership proof
+        assertEq(perp.openCount(), openBefore - 1, "closed by its owner");
+        assertGt(trader.balance, before, "and paid a real residual, not minOut 0");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

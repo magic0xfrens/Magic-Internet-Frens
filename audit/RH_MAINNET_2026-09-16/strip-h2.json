@@ -1,0 +1,2628 @@
+{
+ "files_changed": 67,
+ "substitutions": 493,
+ "tag_frequency": {
+  "P-1": 7,
+  "R-1": 7,
+  "Z-01": 7,
+  "L-2": 9,
+  "Z-05": 14,
+  "M-01": 4,
+  "G-10": 1,
+  "I-01": 2,
+  "C-01": 8,
+  "G-09": 3,
+  "V-1": 6,
+  "G-1": 1,
+  "Z-09": 4,
+  "L-03": 2,
+  "I1": 1,
+  "X1": 7,
+  "F-03": 10,
+  "B-06": 2,
+  "B-05": 13,
+  "Q-01": 5,
+  "L-04": 1,
+  "R-07": 7,
+  "R-03": 3,
+  "U-1": 6,
+  "F1": 2,
+  "I-02": 1,
+  "Q-02": 10,
+  "I-07": 1,
+  "F-13": 8,
+  "Z-07": 3,
+  "Z-12": 3,
+  "F-20": 2,
+  "I-03": 2,
+  "F-19": 11,
+  "Z-06": 4,
+  "Z-08": 5,
+  "L-08": 1,
+  "C-02": 7,
+  "H-01": 11,
+  "A-01": 5,
+  "R-02": 4,
+  "V1": 2,
+  "F-06": 2,
+  "A-05": 1,
+  "H-03": 9,
+  "F-02": 6,
+  "F04": 5,
+  "R-04": 6,
+  "M-03": 8,
+  "L-01": 3,
+  "R-05": 7,
+  "T-2": 2,
+  "M-02": 6,
+  "Z-03": 2,
+  "F-05": 6,
+  "Z-17": 13,
+  "Z-18": 3,
+  "H-02": 1,
+  "Z-20": 1,
+  "Z-04": 1,
+  "Z-02": 6,
+  "L-07": 1,
+  "Z-19": 6,
+  "Z-11": 1,
+  "F-04": 3,
+  "T-1": 1,
+  "D-3": 4,
+  "D-2": 3,
+  "D-1": 6,
+  "Z-10": 2,
+  "F-09": 7,
+  "B-02": 2,
+  "M-06": 4,
+  "F13": 2,
+  "A-03": 3,
+  "G-01": 1,
+  "G-07": 1,
+  "A-02": 3,
+  "H-4": 2,
+  "G-03": 3,
+  "H-04": 2,
+  "Q-03": 1,
+  "R-08": 4,
+  "T02": 2,
+  "Q-07": 3,
+  "F-10": 5,
+  "G-06": 1,
+  "L-05": 1,
+  "X8": 2,
+  "R-09": 4,
+  "F-01": 6,
+  "G-02": 2,
+  "A02": 1,
+  "V-01": 2,
+  "I-06": 1,
+  "A-04": 1,
+  "G-05": 1,
+  "M-05": 3,
+  "F-11": 2,
+  "S01": 1,
+  "L-06": 2,
+  "L-02": 3,
+  "B-03": 3,
+  "H-3": 1,
+  "V-02": 2,
+  "H-2": 2,
+  "H-05": 3,
+  "L-3": 6,
+  "L-1": 5,
+  "F-08": 1,
+  "R-01": 3,
+  "L-4": 4,
+  "F-07": 1,
+  "B-15": 1,
+  "B-10": 2,
+  "Y-01": 2,
+  "P0": 1,
+  "S-04": 2,
+  "F12": 1,
+  "F-12": 2,
+  "F3": 1,
+  "P2": 2,
+  "F-14": 1,
+  "F-15": 1,
+  "I-08": 1,
+  "H-1": 1,
+  "F01": 1,
+  "F02": 2,
+  "F03": 1,
+  "C-1": 1,
+  "S-1": 2,
+  "F-18": 2,
+  "B-12": 1,
+  "F-21": 1,
+  "F-22": 1,
+  "I-1": 1,
+  "I-2": 1,
+  "I-3": 1,
+  "I-6": 2,
+  "I-4": 1,
+  "I-5": 1,
+  "I-7": 1,
+  "F-1": 2,
+  "F-2": 2,
+  "F-3": 2,
+  "R-2": 1,
+  "R-3": 1,
+  "I-05": 1,
+  "R-4": 1,
+  "S-2": 1,
+  "S-3": 1,
+  "S-4": 1,
+  "V-2": 2,
+  "V-3": 2,
+  "V-4": 2
+ },
+ "subs": [
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 49,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 137,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 145,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 150,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 168,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 189,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 272,
+   "tag": "M-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 280,
+   "tag": "G-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 290,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 302,
+   "tag": "I-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 614,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 654,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 670,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 676,
+   "tag": "G-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 725,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 741,
+   "tag": "G-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 790,
+   "tag": "I-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 849,
+   "tag": "G-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 850,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 889,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 910,
+   "tag": "Z-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 924,
+   "tag": "L-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 951,
+   "tag": "I1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1072,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1164,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1175,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1199,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1237,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1279,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1280,
+   "tag": "G-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1285,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1323,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1375,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1382,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1399,
+   "tag": "B-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1413,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1417,
+   "tag": "Q-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1418,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1424,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1467,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1486,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1521,
+   "tag": "Q-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1568,
+   "tag": "L-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1678,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1697,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1711,
+   "tag": "R-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1848,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 1911,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2004,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2094,
+   "tag": "F1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2106,
+   "tag": "M-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2150,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2239,
+   "tag": "I-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2408,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2409,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2452,
+   "tag": "I-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2543,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2552,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2589,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronHook.sol",
+   "line": 2607,
+   "tag": "X1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 139,
+   "tag": "Z-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 157,
+   "tag": "Z-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 253,
+   "tag": "F-20"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 342,
+   "tag": "I-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 387,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 419,
+   "tag": "Z-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 515,
+   "tag": "Z-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 551,
+   "tag": "L-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 601,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 632,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 730,
+   "tag": "Z-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 744,
+   "tag": "A-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 872,
+   "tag": "Z-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 904,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 957,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 969,
+   "tag": "A-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 974,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1001,
+   "tag": "R-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1042,
+   "tag": "V1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1064,
+   "tag": "F-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1064,
+   "tag": "Z-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1097,
+   "tag": "Z-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1113,
+   "tag": "A-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1169,
+   "tag": "Z-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1322,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1366,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1465,
+   "tag": "F04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1675,
+   "tag": "A-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/CauldronRegistry.sol",
+   "line": 1842,
+   "tag": "A-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronBase.sol",
+   "line": 166,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronBase.sol",
+   "line": 190,
+   "tag": "V1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronBase.sol",
+   "line": 319,
+   "tag": "Z-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronBase.sol",
+   "line": 512,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 40,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 123,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 146,
+   "tag": "L-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 156,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 237,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 249,
+   "tag": "Z-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 261,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 273,
+   "tag": "Z-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 275,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 284,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronCollection.sol",
+   "line": 415,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronFactory.sol",
+   "line": 68,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 34,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 77,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 79,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 128,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 133,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 198,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 326,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 357,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 397,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 424,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGachaRouter.sol",
+   "line": 468,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 74,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 82,
+   "tag": "Z-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 113,
+   "tag": "T-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 150,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 162,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 529,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 530,
+   "tag": "Z-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 547,
+   "tag": "T-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 583,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 649,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 809,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronGovernor.sol",
+   "line": 820,
+   "tag": "Z-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 109,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 144,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 220,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 220,
+   "tag": "Z-18"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 260,
+   "tag": "H-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 275,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 279,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 304,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 320,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 350,
+   "tag": "Z-20"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 419,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 445,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 468,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 478,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 597,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 605,
+   "tag": "Z-18"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 714,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 746,
+   "tag": "L-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 755,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 776,
+   "tag": "Z-18"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 867,
+   "tag": "Z-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronSeeder.sol",
+   "line": 903,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronVault.sol",
+   "line": 72,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronVault.sol",
+   "line": 146,
+   "tag": "L-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CauldronVault.sol",
+   "line": 178,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CollectionLedger.sol",
+   "line": 110,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CollectionLedger.sol",
+   "line": 129,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CollectionLedger.sol",
+   "line": 142,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/CollectionLedger.sol",
+   "line": 194,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/DefaultFeeRouter.sol",
+   "line": 28,
+   "tag": "Z-11"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/FeeRouteLib.sol",
+   "line": 56,
+   "tag": "Q-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/FeeRouteLib.sol",
+   "line": 89,
+   "tag": "Q-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/FeeRouteLib.sol",
+   "line": 107,
+   "tag": "F-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/FeeRouteLib.sol",
+   "line": 126,
+   "tag": "Q-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/ISeeder.sol",
+   "line": 34,
+   "tag": "I-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/LegacyBuyLib.sol",
+   "line": 160,
+   "tag": "T-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/LegacyBuyLib.sol",
+   "line": 160,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/LegacyBuyLib.sol",
+   "line": 222,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/LegacyBuyLib.sol",
+   "line": 253,
+   "tag": "Z-17"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 108,
+   "tag": "D-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 127,
+   "tag": "D-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 127,
+   "tag": "D-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 137,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 137,
+   "tag": "D-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 274,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 301,
+   "tag": "Z-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 317,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 361,
+   "tag": "D-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensDividend.sol",
+   "line": 529,
+   "tag": "D-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 73,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 77,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 79,
+   "tag": "D-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 86,
+   "tag": "B-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 96,
+   "tag": "M-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 96,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 100,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 108,
+   "tag": "B-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 224,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 238,
+   "tag": "L-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 505,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 516,
+   "tag": "Z-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 526,
+   "tag": "M-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 538,
+   "tag": "Z-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 710,
+   "tag": "M-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 719,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MiFrensGenesis.sol",
+   "line": 723,
+   "tag": "M-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MintCurvePolicy.sol",
+   "line": 42,
+   "tag": "F13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MintCurvePolicy.sol",
+   "line": 79,
+   "tag": "F13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/MintCurvePolicy.sol",
+   "line": 97,
+   "tag": "Z-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 151,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 173,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 173,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 187,
+   "tag": "A-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 268,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 268,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 288,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 305,
+   "tag": "G-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 308,
+   "tag": "G-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 324,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 324,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 329,
+   "tag": "A-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 340,
+   "tag": "H-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 390,
+   "tag": "G-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 396,
+   "tag": "H-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 444,
+   "tag": "Q-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 481,
+   "tag": "R-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 568,
+   "tag": "M-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 637,
+   "tag": "T02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 647,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 669,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 669,
+   "tag": "Q-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 728,
+   "tag": "A-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 748,
+   "tag": "F-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 775,
+   "tag": "G-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 783,
+   "tag": "F-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 896,
+   "tag": "L-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1114,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1151,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1248,
+   "tag": "A-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1303,
+   "tag": "F-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1341,
+   "tag": "R-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1361,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1364,
+   "tag": "X8"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1375,
+   "tag": "R-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1385,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1394,
+   "tag": "X8"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1425,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1452,
+   "tag": "T02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1475,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1552,
+   "tag": "G-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1573,
+   "tag": "A02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1628,
+   "tag": "G-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1686,
+   "tag": "V-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1702,
+   "tag": "V-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1725,
+   "tag": "I-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1727,
+   "tag": "A-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1789,
+   "tag": "G-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1886,
+   "tag": "H-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1893,
+   "tag": "R-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 1966,
+   "tag": "A-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2036,
+   "tag": "M-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2098,
+   "tag": "H-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2149,
+   "tag": "F-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2149,
+   "tag": "F-11"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2159,
+   "tag": "R-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2164,
+   "tag": "S01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2179,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2212,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2279,
+   "tag": "G-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2288,
+   "tag": "L-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2366,
+   "tag": "L-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2384,
+   "tag": "L-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2395,
+   "tag": "L-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2425,
+   "tag": "B-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2456,
+   "tag": "H-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2469,
+   "tag": "B-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2531,
+   "tag": "L-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2534,
+   "tag": "F-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2584,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2617,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2622,
+   "tag": "R-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2632,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2638,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2642,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpEngine.sol",
+   "line": 2664,
+   "tag": "M-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpMarkSource.sol",
+   "line": 16,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpMarkSource.sol",
+   "line": 16,
+   "tag": "Q-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpMarkSource.sol",
+   "line": 37,
+   "tag": "A-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpSwapLib.sol",
+   "line": 88,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpSwapLib.sol",
+   "line": 557,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 66,
+   "tag": "V-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 87,
+   "tag": "R-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 89,
+   "tag": "R-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 97,
+   "tag": "H-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 196,
+   "tag": "H-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 220,
+   "tag": "R-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 252,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 252,
+   "tag": "F-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 383,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 504,
+   "tag": "H-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 531,
+   "tag": "H-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PerpVault.sol",
+   "line": 799,
+   "tag": "H-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 228,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 593,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 625,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 626,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 667,
+   "tag": "A-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 740,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1023,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1055,
+   "tag": "B-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1055,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1078,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1147,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1216,
+   "tag": "L-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1274,
+   "tag": "B-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1392,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1419,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1427,
+   "tag": "F-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/PoolOps.sol",
+   "line": 1614,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/QuoteRotator.sol",
+   "line": 345,
+   "tag": "R-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/QuoteRotator.sol",
+   "line": 424,
+   "tag": "R-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/QuoteRotator.sol",
+   "line": 544,
+   "tag": "R-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/QuoteRotator.sol",
+   "line": 544,
+   "tag": "L-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/QuoteRotator.sol",
+   "line": 591,
+   "tag": "L-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 48,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 103,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 173,
+   "tag": "F-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 287,
+   "tag": "B-15"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 308,
+   "tag": "R-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 438,
+   "tag": "B-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 486,
+   "tag": "R-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 534,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 682,
+   "tag": "Y-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 874,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/RedemptionExt.sol",
+   "line": 885,
+   "tag": "R-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/ReserveLib.sol",
+   "line": 93,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/SeedLib.sol",
+   "line": 107,
+   "tag": "P0"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/SurtaxLib.sol",
+   "line": 101,
+   "tag": "L-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/SurtaxLib.sol",
+   "line": 107,
+   "tag": "B-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 170,
+   "tag": "S-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 505,
+   "tag": "S-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 672,
+   "tag": "Z-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 711,
+   "tag": "B-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 824,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 873,
+   "tag": "R-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/cauldron/TreasuryGovernor.sol",
+   "line": 901,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployCauldron.s.sol",
+   "line": 108,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 126,
+   "tag": "F12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 182,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 254,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 255,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 341,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 356,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 379,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployLaunchpad.s.sol",
+   "line": 570,
+   "tag": "Z-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployPerp.s.sol",
+   "line": 101,
+   "tag": "M-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployPerp.s.sol",
+   "line": 136,
+   "tag": "F-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployPerp.s.sol",
+   "line": 165,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployPerp.s.sol",
+   "line": 165,
+   "tag": "Q-07"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployPerp.s.sol",
+   "line": 220,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/deploy/DeployV4Core.s.sol",
+   "line": 37,
+   "tag": "Z-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/render/SSTORE2.sol",
+   "line": 36,
+   "tag": "F3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronHookAccess.t.sol",
+   "line": 78,
+   "tag": "F1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronHookAccess.t.sol",
+   "line": 139,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronHookAccess.t.sol",
+   "line": 308,
+   "tag": "P-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronHookAccess.t.sol",
+   "line": 345,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 21,
+   "tag": "P2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 137,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 192,
+   "tag": "M-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 486,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 889,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronLaunchpad.t.sol",
+   "line": 925,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 90,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 354,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 436,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 545,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 557,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 577,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 649,
+   "tag": "P2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 663,
+   "tag": "Z-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CauldronSummon.t.sol",
+   "line": 668,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CollectionLedger.t.sol",
+   "line": 218,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/CollectionLedger.t.sol",
+   "line": 250,
+   "tag": "Z-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/DividendBasket.t.sol",
+   "line": 47,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/DividendBasket.t.sol",
+   "line": 145,
+   "tag": "D-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F12_IgniteEconomics.t.sol",
+   "line": 23,
+   "tag": "F-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F13_MintCurve.t.sol",
+   "line": 9,
+   "tag": "F-13"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F14_OracleSafety.t.sol",
+   "line": 28,
+   "tag": "F-14"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F14_OracleSafety.t.sol",
+   "line": 36,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F15_QuotePriceability.t.sol",
+   "line": 26,
+   "tag": "F-15"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/F15_QuotePriceability.t.sol",
+   "line": 36,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/FactoryBadgeWiring.t.sol",
+   "line": 17,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/LifecycleE2E.t.sol",
+   "line": 174,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/LifecycleE2E.t.sol",
+   "line": 359,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/LiquidatoorBadge.t.sol",
+   "line": 31,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 110,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 123,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 135,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 176,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 192,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 239,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 254,
+   "tag": "F-19"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MigrationVestingGate.t.sol",
+   "line": 259,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/MinedTokenAddress.t.sol",
+   "line": 64,
+   "tag": "C-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 135,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 148,
+   "tag": "H-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 522,
+   "tag": "I-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 561,
+   "tag": "G-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 689,
+   "tag": "M-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 814,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpEngine.t.sol",
+   "line": 839,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/PerpVault.t.sol",
+   "line": 38,
+   "tag": "V-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/ProgressiveSeed.t.sol",
+   "line": 163,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/ProgressiveSeed.t.sol",
+   "line": 224,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/ProgressiveSeed.t.sol",
+   "line": 327,
+   "tag": "Z-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/VolumeUnits.t.sol",
+   "line": 138,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/VolumeUnits.t.sol",
+   "line": 188,
+   "tag": "U-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/attacks/YBase.sol",
+   "line": 37,
+   "tag": "Z-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/attacks/YBase.sol",
+   "line": 41,
+   "tag": "Y-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/attacks/YBase.sol",
+   "line": 168,
+   "tag": "H-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 9,
+   "tag": "F01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 15,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 16,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 17,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 28,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 77,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 138,
+   "tag": "F-09"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F01_CustodyAndConsent.t.sol",
+   "line": 147,
+   "tag": "M-06"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F02_L2Semantics.t.sol",
+   "line": 22,
+   "tag": "F02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F02_L2Semantics.t.sol",
+   "line": 40,
+   "tag": "F02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F02_L2Semantics.t.sol",
+   "line": 246,
+   "tag": "F-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F02_L2Semantics.t.sol",
+   "line": 278,
+   "tag": "F-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F02_L2Semantics.t.sol",
+   "line": 340,
+   "tag": "F-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 11,
+   "tag": "F03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 29,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 110,
+   "tag": "L-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 112,
+   "tag": "F-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 123,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 130,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 136,
+   "tag": "L-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 136,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 202,
+   "tag": "C-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 204,
+   "tag": "F-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F03_FinalInvariants.t.sol",
+   "line": 262,
+   "tag": "S-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F04_ReserveCeiling.t.sol",
+   "line": 24,
+   "tag": "F04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F04_ReserveCeiling.t.sol",
+   "line": 32,
+   "tag": "F-18"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F04_ReserveCeiling.t.sol",
+   "line": 35,
+   "tag": "F04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/final/F04_ReserveCeiling.t.sol",
+   "line": 117,
+   "tag": "F-18"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F10_QuoteRotationTotality.t.sol",
+   "line": 17,
+   "tag": "F-10"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F10_QuoteRotationTotality.t.sol",
+   "line": 94,
+   "tag": "B-12"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F10_QuoteRotationTotality.t.sol",
+   "line": 138,
+   "tag": "R-08"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F11_FloorsAndRedemption.t.sol",
+   "line": 10,
+   "tag": "F-11"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F20_FacetReachability.t.sol",
+   "line": 7,
+   "tag": "F-20"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F20_FacetReachability.t.sol",
+   "line": 21,
+   "tag": "F04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F20_FacetReachability.t.sol",
+   "line": 84,
+   "tag": "F04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F21_GachaQuoteAgnostic.t.sol",
+   "line": 9,
+   "tag": "F-21"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F21_GachaQuoteAgnostic.t.sol",
+   "line": 9,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F21_GachaQuoteAgnostic.t.sol",
+   "line": 22,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F21_GachaQuoteAgnostic.t.sol",
+   "line": 62,
+   "tag": "Q-02"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F21_GachaQuoteAgnostic.t.sol",
+   "line": 112,
+   "tag": "R-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F22_LegProceedsDenomination.t.sol",
+   "line": 7,
+   "tag": "F-22"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/functional/F22_LegProceedsDenomination.t.sol",
+   "line": 7,
+   "tag": "R-04"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 437,
+   "tag": "I-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 461,
+   "tag": "I-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 482,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 494,
+   "tag": "I-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 499,
+   "tag": "I-6"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 520,
+   "tag": "I-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 545,
+   "tag": "I-5"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 563,
+   "tag": "I-6"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 566,
+   "tag": "C-01"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 578,
+   "tag": "I-7"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/CauldronSystemInvariants.t.sol",
+   "line": 652,
+   "tag": "H-03"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 46,
+   "tag": "F-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 49,
+   "tag": "F-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 51,
+   "tag": "F-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 68,
+   "tag": "F-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 88,
+   "tag": "F-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/FacetLayoutInvariant.t.sol",
+   "line": 107,
+   "tag": "F-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 14,
+   "tag": "L-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 15,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 17,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 19,
+   "tag": "L-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 98,
+   "tag": "L-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 107,
+   "tag": "L-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 120,
+   "tag": "L-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/LedgerInvariants.t.sol",
+   "line": 148,
+   "tag": "L-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 33,
+   "tag": "R-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 47,
+   "tag": "R-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 60,
+   "tag": "R-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 68,
+   "tag": "I-05"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 87,
+   "tag": "R-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 102,
+   "tag": "S-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 123,
+   "tag": "S-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 128,
+   "tag": "S-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ReserveMathFuzz.t.sol",
+   "line": 149,
+   "tag": "S-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 103,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 104,
+   "tag": "V-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 105,
+   "tag": "V-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 106,
+   "tag": "V-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 126,
+   "tag": "V-1"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 136,
+   "tag": "V-2"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 148,
+   "tag": "V-3"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/VestingInvariants.t.sol",
+   "line": 153,
+   "tag": "V-4"
+  },
+  {
+   "file": "/tmp/rh-blind-h2/test/invariants/ZSystemInvariants.t.sol",
+   "line": 291,
+   "tag": "Z-01"
+  }
+ ]
+}

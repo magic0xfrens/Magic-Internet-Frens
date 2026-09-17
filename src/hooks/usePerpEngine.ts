@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseEther } from "viem";
+import { parseEther, parseUnits, type Address } from "viem";
 import { useAccount, useSwitchChain, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { readContract, waitForTransactionReceipt } from "@wagmi/core";
+import { wagmiConfig } from "@/config/chains";
+import { ERC20_SWAP_ABI } from "@/config/cauldron";
+import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { PERP, PERP_ABI, PERP_LIVE, PERP_SLIPPAGE_BPS } from "@/config/perp";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 
@@ -11,6 +15,11 @@ export interface PerpStats {
   plvEth: number;
   plvToken: number;
   depthEth: number;
+  /** The unit every *Eth field above is actually denominated in. Only "ETH"
+   *  until a generation rotates into an ERC20 quote — label with this, never
+   *  with a hardcoded Ξ (audit CA-2). */
+  quoteSymbol: string;
+  quoteDecimals: number;
   maxLev: number;
   fundingIdx: number;   // signed; >0 longs pay, <0 shorts pay
   dead: boolean;
@@ -32,24 +41,80 @@ export interface PerpPosition {
 
 const EMPTY_STATS: PerpStats = {
   live: false, longOiEth: 0, shortOiEth: 0, plvEth: 0, plvToken: 0,
-  depthEth: 0, maxLev: 0, fundingIdx: 0, dead: false, openFeeBps: 690, ogDiscountBps: 5000,
+  depthEth: 0, quoteSymbol: "ETH", quoteDecimals: 18, maxLev: 0, fundingIdx: 0, dead: false, openFeeBps: 690, ogDiscountBps: 5000,
   maxNotionalBps: 500, stale: false,
 };
 // Live the moment the engine is deployed; the indexer reads enrich the numbers.
 const INITIAL_STATS: PerpStats = { ...EMPTY_STATS, live: PERP_LIVE, maxLev: 3 };
-/** Gas headroom for a hinted open that may also liquidate a position (extra
- *  nested swaps + badge mint the wallet can't foresee at estimate time). */
-const LIQ_OPEN_GAS = 3_000_000n;
+/**
+ * Gas headroom for an open, sized to fund the post-open sweep in full.
+ *
+ *  NOT ONLY FOR "HINTED" OPENS. `PerpEngine._sweepAfterOpen` fires on EVERY
+ *  open — it forwards `gasleft() - 120_000` into a self-sweep so an open can
+ *  also liquidate underwater positions. `liqHint` is legacy and does not gate
+ *  that, so attaching this only when a hint was passed left the common path on
+ *  the wallet's estimate, which is computed against a state where nothing may be
+ *  liquidatable yet. The sweep is best-effort and swallowed, so an under-gassed
+ *  open just silently liquidates nothing.
+ *
+ *  Same derivation as LIQ_SWAP_GAS in useCauldronSwap: MAX_LIQ_PER_SWAP (8) x
+ *  SWEEP_KILL_RESERVE (420k) = 3.36M of kills, plus the engine's own 120k
+ *  post-open reserve, plus the open's own swap. 5M leaves honest headroom, and
+ *  EIP-1559 bills gas USED, so the unused limit costs nothing.
+ */
+//  An open's own swap also passes through the hook's pre-emptive sweep before
+//  the engine's post-open self-sweep, so it can fund two bounded sweeps too.
+const LIQ_OPEN_GAS = 8_000_000n;
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 
-/** `expected × (1 - slippage)`, in the engine's own units. */
-function floorFrom(expected: number, slipBps: number = PERP_SLIPPAGE_BPS): bigint {
+/** `expected × (1 - slippage)`, in the engine's own units.
+ *
+ *  `decimals` is the OUTPUT asset's: a long's floor counts CREATURE TOKENS
+ *  (always 18), a short's counts QUOTE (6 for USDG). Hard-coding 18 here made a
+ *  short's floor 1e12 too large on a 6-decimal book — unfillable at any price. */
+function floorFrom(expected: number, slipBps: number = PERP_SLIPPAGE_BPS, decimals = 18): bigint {
   if (!Number.isFinite(expected) || expected <= 0) return 0n;
   //  Clamp rather than trust: a caller-supplied tolerance must never widen past
   //  "any price at all", which is what a 100% floor would mean.
   const bps = Math.min(9_000, Math.max(0, Math.round(slipBps)));
-  return (parseEther(expected.toFixed(18)) * BigInt(10_000 - bps)) / 10_000n;
+  const d = Math.min(Math.max(Math.trunc(decimals), 0), 18);
+  return (parseUnits(expected.toFixed(d), d) * BigInt(10_000 - bps)) / 10_000n;
 }
+
+/** The generation's quote asset, as the perp forms need to know it. */
+export type PerpQuote = { address: Address; decimals: number; symbol: string };
+export const NATIVE_PERP_QUOTE: PerpQuote = { address: NATIVE_QUOTE, decimals: 18, symbol: "ETH" };
+
+/**  ── COLLATERAL TRANSPORT, BY QUOTE (audit A-1) ────────────────────────────
+ *  `PerpEngine._pullQuote` (:231) takes NATIVE collateral as `msg.value` and
+ *  ERC20 collateral by `transferFrom`, and reverts `BadParam()` if the wrong one
+ *  is used — `msg.value != amount` on a native book, `msg.value != 0` on an
+ *  ERC20 one. These forms hard-coded `parseEther` + a native `value`, so on a
+ *  6-decimal USDG generation EVERY open reverted. Returns the raw amount to send
+ *  and the value to attach, approving the engine first when the quote is ERC20.
+ */
+async function prepareCollateral(
+  owner: Address,
+  q: PerpQuote,
+  typed: number,
+  approve: (token: Address, amount: bigint) => Promise<`0x${string}`>,
+): Promise<{ raw: bigint; value: bigint }> {
+  const d = Math.min(Math.max(Math.trunc(q.decimals), 0), 18);
+  const raw = parseUnits(typed.toFixed(d), d);
+  if (raw <= 0n) throw new Error("Enter a collateral amount");
+  if (isNativeQuote(q.address)) return { raw, value: raw };
+  const current = (await readContract(wagmiConfig, {
+    address: q.address, abi: ERC20_SWAP_ABI, functionName: "allowance",
+    args: [owner, PERP.engine], chainId: PERP.chainId,
+  })) as bigint;
+  //  BOUNDED to this open — never maxUint256; same stance as the swap buy leg.
+  if (current < raw) {
+    const ah = await approve(q.address, raw);
+    await waitForTransactionReceipt(wagmiConfig, { hash: ah, chainId: PERP.chainId });
+  }
+  return { raw, value: 0n };
+}
+
 
 /**
  * usePerpEngine — the trading brain for the perp panel. ALL READS COME FROM
@@ -120,6 +185,7 @@ export function usePerpEngine(generation = 1) {
           live: true,
           longOiEth: d.longOiEth ?? 0, shortOiEth: d.shortOiEth ?? 0,
           plvEth: d.plvEth ?? 0, plvToken: d.plvToken ?? 0, depthEth: d.depthEth ?? 0,
+          quoteSymbol: d.quoteSymbol || "ETH", quoteDecimals: d.quoteDecimals ?? 18,
           maxLev: d.maxLev || 3, fundingIdx: d.fundingIdx ?? 0, dead: !!d.dead,
           openFeeBps: d.openFeeBps ?? 690, ogDiscountBps: d.ogDiscountBps ?? 5000,
           maxNotionalBps: d.maxNotionalBps ?? 500, stale: !!d.stale,
@@ -199,32 +265,39 @@ export function usePerpEngine(generation = 1) {
   //
   //  The 4th argument is the collateral amount; on a native book it must equal
   //  the ETH sent.
-  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS) => {
+  const openLong = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS, quote: PerpQuote = NATIVE_PERP_QUOTE) => {
     if (!address) throw new Error("Connect a wallet first");
     if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
-    const value = parseEther(collateralEth.toFixed(18));
+    const { raw, value } = await prepareCollateral(address, quote, collateralEth, (t, a) =>
+      writeContractAsync({ address: t, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.engine, a] }));
     const notionalEth = collateralEth * (1 - stats.openFeeBps / 10_000) * leverage;
-    const minTokenOut = floorFrom(notionalEth / spotPrice, slipBps);
+    //  A long BUYS the creature token, so its floor counts tokens: 18 decimals
+    //  whatever the quote is. `spotPrice` is quote-per-token, so quote/price is
+    //  already a token count.
+    const minTokenOut = floorFrom(notionalEth / spotPrice, slipBps, 18);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openLong",
-      args: [leverage, minTokenOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minTokenOut, liqHint, raw], value, gas: LIQ_OPEN_GAS,
     });
   }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 
   //  A short sells the borrowed token side for ETH, so ITS floor is in ETH and
   //  tracks the notional rather than a token count.
-  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS) => {
+  const openShort = useCallback(async (collateralEth: number, leverage: number, liqHint: bigint = 0n, spotPrice = 0, slipBps = PERP_SLIPPAGE_BPS, quote: PerpQuote = NATIVE_PERP_QUOTE) => {
     if (!address) throw new Error("Connect a wallet first");
     if (!(spotPrice > 0)) throw new Error("No price for this market yet — refusing to open at any price");
     await ensureChain();
     beginAction("open");
-    const value = parseEther(collateralEth.toFixed(18));
-    const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage, slipBps);
+    const { raw, value } = await prepareCollateral(address, quote, collateralEth, (t, a) =>
+      writeContractAsync({ address: t, abi: ERC20_SWAP_ABI, functionName: "approve", args: [PERP.engine, a] }));
+    //  A short SELLS the borrowed token for quote, so its floor is in QUOTE
+    //  units — 6 on USDG. This is the decimals that used to be hard-coded 18.
+    const minEthOut = floorFrom(collateralEth * (1 - stats.openFeeBps / 10_000) * leverage, slipBps, quote.decimals);
     return writeContractAsync({
       address: PERP.engine, abi: PERP_ABI, functionName: "openShort",
-      args: [leverage, minEthOut, liqHint, value], value, ...(liqHint > 0n ? { gas: LIQ_OPEN_GAS } : {}),
+      args: [leverage, minEthOut, liqHint, raw], value, gas: LIQ_OPEN_GAS,
     });
   }, [address, ensureChain, beginAction, writeContractAsync, stats.openFeeBps]);
 

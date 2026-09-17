@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { parseEther, parseUnits, maxUint256, type Address } from "viem";
+import { parseEther, parseUnits, type Address, toFunctionSelector} from "viem";
 import {
   useAccount,
   useSwitchChain,
@@ -31,10 +31,75 @@ const MOCK_MINT_ABI = [{
   inputs: [{ type: "address" }, { type: "uint256" }], outputs: [],
 }] as const;
 
-/** Generous gas limit for a hinted swap that may auto-liquidate a position
- *  (nested pool swaps + badge mint). The wallet's estimate can be far too low
- *  when the target is still healthy at submit time, so we force headroom. */
-const LIQ_SWAP_GAS = 3_000_000n;
+/**
+ * Gas limit for any swap that may auto-liquidate, sized to fund a FULL sweep.
+ *
+ *  ── WHY NOT JUST LET THE WALLET ESTIMATE ─────────────────────────────────
+ *  `eth_estimateGas` runs against the CURRENT state. If nothing is liquidatable
+ *  at the moment of estimation, the estimate excludes the sweep entirely — and
+ *  if a position becomes liquidatable between estimate and inclusion, the swap
+ *  arrives without the gas to pay for the sweep it now triggers. The sweep is
+ *  best-effort and its failure is swallowed by the hook, so the user sees a
+ *  successful swap and NO liquidation, with nothing anywhere saying why. Forcing
+ *  a floor removes that race.
+ *
+ *  ── HOW THIS NUMBER IS DERIVED ───────────────────────────────────────────
+ *  From the engine's own bounds, not from guesswork:
+ *    MAX_LIQ_PER_SWAP    8       kills allowed in one sweep
+ *    SWEEP_KILL_RESERVE  420,000 gas that must remain to attempt each kill
+ *    LIQ_GAS_RESERVE     180,000 the hook keeps for afterSwap to finish
+ *    GACHA_GAS_RESERVE   200,000 kept for the in-swap gacha step
+ *  8 x 420k = 3.36M for kills, plus ~380k of hook/gacha reserves, plus ~330k for
+ *  the swap itself (measured: a buy WITH one kill estimated 1,005,895, of which
+ *  the sweep was 680,638). That is ~4.1M; 5M leaves honest headroom.
+ *
+ *  The previous 3,000,000 could not fund a full sweep — it would break after
+ *  five or six kills. That degrades gracefully (the sweep checks `gasleft()` and
+ *  stops rather than reverting), so it was never visible as an error; it just
+ *  meant some liquidatable positions survived a swap that should have taken them.
+ *
+ *  Costs the user nothing extra: EIP-1559 charges for gas USED, not the limit.
+ *  The only side effect is a higher "max fee" figure in the wallet prompt.
+ */
+//  TWO sweeps per swap now, not one. Pre-emptive liquidation runs in
+//  `beforeSwap` (closing what the pending trade would sink, at the pre-trade
+//  price) and the original post-trade sweep still runs in `afterSwap`. Each is
+//  bounded at 8 kills, so the honest worst case is roughly double the single
+//  sweep budget derived above: ~4.1M + ~3.4M. 8M funds both in full; a heavy
+//  pre-sweep no longer starves the swap's own gacha step of gas.
+const LIQ_SWAP_GAS = 8_000_000n;
+
+/**
+ * Does the DEPLOYED router actually implement `playChurn`?
+ *
+ *  Rounds 43 and 44 both shipped a router whose runtime is 8,580 bytes while the
+ *  source compiles to 8,814 — the 234-byte gap is `playChurn`, so the selector is
+ *  missing from the dispatcher and the call reverts with EMPTY data after ~537
+ *  gas. The user sees "spin reverted" with nothing to go on.
+ *
+ *  No test could catch this: tests compile the local source, the app calls the
+ *  deployed bytecode. So the app asks the chain rather than trusting the ABI, and
+ *  falls back to `play` — which is the same trade minus the extra churn loops and
+ *  is present on every round.
+ *
+ *  Cached per address: it is immutable code, so one `eth_getCode` per session.
+ */
+const churnSupport = new Map<string, boolean>();
+async function routerHasChurn(pc: NonNullable<ReturnType<typeof usePublicClient>>, router: Address) {
+  const key = router.toLowerCase();
+  const hit = churnSupport.get(key);
+  if (hit !== undefined) return hit;
+  let ok = false;
+  try {
+    const code = await pc.getCode({ address: router });
+    const sel = toFunctionSelector("playChurn(uint256,uint256,uint256,uint256)").slice(2).toLowerCase();
+    ok = !!code && code.toLowerCase().includes(sel);
+  } catch {
+    ok = false; // cannot tell -> take the path that exists everywhere
+  }
+  churnSupport.set(key, ok);
+  return ok;
+}
 
 /**
  * useCauldronSwap — buy the current iteration's token with ETH.
@@ -288,7 +353,10 @@ export function useCauldronSwap() {
    *  is credited as Mana, so a small stake generates a multiple of itself in
    *  volume → more chances to summon a crystal. `openMax=0` opens all earned. */
   const spin = useCallback(
-    async (ethIn: number, loops = 3, openMax = 0, minTokenOut: bigint = 0n): Promise<`0x${string}`> => {
+    async (
+      ethIn: number, loops = 3, openMax = 0, minTokenOut: bigint = 0n,
+      quote: Address = NATIVE_QUOTE, quoteExpected: bigint = 0n, quoteSymbol = "the quote",
+    ): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
       //  A CHURN MUST CARRY A FLOOR. Up to 10 buys and 9 sells run inside one
@@ -302,16 +370,79 @@ export function useCauldronSwap() {
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
+      //  ── AN ERC20-QUOTED GENERATION CHURNS DIFFERENTLY (audit FG-4) ────
+      //  `_pullQuote` takes no value on a non-native quote, so this hard-coded
+      //  native `value` reverted `ErcQuoteTakesNoValue` and SPIN was simply dead
+      //  — with an opaque error — on any rotated generation. Same shape `buy`
+      //  uses: zap ether into the quote, spend the TYPED amount in the quote's
+      //  own decimals, approval bounded to exactly that, floor scaled with it.
+      if (!isNativeQuote(quote)) {
+        if (quoteExpected <= 0n) {
+          throw new Error("No oracle price for this quote — refusing to sign an unbounded spin");
+        }
+        const bal = () => pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "balanceOf", args: [address],
+        }) as Promise<bigint>;
+        const before = (await bal()) as bigint;
+        let delivered: bigint | null = null;
+        if (before < quoteExpected) {
+          if (!CAULDRON.nativeZap) {
+            throw new Error(`This round has no zap, so spinning with ETH is not possible. Acquire ${quoteSymbol} first.`);
+          }
+          const zh = await zapNativeToQuote(quote, ethIn, quoteExpected);
+          await pc!.waitForTransactionReceipt({ hash: zh });
+          const after = (await bal()) as bigint;
+          if (after <= before) throw new Error("The zap delivered nothing — refusing to continue");
+          delivered = after - before;
+        }
+        const walletNow = delivered === null ? before : before + delivered;
+        const spend = quoteInForTypedAmount(quoteExpected, delivered, walletNow);
+        if (spend === 0n) throw new Error(`No ${quoteSymbol} to spin with`);
+        const floor = scaleFloor(minTokenOut, spend, quoteExpected);
+
+        const current = (await pc!.readContract({
+          address: quote, abi: ERC20_SWAP_ABI, functionName: "allowance",
+          args: [address, CAULDRON.gachaRouter as Address],
+        })) as bigint;
+        if (current < spend) {
+          const ah = await writeContractAsync({
+            address: quote, abi: ERC20_SWAP_ABI, functionName: "approve",
+            args: [CAULDRON.gachaRouter as Address, spend],
+          });
+          await pc!.waitForTransactionReceipt({ hash: ah });
+        }
+        const canChurn = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
+        return writeContractAsync({
+          address: CAULDRON.gachaRouter as Address,
+          abi: GACHA_ROUTER_ABI,
+          //  `play` is the same trade without the extra loops; on a router that
+          //  lacks `playChurn` it is the difference between spinning and a bare
+          //  revert. See {routerHasChurn}.
+          functionName: canChurn ? "playChurn" : "play",
+          args: canChurn
+            ? [spend, BigInt(loops), floor, BigInt(openMax)]
+            : [spend, 0n, floor, 0n, BigInt(openMax)],
+          value: 0n,
+          //  A churn is N pool swaps, so it can trigger the sweep exactly like a
+          //  plain buy. This path set no gas at all and relied on estimation.
+          gas: LIQ_SWAP_GAS,
+        });
+      }
+
+      const canChurnNative = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
       return writeContractAsync({
         address: CAULDRON.gachaRouter as Address,
         abi: GACHA_ROUTER_ABI,
-        functionName: "playChurn",
+        functionName: canChurnNative ? "playChurn" : "play",
         //  See the note in `buy`: native value, so `quoteIn` is 0.
-        args: [0n, BigInt(loops), minTokenOut, BigInt(openMax)],
+        args: canChurnNative
+          ? [0n, BigInt(loops), minTokenOut, BigInt(openMax)]
+          : [0n, 0n, minTokenOut, 0n, BigInt(openMax)],
         value: parseEther(ethIn.toFixed(18)),
+        gas: LIQ_SWAP_GAS,
       });
     },
-    [address, chainId, switchChainAsync, writeContractAsync],
+    [address, chainId, switchChainAsync, writeContractAsync, pc, zapNativeToQuote],
   );
 
   /** Open a sealed crystal you own → reveals the creature inside. */
@@ -377,16 +508,23 @@ export function useCauldronSwap() {
     [address, chainId, switchChainAsync, writeContractAsync],
   );
 
-  /** Approve the router to spend the iteration token (needed before selling). */
+  /** Approve the router to spend the iteration token (needed before selling).
+   *  BOUNDED TO `amount`, exactly as the buy leg bounds its quote approval to
+   *  `spend`. This granted the router an INFINITE allowance on the seller's whole
+   *  token balance for one sale — so a later router bug, or a router address that
+   *  is ever wrong in the manifest, could pull the entire position with no further
+   *  signature. The allowance is the last line of defence when the calldata is
+   *  wrong; an unbounded one is no defence at all. */
   const approveToken = useCallback(
-    async (token: Address): Promise<`0x${string}`> => {
+    async (token: Address, amount: bigint): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
+      if (amount <= 0n) throw new Error("Nothing to approve");
       if (chainId !== CAULDRON.chainId) {
         await switchChainAsync({ chainId: CAULDRON.chainId });
       }
       return writeContractAsync({
         address: token, abi: ERC20_SWAP_ABI, functionName: "approve",
-        args: [CAULDRON.gachaRouter as Address, maxUint256],
+        args: [CAULDRON.gachaRouter as Address, amount],
       });
     },
     [address, chainId, switchChainAsync, writeContractAsync],

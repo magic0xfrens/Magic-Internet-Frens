@@ -6,6 +6,31 @@ import { graphql, eq, desc, and, gte, ne } from "ponder";
 import { createPublicClient, fallback, http, formatEther, keccak256, encodeAbiParameters } from "viem";
 // SINGLE SOURCE OF TRUTH — same manifest as ponder.config.ts + the frontend.
 import round from "../../deployments/active";
+//  ONE source for the reorg tolerance: the same table the node_modules patch
+//  applies, so /freshness cannot report a tolerance the indexer does not have.
+import { FINALITY_BLOCKS } from "../../scripts/patch-ponder-finality.mjs";
+/** Ponder's own fallback when it does not know the chain — "assume a 2s block
+ *  time", which is ~3 seconds of tolerance on a 0.1s chain. */
+const PONDER_DEFAULT_FINALITY = 30;
+/** What Ponder ACTUALLY uses for a chain our table does not override, quoted
+ *  from `node_modules/ponder/dist/esm/utils/finality.js` (0.11.44). Reporting a
+ *  flat 30 for every un-overridden chain was a number that could be wrong in
+ *  the dangerous direction: it made `reorgToleranceOk` compare the chain's real
+ *  finality distance against a tolerance Ponder was not running, so the beacon
+ *  could raise a permanent false 503 (or, on a chain where Ponder is more
+ *  generous than 30, miss a real one). `finalityBlockCount` is only worth
+ *  publishing if it is the number in force. */
+const PONDER_BUILTIN_FINALITY: Record<number, number> = {
+  1: 65, 3: 65, 4: 65, 5: 65, 42: 65, 11155111: 65,
+  137: 200, 80001: 200,
+  42161: 240, 42170: 240, 421611: 240, 421613: 240,
+};
+function ponderFinalityBlocks(chainId: number): number {
+  //  Our patch inserts at the HEAD of Ponder's switch, so an entry here wins
+  //  over Ponder's own — see indexer/scripts/patch-ponder-finality.mjs.
+  return FINALITY_BLOCKS[chainId] ?? PONDER_BUILTIN_FINALITY[chainId] ?? PONDER_DEFAULT_FINALITY;
+}
+import { rawToQuoteAmount } from "../quoteUnits";
 
 const app = new Hono();
 app.use("*", cors({ origin: process.env.CORS_ORIGIN ?? "*" }));
@@ -123,14 +148,39 @@ const PERP_ENGINE = round.contracts.perpEngine as `0x${string}`;
 // was starving/rate-limiting these calls on a shared endpoint (perp stats + vault
 // read 0 despite the contracts being funded). Use API_RPC_URL if set, else a
 // multi-node public fallback distinct from the sync's single node.
-const API_RPCS = (process.env.API_RPC_URL ?? [
-  "https://ethereum-sepolia-rpc.publicnode.com",
-  "https://sepolia.drpc.org",
-  "https://1rpc.io/sepolia",
-  "https://rpc.ankr.com/eth_sepolia",
-  "https://eth-sepolia.public.blastapi.io",
-].join(","))
-  .split(",").map((s) => s.trim()).filter(Boolean);
+//
+//  KEYED BY THE MANIFEST'S CHAIN, AND UNKNOWN IS FATAL. This list used to be a
+//  flat Sepolia fallback for every deployment, so on a chain-4663 manifest the
+//  API — and with it /freshness, which is the divergence beacon — read SEPOLIA.
+//  /freshness would then compare Sepolia against Sepolia and report healthy
+//  while the service served another chain's data.
+const API_RPC_DEFAULTS: Record<number, string[]> = {
+  11155111: [
+    "https://ethereum-sepolia-rpc.publicnode.com",
+    "https://sepolia.drpc.org",
+    "https://1rpc.io/sepolia",
+    "https://rpc.ankr.com/eth_sepolia",
+    "https://eth-sepolia.public.blastapi.io",
+  ],
+  5042002: ["https://rpc.testnet.arc.network"],
+  //  VERIFIED endpoints: mainnet 4663, testnet 46630. `rpc.chain.robinhood.com`
+  //  (no `mainnet.`) does not exist and must never appear here.
+  4663: ["https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"],
+  46630: ["https://rpc.testnet.chain.robinhood.com"],
+};
+const API_RPCS = (() => {
+  const env = (process.env.API_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (env.length > 0) return env;
+  const d = API_RPC_DEFAULTS[Number(round.chainId)];
+  if (!d) {
+    throw new Error(
+      `[api] NO API RPC FOR CHAIN ${round.chainId} — set API_RPC_URL, or add the chain to ` +
+        `API_RPC_DEFAULTS in indexer/src/api/index.ts. Refusing to read another chain and report it ` +
+        `as chain ${round.chainId}.`,
+    );
+  }
+  return d;
+})();
 const perpClient = createPublicClient({ transport: fallback(API_RPCS.map((u) => http(u, { retryCount: 2, retryDelay: 200 }))) });
 const STATS_ABI = [{
   type: "function", name: "stats", stateMutability: "view", inputs: [],
@@ -166,17 +216,25 @@ const VAULT_ABI = [
   { type: "function", name: "pendingTokYield", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
-let statsCache: { at: number; v: { depthEth: number; plvEth: number; plvToken: number; maxLev: number; longOiEth: number; shortOiEth: number; fundingIdx: number; dead: boolean; markSqrt: bigint } | null } = { at: 0, v: null };
+let statsCache: { at: number; v: { depthEth: number; plvEth: number; plvToken: number; maxLev: number; longOiEth: number; shortOiEth: number; fundingIdx: number; dead: boolean; markSqrt: bigint; quoteDecimals: number; quoteSymbol: string; quote: `0x${string}` } | null } = { at: 0, v: null };
 async function liveStats() {
   if (PERP_ENGINE === "0x0000000000000000000000000000000000000000") return null;
   if (Date.now() - statsCache.at < 5000 && statsCache.v) return statsCache.v;
-  const n = (v: bigint) => Number(formatEther(v));
+  //  `formatEther` is 1e18, hardcoded. Every value below is QUOTE-denominated,
+  //  so scale by the quote's own decimals — see liveQuoteMeta. The field names
+  //  keep their `Eth` suffix on purpose: renaming them would touch every
+  //  consumer in the app for no behavioural gain, and the payload now states
+  //  `quoteDecimals`/`quoteSymbol` so nothing has to infer the unit from a name.
+  const qm = await liveQuoteMeta();
+  const n = (v: bigint) => Number(v) / 10 ** qm.decimals;
+  //  plvToken is the brew's own 18-decimal token, NOT the quote.
+  const nTok = (v: bigint) => Number(formatEther(v));
   // Try the bundled stats() first (one call). If it fails on the RPC, fall back
   // to individual cheap getters so plvEth/plvToken/depth still populate.
   try {
     const s = await perpClient.readContract({ address: PERP_ENGINE, abi: STATS_ABI, functionName: "stats" }) as
       readonly [bigint, bigint, bigint, bigint, bigint, number, bigint, bigint, boolean];
-    const v = { longOiEth: n(s[0]), shortOiEth: n(s[1]), plvEth: n(s[2]), plvToken: n(s[3]), depthEth: n(s[4]), maxLev: Number(s[5]), markSqrt: s[6], fundingIdx: Number(s[7]) / 1e18, dead: s[8] };
+    const v = { longOiEth: n(s[0]), shortOiEth: n(s[1]), plvEth: n(s[2]), plvToken: nTok(s[3]), depthEth: n(s[4]), maxLev: Number(s[5]), markSqrt: s[6], fundingIdx: Number(s[7]) / 1e18, dead: s[8], quoteDecimals: qm.decimals, quoteSymbol: qm.symbol, quote: qm.address };
     statsCache = { at: Date.now(), v };
     return v;
   } catch { /* fall back to per-getter reads below */ }
@@ -186,12 +244,12 @@ async function liveStats() {
     const [plv, plvTok, longOi] = await Promise.all([rd("plv"), rd("plvToken"), rd("longOiEth")]) as [bigint, bigint, bigint];
     // heavy pool-math getters — each optional (keep the last good / sane default)
     const [depth, maxLev, mark, fidx] = await Promise.all([
-      rd("activeEthDepth").catch(() => statsCache.v ? BigInt(Math.round(statsCache.v.depthEth * 1e18)) : 0n),
+      rd("activeEthDepth").catch(() => statsCache.v ? BigInt(Math.round(statsCache.v.depthEth * 10 ** qm.decimals)) : 0n),
       rd("maxLeverage").catch(() => statsCache.v?.maxLev ?? 2),
       rd("markSqrtPriceX96").catch(() => statsCache.v?.markSqrt ?? 0n),
       rd("fundingIndex").catch(() => 0n),
     ]) as [bigint, number, bigint, bigint];
-    const v = { longOiEth: n(longOi), shortOiEth: statsCache.v?.shortOiEth ?? 0, plvEth: n(plv), plvToken: n(plvTok), depthEth: n(depth), maxLev: Number(maxLev), markSqrt: mark, fundingIdx: Number(fidx) / 1e18, dead: false };
+    const v = { longOiEth: n(longOi), shortOiEth: statsCache.v?.shortOiEth ?? 0, plvEth: n(plv), plvToken: nTok(plvTok), depthEth: n(depth), maxLev: Number(maxLev), markSqrt: mark, fundingIdx: Number(fidx) / 1e18, dead: false, quoteDecimals: qm.decimals, quoteSymbol: qm.symbol, quote: qm.address };
     statsCache = { at: Date.now(), v };
     return v;
   } catch { return statsCache.v; }
@@ -262,6 +320,11 @@ const HOOK_READ = [
   { type: "function", name: "isDead", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "deathThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "relaunchETH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  //  B-3: the NON-native rebirth reserve. `relaunchETH` holds only the ether
+  //  bucket; PoolOps seeds the next generation from `relaunchAsset[quote]` when
+  //  the generation is ERC20-quoted (CauldronHook.sol:1177, :1386). Reading only
+  //  the ether slot made a funded rebirth look unfunded on a rotated generation.
+  { type: "function", name: "relaunchAsset", stateMutability: "view", inputs: [{ name: "asset", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 const COL_READ = [
   { type: "function", name: "maxSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -332,7 +395,9 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
     //    carry no PositionManager id, so they are invisible to the read above.
     const seeder = await perpClient.readContract({ address: REGISTRY, abi: REG_SEEDER, functionName: "seeder" }) as `0x${string}`;
     if (!seeder || seeder === "0x0000000000000000000000000000000000000000") {
-      return Number(formatEther(quoteWei));
+      //  `quoteWei` is the QUOTE side of the LP, which is only wei until a
+      //  rotation. `formatEther` here was the same 1e18 assumption as CA-1.
+      return rawToQuoteAmount(quoteWei, await liveQuoteDecimals());
     }
     // ethTotal is the exact ETH the seeder was funded with at start — the
     // contract enforces `msg.value == cfg.ethTotal` — and the seeder holds no
@@ -357,7 +422,7 @@ async function lpEthOf(poolId: `0x${string}`, gen: bigint): Promise<number> {
       }) as bigint;
       quoteWei += ethTotalWei;
     }
-    return Number(formatEther(quoteWei));
+    return rawToQuoteAmount(quoteWei, await liveQuoteDecimals());
   } catch (e) { console.error("lpEthOf failed:", String(e).slice(0,200)); return 0; }
 }
 type BrewChain = { deathThresholdEth: number; relaunchEth: number; nftMax: number; vaultEth: number; relaunchAt: number };
@@ -371,7 +436,7 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
       perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "lastSummonAt" }).catch(() => 0n) as Promise<bigint>,
       perpClient.readContract({ address: REGISTRY, abi: REG_READ, functionName: "minLifetime" }).catch(() => 0n) as Promise<bigint>,
       perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "deathThreshold" }).catch(() => 0n) as Promise<bigint>,
-      perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }).catch(() => 0n) as Promise<bigint>,
+      relaunchReserveRaw(),
       perpClient.readContract({ address: collectionAddr, abi: COL_READ, functionName: "maxSupply" }).catch(() => 0n) as Promise<bigint>,
       lpEthOf(poolId, g), // ETH in the active LP → the real "available for next launch"
     ]);
@@ -379,8 +444,9 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
       ? await perpClient.getBalance({ address: vault }).catch(() => 0n) : 0n;
     const v: BrewChain = {
       deathThresholdEth: Number(formatEther(deathThr)),
-      // available for next launch = LP ETH (recovered on relaunch) + hook reserve.
-      relaunchEth: lpEth + Number(formatEther(relaunchWei)),
+      // available for next launch = LP quote (recovered on relaunch) + hook
+      // reserve, BOTH in the live quote's own units (B-3).
+      relaunchEth: lpEth + rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
       nftMax: Number(maxSupply),
       vaultEth: Number(formatEther(vaultBal)),
       relaunchAt: Number(lastSummonAt + minLifetime),
@@ -431,6 +497,46 @@ const TGOV_READ = [
  * deployment/manifest mismatch, so it is logged rather than quietly rendered as
  * a number a trillion times too small.
  */
+/**  ── THE LIVE GENERATION'S QUOTE (audit A-3) ────────────────────────────────
+ *  Every figure the perp/vault panels label "ETH" is really denominated in the
+ *  GENERATION'S QUOTE. `formatEther` on a 6-decimal USDG book reports balances
+ *  1e12 too small — the write path was fixed and the read path was not, so the
+ *  UI contradicted the deposit the user had just made. Cached: the quote only
+ *  changes on a rotation.  */
+const NATIVE_ADDR = "0x0000000000000000000000000000000000000000";
+let liveQuoteCache: { at: number; addr: string } = { at: 0, addr: NATIVE_ADDR };
+async function liveQuoteAddress(): Promise<string> {
+  if (Date.now() - liveQuoteCache.at < 30_000) return liveQuoteCache.addr;
+  try {
+    const genRows = await db.select().from(schema.pool).orderBy(desc(schema.pool.generation)).limit(1);
+    const gen = genRows[0]?.generation ?? 0;
+    const addr = gen
+      ? (await perpClient.readContract({ address: REGISTRY, abi: REG_QUOTE, functionName: "generationQuote", args: [BigInt(gen)] }) as string)
+      : NATIVE_ADDR;
+    liveQuoteCache = { at: Date.now(), addr: addr ?? NATIVE_ADDR };
+  } catch { liveQuoteCache = { at: Date.now(), addr: liveQuoteCache.addr }; }
+  return liveQuoteCache.addr;
+}
+/** Decimals of the live generation's quote. 18 on a native (ether) generation. */
+async function liveQuoteDecimals(): Promise<number> {
+  const a = await liveQuoteAddress();
+  return a.toLowerCase() === NATIVE_ADDR ? 18 : decimalsOf(a);
+}
+
+/**  The rebirth reserve in the LIVE quote, RAW. Native → `relaunchETH()`;
+ *  ERC20 → `relaunchAsset(quote)`, which is the bucket PoolOps actually seeds
+ *  from (CauldronHook.sol:1177). Reading only the ether slot on a rotated
+ *  generation reported 0 for a reserve that was fully funded.  */
+async function relaunchReserveRaw(): Promise<bigint> {
+  const a = await liveQuoteAddress();
+  try {
+    if (a.toLowerCase() === NATIVE_ADDR) {
+      return await perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchETH" }) as bigint;
+    }
+    return await perpClient.readContract({ address: HOOK, abi: HOOK_READ, functionName: "relaunchAsset", args: [a as `0x${string}`] }) as bigint;
+  } catch { return 0n; }
+}
+
 function decimalsOf(addr: string): number {
   const a = addr.toLowerCase();
   const hit = QUOTES.find((q) => q.address.toLowerCase() === a);
@@ -811,7 +917,11 @@ app.get("/floor", async (c) => {
     markPriceEth: mark,                                  // ETH per token (live mark)
     redeemFloorEth,                                      // floor × mark = fren's live ETH value
     floorPctOfMcap,                                      // % of FDV each fren backs (rises)
-    ticker: ps?.airdropTicker ?? "",
+    //  `airdropTicker` comes from getCreatureForGeneration(1) — generation ONE,
+    //  hardcoded — so on any later round, or if that read reverts, it is "" and
+    //  the panel renders "N $" with no symbol. The LIVE token's own symbol() is
+    //  the correct source and is what /legacy already uses; fall back to it.
+    ticker: ps?.airdropTicker || (await liveTicker()),
     //  WEI, AS A STRING. `floorPerFren` above is a float in whole tokens, which
     //  loses the low digits of a 1e18 value — fine for a chart label, wrong for
     //  the "recycle N frens for X $TOKEN" figure, which is share × count. The
@@ -861,6 +971,69 @@ const REG_CURGEN = [
   { type: "function", name: "generationCollection", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
 ] as const;
 const SYMBOL_ABI = [{ type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] }] as const;
+const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
+const REG_GENQUOTE = [{ type: "function", name: "generationQuote", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] }] as const;
+
+/**
+ * The LIVE generation's QUOTE asset: address, decimals and symbol.
+ *
+ *  ── WHY (audit CA-1 / CA-2) ───────────────────────────────────────────────
+ *  `PerpEngine` denominates collateral, OI, PLV and depth in the LIVE QUOTE's
+ *  raw units. This file `formatEther`d all of them, so after a rotation into a
+ *  6-decimal quote every absolute figure on the perp panel read ~0 — while
+ *  `roiPct`, a ratio of two equally wrong numbers, stayed correct and made the
+ *  panel look consistent. The symbol matters for the same reason: a USDG book
+ *  labelled "Ξ" is a different lie about the same number.
+ *
+ *  Native (address(0)) is 18/ETH by definition. A token that will not answer is
+ *  left at the LAST GOOD value rather than reset to a guess.
+ */
+let quoteMetaCache: { at: number; v: { address: `0x${string}`; decimals: number; symbol: string } } =
+  { at: 0, v: { address: ZERO as `0x${string}`, decimals: 18, symbol: "ETH" } };
+async function liveQuoteMeta() {
+  if (Date.now() - quoteMetaCache.at < 30_000) return quoteMetaCache.v;
+  try {
+    const gen = Number(await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentGeneration" }) as bigint);
+    if (gen <= 0) return quoteMetaCache.v;
+    const q = await perpClient.readContract({ address: REGISTRY, abi: REG_GENQUOTE, functionName: "generationQuote", args: [BigInt(gen)] }) as `0x${string}`;
+    if (!q || q === ZERO) {
+      quoteMetaCache = { at: Date.now(), v: { address: ZERO as `0x${string}`, decimals: 18, symbol: "ETH" } };
+      return quoteMetaCache.v;
+    }
+    const [d, sym] = await Promise.all([
+      perpClient.readContract({ address: q, abi: DECIMALS_ABI, functionName: "decimals" }) as Promise<number>,
+      perpClient.readContract({ address: q, abi: SYMBOL_ABI, functionName: "symbol" }).catch(() => "") as Promise<string>,
+    ]);
+    const dec = Number(d);
+    quoteMetaCache = {
+      at: Date.now(),
+      v: {
+        address: q,
+        decimals: Number.isFinite(dec) && dec >= 0 && dec <= 36 ? dec : quoteMetaCache.v.decimals,
+        symbol: sym || quoteMetaCache.v.symbol,
+      },
+    };
+  } catch { /* keep last good */ }
+  return quoteMetaCache.v;
+}
+
+/** The LIVE generation's token symbol, cached briefly. The presale's
+ *  `airdropTicker` is pinned to generation 1, so it goes blank on every later
+ *  round; this is the symbol the chain actually has right now. */
+let tickerCache: { at: number; v: string } = { at: 0, v: "" };
+async function liveTicker(): Promise<string> {
+  if (Date.now() - tickerCache.at < 30_000) return tickerCache.v;
+  try {
+    const gen = Number(await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentGeneration" }) as bigint);
+    if (gen <= 0) return tickerCache.v;
+    const token = await perpClient.readContract({ address: REGISTRY, abi: REG_CURGEN, functionName: "currentToken" }) as `0x${string}`;
+    if (!token || token === ZERO) return tickerCache.v;
+    const sym = await perpClient.readContract({ address: token, abi: SYMBOL_ABI, functionName: "symbol" }) as string;
+    //  Keep the last good symbol on a blip rather than blanking the label.
+    if (sym) tickerCache = { at: Date.now(), v: sym };
+  } catch { /* keep last good */ }
+  return tickerCache.v;
+}
 let colFloorCache: { at: number; v: unknown } = { at: 0, v: null };
 app.get("/collection-floors", async (c) => {
   if (Date.now() - colFloorCache.at < 5000 && colFloorCache.v) return c.json(colFloorCache.v);
@@ -887,6 +1060,25 @@ app.get("/collection-floors", async (c) => {
       rd(HOOK, HOOK_LEGACY, "legacyBuffer"),
       curGen > 0 ? rd(LEDGER_ADDR, LEDGER_READ, "entitledTokens", [BigInt(curGen)]) : Promise.resolve(0n),
     ]);
+    //  ── THE BUFFER IS IN THE GENERATION'S QUOTE, NOT ALWAYS IN 1e18 ─────────
+    //  `Number(buffer) / 1e18` assumed every quote is 18-decimal. On a 6-decimal
+    //  quote (USDG-class) that divides the real figure by 1e12, so the progress
+    //  bar rendered a confident **0%** no matter how full the buffer was. Same
+    //  split-source-of-truth as the frontend's quote decimals: the quote ADDRESS
+    //  is on-chain, so read its decimals from the chain too rather than assuming.
+    const liveQuote = curGen > 0
+      ? await perpClient.readContract({ address: REGISTRY, abi: REG_GENQUOTE, functionName: "generationQuote", args: [BigInt(curGen)] }).catch(() => ZERO) as `0x${string}`
+      : ZERO as `0x${string}`;
+    const quoteIsNative = !liveQuote || liveQuote === ZERO;
+    const bufferDecimals = quoteIsNative
+      ? 18
+      : Number(await perpClient.readContract({ address: liveQuote, abi: DECIMALS_ABI, functionName: "decimals" }).catch(() => 18));
+    const bufferUnits = Number(buffer) / 10 ** bufferDecimals;
+    //  `thresholdEth` is a MANIFEST figure denominated in ether. Once a
+    //  generation has rotated into an ERC20 quote the two are different units,
+    //  and a percentage of one against the other is meaningless. Say so instead
+    //  of quietly dividing them.
+    const bufferUnitMatchesThreshold = quoteIsNative;
     // LIVE collection is now redeemable (post-unify): read its per-NFT floor at the
     // live mint count so the panel can show "redeem a creature for N $TOKEN now".
     let liveFloorPerNFT = 0, liveOutstanding = 0;
@@ -921,7 +1113,12 @@ app.get("/collection-floors", async (c) => {
       livePending: Number(liveEntitled) / 1e18,
       liveFloorPerNFT,   // token redeemable per LIVE creature NFT right now
       liveOutstanding,   // entitled (redeemable) live NFTs
-      bufferEth: Number(buffer) / 1e18,
+      bufferEth: bufferUnits,
+      //  Raw + decimals + asset, so a consumer never has to guess the unit.
+      bufferRaw: buffer.toString(),
+      bufferDecimals,
+      bufferQuote: liveQuote,
+      bufferUnitMatchesThreshold,
       //  DEPLOY-TIME CONFIGURATION, FROM THE MANIFEST — not from the chain.
       //  The hook exposes no getter for either (see HOOK_LEGACY above), so there
       //  is nothing to prefer a chain read to; pretending otherwise is what
@@ -930,8 +1127,8 @@ app.get("/collection-floors", async (c) => {
       thresholdEth: LEGACY_THRESHOLD_ETH,
       legacyBps: LEGACY_BPS,
       thresholdSource: "manifest" as const,
-      bufferPct: LEGACY_THRESHOLD_ETH > 0
-        ? Math.min(100, (Number(buffer) / 1e18 / LEGACY_THRESHOLD_ETH) * 100)
+      bufferPct: LEGACY_THRESHOLD_ETH > 0 && bufferUnitMatchesThreshold
+        ? Math.min(100, (bufferUnits / LEGACY_THRESHOLD_ETH) * 100)
         : 0,
       past,
       //  Empty unless a chain read actually failed. A caller that sees a 0 here
@@ -1006,9 +1203,26 @@ app.get("/cauldron", async (c) => {
 });
 
 /* ── charting ──────────────────────────────────────────────────────────── */
+/** A path segment that must be a non-negative integer generation. `Number("abc")`
+ *  is NaN, which used to reach the query builder and surface as a 500 carrying a
+ *  `pg-pool` stack trace — an internal path leak on a public, unauthenticated
+ *  GET. Returns null so the caller answers 400 with a plain message instead. */
+const genParam = (raw: string | undefined): number | null => {
+  if (raw == null || !/^\d{1,9}$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+};
+/** Query `limit`: clamp into [1, max]; anything unparseable falls back to `dflt`. */
+const limitParam = (raw: string | undefined, dflt: number, max: number): number => {
+  const n = Number(raw ?? dflt);
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(Math.max(Math.trunc(n), 1), max);
+};
+
 app.get("/candles/:generation", async (c) => {
-  const gen = Number(c.req.param("generation"));
-  const limit = Math.min(Number(c.req.query("limit") ?? 120), 500);
+  const gen = genParam(c.req.param("generation"));
+  if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
+  const limit = limitParam(c.req.query("limit"), 120, 500);
   const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
   const p = pools[0];
   if (!p) return c.json({ pool: null, candles: [], last: 0 });
@@ -1017,8 +1231,9 @@ app.get("/candles/:generation", async (c) => {
   return c.json({ pool: { id: p.id, generation: p.generation, token: p.token, name: p.name, symbol: p.symbol, dead: p.dead }, candles, last: p.lastPrice, volumeEth: p.volumeEth, swapCount: p.swapCount });
 });
 app.get("/recent/:generation", async (c) => {
-  const gen = Number(c.req.param("generation"));
-  const limit = Math.min(Number(c.req.query("limit") ?? 150), 5000);
+  const gen = genParam(c.req.param("generation"));
+  if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
+  const limit = limitParam(c.req.query("limit"), 150, 5000);
   const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
   const p = pools[0];
   if (!p) return c.json({ swaps: [] });
@@ -1094,7 +1309,11 @@ async function exactLiqPrice(id: bigint, entryFallback: number, lev: number, isL
       perpClient.readContract({ address: PERP_ENGINE, abi: POS_READ, functionName: "positions", args: [id] }) as Promise<readonly [string, boolean, bigint, bigint, bigint, bigint, number, bigint]>,
       maintenanceM(),
     ]);
-    const collateral = Number(formatEther(p[2])), size = Number(formatEther(p[3])), principal = Number(formatEther(p[4]));
+    //  A-4: collateral and principal are QUOTE-denominated; `size` is the
+    //  creature-token leg (18). The price this returns is quote-per-token, so
+    //  mixing the two decimal bases moved the liquidation line by 1e12 on USDG.
+    const qd = await liveQuoteDecimals();
+    const collateral = rawToQuoteAmount(p[2], qd), size = Number(formatEther(p[3])), principal = rawToQuoteAmount(p[4], qd);
     if (size <= 0) return c?.v ?? liqFrom(entryFallback, lev, isLong);
     const price = isLong
       ? (principal * (1 + m)) / size          // LONG liquidates below this
@@ -1163,6 +1382,15 @@ app.get("/perp-heatmap/:generation", async (c) => {
     maxLev: live?.maxLev ?? 3,
     fundingIdx: live?.fundingIdx ?? 0,
     dead: live?.dead ?? false,
+    //  ── THE UNIT, STATED RATHER THAN INFERRED FROM A FIELD NAME ────────────
+    //  Every *Eth field above is denominated in the LIVE QUOTE, which is only
+    //  ether until a rotation completes. The names keep their `Eth` suffix (too
+    //  many consumers to rename safely at this stage, and a rename fixes no
+    //  behaviour), so the unit travels with the data instead: a client must
+    //  label these with `quoteSymbol`, never a hardcoded Ξ.
+    quoteSymbol: live?.quoteSymbol ?? "ETH",
+    quoteDecimals: live?.quoteDecimals ?? 18,
+    quote: live?.quote ?? "0x0000000000000000000000000000000000000000",
     openFeeBps: 690, ogDiscountBps: 5000,
     // per-position notional cap (mirrors PerpEngine.maxNotionalBps) so the UI can
     // block a doomed open BEFORE it hits _checkNotional's BadLeverage() revert.
@@ -1244,28 +1472,82 @@ async function evaluateHealth() {
 
     // A chain read that returned the fallback 0/zero → RPC blip, not a real divergence.
     const chainReadable = chainGen > 0 && curPoolId !== ZERO_POOL;
-    const poolMismatch = chainReadable && !indexedIds.has(curPoolId.toLowerCase());
+    // BEHIND vs DIVERGED. These are different faults and must not share a flag:
+    //   BEHIND  = the DB is a correct PREFIX of the chain and is still filling in
+    //             (nothing indexed yet, or fewer open positions than the chain).
+    //             Expected during a backfill → still `ok`.
+    //   DIVERGED = the DB indexed something and it is the WRONG something (a pool
+    //             that is not the live one, or a generation it never saw launch).
+    //             That never self-heals by waiting → not `ok`, past the grace.
+    // The old code OR-ed all three into one `diverged` and then masked it with
+    // `!everHealthy`, so a container that booted STRAIGHT INTO divergence (it had
+    // never once been clean) reported ok forever and the watchdog never fired.
+    const nothingIndexedYet = indexedIds.size === 0;
+    const poolMismatch = chainReadable && !nothingIndexedYet && !indexedIds.has(curPoolId.toLowerCase());
     const missedLaunch = chainReadable && indexedGen > 0 && chainGen > indexedGen;
     const missedOpens = chainOpen > dbOpen;                 // chain has opens the DB lacks
-    const diverged = poolMismatch || missedLaunch || missedOpens;
+    const behind = missedOpens || (chainReadable && nothingIndexedYet);
+    const diverged = poolMismatch || missedLaunch;
 
     const now = Date.now();
     if (diverged) { if (!divergingSince) divergingSince = now; }
-    else { divergingSince = 0; everHealthy = true; }
+    else { divergingSince = 0; if (!behind) everHealthy = true; }
     const persistedMs = divergingSince ? now - divergingSince : 0;
-    // NOT-ok only once we've been healthy at least once (a fresh backfill has
-    // dbOpen<chainOpen for its whole duration — that's expected, not a fault) AND
-    // the divergence has persisted past the grace. `everHealthy` gates out the
-    // startup window so this can never deadlock a deploy.
-    const ok = !diverged || !everHealthy || persistedMs <= HEALTH_GRACE_MS;
+    // NOT-ok as soon as a REAL divergence has outlasted the grace — regardless of
+    // whether this process was ever healthy. History cannot excuse divergence.
+    const ok = !diverged || persistedMs <= HEALTH_GRACE_MS;
+
+    //  ── STALENESS AND REORG TOLERANCE, AS NUMBERS A MACHINE CAN READ ────────
+    //  This beacon used to report only divergence, so a 40-minute-stale indexer
+    //  was "healthy": nothing here said how far behind the chain we are, and the
+    //  only poller is a BROWSER (src/hooks/useIndexerHealth.ts), which means
+    //  nobody is looking when nobody is looking. Heights and lags below are the
+    //  machine-checkable part.
+    //
+    //  `finalityBlockCount` is Ponder's reorg tolerance for THIS chain, and
+    //  `finalityLagBlocks` is the chain's own `latest - finalized` distance. If
+    //  the second exceeds the first, Ponder is treating as final blocks the
+    //  chain can still rewrite — and it PRUNES the reorg journals for those, so
+    //  the corruption is unrevertable and silent. That is a not-ok condition in
+    //  its own right, independent of divergence: it is the assumption check for
+    //  indexer/scripts/patch-ponder-finality.mjs, run continuously instead of
+    //  once at deploy time so the constant cannot quietly drift from the chain.
+    const [latestBlk, finalizedBlk, newestSwap] = await Promise.all([
+      rd(perpClient.getBlock({ blockTag: "latest" }), null as null | { number: bigint; timestamp: bigint }),
+      rd(perpClient.getBlock({ blockTag: "finalized" }), null as null | { number: bigint; timestamp: bigint }),
+      rd(
+        db.select().from(schema.swap).orderBy(desc(schema.swap.block)).limit(1),
+        [] as Array<{ block: bigint; timestamp: bigint }>,
+      ),
+    ]);
+    const chainHeight = latestBlk ? Number(latestBlk.number) : null;
+    const chainBlockTs = latestBlk ? Number(latestBlk.timestamp) : null;
+    const finalizedHeight = finalizedBlk ? Number(finalizedBlk.number) : null;
+    const finalityLagBlocks =
+      chainHeight !== null && finalizedHeight !== null ? chainHeight - finalizedHeight : null;
+    const finalityBlockCount = ponderFinalityBlocks(Number(round.chainId));
+    //  `null` lag = the chain does not expose a `finalized` tag; we cannot prove
+    //  the tolerance either way, so do not claim it is fine.
+    const reorgToleranceOk = finalityLagBlocks === null ? null : finalityLagBlocks <= finalityBlockCount;
+    const indexedHeight = newestSwap.length ? Number(newestSwap[0].block) : null;
+    const indexedTs = newestSwap.length ? Number(newestSwap[0].timestamp) : null;
+    const lagBlocks = chainHeight !== null && indexedHeight !== null ? chainHeight - indexedHeight : null;
+    //  Seconds behind the chain's own clock — the number to alert on, because it
+    //  is chain-speed independent (30 blocks means 6 minutes on Sepolia and 3
+    //  seconds on a 0.1s chain).
+    const lagSeconds = chainBlockTs !== null && indexedTs !== null ? chainBlockTs - indexedTs : null;
 
     const body = {
-      ok, chainGen, indexedGen, curPoolId, indexedPools: [...indexedIds],
+      ok: ok && reorgToleranceOk !== false,
+      chainGen, indexedGen, curPoolId, indexedPools: [...indexedIds],
       chainOpenPositions: chainOpen, dbOpenPositions: dbOpen,
-      reasons: { poolMismatch, missedLaunch, missedOpens },
-      divergingForMs: persistedMs, warmingUp: !everHealthy,
+      reasons: { poolMismatch, missedLaunch, missedOpens, reorgToleranceExceeded: reorgToleranceOk === false },
+      divergingForMs: persistedMs, behind, warmingUp: behind && !everHealthy,
+      chainId: Number(round.chainId),
+      chainHeight, chainBlockTs, indexedHeight, indexedTs, lagBlocks, lagSeconds,
+      finalizedHeight, finalityLagBlocks, finalityBlockCount, reorgToleranceOk,
     };
-    healthCache = { at: now, body, ok };
+    healthCache = { at: now, body, ok: body.ok };
     return healthCache;
   } catch (e) {
     // Startup / transient (tables not created yet, RPC blip): report OK so the
@@ -1289,16 +1571,17 @@ app.get("/freshness", async (c) => {
 
 // In-process WATCHDOG: if the indexer diverges from the chain and STAYS diverged
 // well past the /health grace, exit non-zero so Railway's ON_FAILURE policy
-// restarts the container (a fresh worker re-syncs). Only armed once we've been
-// healthy at least once, so a genuinely misconfigured deploy fails the healthcheck
-// (blocking promotion + alerting) instead of crash-looping pointlessly. Opt out
-// with HEALTH_WATCHDOG=0.
+// restarts the container (a fresh worker re-syncs). Armed on a FRESH BOOT too:
+// `diverged` now means "indexed the wrong thing", which a container can do from
+// its very first pass, and which waiting never fixes. Merely BEHIND (backfilling)
+// is not divergence and never trips this. Railway's retry cap bounds the loop.
+// Opt out with HEALTH_WATCHDOG=0.
 if (process.env.HEALTH_WATCHDOG !== "0") {
   const WATCHDOG_KILL_MS = HEALTH_GRACE_MS * 3; // ~9 min of sustained divergence
   setInterval(async () => {
     try {
       const { ok } = await evaluateHealth();
-      if (!ok && everHealthy && divergingSince && Date.now() - divergingSince > WATCHDOG_KILL_MS) {
+      if (!ok && divergingSince && Date.now() - divergingSince > WATCHDOG_KILL_MS) {
         console.error(`[watchdog] indexer diverged from chain for ${Math.round((Date.now() - divergingSince) / 1000)}s — exiting for a clean restart`);
         process.exit(1);
       }
@@ -1316,6 +1599,10 @@ let vaultCache: { at: number; v: { assetsEth: number; assetsTok: number; ethShar
 async function vaultState() {
   if (Date.now() - vaultCache.at < 5000 && vaultCache.v) return vaultCache.v;
   try {
+    //  QUOTE side by the QUOTE's decimals; TOKEN side is the creature token and
+    //  is always 18, so it keeps formatEther. Shares are unitless counts.
+    const qd = await liveQuoteDecimals();
+    const q = (v: bigint) => rawToQuoteAmount(v, qd);
     const n = (v: bigint) => Number(formatEther(v));
     const [aEth, aTok, eSh, tSh] = await Promise.all([
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "assetsEth" }) as Promise<bigint>,
@@ -1324,7 +1611,7 @@ async function vaultState() {
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "tokShares" }) as Promise<bigint>,
     ]);
     const v = {
-      assetsEth: n(aEth), assetsTok: n(aTok), ethShares: n(eSh), tokShares: n(tSh),
+      assetsEth: q(aEth), assetsTok: n(aTok), ethShares: n(eSh), tokShares: n(tSh),
       //  NORMALISED BY THE VAULT'S VIRTUAL-SHARE OFFSET. PerpVault mints at
       //  OFFSET x assets (`shares = amount * (ethShares + 1e6) / (assetsEth + 1)`,
       //  PerpVault.sol:225) as ERC-4626-style inflation protection, so raw
@@ -1334,7 +1621,7 @@ async function vaultState() {
       //  reporting that it had lost everything. Measured live: assetsEth 5e17
       //  against ethShares 5e23, exactly the offset.
       //  1.0 means par, which is the convention the client already defaults to.
-      ethSharePrice: eSh > 0n ? (n(aEth) / n(eSh)) * SHARE_OFFSET : 1,
+      ethSharePrice: eSh > 0n ? (q(aEth) / n(eSh)) * SHARE_OFFSET : 1,
       tokSharePrice: tSh > 0n ? (n(aTok) / n(tSh)) * SHARE_OFFSET : 1,
     };
     vaultCache = { at: Date.now(), v };
@@ -1344,6 +1631,10 @@ async function vaultState() {
 app.get("/perp-vault", async (c) => c.json({ vault: await vaultState() }));
 app.get("/perp-vault/:user", async (c) => {
   const user = c.req.param("user").toLowerCase() as `0x${string}`;
+  //  See {vaultState}: the "eth" side is the QUOTE side. StakePanel renders these
+  //  numbers as quote units, so formatEther here understated a USDG stake 1e12x.
+  const qd = await liveQuoteDecimals();
+  const q = (v: bigint) => rawToQuoteAmount(v, qd);
   const n = (v: bigint) => Number(formatEther(v));
   let ethPos = { redeemable: 0, instant: 0, pending: 0, shares: "0" };
   let tokPos = { redeemable: 0, instant: 0, pending: 0, shares: "0", ethReward: 0 };
@@ -1354,7 +1645,7 @@ app.get("/perp-vault/:user", async (c) => {
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "ethShareOf", args: [user] }) as Promise<bigint>,
       perpClient.readContract({ address: PERP_VAULT, abi: VAULT_ABI, functionName: "tokShareOf", args: [user] }) as Promise<bigint>,
     ]);
-    ethPos = { redeemable: n(e[0]), instant: n(e[1]), pending: n(e[2]), shares: eSh.toString() };
+    ethPos = { redeemable: q(e[0]), instant: q(e[1]), pending: q(e[2]), shares: eSh.toString() };
     tokPos = { redeemable: n(t[0]), instant: n(t[1]), pending: n(t[2]), shares: tSh.toString(), ethReward: 0 };
   } catch { /* zeros */ }
   // token-side ETH reward (short-attributed yield) — separate try so an older
@@ -1483,11 +1774,11 @@ app.get("/liquidity", async (c) => {
     //  CollectionLedger. Reporting an ether figure for either would invite the
     //  reader to add it to the pool, which is exactly the wrong sum.
     //
-    //  The hook's fee reserve IS ether and IS additive to the next launch, so it
-    //  stays.
-    const relaunchWei = await perpClient.readContract({
-      address: HOOK, abi: HOOK_READ, functionName: "relaunchETH",
-    }).catch(() => 0n) as bigint;
+    //  The hook's fee reserve IS additive to the next launch, so it stays — but
+    //  it is NOT always ether: on a rotated generation the bucket PoolOps seeds
+    //  from is `relaunchAsset[quote]` (B-3). {relaunchReserveRaw} picks the right
+    //  slot and the figure below is scaled by that asset's own decimals.
+    const relaunchWei = await relaunchReserveRaw();
 
     // USD, when an oracle can price it. 0 from the oracle means CANNOT JUDGE,
     // never "worthless" — it stays null and the UI omits the figure rather than
@@ -1519,9 +1810,9 @@ app.get("/liquidity", async (c) => {
       assets,
       totalUsd: usd,
       reserves: {
-        hookReserve: Number(formatEther(relaunchWei)),
+        hookReserve: rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
       },
-      nextLaunch: poolAmount + Number(formatEther(relaunchWei)),
+      nextLaunch: poolAmount + rawToQuoteAmount(relaunchWei, await liveQuoteDecimals()),
     };
     realLiqCache = { at: Date.now(), v };
     return c.json(v);

@@ -90,11 +90,16 @@ contract S0x_RotationJam is YBase {
         assertTrue(liqReverts, "liquidate() must refuse a solvent 1x position");
         assertTrue(forceReverts, "forceCloseDead() must refuse a LIVE generation");
         assertEq(openWhileJammed, 1, "exactly one dust position was open");
-        assertEq(movedJammed, 0, "JAM: the rotation slice reverted while the dust position was open");
-        assertEq(
-            jamErr, abi.encodeWithSelector(CauldronHook.PerpsOpen.selector),
-            "and it reverted with the hook's PerpsOpen interlock, not for some other reason"
-        );
+        //  ── INVERTED (red-team Jc) ────────────────────────────────────────
+        //  These asserted the JAM: a solvent 1x dust position reverting every
+        //  rotation slice with the hook's PerpsOpen interlock. The interlock now
+        //  only fires when the engine has NO trustworthy mark at all (no armed
+        //  source AND no usable TWAP), and the T3d death band protects the open
+        //  book during the rotation instead. The other five assertions above are
+        //  untouched: the position is still solvent, still un-liquidatable, still
+        //  not force-closeable on a live generation, and still the attacker's.
+        assertGt(movedJammed, 0, "FIXED: the rotation slice moves value over an open book");
+        assertEq(jamErr.length, 0, "and it does not revert PerpsOpen (or anything else)");
         assertGt(movedAfterClose, 0, "and it was the position that jammed it");
     }
 

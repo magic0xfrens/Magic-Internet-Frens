@@ -118,7 +118,27 @@ contract Z9ScopeProbe is Test {
         try p.payTransfer{value: v}(address(r), v) { ok = true; } catch { ok = false; }
     }
 
-    function test_Z9b_RoyaltyRouterCannotTakeA2300GasPayment() public {
+    /**
+     * Z9b REGRESSION (was the PoC; INVERTED, name updated to what it now proves).
+     *
+     * This test used to assert that a 2300-gas-stipend payer could NOT pay the
+     * royalty router: `send` returned false and `transfer` reverted, because the
+     * router's unmetered forward into `fundLegacyBuffer` ran out of gas and the
+     * failure bubbled. That was the bug (audit K4d), not a property worth
+     * keeping: a royalty receiver must never be able to revert the SALE it is
+     * paid out of, and a `send` that silently returns false loses the royalty.
+     *
+     * The fix (commit 0503a09) skips the forward below {FORWARD_GAS_FLOOR} and
+     * never bubbles, so the stipend payment now SUCCEEDS and the wei is HELD on
+     * the router — recoverable by the permissionless `sweep(address(0))`, which
+     * delivers it to exactly the same destination the happy path uses.
+     *
+     * So the property asserted here is the inverse of the old one, and strictly
+     * stronger: the sale settles, nothing is lost, and the ether still reaches
+     * the legacy buffer. Nothing was relaxed — every old assertion has a
+     * counterpart below, and the full-gas positive control is untouched.
+     */
+    function test_Z9b_RoyaltyRouterTakesA2300GasPaymentAndSweepsItLater() public {
         BufferHook hook = new BufferHook();
         RoyaltyRouter router = new RoyaltyRouter(address(hook), address(0));
         StipendPayer payer = new StipendPayer();
@@ -128,14 +148,28 @@ contract Z9ScopeProbe is Test {
         bool fullGas = payer.payCall{value: 1 ether}(address(router), 1 ether);
         assertTrue(fullGas, "full-gas royalty forwards fine");
         assertEq(hook.legacyBuffer(), 1 ether, "buffer credited on the happy path");
+        assertEq(address(router).balance, 0, "full-gas path leaves nothing behind");
 
-        // 2300-gas stipend: `send` returns false, `transfer` reverts
+        // 2300-gas stipend: BOTH forms must now settle rather than fail.
         bool sendOk = _trySend(router, payer, 1 ether);
         bool xferOk = _tryTransfer(router, payer, 1 ether);
 
-        assertFalse(sendOk, "ATTACK: .send() to RoyaltyRouter returns false (royalty lost)");
-        assertFalse(xferOk, "ATTACK: .transfer() to RoyaltyRouter reverts (sale reverts)");
-        assertEq(hook.legacyBuffer(), 1 ether, "no stipend payment ever reached the buffer");
-        assertEq(address(router).balance, 0, "router still holds nothing (no strand)");
+        assertTrue(sendOk, ".send() to RoyaltyRouter succeeds (the royalty is not lost)");
+        assertTrue(xferOk, ".transfer() to RoyaltyRouter succeeds (the sale is not reverted)");
+
+        // The forward was correctly SKIPPED, not attempted-and-swallowed: the
+        // buffer is untouched and the router is holding exactly the two payments.
+        assertEq(hook.legacyBuffer(), 1 ether, "no stipend payment was force-forwarded");
+        assertEq(address(router).balance, 2 ether, "both stipend payments are HELD, not lost");
+
+        // ...and any stranger can push them along afterwards, to the same place.
+        vm.prank(address(0xB0B));
+        uint256 swept = router.sweep(address(0));
+        assertEq(swept, 2 ether, "the permissionless sweep moved everything held");
+        assertEq(address(router).balance, 0, "router holds nothing after the sweep");
+        assertEq(hook.legacyBuffer(), 3 ether, "every wei reached the legacy buffer");
+
+        emit log_named_uint("held after two stipend sales (wei)", 2 ether);
+        emit log_named_uint("legacyBuffer after the sweep (wei)", hook.legacyBuffer());
     }
 }

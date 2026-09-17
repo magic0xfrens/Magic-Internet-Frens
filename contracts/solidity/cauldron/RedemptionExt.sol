@@ -380,6 +380,40 @@ contract RedemptionExt is CauldronBase {
         //  for no movement.
         if (fromQuote == toQuote) revert BadConfig();
 
+        //  ── "PRIMARY" IS WHERE THE DENOMINATION IS, NOT WHERE IT LAUNCHED ──
+        //  This was `fromLeg == 0`, which conflates two different questions:
+        //  where the generation's treasury LAUNCHED and where it IS. They are
+        //  equal until the first migration completes and permanently unequal
+        //  afterwards, because the flip below moves `generationQuote` to the
+        //  destination while `generationPoolKey`/`generationPositionId` must stay
+        //  on the launch pair (the 69x redemption reserve is held under that key).
+        //
+        //  The consequence was that a generation could never come home. After an
+        //  ETH -> USDG migration, a guild mandate to return to ETH resolves
+        //  `fromLeg == 0` to fromQuote == ETH == toQuote and dies `BadConfig()`
+        //  on every slice; the only slice that CAN move the denominated treasury
+        //  is the USDG leg, and that booked `fromPrimary == false`, so
+        //  `movedPrimaryBps` stayed 0 forever. The denomination flip at :~600
+        //  was unreachable AND, worse, {TreasuryGovernor.consume}'s
+        //  `movedPrimaryBps >= cap` deactivation never fired, so the spent-but-
+        //  never-completed envelope blocked `propose` (TreasuryGovernor.sol:437)
+        //  until it expired. A dead capability plus a governance stall.
+        //
+        //  The honest unit is the position holding the CURRENT denomination: a
+        //  migration mandate is about moving the generation's quote, wherever it
+        //  presently sits. That is exactly one position at any time, so this does
+        //  not reopen the Critical below (a stranger spending a whole mandate out
+        //  of a dust leg): while the generation is still on its launch quote only
+        //  `fromLeg == 0` qualifies — bit-identical to the previous behaviour for
+        //  any generation that has never migrated — and afterwards only the one
+        //  leg that holds the current quote does. The residual launch-pair
+        //  position becomes a secondary leg, which is what it now is: rotatable
+        //  as rebalancing, but not what declares a migration done.
+        address curQuote = generationQuote[gen];
+        bool fromPrimary =
+            fromQuote == curQuote &&
+            (fromLeg == 0) == (Currency.unwrap(generationPoolKey[gen].currency0) == curQuote);
+
         // 1. Take the slice out of the chosen pair. The position survives — this
         //    is a reallocation, not an exit.
         (uint256 quoteOut, uint256 tokenOut) = PoolOps.removePartial(
@@ -511,7 +545,7 @@ contract RedemptionExt is CauldronBase {
         );
         // Booked AFTER the move succeeds, so a reverted slice does not burn
         // envelope the treasury never actually spent.
-        ITreasuryGovernor(gov).consume(sliceBps, fromLeg == 0);
+        ITreasuryGovernor(gov).consume(sliceBps, fromPrimary);
 
         //  ── WHEN THE ROTATION FINISHES, THE GENERATION'S QUOTE MUST FOLLOW ──
         //  `generationQuote[gen]` was written in exactly ONE place in the whole
@@ -578,7 +612,7 @@ contract RedemptionExt is CauldronBase {
         //  moved; demanding a drained position would make completion
         //  unreachable and the whole feature dead. The residual tail is a known,
         //  separately-tracked limitation, not this Critical.
-        if (fromLeg == 0 && ITreasuryGovernor(gov).migrationMandateSpent()) {
+        if (fromPrimary && ITreasuryGovernor(gov).migrationMandateSpent()) {
             generationQuote[gen] = toQuote;
 
             //  ── RE-POINT THE PERP ENGINE IN THE SAME TRANSACTION ────────────

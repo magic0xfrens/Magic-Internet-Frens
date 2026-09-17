@@ -10,6 +10,7 @@ import { useLiquidatoorWatch } from "@/hooks/useLiquidatoorWatch";
 import LiquidatoorModal from "@/components/cauldron/LiquidatoorModal";
 import { CAULDRON, ERC20_SWAP_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
 import { explorerTxUrl } from "@/config/chains";
+import { explainPerpError } from "@/config/perp";
 
 interface SwapWidgetProps {
   ticker: string;
@@ -28,6 +29,11 @@ interface SwapWidgetProps {
   quote?: Address;
   quoteSymbol?: string;
   quoteDecimals?: number;
+  /** False while the live quote's decimals are UNKNOWN (an on-chain read that
+   *  has not landed, or a token that does not answer `decimals()`). A floor
+   *  scaled by a guessed decimals is off by 10^(18-d) and reverts every sell,
+   *  so this panel refuses to sign rather than guess. */
+  quoteDecimalsKnown?: boolean;
   /** Accent colour for the current phase. */
   col: string;
   /** Called after a trade confirms so the parent can refresh telemetry. */
@@ -93,7 +99,7 @@ function compact(n: number): string {
  */
 export default function SwapWidget({
   ticker, token, spotPrice, priceUsd, ethUsd, col, onBought,
-  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
+  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18, quoteDecimalsKnown = true,
 }: SwapWidgetProps) {
   //  The buy leg is denominated in the GENERATION'S quote, which is ETH for
   //  every generation until a rotation completes. `qNative` drives both the
@@ -231,10 +237,28 @@ export default function SwapWidget({
   //  ETH-denominated `spotPrice` is the right unit again and the earlier refusal
   //  no longer applies. A non-native buy still needs an oracle rate to size the
   //  zap's floor, and without one there is no honest number to sign.
-  const priceable = spotPrice > 0 && (qNative || mode === "sell" || quoteExpected > 0n);
+  //  ── A GUESSED DECIMALS IS NOT A DECIMALS ────────────────────────────────
+  //  On a non-native quote whose decimals we could not read from the chain,
+  //  `minOutFor` would scale the payout floor by 10^18 against a token that may
+  //  pay in 10^6 — a floor 1e12 above the best possible fill, so the swap
+  //  executes and then reverts on slippage, burning the gas, while the screen
+  //  showed a plausible "970.000000". Refuse instead.
+  const decimalsResolved = qNative || quoteDecimalsKnown;
+  const priceable = spotPrice > 0 && decimalsResolved && (qNative || mode === "sell" || quoteExpected > 0n);
 
-  const needsApproval = mode === "sell" && tokensIn > 0 &&
-    (allowanceWei == null || (allowanceWei as bigint) < (() => { try { return parseEther((tokensIn).toFixed(18)); } catch { return 0n; } })());
+  //  The raw amount a sell will actually pull: the typed figure, clamped to the
+  //  on-chain balance the same way `sell` clamps it. The approval is bounded to
+  //  exactly this (never maxUint256) — see {useCauldronSwap.approveToken}.
+  const sellRaw = useMemo(() => {
+    if (mode !== "sell" || tokensIn <= 0) return 0n;
+    let raw: bigint;
+    try { raw = parseEther(tokensIn.toFixed(18)); } catch { return 0n; }
+    const bal = balanceWei as bigint | undefined;
+    if (bal != null && raw > bal) raw = bal;
+    return raw;
+  }, [mode, tokensIn, balanceWei]);
+  const needsApproval = sellRaw > 0n &&
+    (allowanceWei == null || (allowanceWei as bigint) < sellRaw);
 
   useEffect(() => {
     try { localStorage.setItem(SLIP_KEY, String(slipPct)); } catch { /* private mode */ }
@@ -281,21 +305,30 @@ export default function SwapWidget({
       if (mode === "buy") {
         if (eth <= 0) { setErr(`Enter a ${qGlyph} amount`); return; }
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (!decimalsResolved) { setErr(`Cannot price ${quoteSymbol}: its decimals are not known yet — refusing to sign a floor`); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         await buy(eth, minOut, 0, liqHint, quote, quoteDecimals, quoteExpected, quoteSymbol);
       } else {
         if (!token) { setErr("No token yet"); return; }
         if (tokensIn <= 0) { setErr(`Enter a $${ticker} amount`); return; }
-        if (needsApproval) { await approveToken(token); return; } // approve first
+        if (needsApproval) { await approveToken(token, sellRaw); return; } // approve first, bounded to this sale
         if (!priceable) { setErr("No price for this market yet — refusing to trade at any price"); return; }
+        if (!decimalsResolved) { setErr(`Cannot price ${quoteSymbol}: its decimals are not known yet — refusing to sign a floor`); return; }
         if (minOut <= 0n) { setErr("Could not compute a slippage floor — refusing to sign"); return; }
         // Pass the exact on-chain balance so a "MAX" that rounds a hair high
         // (float precision on big balances) is clamped instead of reverting.
         await sell(tokensIn, minOut, 0, liqHint, balanceWei as bigint | undefined);
       }
     } catch (e: unknown) {
-      const m = e as { shortMessage?: string; message?: string };
-      setErr(m?.shortMessage || m?.message || "Swap failed");
+      //  Route through the shared explainer, not viem's raw text. A swap can now
+      //  revert `LiqGasStarved()` when the pool has open perp positions to
+      //  liquidate and the wallet capped gas below what the in-swap sweep needs;
+      //  the only thing the user can act on is the gas limit, so they must be
+      //  told that rather than shown a selector. The explainer also decodes by
+      //  selector and handles user-rejection, so this is strictly more than the
+      //  shortMessage it replaces.
+      const explained = explainPerpError(e);
+      setErr(explained && explained !== "Transaction failed." ? explained : "Swap failed");
     }
   };
 
@@ -563,9 +596,18 @@ export default function SwapWidget({
       <div className="sw__min">
         {!priceable
           ? <span className="sw__min-warn">
-              {!qNative && mode === "buy"
-                ? `price is quoted in ETH, pool takes ${quoteSymbol} · will not sign`
-                : "unpriceable · will not sign"}
+              {/*  NAME THE ACTUAL REASON. This used to read "price is quoted in
+                   ETH, pool takes X", which described a structural refusal of
+                   ERC20-quoted buys that no longer exists — the zap converts the
+                   ether and the buy is signable as soon as the oracle rate and
+                   the quote's decimals have landed. Telling a user the feature
+                   is unsupported, when it is merely still loading, is the same
+                   class of mismatch as promising them an hour they do not have. */}
+              {!decimalsResolved
+                ? `reading ${quoteSymbol} decimals · will not sign yet`
+                : !qNative && mode === "buy" && quoteExpected <= 0n
+                  ? `waiting for the ${quoteSymbol}/ETH rate · will not sign yet`
+                  : "unpriceable · will not sign"}
             </span>
           : <>min {mode === "buy"
               ? `${compact(Number(formatEther(minOut)))} $${ticker}`

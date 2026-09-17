@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -92,6 +93,7 @@ interface PresaleModalProps {
  * mint. When the tranche sells out, anyone can ignite iteration #1 (finalize).
  */
 export default function PresaleModal({ isOpen, onClose, autoMint = false, initialAmount = 1, onSummoned }: PresaleModalProps) {
+  const navigate = useNavigate();
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const p = useMiFrensPresale();
@@ -157,9 +159,26 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
     else if (p.finalizePending) setIgniteStage((v) => Math.max(v, 0));
   }, [p.finalizePending, p.finalizing]);
 
+  //  Did THIS instance actually watch an ignition go out? `p.finalized` starts
+  //  false on every mount and flips true as soon as the presale read resolves,
+  //  so on an already-finalized presale a plain page load is indistinguishable
+  //  from a live ignition without this.
+  const sawIgnition = useRef(false);
+  useEffect(() => {
+    if (p.finalizePending || p.finalizing) sawIgnition.current = true;
+  }, [p.finalizePending, p.finalizing]);
+
   useEffect(() => {
     if (!p.finalized || wasFinalized.current) { wasFinalized.current = p.finalized; return; }
     wasFinalized.current = true;
+    //  AppHeader and AppSidebar mount this modal CLOSED on every route, and an
+    //  effect still runs in a component whose render returns null. So the
+    //  hand-off below was firing site-wide: /docs, /token and /mi-frens each
+    //  redirected themselves to /cauldrons ~2.6s after load. For a user that is
+    //  a page yanked out from under them; for Googlebot it is a client-side
+    //  redirect, which drops the source URL from the index — the exact URLs we
+    //  need indexed to earn sitelinks.
+    if (!isOpen || !sawIgnition.current) return;
     onSummoned?.();
     //  HAND OFF TO THE CHART BY ITSELF. The ignition transaction has already
     //  placed the base liquidity and printed the first candle by the time it
@@ -168,9 +187,9 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
     //  short holds let the last stages register as progress instead of a flash.
     const a = window.setTimeout(() => setIgniteStage(2), 400);
     const b = window.setTimeout(() => setIgniteStage(3), 1500);
-    const c = window.setTimeout(() => { window.location.hash = "#/cauldrons"; onClose(); }, 2600);
+    const c = window.setTimeout(() => { navigate("/cauldrons"); onClose(); }, 2600);
     return () => { window.clearTimeout(a); window.clearTimeout(b); window.clearTimeout(c); };
-  }, [p.finalized, onSummoned, onClose]);
+  }, [p.finalized, isOpen, onSummoned, onClose, navigate]);
 
   if (!isOpen) return null;
 
@@ -242,9 +261,9 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
               {/* The hand-off is automatic (see the finalize effect); this stays
                   as the manual way out if a user would rather not wait it out. */}
               {soldOut && p.finalized ? (
-                <a href="#/cauldrons" className="pm__btn pm__btn--ghost" onClick={onClose}>Enter the Cauldron now</a>
+                <Link to="/cauldrons" className="pm__btn pm__btn--ghost" onClick={onClose}>Enter the Cauldron now</Link>
               ) : !igniting && (
-                <a href="#/mi-frens" className={`pm__btn ${soldOut ? "pm__btn--ghost" : "pm__btn--primary"}`} onClick={onClose}>View my frens</a>
+                <Link to="/mi-frens" className={`pm__btn ${soldOut ? "pm__btn--ghost" : "pm__btn--primary"}`} onClick={onClose}>View my frens</Link>
               )}
             </div>
           </div>

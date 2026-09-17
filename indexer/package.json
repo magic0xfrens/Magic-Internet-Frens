@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "ponder dev",
+    "postinstall": "node scripts/patch-ponder-finality.mjs",
     "start": "node start.mjs",
     "db": "ponder db",
     "codegen": "ponder codegen",

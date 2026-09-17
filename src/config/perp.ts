@@ -136,6 +136,9 @@ export const PERP_ABI = [
   { type: "error", name: "UtilCapped", inputs: [] },
   { type: "error", name: "InsurancePaused", inputs: [] },
   { type: "error", name: "DustPosition", inputs: [] },
+  //  The collateral transport guard (PerpEngine.sol:231/479). Undeclared until
+  //  now, so every wrong-transport open reached the user as a hex blob.
+  { type: "error", name: "BadParam", inputs: [] },
 ] as const;
 
 /** Community PLV vault (staking) — deposit/withdraw ETH + token for perp-fee yield. */
@@ -157,6 +160,61 @@ export const PERP_VAULT_ABI = [
   { type: "function", name: "pendingTokYield", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "ethShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "tokShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  //  ── VIEWS THE YIELD PANEL NEEDS (audit C-3) ──────────────────────────
+  //  A staker whose accrual was forfeited saw `pendingTokYield` fall to 0 with
+  //  no reason. These are the accounting trail: which epoch the vault is in,
+  //  which epoch the staker last touched, and how much yield has ever been
+  //  pulled. Regenerated from out/PerpVault.sol/PerpVault.json.
+  { type: "function", name: "totalTokYieldPulled", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "epochAcc", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "yieldEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint32" }] },
+  { type: "function", name: "stakerEpoch", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint32" }] },
+  //  Whether any quote-side stake is live. `PerpEngine.syncGeneration` reverts
+  //  `VaultStaked` while this is true for anyone but the owner — which is what
+  //  parks the engine after a rotation (audit C-1).
+  { type: "function", name: "hasQuoteStake", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  //  ── ERRORS (audit C-3) ───────────────────────────────────────────────
+  //  This ABI declared NONE, so every vault revert reached the user as an
+  //  undecodable hex blob and they retried and paid gas again. Full error set
+  //  from the artifact.
+  //  ── UN-STICKING A SHUT QUEUE (red-team R2C) ──────────────────────────
+  //  `QueueInsolvent` shuts deposits for EVERYONE while the exit queue is owed
+  //  more than the engine holds, and until these landed its release depended on
+  //  one queued address choosing to act — a holdout could latch the vault shut
+  //  for the life of the engine. Both are PERMISSIONLESS and move no value: they
+  //  bank the write-down the claimant would take anyway, so the part of his
+  //  nominal the backing cannot cover stops blocking everyone else. He still
+  //  claims his full pro-rata entitlement himself via claimPendingEth/Token.
+  { type: "function", name: "settlePendingEth", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
+  { type: "function", name: "settlePendingToken", stateMutability: "nonpayable", inputs: [{ name: "user", type: "address" }], outputs: [{ name: "stillOwed", type: "uint256" }] },
+  //  ONE event per shortfall, not one per claimant. The queue is UNITS x a single
+  //  INDEX, so a shortfall is recognised once by scaling the index — there is no
+  //  per-user write-down to report, and `newIndex` is what every entitlement is
+  //  re-derived from (PerpVault.sol:193). An earlier draft of this ABI carried the
+  //  per-user shape `(address indexed user, bool tokenSide, uint256 writtenOff)`;
+  //  it never shipped, and decoding the current event against it would have
+  //  mis-read the topic as an address. Keep this in step with the contract.
+  { type: "event", name: "QueueWrittenDown", inputs: [
+    { name: "tokenSide", type: "bool", indexed: true },
+    { name: "writtenOff", type: "uint256", indexed: false },
+    { name: "newIndex", type: "uint256", indexed: false },
+  ] },
+  //  Queue internals, additive. `pendingEth()/pendingEthOf()` and the token twins
+  //  kept their selectors and return types when the public vars became views, so
+  //  nothing that read them had to change.
+  { type: "function", name: "ethQueueUnits", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ethQueueIndex", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ethQueueEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "tokQueueUnits", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "tokQueueIndex", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "tokQueueEpoch", stateMutability: "view", inputs: [], outputs: [{ type: "uint64" }] },
+  { type: "error", name: "QueueInsolvent", inputs: [] },
+  { type: "error", name: "InsufficientShares", inputs: [] },
+  { type: "error", name: "TransferFailed", inputs: [] },
+  { type: "error", name: "ZeroAmount", inputs: [] },
+  { type: "error", name: "ZeroShares", inputs: [] },
+  //  ── EVENTS ───────────────────────────────────────────────────────────
+  { type: "event", name: "TokYieldForfeited", inputs: [{ name: "epoch", type: "uint32", indexed: true }, { name: "amount", type: "uint256", indexed: false }] },
 ] as const;
 
 /** Human-readable explanations for the engine's revert reasons. */
@@ -165,7 +223,34 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   BadLeverage: "That leverage is too high for the current pool depth, or the position is too large for the market. Lower the size or leverage.",
   PlvInsufficient: "The liquidity vault doesn't have enough to front this leverage right now. Try a smaller size.",
   OiCapped: "Open interest on this side is at its cap. Try the other side or a smaller size.",
+  //  ── TWO DIFFERENT STATES, ONE ERROR (audit C-1) ──────────────────────
+  //  `_isDead()` returns true for BOTH "volume below the death floor" and
+  //  "the engine's quote no longer matches the generation's" — the parked state
+  //  after a rotation whose in-transaction `syncGeneration` was refused because
+  //  someone held quote stake (`VaultStaked`). Telling a parked user "the token
+  //  died" is simply false: volume is fine and nothing but a governance
+  //  `syncGeneration` (owner/timelock) revives it. The caller passes `parked`
+  //  when it can see the divergence; see {explainPerpError}.
   TokenDead: "This token is dead (volume below the death floor). Perps are paused until it revives.",
+  TokenDeadParked: "Perps are PARKED, not dead — the treasury rotated this generation's quote and the engine has not been re-synced to it yet. Volume is fine. A governance call to syncGeneration re-opens the market; it is refused while anyone holds quote-side vault stake, so it needs the owner or the timelock.",
+  //  Both of these used to arrive as raw hex.
+  //  The old text said only "wait". That was wrong after R2C: a queued holdout
+  //  could keep this true forever, and the release no longer depends on him —
+  //  anyone may bank a queued address's write-down with settlePendingEth /
+  //  settlePendingToken. Name the escape hatch rather than tell the user to wait
+  //  on something that may never happen on its own.
+  //  Re-worded after the queue was restructured to units x a single index: a
+  //  shortfall is now recognised ONCE, globally, by scaling that index
+  //  (PerpVault._syncEthQueue), not per claimant. The earlier text described a
+  //  per-user write-down, which is why it implied aiming the call at a specific
+  //  address did something to that address — it no longer does, and an earlier
+  //  version where it DID was a confiscation bug (red-team NB).
+  QueueInsolvent: "The vault's exit queue is owed more than the engine currently holds, so new deposits are blocked until it drains. It clears as positions close and fees arrive — or anyone can unstick it by calling settlePendingEth/settlePendingToken, which re-prices the whole queue against what the engine actually holds. That is a queue-wide recalculation, so it takes nothing from any individual staker and every queued exit keeps its pro-rata share. Retrying this deposit right now will fail identically.",
+  //  ── THE GAS-STARVED LIQUIDATION SWEEP (CauldronHook.sol:835) ──────────
+  //  Actionable, not a selector: the ONLY thing the user can change is the gas
+  //  limit, so say that in the first clause.
+  LiqGasStarved: "This swap needs a higher gas limit because there are open perp positions to liquidate. Raise the gas limit and retry. (The pool liquidates underwater perps inside the swap so their losses do not land on liquidity stakers; that sweep needs roughly 1.05M gas and your wallet offered less.)",
+  NotArmed: "The perp mark source is not armed. It is cleared on EVERY generation sync, so governance must re-arm it with setRouting after a relaunch or a quote rotation. Until then the engine falls back to its own pool.",
   UtilCapped: "The vault is near full utilization — a slice stays reserved for depositors. Try a smaller size.",
   InsurancePaused: "Opens are paused: the insurance buffer (which absorbs bad debt so losses do not hit the vault) is below its floor. It refills from trading fees, or anyone can top it up with fundInsurance.",
   DustPosition: "Position too small — increase the collateral.",
@@ -176,6 +261,12 @@ export const PERP_ERROR_HELP: Record<string, string> = {
   Slippage: "The fill was worse than your Max slippage — this pool is thin, so a bigger open pays real price impact. Raise Max slippage or reduce the size.",
   Healthy: "This position isn't liquidatable.",
   ZeroValue: "Enter a collateral amount.",
+  //  ── THE COLLATERAL ARRIVED IN THE WRONG TRANSPORT (PerpEngine.sol:231) ─
+  //  `_pullQuote` reverts this when a native book gets `msg.value != amount` or
+  //  an ERC20 book gets any value at all, and when the ERC20 pull itself fails
+  //  (no allowance, or a non-standard token returning false). All three read to
+  //  the user as "the app sent the wrong thing", so say what to do about it.
+  BadParam: "The collateral did not arrive in the form this market expects. If this generation is quoted in an ERC20 (not ETH), the open needs an approval for the collateral first — approve and retry. If it persists, reload so the app re-reads the live quote asset.",
 };
 
 /**
@@ -196,6 +287,14 @@ export const PERP_ERROR_SELECTORS: Record<string, string> = {
   "0x522007a5": "BadLeverage",
   "0x0078695a": "DustPosition",
   "0xefba5120": "TokenDead",
+  //  From `cast sig`, not guessed (audit C-2/C-3).
+  "0x8db2750a": "NotArmed",       // PerpMarkSource.NotArmed()
+  "0x42b0b17a": "QueueInsolvent", // PerpVault.QueueInsolvent()
+  "0x4803e4a2": "VaultStaked",    // PerpEngine.VaultStaked()
+  //  toFunctionSelector("LiqGasStarved()") — computed, not guessed.
+  "0x38dc5cd1": "LiqGasStarved",  // CauldronHook.LiqGasStarved()
+  //  `cast sig "BadParam()"` — computed, not guessed. PerpEngine.sol:479.
+  "0xde17a3af": "BadParam",       // PerpEngine.BadParam()
 };
 
 /** Map any error (viem decoded name or message) → a friendly explanation. */

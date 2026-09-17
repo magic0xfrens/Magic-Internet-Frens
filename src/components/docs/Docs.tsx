@@ -108,12 +108,13 @@ export default function Docs() {
     };
   }, [html]);
 
-  useEffect(() => {
-    document.title = "Docs · Magic Internet Frens";
-  }, []);
+  // The title is owned by {RouteSeo}, which reads `src/app/seo-routes.json` —
+  // the same table the build prerenders into `dist/docs/index.html`. Setting it
+  // here too raced that and left the rendered page disagreeing with the HTML a
+  // crawler was served.
 
-  // Deep-link on load: the docs live under a hash route, so `#section` can't be
-  // used directly — we scroll manually once the body has rendered.
+  // Deep-link on load: `#section` anchors point at headings inside this page,
+  // so we scroll manually once the body has rendered.
   useEffect(() => {
     const target = window.location.hash.split("#").filter(Boolean).pop();
     if (!target) return;

@@ -181,6 +181,14 @@ if [ -n "$HOOK" ] && [ -n "$REGISTRY" ] && [ -n "$DIVIDEND" ]; then
     TWAP_WINDOW="${TWAP_WINDOW:-5}" \
     INSURANCE_SEED_WEI="${INSURANCE_SEED_WEI:-60000000000000000}" \
     PLV_SEED_ETH="${PLV_SEED_ETH:-0}" \
+
+    # ── NEVER BROADCAST A STALE ARTIFACT (audit C-1 / F6) ───────────────────────
+    # r43 and r44 both deployed a gacha router built from a cached out/ that was
+    # missing `playChurn`. A forced rebuild costs minutes; a dead round costs a
+    # round. Also proves the tree compiles CLEAN, not just incrementally.
+    FOUNDRY_PROFILE=cauldron forge build --force || {
+      echo "clean build FAILED - refusing to broadcast a stale out/." >&2; exit 1; }
+
     forge script deploy/DeployPerp.s.sol --tc DeployPerp \
       --rpc-url "$R" --private-key "$PK" --broadcast --slow
   ) 2>&1 | tee /tmp/perp-out.txt | grep -E "^  [A-Za-z]+ *:|SUCCESSFUL" || true

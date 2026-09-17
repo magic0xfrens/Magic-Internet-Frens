@@ -15,7 +15,9 @@ import {PoolId} from "v4-core/src/types/PoolId.sol";
  *  rotation, not just the bookkeeping. Nothing in the hook removes a sibling,
  *  so within a generation the slot can never be freed.
  *
- *  STATUS: the attack LANDS and is NOT fixed — the unlink costs 236 bytes and
+ *  PARTLY FIXED: the cap now sits AFTER the idempotency scan, so a rotation
+ *  back into an already-linked quote no longer reverts. A genuinely NEW 10th
+ *  quote still does, and that half is NOT fixed — the unlink costs 236 bytes and
  *  CauldronHook has 59 free under EIP-170. See the SPACE row for L3 in
  *  audit/FINAL_BLIND_2026-09-13/LEDGER.md. This file is the standing PoC.
  */
@@ -33,14 +35,24 @@ contract K1b_TenthSiblingBricksRotation is FinalAuditBase {
     }
 
     function test_K1b_tenthDistinctSiblingBricksRotation() public {
+        // Hoisted: a `hook.registry()` call placed after vm.expectRevert would
+        // itself be "the next call" and swallow the expectation.
+        address reg = hook.registry();
         // 1. Nine distinct siblings link fine.
         for (uint256 i = 0; i < 9; ++i) {
-                vm.prank(address(registry));
+                vm.prank(reg);
             hook.linkVolume(PRIMARY, _sib(i));
         }
-        // Re-linking an existing one is idempotent and does NOT revert.
-        vm.prank(address(registry));
+        // REGRESSION (the part that IS fixed). With the list full, re-linking a
+        // pool that is ALREADY a sibling used to revert too, because the cap was
+        // checked before the dedup scan — so at nine siblings a rotation back
+        // into an already-linked quote reverted the whole rotation. It must now
+        // be a no-op, not a brick.
+        vm.prank(reg);
         hook.linkVolume(PRIMARY, _sib(3));
+        // ...and it must still not have stacked a duplicate.
+        vm.prank(reg);
+        hook.linkVolume(PRIMARY, _sib(8));
 
         // 2. The tenth DISTINCT one reverts — and it reverts the caller, which
         //    is the whole rotation, not just the link.
@@ -50,7 +62,7 @@ contract K1b_TenthSiblingBricksRotation is FinalAuditBase {
         assertFalse(ok, "untracked primary is never dead");
 
         vm.expectRevert(CauldronHook.OnlyRegistry.selector);
-        vm.prank(address(registry));
+        vm.prank(reg);
         hook.linkVolume(PRIMARY, _sib(9));
 
         // 3. There is NO unlink at ANY privilege level: the hook exposes no
@@ -65,7 +77,7 @@ contract K1b_TenthSiblingBricksRotation is FinalAuditBase {
 
         // 4. And the tenth still reverts afterwards — nothing self-heals.
         vm.expectRevert(CauldronHook.OnlyRegistry.selector);
-        vm.prank(address(registry));
+        vm.prank(reg);
         hook.linkVolume(PRIMARY, _sib(9));
     }
 }

@@ -203,7 +203,9 @@ The registry, in one transaction:
 
 ### 3.3 Life
 
-Swaps pay an ETH-denominated fee (§5). Volume accrues crystal credit. The perp
+Swaps pay a fee on the **quote side** — whichever currency that is (`CauldronHook`
+takes it from `quoteIsCurrency0[id] ? currency0 : currency1`), so on a USDG-quoted
+generation the fee is USDG, not ether (§5). Volume accrues crystal credit. The perp
 engine opens leverage against real depth. The hook records volume into **24 hourly
 buckets on a rolling wall-clock day**.
 
@@ -258,14 +260,19 @@ cleared afterwards by permissionless keeper paths.
 
 Two seeding paths. Which one runs is a governance choice made before the summon.
 
-**Which one you actually get.** In the CONTRACT, atomic is the fallback: progressive
-requires `seeder != 0 && nextSeedWindow > 0` (`CauldronRegistry.sol:1728`). But every
-SHIPPED deployment turns progressive on — `DeployLaunchpad.s.sol:357` defaults
-`SEED_WINDOW` to 900 s when the variable is unset, and `deploy-testnet.sh:58` sets 300 s.
-Only an explicit `SEED_WINDOW=0` selects the atomic path. So in practice a launch is
-progressive and there is **no green candle**; the anti-snipe comes from the thin streamed
-book instead (`CauldronRegistry.sol:1699-1702`). Read 4.1 as the fallback behaviour, not
-as what you will see on chain.
+**Which one you actually get: the atomic full-range book, always.** The deploy
+script does arm the progressive path (`DeployLaunchpad.s.sol` defaults `SEED_WINDOW`
+to 900 s), but arming it is not enough. `SEED_BASE_WAD = 1e18` (`PoolOps.sol:168`)
+makes the two-sided full-range base the WHOLE of ledger A, so the streaming branch
+returns before `startSeed` and never runs (commit `40b9608`). There is no stream,
+and `Seeder:SeedStarted` can never fire. Read 4.1 as **what you will see on chain**,
+and Strategy B as a dormant feature whose machinery is kept intact.
+
+**So where does the anti-snipe come from?** Not from a thin streamed book — that
+book does not exist. It comes from the **surtax** (`CauldronHook.snipeSurtaxBps`:
+peak at the summon block, decaying to zero across the window, charged on top of the
+base fee and paid to the guild) plus **`LaunchSniper`**. Prime ETH funded before a
+summon is recoverable via `refundPrime` / `withdrawAll`.
 
 ### 4.1 Atomic — the green candle (the contract's fallback, not the shipped default)
 

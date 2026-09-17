@@ -81,6 +81,18 @@ contract ProgressiveSeedForkTest is Test {
 
         // Wire the progressive seeder + a launch window → summon goes progressive.
         seeder = new CauldronSeeder(address(registry), posm, poolManager);
+        // FORK ARTIFACT, NOT PROTOCOL MONEY. On the Sepolia fork this CREATE lands on
+        // 0xc7183455a4C133Ae270771860664b6B7ec320bB1, an address that ALREADY holds
+        // 0.17 ETH at fork head (`cast balance` on it returns 170000000000000000) —
+        // almost certainly one of our own earlier testnet seeder deployments. Solidity
+        // cannot refuse a pre-funded CREATE address, so the two teardown tests below
+        // saw `address(seeder).balance == 0.17e18` and read it as 0.17 ETH stranded
+        // across death → teardown → relaunch. A `-vvvv` trace of
+        // test_NoCampaign_Death_FullRecovery_OnFork contains NO value transfer into
+        // the seeder, and the balance is 0.17e18 exactly — i.e. the protocol stranded
+        // precisely zero. Zero the artifact here so the `== 0` assertions below stay
+        // literal and keep testing what they were written to test.
+        vm.deal(address(seeder), 0);
         registry.setSeeder(address(seeder));
         registry.setSeedWindow(WINDOW);
 
@@ -292,12 +304,17 @@ contract ProgressiveSeedForkTest is Test {
         // finalize, no callable, no removal.
         assertGt(pm.getLiquidity(pid), 0, "base gives spot-straddling depth from block 0");
 
-        // Streaming still advances the single-sided anti-snipe bands over the window;
-        // spot depth stays non-zero throughout.
-        vm.warp(block.timestamp + WINDOW + 1);
-        seeder.poke();
-        assertTrue(seeder.isComplete(), "fully streamed");
-        assertGt(pm.getLiquidity(pid), 0, "spot depth persists after full stream");
+        //  ── NOTHING IS STREAMED ANY MORE (commit 40b9608) ───────────────────
+        //  `SEED_BASE_WAD` 0.15e18 -> 1e18, so the whole of ledger A is the base and
+        //  the campaign is never started. The depth asserted above is therefore not
+        //  a floor waiting to be topped up - it is the finished book, and it must
+        //  still be there once the window that used to matter has passed.
+        assertFalse(seeder.seeding(), "no campaign is started under a full-range base");
+        assertEq(seeder.deployedWad(), 0, "the seeder places no bands at all");
+        vm.warp(vm.getBlockTimestamp() + WINDOW + 1);
+        seeder.poke(); // inert, and must not revert
+        assertEq(seeder.deployedWad(), 0, "poke stays inert past the old window");
+        assertGt(pm.getLiquidity(pid), 0, "spot depth persists with no stream at all");
 
         // A real buy fills against the continuous book (leaves circulating supply).
         hook.setOpener(address(this), true);
@@ -313,26 +330,33 @@ contract ProgressiveSeedForkTest is Test {
         assertEq(CauldronToken(token1).balanceOf(address(seeder)), 0, "base+bands torn down, nothing stranded");
     }
 
-    // Toggle: clearing the hook's seeder pointer disables the in-swap nudge, but the
-    // permissionless poke() fallback still streams (the "can be turned off" path).
-    function test_InSwap_ToggleOff_PermissionlessStillWorks_OnFork() public {
-        
+    // Toggle: clearing the hook's seeder pointer is the documented "can be turned
+    // off" path. Since 40b9608 there is no stream for it to turn off, so what it
+    // must prove is INDEPENDENCE: the book and the swap path do not depend on the
+    // seeder pointer at all, and the permissionless fallback stays harmless.
+    function test_InSwap_ToggleOff_BookIsIndependentOfTheSeeder_OnFork() public {
+
         vm.skip(!active);
         registry.setGovernor(address(new SeedGov()));
         registry.summon{value: 1 ether}();
+        PoolId pid = registry.generationPoolId(1);
 
         hook.setSeeder(address(0)); // disable in-swap streaming only
         assertEq(hook.seeder(), address(0), "in-swap nudge off");
 
-        vm.warp(block.timestamp + WINDOW / 2);
+        uint128 liqBefore = pm.getLiquidity(pid);
+        assertGt(liqBefore, 0, "the registry's full-range base is there before the toggle");
+
+        vm.warp(vm.getBlockTimestamp() + WINDOW / 2);
         hook.setOpener(address(this), true);
         hook.setTaxExempt(address(this), true);
-        _buy(0.05 ether);
-        assertEq(seeder.deployedWad(), 0.1e18, "no in-swap streaming when the hook pointer is cleared");
+        assertGt(_buy(0.05 ether), 0, "a buy still fills with the seeder pointer cleared");
+        assertEq(seeder.deployedWad(), 0, "no in-swap streaming happens, because none is armed");
 
-        // permissionless fallback still advances it
+        // The permissionless fallback must still be callable, and still harmless.
         seeder.poke();
-        assertGt(seeder.deployedWad(), 0.1e18, "permissionless poke() fallback still streams");
+        assertEq(seeder.deployedWad(), 0, "permissionless poke() stays inert");
+        assertGe(pm.getLiquidity(pid), liqBefore, "and the book is untouched by the toggle");
     }
 
     // --- helpers -------------------------------------------------------------

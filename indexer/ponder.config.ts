@@ -1,5 +1,5 @@
 import { createConfig, factory } from "ponder";
-import { parseAbiItem } from "viem";
+import { parseAbiItem, fallback, http } from "viem";
 import { PoolManagerAbi } from "./abis/PoolManagerAbi";
 import { RegistryAbi } from "./abis/RegistryAbi";
 import { CollectionAbi } from "./abis/CollectionAbi";
@@ -72,35 +72,83 @@ export default createConfig({
   chains: {
     cauldron: {
       id: chainId,
-      // PONDER_RPC_URL may be a COMMA-SEPARATED list; Ponder load-balances across
-      // them. DEFAULT = publicnode. ⚠️ DO NOT use Alchemy FREE keys here: the free
+      // PONDER_RPC_URL may be a COMMA-SEPARATED list; the FIRST entry is the
+      // primary and the rest are ORDERED FAILOVER (viem `fallback`, rank:false),
+      // never a round-robin. DEFAULT = a SINGLE pinned provider (tenderly on
+      // Sepolia). ⚠️ DO NOT use Alchemy FREE keys here: the free
       // tier caps eth_getLogs at a 10-BLOCK range, but Ponder syncs in bigger
       // chunks → RpcRequestError → Ponder shuts down (crash-loop). publicnode has
       // no block-range cap and (with the OUR-pool filter below) syncs to realtime
       // in seconds. Paid Alchemy tiers are fine.
       rpc: (() => {
-        // Full public nodes → Ponder fails over on any DNS/network/rate blip
-        // instead of crashing (v0.11 treats an RPC error as fatal). ⚠️ NOT Alchemy
+        // ORDERED failover, not load balancing: the primary answers every request
+        // and a secondary is used only when the primary errors, so two providers
+        // can never be asked about the same height in the same sync. ⚠️ NOT Alchemy
         // free keys here — their 10-block eth_getLogs cap breaks Ponder's sync.
         // CHAIN-AWARE default: pick the fallback set from the manifest's chainId so
         // an unset PONDER_RPC_URL can NEVER silently point Sepolia nodes at a
         // Robinhood (4663) manifest — that mismatch = wrong/empty data or a crash.
-        const SEPOLIA = [
-          "https://ethereum-sepolia-rpc.publicnode.com",
-          "https://1rpc.io/sepolia",
-          "https://rpc.ankr.com/eth_sepolia",
-          "https://sepolia.drpc.org",
-          "https://eth-sepolia.public.blastapi.io",
-        ];
+        //  ── A REORG CAN TAKE THIS SERVICE DOWN, AND IT DID ──────────────────
+        //  Sepolia forked at block 11704817 (two children of 0xcc99f76b). Ponder
+        //  refuses to index when a log's `blockHash` disagrees with the block it
+        //  fetched for the same height — correctly — and treats it as FATAL, so
+        //  it crash-looped and the whole API served 502s.
+        //
+        //  The provider was wrong, not Ponder, and not in the direction it looked:
+        //  the LOGS were canonical and `eth_getBlockByNumber` was serving the
+        //  ORPHAN. Proven by following the parent pointer — #11704818's
+        //  `parentHash` is 0xbc625e, the hash the logs carried, while publicnode
+        //  and 1rpc both returned 0x5c315a (the losing sibling) for that height.
+        //  Tenderly returned the canonical block; ankr and blastapi had neither.
+        //
+        //  Hence the default below is ONE provider — tenderly, the one that
+        //  served the canonical block — and never a set. A multi-provider default
+        //  round-robins reads across nodes that can disagree about the same
+        //  height, which is what produced the fatal crash-loop in the first place.
+        //  Override with PONDER_RPC_URL (comma-separated = ordered failover, the
+        //  first entry is primary); recovery is still: set it, `railway up`.
+        //  A dedicated endpoint (Alchemy/Infura paid) avoids the whole class.
+        const SEPOLIA = ["https://sepolia.gateway.tenderly.co"];
         //  Arc testnet. Measured before relying on it: `eth_getLogs` works, and
         //  an ADDRESS-FILTERED 10,000-block range returns fine (unfiltered ranges
         //  are refused with "requested range too large", which is why the pool
         //  filter below is load-bearing here rather than merely an optimisation).
         const ARC = ["https://rpc.testnet.arc.network"];
-        const DEFAULTS = chainId === 5042002 ? ARC : SEPOLIA;
+        //  Robinhood Chain — VERIFIED: chain id 4663, rpc.MAINNET.chain.robinhood.com
+        //  (the shorter `rpc.chain.robinhood.com` our docs used to carry refuses
+        //  TLS and is not a real endpoint). Testnet is 46630, NOT 46646.
+        const ROBINHOOD = ["https://rpc.mainnet.chain.robinhood.com"];
+        const ROBINHOOD_TESTNET = ["https://rpc.testnet.chain.robinhood.com"];
+        //  KEYED BY CHAIN ID, AND UNKNOWN IS FATAL. The previous
+        //  `chainId === 5042002 ? ARC : SEPOLIA` made Sepolia the default for
+        //  EVERY other chain — including 4663 — so an unset PONDER_RPC_URL
+        //  indexed Sepolia blocks while declaring chain 4663 to every consumer.
+        //  The comment above claimed that could NEVER happen; this is the code
+        //  that makes the claim true.
+        const BY_CHAIN: Record<number, string[]> = {
+          11155111: SEPOLIA,
+          5042002: ARC,
+          4663: ROBINHOOD,
+          46630: ROBINHOOD_TESTNET,
+        };
         const env = (process.env.PONDER_RPC_URL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        const DEFAULTS = BY_CHAIN[chainId];
+        if (env.length === 0 && !DEFAULTS) {
+          throw new Error(
+            `[ponder] NO RPC FOR CHAIN ${chainId} — round.json pins chainId ${chainId}, which has no ` +
+              `built-in RPC default. Set PONDER_RPC_URL (comma-separated = ordered failover) or add the ` +
+              `chain to BY_CHAIN in indexer/ponder.config.ts. Refusing to start rather than indexing ` +
+              `another chain and serving it as chain ${chainId}.`,
+          );
+        }
         const list = env.length > 0 ? env : DEFAULTS;
-        return list.length > 1 ? list : list[0];
+        // One URL → plain transport. Several → ORDERED failover: `rank: false`
+        // keeps viem from reshuffling by latency, so list[0] is always primary
+        // and the others are only ever touched after it errors. This is NOT a
+        // round-robin; see the reorg note above for why that distinction is fatal.
+        return list.length > 1
+          ? fallback(list.map((url) => http(url)), { rank: false })
+          : http(list[0]);
       })(),
       // Block polling, matched to the chain's actual block time.
       //
@@ -111,8 +159,12 @@ export default createConfig({
       // genuinely useful — so pick from the manifest's chainId rather than
       // running the L2 cadence against an L1 testnet. Arc produces blocks far
       // faster than Sepolia, so it gets the fast cadence.
+      //  Also keyed by chain id rather than by a single `=== 5042002` test: 4663
+      //  has ~0.1s blocks and was getting the 4s L1-testnet cadence.
       pollingInterval: Number(
-        process.env.POLLING_INTERVAL_MS ?? (chainId === 5042002 ? 1000 : 4000),
+        process.env.POLLING_INTERVAL_MS ??
+          ({ 11155111: 4000, 5042002: 1000, 4663: 1000, 46630: 1000 } as Record<number, number>)[chainId] ??
+          4000,
       ),
       // Per-endpoint request cap. With N rotated keys the effective throughput is
       // N × this. Default scales with the number of endpoints provided.

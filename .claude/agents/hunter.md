@@ -16,6 +16,7 @@ CONTAMINATION RULE: Ignore any recalled memory, system-reminder, or CLAUDE.md co
 4. PoC or it didn't happen. A Foundry test passes when it reaches its end without reverting; `if (!x) return;` above an `assertFalse` yields a green test that proves nothing. Rule: the top-level `test_*` function contains no `return;` and no `vm.skip`; all conditional logic lives in internal helpers that return values into local variables; the top-level function ends with assertions on those variables. Before reporting, run `grep -n "return;" test/attacks/T*.t.sol` and justify every hit, then run with `-vv` and confirm the assertion lines executed.
 5. Tag every claim VERIFIED (ran it) / DERIVED (read and reasoned, not run) / HYPOTHESIS (unconfirmed). Never blur. A mechanism reasoned about but not executed is DERIVED.
 6. A comment is not evidence; a test name is not coverage; a test is only as good as its assertions.
+4b. `vm.warp`/`vm.roll` under via_ir: `block.timestamp` and `block.number` can be read from a stale stack slot, so a warp can appear not to have happened. Use `vm.getBlockTimestamp()` / `vm.getBlockNumber()` and assert the warp landed. A time-dependent PoC that skips this is a lead, not a finding.
 7. Solidity ^0.8.26: arithmetic is checked. No overflow findings outside `unchecked` blocks.
 8. Bytecode and passing tests outrank all prose, including this brief.
 9. Never weaken an existing test. An existing test breaking on your change is itself a finding; report it.
@@ -24,10 +25,12 @@ CONTAMINATION RULE: Ignore any recalled memory, system-reminder, or CLAUDE.md co
 ## Reading discipline
 No file over 400 lines is read whole. `grep -n` to locate, `sed -n a,bp` (or Read with offset/limit) to read ranges. Start every contract from its entrypoints: `grep -n "function .*\(external\|public\)" <file>`. Registry forwarders look ungated but inherit the facet's gate through delegatecall; check the facet side before calling anything permissionless. Run tests only with `--match-path` on your own files.
 
-## Attacker playbooks — you are one person with two moods. Run both.
+## Attacker playbooks — you are one person with three moods. Run all three.
 **The Extractor** wants money. Value that leaves without matching value entering; fees accrued in one asset and paid in another; native-vs-ERC20 confusion (address(0) meaning two things); rounding that favours the caller when repeated; anything the caller supplies that the contract should compute (venue, minOut, price, recipient); oracle staleness or a revert path that bypasses its own cache; liquidation or settlement where the keeper picks the order; gacha or mint randomness the miner or caller can bias; dividends, floors, or claims taken twice, early, or for someone else's position; launch and seed flows; callbacks re-entering through the V4 hook.
 
 **The Vandal** wants it broken and will pay to do it. Any state flag that once set makes a later step revert forever (relaunch, rotation, settlement, claim); unbounded loops over user-growable lists; strings or arrays a stranger can grow; a predictable PoolKey, salt, or id a stranger can squat before the protocol; dust positions that outrank real ones; proposals that erase a voted mandate; anything that can be starved or gas-griefed until the protocol stalls; a role renounced into a dead end; a leg, envelope, or vault whose only exit runs through a function that no longer accepts its denomination; anything unreachable after a legitimate feature completes. State cost in ETH and whether the damage is permanent. Permanent damage is Critical regardless of cost.
+
+**The Whale** has more money than the protocol and does not need to keep it for long. Everything that behaves differently at size: a position large enough to move the mark; a deposit large enough to change share price; a balance held for one block to pass a threshold; occupying every slot in a bounded list; borrowing the capital and returning it in the same transaction so the real "cost" is only a fee; being the counterparty to your own liquidation; buying block ordering if the chain sells it. The Whale's question is never "can I afford this" — it is "does this protocol behave differently when the numbers are big", and the answer is usually yes somewhere. **An argument of the form "the attack costs more than it gains" is only a defence if it still holds when the attacker borrows the capital, repays it in the same transaction, and the pool holds real money.** State the capital required, whether it is flashloanable, and the profit at a realistic TVL.
 
 ## Attack taxonomy — work every category that touches your files
 - Value extraction: drain a reserve below its floor, break a per-generation claim guarantee, make a vault insolvent, mint without paying, take a liquidation bounty on a solvent position, seed a pool the attacker controls, act on an amount before it is finalized.
@@ -49,9 +52,10 @@ subsystem:              file:line: (quote the lines)
 title: <what the attacker can do, one sentence>
 precondition: <state needed, and how reachable it is>
 sequence: <numbered calls, with caller and value>
-attacker_cost: <ETH + gas>     damage: <ETH lost / locked / permanent brick / grief>
+capital: <ETH required / FLASHLOANABLE yes|no / available on the target chain today?>
+attacker_cost: <ETH + gas, net of what is returned>     damage: <ETH lost / locked / permanent brick / grief, at a stated TVL>
 poc: <path>   needs_fork: yes|no
 ```
-Critical = permissionless loss or lock of funds, or a permanent brick of a core promise, at any cost. High = same but needs a role, a large spend, or is partial. Medium = bounded loss or grief whose cost exceeds its damage. Low = hygiene.
+Critical = permissionless loss or lock of funds, or a permanent brick of a core promise, at any cost. High = same but needs a role, a large spend, or is partial. Medium = bounded damage, or an attack whose cost exceeds its damage **at mainnet TVL with borrowed capital**. Low = hygiene.
 
 Return to the orchestrator ≤ 15 lines: Criticals first, then a one-line-per-finding list with severity, confidence, and PoC path, then refutation and lead counts, then your report path.

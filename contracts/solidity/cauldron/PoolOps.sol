@@ -64,6 +64,11 @@ interface IVaultRedeemedOps {
 interface IHookReserves {
     function releaseRelaunchETH() external returns (uint256);
     function releaseRelaunchAsset(address asset) external returns (uint256);
+    /// @dev Read-only twins of the two releases above (CauldronHook's `public`
+    ///      `relaunchETH` / `relaunchAsset` getters). {seedFunding} needs to know
+    ///      what a pull WOULD yield before it commits to the pull — see R4A.
+    function relaunchETH() external view returns (uint256);
+    function relaunchAsset(address asset) external view returns (uint256);
 }
 
 /// @notice The dying generation's floor vault, closed from {PoolOps.seedFunding}.
@@ -1169,19 +1174,39 @@ library PoolOps {
         //  once the machine holds enough.
         //
         // 1. The proposal's choice, if value already exists in that denomination.
+        //
+        //  ── A BRANCH MUST NOT CONSUME A RESERVE IT THEN DECLINES TO USE
+        //     (audit R4A — Medium) ────────────────────────────────────────────
+        //  Each `_pull*` below is a STATE CHANGE on the hook: it zeroes the
+        //  per-asset counter and pushes the balance here. The acceptance test used
+        //  to run AFTER it, so a branch that fell short moved the reserve into the
+        //  registry as a LOOSE balance and then answered in a different
+        //  denomination. Nothing in the normal cycle spends a loose registry
+        //  balance (`sweepLegProceeds` reads `legProceeds[]`, which this path never
+        //  credits; branches 2 and 3 read the hook, not this contract), so the
+        //  whole reserve was stranded with no recovery path — once per rebirth, on
+        //  an ordinary low-volume 6-decimal generation, with no attacker involved.
+        //  The pulls now PEEK first and only fire when the result would actually
+        //  clear {MIN_SEED_UNITS}; a short branch leaves the reserve where it is,
+        //  so the next rebirth can still spend it. The funded path is unchanged:
+        //  the peek is a view of the same counter the release returns.
+        //
+        // 1. The proposal's choice, if value already exists in that denomination.
         if (wantQuote != address(0) && (recovered == 0 || oldQuote == wantQuote)) {
-            uint256 p = (oldQuote == wantQuote ? recovered : 0) + _pullAsset(hookAddr, wantQuote);
+            uint256 h = oldQuote == wantQuote ? recovered : 0;
+            uint256 p = h + _pullAsset(hookAddr, wantQuote, h);
             if (p >= MIN_SEED_UNITS) return (wantQuote, p, 0);
         }
         // 2. Native — recovery counts toward it only if the dead pool WAS native,
         //    so this branch is skipped when it would abandon a non-native one.
         if (recovered == 0 || oldQuote == address(0)) {
-            uint256 n = (oldQuote == address(0) ? recovered : 0) + vaultSwept + _pullEth(hookAddr);
+            uint256 h = (oldQuote == address(0) ? recovered : 0) + vaultSwept;
+            uint256 n = h + _pullEth(hookAddr, h);
             if (n >= MIN_SEED_UNITS) return (address(0), n, vaultSwept);
         }
         // 3. Last resort: the dying generation's own quote.
         if (oldQuote != address(0) && recovered > 0) {
-            uint256 o = recovered + _pullAsset(hookAddr, oldQuote);
+            uint256 o = recovered + _pullAsset(hookAddr, oldQuote, recovered);
             if (o >= MIN_SEED_UNITS) return (oldQuote, o, 0);
         }
         return (address(0), 0, 0);
@@ -1192,14 +1217,32 @@ library PoolOps {
     ///      function was registry-gated with no registry function reaching it, so a
     ///      non-native generation's fees accrued behind a door only a contract
     ///      without the key could open.
-    function _pullAsset(address hookAddr, address asset) private returns (uint256 got) {
+    ///      `have` is what the calling branch already holds in that denomination;
+    ///      the reserve is only taken when the two together clear
+    ///      {MIN_SEED_UNITS}, because a branch that falls short abandons whatever
+    ///      it pulled (audit R4A).
+    function _pullAsset(address hookAddr, address asset, uint256 have) private returns (uint256 got) {
+        if (have + _peek(hookAddr, abi.encodeWithSelector(IHookReserves.relaunchAsset.selector, asset))
+            < MIN_SEED_UNITS) return 0;
         try IHookReserves(hookAddr).releaseRelaunchAsset(asset) returns (uint256 g) { got = g; } catch {}
+    }
+
+    /// @dev Best-effort READ of a hook reserve counter. A hook that does not answer
+    ///      is treated as holding nothing, which makes the branch decline rather
+    ///      than pull blind — the safe side, since {seedFunding} returning zero
+    ///      reverts `NoLiquidityToSeed` BEFORE `markConsumed` and the proposal
+    ///      stays live.
+    function _peek(address hookAddr, bytes memory cd) private view returns (uint256 v) {
+        (bool ok, bytes memory r) = hookAddr.staticcall(cd);
+        if (ok && r.length >= 32) v = abi.decode(r, (uint256));
     }
 
     /// @dev Best-effort pull of the hook's NATIVE relaunch reserve. Reverts
     ///      `NoETHToRelease` at zero and `SendFailed` if the counter has outrun the
     ///      balance, so the guard replaces the caller's old `> 0` pre-check too.
-    function _pullEth(address hookAddr) private returns (uint256 got) {
+    function _pullEth(address hookAddr, uint256 have) private returns (uint256 got) {
+        if (have + _peek(hookAddr, abi.encodeWithSelector(IHookReserves.relaunchETH.selector))
+            < MIN_SEED_UNITS) return 0;
         try IHookReserves(hookAddr).releaseRelaunchETH() returns (uint256 g) { got = g; } catch {}
     }
 

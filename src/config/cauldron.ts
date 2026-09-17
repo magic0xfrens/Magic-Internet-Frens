@@ -20,10 +20,14 @@ import { ACTIVE_ROUND as round } from "./deployments";
 //  "nothing has happened yet" rather than an error. Silent and expensive to
 //  diagnose, trivial to detect.
 //
-//  Loud but non-fatal: a throw would blank the whole app over what might be a
-//  deliberate local experiment.
+//  FATAL, not logged. This used to be a `console.error` and "loud but
+//  non-fatal" — which in practice meant a user on the wrong chain saw an empty
+//  but plausible UI, clicked Buy, and had their wallet force-switched to
+//  `CAULDRON.chainId` before signing calldata addressed to the OTHER chain.
+//  A blank page with this message in the console is strictly better than a
+//  value-bearing signature aimed at a chain the addresses do not live on.
 if (round.chainId !== ACTIVE_CHAIN_ID) {
-  console.error(
+  throw new Error(
     `[cauldron] MANIFEST/CHAIN MISMATCH — the app is on chain ${ACTIVE_CHAIN_ID}, but the ` +
       `selected manifest pins chain ${round.chainId}. Every address below belongs to ` +
       `${round.chainId} and has no code on ${ACTIVE_CHAIN_ID}: reads will come back empty ` +
@@ -120,6 +124,24 @@ export const DIVIDEND_ABI = [
   { type: "function", name: "activeShares", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "owed", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "withdrawOwed", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
+  //  ── THE ERC20 BASKET (audit FG-1) ────────────────────────────────────
+  //  A generation whose quote is not ether pays the ENTIRE guild slice through
+  //  `fundToken`, so on a rotated generation this rail is 100% of the dividend.
+  //  Declaring only the ether rail made the panel render a flat 0 with no claim
+  //  button while the money accrued on-chain.
+  { type: "function", name: "assetCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "assets", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  { type: "function", name: "knownAsset", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "accountedOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "pendingToken", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }, { name: "asset", type: "address" }], outputs: [{ type: "uint256" }] },
+  //  Claims EVERY basket asset for one tokenId — there is no `claimTokensMany`,
+  //  so the hook signs one per owned fren.
+  { type: "function", name: "claimTokens", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [] },
+  { type: "function", name: "owedAsset", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "withdrawOwedToken", stateMutability: "nonpayable", inputs: [{ name: "asset", type: "address" }], outputs: [{ name: "amount", type: "uint256" }] },
+  //  Permissionless once the asset is known: books a balance that arrived by a
+  //  bare transfer (e.g. a RoyaltyRouter sweep) into the per-share accumulator.
+  { type: "function", name: "adopt", stateMutability: "nonpayable", inputs: [{ name: "asset", type: "address" }], outputs: [{ name: "delta", type: "uint256" }] },
 ] as const;
 
 /** CauldronRegistry — the eternal machine's lifecycle state (read-only surface). */
@@ -210,6 +232,15 @@ export const HOOK_ABI = [
     { name: "player", type: "address", indexed: true },
     { name: "ticketId", type: "uint256", indexed: true },
   ] },
+  //  ── ERRORS ───────────────────────────────────────────────────────────
+  //  The PRE-TRADE liquidation sweep (CauldronHook.sol:835) reverts this when
+  //  the swap did not supply enough gas to fund the sweep AND the perp book is
+  //  non-empty — skipping it would leave realized bad debt on PLV stakers. It
+  //  needs ~1.05M gas; every path in this app pins 8,000,000, so only a wallet
+  //  or aggregator that CAPS gas can trip it. Declared here so viem decodes it
+  //  by name instead of handing the user a raw selector; the human text is
+  //  PERP_ERROR_HELP.LiqGasStarved (src/config/perp.ts).
+  { type: "error", name: "LiqGasStarved", inputs: [] },
 ] as const;
 
 /** CollectionLedger — the per-collection legacy-floor cap table (r28). Each past
@@ -335,6 +366,10 @@ export const ERC20_SWAP_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+  //  Labelling an asset from the chain rather than a hardcoded table: the
+  //  dividend basket can grow by governance `adopt` at any time (audit FG-1).
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
 ] as const;
 
 /** Per-brew collection (volume-minted NFTs). */
@@ -447,6 +482,15 @@ export const GACHA_ROUTER_ABI = [
     ],
     outputs: [{ name: "opened", type: "uint256" }],
   },
+  //  ── THE CURVE'S OWN UNITS (audit B-2) ────────────────────────────────
+  //  `oddsForPlay` is a function of the play measured in CURVE units, and the
+  //  router converts a raw quote notional into them with `_playInCurveUnits`
+  //  (CauldronGachaRouter.sol:120,136-145). The UI was passing the raw wei
+  //  straight to `oddsForPlay`, which agrees with the chain ONLY while the
+  //  router's `oracle()` is 0x0 — a coincidence that dies the moment setOracle
+  //  is called, which the USDG path requires. Route the display through this so
+  //  it tracks the chain instead of happening to match it.
+  { type: "function", name: "playInCurveUnits", stateMutability: "view", inputs: [{ name: "playWei", type: "uint256" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
 /** V4 PoolManager Swap event — the source of the live price/volume chart. */

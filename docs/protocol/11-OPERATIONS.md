@@ -17,31 +17,84 @@ manifest's indexer URL.
 
 ### 1.1 Frontend (Vite, baked at build time)
 
-| Variable | Purpose | Read at |
-|---|---|---|
-| `VITE_NETWORK` | `testnet` (Sepolia) or `mainnet`; one flip retargets config, wallet switching, explorer links and copy | `src/config/chains.ts:85-90` |
-| `VITE_SEPOLIA_RPC_URL` | Comma-separated Sepolia RPCs, tried first in a viem `fallback` chain; rotating several free keys multiplies the effective limit | `src/config/chains.ts:63-71` |
-| `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect Cloud id; without it only injected wallets are offered and the connector is not constructed at all | `src/config/chains.ts:43-49` |
-| `VITE_ROBINHOOD_CHAIN_ID` | Mainnet chain id override; anything not a positive integer falls back to 4663 | `src/config/chains.ts:19-20` |
-| `VITE_ROBINHOOD_RPC_URL` | Mainnet RPC | `src/config/chains.ts:22-23` |
-| `VITE_ROBINHOOD_EXPLORER` | Mainnet block explorer | `src/config/chains.ts:25-26` |
-| `VITE_X_CLIENT_ID` | X OAuth client id, also read server-side by the token proxy | `api/x-token.ts:65` |
+Rewritten from the code that reads them (2026-09-15). Every row below was
+grepped in `src/`; a variable no code reads is called out as dead rather than
+documented as live.
 
-`VITE_CAULDRON_INDEXER` is documented in `.env.example` but **the code does not
-read it**: `src/config/cauldron.ts:39-46` takes `round.indexerUrl` from the
-manifest and explicitly states there is no env override. Treat the
-`.env.example` entry as stale.
+| Variable | Purpose | Read at | Unset |
+|---|---|---|---|
+| `VITE_CHAIN_ID` | **Authoritative** chain selector. Must name a chain one of the bundled manifests declares (`round.json`, `round.arc.json`) — their `chainId` field IS the key | `src/config/deployments.ts` (`resolveInitialChain`) | falls through to `VITE_NETWORK`. A value **no manifest declares throws** at module init and fails `prebuild` |
+| `VITE_NETWORK` | Manifest **slot**, used only when `VITE_CHAIN_ID` is unset: `arc` → `round.arc.json`, `testnet\|sepolia\|primary\|target\|mainnet` → `round.json` | `src/config/deployments.ts` | the primary manifest (`round.json`). An unrecognised value throws |
+| `VITE_RPC_URL` | RPC for the target chain | `src/config/chains.ts` | a per-chain default (Sepolia/Arc/4663/46630). **Unknown chain + unset = throw**, never another chain's RPC |
+| `VITE_CHAIN_NAME` / `VITE_EXPLORER_URL` / `VITE_EXPLORER_NAME` | Header copy and explorer links | `src/config/chains.ts` | the per-chain default for the resolved id |
+| `VITE_CHAIN_CURRENCY` / `VITE_CHAIN_CURRENCY_NAME` / `VITE_CHAIN_DECIMALS` | Native gas token. Decimals are validated to 0..36 and now flow into `NATIVE_DECIMALS` on **every** branch (they used to be discarded whenever the app was not on the target chain) | `src/config/chains.ts` | the per-chain default; ETH/18 on 4663 |
+| `VITE_CHAIN_IS_TESTNET` | `"false"` marks a real mainnet; drives the "funds have no value" copy | `src/config/chains.ts` | per-chain default (`false` for 4663) |
+| `VITE_SEPOLIA_RPC_URL` | Comma-separated Sepolia RPCs, tried first in a viem `fallback` chain | `src/config/chains.ts` | four public Sepolia nodes |
+| `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect Cloud id; without it only injected wallets are offered and the connector is not constructed | `src/config/chains.ts` | injected wallets only |
+| `VITE_X_CLIENT_ID` | X OAuth client id, also read server-side by the token proxy | `api/x-token.ts` | OAuth disabled |
+
+**Dead variables — set nothing, do nothing.** `VITE_ROBINHOOD_CHAIN_ID`,
+`VITE_ROBINHOOD_RPC_URL`, `VITE_ROBINHOOD_EXPLORER` (grep: no reader in `src/`;
+the app has been chain-generic since the Arc bring-up — use `VITE_CHAIN_ID` /
+`VITE_RPC_URL` / `VITE_EXPLORER_URL`) and `VITE_CAULDRON_INDEXER` (the indexer
+URL is manifest-only, `src/config/cauldron.ts`; the `.env.example` entry has
+been removed).
+
+**Robinhood Chain, VERIFIED on-chain 2026-09-15:** mainnet `VITE_CHAIN_ID=4663`,
+`VITE_RPC_URL=https://rpc.mainnet.chain.robinhood.com`, ETH/18,
+`VITE_CHAIN_IS_TESTNET=false`. Testnet is `46630`. `46646` is not a chain id,
+and the host `rpc.chain.robinhood.com` (no `mainnet.`) does not exist.
+
+### 1.1b Operational constraints that are NOT expressible in config
+
+**Reorg tolerance is patched into Ponder, not configured.** VERIFIED against
+ponder 0.11.44: `finalityBlockCount` is assigned only by
+`getFinalityBlockCount()` (`dist/esm/build/config.js:115`) and the user-facing
+`ChainConfig` type has no such field, so `ponder.config.ts` cannot express it.
+Ponder's unknown-chain default is **30 blocks** ("assume a 2-second block
+time") — about **3 seconds** on Robinhood 4663, whose `finalized` tag lags the
+head by ~9,650 blocks (~16 min). `indexer/scripts/patch-ponder-finality.mjs`
+raises it to 12,000 blocks for 4663/46630 and 1,200 for Arc. It runs from
+`postinstall` **and** from `start.mjs` before Ponder is spawned, is idempotent,
+and **verifies itself by calling the patched module**; any failure is fatal —
+the indexer refuses to boot rather than index with an unproven tolerance.
+*If you upgrade Ponder, run `node indexer/scripts/patch-ponder-finality.mjs`
+and expect it to fail loudly if the upstream source changed shape.*
+
+**`/freshness` is the machine-readable beacon.** It now reports `chainHeight`,
+`indexedHeight`, `lagBlocks`, `lagSeconds`, `finalizedHeight`,
+`finalityLagBlocks`, `finalityBlockCount` and `reorgToleranceOk`, and returns
+**503 when the chain's own finality lag exceeds the configured tolerance** —
+which is the continuous check that keeps the patched constant honest. Alert on
+`lagSeconds` (chain-speed independent) rather than `lagBlocks`. Note the only
+in-repo poller is a **browser** (`src/hooks/useIndexerHealth.ts`), so nothing
+alerts when nobody is looking: **external monitoring is a launch prerequisite,
+not something the code provides.**
+
+**Railway restarts are capped at 10** (`indexer/railway.json:8`,
+`restartPolicyMaxRetries`). After ten consecutive failures the service stays
+down permanently and only a manual redeploy brings it back. The in-process
+watchdog deliberately relies on that cap to bound a restart loop, so raising it
+trades "stays down" for "restarts forever" — a decision, not a bug. **Operator
+action: watch for the tenth restart.**
+
+**`indexer/deployments/round.json` pins `chainId: 11155111` today, and that is
+correct** — it is the live *Sepolia* round manifest, and every consumer is now
+keyed by the manifest's own `chainId`. The Robinhood cutover *replaces* this
+file with `round.robinhood.template.json` (chainId 4663); nothing ships 11155111
+to a 4663 build.
 
 ### 1.2 Indexer (Ponder / Railway)
 
 | Variable | Purpose | Read at |
 |---|---|---|
 | `DATABASE_URL` | Postgres connection; unset falls back to in-memory SQLite | `indexer/ponder.config.ts:45-47` |
-| `PONDER_RPC_URL` | Comma-separated sync RPCs. **Not a free Alchemy key** — its 10-block `eth_getLogs` cap crashes Ponder's sync | `indexer/ponder.config.ts:58-77` |
-| `POLLING_INTERVAL_MS` | Block poll cadence; default 4000 on Sepolia, 1000 on chain 4663 | `indexer/ponder.config.ts:86-88` |
+| `PONDER_RPC_URL` | Comma-separated sync RPCs, **ordered failover** (first = primary), never round-robin. **Not a free Alchemy key** — its 10-block `eth_getLogs` cap crashes Ponder's sync. Unset falls back to a default chosen by the **manifest's `chainId`**; a chainId with no built-in default is a **startup throw**, not a silent Sepolia | `indexer/ponder.config.ts` |
+| `POLLING_INTERVAL_MS` | Block poll cadence, keyed by the manifest's chainId: 4000 on Sepolia, 1000 on Arc and on Robinhood 4663/46630 | `indexer/ponder.config.ts` |
+| `DEPLOYMENT` / `CHAIN_ID` | `DEPLOYMENT` picks the manifest slot (`arc` → `round.arc.json`). `CHAIN_ID`, when set, must equal the selected manifest's `chainId` or the service refuses to start | `indexer/deployments/active.ts` |
 | `PONDER_MAX_RPS` | Per-endpoint request cap; default `12 × endpoints` | `indexer/ponder.config.ts:91-94` |
 | `STRICT_POOL_FILTER` | `true` restores the pool-id Swap filter, and the per-relaunch manual edit with it | `indexer/ponder.config.ts:128` |
-| `API_RPC_URL` | Dedicated RPC pool for the API's own chain reads | `api/cauldron/liquidatoor.ts:29`, `.env.example` |
+| `API_RPC_URL` | Dedicated RPC pool for the API's own chain reads — **and for `/freshness`'s divergence check**. Defaults are keyed by the manifest's chainId; an unknown chain with this unset is a startup throw. A flat Sepolia default here made `/freshness` compare Sepolia to Sepolia and report healthy while the service indexed another chain | `indexer/src/api/index.ts`, `api/cauldron/liquidatoor.ts`, `api/cauldron/creature.ts` |
 | `CORS_ORIGIN` | Indexer CORS origin, default `*` | `indexer/src/api/index.ts:11` |
 | `MAX_GRAPHQL_BYTES` | GraphQL body cap, default 8000 | `indexer/src/api/index.ts:52` |
 | `HEALTH_WATCHDOG` | `0` disables the self-restart watchdog | `indexer/src/api/index.ts:995` |
@@ -363,10 +416,11 @@ honest majority plus a speed bump on the rest
 
 - `git rev-parse --short HEAD` → `20d6de2`
 - Disagreements found:
-  1. `.env.example` documents `VITE_CAULDRON_INDEXER`, but
-     `src/config/cauldron.ts:39-46` reads the indexer URL from the manifest and
-     states there is deliberately no env override. The `.env.example` entry is
-     stale.
+  1. RESOLVED (2026-09-15): `.env.example` documented `VITE_CAULDRON_INDEXER`,
+     which no code reads — `src/config/cauldron.ts` takes the indexer URL from
+     the manifest and states there is deliberately no env override. The
+     `.env.example` entry has been removed. The `VITE_ROBINHOOD_*` trio this
+     document used to list was dead for the same reason and is gone from §1.1.
   2. `scripts/marketmaker.sh:63` calls a four-argument `play(...)`; the router
      implements only the five-argument form
      (`contracts/solidity/cauldron/CauldronGachaRouter.sol:233`).

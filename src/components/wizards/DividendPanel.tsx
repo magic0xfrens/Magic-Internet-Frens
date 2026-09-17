@@ -1,4 +1,4 @@
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 import { useMiFrensDividend } from "@/hooks/useMiFrensDividend";
 
 /**
@@ -13,8 +13,8 @@ import { useMiFrensDividend } from "@/hooks/useMiFrensDividend";
  */
 export default function DividendPanel({ div }: { div: ReturnType<typeof useMiFrensDividend> }) {
   const {
-    ownedGenesis, enchanted, totalPending, owed, unenchantedIds, loading, error,
-    claimAll, castAll, withdrawOwed, isPending, confirming,
+    ownedGenesis, enchanted, totalPending, owed, basket, unenchantedIds, loading, error,
+    claimAll, claimAllTokens, castAll, withdrawOwed, withdrawOwedToken, sweepRoyalties, isPending, confirming,
   } = div;
 
   if (!loading && ownedGenesis.length === 0) {
@@ -33,6 +33,13 @@ export default function DividendPanel({ div }: { div: ReturnType<typeof useMiFre
   const pretty = (wei: bigint) => Number(formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: 6 });
   const hasClaim = totalPending > 0n;
   const hasOwed = owed > 0n;
+  //  ── THE ERC20 BASKET (audit FG-1) ────────────────────────────────────
+  //  On a generation whose quote is not ether the ENTIRE guild slice arrives as
+  //  an ERC20, so the ether figure above is 0 and this is the real dividend.
+  //  Each row is rendered in its OWN decimals — USDG is 6, and formatting it as
+  //  ether understates it by 1e12.
+  const prettyUnits = (raw: bigint, decimals: number) =>
+    Number(formatUnits(raw, decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 });
   const allCast = unenchantedIds.length === 0;
 
   const run = (fn: () => Promise<unknown>) => fn().catch(() => {});
@@ -49,6 +56,45 @@ export default function DividendPanel({ div }: { div: ReturnType<typeof useMiFre
           </span>
           {error && <span className="dvd__err">{error}</span>}
         </div>
+        {basket.length > 0 && (
+          <div className="dvd__basket">
+            {basket.map((a) => (
+              <div className="dvd__basket-row" key={a.address}>
+                <span className="dvd__basket-amt">
+                  {prettyUnits(a.pending, a.decimals)} <em>{a.symbol}</em>
+                  {a.owed > 0n && <small> · {prettyUnits(a.owed, a.decimals)} settled</small>}
+                </span>
+                {a.owed > 0n && (
+                  <button
+                    className="dvd__btn dvd__btn--ghost"
+                    disabled={busy}
+                    onClick={() => run(() => withdrawOwedToken(a.address))}
+                  >
+                    Withdraw {a.symbol}
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              className="dvd__btn"
+              disabled={busy || !basket.some((a) => a.pending > 0n)}
+              onClick={() => run(claimAllTokens)}
+            >
+              Claim basket
+            </button>
+            {/*  Anyone may push a stuck marketplace royalty along (audit FG-2):
+                 the router's sweep is permissionless and its destinations are
+                 immutable, so this button cannot redirect anything. */}
+            <button
+              className="dvd__btn dvd__btn--ghost"
+              disabled={busy}
+              title="Push any ERC20 royalty sitting on this brew's EIP-2981 receiver into the dividend"
+              onClick={() => run(() => sweepRoyalties(basket[0].address))}
+            >
+              Sweep royalties
+            </button>
+          </div>
+        )}
         <button className="dvd__btn" disabled={!hasClaim || busy} onClick={() => run(claimAll)}>
           {confirming ? "Claiming…" : "Claim ETH"}
         </button>
@@ -117,6 +163,10 @@ const css = `
     padding: 13px 22px; cursor: pointer; box-shadow: 0 5px 0 #a9cc2f; transition: transform .15s, box-shadow .15s, opacity .2s;
   }
   .dvd__btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 0 #a9cc2f; }
+  .dvd__basket { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .dvd__basket-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dvd__basket-amt em { font-style: normal; opacity: 0.8; }
+  .dvd__basket-amt small { opacity: 0.6; }
   .dvd__btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: 0 5px 0 #6f8420; }
   .dvd__btn--spell { background: #b98cff; box-shadow: 0 5px 0 #7c5cfc; color: #16112b; }
   .dvd__btn--spell:hover:not(:disabled) { box-shadow: 0 6px 0 #7c5cfc; }

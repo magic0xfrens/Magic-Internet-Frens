@@ -9,6 +9,7 @@
     "dev": "vite",
     "prebuild": "node scripts/verify-manifest.mjs && node scripts/sync-llms.mjs",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
+    "postbuild": "node scripts/prerender-seo.mjs",
     "preview": "vite preview",
     "test:unit": "vitest",
     "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run --e2e'",

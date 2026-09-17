@@ -238,7 +238,22 @@ The registry arms `_seedBuyUnlocked` for exactly that window
 (`CauldronRegistry.sol:1727`, `:1740`), and `unlockCallback` requires both the
 PoolManager as caller and the flag armed (`:1765-1766`).
 
-### Strategy B — progressive streaming (opt-in)
+### Strategy B — progressive streaming (DORMANT as shipped)
+
+> **This path does not run on any shipped deployment.** `SEED_BASE_WAD = 1e18`
+> (`PoolOps.sol:168`) makes the two-sided full-range base the WHOLE of ledger A,
+> so the guard `if (activeTokens <= baseTok || ethAmount <= baseEth) return r;`
+> always fires and `startSeed` is never reached (commit `40b9608`). Every launch
+> is the atomic full-range book of Strategy A; there is no stream, and
+> `Seeder:SeedStarted` can never fire. The machinery below is intact and the
+> deploy script still arms it (`DeployLaunchpad.s.sol:368-373` sets `setSeeder`
+> and a 900 s `setSeedWindow`), so this is a dormant feature, not dead code —
+> but read it as design documentation, not as what happens on chain.
+>
+> **Anti-snipe does not come from a thin streamed book.** It comes from the
+> surtax (`CauldronHook.snipeSurtaxBps`, peak at the summon block, decaying to 0
+> across the window) plus `LaunchSniper`. Prime ETH funded before a summon is
+> recoverable through `refundPrime` / `withdrawAll`.
 
 Armed only when **both** `seeder != address(0)` and `nextSeedWindow > 0`
 (`CauldronRegistry.sol:1728`). Wired by the owner via `setSeeder`
@@ -265,7 +280,7 @@ Armed only when **both** `seeder != address(0)` and `nextSeedWindow > 0`
 | `SEED_FLOOR_WAD` | `0.1e18` — 10% placed immediately | `PoolOps.sol:137` |
 | `SEED_MINSTEP_WAD` | `0.02e18` — poke throttle | `PoolOps.sol:138` |
 | `SEED_BANDWIDTH` | 2000 ticks per mini-band | `PoolOps.sol:139` |
-| `SEED_BASE_WAD` | `0.15e18` — two-sided full-range base | `PoolOps.sol:145` |
+| `SEED_BASE_WAD` | `1e18` — two-sided full-range base. At `1e18` the base IS all of ledger A, so the streaming branch is unreachable and every launch is atomic full-range (`40b9608`). | `PoolOps.sol:168` |
 | `MAX_RANGES` | 64 distinct bands, so teardown gas is bounded | `CauldronSeeder.sol:115` |
 | `PRIME_MIN_WEI` | `0.001 ether` dust throttle on prime tranches | `CauldronSeeder.sol:141` |
 

@@ -1,0 +1,130 @@
+diff --git a/contracts/solidity/cauldron/PerpEngine.sol b/contracts/solidity/cauldron/PerpEngine.sol
+index 4c6d54b..74e6c2a 100644
+--- a/contracts/solidity/cauldron/PerpEngine.sol
++++ b/contracts/solidity/cauldron/PerpEngine.sol
+@@ -1045,6 +1045,26 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
+         // Mark loop ONCE, reused for the health test + the per-block-cap notional.
+         (bool trip, bool insolvent, uint256 notional) = _liqTest(p);
+         if (!trip) revert Healthy();
++        //  ── E1A, AND WHY THE GATE IS NOT HERE ──────────────────────────────
++        //  This entrypoint is permissionless and, off the in-swap sweep,
++        //  {_liqTest}'s second leg reads RAW LIVE SPOT — the price whatever swap
++        //  ran last in this same transaction left behind. So a caller could push
++        //  spot past a HEALTHY short's entire equity, call this, and have the
++        //  vault buy the position back at the price they had just made, with
++        //  {_absorbPlvLoss} socialising the overspend onto the stakers (measured:
++        //  0.0307 ETH of PLV to close a position whose whole collateral was
++        //  0.02 ETH). The in-swap sweep is not exposed to this: there the price
++        //  is the PROJECTED post-trade price of a trade the caller PAYS the
++        //  impact of, which is what lets it close a position in the very swap
++        //  that sank it (XL1/S08) — that path is deliberately untouched.
++        //  Requiring the mark to ALSO condemn before this entrypoint may fire
++        //  was tried and is WRONG: S08_A's backstop ("anyone can liquidate the
++        //  position the gas-capped swap declined to") runs on a victim that is
++        //  MEASURED mark-healthy — markValue 0.1822 ETH against 0.0931 ETH of
++        //  backing at maintenanceBps 1500 — and condemned by SPOT alone, which
++        //  is a real crash, not a manipulation. Spot-only liquidatability is
++        //  load-bearing. E1A is therefore closed at the SETTLEMENT: see the mark
++        //  band on MODE_LIQUIDATION in {_settle}.
+         if (!_throttle(insolvent, notional)) revert LiqCapped();
+         _settle(id, p, 0, MODE_LIQUIDATION, msg.sender);
+     }
+@@ -1597,6 +1617,27 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
+             //  SUSTAINED move and cannot be fired by one block's price. No buffer
+             //  is needed to absorb the settlement's own impact either, because
+             //  closing BEFORE the trade is itself the buffer.
++            //  ── WHO IS ALLOWED TO USE THIS LEG (E1A) ────────────────────────
++            //  This leg reads a price the caller's own swap may have just made.
++            //  Its two callers are NOT symmetric:
++            //    * INSIDE the hook's in-swap sweep (`_inLocked`) the price is the
++            //      PROJECTED post-trade price of a trade the caller has to PAY
++            //      the impact of, and the whole point of that sweep is to close a
++            //      position in the very swap that sank it. Spot stands alone
++            //      there — unchanged, and that is what XL1/S08 pin down.
++            //    * OFF the sweep — permissionless {liquidate}, or the post-open
++            //      sweep — `_projSqrtP` is 0 and this read is RAW LIVE SPOT: the
++            //      price whatever swap ran last in this same transaction left
++            //      behind. A liquidator could therefore push spot past a HEALTHY
++            //      short's entire equity, call {liquidate}, and have the vault
++            //      buy the position back at the price they had just made, with
++            //      `_absorbPlvLoss` socialising the overspend onto the stakers
++            //      (measured: 0.0307 ETH of PLV to close 0.02 ETH of collateral).
++            //  Gating the leg HERE was tried and is wrong: `isLiquidatable` /
++            //  `positionHealth` are this function's other callers, and a view
++            //  that hides a spot-insolvent position from keepers and from the UI
++            //  is a worse answer than the drain. The gate therefore lives on the
++            //  one caller that SPENDS staker capital — see {liquidate}.
+             uint160 pj = _projSqrtP;
+             uint160 sp = pj != 0 ? pj : _sqrtP();
+             if (sp != 0) insolvent = _insolventVal(p, _quoteAt(p.size, sp));
+@@ -1675,7 +1716,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
+         //  (measured: +1,224 bytes, 1,191 over EIP-170). A long SELLS, a short BUYS.
+         //  The dead path's mark band as a sqrt-price LIMIT (0 = no band). A long
+         //  SELLS, a short BUYS. See {DEATH_SLIP_BPS} and {PerpSwapLib.bandLimit}.
+-        uint160 band = mode == MODE_DEATH
++        //  ── THE SPLIT BAND: OWN MONEY UNBANDED, STAKER MONEY BANDED (E1A) ──
++        //  MODE_LIQUIDATION used to settle with `band == 0`, i.e. at ANY price,
++        //  against ONE budget spanning `backing + insuranceEth + plv` — so a
++        //  liquidator who had just pushed spot in the SAME transaction got the
++        //  short's buy-back executed at the price they had made, and
++        //  {_absorbPlvLoss} socialised the overspend onto the stakers (measured:
++        //  1 ETH push → PLV −0.0719, attacker +0.0435; 3 ETH → −0.4400/+0.2720).
++        //  A FLAT band over that whole budget closes the drain but breaks
++        //  CLOSEABILITY (XL1): an insolvent short by definition needs more than
++        //  its own backing, so a flat band pushes every genuine cascade into the
++        //  partial-fill path. The two properties in tension are about DIFFERENT
++        //  money, so they are settled against different budgets:
++        //    * the position's OWN backing is spent UNBANDED — closeability at any
++        //      size, in the swap that sank it, costs the stakers nothing;
++        //    * the SOCIALISED tranche (`insuranceEth + plv`), which is the only
++        //      money {_absorbPlvLoss} can ever charge, is spent only INSIDE the
++        //      mark band. That tranche IS the E1A drain, so capping it kills the
++        //      attack while a real cascade still closes from its own collateral.
++        //  What the band refuses is not lost: the `_rebook` + PartiallyClosed
++        //  path below leaves the remainder OPEN, smaller and fully
++        //  re-liquidatable by the next sweep, {liquidate}, or {close}.
++        //  MODE_NORMAL (the trader's own close, which enforces their own
++        //  `minOut`) keeps its pre-band behaviour: `band` stays 0 there.
++        uint160 band = mode != MODE_NORMAL
+             ? PerpSwapLib.bandLimit(markSqrtPriceX96(), _sqrtP(), !p.isLong, quote < syncedToken)
+             : 0;
+ 
+@@ -1685,7 +1749,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
+             //  being refused above it (see {DEATH_SLIP_BPS}): a keeper cannot buy
+             //  the position off the trader 10% under the mark, and a pool too thin
+             //  to take the whole size inside the band still clears the book.
+-            (uint256 sold, uint256 proceeds) = _swapExactIn(false, p.size, band);
++            //  The long leg spends no staker capital to execute (it SELLS), so
++            //  E1A's split band does not apply here: the band stays exactly the
++            //  death-path bound it already was.
++            (uint256 sold, uint256 proceeds) = _swapExactIn(false, p.size, mode == MODE_DEATH ? band : 0);
+             _ownerFloor(ownerSlippage, proceeds, minOut);
+             //  `sold <= p.size` by construction: this is an exact-INPUT sell of
+             //  `p.size`, so v4 can never take more than was specified.
+@@ -1712,8 +1779,24 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
+             // {_buyUpTo} — an unbounded exact-output buy made a short bigger than
+             // the pool's token side unclosable by anyone, its owner included.
+             uint256 backing = uint256(p.collateral) + p.principal;
+-            (uint256 cost, uint256 bought) =
+-                _buyUpTo(p.size, backing + insuranceEth + plv, band);
++            //  TRANCHE 1 — the position's OWN backing, at ANY price. Nothing here
++            //  can reach `plv`, so no price a caller makes can charge a staker;
++            //  this is what keeps an insolvent short closeable at any size in the
++            //  swap that sank it (XL1/S08).
++            (uint256 cost, uint256 bought) = _buyUpTo(p.size, backing, 0);
++            //  TRANCHE 2 — the SOCIALISED money (`insuranceEth + plv`, plus any of
++            //  the position's own backing tranche 1 left over), spent only inside
++            //  the mark band. This is the tranche {_absorbPlvLoss} charges, and
++            //  the only one E1A could ever drain.
++            if (bought < p.size) {
++                (uint256 c2, uint256 b2) = _buyUpTo(
++                    p.size - bought,
++                    (backing > cost ? backing - cost : 0) + insuranceEth + plv,
++                    band
++                );
++                cost += c2;
++                bought += b2;
++            }
+             shortOiToken -= bought;              // only what came back is off the books
+             plvToken += bought;                  // ...and back in inventory
+             // The buy-back may have spent MORE ETH than this position's backing;

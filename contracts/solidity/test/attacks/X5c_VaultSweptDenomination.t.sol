@@ -35,6 +35,10 @@ contract X5HookMock {
     function setAsset(address a, uint256 v) external { assetReserve[a] = v; }
     function releaseRelaunchETH() external returns (uint256 g) { g = ethReserve; ethReserve = 0; }
     function releaseRelaunchAsset(address a) external returns (uint256 g) { g = assetReserve[a]; assetReserve[a] = 0; }
+    //  The real hook publishes both counters as public getters (CauldronHook.sol:294,
+    //  :2566) and `seedFunding` READS them before it decides to pull (audit R4A).
+    function relaunchETH() external view returns (uint256) { return ethReserve; }
+    function relaunchAsset(address a) external view returns (uint256) { return assetReserve[a]; }
 }
 
 /// @notice X5c — REGRESSION (was: the vault sweeps native wei, the divisor is in

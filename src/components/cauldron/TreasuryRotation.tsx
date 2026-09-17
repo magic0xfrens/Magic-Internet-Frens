@@ -310,7 +310,10 @@ function Ballot({ p, leader, col, busy, onVote, onExecute, since }: {
 export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const pc = usePublicClient({ chainId: CAULDRON.chainId });
   const { quotes } = useAllowedQuotes();
-  const liveQuote = useCurrentQuote(gen);
+  //  Only the ADDRESS is needed here — this panel picks a rotation destination
+  //  and does not sign a decimals-scaled floor, so the `resolved` flag is not
+  //  load-bearing (it is, in SwapWidget: see TheCauldron).
+  const { quote: liveQuote } = useCurrentQuote(gen);
   const from = quoteMeta(liveQuote);
   const { env, refresh, checkVenue, quoteSlice, rotateSlice, proposeEnvelope,
           voteEnvelope, executeEnvelope } = useTreasuryRotation();

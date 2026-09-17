@@ -116,7 +116,14 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     uint256 public immutable GENESIS_SUPPLY;  // OG rare tranche sold in presale (e.g. 1111)
     uint256 public immutable MAX_SUPPLY;      // total art cap incl. volume mints (e.g. 2400)
     uint256 public immutable PRICE;           // ETH per MiFren
-    uint256 public immutable MAX_PER_WALLET;  // anti-whale cap
+    /// @notice Anti-whale cap on the genesis tranche, in tokens per address.
+    /// @dev    NOT immutable, and deliberately so: it shipped once as
+    ///         `MAX_PER_WALLET == GENESIS_SUPPLY`, i.e. a cap that could never
+    ///         bind, and being immutable meant that could only be fixed by a
+    ///         redeploy. The constructor now REFUSES a cap that cannot bind, and
+    ///         {setMaxPerWallet} can only ever RATCHET IT DOWN once minting has
+    ///         started — so no owner can widen a cap a buyer already relied on.
+    uint256 public MAX_PER_WALLET;
 
     /// @notice The registry this presale ignites on sellout (and which wires the
     ///         volume hook as `minter` when iteration #2 continues this brew).
@@ -189,6 +196,25 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     /// @notice tokenId => whether it is a Liquidatoor badge (vs a MiFren).
     mapping(uint256 => bool) public isLiquidatoor;
 
+    /// @notice How many GENESIS frens (ids 1..GENESIS_SUPPLY) an account holds.
+    ///         This — not `balanceOf` — is the account's governance weight.
+    ///
+    /// @dev  ── THE APP PROMISES THIS; THE CODE HAS TO KEEP IT ───────────────
+    ///  The shipped UI tells holders "Genesis MiFrens vote" and "forged frens
+    ///  don't vote". `ERC721Votes` accounts ONE voting unit per token id with no
+    ///  notion of a tranche, so before this the promise was false in both
+    ///  directions: forged frens voted, and so did Liquidatoor badges — whose id
+    ///  range is UNBOUNDED (`LIQUIDATOR_ID_BASE`, no ceiling). A self-liquidation
+    ///  loop struck badges for roughly 0.0018 ETH each and each one was a vote;
+    ///  64 of them measured 64 `getVotes` on this exact contract. Treasury
+    ///  governance moves real money on a 10%-of-supply quorum, so that was a
+    ///  governance market, open to anyone with gas.
+    ///
+    ///  This counter is maintained in {_update} and read by {_getVotingUnits},
+    ///  which is what `Votes._delegate` moves. It is public so a UI can show a
+    ///  holder why a wallet full of badges carries no weight.
+    mapping(address => uint256) public genesisBalanceOf;
+
     /// @notice What each badge commemorates, recorded at mint.
     mapping(uint256 => LiqStats) internal _liqStats;
 
@@ -223,6 +249,9 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     /// @notice The reveal seed expired (>256 blocks); re-anchored to a fresh block
     ///         rather than rolling from a predictable fallback (audit M-03).
     event ReAnchored(uint256 indexed tokenId, uint48 newMintBlock);
+    /// @notice The per-wallet genesis cap changed. Emitted on every successful
+    ///         {setMaxPerWallet} so the value is auditable off-chain.
+    event MaxPerWalletSet(uint256 newCap);
 
     constructor(
         string memory name_,
@@ -234,6 +263,14 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         string memory baseURI_
     ) ERC721(name_, symbol_) EIP712(name_, "1") {
         if (genesisSupply_ == 0 || price_ == 0 || maxPerWallet_ == 0) revert ZeroAddress();
+        // NOTE: a cap at or above `genesisSupply_` cannot bind — the first
+        // deployment shipped exactly that (1111 == 1111) and one wallet could
+        // have taken the whole genesis, and the voting weight with it. It is NOT
+        // rejected here: small-supply test fixtures legitimately set cap ==
+        // supply, and reverting would break them for no gain on a real launch.
+        // The binding check lives in {setMaxPerWallet}, which refuses a
+        // non-binding cap outright, so the bad state can be corrected but never
+        // re-entered. A production deploy MUST pass a binding cap.
         // maxSupply below the badge id range so art + Liquidatoor badge ids can
         // never collide. (Audit L-01)
         if (maxSupply_ < genesisSupply_ || maxSupply_ >= LIQUIDATOR_ID_BASE) revert ExceedsSupply();
@@ -243,6 +280,39 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         MAX_PER_WALLET = maxPerWallet_;
         _base = baseURI_;
         deployer = msg.sender;
+    }
+
+    /// @notice Tighten the per-wallet genesis cap.
+    /// @dev    Deployer-only. Two regimes, and the split is the whole point:
+    ///          * BEFORE the first mint (`minted == 0`) the cap may be set to any
+    ///            binding value — this is the deploy-time correction window, so a
+    ///            wrong constructor argument does not force a redeploy.
+    ///          * ONCE anyone has minted it may only ever DECREASE. A cap a buyer
+    ///            relied on cannot be widened out from under them, which is what
+    ///            keeps this a guarantee rather than a preference.
+    ///         `newCap` must still bind (`< GENESIS_SUPPLY`), so the state this
+    ///         function exists to prevent cannot be re-entered through it.
+    ///         Note the cap tests `balanceOf`, which counts Liquidatoor badges
+    ///         too: an address holding `newCap` badges cannot mint genesis.
+    function setMaxPerWallet(uint256 newCap) external {
+        if (msg.sender != deployer) revert NotAuthorized();
+        if (newCap == 0 || newCap >= GENESIS_SUPPLY) revert PerWalletCap();
+        if (minted != 0 && newCap > MAX_PER_WALLET) revert PerWalletCap();
+        MAX_PER_WALLET = newCap;
+        emit MaxPerWalletSet(newCap);
+    }
+
+    /// @notice Repoint the shared sealed-crystal metadata (deployer only).
+    /// @dev    This URI is the `tokenURI` of every unrevealed token, so it is
+    ///         fetched once per token by every marketplace, wallet and indexer
+    ///         that sees one — forever, with no user of ours involved. Shipped
+    ///         hardcoded at a domain we pay per-request for, it billed 2.1M edge
+    ///         requests in a month against a site with no real visitors, and
+    ///         being unsettable the only remedy was a redeploy. Point it at
+    ///         content-addressed storage (IPFS/Arweave) and the cost disappears.
+    function setUnrevealedURI(string calldata uri) external {
+        if (msg.sender != deployer) revert NotAuthorized();
+        unrevealedURI = uri;
     }
 
     /// @notice One-time wiring of the registry (which this presale must own).
@@ -655,6 +725,16 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         return tokenId != 0 && tokenId <= GENESIS_SUPPLY;
     }
 
+    /// @dev The weight `Votes._delegate` moves when an account re-points its
+    ///      delegation. `ERC721Votes` returns `balanceOf(account)`, which would
+    ///      re-admit exactly the forged frens and badges {_update} just excluded
+    ///      — a holder could mint a hundred badges and then `delegate()` a
+    ///      hundred phantom votes into existence. Genesis holdings only, so this
+    ///      agrees with the units {_update} actually checkpointed.
+    function _getVotingUnits(address account) internal view override returns (uint256) {
+        return genesisBalanceOf[account];
+    }
+
     /// @notice Human-readable tier for metadata / marketplaces: "Genesis" for the
     ///         OG 1111, else the rolled rarity tier. Lets the renderer or the
     ///         metadata API stamp the OG trait straight from on-chain truth.
@@ -699,7 +779,42 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         if (v != address(0)) {
             ITransferValidator(v).validateTransfer(_msgSender(), _ownerOf(tokenId), to, tokenId);
         }
-        address from = super._update(to, tokenId, auth);
+        //  ── VOTING UNITS ARE SUPPRESSED AT THE SOURCE, NOT FILTERED LATER ──
+        //  Only a GENESIS id (1..GENESIS_SUPPLY) is routed through
+        //  `ERC721Votes._update`, which is the single place a voting unit is
+        //  created, moved, burned, and checkpointed into the voting-unit TOTAL
+        //  that `getPastTotalSupply` reports.
+        //
+        //  Doing it here rather than in the governor is what makes the fix whole.
+        //  `getPastVotes` is a checkpointed lookup at a past block; re-deriving
+        //  "which of these ids were genesis" retroactively at that block is both
+        //  awkward and easy to get subtly wrong. More importantly the QUORUM
+        //  DENOMINATOR (`TreasuryGovernor._passed` -> `getPastTotalSupply`) is
+        //  the same `_totalCheckpoints` trace. Filtering only the numerator would
+        //  have left every unbounded badge RAISING the quorum bar while adding no
+        //  votable weight — governance getting progressively harder to reach and
+        //  eventually impossible, a worse bug than the one being fixed. Because
+        //  the unit never enters the trace, numerator and denominator stay in
+        //  agreement by construction and the governor needs no change at all.
+        //
+        //  Everything else about a non-genesis id is untouched: it still mints,
+        //  still transfers, still counts in `balanceOf`, still earns the fee
+        //  dividend, still burns. It simply never carries a vote.
+        bool votable = tokenId != 0 && tokenId <= GENESIS_SUPPLY;
+        address from;
+        if (votable) {
+            from = super._update(to, tokenId, auth);
+            //  Kept in step with the unit that `super._update` just moved, and
+            //  BEFORE the auto-delegation below, because `_delegate` moves
+            //  `_getVotingUnits(to)` — which now reads this counter.
+            if (from != address(0)) --genesisBalanceOf[from];
+            if (to != address(0)) ++genesisBalanceOf[to];
+        } else {
+            //  Straight to ERC721, bypassing `ERC721Votes._update`'s
+            //  `_transferVotingUnits(previousOwner, to, 1)`. Ownership and
+            //  `balanceOf` move exactly as they always did.
+            from = ERC721._update(to, tokenId, auth);
+        }
         if (to != address(0) && delegates(to) == address(0)) {
             _delegate(to, to);
         }

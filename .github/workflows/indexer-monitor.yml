@@ -1,0 +1,87 @@
+# The alarm for the read layer.
+#
+# Until this file existed there was no alerting anywhere in the repo. `/freshness`
+# is a good beacon but the only thing polling it was a browser
+# (`src/hooks/useIndexerHealth.ts`), so a stalled or diverged indexer was visible
+# only to someone already looking at the site. Railway's own healthcheck points at
+# `/health`, which is Ponder's LIVENESS path and returns 200 as soon as the HTTP
+# server is up (`indexer/src/api/index.ts:1544-1548`) — it cannot report a bad
+# sync. And Railway gives up restarting after ten failures
+# (`indexer/railway.json:8`), a deliberate cap, which means the service can stay
+# down permanently with nothing saying so.
+#
+# This runs the probe on a schedule from GitHub's infrastructure, so it fires with
+# no browser open and no machine of the operator's switched on.
+#
+# ── COST ────────────────────────────────────────────────────────────────────
+# This repository is PUBLIC (verified: `gh repo view` → visibility PUBLIC), and
+# GitHub Actions minutes are free for public repositories. At */5 that is ~8,640
+# runs a month at no charge. If this repo is ever made PRIVATE this becomes
+# ~8,640 billable minutes against a 2,000-minute free allowance — at that point
+# either widen the interval or move the probe to the external monitor described
+# in indexer/monitor/README.md.
+#
+# ── THREE LIMITS OF THIS TRANSPORT, ALL DOCUMENTED BY GITHUB ────────────────
+#  1. "The shortest interval you can run scheduled workflows is once every 5
+#     minutes." So detection latency is the threshold plus up to ~5 min.
+#  2. "If the load is sufficiently high enough, some queued jobs may be dropped."
+#     A missed run is silent. This transport is therefore NOT a dead-man's
+#     switch on its own.
+#  3. "In a public repository, scheduled workflows are automatically disabled
+#     when no repository activity has occurred in 60 days." A protocol that is
+#     live and quiet is exactly the case that trips this.
+#
+# Because of (2) and (3), indexer/monitor/README.md also specifies a external
+# heartbeat as the second channel. Neither alone is sufficient.
+name: indexer-monitor
+
+on:
+  schedule:
+    # Every 5 minutes — the floor GitHub allows. Deliberately not on the hour
+    # boundary, which GitHub names as its highest-load window.
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
+  workflow_dispatch:
+    inputs:
+      indexer_url:
+        description: "Override the indexer URL (blank = the manifest's indexerUrl)"
+        required: false
+      expect_chain_id:
+        description: "Override the expected chain id (blank = the manifest's chainId)"
+        required: false
+
+# Least privilege: the probe only makes outbound HTTP requests.
+permissions:
+  contents: read
+
+# A slow run must never stack up behind the next tick.
+concurrency:
+  group: indexer-monitor
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    # Well above the probe's own 20s-per-request timeout; a hang should fail the
+    # run (which notifies) rather than burn a runner.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The probe has zero dependencies (node's built-in fetch only), so there is
+      # deliberately no `npm ci` here: the alarm must not be able to fail because
+      # a package registry is having a bad day.
+      - name: Probe /status and /freshness
+        env:
+          # SECRET — set this in Settings > Secrets and variables > Actions.
+          # If it is unset the probe still runs and still fails the job; it just
+          # does not push a message anywhere. The URL is never logged.
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          # Both optional. Unset = read from indexer/deployments/round.json, which
+          # is what makes the Robinhood cutover re-point this monitor for free.
+          INDEXER_URL: ${{ github.event.inputs.indexer_url }}
+          EXPECT_CHAIN_ID: ${{ github.event.inputs.expect_chain_id }}
+        run: node indexer/monitor/freshness-probe.mjs

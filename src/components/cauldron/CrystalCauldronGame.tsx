@@ -1,11 +1,15 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import { parseEther, parseEventLogs, type Address } from "viem";
+import { parseEther, parseEventLogs, formatUnits, type Address } from "viem";
 import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useCauldronSwap } from "@/hooks/useCauldronSwap";
 import { fetchGachaStats, fetchIndexerLagSec, fetchOwnedNfts, type IndexedGacha } from "@/lib/cauldronIndexer";
-import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS } from "@/config/cauldron";
+import { CAULDRON, HOOK_ABI, COLLECTION_ABI, TRADE_FEE_BPS, GACHA_ROUTER_ABI } from "@/config/cauldron";
+import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
+import { useLpComposition } from "@/hooks/useLpComposition";
 import { resolveTokenArt } from "@/lib/tokenArt";
+import { explainPerpError } from "@/config/perp";
+import { COMMIT_WINDOW_PHRASE } from "@/config/chains";
 
 /** Tolerance on top of the fee model for a spin's floor. See {spinFloor}. */
 const SPIN_SLIP_BPS = 2_500;
@@ -73,9 +77,21 @@ interface Props {
   nftMinted: number;
   nftMax: number;
   onBought?: () => void;
+  //  THE GENERATION'S QUOTE ASSET. A spin is a churn of ordinary buys and sells,
+  //  so it pays in exactly what {SwapWidget} pays in. Omitting these made the
+  //  game hard-code the native branch of `spin` — on a rotated (USDG/xNVDA)
+  //  generation that sends a `value` the router refuses, and sizes the floor by
+  //  dividing ETH by a quote-denominated price. Defaults are the native case.
+  quote?: Address;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
 }
 
-export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col, nftMinted, nftMax, onBought }: Props) {
+export default function CrystalCauldronGame({
+  collection, spotPrice, ethUsd, col, nftMinted, nftMax, onBought,
+  quote = NATIVE_QUOTE, quoteSymbol = "ETH", quoteDecimals = 18,
+}: Props) {
+  const qNative = isNativeQuote(quote);
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const pub = usePublicClient({ chainId: CAULDRON.chainId });
@@ -144,7 +160,6 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
   //  STAYS ON CHAIN. The mana bar is the live gate on whether the NEXT spin can
   //  summon, and no table records it.
   const { data: prog, refetch: refProg } = useReadContract({ ...hook, functionName: "progress", args: address ? [address] : undefined, ...qEnabled });
-  const spinWei = parseEther((stake * loops).toFixed(18));
 
   //  ── THE SPIN'S SLIPPAGE FLOOR (audit K4c) ────────────────────────────
   //  `playChurn` runs `loops` buys and `loops - 1` sells inside one unlock, all
@@ -154,17 +169,64 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
   //  wide — price impact across up to 19 legs is real and not modelled here, and
   //  the floor exists to refuse a sandwich that takes most of the stake, not to
   //  price the churn to the wei. Without it the router accepted any fill at all.
+  //  ── WHAT THE TYPED ETHER IS WORTH IN THE QUOTE ───────────────────────
+  //  Same oracle ratio {SwapWidget} uses (usdPerRawUnit already carries each
+  //  asset's decimals), so the zap's floor and QuoteRotator's agree by
+  //  construction. Native quote → 0n and `spin` takes its value branch.
+  const lp = useLpComposition(0);
+  const quoteExpected = useMemo(() => {
+    if (qNative || stake <= 0) return 0n;
+    const un = lp.prices[NATIVE_QUOTE.toLowerCase()];
+    const uq = lp.prices[(quote as string).toLowerCase()];
+    if (!un || !uq) return 0n;
+    return (parseEther(stake.toFixed(18)) * un) / uq;
+  }, [qNative, stake, lp.prices, quote]);
+
+  //  The spin's notional in the QUOTE's OWN raw units — wei on a native
+  //  generation, 6-decimal units on USDG. `playChurn` is handed exactly this.
+  const spinWei = useMemo(() => {
+    const total = stake * loops;
+    if (!(total > 0)) return 0n;
+    try {
+      return qNative
+        ? parseEther(total.toFixed(18))
+        : (quoteExpected * BigInt(loops));   // oracle-converted stake, per leg
+    } catch { return 0n; }
+  }, [stake, loops, qNative, quoteExpected]);
+
+  //  ── ODDS IN THE CURVE'S UNITS, NOT THE QUOTE'S (audit B-2) ───────────
+  //  `oddsForPlay` takes a CURVE-unit play; the chain computes it with
+  //  `_playInCurveUnits(playWei)` inside `playChurn`. Passing the raw notional
+  //  matched only because the live router's `oracle()` is 0x0. Ask the router.
+  const { data: curveUnits } = useReadContract({
+    address: CAULDRON.gachaRouter as Address,
+    abi: GACHA_ROUTER_ABI,
+    functionName: "playInCurveUnits",
+    args: [spinWei],
+    query: { enabled: spinWei > 0n, placeholderData: (p) => p },
+  });
+  //  Fall back to the raw notional only while the read is in flight — that is
+  //  the old behaviour and is exactly right on an un-oracled native router.
+  const oddsInput = (curveUnits as bigint | undefined) ?? spinWei;
+
   const spinFloor = useMemo(() => {
     if (!(spotPrice > 0) || stake <= 0) return 0n;
+    //  `spotPrice` is QUOTE per token. On a non-native generation the amount
+    //  that actually enters the pool is the QUOTE the zap will deliver, not the
+    //  ether typed — dividing ether by a 6-decimal USDG price produced a floor
+    //  ~4e8x off, which reverted the spin AFTER the zap had spent the ETH.
+    const payAmount = qNative ? stake : Number(formatUnits(quoteExpected, quoteDecimals));
+    if (!(payAmount > 0)) return 0n;
     const legs = 2 * loops - 1;
-    const honest = (stake / spotPrice) * (1 - TRADE_FEE_BPS / 10_000) ** legs;
+    const honest = (payAmount / spotPrice) * (1 - TRADE_FEE_BPS / 10_000) ** legs;
     const floor_ = honest * (1 - SPIN_SLIP_BPS / 10_000);
     if (!Number.isFinite(floor_) || floor_ <= 0) return 0n;
+    //  The floor is denominated in the CREATURE token, which is always 18-dec.
     try { return parseEther(floor_.toFixed(18)); } catch { return 0n; }
-  }, [spotPrice, stake, loops]);
+  }, [spotPrice, stake, loops, qNative, quoteExpected, quoteDecimals]);
   //  STAYS ON CHAIN. A pure function of live hook state for the stake about to be
   //  signed; not indexed, and stale odds would misprice the spin.
-  const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [spinWei], query: { placeholderData: (p) => p } });
+  const { data: oddsBps } = useReadContract({ ...hook, functionName: "oddsForPlay", args: [oddsInput], query: { placeholderData: (p) => p } });
 
   //  null when neither source could answer → the footer says so instead of
   //  printing a confident "0" over a wallet that has summoned creatures.
@@ -184,6 +246,14 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
   const busy = isPending || phase === "spinning" || phase === "opening";
 
   const friendlyErr = (e: unknown, fallback: string) => {
+    //  Try the shared explainer first: a spin swaps through the hook, so it can
+    //  revert `LiqGasStarved()` when the perp book is open and the wallet capped
+    //  gas below what the in-swap liquidation sweep needs. That message tells the
+    //  user to raise the gas limit, which is the only thing they can act on.
+    //  Explained text is already curated, so it is NOT truncated; only an
+    //  unrecognised raw string still is.
+    const explained = explainPerpError(e);
+    if (explained && explained !== "Transaction failed.") return explained;
     const m = e as { shortMessage?: string; message?: string };
     const raw = m?.shortMessage || m?.message || fallback;
     return raw.length > 140 ? raw.slice(0, 140) + "…" : raw;
@@ -203,7 +273,15 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
         setPhase("idle");
         return;
       }
-      const hash = await spin(stake, loops, 0, spinFloor);
+      if (!qNative && quoteExpected <= 0n) {
+        setErr(`No oracle price for ${quoteSymbol} yet — cannot size a spin in this quote.`);
+        setPhase("idle");
+        return;
+      }
+      //  Pass the live quote so `spin` picks the SAME branch, units and approval
+      //  path as an ordinary buy: ERC20 quote → zap, bounded approve, quoteIn;
+      //  native quote → msg.value. See {Props.quote}.
+      const hash = await spin(stake, loops, 0, spinFloor, quote, quoteExpected, quoteSymbol);
       // Drive resolution from the tx receipt DIRECTLY (not the reactive hook, which
       // can hang if the app's RPC lags the wallet's). Detect revert explicitly.
       const rcpt = await pub.waitForTransactionReceipt({ hash, timeout: 90_000 });
@@ -250,7 +328,7 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
     } finally {
       reset();
     }
-  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, spinFloor, address, refOpened, refMiss, refProg, loadGacha, onBought, reset]);
+  }, [isConnected, openConnectModal, soldOut, pub, spin, stake, loops, spinFloor, qNative, quote, quoteExpected, quoteSymbol, address, refOpened, refMiss, refProg, loadGacha, onBought, reset]);
 
   /**
    * Open EVERY sealed crystal in one transaction.
@@ -465,7 +543,15 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
     if (phase === "spinning") return "Churning volume… summoning…";
     if (phase === "opening") return "Cracking the crystal…";
     if (phase === "summoned") return result?.won ? `✦ ${result.won} crystal${result.won > 1 ? "s" : ""} summoned! Open below.` : "✦ Crystal summoned! Open it below.";
-    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — resolves on your next spin.`;
+    //  ── A COMMITTED CRYSTAL EXPIRES (audit B-1) ─────────────────────────
+    //  Resolution reads the commit block's hash, which the EVM only keeps for
+    //  256 blocks. A crystal left unresolved past that window ages out to its
+    //  base outcome and takes no pity credit with it (GachaLib.sol:135,150,182),
+    //  and it emits the same TicketLost a fair loss does — so without this line
+    //  the player is never told the draw was lost to time rather than to luck.
+    //  The keeper's permissionless resolveTickets sweep is the real remedy;
+    //  this is the safety net.
+    if (phase === "forged") return `🔮 ${result?.forged ?? 0} crystal${(result?.forged ?? 0) > 1 ? "s" : ""} forged — settle ${COMMIT_WINDOW_PHRASE}: spin again to resolve them.`;
     if (phase === "fizzle") return "Not enough Mana yet — spin again.";
     if (phase === "opened") return flash?.name ? `${flash.name} revealed!` : "Creature revealed!";
     return "Spin volume to summon a crystal.";
@@ -518,6 +604,15 @@ export default function CrystalCauldronGame({ collection, spotPrice, ethUsd, col
           <div className="ccg-resolve ccg-resolve--forged">
             <div className="ccg-resolve-big" style={{ color: col }}>{result.forged} sealed</div>
             <div className="ccg-resolve-sub">🔮 forged — reveal on your next spin</div>
+            {/*  Short and non-alarming, but it must be SAID — and it must be
+                 TRUE. An unresolved crystal is settled from its commit block's
+                 hash, which the EVM keeps for 256 BLOCKS. That is ~51 minutes on
+                 Sepolia and ~26 SECONDS on Robinhood Chain, so this line used to
+                 promise a 4663 player ~140x more time than they have, and an
+                 expired crystal forfeits the draw. Derived, never hardcoded. */}
+            <div className="ccg-resolve-sub" style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
+              Settle them {COMMIT_WINDOW_PHRASE} — a crystal left unresolved too long expires and the draw is lost.
+            </div>
           </div>
         )}
         {phase === "fizzle" && (

@@ -65,6 +65,8 @@ contract PerpVault is ReentrancyGuard {
     ///      attack would have to donate ~1e6× a victim's deposit to round their
     ///      shares down — economically infeasible. (Audit V-02)
     uint256 private constant OFFSET = 1e6;
+    /// @dev Fixed-point base for the exit-queue index (see the queue note below).
+    uint256 private constant QSCALE = 1e27;
 
     IPerpEngineVault public immutable engine;
     IVaultRegistry public immutable registry;
@@ -107,14 +109,36 @@ contract PerpVault is ReentrancyGuard {
     // ── ETH side ──
     uint256 public ethShares;                       // total ETH-side shares
     mapping(address => uint256) public ethShareOf;
-    uint256 public pendingEth;                      // ETH owed to queued exits
-    mapping(address => uint256) public pendingEthOf;
+    //  ── THE QUEUE IS UNITS x AN INDEX, NOT A BAG OF NOMINALS (red-team NB) ─
+    //  A queued exit used to be stored as a wei nominal that {settlePendingEth}
+    //  wrote DOWN IN PLACE, per user, against a denominator that still carried
+    //  everyone else's full nominal. That made the write-down neither idempotent
+    //  nor order-independent: re-aiming it at one address ground his claim toward
+    //  zero while every other claimant kept theirs (measured: 80 calls moved
+    //  9.878 of 10 ETH from the victim to the caller, for gas), and even ONE
+    //  honest call each paid 4.29 / 5.71 depending on who went first.
+    //
+    //  A claim is now a fixed number of UNITS. A shortfall is recognised ONCE,
+    //  globally, by scaling the single `ethQueueIndex` that converts units to wei
+    //  ({_syncEthQueue}). No per-user state is touched, so there is nothing to
+    //  repeat and no order to depend on: after any sequence of calls every
+    //  claimant holds exactly `units * index`, i.e. their pro-rata share.
+    //  `pendingEth`/`pendingEthOf` survive as views with their original
+    //  signatures, so the ABI and every caller are unchanged.
+    uint256 public ethQueueUnits;                   // total outstanding ETH queue units
+    uint256 public ethQueueIndex;                   // wei per QSCALE units
+    uint64  public ethQueueEpoch;                   // bumped when a queue is wiped out
+    mapping(address => uint256) internal _ethUnitsOf;
+    mapping(address => uint64)  internal _ethEpochOf;
 
     // ── TOKEN side ──
     uint256 public tokShares;                       // total token-side shares
     mapping(address => uint256) public tokShareOf;
-    uint256 public pendingTok;                      // token owed to queued exits
-    mapping(address => uint256) public pendingTokOf;
+    uint256 public tokQueueUnits;                   // total outstanding token queue units
+    uint256 public tokQueueIndex;                   // token per QSCALE units
+    uint64  public tokQueueEpoch;
+    mapping(address => uint256) internal _tokUnitsOf;
+    mapping(address => uint64)  internal _tokEpochOf;
 
     // ── TOKEN-side ETH reward accrual (short-attributed fees, paid in ETH) ──
     /// @dev MasterChef-style accumulator: token stakers earn ETH — the engine's
@@ -162,6 +186,11 @@ contract PerpVault is ReentrancyGuard {
     event WithdrawTok(address indexed user, uint256 shares, uint256 paid, uint256 queued);
     event ClaimTok(address indexed user, uint256 paid);
     event ClaimTokYield(address indexed user, uint256 paid);
+    /// @notice The WHOLE exit queue on one side was written down to the backing
+    ///         that actually exists. Emitted once per shortfall, not per user:
+    ///         every claimant's entitlement is `units * index`, so one index move
+    ///         is the entire event. `tokenSide` false = ETH queue.
+    event QueueWrittenDown(bool indexed tokenSide, uint256 writtenOff, uint256 newIndex);
     /// @notice Short-side yield that accrued while NO token shares existed. It has no
     ///         rightful claimant and is deliberately NOT back-paid to the next
     ///         depositor; it stays in the engine's segregated pot. (Audit H-05.)
@@ -181,6 +210,8 @@ contract PerpVault is ReentrancyGuard {
     constructor(address _engine, address _registry) {
         engine = IPerpEngineVault(_engine);
         registry = IVaultRegistry(_registry);
+        ethQueueIndex = QSCALE;
+        tokQueueIndex = QSCALE;
     }
 
     /// @notice Does anyone still have value in this vault — live shares on either
@@ -203,7 +234,7 @@ contract PerpVault is ReentrancyGuard {
     ///  on a live engine. Ownership of value is a question only the vault can
     ///  answer, so it answers it here.
     function hasStakers() external view returns (bool) {
-        return (ethShares | tokShares | pendingEth | pendingTok) != 0;
+        return (ethShares | tokShares | ethQueueUnits | tokQueueUnits) != 0;
     }
 
     /// @notice Does the QUOTE-denominated (ETH) side still hold anyone's value —
@@ -226,19 +257,21 @@ contract PerpVault is ReentrancyGuard {
     ///  it. {PerpEngine.setVault} deliberately still asks {hasStakers}: re-pointing
     ///  the vault hands the new one the `onlyVault` path over token PRINCIPAL.
     function hasQuoteStake() external view returns (bool) {
-        return (ethShares | pendingEth) != 0;
+        return (ethShares | ethQueueUnits) != 0;
     }
 
     // ── asset bases (what backs LIVE shares, net of queued exits) ────────────
     /// @notice ETH backing live shares = engine's ETH PLV minus queued exits.
     function assetsEth() public view returns (uint256) {
         uint256 t = engine.totalEth();
-        return t > pendingEth ? t - pendingEth : 0;
+        uint256 p = pendingEth();
+        return t > p ? t - p : 0;
     }
     /// @notice Token backing live shares = engine's token inventory minus queued.
     function assetsTok() public view returns (uint256) {
         uint256 t = engine.totalTokenAssets();
-        return t > pendingTok ? t - pendingTok : 0;
+        uint256 p = pendingTok();
+        return t > p ? t - p : 0;
     }
 
     // ── ETH side: deposit / withdraw / claim ─────────────────────────────────
@@ -268,10 +301,12 @@ contract PerpVault is ReentrancyGuard {
         //  The seniority note above says a queued exit is a CLAIM, not a guarantee,
         //  and must bear its share of the loss. Letting a newcomer's principal pay
         //  it instead inverts that. So refuse until the queue has recognised its own
-        //  write-down: {claimPendingEth} banks the haircut permissionlessly (and
-        //  banks a zero rather than reverting, see `:333`), which drains `pendingEth`
-        //  and reopens the side. No privilege, no timelock, no stuck vault.
-        if (pendingEth > engine.totalEth()) revert QueueInsolvent();
+        //  write-down: {settlePendingEth} banks the haircut for ANY queued address,
+        //  permissionlessly and without paying anyone (red-team R2C — when only the
+        //  claimant himself could bank it, one holdout latched this gate shut), and
+        //  {claimPendingEth} banks a zero rather than reverting. Either drains
+        //  `pendingEth` and reopens the side. No privilege, no timelock, no stuck vault.
+        if (pendingEth() > engine.totalEth()) revert QueueInsolvent();
         //  Read defensively. An engine that predates multi-quote has no
         //  `quote()`, and an interface call would revert the whole deposit
         //  rather than fall back — turning a compatibility gap into an outage.
@@ -338,10 +373,7 @@ contract PerpVault is ReentrancyGuard {
         // to free up as positions close.
         ethShareOf[msg.sender] = bal - shares;
         ethShares -= shares;
-        if (queued > 0) {
-            pendingEth += queued;
-            pendingEthOf[msg.sender] += queued;
-        }
+        if (queued > 0) _queueEth(msg.sender, queued);
         if (paid > 0) engine.withdrawPlvTo(paid, msg.sender); // INTERACTION last
         emit WithdrawEth(msg.sender, shares, paid, queued);
     }
@@ -372,27 +404,121 @@ contract PerpVault is ReentrancyGuard {
         return FullMath.mulDiv(owed, backing, claims);
     }
 
+    // ── the exit queue: units, one index, one global write-down ─────────────
+    /// @notice Total ETH nominal owed to queued exits. Kept as a view with its
+    ///         original name and signature (it used to be a public variable).
+    function pendingEth() public view returns (uint256) {
+        return FullMath.mulDiv(ethQueueUnits, ethQueueIndex, QSCALE);
+    }
+    /// @notice `user`'s queued ETH exit, at the live index.
+    function pendingEthOf(address user) public view returns (uint256) {
+        if (_ethEpochOf[user] != ethQueueEpoch) return 0;
+        return FullMath.mulDiv(_ethUnitsOf[user], ethQueueIndex, QSCALE);
+    }
+
+    /// @dev Book `amount` of queued ETH for `user` as units at the live index.
+    function _queueEth(address user, uint256 amount) private {
+        uint256 u = FullMath.mulDiv(amount, QSCALE, ethQueueIndex);
+        if (_ethEpochOf[user] != ethQueueEpoch) { _ethEpochOf[user] = ethQueueEpoch; _ethUnitsOf[user] = 0; }
+        _ethUnitsOf[user] += u;
+        ethQueueUnits += u;
+    }
+
+    /// @dev Drop whatever units `user` has left (a claim worth nothing, or one
+    ///      paid in full). Keeps the global total in step with the per-user one.
+    function _dropEthUnits(address user) private {
+        uint256 u = _ethUnitsOf[user];
+        if (u == 0) return;
+        _ethUnitsOf[user] = 0;
+        if (_ethEpochOf[user] == ethQueueEpoch) ethQueueUnits -= u;
+    }
+
+    /// @dev Recognise, ONCE and for the WHOLE queue, any shortfall between what
+    ///      the queue claims and what the engine actually holds.
+    ///
+    ///  ── IDEMPOTENT AND ORDER-INDEPENDENT BY CONSTRUCTION (red-team NB) ────
+    ///  This takes no user argument and touches no per-user state: it scales the
+    ///  single index every claim is measured in. Two consequences the previous
+    ///  per-user write-down could not deliver:
+    ///
+    ///    - IDEMPOTENT. After it runs, `pendingEth() <= engine.totalEth()` (the
+    ///      new index is floor(index * backing / claims), so the rescaled total
+    ///      cannot exceed `backing`), which is exactly the early-return condition
+    ///      on the next call. Call it once or ten thousand times: same state.
+    ///    - ORDER-INDEPENDENT. There is no per-user step to order. Every
+    ///      claimant's entitlement is `units * index`, and `units` is the
+    ///      unchanging nominal they queued. Equal claims are paid equally no
+    ///      matter who called what, when, or how often.
+    ///
+    ///  The pro-rata rule itself is unchanged — see {_haircut}, which is applied
+    ///  to the INDEX here instead of to one victim's balance.
+    function _syncEthQueue() private {
+        uint256 units = ethQueueUnits;
+        if (units == 0) return;
+        uint256 idx = ethQueueIndex;
+        uint256 claims = FullMath.mulDiv(units, idx, QSCALE);
+        uint256 backing = engine.totalEth();
+        if (claims != 0 && backing >= claims) return;          // fully backed
+        uint256 newIdx = claims == 0 ? 0 : _haircut(idx, backing, claims);
+        if (newIdx == 0) {
+            //  Nothing the engine holds can pay anyone: retire the whole queue so
+            //  it stops blocking {deposit} and {hasStakers} (red-team R2B/R2C).
+            //  The epoch bump invalidates every per-user unit balance in O(1).
+            ethQueueUnits = 0;
+            ethQueueIndex = QSCALE;
+            unchecked { ethQueueEpoch++; }
+            emit QueueWrittenDown(false, claims, QSCALE);
+            return;
+        }
+        ethQueueIndex = newIdx;
+        emit QueueWrittenDown(false, claims - backing, newIdx);
+    }
+
+    /// @notice Permissionlessly recognise the ETH queue's write-down. Pays nobody.
+    ///
+    ///  ── ONE HOLDOUT MUST NOT LATCH THE DEPOSIT GATE (red-team R2C) ────────
+    ///  `pendingEth` used to shrink ONLY inside {claimPendingEth}, and only for
+    ///  `msg.sender`'s own entry. After a death-settle write-off the queue's
+    ///  nominal outran `engine.totalEth()`, so {deposit}'s `QueueInsolvent` guard
+    ///  shut the ETH side — and the only key was held by a claimant who forfeited
+    ///  almost nothing by never turning it (measured: refusing cost the holdout
+    ///  0.001 ETH of a 10 ETH claim while shutting deposits for everyone, for the
+    ///  life of the engine). Anyone may now turn it. `user` only names a queue
+    ///  entry to prune once it is worth nothing; the write-down itself is global,
+    ///  so aiming this at an address can neither help nor harm that address
+    ///  (red-team NB — it could, and that was a theft).
+    ///
+    ///  Deliberately does NOT transfer: a queued contract that reverts on
+    ///  receive() would otherwise re-create exactly the latch this closes.
+    function settlePendingEth(address user) external nonReentrant returns (uint256 stillOwed) {
+        _syncEthQueue();
+        stillOwed = pendingEthOf(user);
+        if (stillOwed == 0) _dropEthUnits(user);
+    }
+
     /// @notice Claim a previously-queued ETH exit as liquidity frees up.
+    ///
+    ///  Banks the queue-wide write-down first (see {_syncEthQueue}) rather than
+    ///  reverting it away: a worthless claim must be recognised as worthless, or
+    ///  `pendingEth` can never reach zero and {deposit} stays shut for good
+    ///  (red-team H-2 / Jb — both of those reverts are now returns).
     function claimPendingEth() external nonReentrant returns (uint256 paid) {
-        uint256 owed = pendingEthOf[msg.sender];
-        if (owed == 0) revert ZeroAmount();
-        //  Share any shortfall across the whole queue before paying (see {_haircut}).
-        uint256 capped = _haircut(owed, engine.totalEth(), pendingEth);
-        if (capped < owed) { pendingEth -= (owed - capped); pendingEthOf[msg.sender] = capped; owed = capped; }
-        //  ── THE WRITE-DOWN HAS TO SURVIVE THE CALL (red-team H-2) ─────────
-        //  This was `revert ZeroAmount()`, which rolled back the two assignments
-        //  on the line above. A queue standing against ZERO backing therefore
-        //  kept its full nominal forever: `pendingEth` could never reach zero,
-        //  the side could never be drained, and the invariant documented at
-        //  :86-90 was a property the code could not deliver. Returning banks the
-        //  zero instead, so a worthless claim is recognised as worthless and the
-        //  vault can be emptied and reopened in the new quote.
-        if (owed == 0) { emit ClaimEth(msg.sender, 0); return 0; }
+        if (pendingEthOf(msg.sender) == 0) revert ZeroAmount();
+        _syncEthQueue();
+        uint256 owed = pendingEthOf(msg.sender);
+        if (owed == 0) { _dropEthUnits(msg.sender); emit ClaimEth(msg.sender, 0); return 0; }
         uint256 free = engine.freeEth();
         paid = owed <= free ? owed : free;
-        if (paid == 0) revert ZeroAmount();
-        pendingEthOf[msg.sender] = owed - paid;
-        pendingEth -= paid;
+        if (paid == 0) { emit ClaimEth(msg.sender, 0); return 0; }
+        if (paid >= owed) {
+            _dropEthUnits(msg.sender);
+        } else {
+            uint256 du = FullMath.mulDiv(paid, QSCALE, ethQueueIndex);
+            uint256 u = _ethUnitsOf[msg.sender];
+            if (du > u) du = u;
+            _ethUnitsOf[msg.sender] = u - du;
+            ethQueueUnits -= du;
+        }
         engine.withdrawPlvTo(paid, msg.sender);
         emit ClaimEth(msg.sender, paid);
     }
@@ -430,14 +556,32 @@ contract PerpVault is ReentrancyGuard {
             if (sh == 0) {
                 emit UnattributedYield(cum - last);
             } else {
-                uint256 cut = pulled + lost;       // the cum level the write-off ate up to
-                if (lost != 0 && cut > last && cut < cum) {
+                //  ── THE BOUNDARY IS `>=`, NOT `>` (red-team Ja) ───────────
+                //  `cut` is the cumulative level the write-off ate up to. When the
+                //  vault happened to be synced AT the rotation, `last` already sat
+                //  exactly there, so `cut > last` was false, the split never ran,
+                //  and the `else` stamped {epochAcc} at the TOP of the fold —
+                //  ABOVE the post-rotation accrual. Every wei of fully-backed NEW
+                //  yield was then forfeited on the owner's next interaction and
+                //  left stranded in the engine's pot with no claimant. Measured in
+                //  Ja_VaultEpochOverForfeit: 2 ETH credited after the write-off,
+                //  0 ETH claimable.
+                //
+                //  `cut` is always within `[last, cum]` — it cannot precede what is
+                //  already folded, and it cannot exceed what has been credited —
+                //  so clamp it and let the SPLIT be the only shape. `cut == last`
+                //  then folds nothing before the line (correct: it is already
+                //  there) and `cut == cum` folds nothing after it (correct: no new
+                //  yield). Both boundaries fall out instead of being special cases.
+                uint256 cut = pulled + lost;
+                if (cut < last) cut = last;
+                if (cut > cum) cut = cum;
+                if (lost != 0) {
                     accEthPerTokShare += FullMath.mulDiv(cut - last, ACC, sh);
                     epochAcc = accEthPerTokShare;  // the forfeit line
                     accEthPerTokShare += FullMath.mulDiv(cum - cut, ACC, sh);
                 } else {
                     accEthPerTokShare += FullMath.mulDiv(cum - last, ACC, sh);
-                    if (lost != 0) epochAcc = accEthPerTokShare;
                 }
             }
         } else if (lost != 0) {
@@ -478,6 +622,16 @@ contract PerpVault is ReentrancyGuard {
     ///         that, you earn ETH from short-side fees (claim via {claimTokYield}).
     function depositToken(uint256 amount) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert ZeroAmount();
+        //  ── NO NEW MONEY INTO AN INSOLVENT TOKEN QUEUE (red-team R2B) ──────
+        //  The ETH side has refused this since T3a (`:274`); the token side did
+        //  not, and the asymmetry was not cosmetic. {assetsTok} saturates at zero
+        //  (`:241`), so once `pendingTok` outruns the engine's inventory a fresh
+        //  staker mints against the 1-wei OFFSET base and his ENTIRE principal is
+        //  handed to the stale queue by {_haircut}. Measured: 100e18 in, 100e18
+        //  straight out to a queue that was already worthless, 0 redeemable.
+        //  Release is permissionless and needs no cooperation from the queue:
+        //  {settlePendingToken} banks the write-down for any queued address.
+        if (pendingTok() > engine.totalTokenAssets()) revert QueueInsolvent();
         address tok = registry.currentToken();
         _syncTokYield(); _settleTok(msg.sender);      // bank rewards at old share count
         shares = FullMath.mulDiv(amount, tokShares + OFFSET, assetsTok() + 1);
@@ -520,27 +674,91 @@ contract PerpVault is ReentrancyGuard {
         tokShareOf[msg.sender] = bal - shares;
         tokShares -= shares;
         _resetTokDebt(msg.sender);                    // rebase baseline to new count
-        if (queued > 0) {
-            pendingTok += queued;
-            pendingTokOf[msg.sender] += queued;
-        }
+        if (queued > 0) _queueTok(msg.sender, queued);
         if (paid > 0) engine.withdrawPlvTokenTo(paid, msg.sender);
         emit WithdrawTok(msg.sender, shares, paid, queued);
     }
 
+    /// @notice Total token nominal owed to queued exits (view; see {pendingEth}).
+    function pendingTok() public view returns (uint256) {
+        return FullMath.mulDiv(tokQueueUnits, tokQueueIndex, QSCALE);
+    }
+    /// @notice `user`'s queued token exit, at the live index.
+    function pendingTokOf(address user) public view returns (uint256) {
+        if (_tokEpochOf[user] != tokQueueEpoch) return 0;
+        return FullMath.mulDiv(_tokUnitsOf[user], tokQueueIndex, QSCALE);
+    }
+
+    /// @dev Token twin of {_queueEth}.
+    function _queueTok(address user, uint256 amount) private {
+        uint256 u = FullMath.mulDiv(amount, QSCALE, tokQueueIndex);
+        if (_tokEpochOf[user] != tokQueueEpoch) { _tokEpochOf[user] = tokQueueEpoch; _tokUnitsOf[user] = 0; }
+        _tokUnitsOf[user] += u;
+        tokQueueUnits += u;
+    }
+
+    /// @dev Token twin of {_dropEthUnits}.
+    function _dropTokUnits(address user) private {
+        uint256 u = _tokUnitsOf[user];
+        if (u == 0) return;
+        _tokUnitsOf[user] = 0;
+        if (_tokEpochOf[user] == tokQueueEpoch) tokQueueUnits -= u;
+    }
+
+    /// @dev Token twin of {_syncEthQueue} — one global, idempotent, order-free
+    ///      write-down. Same reasoning; see that function's note.
+    function _syncTokQueue() private {
+        uint256 units = tokQueueUnits;
+        if (units == 0) return;
+        uint256 idx = tokQueueIndex;
+        uint256 claims = FullMath.mulDiv(units, idx, QSCALE);
+        uint256 backing = engine.totalTokenAssets();
+        if (claims != 0 && backing >= claims) return;
+        uint256 newIdx = claims == 0 ? 0 : _haircut(idx, backing, claims);
+        if (newIdx == 0) {
+            tokQueueUnits = 0;
+            tokQueueIndex = QSCALE;
+            unchecked { tokQueueEpoch++; }
+            emit QueueWrittenDown(true, claims, QSCALE);
+            return;
+        }
+        tokQueueIndex = newIdx;
+        emit QueueWrittenDown(true, claims - backing, newIdx);
+    }
+
+    /// @notice Token twin of {settlePendingEth} — permissionless, pays nobody.
+    function settlePendingToken(address user) external nonReentrant returns (uint256 stillOwed) {
+        _syncTokQueue();
+        stillOwed = pendingTokOf(user);
+        if (stillOwed == 0) _dropTokUnits(user);
+    }
+
     /// @notice Claim a previously-queued token exit as inventory frees up.
+    ///
+    ///  ── THE TOKEN PATH MIRRORS THE ETH PATH (red-team R2B) ────────────────
+    ///  Both branches below used to `revert ZeroAmount()`, which rolled back the
+    ///  haircut banked one line up — the exact defect the ETH side had closed and
+    ///  never propagated here. Once token backing fell under `pendingTok` the
+    ///  token queue could never shrink: `hasStakers()` stayed true forever, so
+    ///  {PerpEngine.setVault} could never replace a buggy vault for the life of
+    ///  the engine. Bank the write-down and return, exactly as {claimPendingEth}.
     function claimPendingToken() external nonReentrant returns (uint256 paid) {
-        uint256 owed = pendingTokOf[msg.sender];
-        if (owed == 0) revert ZeroAmount();
-        //  Same pro-rata write-down as the ETH side (see {_haircut}).
-        uint256 capped = _haircut(owed, engine.totalTokenAssets(), pendingTok);
-        if (capped < owed) { pendingTok -= (owed - capped); pendingTokOf[msg.sender] = capped; owed = capped; }
-        if (owed == 0) revert ZeroAmount();
+        if (pendingTokOf(msg.sender) == 0) revert ZeroAmount();
+        _syncTokQueue();
+        uint256 owed = pendingTokOf(msg.sender);
+        if (owed == 0) { _dropTokUnits(msg.sender); emit ClaimTok(msg.sender, 0); return 0; }
         uint256 free = engine.freeToken();
         paid = owed <= free ? owed : free;
-        if (paid == 0) revert ZeroAmount();
-        pendingTokOf[msg.sender] = owed - paid;
-        pendingTok -= paid;
+        if (paid == 0) { emit ClaimTok(msg.sender, 0); return 0; }
+        if (paid >= owed) {
+            _dropTokUnits(msg.sender);
+        } else {
+            uint256 du = FullMath.mulDiv(paid, QSCALE, tokQueueIndex);
+            uint256 u = _tokUnitsOf[msg.sender];
+            if (du > u) du = u;
+            _tokUnitsOf[msg.sender] = u - du;
+            tokQueueUnits -= du;
+        }
         engine.withdrawPlvTokenTo(paid, msg.sender);
         emit ClaimTok(msg.sender, paid);
     }
@@ -554,7 +772,7 @@ contract PerpVault is ReentrancyGuard {
         redeemable = FullMath.mulDiv(s, assetsEth() + 1, ethShares + OFFSET);
         uint256 free = engine.freeEth();
         instant = redeemable <= free ? redeemable : free;
-        pending = pendingEthOf[user];
+        pending = pendingEthOf(user);
     }
     /// @notice Token currently redeemable for `user`'s shares + instant portion.
     function tokenPosition(address user) external view returns (uint256 redeemable, uint256 instant, uint256 pending) {
@@ -562,20 +780,52 @@ contract PerpVault is ReentrancyGuard {
         redeemable = FullMath.mulDiv(s, assetsTok() + 1, tokShares + OFFSET);
         uint256 free = engine.freeToken();
         instant = redeemable <= free ? redeemable : free;
-        pending = pendingTokOf[user];
+        pending = pendingTokOf(user);
     }
     /// @notice A token staker's accrued short-side ETH reward, claimable now
     ///         (includes yield not yet folded into the accumulator).
     function pendingTokYield(address user) external view returns (uint256) {
         uint256 acc = accEthPerTokShare;
+        uint256 eAcc = epochAcc;
+        uint32 ep = yieldEpoch;
         uint256 cum = engine.tokYieldCumulative();
+        uint256 pulled = totalTokYieldPulled;
+        uint256 lost;
+        { uint256 backed = engine.tokYieldEth() + pulled;
+          lost = cum > backed ? cum - backed : 0; }
+        uint256 last = lastTokYieldCum;
+        uint256 shTot = tokShares;
         // Mirrors _syncTokYield exactly: at zero shares the delta is unattributed and
         // is NOT credited to anyone, so the view must not promise it either (H-05).
-        if (cum > lastTokYieldCum && tokShares > 0) acc += FullMath.mulDiv(cum - lastTokYieldCum, ACC, tokShares);
+        //  ── AND IT MIRRORS THE WRITE-OFF TOO (red-team T3b) ────────────────
+        //  A view that reported the pre-write-off nominal while {claimTokYield}
+        //  paid the post-write-off one would be the same lie the bug was, moved
+        //  into the UI. Same detector, same split fold, same epoch line.
+        if (cum != last) {
+            if (shTot != 0) {
+                uint256 cut = pulled + lost;        // same clamp+split as _syncTokYield
+                if (cut < last) cut = last;
+                if (cut > cum) cut = cum;
+                if (lost != 0) {
+                    acc += FullMath.mulDiv(cut - last, ACC, shTot);
+                    eAcc = acc;
+                    acc += FullMath.mulDiv(cum - cut, ACC, shTot);
+                } else {
+                    acc += FullMath.mulDiv(cum - last, ACC, shTot);
+                }
+            }
+        } else if (lost != 0) {
+            eAcc = acc;
+        }
+        if (lost != 0) ep++;                       // the bump the next sync will make
+
         uint256 sh = tokShareOf[user];
+        uint256 owed = tokRewardOwed[user];
+        uint256 debt = tokRewardDebt[user];
+        if (stakerEpoch[user] != ep) { owed = 0; debt = FullMath.mulDiv(sh, eAcc, ACC); }
         uint256 earned;
-        if (sh > 0) { uint256 a = FullMath.mulDiv(sh, acc, ACC); if (a > tokRewardDebt[user]) earned = a - tokRewardDebt[user]; }
-        return tokRewardOwed[user] + earned;
+        if (sh > 0) { uint256 a = FullMath.mulDiv(sh, acc, ACC); if (a > debt) earned = a - debt; }
+        return owed + earned;
     }
 
     // ── internal ERC20 helpers ────────────────────────────────────────────────

@@ -33,9 +33,24 @@ const which = (process.env.DEPLOYMENT ?? "sepolia").trim().toLowerCase();
 //  deployment and infers as `never[]`, which is assignable either way.
 const round: typeof sepolia = which === "arc" ? (arc as typeof sepolia) : sepolia;
 
-if (which === "arc" && Number(round.chainId) !== 5042002) {
+//  The guard used to fire ONLY for DEPLOYMENT=arc, so a `round.json` repointed
+//  at any other chain (the mainnet cutover repoints exactly that file) was
+//  accepted with no chain check at all. Assert the selected slot's chain id
+//  against what DEPLOYMENT claims, for every slot.
+const EXPECTED_CHAIN: Record<string, number> = { arc: 5042002 };
+const expected = EXPECTED_CHAIN[which];
+if (expected != null && Number(round.chainId) !== expected) {
   throw new Error(
-    `DEPLOYMENT=arc selected a manifest for chain ${round.chainId} — refusing to index the wrong chain`,
+    `DEPLOYMENT=${which} selected a manifest for chain ${round.chainId} (expected ${expected}) — refusing to index the wrong chain`,
+  );
+}
+//  CHAIN_ID, when set, is the operator's explicit statement of which chain this
+//  service indexes. Disagreeing with the manifest is a misconfiguration that
+//  would otherwise surface as "wrong data served confidently".
+const declared = Number(process.env.CHAIN_ID ?? "");
+if (Number.isSafeInteger(declared) && declared > 0 && declared !== Number(round.chainId)) {
+  throw new Error(
+    `CHAIN_ID=${declared} but the selected manifest pins chain ${round.chainId} — refusing to index the wrong chain`,
   );
 }
 
