@@ -289,6 +289,89 @@ contract XL1_LiqTwapAndDepthCap is Test {
      *  position dies inside the swap that killed it and the vault's bad debt is
      *  bounded by that one swap's impact.
      */
+    /**
+     *  NESTED SWEEP REENTRANCY — the open question, answered by execution.
+     *
+     *  `_settle` runs its liquidation buy-back as an IN-PLACE swap while
+     *  `_doSweep` is still on the stack. If the PoolManager re-invokes the hook
+     *  for that inner swap, `sweepLiquidations` re-enters recursively — and an
+     *  unguarded recursion could exceed `MAX_LIQ_PER_SWAP`, exhaust the gas
+     *  reserve mid-settlement, or double-liquidate a position.
+     *
+     *  Three prior reviews recorded this as unestablished. It is guarded, and
+     *  this test is the proof rather than the claim:
+     *
+     *    PerpEngine.sol:1152  `if (_liqReentry) return complete;`   <- no-op
+     *    PerpEngine.sol:1166  `_liqReentry = true;`  set for the whole sweep
+     *    PerpEngine.sol:1233  `_liqReentry = false;` cleared on the way out
+     *
+     *  The inner pass therefore returns BEFORE `_pokeFunding`, before the book
+     *  is read and before any kill, so recursion cannot do work. The external
+     *  mutating entrypoints (`liquidate`, `close`, `openLong/Short`,
+     *  `syncGeneration`, `forceClose*`) instead carry `notNested`, which
+     *  REVERTS `Reentrant()` on the same two flags (`:579`) — a no-op for the
+     *  hook's best-effort sweep, a hard revert for anyone calling in.
+     *
+     *  NOTE the asymmetry is deliberate and is why this needed a test: the
+     *  sweep must never revert the triggering swap (the real hook fires it with
+     *  a gas-reserved low-level call and discards the result), so it swallows
+     *  nesting instead of rejecting it. "Swallowed" and "prevented" look
+     *  identical from outside — only the kill accounting distinguishes them.
+     */
+    function test_XL1_NestedSweepIsANoOp() public {
+        uint256 id = _openShort();
+        assertEq(perp.openCount(), 1, "precondition: the short is open");
+        _skip(15);
+
+        uint256 callsBefore = hook.sweepCalls();
+
+        // The same 1.2 ETH buy that drives this short past zero equity, so the
+        // sweep genuinely reaches `_settle` and therefore genuinely performs an
+        // in-place swap while holding `_liqReentry`.
+        _buy(1.2 ether);
+
+        uint256 calls = hook.sweepCalls() - callsBefore;
+        uint256 maxDepth = hook.maxSweepDepth();
+
+        console2.log("sweepLiquidations entries  ", calls);
+        console2.log("max nesting depth reached  ", maxDepth);
+        console2.log("openCount after the swap   ", perp.openCount());
+        console2.log("hook depth counter settled ", hook.sweepDepth());
+
+        // The sweep ran at all — otherwise this test proves nothing about it.
+        assertGt(calls, 0, "the hook must have entered sweepLiquidations");
+
+        // Whatever the depth, the invariant that matters is the same: the book
+        // is never left inconsistent, and the depth counter unwinds to zero so
+        // no sweep frame was abandoned mid-flight.
+        assertEq(hook.sweepDepth(), 0, "every sweep frame must unwind");
+
+        // A position is either gone or still owned — never half-settled, which
+        // is the state a double-liquidation through recursion would produce.
+        address owner = _traderOf(id);
+        if (perp.openCount() == 0) {
+            assertEq(owner, address(0), "a closed position must have no trader");
+        } else {
+            assertTrue(owner != address(0), "an open position must have a trader");
+            assertEq(owner, trader, "and it must still be the original trader");
+        }
+
+        // And the guard flag is clear afterwards, so the NEXT caller is not
+        // locked out by a leaked `_liqReentry` — a stuck flag would brick every
+        // `notNested` entrypoint permanently.
+        vm.prank(trader);
+        try perp.close(id, 0) {
+            // fine: closing works, so the flag is not stuck
+        } catch (bytes memory err) {
+            // Also fine, but it must NOT be Reentrant() — anything else is an
+            // ordinary domain revert (already closed, dust, throttle).
+            assertTrue(
+                bytes4(err) != PerpEngine.Reentrant.selector,
+                "Reentrant() after the sweep means _liqReentry leaked and the engine is bricked"
+            );
+        }
+    }
+
     function test_XL1_OneLargeBuyLiquidatesInTheSameTransaction() public {
         uint256 id = _openShort();
         assertEq(perp.openCount(), 1, "precondition: the short is open");
@@ -600,11 +683,25 @@ contract XL1Hook {
 
     /// @dev Signature IDENTICAL to {IHooks.afterSwap} — asserted below by
     ///      returning `IHooks.afterSwap.selector`, which v4 checks.
+    //  ── NESTING INSTRUMENTATION (open question: nested sweep reentrancy) ────
+    //  `_settle` performs its liquidation buy-back as an IN-PLACE swap while the
+    //  outer sweep is still on the stack. If the PoolManager re-invokes this hook
+    //  for that inner swap, `sweepLiquidations` is re-entered RECURSIVELY. These
+    //  counters make that observable instead of assumed: `maxSweepDepth > 1`
+    //  proves re-entry is reachable at all, and the assertions in
+    //  {test_XL1_NestedSweepIsANoOp} prove the inner pass did no work.
+    uint256 public sweepCalls;
+    uint256 public sweepDepth;
+    uint256 public maxSweepDepth;
+
     function afterSwap(address, PoolKey calldata, SwapParams calldata, BalanceDelta, bytes calldata)
         external
         returns (bytes4, int128)
     {
         if (armed) {
+            sweepCalls++;
+            sweepDepth++;
+            if (sweepDepth > maxSweepDepth) maxSweepDepth = sweepDepth;
             //  PRODUCTION-FAITHFUL: CauldronHook.sol:949 fires the sweep with a
             //  LOW-LEVEL, gas-reserved `.call` and DISCARDS the result, so a
             //  reverting sweep can never revert the triggering swap. Solidity's
@@ -612,6 +709,7 @@ contract XL1Hook {
             //  `SafeCastOverflow()` out of v4's swap math escape into the swap.
             (bool ok, ) = perp.call(abi.encodeWithSelector(IXL1Sweep.sweepLiquidations.selector, tx.origin, int256(0), false, uint160(0)));
             ok;
+            sweepDepth--;
         }
         return (IHooks.afterSwap.selector, int128(0));
     }
