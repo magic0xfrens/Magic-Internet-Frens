@@ -14,7 +14,16 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  */
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+  //  This body is a CONSTANT — it has no token id, no chain read, and no state.
+  //  It was cached for a day, which still let every CDN edge re-fetch it daily
+  //  per region, per collection, forever. As the `tokenURI` of every unrevealed
+  //  token in every brew it is fetched by every marketplace, wallet and indexer
+  //  that ever sees one, with no user of ours involved: that billed 2.1M edge
+  //  requests in a month against a site with no real visitors. A year with
+  //  `immutable` is the honest TTL for a value that cannot change — and if the
+  //  copy below ever needs to change, the answer is a new URI via
+  //  {CauldronCollection.setUnrevealedURI}, not a short TTL on every request.
+  res.setHeader("Cache-Control", "public, s-maxage=31536000, max-age=31536000, immutable");
   res.status(200).json({
     name: "Sealed Crystal",
     description:

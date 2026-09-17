@@ -206,7 +206,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const read = client.readContract as unknown as (a: Record<string, unknown>) => Promise<unknown>;
     const isRevealed = (await read({ address: col, abi: COLLECTION_ABI, functionName: "revealed", args: [tokenId] })) as boolean;
     if (!isRevealed) {
-      res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+      //  A SEALED TOKEN IS THE COMMON CASE, AND IT IS PER-TOKEN.
+      //  This branch used `s-maxage=15`, so every unrevealed token was re-fetched
+      //  up to four times a minute, forever, by every marketplace watching it —
+      //  unbounded in the number of sealed tokens and charged per request. The 15s
+      //  was buying a fast flip to the revealed art after `reveal(tokenId)`, which
+      //  is worth having but not at that price: `stale-while-revalidate` already
+      //  gives an instant answer while the next one refreshes behind it, and
+      //  marketplaces re-pull metadata on transfer anyway. Five minutes to show
+      //  freshly-revealed art is a fair trade for ~20x fewer requests.
+      res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
       return res.status(200).json({
         name: `Sealed Crystal #${idRaw}`,
         description: "This crystal has not been cracked yet. Open it to reveal the creature sealed inside.",

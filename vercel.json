@@ -24,7 +24,18 @@
         ]
       },
       {
-        "source": "/((?!assets/)(?!.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)$).*)",
+        "//": "The API keeps every security header the catch-all applies, and ONLY loses the Cache-Control override. Listed separately rather than left to the catch-all so that the omission of Cache-Control here is visibly deliberate: each handler sets its own, because only it knows whether the body is immutable (a revealed creature's traits) or transient (a chain read that failed).",
+        "source": "/api/(.*)",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
+          { "key": "Referrer-Policy", "value": "no-referrer" }
+        ]
+      },
+      {
+        "//": "`(?!api/)` matters and was missing. This rule matched /api/* too — no file extension, not under assets/ — and stamped `no-cache, must-revalidate` on every API response, overriding the Cache-Control each handler sets for itself. So the NFT metadata routes were uncacheable no matter what they asked for: no CDN in front could hold them, and every marketplace and wallet fetch reached the function. That is the shape of 2.1M edge requests against a site with no real visitors. The API keeps its security headers below; only the cache decision goes back to the handler, which is the only thing that knows whether a body is immutable (a revealed creature) or transient (an unresolved read).",
+        "source": "/((?!api/)(?!assets/)(?!.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)$).*)",
         "headers" : [
           {
             "key": "Cache-Control",
