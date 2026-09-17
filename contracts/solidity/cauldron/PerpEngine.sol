@@ -598,15 +598,27 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      ERC20 quote sorts against a CREATE-deployed token and may land
     ///      either side. Building the key with the quote pinned to currency0
     ///      would produce a key that hashes to a pool which does not exist.
+    /// @dev EIP-170: one copy of each registry read instead of one per call site.
+    function _tok() internal view returns (address) { return registry.currentToken(); }
+    function _gq(uint256 g) internal view returns (address) { return registry.generationQuote(g); }
+    /// @dev EIP-170: one copy of the `balanceOf(address)` read. The ERC721 and the
+    ///      ERC20 share that selector and its `uint256` return, so both callers use it.
+    function _bal(address t, address who) internal view returns (uint256) { return IERC20(t).balanceOf(who); }
+    function _liq() internal view returns (uint128) { return poolManager.getLiquidity(_pid()); }
+    function _col() internal view returns (address) { return IPerpHook(hookAddr).collection(); }
+    function _gen() internal view returns (uint256) { return registry.currentGeneration(); }
+
     function _key() internal view returns (PoolKey memory) {
         address q = quote;
-        address t = registry.currentToken();
+        address t = _tok();
         (address c0, address c1) = q < t ? (q, t) : (t, q);
         return PoolKey({currency0: Currency.wrap(c0), currency1: Currency.wrap(c1),
             fee: POOL_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(hookAddr)});
     }
     function _pid() internal view returns (PoolId) { return _key().toId(); }
-    function _sqrtP() internal view returns (uint160 s) { (s,,,) = poolManager.getSlot0(_pid()); }
+    /// @dev EIP-170: one copy of the slot0 read, shared by {_sqrtP} and {_currentTick}.
+    function _slot0() internal view returns (uint160 s, int24 t) { (s, t,,) = poolManager.getSlot0(_pid()); }
+    function _sqrtP() internal view returns (uint160 s) { (s, ) = _slot0(); }
 
     /// @notice Optional liquidity-weighted mark across the generation's pools.
     ///         Zero = read the primary pool's tick (the original behaviour).
@@ -713,7 +725,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             }
             if (ok) return int24(v);
         }
-        (, t,,) = poolManager.getSlot0(_pid());
+        (, t) = _slot0();
     }
 
     // ── TWAP oracle ──────────────────────────────────────────────────────
@@ -853,10 +865,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
 
     function activeEthDepth() public view returns (uint256) {
-        PoolId id = _pid();
         uint160 sp = _sqrtP();
         if (sp == 0) return 0;
-        return PerpSwapLib.ethDepth(poolManager.getLiquidity(id), sp);
+        return PerpSwapLib.ethDepth(_liq(), sp);
     }
 
     function maxLeverage() public view returns (uint8 lev) {
@@ -969,10 +980,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function openLong(uint8 leverage, uint256 minTokenOut, uint256 liqHint, uint256 amount)
         public payable nonReentrant notNested returns (uint256 id)
     {
-        if (amount == 0) revert ZeroValue();
-        _pullQuote(msg.sender, amount);
-        _guardOpen(leverage);
-        _pokeFunding();
+        _openPrologue(leverage, amount);
 
         uint256 collateral = _takeFee(amount, true);
         if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
@@ -1003,10 +1011,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function openShort(uint8 leverage, uint256 minEthOut, uint256 liqHint, uint256 amount)
         public payable nonReentrant notNested returns (uint256 id)
     {
-        if (amount == 0) revert ZeroValue();
-        _pullQuote(msg.sender, amount);
-        _guardOpen(leverage);
-        _pokeFunding();
+        _openPrologue(leverage, amount);
 
         uint256 collateral = _takeFee(amount, false);
         if (collateral < _q(minCollateral)) revert DustPosition(); // dust filter, in QUOTE units
@@ -1304,7 +1309,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///           3. resets the TWAP oracle for the new pool.
     ///         The ETH vault (plv) carries over untouched.
     function syncGeneration() external nonReentrant notNested {
-        uint256 gen = registry.currentGeneration();
+        uint256 gen = _gen();
         //  A ROTATION CHANGES THE QUOTE WITHOUT CHANGING THE GENERATION.
         //  This used to refuse on `gen == syncedGeneration` alone, which made a
         //  live quote rotation unfollowable: `quote` is assigned only below, so
@@ -1313,7 +1318,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  with no reachable call able to correct it until the next relaunch.
         //  Re-syncing on a quote change closes that, and costs nothing when the
         //  quote has not moved (the common case still reverts `AlreadySynced`).
-        address newQuote = registry.generationQuote(gen);
+        address newQuote = _gq(gen);
         if (gen == syncedGeneration && newQuote == quote) revert AlreadySynced();
         if (openCount != 0) revert PositionsOpen(); // force-close everything first
 
@@ -1330,8 +1335,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
         // Re-arm the token side to whatever the engine now actually holds of the
         // current token, and clear the stale per-token OI (already 0 via settles).
-        address newTok = registry.currentToken();
-        uint256 newInv = newTok != address(0) ? IERC20(newTok).balanceOf(address(this)) : 0;
+        address newTok = _tok();
+        uint256 newInv = newTok != address(0) ? _bal(newTok, address(this)) : 0;
         //  ── TRACK THE SHORTFALL, DO NOT PAPER OVER IT ─────────────────────
         //  This was a bare `plvToken = newInv`. The migration above is BEST-EFFORT,
         //  so when it brought nothing across, the LP's token principal was silently
@@ -1749,7 +1754,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  the mark cannot be the discriminator either — S08_A's backstop runs on
         //  a MEASURED mark-healthy victim condemned by spot alone.
         //  So the band applies to every settlement that can spend staker money.
-        uint160 band = mode != MODE_NORMAL
+        //  The LONG leg bands only on death (it SELLS — no staker capital is
+        //  spent to execute it); the SHORT leg bands on every non-NORMAL mode
+        //  (it BUYS, and that buy is the money {_absorbPlvLoss} can charge).
+        //  Folded into ONE predicate so the band is computed at ONE call site
+        //  and each leg uses it directly — identical behaviour, fewer bytes.
+        uint160 band = (p.isLong ? mode == MODE_DEATH : mode != MODE_NORMAL)
             ? PerpSwapLib.bandLimit(markSqrtPriceX96(), _sqrtP(), !p.isLong, quote < syncedToken)
             : 0;
 
@@ -1762,7 +1772,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  The long leg spends no staker capital to execute (it SELLS), so
             //  E1A's split band does not apply here: the band stays exactly the
             //  death-path bound it already was.
-            (uint256 sold, uint256 proceeds) = _swapExactIn(false, p.size, mode == MODE_DEATH ? band : 0);
+            (uint256 sold, uint256 proceeds) = _swapExactIn(false, p.size, band);
             _ownerFloor(ownerSlippage, proceeds, minOut);
             //  `sold <= p.size` by construction: this is an exact-INPUT sell of
             //  `p.size`, so v4 can never take more than was specified.
@@ -1948,7 +1958,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  paying currency0 in moves the pool price DOWN. `band` is 0 off the death
         //  path; {PerpSwapLib.closeLimit} then returns the budget bound unchanged.
         uint160 lim = PerpSwapLib.closeLimit(
-            _sqrtP(), poolManager.getLiquidity(_key().toId()), budget, quote < syncedToken, band
+            _sqrtP(), _liq(), budget, quote < syncedToken, band
         );
         (spent, got) = _run(SwapReq(true, true, tokenOut, lim));
     }
@@ -1990,6 +2000,15 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
+    /// @dev The opening prologue {openLong} and {openShort} shared byte for byte
+    ///      (EIP-170). Same order, same checks, same reverts.
+    function _openPrologue(uint8 leverage, uint256 amount) internal {
+        if (amount == 0) revert ZeroValue();
+        _pullQuote(msg.sender, amount);
+        _guardOpen(leverage);
+        _pokeFunding();
+    }
+
     function _guardOpen(uint8 leverage) internal view {
         //  TWO gates, one comparison (EIP-170). The SUMMON warmup, and — since a
         //  mid-generation quote rotation does not move `lastSummonAt` but
@@ -2048,8 +2067,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      *  the hook 37 bytes OVER EIP-170 and undeployable. This engine has room.
      */
     function _isDead() internal view returns (bool) {
-        uint256 gen = registry.currentGeneration();
-        if (quote != registry.generationQuote(gen)) return true;
+        uint256 gen = _gen();
+        if (quote != _gq(gen)) return true;
         //  GUARDED, AND IT FAILS BACK TO OUR OWN POOL. `_isDead` sits on every
         //  mutating path — open, close, liquidate, the in-swap sweep, and both
         //  force-close entrypoints — so an unguarded read here turns a registry
@@ -2066,7 +2085,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral) {
         uint256 fee = (sent * openFeeBps) / BPS;
-        if (mifrens.balanceOf(msg.sender) > 0) fee = (fee * (BPS - ogDiscountBps)) / BPS;
+        if (_bal(address(mifrens), msg.sender) > 0) fee = (fee * (BPS - ogDiscountBps)) / BPS;
         collateral = sent - fee;
         _routeFee(fee, longSide);
     }
@@ -2313,7 +2332,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  Converged: this is ordinary bookkeeping and belongs to the timelock.
             //  Diverged: this entry is what stands between the engine and recovery,
             //  so anyone may clear it — see the liveness note above.
-            if (quote == registry.generationQuote(registry.currentGeneration())) _checkOwner();
+            if (quote == _gq(_gen())) _checkOwner();
         }
         payoutOwed[to] = 0;                     // effects before interaction
         payoutOwedTotal -= amount;
@@ -2462,7 +2481,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  for a collection deployed before stats existed. It is a DELEGATECALL, so
         //  the collection still sees THIS ENGINE as `msg.sender`.
         if (gasleft() > 300_000) {
-            if (PerpSwapLib.tryMintBadge(IPerpHook(hookAddr).collection(), to, st)) minted = 1;
+            if (PerpSwapLib.tryMintBadge(_col(), to, st)) minted = 1;
         }
         if (minted == 0) { unchecked { badgesOwed[to] += 1; } }
         emit LiquidatoorAwarded(id, to, minted);
@@ -2475,7 +2494,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     function claimLiquidatorBadges(uint256 n) external nonReentrant {
         uint256 owed = badgesOwed[msg.sender];
         if (n == 0 || n > owed) n = owed; // n==0 (nothing owed) → the loop no-ops
-        address col = IPerpHook(hookAddr).collection();
+        address col = _col();
         // Mirror of the L-06 guard in _awardBadge: without this, a code-less
         // collection would let the loop "succeed" and BURN the owed count for
         // nothing. Revert instead so the badges stay claimable once one is wired.
@@ -2507,8 +2526,13 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///         permanent donation; use `PerpVault.depositToken` for recoverable
     ///         inventory. Caller must approve the token. (Audit L-02)
     function fundPlvToken(uint256 amount) external onlyOwner notNested {
-        IERC20(registry.currentToken()).transferFrom(msg.sender, address(this), amount);
-        plvToken += amount; emit PlvFunded(0, amount);
+        _pullTokenIn(amount); emit PlvFunded(0, amount);
+    }
+    /// @dev The token-side pull {fundPlvToken} and {fundTokenFromVault} shared byte
+    ///      for byte (EIP-170). Caller must have approved this engine.
+    function _pullTokenIn(uint256 amount) private {
+        IERC20(_tok()).transferFrom(msg.sender, address(this), amount);
+        plvToken += amount;
     }
     /// @notice Seed insurance directly (owner or anyone topping up the buffer).
     /// @notice Fund the insurance buffer (see fundPlv on the amount argument).
@@ -2621,15 +2645,14 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     }
     /// @notice The PerpVault routes a depositor's TOKEN into the short inventory.
     function fundTokenFromVault(uint256 amount) external onlyVault {
-        IERC20(registry.currentToken()).transferFrom(msg.sender, address(this), amount);
-        plvToken += amount; emit VaultFunded(false, amount);
+        _pullTokenIn(amount); emit VaultFunded(false, amount);
     }
     /// @notice The PerpVault pulls FREE token inventory (≤ plvToken) out to pay a
     ///         withdrawal. Lent inventory returns as shorts close.
     function withdrawPlvTokenTo(uint256 amount, address to) external onlyVault notNested nonReentrant {
         if (amount > plvToken) revert PlvInsufficient();
         plvToken -= amount;
-        _safeTransfer(registry.currentToken(), to, amount);
+        _safeTransfer(_tok(), to, amount);
         _vw(false, amount, to);
     }
 
