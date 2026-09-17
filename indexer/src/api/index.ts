@@ -12,6 +12,24 @@ import { FINALITY_BLOCKS } from "../../scripts/patch-ponder-finality.mjs";
 /** Ponder's own fallback when it does not know the chain — "assume a 2s block
  *  time", which is ~3 seconds of tolerance on a 0.1s chain. */
 const PONDER_DEFAULT_FINALITY = 30;
+/** What Ponder ACTUALLY uses for a chain our table does not override, quoted
+ *  from `node_modules/ponder/dist/esm/utils/finality.js` (0.11.44). Reporting a
+ *  flat 30 for every un-overridden chain was a number that could be wrong in
+ *  the dangerous direction: it made `reorgToleranceOk` compare the chain's real
+ *  finality distance against a tolerance Ponder was not running, so the beacon
+ *  could raise a permanent false 503 (or, on a chain where Ponder is more
+ *  generous than 30, miss a real one). `finalityBlockCount` is only worth
+ *  publishing if it is the number in force. */
+const PONDER_BUILTIN_FINALITY: Record<number, number> = {
+  1: 65, 3: 65, 4: 65, 5: 65, 42: 65, 11155111: 65,
+  137: 200, 80001: 200,
+  42161: 240, 42170: 240, 421611: 240, 421613: 240,
+};
+function ponderFinalityBlocks(chainId: number): number {
+  //  Our patch inserts at the HEAD of Ponder's switch, so an entry here wins
+  //  over Ponder's own — see indexer/scripts/patch-ponder-finality.mjs.
+  return FINALITY_BLOCKS[chainId] ?? PONDER_BUILTIN_FINALITY[chainId] ?? PONDER_DEFAULT_FINALITY;
+}
 import { rawToQuoteAmount } from "../quoteUnits";
 
 const app = new Hono();
@@ -1507,7 +1525,7 @@ async function evaluateHealth() {
     const finalizedHeight = finalizedBlk ? Number(finalizedBlk.number) : null;
     const finalityLagBlocks =
       chainHeight !== null && finalizedHeight !== null ? chainHeight - finalizedHeight : null;
-    const finalityBlockCount = FINALITY_BLOCKS[Number(round.chainId)] ?? PONDER_DEFAULT_FINALITY;
+    const finalityBlockCount = ponderFinalityBlocks(Number(round.chainId));
     //  `null` lag = the chain does not expose a `finalized` tag; we cannot prove
     //  the tolerance either way, so do not claim it is fine.
     const reorgToleranceOk = finalityLagBlocks === null ? null : finalityLagBlocks <= finalityBlockCount;
