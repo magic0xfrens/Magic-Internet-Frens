@@ -249,7 +249,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // The traits are a pure function of (collection, id, rarity), and rarity is
   // immutable once revealed — so this answer never changes. Cache it hard.
-  res.setHeader("Cache-Control", "public, s-maxage=31536000, immutable");
+  res.setHeader("Cache-Control", "public, s-maxage=31536000, max-age=31536000, immutable");
+  //  See unrevealed.ts: `s-maxage` alone is consumed by Vercel and never reaches
+  //  the CDN in front, so a revealed creature — whose traits are a pure function
+  //  of (collection, id, rarity) and can never change — was still being fetched
+  //  from the function on every request.
+  res.setHeader("CDN-Cache-Control", "public, s-maxage=31536000, immutable");
   res.status(200).json({
     name: `MagicFren #${idRaw}`,
     description:

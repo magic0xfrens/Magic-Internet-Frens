@@ -1,71 +1,105 @@
 {
-    "//": "cleanUrls + trailingSlash keep exactly ONE spelling of each URL live: /docs, never /docs/ or /docs/index.html. Any second spelling that answers 200 is a duplicate of a page we are trying to get indexed. Vercel checks the filesystem before applying `rewrites`, so the prerendered dist/docs/index.html wins over the SPA catch-all below.",
-    "cleanUrls": true,
-    "trailingSlash": false,
-    "rewrites": [
-      { "source": "/api/cauldron/creature/:rarity/:id", "destination": "/api/cauldron/creature?rarity=:rarity&id=:id" },
-      { "source": "/api/cauldron/liquidatoor/:id", "destination": "/api/cauldron/liquidatoor?id=:id" },
-      { "source": "/api/(.*)", "destination": "/api/$1" },
-      { "source": "/((?!api/)(?!(?:cauldrons|mi-frens|token|docs)(?:/|$)).*)", "destination": "/index.html" }
-    ],
-    "headers": [
-      {
-        "source": "/assets/(.*)",
-        "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
-        ]
-      },
-      {
-        "source": "/(.*)\\.(svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)",
-        "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
-        ]
-      },
-      {
-        "//": "The API keeps every security header the catch-all applies, and ONLY loses the Cache-Control override. Listed separately rather than left to the catch-all so that the omission of Cache-Control here is visibly deliberate: each handler sets its own, because only it knows whether the body is immutable (a revealed creature's traits) or transient (a chain read that failed).",
-        "source": "/api/(.*)",
-        "headers": [
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "X-Frame-Options", "value": "DENY" },
-          { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
-          { "key": "Referrer-Policy", "value": "no-referrer" }
-        ]
-      },
-      {
-        "//": "`(?!api/)` matters and was missing. This rule matched /api/* too — no file extension, not under assets/ — and stamped `no-cache, must-revalidate` on every API response, overriding the Cache-Control each handler sets for itself. So the NFT metadata routes were uncacheable no matter what they asked for: no CDN in front could hold them, and every marketplace and wallet fetch reached the function. That is the shape of 2.1M edge requests against a site with no real visitors. The API keeps its security headers below; only the cache decision goes back to the handler, which is the only thing that knows whether a body is immutable (a revealed creature) or transient (an unresolved read).",
-        "source": "/((?!api/)(?!assets/)(?!.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)$).*)",
-        "headers" : [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, must-revalidate"
-          },
-          {
-            "key" : "X-Content-Type-Options",
-            "value" : "nosniff"
-          },
-          {
-            "key" : "X-Frame-Options",
-            "value" : "DENY"
-          },
-          {
-            "key" : "X-XSS-Protection",
-            "value" : "1; mode=block"
-          },
-          {
-            "key" : "Content-Security-Policy",
-            "value" : "frame-ancestors 'none'"
-          },
-          {
-            "key" : "Referrer-Policy",
-            "value" : "no-referrer"
-          },
-          {
-            "key" : "Permissions-Policy",
-            "value" : "geolocation=(), microphone=()"
-          }
-        ]
-      }
-    ]
+  "//": "cleanUrls + trailingSlash keep exactly ONE spelling of each URL live: /docs, never /docs/ or /docs/index.html. Any second spelling that answers 200 is a duplicate of a page we are trying to get indexed. Vercel checks the filesystem before applying `rewrites`, so the prerendered dist/docs/index.html wins over the SPA catch-all below.  API CACHING: The API keeps every security header the catch-all applies, and ONLY loses the Cache-Control override. Listed separately rather than left to the catch-all so that the omission of Cache-Control here is visibly deliberate: each handler sets its own, because only it knows whether the body is immutable (a revealed creature's traits) or transient (a chain read that failed). `(?!api/)` matters and was missing. This rule matched /api/* too \u2014 no file extension, not under assets/ \u2014 and stamped `no-cache, must-revalidate` on every API response, overriding the Cache-Control each handler sets for itself. So the NFT metadata routes were uncacheable no matter what they asked for: no CDN in front could hold them, and every marketplace and wallet fetch reached the function. That is the shape of 2.1M edge requests against a site with no real visitors. The API keeps its security headers below; only the cache decision goes back to the handler, which is the only thing that knows whether a body is immutable (a revealed creature) or transient (an unresolved read).",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/api/cauldron/creature/:rarity/:id",
+      "destination": "/api/cauldron/creature?rarity=:rarity&id=:id"
+    },
+    {
+      "source": "/api/cauldron/liquidatoor/:id",
+      "destination": "/api/cauldron/liquidatoor?id=:id"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/((?!api/)(?!(?:cauldrons|mi-frens|token|docs)(?:/|$)).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/((?!api/)(?!assets/)(?!.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|json|txt|xml)$).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=()"
+        }
+      ]
+    }
+  ]
 }

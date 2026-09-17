@@ -24,6 +24,13 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   //  copy below ever needs to change, the answer is a new URI via
   //  {CauldronCollection.setUnrevealedURI}, not a short TTL on every request.
   res.setHeader("Cache-Control", "public, s-maxage=31536000, max-age=31536000, immutable");
+  //  `s-maxage` is consumed by Vercel's own edge and does NOT survive downstream:
+  //  measured live, this endpoint answered with a bare `cache-control: public`,
+  //  which is why Cloudflare — sitting IN FRONT of Vercel — reported
+  //  `cf-cache-status: DYNAMIC` and passed every request through. `max-age` above
+  //  and this explicit CDN directive are what the layer in front actually reads,
+  //  so the request stops at Cloudflare instead of reaching a function.
+  res.setHeader("CDN-Cache-Control", "public, s-maxage=31536000, immutable");
   res.status(200).json({
     name: "Sealed Crystal",
     description:
