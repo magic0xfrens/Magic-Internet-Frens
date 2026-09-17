@@ -226,7 +226,51 @@ contract L1_LaunchStops is Test {
     }
 
     // -----------------------------------------------------------------------
-    // 5. The absence proof — there is no SECOND stop to reach for
+    // 5. FINDING L1-C — the one per-actor cap does not actually cap
+    // -----------------------------------------------------------------------
+    /// `MAX_PER_WALLET` is tested against `balanceOf(msg.sender)`
+    /// (`MiFrensGenesis.sol:338`), which is a CURRENT HOLDING, not a lifetime
+    /// allowance. Parking the inventory in a second wallet resets it. No sybil
+    /// infrastructure is needed — this is one actor, one funding source, and the
+    /// cap is defeated by an ERC721 transfer that costs a few thousand gas.
+    ///
+    /// On 4663 (~100 ms blocks, `eth_maxPriorityFeePerGas` = 0, FCFS) the loop
+    /// below runs as fast as the sequencer accepts transactions.
+    function test_L1_PerWalletCapIsBypassableByTransferringOut() public {
+        MiFrensGenesis g =
+            new MiFrensGenesis("MiFrens", "MF", 1111, 2400, 0.05 ether, 1111, "ipfs://x/");
+        g.setMaxPerWallet(20);
+
+        address whale = makeAddr("whale2");
+        address sink = makeAddr("sink");
+        vm.deal(whale, 100 ether);
+
+        vm.startPrank(whale);
+
+        // The cap genuinely stops a 21st mint...
+        g.mint{value: 0.05 ether * 20}(20);
+        vm.expectRevert(MiFrensGenesis.PerWalletCap.selector);
+        g.mint{value: 0.05 ether}(1);
+
+        // ...until the same actor parks the inventory in a wallet he also owns.
+        for (uint256 i = 1; i <= 20; i++) {
+            g.transferFrom(whale, sink, i);
+        }
+        assertEq(g.balanceOf(whale), 0, "balanceOf reset by a transfer");
+
+        // The cap now grants him a whole fresh allocation.
+        g.mint{value: 0.05 ether * 20}(20);
+        vm.stopPrank();
+
+        assertEq(g.balanceOf(whale), 20, "second full allocation taken");
+        assertEq(g.balanceOf(sink), 20, "first allocation parked, still his");
+        assertEq(
+            g.minted(), 40, "FINDING L1-C: 40 minted by ONE actor under a cap of 20"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. The absence proof — there is no SECOND stop to reach for
     // -----------------------------------------------------------------------
     /// The registry is the only contract with any runtime stop at all, and its
     /// surface is exactly the three functions above. Anything a responder might
