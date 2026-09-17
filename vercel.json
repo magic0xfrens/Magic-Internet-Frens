@@ -72,7 +72,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "X-Content-Type-Options",
@@ -97,6 +97,10 @@
         {
           "key": "Permissions-Policy",
           "value": "geolocation=(), microphone=()"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=86400"
         }
       ]
     }
