@@ -154,23 +154,23 @@ export default function Docs() {
             Every mechanic, fee split, parameter, contract and known limitation
             behind Magic Internet Frens &amp; The Cauldron — the eternal on-chain
             token machine. Written against the source, not the roadmap: every
-            number below is a constant you can find in the Solidity. Everything
-            renders as plain HTML in the DOM, so assistants and crawlers read the
-            full text, not a summary.
+            number below is tied to its Solidity default, deployment gate, or
+            live getter. Everything renders as plain HTML in the DOM, so
+            assistants and crawlers read the full text, not a summary.
           </p>
 
           <div className="docs__stats">
             <div className="docs__stat">
-              <span className="docs__stat-n">23</span>
-              <span className="docs__stat-l">contracts</span>
+              <span className="docs__stat-n">2,222</span>
+              <span className="docs__stat-l">art cap</span>
             </div>
             <div className="docs__stat">
-              <span className="docs__stat-n">~9.2k</span>
-              <span className="docs__stat-l">lines of Solidity</span>
+              <span className="docs__stat-n">1,111</span>
+              <span className="docs__stat-l">voting frens</span>
             </div>
             <div className="docs__stat">
-              <span className="docs__stat-n">339</span>
-              <span className="docs__stat-l">tests passing</span>
+              <span className="docs__stat-n">1:1</span>
+              <span className="docs__stat-l">token migration</span>
             </div>
             <div className="docs__stat">
               <span className="docs__stat-n">0</span>
