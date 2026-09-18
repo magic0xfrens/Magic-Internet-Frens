@@ -85,8 +85,15 @@ contract M1a_LiqGasBand is YBase {
 
         // (3) DOSE-RESPONSE: every cap that used to strand positions. Each one
         //     must now EITHER revert OR leave ZERO positions open after the buy.
+        //  THE LADDER MUST CROSS THE FILL POINT (audit D-08). 0f71309's own
+        //  measurement is "reverts through 2.2M, fills at 2.4M", so a ladder that
+        //  stopped at 1.9M could not observe a single fill: every rung returned
+        //  `filled: 0`, both assertions lived inside `if (ok)`, and the suite
+        //  reported green having proved only the two controls. The rungs now run
+        //  past 2.4M and the fill count is asserted, so the interesting middle —
+        //  a trade that DOES fill under a constrained budget — is exercised.
         uint256 passes;
-        uint256[10] memory caps = [
+        uint256[16] memory caps = [
             uint256(1_000_000),
             1_070_000,
             1_100_000,
@@ -96,7 +103,13 @@ contract M1a_LiqGasBand is YBase {
             1_400_000,
             1_500_000,
             1_600_000,
-            1_900_000
+            1_900_000,
+            2_100_000,
+            2_300_000,
+            2_400_000,
+            2_600_000,
+            3_000_000,
+            4_000_000
         ];
         for (uint256 i = 0; i < caps.length; i++) {
             (bool ok, uint256 backing, uint256 open) = _run(caps[i]);
@@ -111,6 +124,12 @@ contract M1a_LiqGasBand is YBase {
             }
         }
         emit log_named_uint("caps that filled", passes);
+
+        //  WITHOUT THIS LINE THE LOOP ABOVE ASSERTS NOTHING. Both of its
+        //  assertions are inside `if (ok)`; if no rung ever fills they never
+        //  execute and the dose-response property is untested while the suite
+        //  still reports green. This is the line that makes the loop load-bearing.
+        assertGt(passes, 0, "the ladder must cross the fill point, or it asserts nothing");
 
         // The gate must still be a GATE, not a brick: the ample path fills, so
         // the band above is a genuine refusal band and not a dead pool.

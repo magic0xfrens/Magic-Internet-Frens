@@ -1721,24 +1721,28 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  (measured: +1,224 bytes, 1,191 over EIP-170). A long SELLS, a short BUYS.
         //  The dead path's mark band as a sqrt-price LIMIT (0 = no band). A long
         //  SELLS, a short BUYS. See {DEATH_SLIP_BPS} and {PerpSwapLib.bandLimit}.
-        //  ── THE SPLIT BAND: OWN MONEY UNBANDED, STAKER MONEY BANDED (E1A) ──
+        //  ── ONE FLAT BAND OVER THE WHOLE BUDGET (E1A) ──────────────────────
         //  MODE_LIQUIDATION used to settle with `band == 0`, i.e. at ANY price,
         //  against ONE budget spanning `backing + insuranceEth + plv` — so a
         //  liquidator who had just pushed spot in the SAME transaction got the
         //  short's buy-back executed at the price they had made, and
         //  {_absorbPlvLoss} socialised the overspend onto the stakers (measured:
         //  1 ETH push → PLV −0.0719, attacker +0.0435; 3 ETH → −0.4400/+0.2720).
-        //  A FLAT band over that whole budget closes the drain but breaks
-        //  CLOSEABILITY (XL1): an insolvent short by definition needs more than
-        //  its own backing, so a flat band pushes every genuine cascade into the
-        //  partial-fill path. The two properties in tension are about DIFFERENT
-        //  money, so they are settled against different budgets:
-        //    * the position's OWN backing is spent UNBANDED — closeability at any
-        //      size, in the swap that sank it, costs the stakers nothing;
-        //    * the SOCIALISED tranche (`insuranceEth + plv`), which is the only
-        //      money {_absorbPlvLoss} can ever charge, is spent only INSIDE the
-        //      mark band. That tranche IS the E1A drain, so capping it kills the
-        //      attack while a real cascade still closes from its own collateral.
+        //  WHAT IS ACTUALLY IMPLEMENTED, one call and one budget: a FLAT band
+        //  over `backing + insuranceEth + plv` (see the single {_buyUpTo} call
+        //  below). It closes the drain, and it COSTS CLOSEABILITY IN ONE SWAP:
+        //  an insolvent short by definition needs more than its own backing, so
+        //  a flat band pushes a genuine cascade into the partial-fill path. That
+        //  cost is accepted deliberately — see the note on the `_rebook` branch
+        //  below, which states the same thing and is the authority on it.
+        //
+        //  A SPLIT band (the position's OWN backing spent UNBANDED, and only the
+        //  SOCIALISED tranche `insuranceEth + plv` — the only money
+        //  {_absorbPlvLoss} can ever charge — spent INSIDE the band) would keep
+        //  same-swap closeability AND kill the drain. It is the right shape, it
+        //  is written up in `audit/RH_MAINNET_2026-09-16/`, and IT IS NOT HERE:
+        //  a second {_buyUpTo} call site does not fit under EIP-170. Nothing in
+        //  this function may be read as if it had landed.
         //  What the band refuses is not lost: the `_rebook` + PartiallyClosed
         //  path below leaves the remainder OPEN, smaller and fully
         //  re-liquidatable by the next sweep, {liquidate}, or {close}.
@@ -1812,9 +1816,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  (`insuranceEth + plv`, the only money `_absorbPlvLoss` can charge)
             //  keeps same-swap closeability AND kills the drain — it is the right
             //  shape and it is written up in `audit/RH_MAINNET_2026-09-16/`. It
-            //  is not here because the second `_buyUpTo` call site costs ~987 B
-            //  and puts this contract 715 B over EIP-170. Land it behind a
-            //  `refactor(size):` that frees the bytes first.
+            //  is not here because the second `_buyUpTo` call site costs ~987 B,
+            //  which is more headroom than this contract has ever had at once.
+            //  Re-measure before assuming it still does not fit, and land it
+            //  behind a `refactor(size):` that frees the bytes first.
             (uint256 cost, uint256 bought) =
                 _buyUpTo(p.size, backing + insuranceEth + plv, band);
             shortOiToken -= bought;              // only what came back is off the books
@@ -2118,11 +2123,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      * @dev Put a PARTIALLY closed position back, smaller. {_settle} has already
      *      deleted it and dropped it from the enumerable set, so this restores both.
      *
-     *  ALL REMAINING BACKING BECOMES PRINCIPAL and the collateral goes to zero: the
-     *  trader's own stake is spent FIRST, before the borrowed proceeds, which is the
-     *  same seniority every other loss path here uses. `openedAt`, `leverage` and
-     *  `entryFunding` are preserved, so funding settles in full against the smaller
-     *  position on the final close rather than being charged twice.
+     *  Spend principal first and preserve the trader's collateral up to the total
+     *  backing that remains. Funding, liquidation penalty, keeper reward and badge
+     *  bounty all use collateral as their basis; zeroing it here silently erased
+     *  those obligations for the rest of a partially closed position's life.
+     *  `collateral + principal` remains exactly `newBacking`, so this changes no
+     *  solvency or closeability boundary.
      *
      *  No liquidation penalty and no keeper cut is taken on a piece — {_settle}
      *  returns before the settlement tail — because a piece pays out nothing to
@@ -2131,8 +2137,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
      */
     function _rebook(uint256 id, Position memory p, uint256 newSize, uint256 newBacking) internal {
         p.size = newSize;
-        p.collateral = 0;
-        p.principal = newBacking;
+        uint256 collateral = p.collateral;
+        if (collateral > newBacking) collateral = newBacking;
+        p.collateral = uint128(collateral);
+        p.principal = newBacking - collateral;
         _addOpen(id, p); // enumerable re-add
     }
 
