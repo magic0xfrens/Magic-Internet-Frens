@@ -201,7 +201,16 @@ let executed = 0;
 const skipped = [];
 for (const [key, sigs] of Object.entries(REQUIRED)) {
   const addr = round.contracts[key];
-  if (!addr || addr.startsWith("__")) {
+  //  ── A PLACEHOLDER IS NOT AN ADDRESS ────────────────────────────────────
+  //  D2 (R46): this tested only for the `__ASK_CHAIN__` sentinel, so the 4663
+  //  template's OTHER placeholder shape — `<FILL from DeployPerp>` — was passed
+  //  straight to eth_getCode. The RPC answered "invalid string length", which
+  //  `code()` rethrows, and the whole gate died with an unhandled rejection
+  //  mid-run: every key after it went unchecked, and the crash was reported by
+  //  the caller as "selector parity FAILED". Anything that is not a well-formed
+  //  address is an unfilled slot, whatever its spelling.
+  const unfilled = !addr || typeof addr !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(addr);
+  if (unfilled) {
     if (ALWAYS_REQUIRED.has(key)) {
       console.log(`  FAIL ${key}: REQUIRED but absent from the manifest — nothing was verified for it`);
       bad++;

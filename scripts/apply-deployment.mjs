@@ -408,10 +408,33 @@ console.log(`\nWrote ${manifestPath}`);
 //  bytecode. verify-selectors.mjs does exactly that; a non-zero exit ABORTS the
 //  deploy here rather than letting a dead round reach users.
 //  RPC: override with RPC_URL (a paid endpoint is better); default is pinned.
-const gate = spawnSync(process.execPath, [new URL("verify-selectors.mjs", import.meta.url).pathname], {
+//  ── D2 (R46): THIS GATE HAD NEVER ONCE RUN FROM THIS CHECKOUT ──────────────
+//  It used `new URL(...).pathname`, which is PERCENT-ENCODED. This repository
+//  lives under ".../Magic Internet Frens", so the spawned path came out as
+//  ".../Magic%20Internet%20Frens/scripts/verify-selectors.mjs" and node exited
+//  MODULE_NOT_FOUND every single time. `spawnSync` reports that as a non-zero
+//  status, which the block below then printed as "selector parity FAILED — the
+//  deployed bytecode is missing function(s)".
+//
+//  So the one gate wired into the one place every deploy path writes the
+//  manifest has only ever produced a FALSE FAILURE, blaming the deploy for a
+//  path bug. That is worse than not running: verify-selectors.mjs's own header
+//  notes that the likeliest response to a gate that cries wolf is to disable
+//  it — "which is precisely how playChurn shipped twice".
+//
+//  `fileURLToPath` is the decoding-correct conversion, already imported above
+//  and already used correctly for `root` at line 27.
+const gate = spawnSync(process.execPath, [fileURLToPath(new URL("verify-selectors.mjs", import.meta.url))], {
   stdio: "inherit",
   env: process.env,
 });
+//  Distinguish "the gate ran and found a problem" from "the gate could not
+//  run". Both must block, but they must not read as the same thing.
+if (gate.error || gate.status === null) {
+  console.error(`\nABORT: could not EXECUTE the selector gate: ${gate.error?.message ?? "no exit status"}`);
+  console.error("       This is not a verdict on the deployment — the check did not run.");
+  process.exit(1);
+}
 if (gate.status !== 0) {
   console.error("\nABORT: selector parity FAILED — the deployed bytecode is missing");
   console.error("       function(s) the app sends. Those calls will revert with EMPTY");
