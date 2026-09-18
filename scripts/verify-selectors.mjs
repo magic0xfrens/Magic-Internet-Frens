@@ -174,10 +174,44 @@ if (!round.contracts.vault && round.contracts.collection) {
   }
 }
 
+//  ── D2 (R46): A SKIP IS AN EXEMPTION, NOT A DEFAULT ────────────────────────
+//  PROVEN BY EXECUTION during the 4663 fork rehearsal: pointed at a manifest
+//  whose `contracts` was `{}`, this file printed eleven `SKIP ... not in the
+//  manifest` lines, then `selector parity OK`, and exited 0. The one gate whose
+//  entire purpose is catching a missing `playChurn` green-lit a manifest that
+//  named no contracts at all — "I found no evidence of a problem" over an input
+//  it never confirmed it had. That is reachable for real: `--stage manifest`
+//  copies the 4663 template over round.json and lets apply-deployment.mjs fill
+//  it, and a partial fill lands exactly here.
+//
+//  So keys are now classified. Missing OPTIONAL keys still SKIP (a round with
+//  no zap, or a pre-ignition manifest with no collection yet, is legitimate).
+//  Missing REQUIRED keys FAIL. And if nothing executed at all, that is never a
+//  pass, whatever the classification says.
+const ALWAYS_REQUIRED = new Set([
+  //  Created by DeployLaunchpad, so present in every manifest from the deploy
+  //  stage onward. `perpEngine`/`perpVault` come from the later DeployPerp
+  //  stage and `collection`/`vault` only exist after ignition, so those stay
+  //  optional-but-reported rather than required.
+  "registry", "governor", "dividend", "presale", "gachaRouter", "treasuryGovernor",
+]);
+
 let bad = 0;
+let executed = 0;
+const skipped = [];
 for (const [key, sigs] of Object.entries(REQUIRED)) {
   const addr = round.contracts[key];
-  if (!addr || addr.startsWith("__")) { console.log(`  SKIP ${key}: not in the manifest`); continue; }
+  if (!addr || addr.startsWith("__")) {
+    if (ALWAYS_REQUIRED.has(key)) {
+      console.log(`  FAIL ${key}: REQUIRED but absent from the manifest — nothing was verified for it`);
+      bad++;
+    } else {
+      console.log(`  SKIP ${key}: not in the manifest (optional)`);
+      skipped.push(key);
+    }
+    continue;
+  }
+  executed++;
   const bytecode = await code(addr);
   if (bytecode === "0x") { console.log(`  FAIL ${key} ${addr}: NO CODE`); bad++; continue; }
   let okHere = 0;
@@ -192,7 +226,27 @@ for (const [key, sigs] of Object.entries(REQUIRED)) {
   }
   console.log(`  ok   ${key} ${addr}: ${okHere}/${sigs.length} present`);
 }
+//  An all-SKIP run is the "I could not check" case and must never read as a pass.
+if (executed === 0) {
+  console.error(
+    `\nNOTHING WAS VERIFIED — every contract key was absent from the manifest.\n` +
+      `An empty check is not a passing check. Refusing.`,
+  );
+  process.exit(1);
+}
+if (skipped.length) {
+  console.log(`\n  ${skipped.length} optional key(s) unverified: ${skipped.join(", ")}`);
+  //  `collection`/`vault` carry reveal()/revealBatch()/redeem(), and they only
+  //  become resolvable AFTER ignition. Say plainly that they are still
+  //  unchecked, so "it passed" is never mistaken for "redeem was verified".
+  for (const k of ["collection", "vault"]) {
+    if (skipped.includes(k)) {
+      console.log(`  NOTE  ${k} is per-generation and does not exist until ignition —`);
+      console.log(`        re-run this gate AFTER the first summon or its selectors ship unverified.`);
+    }
+  }
+}
 console.log(bad === 0
-  ? `\nselector parity OK for round ${round.round} on chain ${round.chainId}`
+  ? `\nselector parity OK for round ${round.round} on chain ${round.chainId} (${executed} contract(s) actually checked)`
   : `\n${bad} missing selector(s) — the app will revert with EMPTY data on those calls`);
 process.exit(bad === 0 ? 0 : 1);

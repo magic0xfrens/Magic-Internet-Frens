@@ -131,11 +131,42 @@ eip170_over() {
       gsub(/[[:space:],]/, "", name)
       gsub(/[[:space:],]/, "", margin)
       if (name == "" || margin == "") next
+      rows++
+      seen = seen "," name ","
       if (margin ~ /^-[0-9]+$/) printf "%s %s\n", name, margin
     }
-    END { if (hdr == 0) print "__NO_HEADER__" }
+    END {
+      if (hdr == 0) { print "__NO_HEADER__"; exit }
+      printf "__ROWS__ %d\n", rows
+      printf "__SEEN__ %s\n", seen
+    }
   ' "$1"
 }
+
+#  ── D2 (R46): THE GATE MUST KNOW WHEN IT DID NOT CHECK ──────────────────────
+#  Proven by execution against the real crashed build log from this rehearsal:
+#  `forge build --sizes` printed the header, then forge's LINTER panicked
+#  (crates/lint/src/sol/mod.rs:261, "AST source not found" — a nightly bug that
+#  fires when a concurrent process writes a .sol mid-build). On that input the
+#  table happened to be complete, so the verdict was sound. But truncate the
+#  SAME log to the header plus ten rows and the scan finds zero negative margins
+#  and the gate reports "no deployable contract over EIP-170" — a PASS built on
+#  ten of 1,605 rows. `__NO_HEADER__` only catches a build that died BEFORE the
+#  header; one that dies DURING the table reads as clean.
+#
+#  That is the identical defect class as the `$4`-vs-`$5` bug this gate was
+#  written to repair: a gate whose success condition is "I found no evidence of
+#  a problem" over an input it never verified it received. An empty scan is not
+#  a clean scan.
+#
+#  So the gate now asserts it actually measured the things being deployed:
+#  a plausible row count AND every contract this deploy creates present BY NAME
+#  in the table. A truncated table now fails because CauldronHook is missing
+#  from it, not because anything looked negative.
+#  PerpEngine is emitted as `PerpEngine.0.8.26` / `PerpEngine.0.8.30` (two
+#  compiler versions in one tree), so matching is on a NAME PREFIX.
+MUST_MEASURE="${MUST_MEASURE:-CauldronHook CauldronRegistry PerpEngine MiFrensGenesis CauldronGachaRouter PoolOps}"
+MIN_SIZE_ROWS="${MIN_SIZE_ROWS:-200}"
 
 #  Contracts that are allowed to be oversized because they are never deployed:
 #  test harnesses and mocks. Matched on the WHOLE name, anchored, so a real
@@ -149,15 +180,40 @@ is_test_only() {
 }
 
 run_eip170_gate() {
-  local log="$1" raw over=0 line name margin
+  local log="$1" raw over=0 name margin rows seen missing=""
   raw="$(eip170_over "$log")"
-  if [ "$raw" = "__NO_HEADER__" ]; then
+  if printf '%s' "$raw" | grep -q '^__NO_HEADER__$'; then
     die "EIP-170 gate could not find a 'Runtime Margin' column in $log.
      FAILING CLOSED. This is the gate that was silently broken before; it will
      never again report success on input it does not understand."
   fi
+
+  rows=$(printf '%s\n' "$raw" | awk '/^__ROWS__ /{print $2}')
+  seen=$(printf '%s\n' "$raw" | awk '/^__SEEN__ /{print $2}')
+
+  #  "I could not check" must never render as "I checked and it is fine."
+  [ -n "$rows" ] || die "EIP-170 gate parsed no row count from $log. FAILING CLOSED."
+  if [ "$rows" -lt "$MIN_SIZE_ROWS" ]; then
+    die "EIP-170 gate parsed only $rows size rows from $log (expected >= $MIN_SIZE_ROWS).
+     The size table is TRUNCATED — the build almost certainly died while printing
+     it (forge's linter panics on a concurrent .sol write). A short table has no
+     negative margins simply because it has almost no rows. FAILING CLOSED."
+  fi
+
+  #  The strongest form of the check: name the contracts this deploy creates and
+  #  require each to appear in the table. A truncated table now fails on a
+  #  MISSING contract rather than on the absence of a negative number.
+  for c in $MUST_MEASURE; do
+    printf '%s' "$seen" | grep -q ",${c}" || missing="$missing $c"
+  done
+  [ -z "$missing" ] || die "EIP-170 gate never measured:$missing
+     These contracts are deployed by this script but are absent from the size
+     table in $log, so their runtime size was NOT checked. FAILING CLOSED —
+     a gate that did not see a contract must not vouch for it."
+
   while IFS=' ' read -r name margin; do
     [ -z "$name" ] && continue
+    case "$name" in __ROWS__|__SEEN__|__NO_HEADER__) continue ;; esac
     if is_test_only "$name"; then
       warn "$name is ${margin} B over EIP-170 (test-only, not deployed)"
     else
@@ -168,7 +224,7 @@ run_eip170_gate() {
   [ "$over" -eq 0 ] || die "$over deployable contract(s) exceed the 24,576 B EIP-170 runtime limit.
      They CANNOT be deployed — the create reverts and the ETH is spent. Fix the
      size before broadcasting."
-  ok "no deployable contract over EIP-170"
+  ok "no deployable contract over EIP-170 ($rows rows measured; all of $MUST_MEASURE present)"
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -234,11 +290,38 @@ fi
 # ═════════════════════════════════════════════════════════════════════════════
 #  GATE 0 — repository safety
 # ═════════════════════════════════════════════════════════════════════════════
+#  D2 (R46 fork rehearsal): this gate used to be
+#      [ "$BRANCH" = "main" ] && die "refusing to run from 'main' — it is FROZEN"
+#  which made the MAINNET deploy script refuse to run on the one branch a mainnet
+#  deploy is actually cut from. "main is frozen" was R46 audit bookkeeping and is
+#  already false — R46 merged to main at 3c1045a. Worse, the rule is backwards as
+#  a safety property: deploying from a throwaway branch is the RISK, not the
+#  safeguard. What actually matters is that the deployed bytecode is attributable
+#  to a commit, so GATE 0 now records HEAD and refuses a DIRTY tree on broadcast.
 say "GATE 0  repository"
 BRANCH=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
-echo "  branch: $BRANCH"
-[ "$BRANCH" = "main" ] && die "refusing to run from 'main' — it is FROZEN for this audit."
-ok "not on main"
+HEAD_SHA=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "?")
+echo "  branch: $BRANCH   HEAD: $HEAD_SHA"
+#  Optional: refuse a named branch (empty by default). Kept so a future audit can
+#  freeze a branch again without re-introducing a hardcoded 'main'.
+if [ -n "${FROZEN_BRANCH:-}" ] && [ "$BRANCH" = "$FROZEN_BRANCH" ]; then
+  die "refusing to run from '$BRANCH' — FROZEN_BRANCH is set to it."
+fi
+#  A dirty tree means the artifact you broadcast cannot be rebuilt from any
+#  commit. That is unrecoverable after the fact: you can never prove what you
+#  deployed. Simulations and fork rehearsals legitimately run dirty.
+DIRTY=$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null | grep -v '^ M contracts/solidity/lib/' || true)
+if [ -n "$DIRTY" ]; then
+  if [ "$MODE" = "broadcast" ] && [ "${ALLOW_DIRTY:-0}" != "1" ]; then
+    echo "$DIRTY" | sed 's/^/      /'
+    die "the working tree has uncommitted changes (above). Broadcasting this
+     produces bytecode that matches NO commit and can never be reproduced or
+     verified. Commit first, or set ALLOW_DIRTY=1 for a FORK rehearsal only."
+  fi
+  warn "working tree is dirty (ALLOW_DIRTY=${ALLOW_DIRTY:-0}, mode=$MODE) — deployment will not be reproducible from $HEAD_SHA"
+else
+  ok "clean tree at $BRANCH@$HEAD_SHA"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  GATE 1 — the chain we actually connected to
@@ -315,24 +398,99 @@ if [ "$DEPLOY_QUOTES" != "false" ]; then
 fi
 ok "DEPLOY_QUOTES=false (no mock USDG/xNVDA on a real chain)"
 
-#  ── THE PRICE FEED THAT DOES NOT EXIST ON THIS CHAIN ───────────────────────
-#  DeployLaunchpad.s.sol:601 FEED_ETH_USD = 0x694AA176...5306 is a SEPOLIA
-#  Chainlink address. VERIFIED on 4663: eth_getCode returns 0x. The script's own
-#  comment (:677-681) spells out the consequence — `usdPerRawUnit` catches the
-#  revert and returns 0 ("cannot judge"), so the hook records NO VOLUME for
-#  every trade. The mint ladder never advances and `isDead` is always true. The
-#  deploy SUCCEEDS and the protocol records a fiction of zero.
+#  ── THE PRICE FEED ─────────────────────────────────────────────────────────
+#  D2 (R46): the brief asked "what is the correct FEED_ETH_USD for 4663".
+#  MEASURED ANSWER, three separate facts:
 #
-#  NATIVE_PEGGED_USD is NOT the fix here: 4663's native token is REAL ETH, so
-#  pegging it to $1 would be a ~3000x misprice in the other direction. It is
-#  correct only on a chain whose gas token really is a dollar (Arc).
-#  This gate is reachable only with DEPLOY_QUOTES=true, which is already
-#  refused above; it stays as a second wall for anyone who overrides that.
+#   1. A real Chainlink ETH/USD feed DOES exist on 4663:
+#        0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9
+#      VERIFIED by raw eth_call against rpc.mainnet.chain.robinhood.com:
+#        code 9,571 bytes | decimals() = 8 | description() = "ETH / USD"
+#        latestRoundData().answer = 0x39bb8fec00 = $2,479.60 @ 1e8
+#      The Sepolia constant at DeployLaunchpad.s.sol:601 is codeless here
+#      (eth_getCode = 0x) — CONFIRMED, so D1's HIGH is real as far as it goes.
+#
+#   2. BUT the feed's published heartbeat is 86,400 s (24 h) — every one of the
+#      57 feeds in Chainlink's robinhood-mainnet directory is 86400. The code
+#      ships HB_ETH = 4 hours (DeployLaunchpad.s.sol:621). QuoteOracle.sol:246
+#      is `if (block.timestamp - updatedAt > f.heartbeat) return 0;` — so a 4 h
+#      heartbeat against a 24 h feed returns 0 ("cannot judge") for up to 20 h
+#      out of every 24. That is the SAME zero-volume outcome D1 attributed to
+#      the codeless address, and swapping in the right address alone does NOT
+#      fix it. Measured at rehearsal time the feed was already 2.45 h stale —
+#      inside a 4 h window by 5 minutes.
+#
+#   3. On the ACTUAL mainnet path none of this is reached. FEED_ETH_USD is
+#      referenced only inside _deployRotationStack, which runs only under
+#      DEPLOY_QUOTES=true (DeployLaunchpad.s.sol:533-535) — already refused
+#      above. And `quoteOracle` at DeployLaunchpad.s.sol:261 is read from the
+#      QUOTE_ORACLE *env var*, never from the oracle the script itself deploys
+#      at :659. So with DEPLOY_QUOTES=false and QUOTE_ORACLE unset there is NO
+#      oracle at all, `_toUsd` passes the raw amount through, and the protocol
+#      is ETH-wei denominated on the hook's own defaults. That configuration is
+#      coherent — it is what the wei-denominated defaults exist for — but it is
+#      a DECISION, so this gate states it out loud rather than letting it be
+#      the thing nobody noticed.
+FEED_ETH_USD_4663=0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9
+FEED_HEARTBEAT_4663=86400
+
 if [ "${NATIVE_PEGGED_USD:-false}" = "true" ]; then
   die "NATIVE_PEGGED_USD=true on chain $CHAIN, whose native currency is REAL ETH.
      Pegging ETH to \$1 misprices every volume figure by ~3 orders of magnitude."
 fi
 ok "NATIVE_PEGGED_USD not set (4663 native is real ETH, 18 decimals)"
+
+if [ "${QUOTE_ORACLE:-}" = "" ] && [ "$DEPLOY_QUOTES" = "false" ]; then
+  warn "NO ORACLE will be wired (DEPLOY_QUOTES=false, QUOTE_ORACLE unset)."
+  echo "       => CauldronHook._toUsd passes the raw quote amount through, so volume,"
+  echo "          the crystal ladder and isDead are all denominated in NATIVE WEI."
+  echo "          The constants that will actually govern this launch are the hook's"
+  echo "          compiled-in defaults, NOT the USD numbers in DeployLaunchpad:"
+  echo "            deathThreshold  = DEATH_THRESHOLD env, default 1 ether  (DeployLaunchpad.s.sol:128)"
+  echo "            volumePerNFT    = 0.02 ether                            (CauldronHook.sol:390)"
+  echo "            nftPriceStep    = 0.00002 ether                         (CauldronHook.sol:391)"
+  echo "            oddsFullVolume  = 0.5 ether                             (CauldronHook.sol:450)"
+  echo "            curvePolicy     = UNSET -> linear fallback              (CauldronHook.sol:2323)"
+  echo "          setDeathThreshold and setPolicies are BOTH skipped, because both sit"
+  echo "          inside 'if (quoteOracle != address(0))' (DeployLaunchpad.s.sol:285-336)."
+  echo "          Confirm these ETH-denominated numbers are the intended economics."
+fi
+
+#  If anyone overrides DEPLOY_QUOTES, the feed must be real, live and fresh on
+#  THIS chain — asserted by execution, not by trusting a constant in the source.
+if [ "$DEPLOY_QUOTES" != "false" ] || [ -n "${ASSERT_FEED:-}" ]; then
+  FEED="${FEED_ETH_USD:-$FEED_ETH_USD_4663}"
+  echo "  asserting ETH/USD feed $FEED on chain $CHAIN"
+  FC=$(cast code "$FEED" --rpc-url "$RPC" 2>/dev/null)
+  { [ -n "$FC" ] && [ "$FC" != "0x" ]; } || die "ETH/USD feed $FEED has NO CODE on chain $CHAIN.
+     usdPerRawUnit would catch the revert and return 0 for every trade
+     (QuoteOracle.sol:231-238) — the hook records zero volume, the mint ladder
+     never advances and isDead is permanently true, with nothing reverting."
+  RD=$(cast call "$FEED" 0xfeaf968c --rpc-url "$RPC" 2>/dev/null)
+  FD=$(cast call "$FEED" 0x313ce567 --rpc-url "$RPC" 2>/dev/null)
+  NOW=$(cast block latest --rpc-url "$RPC" --field timestamp 2>/dev/null)
+  HB="${HEARTBEAT_ETH:-14400}"
+  python3 - "$RD" "$FD" "$NOW" "$HB" "$FEED_HEARTBEAT_4663" <<'PY' || die "the ETH/USD feed is not usable under the configured heartbeat. Refusing."
+import sys
+rd,fd,now,hb,real = sys.argv[1],sys.argv[2],int(sys.argv[3]),int(sys.argv[4]),int(sys.argv[5])
+w=[rd[2:][i*64:(i+1)*64] for i in range(5)]
+ans=int(w[1],16); upd=int(w[3],16); dec=int(fd,16)
+age=now-upd
+print("      decimals=%d answer=%d (=$%.2f) updatedAt=%d age=%ds (%.2f h)"%(dec,ans,ans/10**dec,upd,age,age/3600))
+bad=False
+if ans<=0: print("      FAIL answer <= 0 -> usdPerRawUnit returns 0 (QuoteOracle.sol:239)"); bad=True
+if age>hb: print("      FAIL age %ds EXCEEDS configured heartbeat %ds -> returns 0 (QuoteOracle.sol:246)"%(age,hb)); bad=True
+if hb<real:
+    print("      FAIL configured heartbeat %ds is TIGHTER than the feed's published %ds."%(hb,real))
+    print("           Chainlink only guarantees an update every %ds on 4663 (all 57 feeds)."%real)
+    print("           The oracle will read 'cannot judge' for up to %.1f h of every %.1f h."%((real-hb)/3600,real/3600))
+    bad=True
+p=ans/10**dec
+if not (100<=p<=100000): print("      FAIL $%.2f is outside the ETH_MIN_USD/ETH_MAX_USD band (DeployLaunchpad.s.sol:696-697)"%p); bad=True
+sys.exit(1 if bad else 0)
+PY
+  ok "ETH/USD feed live, fresh and inside its bounds band"
+fi
 
 #  ── TESTNET TIMING MUST NOT SURVIVE ────────────────────────────────────────
 [ "${TESTNET_GOV:-false}" = "false" ] || die "TESTNET_GOV is set. It waives the governor's own 1-day floors. Refusing."
