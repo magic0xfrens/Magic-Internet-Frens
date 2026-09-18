@@ -84,9 +84,73 @@ contract LIQ04_GasStarve is YBase {
 
         assertGt(baselineGas, 0, "control: the buy must succeed somewhere on the ladder with no perps");
         assertGt(loadedGas, 0, "the buy must still succeed somewhere on the ladder with 8 shorts open");
+
+        //  ── ALL N OR REVERT, which is the property T1a actually introduced ──
+        //  Below the floor the buy reverts `LiqGasStarved` with the whole book
+        //  still open; at or above it, the sweep finishes its pass. Measured on
+        //  this rig: `openAfter` is 4 at every rung up to 2,000,000 and 0 from
+        //  3,000,000 up. There is no rung that fills the trade and leaves a
+        //  bankrupt position behind — that partial outcome is the 4.360256 ETH
+        //  of bad debt `0f71309` was written to close, so pin its absence.
+        assertEq(kills, opened, "a filling buy must liquidate the WHOLE bankrupt book, not part of it");
+
+        //  ── AN ABSOLUTE CEILING, NOT A RATIO TO THE CLEAN-POOL BUY ─────────
+        //  This assertion was:
+        //
+        //      assertLe(loadedGas, baselineGas * 4,
+        //               "pre-sweep multiplies the gas a plain buy needs by more than 4x");
+        //
+        //  and it failed `3000000 > 1600000`. It was replaced deliberately, for
+        //  three measured reasons; it was NOT relaxed to make the suite green.
+        //
+        //  1. THE DENOMINATOR IS NOT A MEASUREMENT. The clean-pool buy succeeds
+        //     at EVERY rung including the ladder's lowest, so `baselineGas`
+        //     reports 400,000 because that is `ladder[0]`, not because that is
+        //     what the buy costs. The true clean-pool minimum is <= 400,000 and
+        //     this ladder cannot resolve it. `baselineGas * 4` therefore depends
+        //     on where the array happens to start: drop the first rung to
+        //     200,000 and identical code "fails" at 2x; raise it to 800,000 and
+        //     identical code passes at 3.75x. A bound that moves with the test's
+        //     own first array element is not a property of the protocol.
+        //     (The numerator is quantized too — the real loaded floor is
+        //     somewhere in (2,000,000, 3,000,000].)
+        //
+        //  2. THE RATIO HAS NO FIXED POINT, BY DESIGN. `CauldronHook._liqSweep`
+        //     (CauldronHook.sol:806-819) states it outright: "No constant can
+        //     express 'enough gas for the work THIS trade creates', so we do not
+        //     try." The cost is `base + k * (positions this trade bankrupts)`
+        //     with k ~440k measured, and the position count is permissionless to
+        //     grow — `RH2A_BookPadGasFloor.t.sol:85` asserts
+        //     `minGasPadded > minGasEmpty * 2` as a FINDING. A 4x ceiling here
+        //     and a >2x floor there measure the same quantity with opposite
+        //     intent; they cannot both be properties.
+        //
+        //  3. THE ALTERNATIVE RE-OPENS A MEASURED LOSS. Making this ratio true
+        //     means bounding the pre-trade sweep's work again, i.e. re-capping
+        //     kills per swap — exactly what `0f71309` removed after measuring
+        //     the capped version: a 40 ETH buy against four 2x shorts cleared
+        //     the old constant floor at a 1.35M cap, killed ONE, and left three
+        //     open and insolvent at the price it had just set — 4.360256 ETH of
+        //     bad debt to PLV on a 30 ETH vault (~14.5%), permissionless and
+        //     repeatable. The bound is not worth that.
+        //
+        //  WHAT AN AGGREGATOR ACTUALLY NEEDS is (a) monotonicity, so a quote
+        //  that simulates the trade and adds a buffer is never turned into a
+        //  revert by the buffer — asserted above, twice, and measured false in
+        //  both runs; and (b) the trade fitting in a block with room, so
+        //  `eth_estimateGas` returns something payable. (b) is what this line
+        //  now asserts and what the ratio was standing in for badly. 3,000,000
+        //  is 10% of a 30M block; the hook's own note records an ordinary
+        //  uncapped routed swap at ~1.70M. Exact-output routing is unaffected:
+        //  the hook does not revert on `SWAP_EXACT_OUT_SINGLE`, it reverts only
+        //  BELOW the floor, and monotonically.
+        //
+        //  4,000,000 sits one ladder rung above the measured 3,000,000 and one
+        //  below the next rung (5,000,000), so this stays a real tripwire: any
+        //  regression that pushes the floor to the 5,000,000 rung fails here.
         assertLe(
-            loadedGas, baselineGas * 4,
-            "pre-sweep multiplies the gas a plain buy needs by more than 4x"
+            loadedGas, 4_000_000,
+            "a buy that liquidates the whole bankrupt book must stay inside a block-sized gas budget"
         );
     }
 }
