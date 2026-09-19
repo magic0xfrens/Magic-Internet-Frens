@@ -4,6 +4,19 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {MiFrensGenesis} from "../../cauldron/MiFrensGenesis.sol";
 
+/// Minimal stand-in for CauldronRegistry: accepts the whole treasury and
+/// reports it, so ignition can be executed end to end without a PoolManager.
+contract C1RegistryStub {
+    bool public summoned;
+    uint256 public received;
+
+    function summon() external payable returns (address token, bytes32 poolId) {
+        summoned = true;
+        received = msg.value;
+        return (address(0xC0FFEE), bytes32(uint256(1)));
+    }
+}
+
 /// @title C1 — MAX_PER_WALLET is a LIFETIME allowance, not a current holding
 ///
 /// Regression for red-team finding L1-C. The presale cap used to test
@@ -142,6 +155,51 @@ contract C1_GenesisCapCumulative is Test {
         assertEq(g.genesisBalanceOf(sink), CAP, "and land on the new holder");
         assertEq(g.genesisMintedBy(whale), CAP, "the cap counter does NOT follow");
         assertEq(g.genesisMintedBy(sink), 0, "the receiver gained no mint allowance debt");
+    }
+
+    // ------------------------------------------------------------------
+    // 5b. END TO END: a BINDING cap must still allow a full sellout and
+    //     ignition. `igniteCauldron` refuses unless the tranche mints out, and
+    //     there is no recovery but cancel + refund + redeploy — so a cap that
+    //     cannot be reached in practice would brick the launch. Executed, not
+    //     reasoned about: 60 supply / cap 7 => ceil(60/7) = 9 wallets.
+    // ------------------------------------------------------------------
+    function test_C1_BindingCapStillSellsOutAndIgnites() public {
+        uint256 supply = 60;
+        uint256 cap = 7;
+        MiFrensGenesis e =
+            new MiFrensGenesis("MiFrens", "MF", supply, 2 * supply, PRICE, 1111, "ipfs://x/");
+        e.setMaxPerWallet(cap);
+        C1RegistryStub reg = new C1RegistryStub();
+        e.setRegistry(address(reg));
+
+        uint256 wallets;
+        uint256 sold;
+        while (sold < supply) {
+            uint256 q = supply - sold < cap ? supply - sold : cap;
+            address buyer = address(uint160(0x1000 + wallets));
+            vm.deal(buyer, PRICE * q);
+            vm.prank(buyer);
+            e.mint{value: PRICE * q}(q);
+            sold += q;
+            wallets++;
+        }
+
+        assertEq(wallets, 9, "9 distinct wallets sold out 60 at a cap of 7");
+        assertEq(e.minted(), supply, "tranche minted out under a BINDING cap");
+        assertTrue(e.soldOut(), "sellout reached");
+        assertEq(e.remaining(), 0, "nothing left");
+
+        uint256 treasury = address(e).balance;
+        assertEq(treasury, PRICE * supply, "whole treasury held");
+
+        // Ignition fires, permissionlessly, and forwards everything.
+        vm.prank(sink);
+        address token = e.igniteCauldron();
+        assertEq(token, address(0xC0FFEE), "gen-1 token returned");
+        assertTrue(reg.summoned(), "registry summoned");
+        assertEq(reg.received(), treasury, "the WHOLE balance was forwarded");
+        assertEq(address(e).balance, 0, "nothing stranded");
     }
 
     // ------------------------------------------------------------------
