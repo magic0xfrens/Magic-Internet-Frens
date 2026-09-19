@@ -226,16 +226,18 @@ contract L1_LaunchStops is Test {
     }
 
     // -----------------------------------------------------------------------
-    // 5. FINDING L1-C — the one per-actor cap does not actually cap
+    // 5. FINDING L1-C — FIXED. The cap is now a LIFETIME allowance.
     // -----------------------------------------------------------------------
-    /// `MAX_PER_WALLET` is tested against `balanceOf(msg.sender)`
-    /// (`MiFrensGenesis.sol:338`), which is a CURRENT HOLDING, not a lifetime
-    /// allowance. Parking the inventory in a second wallet resets it. No sybil
-    /// infrastructure is needed — this is one actor, one funding source, and the
-    /// cap is defeated by an ERC721 transfer that costs a few thousand gas.
+    /// WAS: `MAX_PER_WALLET` tested `balanceOf(msg.sender)`, a CURRENT HOLDING.
+    /// Parking the inventory in a second wallet reset it and the same actor —
+    /// one funding source, no sybils — minted 40 under a cap of 20 for the cost
+    /// of an ERC721 transfer. This test asserted that bypass WORKED.
     ///
-    /// On 4663 (~100 ms blocks, `eth_maxPriorityFeePerGas` = 0, FCFS) the loop
-    /// below runs as fast as the sequencer accepts transactions.
+    /// NOW: the cap is measured against `genesisMintedBy`, a lifetime counter
+    /// that never decrements (`MiFrensGenesis.mint`). Transferring out frees
+    /// nothing. The test is kept, inverted, and still proves minting WORKS up
+    /// to the cap — a fix that simply stopped genesis minting would also be a
+    /// bug, so the honest path is asserted on the way in.
     function test_L1_PerWalletCapIsBypassableByTransferringOut() public {
         MiFrensGenesis g =
             new MiFrensGenesis("MiFrens", "MF", 1111, 2400, 0.05 ether, 1111, "ipfs://x/");
@@ -247,25 +249,34 @@ contract L1_LaunchStops is Test {
 
         vm.startPrank(whale);
 
-        // The cap genuinely stops a 21st mint...
+        // Honest minting still works all the way to the cap...
         g.mint{value: 0.05 ether * 20}(20);
+        assertEq(g.balanceOf(whale), 20, "honest buyer reached the cap");
+        assertEq(g.remainingGenesisAllowance(whale), 0, "allowance spent");
+
+        // ...and the cap genuinely stops a 21st mint.
         vm.expectRevert(MiFrensGenesis.PerWalletCap.selector);
         g.mint{value: 0.05 ether}(1);
 
-        // ...until the same actor parks the inventory in a wallet he also owns.
+        // The old bypass: park the inventory in a wallet he also owns.
         for (uint256 i = 1; i <= 20; i++) {
             g.transferFrom(whale, sink, i);
         }
-        assertEq(g.balanceOf(whale), 0, "balanceOf reset by a transfer");
+        assertEq(g.balanceOf(whale), 0, "balanceOf IS still reset by a transfer");
 
-        // The cap now grants him a whole fresh allocation.
+        // ...but the allowance is LIFETIME, so it buys him nothing. Not one
+        // more token, not a whole second allocation.
+        vm.expectRevert(MiFrensGenesis.PerWalletCap.selector);
         g.mint{value: 0.05 ether * 20}(20);
+        vm.expectRevert(MiFrensGenesis.PerWalletCap.selector);
+        g.mint{value: 0.05 ether}(1);
         vm.stopPrank();
 
-        assertEq(g.balanceOf(whale), 20, "second full allocation taken");
+        assertEq(g.genesisMintedBy(whale), 20, "lifetime counter did NOT decrement");
+        assertEq(g.remainingGenesisAllowance(whale), 0, "no fresh allocation");
         assertEq(g.balanceOf(sink), 20, "first allocation parked, still his");
         assertEq(
-            g.minted(), 40, "FINDING L1-C: 40 minted by ONE actor under a cap of 20"
+            g.minted(), 20, "L1-C FIXED: ONE actor still bounded at 20 under a cap of 20"
         );
     }
 

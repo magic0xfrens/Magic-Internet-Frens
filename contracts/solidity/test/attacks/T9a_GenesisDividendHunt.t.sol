@@ -204,27 +204,48 @@ contract T9aGenesisDividendHunt is Test {
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    //  D.  MAX_PER_WALLET is a balance check, so one buyer takes the whole
-    //      genesis tranche by parking each batch in a fresh sock.
+    //  D.  FIXED (red-team L1-C). MAX_PER_WALLET *was* a balance check, so one
+    //      buyer took the whole genesis tranche by parking each batch in a fresh
+    //      sock. It is now measured against `genesisMintedBy`, a lifetime mint
+    //      counter that never decrements, so parking buys nothing.
+    //
+    //      WAS: assertEq(controlled, GENESIS_SUPPLY) — one buyer took all 6.
+    //      NOW: controlled stops at the cap and the next mint reverts.
     // ───────────────────────────────────────────────────────────────────────
     function test_D_PerWalletCapEvadedByParkingTokens() public {
         uint256 cap = col.MAX_PER_WALLET();
         assertEq(cap, 3, "cap");
 
-        uint256 controlled = _sweepWholeTranche();
+        (uint256 controlled, bool blocked) = _sweepWholeTranche();
 
-        assertEq(controlled, col.GENESIS_SUPPLY(), "one buyer took the entire OG tranche");
-        assertGt(controlled, cap, "far above the advertised per-wallet cap");
-        assertTrue(col.soldOut(), "and ignition is armed by a single entity");
+        assertEq(controlled, cap, "one buyer is bounded at the cap, not the tranche");
+        assertLt(controlled, col.GENESIS_SUPPLY(), "the OG tranche is NOT sweepable by one buyer");
+        assertTrue(blocked, "the follow-on mint after parking REVERTED");
+        assertEq(col.genesisMintedBy(alice), cap, "lifetime counter did not decrement on transfer");
+        assertEq(col.balanceOf(alice), 0, "...even though balanceOf IS back to zero");
+        assertFalse(col.soldOut(), "ignition can no longer be armed by a single entity");
+
+        // A genuinely separate wallet still mints normally — the cap bounds an
+        // address, it does not stop the sale.
+        vm.prank(bob); col.mint{value: 0.01 ether * cap}(cap);
+        assertEq(col.balanceOf(bob), cap, "an honest second buyer is unaffected");
     }
 
-    function _sweepWholeTranche() internal returns (uint256 controlled) {
+    /// Runs the old attack loop. Returns how many the single buyer got through
+    /// before the cap stopped him, and whether it stopped him at all.
+    function _sweepWholeTranche() internal returns (uint256 controlled, bool blocked) {
         uint256 supply = col.GENESIS_SUPPLY();
         uint256 cap = col.MAX_PER_WALLET();
         uint256 next = 1;
         while (next <= supply) {
             uint256 q = supply - next + 1 < cap ? supply - next + 1 : cap;
-            vm.prank(alice); col.mint{value: 0.01 ether * q}(q);
+            vm.prank(alice);
+            try col.mint{value: 0.01 ether * q}(q) {
+                // fell through: the batch minted
+            } catch {
+                blocked = true;
+                break;
+            }
             address sock = address(new Sock());
             for (uint256 i; i < q; ++i) {
                 vm.prank(alice); col.transferFrom(alice, sock, next + i);

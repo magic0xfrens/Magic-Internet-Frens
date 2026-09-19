@@ -215,6 +215,28 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///  holder why a wallet full of badges carries no weight.
     mapping(address => uint256) public genesisBalanceOf;
 
+    /// @notice LIFETIME count of genesis frens an address has MINTED from the
+    ///         presale. Never decrements — this is the thing `MAX_PER_WALLET`
+    ///         is measured against.
+    ///
+    /// @dev  ── WHY THIS EXISTS AND WHY `balanceOf` DOES NOT WORK ─────────────
+    ///  The cap used to test `balanceOf(msg.sender)`, which is a CURRENT
+    ///  HOLDING, not an allowance. One actor, one funding source, no sybils:
+    ///  mint to the cap, transfer the inventory to a second wallet he also
+    ///  owns, and `balanceOf` is 0 again — the cap hands him a whole fresh
+    ///  allocation, for the cost of an ERC721 transfer. Measured: 40 minted
+    ///  under a cap of 20 (red-team L1-C). `MAX_PER_WALLET` is the protocol's
+    ///  ONLY per-actor cap, so a cap that does not cap is the whole defence.
+    ///
+    ///  `genesisBalanceOf` is NOT this counter and must not be repurposed: it
+    ///  is the VOTING unit, maintained in {_update}, and it DECREMENTS on
+    ///  transfer by design ({_getVotingUnits} reads it).
+    ///
+    ///  Only {mint} (the genesis presale) writes here. Liquidatoor badges are
+    ///  uncapped by design and are struck by {_mintLiquidator}, which does not
+    ///  touch this — a badge never consumes genesis allowance.
+    mapping(address => uint256) public genesisMintedBy;
+
     /// @notice What each badge commemorates, recorded at mint.
     mapping(uint256 => LiqStats) internal _liqStats;
 
@@ -292,8 +314,9 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///            keeps this a guarantee rather than a preference.
     ///         `newCap` must still bind (`< GENESIS_SUPPLY`), so the state this
     ///         function exists to prevent cannot be re-entered through it.
-    ///         Note the cap tests `balanceOf`, which counts Liquidatoor badges
-    ///         too: an address holding `newCap` badges cannot mint genesis.
+    ///         The cap is measured against {genesisMintedBy}, a LIFETIME mint
+    ///         count that never decrements, so it binds per actor and not per
+    ///         current holding. Liquidatoor badges do not consume it.
     function setMaxPerWallet(uint256 newCap) external {
         if (msg.sender != deployer) revert NotAuthorized();
         if (newCap == 0 || newCap >= GENESIS_SUPPLY) revert PerWalletCap();
@@ -335,7 +358,12 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         if (quantity == 0) revert ExceedsSupply();
         if (minted + quantity > GENESIS_SUPPLY) revert ExceedsSupply();
         if (msg.value != PRICE * quantity) revert WrongPrice();
-        if (balanceOf(msg.sender) + quantity > MAX_PER_WALLET) revert PerWalletCap();
+        // LIFETIME allowance, not a current holding: `genesisMintedBy` never
+        // decrements, so parking the inventory in a second wallet does NOT hand
+        // the same actor a second allocation (audit L1-C).
+        uint256 lifetime = genesisMintedBy[msg.sender] + quantity;
+        if (lifetime > MAX_PER_WALLET) revert PerWalletCap();
+        genesisMintedBy[msg.sender] = lifetime;
 
         paid[msg.sender] += msg.value; // track for a possible refund on cancel
 
@@ -351,6 +379,13 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         }
         minted = m + quantity;
         emit Bought(msg.sender, quantity, first);
+    }
+
+    /// @notice How many more genesis frens `a` may ever mint. UI helper: the
+    ///         allowance is lifetime, so this only ever goes down.
+    function remainingGenesisAllowance(address a) external view returns (uint256) {
+        uint256 used = genesisMintedBy[a];
+        return used >= MAX_PER_WALLET ? 0 : MAX_PER_WALLET - used;
     }
 
     /// @notice Deployer safety valve: cancel a stalled genesis so minters can be
