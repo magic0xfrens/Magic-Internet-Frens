@@ -382,7 +382,11 @@ PRESALE_SUPPLY="${PRESALE_SUPPLY:-1111}"
 ok "PRESALE_MAXWALLET=7 (binding against GENESIS_SUPPLY=$PRESALE_SUPPLY)"
 
 #  ── THE MOCK QUOTE TOKEN ───────────────────────────────────────────────────
-#  DeployLaunchpad.s.sol:533 `vm.envOr("DEPLOY_QUOTES", true)` — DEFAULT TRUE.
+#  DeployLaunchpad.s.sol:652 `vm.envOr("DEPLOY_QUOTES", false)` — DEFAULT FALSE.
+#  (This comment previously cited `:533` and "DEFAULT TRUE". Both were wrong:
+#  there is exactly ONE envOr("DEPLOY_QUOTES"...) in that file and it defaults
+#  false. An operator reading this to decide whether to set the flag was told
+#  the opposite of the truth.)
 #  It deploys MockQuoteToken("Magic USD","USDG",6) at :653 and allowlists it as
 #  a treasury-rotation destination. MockQuoteToken.sol:27 is
 #      function mint(address to, uint256 amount) external { _mint(to, amount); }
@@ -442,6 +446,10 @@ ok "NATIVE_PEGGED_USD not set (4663 native is real ETH, 18 decimals)"
 
 if [ "${QUOTE_ORACLE:-}" = "" ] && [ "$DEPLOY_QUOTES" = "false" ]; then
   warn "NO ORACLE will be wired (DEPLOY_QUOTES=false, QUOTE_ORACLE unset)."
+  echo "       => TREASURY ROTATION WILL NOT EXECUTE AT ALL. QuoteRotator.quoteOracle"
+  echo "          stays address(0), so _oracleFloor returns 0 for every pair and"
+  echo "          QuoteRotator.sol:389 reverts NotPriceable() on EVERY rotateSlice."
+  echo "          The guild can pass a mandate and never execute it. VERIFIED by trace."
   echo "       => CauldronHook._toUsd passes the raw quote amount through, so volume,"
   echo "          the crystal ladder and isDead are all denominated in NATIVE WEI."
   echo "          The constants that will actually govern this launch are the hook's"
@@ -454,6 +462,21 @@ if [ "${QUOTE_ORACLE:-}" = "" ] && [ "$DEPLOY_QUOTES" = "false" ]; then
   echo "          setDeathThreshold and setPolicies are BOTH skipped, because both sit"
   echo "          inside 'if (quoteOracle != address(0))' (DeployLaunchpad.s.sol:285-336)."
   echo "          Confirm these ETH-denominated numbers are the intended economics."
+  #  REFUSE, DO NOT WARN. An ETH-wei-denominated launch with dead rotation may be
+  #  a legitimate choice, but it must be a CHOSEN one — it was previously the
+  #  DEFAULT, reached by omitting a variable, and the only signal was this text
+  #  scrolling past. Note the gate is on QUOTE_ORACLE being unset, which after
+  #  the DeployLaunchpad fix is exactly the condition under which the rotator
+  #  ends up unwired: setting QUOTE_ORACLE now reaches rotator.setArbParams via
+  #  the new `else if` branch, so this cannot false-clear the way a check on
+  #  "QUOTE_ORACLE is non-empty" alone would have.
+  [ -n "${ACCEPT_NO_ORACLE:-}" ] || die "refusing to broadcast with no oracle.
+     Set QUOTE_ORACLE=<a deployed QuoteOracle> to wire the rotation price floor
+     (4663 Chainlink ETH/USD: 0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9, 8 dec,
+     heartbeat 86400 — note the code ships HB_ETH=4h, so set HEARTBEAT_ETH=86400
+     or usdPerRawUnit reads stale for up to 20h of every 24),
+     or set ACCEPT_NO_ORACLE=1 to state deliberately that this launch is
+     ETH-wei denominated and ships with treasury rotation non-functional."
 fi
 
 #  If anyone overrides DEPLOY_QUOTES, the feed must be real, live and fresh on
