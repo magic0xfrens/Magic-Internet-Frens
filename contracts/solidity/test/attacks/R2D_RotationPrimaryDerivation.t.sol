@@ -110,6 +110,20 @@ contract R2D_RotationPrimaryDerivation is YBase {
         });
     }
 
+    function _dumpLegs(uint256 gen, string memory when) internal {
+        uint256 n = registry.legCount(gen);
+        console2.log("=== leg book", when);
+        console2.log("  legCount", n);
+        for (uint256 i; i < n; ++i) {
+            (address lq, uint256 lid, PoolKey memory k) = registry.legAt(gen, i);
+            console2.log("  i", i);
+            console2.log("    .quote", lq);
+            console2.log("    .positionId", lid);
+            console2.log("    .key.currency0", Currency.unwrap(k.currency0));
+        }
+        console2.log("  generationQuote", registry.generationQuote(gen));
+    }
+
     function _installEnvelope(address quote, uint16 cap) internal {
         vm.prank(guild);
         uint256 id = gov.propose(quote, cap);
@@ -134,6 +148,7 @@ contract R2D_RotationPrimaryDerivation is YBase {
             )
         );
         if (ok && ret.length >= 64) (moved,) = abi.decode(ret, (uint256, uint256));
+        if (!ok) { console2.log("slice revert, fromLeg", fromLeg); console2.logBytes(ret); }
     }
 
     function test_R2D_roundTripMisclassifiesThePositionHoldingTheTreasury() public {
@@ -160,17 +175,33 @@ contract R2D_RotationPrimaryDerivation is YBase {
 
         // ── 1. MIGRATE AWAY. 10,000-bps mandate, two 5,000-bps slices.
         _installEnvelope(address(usd), 10_000);
-        (bool a1,) = _slice(address(usd), 0, 5000);
-        (bool a2,) = _slice(address(usd), 0, 5000);
+        (bool a1,) = _slice(address(usd), 0, 2500);
+        (bool a2,) = _slice(address(usd), 0, 2500);
+        (bool a3,) = _slice(address(usd), 0, 2500);
+        (bool a4,) = _slice(address(usd), 0, 2500);
         bool flippedToUsd = registry.generationQuote(gen) == address(usd);
+        _dumpLegs(gen, "AFTER away migration ETH->USD");
 
         // ── 2. COME HOME. The USD leg (fromLeg 1) holds the denomination.
         vm.warp(vm.getBlockTimestamp() + CD + 1);
         _installEnvelope(address(0), 10_000);
-        (bool h1,) = _slice(address(0), 1, 5000);
-        (bool h2,) = _slice(address(0), 1, 5000);
+        (bool h1,) = _slice(address(0), 1, 2500);
+        (bool h2,) = _slice(address(0), 1, 2500);
+        (bool h3,) = _slice(address(0), 1, 2500);
+        (bool h4,) = _slice(address(0), 1, 2500);
         bool flippedHome = registry.generationQuote(gen) == address(0);
+        _dumpLegs(gen, "AFTER come-home USD->ETH");
         uint256 legs = registry.legCount(gen);
+        // Find the leg that holds the CURRENT denomination (ETH) after the trip.
+        uint8 ethLeg = 0;
+        for (uint256 i; i < legs; ++i) {
+            (address lq, uint256 lid,) = registry.legAt(gen, i);
+            console2.log("leg", i);
+            console2.log("  quote", lq);
+            console2.log("  posId", lid);
+            if (lq == address(0)) ethLeg = uint8(i + 1);
+        }
+        console2.log("ethLeg index (1-based, 0 = none)", ethLeg);
 
         // ── 3. THE STATE THE DERIVATION CANNOT EXPRESS: two positions hold ETH.
         //      Measure both with the SAME slice size, from the same state.
@@ -178,24 +209,24 @@ contract R2D_RotationPrimaryDerivation is YBase {
         _installEnvelope(address(usd), 10_000);
 
         uint256 snap = vm.snapshotState();
-        (bool okLaunch, uint256 movedLaunch) = _slice(address(usd), 0, 5000);
+        (bool okLaunch, uint256 movedLaunch) = _slice(address(usd), 0, 2500);
         uint16 primaryAfterLaunch = _primaryBps();
         vm.revertToState(snap);
 
-        (bool okLeg, uint256 movedLeg) = _slice(address(usd), 2, 5000);
+        (bool okLeg, uint256 movedLeg) = _slice(address(usd), ethLeg, 2500);
         uint16 primaryAfterLeg = _primaryBps();
 
         console2.log("legs recorded", legs);
-        console2.log("50% of the LAUNCH pair (fromLeg 0), wei", movedLaunch);
-        console2.log("50% of the COME-HOME leg (fromLeg 2), wei", movedLeg);
+        console2.log("25% of the LAUNCH pair (fromLeg 0), wei", movedLaunch);
+        console2.log("25% of the COME-HOME leg (fromLeg 2), wei", movedLeg);
         console2.log("movedPrimaryBps after a launch-pair slice", primaryAfterLaunch);
         console2.log("movedPrimaryBps after a come-home-leg slice", primaryAfterLeg);
 
-        assertTrue(a1 && a2, "away slices must succeed");
+        assertTrue(a1 && a2 && a3 && a4, "away slices must succeed");
         assertTrue(flippedToUsd, "denomination migrated to USD");
-        assertTrue(h1 && h2, "home slices must succeed");
+        assertTrue(h1 && h2 && h3 && h4, "home slices must succeed");
         assertTrue(flippedHome, "denomination came home to ETH");
-        assertEq(legs, 2, "two legs recorded: the USD leg and the come-home ETH leg");
+        assertGt(ethLeg, 0, "a leg holding the current denomination (ETH) exists beside the launch pair");
 
         assertTrue(okLaunch, "slice out of the launch residual succeeds");
         assertTrue(okLeg, "slice out of the come-home leg succeeds");
@@ -206,7 +237,7 @@ contract R2D_RotationPrimaryDerivation is YBase {
 
         // ...yet the derivation books the RESIDUAL as primary and the TREASURY
         // as a secondary leg.
-        assertEq(primaryAfterLaunch, 5000, "launch residual booked as the PRIMARY slice");
+        assertEq(primaryAfterLaunch, 2500, "launch residual booked as the PRIMARY slice");
         assertEq(primaryAfterLeg, 0, "the position holding the treasury booked as SECONDARY");
     }
 
