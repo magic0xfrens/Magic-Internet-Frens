@@ -831,18 +831,18 @@
   <div class="kpis">
     <div class="kpi">
       <div class="k">Collection raise</div>
-      <div class="n">6.8882 &#926;</div>
-      <div class="s">1111 genesis &times; 0.0062&nbsp;&#926;, at sellout</div>
+      <div class="n">12.343 &#926;</div>
+      <div class="s">1111 genesis &times; 0.01111&nbsp;&#926;, at sellout</div>
     </div>
     <div class="kpi v">
       <div class="k">Token FDV at launch</div>
-      <div class="n">8.610 &#926;</div>
+      <div class="n">15.429 &#926;</div>
       <div class="s">777,000,000 &times; the settled opening price</div>
     </div>
     <div class="kpi">
       <div class="k">Launch price</div>
-      <div class="n">11.08 <span style="font-size:.5em;color:var(--muted)">gwei</span></div>
-      <div class="s">6.8882&nbsp;&#926; against the 621.6M active band</div>
+      <div class="n">19.86 <span style="font-size:.5em;color:var(--muted)">gwei</span></div>
+      <div class="s">12.3432&nbsp;&#926; against the 621.6M active band</div>
     </div>
     <div class="kpi v">
       <div class="k">Opening candle</div>
@@ -871,7 +871,7 @@
       <strong>Market cap and FDV are the same number, permanently.</strong>
       Supply is fixed at <b>777,000,000</b>, minted once at birth, with no mint function and
       nothing vesting &mdash; so there is no unlock chart and no future dilution to price in.
-      The launch <em>float</em> cap is <b>6.8882&nbsp;&#926;</b>, which is the raise, exactly:
+      The launch <em>float</em> cap is <b>12.3432&nbsp;&#926;</b>, which is the raise, exactly:
       you buy at the price your own mint set.
     </div>
     <div class="equals" style="border-style:solid;border-color:rgba(124,92,252,0.4);background:rgba(124,92,252,0.06);">
@@ -886,13 +886,14 @@
 
   <p class="foot-note" style="max-width:none;position:relative;z-index:1;">
     <strong style="color:var(--rose);">Derived, not quoted &mdash; and one number to be honest about.</strong>
-    The green candle opens at <span class="mono">ethActive / 777M</span> = 7.09&nbsp;gwei and buys the 20%
-    reserve back out in the same transaction, settling at <span class="mono">6.8882&nbsp;&#926; / 621.6M</span>.
-    It cross-checks: 97,912&nbsp;&times;&nbsp;11.08&nbsp;gwei = 17.5% of the mint price, exactly as
-    <span class="mono">DeployLaunchpad.s.sol:147</span> documents. But a 6.9&nbsp;&#926; opening pool is a
+    The green candle opens at <span class="mono">ethActive / 777M</span> = 12.71&nbsp;gwei and buys the 20%
+    reserve back out in the same transaction, settling at <span class="mono">12.3432&nbsp;&#926; / 621.6M</span>.
+    It cross-checks: 97,912&nbsp;&times;&nbsp;19.86&nbsp;gwei = 17.5% of the mint price, exactly as
+    <span class="mono">DeployLaunchpad.s.sol:147</span> documents. But a 12.3&nbsp;&#926; opening pool is still a
     <em>thin book</em> &mdash; deliberate, since the machine compounds liquidity from fees rather than opening
-    deep and bleeding, and it is why perp leverage is pinned at 3&times;. Mainnet parameters from
-    <span class="mono">docs/MAINNET_LAUNCH.md</span>. Not an offer or a solicitation.
+    deep and bleeding, and it is why perp leverage is pinned at 3&times;. Intended mainnet parameter
+    (<span class="mono">PRESALE_PRICE = 11110000000000000</span> wei); testnet rounds run lower by design, and the
+    mint UI reads <span class="mono">PRICE()</span> from the contract at send time. Not an offer or a solicitation.
   </p>
 
   <div class="lineup-band">
