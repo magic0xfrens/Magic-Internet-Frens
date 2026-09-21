@@ -120,9 +120,19 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     /// @dev    NOT immutable, and deliberately so: it shipped once as
     ///         `MAX_PER_WALLET == GENESIS_SUPPLY`, i.e. a cap that could never
     ///         bind, and being immutable meant that could only be fixed by a
-    ///         redeploy. The constructor now REFUSES a cap that cannot bind, and
-    ///         {setMaxPerWallet} can only ever RATCHET IT DOWN once minting has
-    ///         started — so no owner can widen a cap a buyer already relied on.
+    ///         redeploy.
+    ///
+    ///         THE CONSTRUCTOR DOES NOT REJECT A NON-BINDING CAP, deliberately:
+    ///         ten existing fixtures construct 3-token collections with
+    ///         `cap == supply`, and reverting would break them for no gain on a
+    ///         real launch. `test/attacks/L1_LaunchStops.t.sol` pins that
+    ///         acceptance. **A production deploy MUST therefore pass a binding
+    ///         cap itself** — nothing here will catch it.
+    ///
+    ///         The binding check lives in {setMaxPerWallet}, which refuses any
+    ///         cap `>= GENESIS_SUPPLY` or `0`, and can only ever RATCHET DOWN
+    ///         once minting has started — so the bad state can be corrected but
+    ///         never re-entered, and no owner can widen a cap a buyer relied on.
     uint256 public MAX_PER_WALLET;
 
     /// @notice The registry this presale ignites on sellout (and which wires the

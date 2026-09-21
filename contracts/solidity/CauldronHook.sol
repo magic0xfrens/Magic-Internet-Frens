@@ -1121,7 +1121,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             _creditFor(legacyBufferAsset, stale);
             return;
         }
-        if (legacyBuffer < legacyThreshold) return;
+        uint256 trigger = legacyThresholdRaw;
+        if (trigger == 0) trigger = legacyThreshold;
+        if (legacyBuffer < trigger) return;
         //  ETH-LAYOUT ONLY, for now. `legacyBuyStep` hardcodes `zeroForOne: true`
         //  and settles with `settle{value:}`. On a pool whose iteration token
         //  sorts to currency0, `zeroForOne: true` swaps TOKEN OUT — it would
@@ -1170,7 +1172,9 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     function legacyBuyStep(PoolKey calldata key) external {
         if (msg.sender != address(this)) revert OnlySelf();
         uint256 amt = legacyBuffer;
-        if (amt < legacyThreshold) return;
+        uint256 trigger = legacyThresholdRaw;
+        if (trigger == 0) trigger = legacyThreshold;
+        if (amt < trigger) return;
         legacyBuffer = 0;
 
         // The swap/settle/take mechanics live in a LINKED library so this hook
@@ -2046,6 +2050,7 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     function setLiveKey(PoolKey calldata k) external {
         if (msg.sender != registry) revert OnlyRegistry();
         _liveKey = k;
+        _cacheLegacyThreshold(Currency.unwrap(k.currency0));
     }
 
     /// @notice The protocol's live pool key (the only pool the hook ever spends into).
@@ -2062,6 +2067,40 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         legacyRegistry = registry_;
         legacyBps = bps;
         if (threshold > 0) legacyThreshold = threshold;
+        _cacheLegacyThreshold(Currency.unwrap(_liveKey.currency0));
+    }
+
+    /// @dev `legacyThreshold` is configured in 18-decimal whole-token units.
+    ///      Cache the equivalent raw-unit amount whenever the live quote or the
+    ///      configured threshold changes. Token metadata is governance-selected
+    ///      but must not be able to brick `setLiveKey`; an unusable decimals()
+    ///      response therefore degrades to a one-raw-unit trigger.
+    function _cacheLegacyThreshold(address quote) private {
+        uint256 d = 18;
+        if (quote != address(0)) {
+            (bool ok, bytes memory out) = quote.staticcall(abi.encodeWithSignature("decimals()"));
+            if (!ok || out.length < 32) {
+                legacyThresholdRaw = 1;
+                return;
+            }
+            d = abi.decode(out, (uint256));
+            if (d > 77) {
+                legacyThresholdRaw = 1;
+                return;
+            }
+        }
+
+        uint256 wad = legacyThreshold;
+        if (d < 18) {
+            uint256 raw = wad / (10 ** (18 - d));
+            legacyThresholdRaw = raw == 0 ? 1 : raw;
+        } else if (d == 18) {
+            legacyThresholdRaw = wad;
+        } else {
+            uint256 scale = 10 ** (d - 18);
+            legacyThresholdRaw =
+                wad > type(uint256).max / scale ? type(uint256).max : wad * scale;
+        }
     }
 
     /// @notice Swap the death-detection RULE by pointing at a new IDeathChecker
@@ -2637,6 +2676,12 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///  Appended at the END of storage on purpose: inserting it next to
     ///  `legacyBuffer` would shift every slot after it.
     address public legacyBufferAsset;
+
+    /// @notice Raw-unit buyback trigger for the current live quote. The
+    ///         configured `legacyThreshold` remains an 18-decimal whole-token
+    ///         value; this cache prevents 6-decimal quotes from inheriting a
+    ///         wei-sized threshold. Appended to preserve the pinned layout.
+    uint256 internal legacyThresholdRaw;
 
     receive() external payable {}
 }

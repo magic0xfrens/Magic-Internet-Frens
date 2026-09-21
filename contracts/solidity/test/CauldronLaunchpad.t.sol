@@ -474,6 +474,8 @@ contract VaultTest is Test {
         // this test contract is the collection's deployer -> can setVault
         vault = new CauldronVault(address(col), registry, 0);
         col.setVault(address(vault));
+        // This suite explicitly models legacy ETH-floor routing, not unified mode.
+        vm.mockCall(hook, abi.encodeWithSignature("vault()"), abi.encode(address(vault)));
         vm.deal(address(this), 100 ether);
     }
 

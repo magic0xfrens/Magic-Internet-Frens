@@ -588,8 +588,9 @@ contract PerpVault is ReentrancyGuard {
             epochAcc = accEthPerTokShare;
         }
         if (lost != 0) {
-            //  Re-base so the same write-off is never counted twice; one bump.
-            totalTokYieldPulled = cum;
+            // Count only the written-off amount. The current backed pot has
+            // not been pulled: counting it here masks subsequent write-offs.
+            totalTokYieldPulled = pulled + lost;
             unchecked { yieldEpoch++; }
             emit TokYieldForfeited(yieldEpoch, lost);
         }

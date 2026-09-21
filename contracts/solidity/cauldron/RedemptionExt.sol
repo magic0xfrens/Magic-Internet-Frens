@@ -489,6 +489,22 @@ contract RedemptionExt is CauldronBase {
             addToken += pt;
         }
 
+        // A return to the launch quote must consolidate its active position too.
+        // Otherwise the returned treasury sits in a second position while the
+        // migration-primary test still selects the depleted launch residual.
+        // Keep the reserve position and its pool key unchanged. Looking up the
+        // recorded leg first also folds in duplicates created by older facets.
+        if (toQuote == Currency.unwrap(generationPoolKey[gen].currency0)) {
+            uint256 launchId = generationPositionId[gen];
+            if (launchId != 0 && launchId != priorId) {
+                (uint256 pq, uint256 pt) = PoolOps.removeAll(
+                    IPositionManagerOps(address(positionManager)), launchId, generationPoolKey[gen], token
+                );
+                addQuote += pq;
+                addToken += pt;
+            }
+        }
+
         PoolId poolId;
         (poolId, positionId) = PoolOps.openOrAddPair(
             poolManager,
@@ -799,6 +815,20 @@ contract RedemptionExt is CauldronBase {
     function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private {
         TreasuryLeg[] storage legs = generationLegs[gen];
         uint256 n = legs.length;
+        if (quote == Currency.unwrap(generationPoolKey[gen].currency0)) {
+            generationPositionId[gen] = positionId;
+            // The destination mint replaced both the launch active position and
+            // any legacy duplicate leg. Retire that duplicate reference as well.
+            for (uint256 i; i < n; ++i) {
+                if (legs[i].quote == quote) {
+                    legs[i] = legs[n - 1];
+                    legs.pop();
+                    break;
+                }
+            }
+            emit LegOpened(gen, quote, positionId);
+            return;
+        }
         for (uint256 i; i < n; ++i) {
             //  EMITTED ON UPDATE TOO. Every slice retires the leg's previous NFT
             //  and mints a replacement (see step 3 of `rotateSliceFrom`), so an

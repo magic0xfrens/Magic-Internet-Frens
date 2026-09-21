@@ -14,6 +14,10 @@ interface IBurnableCollection {
     function minter() external view returns (address);
 }
 
+interface ILegacyFloorHook {
+    function vault() external view returns (address);
+}
+
 /**
  * @title CauldronVault
  * @notice The per-brew NFT floor — modelled on Gnome's vault. A share of the
@@ -136,6 +140,7 @@ contract CauldronVault is ReentrancyGuard {
 
     /// @notice Current redeemable floor per outstanding (eligible) NFT.
     function floorPerNFT() public view returns (uint256) {
+        if (closed || !_legacyFloorActive()) return 0;
         uint256 n = outstanding();
         if (n == 0) return 0;
         return address(this).balance / n;
@@ -145,8 +150,9 @@ contract CauldronVault is ReentrancyGuard {
     ///         Only redeemable during the brew's lifespan (before it dies).
     ///  UNIFIED-FLOOR NOTE (audit L-07): under the shipped configuration BOTH
     ///  collection-deployment paths wire `hook.setVault(0)`, so the fee floor-share
-    ///  becomes token BUY PRESSURE and no ETH ever reaches this vault. Its balance
-    ///  is therefore always zero and this function cannot succeed. It reverts with
+    ///  becomes token BUY PRESSURE. Donations or forced ETH must not re-enable
+    ///  this obsolete burn path: the hook must explicitly select THIS vault.
+    ///  An unsupported/reverting hook getter also fails closed. It reverts with
     ///  an explicit `UnifiedFloorActive()` rather than a bare `NothingToRedeem`, so
     ///  a holder is pointed at `CauldronRegistry.recycleCollectionNFT` — the live
     ///  token-denominated floor — instead of concluding their NFT is unbacked.
@@ -156,13 +162,11 @@ contract CauldronVault is ReentrancyGuard {
         if (closed) revert Closed();
         if (tokenId <= floorOffset) revert NotOwner(); // genesis tranche has its own floor
         if (collection.ownerOf(tokenId) != msg.sender) revert NotOwner();
+        if (!_legacyFloorActive()) revert UnifiedFloorActive();
 
         uint256 n = outstanding();
         amount = n == 0 ? 0 : address(this).balance / n;
-        if (amount == 0) {
-            if (address(this).balance == 0) revert UnifiedFloorActive();
-            revert NothingToRedeem();
-        }
+        if (amount == 0) revert NothingToRedeem();
 
         redeemed += 1;
         collection.burnFromVault(tokenId);
@@ -170,6 +174,15 @@ contract CauldronVault is ReentrancyGuard {
         (bool ok, ) = msg.sender.call{value: amount}("");
         if (!ok) revert TransferFailed();
         emit Redeemed(tokenId, msg.sender, amount);
+    }
+
+    /// @dev ETH custody is not a mode flag. The collection's authorized minter
+    ///      must explicitly route the legacy floor to this exact vault.
+    function _legacyFloorActive() private view returns (bool) {
+        // A typed try/catch does not catch malformed RETURN decoding. Inspect
+        // the raw word first so empty, short and non-address replies fail closed.
+        (bool ok, bytes memory r) = _minter().staticcall(abi.encodeCall(ILegacyFloorHook.vault, ()));
+        return ok && r.length == 32 && abi.decode(r, (uint256)) == uint256(uint160(address(this)));
     }
 
     /// @notice Close the vault on relaunch: stop redemption and sweep remaining

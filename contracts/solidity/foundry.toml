@@ -68,6 +68,8 @@ optimizer_runs = 1
 fs_permissions = [
     { access = "read", path = "./render/badge-art" },
     { access = "read", path = "../../compressed-traits" },
+    # Local multi-solc V4 integration fixtures deploy exact compiled artifacts.
+    { access = "read", path = "./out" },
 ]
 skip = [
     "lib/**/test/**",

@@ -76,6 +76,8 @@ contract Z2VaultDonationEntitlement is Test {
         );
         vault = new CauldronVault(address(col), address(this), 0);
         col.setVault(address(vault));
+        // Donation accounting is tested in explicitly enabled legacy ETH mode.
+        vm.mockCall(HOOK, abi.encodeWithSignature("vault()"), abi.encode(address(vault)));
         vm.startPrank(HOOK);
         for (uint256 i; i < mintCount; ++i) col.mint(ALICE);
         vm.stopPrank();
