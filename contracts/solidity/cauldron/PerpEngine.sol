@@ -209,6 +209,12 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     uint8 internal constant SWEEP_OK        = 0; // book fully scanned, nothing owed
     uint8 internal constant SWEEP_GAS       = 1; // ran out of gas -- RETRY WITH MORE
     uint8 internal constant SWEEP_TOO_LARGE = 2; // more condemned than any tx can close
+
+    //  How many times the sweep may re-read the book to chase its OWN impact.
+    //  Each settlement moves spot, which can condemn a position an earlier pass
+    //  cleared. Cascades converge (each round carries less impact), so four is
+    //  generous; past it the honest answer is that the trade is too big.
+    uint256 internal constant MAX_CASCADE_PASSES = 4;
     /// @notice Hard cap on TOTAL live positions (audit A-03). `forceCloseAllDead`
     ///         clears at most FORCE_CLOSE_MAX per call, and the registry drives it
     ///         ONCE at relaunch — so if the book can grow beyond that bound, the
@@ -1325,36 +1331,57 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         }
 
         //  ── A CASCADE CAN CONDEMN WHAT THIS PASS ALREADY CLEARED ────────────
-        //  Every settlement in the loop above BUYS BACK, which moves spot in the
-        //  same direction as a long-side pending trade. A position checked early
-        //  and found healthy can therefore be condemned by kill #9 -- and the
-        //  cursor has already passed it, so one pass cannot see it. With the old
-        //  count cap of 8 this was invisible: the sweep refused a book this deep
-        //  before it could cascade. Raising the ceiling to 30 makes it reachable,
-        //  and it is exactly the "unscanned insolvent tail" the pre-trade sweep
-        //  exists to prevent (measured: a 24-position mixed book left 2 insolvent
-        //  at spot after a successful 45-ETH buy).
+        //  Every settlement BUYS BACK, moving spot the same way as a long-side
+        //  pending trade, so a position checked early and found healthy can be
+        //  condemned by kill #9 -- and the cursor has already passed it. One
+        //  pass cannot see it. At a kill cap of 8 the sweep refused books this
+        //  deep before they could cascade; at 30 it does not, and a 24-position
+        //  mixed book was measured leaving 2 insolvent at spot after a
+        //  "successful" 45-ETH buy.
         //
-        //  So VERIFY before certifying. This is check-only -- no kills, no state
-        //  -- and it costs one read per position against a ~440k kill, so it is
-        //  noise on any swap that did real work. If anything is still condemned,
-        //  the trade is refused and the trader is told to trade smaller: the
-        //  alternative is charging stakers for a tail the engine created itself.
+        //  So FINISH THE JOB rather than certify it. Each pass re-reads the book
+        //  and kills whatever the previous pass's own impact condemned. A pass
+        //  that kills nothing means the book is clean and the trade is honest.
         //
-        //  Deliberately CONSERVATIVE: a second kill pass could clear some of
-        //  these within the cap. Refusing is the answer that cannot leave bad
-        //  debt, and a smaller trade always succeeds.
-        if (status == SWEEP_OK && spec != 0) {
-            // The last settlement may change spot even without removing an id.
-            _projSqrtP = _project(spec, isBuy, limit);
-            uint256 m = _openIds.length;
-            for (uint256 i; i < m; ) {
-                Position memory pv = _pos(_openIds[i]);
-                if (pv.trader != address(0) && _condemnedByThisTrade(pv)) {
-                    status = SWEEP_TOO_LARGE;
-                    break;
+        //  Refusing instead would have been safe but wrong: it turns cascades
+        //  the engine can actually resolve -- and used to resolve, at the old
+        //  cap -- into dead trades. Refusal is the LAST resort here, not the
+        //  first: only when the work genuinely exceeds a kill ceiling or a gas
+        //  budget does the trade get turned away.
+        //
+        //  BOUNDED THREE WAYS so this cannot become the OOG it exists to
+        //  prevent: `kills` is still capped by MAX_LIQ_PER_SWAP across ALL
+        //  passes, every kill still checks SWEEP_KILL_RESERVE, and the pass
+        //  count itself is capped. Cascades converge fast -- each round of kills
+        //  carries less impact than the one before -- so a book needing more
+        //  than MAX_CASCADE_PASSES rounds is one the trader should split.
+        if (spec != 0) {
+            for (uint256 pass; pass < MAX_CASCADE_PASSES; ) {
+                if (status != SWEEP_OK) break;
+                bool killedAny = false;
+                uint256 m = _openIds.length;
+                uint256 i;
+                while (i < m) {
+                    if (gasleft() < SWEEP_KILL_RESERVE) { status = SWEEP_GAS; break; }
+                    uint256 vid = _openIds[i];
+                    Position memory pv = _pos(vid);
+                    if (pv.trader != address(0) && _condemnedByThisTrade(pv)) {
+                        if (kills >= MAX_LIQ_PER_SWAP) { status = SWEEP_TOO_LARGE; break; }
+                        _projSqrtP = _project(spec, isBuy, limit);
+                        _tryLiquidate(vid, liquidator);
+                        if (_openIds.length < m) {
+                            unchecked { kills++; }
+                            killedAny = true;
+                            m = _openIds.length;
+                        } else {
+                            unchecked { ++i; }
+                        }
+                    } else {
+                        unchecked { ++i; }
+                    }
                 }
-                unchecked { ++i; }
+                if (!killedAny) break; // a clean pass: nothing the trade condemns remains
+                unchecked { ++pass; }
             }
         }
 
