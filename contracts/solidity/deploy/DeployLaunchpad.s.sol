@@ -65,6 +65,12 @@ interface IOwnable {
  *                       out of the environment and shell history)
  *    POOL_MANAGER       V4 PoolManager (required)
  *    POSITION_MANAGER   V4 PositionManager (required)
+ *    DEPLOY_QUOTES      deploy the Sepolia-only mock quote stack (default false;
+ *                       rejected on every other chain)
+ *    FEED_ETH_USD       native/USD aggregator used by that stack (default:
+ *                       Sepolia Chainlink; probed before broadcasting)
+ *    FEED_USDC_USD      stable/USD aggregator when PEG_STABLES=false (default:
+ *                       Sepolia Chainlink; probed before broadcasting)
  *    GNOME_RENDERER     iteration #1 on-chain renderer (default: Sepolia Gnome)
  *    BADGE_ART          upload Liquidatoor badge art + wire the on-chain badge
  *                       renderer (default true). ~167KB across 8 SSTORE2 writes,
@@ -82,6 +88,12 @@ interface IOwnable {
  *      --rpc-url $SEPOLIA_RPC --broadcast -vvv
  */
 contract DeployLaunchpad is Script {
+    error MockQuotesSepoliaOnly(uint256 chainId);
+    error FeedHasNoCode(address feed);
+    error FeedUnusable(address feed);
+    error InvalidHeartbeat(uint256 heartbeat);
+
+    uint256 internal constant SEPOLIA_CHAIN_ID = 11155111;
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     //  ART SOURCE. This used to default to a hardcoded "gnome renderer" on
     //  Sepolia, 0x15EbCb6c3cf473b4DF5F7DF05cD5609513dEe4A7, which answers
@@ -96,6 +108,14 @@ contract DeployLaunchpad is Script {
     string constant DEFAULT_ART_BASE = "https://www.mifrens.xyz/api/cauldron/creature/";
 
     function run() external {
+        //  FAIL BEFORE CREDENTIAL ACCESS, BROADCASTING OR DEPLOYMENT. The
+        //  integrated quote stack contains freely mintable test assets and its
+        //  default feeds are Sepolia contracts. Checking inside
+        //  `_deployRotationStack` was too late: by then the script had already
+        //  read the signer and deployed the whole core stack, leaving a paid,
+        //  partial deployment when this configuration was wrong.
+        bool deployQuotes = _preflightQuoteStack();
+
         //  SIGNER. Prefer an ENCRYPTED KEYSTORE (`--account <name>`), which
         //  never puts the raw key in the environment, the shell history or a
         //  process listing. `PRIVATE_KEY` stays supported for CI and for
@@ -530,8 +550,61 @@ contract DeployLaunchpad is Script {
         //
         //  Skipped entirely when DEPLOY_QUOTES=false, for a deployment that only
         //  wants the ETH-quoted core.
-        if (vm.envOr("DEPLOY_QUOTES", true)) {
+        // Mock quote assets are opt-in. A production deployment that omits the
+        // variable must never silently create and allowlist a freely mintable
+        // token.
+        if (deployQuotes) {
             _deployRotationStack(registry, rotator, poolManager, positionManager, deployer);
+        } else if (quoteOracle != address(0)) {
+            //  ── THE ROTATOR HAS ITS OWN ORACLE SLOT, AND QUOTE_ORACLE DID NOT
+            //     REACH IT ───────────────────────────────────────────────────
+            //  `QuoteRotator.quoteOracle` has exactly ONE writer in the whole
+            //  protocol — {QuoteRotator.setArbParams} (QuoteRotator.sol:484) —
+            //  and the only call to it was `:813`, inside `_deployRotationStack`,
+            //  which the branch above skips whenever DEPLOY_QUOTES is false.
+            //  Mainnet MUST run DEPLOY_QUOTES=false (MockQuoteToken.sol:27 has an
+            //  ungated `mint()` and the rotation stack allowlists it as a
+            //  destination), so EVERY mainnet deploy left the slot at address(0).
+            //
+            //  `_oracleFloor` then returns 0 for every pair, and
+            //  `QuoteRotator.sol:389 if (floor == 0) revert NotPriceable();`
+            //  refuses the slice — so the guild's entire treasury-rotation power
+            //  was dead on arrival, silently, until someone tried to execute a
+            //  mandate that had already passed a vote. VERIFIED by trace: the
+            //  revert carries NO oracle call at all, because `_usdLive`
+            //  short-circuits at `:620-621 if (o == address(0)) return 0`.
+            //
+            //  Setting QUOTE_ORACLE was NOT a workaround: `:282`, `:305-313` and
+            //  `:532-537` consume it, and `:813` passes the LOCALLY DEPLOYED
+            //  oracle, so the env value and the rotator never met. It did,
+            //  however, silence the deploy script's only warning about this.
+            //
+            //  Arb params mirror `:813` deliberately rather than inventing new
+            //  ones. They are inert here: {arbStep} captures the spread BETWEEN
+            //  two of the generation's own quoted pools, and a DEPLOY_QUOTES=false
+            //  stack has only the native pool until governance rotates into a
+            //  second quote — at which point these are the same values the
+            //  quote-stack path would have set anyway.
+            rotator.setArbParams(quoteOracle, 1000, 5e18);
+            console2.log("rotation price floor wired from QUOTE_ORACLE:", quoteOracle);
+        } else {
+            //  ── NEITHER PATH WIRED THE ROTATOR. REFUSE HERE, NOT UPSTREAM ────
+            //  `deploy-mainnet-rh.sh` also gates this, but a gate that lives only
+            //  in the wrapper is not a gate: anyone invoking `forge script`
+            //  directly — or any future script that does not route through the
+            //  wrapper — gets the silent path back, and the silent path ships a
+            //  protocol whose treasury rotation cannot execute. The condition is
+            //  checked where the consequence is, so it cannot be bypassed by
+            //  choosing a different entrypoint.
+            //
+            //  An ETH-wei-denominated launch with non-functional rotation MAY be
+            //  a legitimate choice — it is also what you get by omitting a
+            //  variable, which is why it must be stated rather than defaulted.
+            require(
+                vm.envOr("ACCEPT_NO_ORACLE", false),
+                "DEPLOY_QUOTES=false and QUOTE_ORACLE unset: QuoteRotator.quoteOracle would stay address(0), so _oracleFloor returns 0 and EVERY rotateSlice reverts NotPriceable(). Set QUOTE_ORACLE=<a deployed QuoteOracle>, or ACCEPT_NO_ORACLE=true to ship deliberately with treasury rotation non-functional."
+            );
+            console2.log("ACCEPT_NO_ORACLE: shipping with treasury rotation NON-FUNCTIONAL");
         }
 
         registry.setGenesisBonus(address(presale), bonusBps, supply);
@@ -623,6 +696,73 @@ contract DeployLaunchpad is Script {
     uint24 internal constant VENUE_FEE = 3000;
     int24 internal constant VENUE_SPACING = 60;
 
+    /// @dev Validate every environment-dependent quote-stack input before the
+    ///      caller reads a signing key or starts a broadcast.
+    function _preflightQuoteStack() internal view returns (bool enabled) {
+        enabled = vm.envOr("DEPLOY_QUOTES", false);
+        if (!enabled) return false;
+        if (block.chainid != SEPOLIA_CHAIN_ID) revert MockQuotesSepoliaOnly(block.chainid);
+
+        if (!vm.envOr("NATIVE_PEGGED_USD", false)) {
+            _requireUsableFeed(
+                vm.envOr("FEED_ETH_USD", FEED_ETH_USD),
+                vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH)),
+                vm.envOr("ETH_MIN_USD", uint256(100e18)),
+                vm.envOr("ETH_MAX_USD", uint256(100_000e18))
+            );
+        }
+        if (!vm.envOr("PEG_STABLES", true)) {
+            _requireUsableFeed(
+                vm.envOr("FEED_USDC_USD", FEED_USDC_USD),
+                vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC)),
+                0,
+                0
+            );
+        }
+    }
+
+    /// @dev Mirror the feed liveness conditions QuoteOracle applies. Bounds are
+    ///      configured after its deployment; code, a positive answer and freshness
+    ///      can and must be proven before any deployment starts.
+    function _requireUsableFeed(
+        address feed, uint256 heartbeatRaw, uint256 minUsd, uint256 maxUsd
+    ) internal view {
+        if (heartbeatRaw == 0 || heartbeatRaw > type(uint32).max) {
+            revert InvalidHeartbeat(heartbeatRaw);
+        }
+        if (maxUsd != 0 && minUsd > maxUsd) revert FeedUnusable(feed);
+        if (feed.code.length == 0) revert FeedHasNoCode(feed);
+
+        (bool ok, bytes memory ret) = feed.staticcall(
+            abi.encodeWithSignature("latestRoundData()")
+        );
+        if (!ok || ret.length < 160) revert FeedUnusable(feed);
+        (, int256 answer,, uint256 updatedAt,) =
+            abi.decode(ret, (uint80, int256, uint256, uint256, uint80));
+        if (
+            answer <= 0 || updatedAt == 0 || updatedAt > block.timestamp
+                || block.timestamp - updatedAt > heartbeatRaw
+        ) revert FeedUnusable(feed);
+
+        (ok, ret) = feed.staticcall(abi.encodeWithSignature("decimals()"));
+        if (!ok || ret.length < 32) revert FeedUnusable(feed);
+        uint8 feedDecimals = abi.decode(ret, (uint8));
+        uint256 unsignedAnswer = uint256(answer);
+        uint256 perWhole;
+        if (feedDecimals <= 18) {
+            uint256 scale = 10 ** (18 - feedDecimals);
+            if (unsignedAnswer > type(uint256).max / scale) revert FeedUnusable(feed);
+            perWhole = unsignedAnswer * scale;
+        } else {
+            uint256 shift = feedDecimals - 18;
+            if (shift > 77) revert FeedUnusable(feed);
+            perWhole = unsignedAnswer / (10 ** shift);
+        }
+        if (perWhole == 0 || (minUsd != 0 && perWhole < minUsd) || (maxUsd != 0 && perWhole > maxUsd)) {
+            revert FeedUnusable(feed);
+        }
+    }
+
     /**
      * @dev Quote asset, oracle feeds, and the curated venue the rotation swaps
      *      through. Separate function purely to keep `run()` under the stack
@@ -690,12 +830,15 @@ contract DeployLaunchpad is Script {
         if (vm.envOr("NATIVE_PEGGED_USD", false)) {
             oracle.setPegged(address(0), 18);
         } else {
-            oracle.setFeed(address(0), FEED_ETH_USD, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
+            address ethFeed = vm.envOr("FEED_ETH_USD", FEED_ETH_USD);
+            require(ethFeed.code.length > 0, "native feed has no code");
+            oracle.setFeed(address(0), ethFeed, uint32(vm.envOr("HEARTBEAT_ETH", uint256(HB_ETH))), 18);
             oracle.setBounds(
                 address(0),
                 uint128(vm.envOr("ETH_MIN_USD", uint256(100e18))),
                 uint128(vm.envOr("ETH_MAX_USD", uint256(100_000e18)))
             );
+            require(oracle.usdPerRawUnit(address(0)) != 0, "native feed unusable");
         }
 
         //  THE DOLLAR STABLE IS PEGGED, NOT FED. Its feed answers ~1.0000 and
@@ -712,7 +855,10 @@ contract DeployLaunchpad is Script {
         if (vm.envOr("PEG_STABLES", true)) {
             oracle.setPegged(address(usdg), 6);
         } else {
-            oracle.setFeed(address(usdg), FEED_USDC_USD, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
+            address stableFeed = vm.envOr("FEED_USDC_USD", FEED_USDC_USD);
+            require(stableFeed.code.length > 0, "stable feed has no code");
+            oracle.setFeed(address(usdg), stableFeed, uint32(vm.envOr("HEARTBEAT_USDC", uint256(HB_USDC))), 6);
+            require(oracle.usdPerRawUnit(address(usdg)) != 0, "stable feed unusable");
         }
         rotator.setArbParams(address(oracle), 1000, 5e18);
         //  THE ROTATION PRICE FLOOR. Left at its 300 (3%) default by every deploy
