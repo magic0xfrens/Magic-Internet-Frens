@@ -183,7 +183,32 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @notice Hard cap on how many positions a single swap's batch auto-liq will
     ///         process — bounds gas so a swap can NEVER run out of gas on the
     ///         liquidation sweep, no matter how many hints are passed.
-    uint256 internal constant MAX_LIQ_PER_SWAP = 8;
+    //  ── A FEASIBILITY CEILING, NOT A WORK BUDGET ───────────────────────────
+    //  This was 8, and it was the wrong SHAPE of limit: a count standing in for
+    //  a gas question. A swap that bankrupted a 9th position was refused no
+    //  matter how much gas it supplied, so `LiqGasStarved` told the trader to
+    //  raise their gas limit and the retry failed identically.
+    //
+    //  The real budget is gas, and the loop already measures it
+    //  (`gasleft() < SWEEP_KILL_RESERVE`). What a COUNT is still good for is the
+    //  bound no amount of gas can cross: EIP-7825 caps a transaction at
+    //  16,777,216 gas, one in-swap kill costs ~440k marginal (543,602 with the
+    //  sweep against 103,857 bare -- CauldronHook.sol:170-177), and the hook
+    //  holds back LIQ_GAS_RESERVE + LIQ_GAS_MIN (580k) with SWEEP_KILL_RESERVE
+    //  (420k) reserved inside that. So:
+    //
+    //      (16,777,216 - 580,000 - 420,000 - 104,000) / 440,000  ~=  35
+    //
+    //  35 is the physical ceiling. 30 is this constant, leaving margin for the
+    //  swap's own cost variance. Past it, refusing is the ONLY honest answer and
+    //  the trader must trade smaller -- which is what {LiqTradeTooLarge} says,
+    //  instead of asking for gas that cannot exist.
+    uint256 internal constant MAX_LIQ_PER_SWAP = 30;
+
+    //  Sweep outcomes. Ordered by what the caller can DO about them.
+    uint8 internal constant SWEEP_OK        = 0; // book fully scanned, nothing owed
+    uint8 internal constant SWEEP_GAS       = 1; // ran out of gas -- RETRY WITH MORE
+    uint8 internal constant SWEEP_TOO_LARGE = 2; // more condemned than any tx can close
     /// @notice Hard cap on TOTAL live positions (audit A-03). `forceCloseAllDead`
     ///         clears at most FORCE_CLOSE_MAX per call, and the registry drives it
     ///         ONCE at relaunch — so if the book can grow beyond that bound, the
@@ -1091,18 +1116,22 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     /// @param limit the swap's own sqrtPriceLimitX96 — the projection may not
     ///              exceed it, which is what stops a tight-limit swap with a huge
     ///              nominal from liquidating a whole side for free.
-    /// @return complete false IFF the scan was cut short by {SWEEP_KILL_RESERVE}
+    /// @return status SWEEP_OK / SWEEP_GAS (retry with more) / SWEEP_TOO_LARGE (trade smaller)
     ///         with book left unscanned — i.e. the caller's gas did not fund the
     ///         liquidation work THIS trade creates. The hook turns that into a
     ///         `LiqGasStarved` revert on the PRE-trade call (H1): a constant gas
     ///         floor cannot express "enough gas for N kills", but the sweep that
     ///         actually does the work can report that it ran out.
+    ///  RETURNS A STATUS, NOT A BOOL. The hook has to tell a trader whether to
+    ///  retry with more gas or to trade smaller, and those are opposite advice.
+    ///  Selector is unchanged (return types are not part of it); the only decoder
+    ///  is `CauldronHook._liqSweep`, updated in the same commit.
     function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit)
         external
-        returns (bool complete)
+        returns (uint8 status)
     {
         if (msg.sender != hookAddr) revert OnlyHook();
-        complete = _doSweep(liquidator, true, spec, isBuy, limit); // in-swap: settle swaps run in-place
+        status = _doSweep(liquidator, true, spec, isBuy, limit); // in-swap: settle swaps run in-place
     }
 
     /// @dev The pending trade's projected post-swap price from the CURRENT spot.
@@ -1146,10 +1175,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
 
     function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit)
         internal
-        returns (bool complete)
+        returns (uint8 status)
     {
-        complete = true;
-        if (_liqReentry) return complete;
+        status = SWEEP_OK;
+        if (_liqReentry) return status;
         // SAMPLE THE ORACLE FIRST, ALWAYS (audit Z-02). This used to sit AFTER the
         // empty-book early-return, which meant that while no position was open no
         // swap ever wrote an observation: `ring.lastTick` stayed frozen at whatever it was
@@ -1162,7 +1191,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         // keeperless; it costs one observation write on an otherwise idle sweep.
         _pokeFunding();
         uint256 len = _openIds.length;
-        if (len == 0) return complete;
+        if (len == 0) return status;
         _liqReentry = true;
         _inLocked = inLocked;
         uint256 cursor = sweepCursor;
@@ -1261,7 +1290,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  charged to PLV on a 30 ETH vault, at ordinary-swap attacker cost.
             //  The floor cannot know N; this loop does. `complete == false` is
             //  the hook's signal to refuse the PRE-trade swap outright.
-            if (gasleft() < SWEEP_KILL_RESERVE) { complete = false; break; }
+            if (gasleft() < SWEEP_KILL_RESERVE) { status = SWEEP_GAS; break; }
             uint256 n = _openIds.length;
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
@@ -1279,7 +1308,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             // more condemned position is what makes `complete` false (H1B).
             if (kills == MAX_LIQ_PER_SWAP) {
                 Position memory pk = _pos(id);
-                if (pk.trader != address(0) && _condemnedByThisTrade(pk)) { complete = false; break; }
+                if (pk.trader != address(0) && _condemnedByThisTrade(pk)) { status = SWEEP_TOO_LARGE; break; }
                 cursor++;
                 scanned++;
                 continue;
@@ -1290,6 +1319,39 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             if (_openIds.length < n) { kills++; } else { cursor++; }
             scanned++;
         }
+
+        //  ── A CASCADE CAN CONDEMN WHAT THIS PASS ALREADY CLEARED ────────────
+        //  Every settlement in the loop above BUYS BACK, which moves spot in the
+        //  same direction as a long-side pending trade. A position checked early
+        //  and found healthy can therefore be condemned by kill #9 -- and the
+        //  cursor has already passed it, so one pass cannot see it. With the old
+        //  count cap of 8 this was invisible: the sweep refused a book this deep
+        //  before it could cascade. Raising the ceiling to 30 makes it reachable,
+        //  and it is exactly the "unscanned insolvent tail" the pre-trade sweep
+        //  exists to prevent (measured: a 24-position mixed book left 2 insolvent
+        //  at spot after a successful 45-ETH buy).
+        //
+        //  So VERIFY before certifying. This is check-only -- no kills, no state
+        //  -- and it costs one read per position against a ~440k kill, so it is
+        //  noise on any swap that did real work. If anything is still condemned,
+        //  the trade is refused and the trader is told to trade smaller: the
+        //  alternative is charging stakers for a tail the engine created itself.
+        //
+        //  Deliberately CONSERVATIVE: a second kill pass could clear some of
+        //  these within the cap. Refusing is the answer that cannot leave bad
+        //  debt, and a smaller trade always succeeds.
+        if (status == SWEEP_OK && kills != 0 && spec != 0) {
+            uint256 m = _openIds.length;
+            for (uint256 i; i < m; ) {
+                Position memory pv = _pos(_openIds[i]);
+                if (pv.trader != address(0) && _condemnedByThisTrade(pv)) {
+                    status = SWEEP_TOO_LARGE;
+                    break;
+                }
+                unchecked { ++i; }
+            }
+        }
+
         sweepCursor = cursor;
         _inLocked = false;
         _liqReentry = false;

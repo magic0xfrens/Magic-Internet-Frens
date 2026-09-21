@@ -59,7 +59,7 @@ interface IPerpEngineLiq {
     function liquidateManyInSwap(uint256[] calldata ids, address liquidator) external;
     function sweepLiquidations(address liquidator, int256 amountSpecified, bool isBuy, uint160 limit)
         external
-        returns (bool complete);
+        returns (uint8 status);
     /// @dev Live open-position count. Read by the hook's pre-trade gas gate so a
     ///      gas-starved swap only reverts when there is actually a book to protect.
     function openCount() external view returns (uint256);
@@ -154,6 +154,15 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     /// @dev The transaction did not carry enough gas to fund the PRE-TRADE
     ///      liquidation sweep while perp positions were open. See {_liqSweep}.
     error LiqGasStarved();
+    /// @notice The pending trade would bankrupt more perp positions than a single
+    ///         swap can close. Unlike {LiqGasStarved} this is NOT fixable by
+    ///         raising the gas limit -- one in-swap liquidation costs ~440k and
+    ///         EIP-7825 caps a transaction at 16,777,216, so past `maxPerSwap`
+    ///         no transaction can carry the work. Trade a smaller size.
+    error LiqTradeTooLarge(uint256 maxPerSwap);
+    /// @dev Mirrors `PerpEngine.MAX_LIQ_PER_SWAP` for the revert payload only.
+    ///      Not read for control flow, so a drift here cannot change behaviour.
+    uint256 internal constant MAX_LIQ_PER_SWAP_VIEW = 30;
 
     // -----------------------------------------------------------------------
     // Constants
@@ -817,8 +826,18 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             //  `eth_estimateGas` simply supply what the book asks for; the swap
             //  stays routable (exact-output included) because an empty or fully
             //  scanned book always returns true.
-            if (amountSpecified != 0 && swept && out.length >= 32 && !abi.decode(out, (bool))) {
-                revert LiqGasStarved();
+            //  TWO REFUSALS, TWO DIFFERENT INSTRUCTIONS. The engine reports WHY
+            //  it could not finish, because "send more gas" and "trade smaller"
+            //  are opposite advice and the old bool could not tell them apart:
+            //  a trade that bankrupted more positions than one swap could close
+            //  reverted `LiqGasStarved`, the trader raised the gas limit, and the
+            //  retry failed identically. `LiqTradeTooLarge` is the un-retryable
+            //  case -- the work exceeds what ANY transaction can do under
+            //  EIP-7825, so the only fix is a smaller trade.
+            if (amountSpecified != 0 && swept && out.length >= 32) {
+                uint256 status = abi.decode(out, (uint256));
+                if (status == 2) revert LiqTradeTooLarge(MAX_LIQ_PER_SWAP_VIEW);
+                if (status != 0) revert LiqGasStarved();
             }
         } else if (amountSpecified != 0) {
             //  ── A GAS-STARVED TRADE FAILS LOUDLY, IT DOES NOT TRADE BLIND (R1C) ──

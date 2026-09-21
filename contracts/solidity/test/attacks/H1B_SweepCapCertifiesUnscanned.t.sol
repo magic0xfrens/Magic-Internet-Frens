@@ -34,7 +34,20 @@ contract H1B_SweepCapCertifiesUnscanned is YBase {
     bool internal crashReverted;
     bool internal ran;
 
-    uint256 internal constant N_LONGS = 20;
+    //  SIZED ABOVE THE KILL CEILING, NOT AT A FIXED 20. This was 20, chosen when
+    //  MAX_LIQ_PER_SWAP was 8: twenty condemned positions comfortably exceeded
+    //  the cap, so the sweep refused and both assertions below held. Raising the
+    //  ceiling to 30 made a 20-position book something the sweep can now actually
+    //  CLEAR -- so it cleared it, `strandedAfter` stayed 0 (the property held,
+    //  and held for the better reason), but `crashReverted` went false because
+    //  there was no longer anything to refuse.
+    //
+    //  The test's meaning is "a book bigger than one swap can handle must not be
+    //  certified", so the book has to stay bigger than one swap can handle. 34 is
+    //  above the 30-kill ceiling and also above what the EIP-7825 gas cap funds
+    //  (~35 kills at ~440k), so the refusal is reached by whichever bound binds
+    //  first -- count or gas -- and both are correct reasons to refuse.
+    uint256 internal constant N_LONGS = 34;
 
     function doSell(uint256 tokenIn) external {
         require(msg.sender == address(this), "self");

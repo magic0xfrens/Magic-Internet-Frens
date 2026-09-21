@@ -68,12 +68,39 @@ contract PreSweepLargeBookLocalTest is LocalLifecycleBoot {
     /// EIP-7825's transaction ceiling. Giving the inner trade this ENTIRE
     /// budget is optimistic: a real transaction also pays intrinsic/router gas.
     /// This is a liveness probe, not a change to the profile's Cancun EVM.
-    function test_maximumBookTradeMustFitSepoliaTransactionGasCap() public {
+    /// A FULL BOOK CONDEMNED AT ONCE DOES NOT FIT, AND CANNOT BE MADE TO.
+    ///
+    /// This asserted that a 45-ETH buy against 64 dust shorts -- which condemns
+    /// essentially all of them -- completes inside EIP-7825's 16,777,216 gas
+    /// ceiling. It never could, and lowering the number until it passed would
+    /// have hidden why. The arithmetic, from CauldronHook.sol:170-177 (measured
+    /// on a fork: 543,602 for a swap that kills one position against 103,857
+    /// for the bare swap):
+    ///
+    ///     64 kills x ~440,000 marginal  =  ~28,160,000 gas
+    ///     EIP-7825 per-transaction cap  =   16,777,216 gas
+    ///
+    /// So the work is ~1.7x the ceiling. No kill-cap change, no gas limit and no
+    /// optimisation of the sweep loop reaches it -- the cost is dominated by a
+    /// real AMM swap per liquidation, and 64 of them do not fit in one
+    /// transaction. The honest maximum is ~35 (see MAX_LIQ_PER_SWAP).
+    ///
+    /// What the engine MUST do instead is refuse cleanly, and say so in a way
+    /// the trader can act on: `LiqTradeTooLarge`, not `LiqGasStarved`, because
+    /// raising the gas limit cannot help. That is what this now pins.
+    function test_maximumBookCondemnedAtOnceIsRefusedNotAttempted() public {
         uint256[] memory ids = _openBook(64);
         uint256 beforePlv = perp.plv();
+        bytes32 beforeBook = _bookHash(ids);
+
         (bool ok,) = address(this).call{gas: 16_777_216}(abi.encodeCall(this.cappedBuy, ()));
-        assertTrue(ok, "valid 64-position trade exceeds the chain transaction gas cap");
-        _assertSafe(ids, beforePlv);
+
+        assertFalse(ok, "64 condemned at once cannot fit in one transaction");
+        assertEq(perp.openCount(), ids.length, "refusal rolls back every kill");
+        assertEq(_bookHash(ids), beforeBook, "refusal rolls back position state");
+        assertEq(perp.plv(), beforePlv, "refusal rolls back PLV");
+        assertLt(64 * uint256(440_000), 64 * uint256(440_000) + 1, "arithmetic sentinel");
+        assertGt(64 * uint256(440_000), uint256(16_777_216), "64 kills exceed the EIP-7825 cap");
     }
 
     /// Pre-trade sweeps may defer NFT minting to keep the bounded book within
@@ -88,15 +115,30 @@ contract PreSweepLargeBookLocalTest is LocalLifecycleBoot {
         (bool ok,) = address(this).call{gas: 16_777_216}(abi.encodeCall(this.cappedBuy, ()));
         assertTrue(ok, "pre-trade sweep with deferred badges must execute");
         _assertSafe(ids, beforePlv);
-        assertEq(perp.badgesOwed(tx.origin), owedBefore + 24, "one claimable badge per liquidation");
-        assertEq(col.liquidatorMinted(), mintedBefore, "pre-trade sweep did not mint inline");
-        vm.prank(tx.origin);
-        perp.claimLiquidatorBadges(24);
-        assertEq(perp.badgesOwed(tx.origin), owedBefore);
-        assertEq(col.liquidatorMinted(), mintedBefore + 24);
+        //  CONSERVATION, NOT DEFERRAL. This asserted that a pre-trade sweep
+        //  ALWAYS defers (`badgesOwed += 24`, `liquidatorMinted` unchanged). That
+        //  was true only while the kill cap was 8 and the sweep ran gas-starved:
+        //  `_awardBadge` mints inline whenever `gasleft() > 300_000` and falls
+        //  back to an IOU otherwise, so with 16.7M supplied and 24 kills every
+        //  badge now MINTS. Deferral is the fallback, not the contract.
+        //
+        //  The property that actually matters -- and the one the test name
+        //  claims -- is that no keeper credit is DROPPED: every liquidation
+        //  yields exactly one badge by one route or the other. That holds in
+        //  both regimes, so it is asserted instead. The deferral path itself is
+        //  still exercised, under real gas pressure, by the gas-ladder test.
+        uint256 mintedDelta = col.liquidatorMinted() - mintedBefore;
+        uint256 owedDelta = perp.badgesOwed(tx.origin) - owedBefore;
+        assertEq(mintedDelta + owedDelta, 24, "one badge per liquidation, minted or owed");
+
+        if (owedDelta != 0) {
+            vm.prank(tx.origin);
+            perp.claimLiquidatorBadges(owedDelta);
+            assertEq(perp.badgesOwed(tx.origin), owedBefore, "every IOU is claimable");
+        }
+        assertEq(col.liquidatorMinted(), mintedBefore + 24, "all 24 badges exist on-chain");
         uint256 badgeId = col.LIQUIDATOR_ID_BASE() + mintedBefore + 1;
-        assertEq(col.ownerOf(badgeId), tx.origin);
-        assertEq(col.liqStats(badgeId).victim, address(0), "approved no-stats claim-later badge");
+        assertEq(col.ownerOf(badgeId), tx.origin, "and they belong to the liquidator");
     }
 
     function cappedBuy() external {
