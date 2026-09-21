@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Magic Internet Frens — The Cauldron · Protocol Deck</title>
+<meta name="description" content="The Cauldron is a Uniswap v4 hook that launches a token, lets the market trade it, notices when it dies, recovers the liquidity, and launches the next one — forever, funded entirely by its own swap fees." />
+<meta name="robots" content="noindex" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Magic Internet Frens — The Cauldron · Protocol Deck" />
+<meta property="og:description" content="An eternal, autonomous token machine on Uniswap v4. 2222 pixel wizards govern it. Live on Sepolia, targeting Robinhood Chain." />
+<meta property="og:image" content="https://www.mifrens.xyz/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@magic0xfrens" />
+<link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+<link rel="stylesheet" href="/fonts/fonts.css" />
+<style>
+  :root {
+    /* Brand — lifted from the live app, not invented.
+       #d5fd51 accent · #2a1f54 wizard purple · #f5f0e8 paper · #140e24 ink */
+    --lime:       #d5fd51;
+    --lime-glow:  #e6ff8a;
+    --lime-deep:  #a9cc2f;
+    --purple:     #2a1f54;
+    --purple-lit: #3d2d75;
+    --violet:     #7c5cfc;
+    --rose:       #ff4d6d;
+    --gold:       #f5c542;
+    --green:      #3ddc84;
+    --ink:        #0e0a1a;
+    --ink-2:      #140e24;
+    --paper:      #f5f0e8;
+    --muted:      rgba(245,240,232,0.62);
+    --muted-2:    rgba(245,240,232,0.38);
+    --panel:      rgba(213,253,81,0.035);
+    --panel-brd:  rgba(213,253,81,0.15);
+
+    --display: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+    --sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --mono: 'DM Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scroll-snap-type: y mandatory; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Global grain ---------- */
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    opacity: 0.045; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- Slide scaffold ---------- */
+  .slide {
+    position: relative;
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(66px, 7vh, 92px) clamp(30px, 6vw, 118px) clamp(48px, 6vh, 76px);
+    overflow: hidden;
+    border-bottom: 1px solid rgba(213,253,81,0.06);
+  }
+  .slide::before {
+    content: '';
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(85% 70% at 80% 6%, rgba(124,92,252,0.16) 0%, rgba(124,92,252,0) 58%),
+      radial-gradient(120% 95% at 12% 100%, rgba(42,31,84,0.85) 0%, rgba(14,10,26,0) 62%);
+  }
+  .slide > * { position: relative; z-index: 1; }
+
+  /* ---------- Rail ---------- */
+  .rail {
+    position: absolute; top: clamp(24px,3.6vh,40px);
+    left: clamp(30px,7vw,132px); right: clamp(30px,7vw,132px);
+    z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10.5px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--muted-2);
+  }
+  .rail .brand-mini { display: flex; align-items: center; gap: 9px; color: var(--muted); }
+  .rail .brand-mini svg { width: 20px; height: 17px; }
+  .rail .brand-mini b { color: var(--lime); font-weight: 500; }
+  .rail .num b { color: var(--lime); }
+
+  /* ---------- Typography ---------- */
+  /* Type scales on the SHORTER of width and height. A 13-slide snap deck with
+     mandatory snapping must never push content below the fold — on a laptop the
+     viewport is ~750px tall, where a pure-vw scale overflows the dense slides. */
+  .kicker {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: clamp(10px, 0.95vw, 12px); letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--lime); margin-bottom: clamp(11px, 2.5vh, 22px);
+  }
+  .kicker::before { content: ''; width: 24px; height: 1px; background: var(--lime); opacity: .65; }
+
+  h1 { font-family: var(--display); font-size: clamp(38px, 5.8vw, 86px); font-weight: 900; letter-spacing: -0.012em; line-height: 1.04; }
+  h2 {
+    font-family: var(--display); font-weight: 700; letter-spacing: -0.012em; line-height: 1.1;
+    font-size: clamp(25px, min(3.9vw, 5.3vh), 55px);
+    margin-bottom: clamp(11px, 2.4vh, 20px);
+  }
+  h3 { font-size: clamp(16px, min(1.5vw, 2.2vh), 21px); font-weight: 700; letter-spacing: -0.005em; }
+  .lede { font-size: clamp(14px, min(1.5vw, 2.05vh), 20px); color: var(--muted); max-width: 62ch; line-height: 1.55; }
+  .em  { color: var(--lime-glow); }
+  .emv { color: var(--violet); }
+  strong { color: var(--paper); font-weight: 700; }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- Cover ---------- */
+  .cover { align-items: center; text-align: center; justify-content: center; }
+  .cover::before {
+    background:
+      radial-gradient(52% 48% at 50% 40%, rgba(213,253,81,0.14) 0%, rgba(213,253,81,0) 64%),
+      radial-gradient(90% 70% at 50% 112%, rgba(124,92,252,0.30) 0%, rgba(14,10,26,0) 60%),
+      radial-gradient(120% 90% at 50% -10%, rgba(42,31,84,0.9) 0%, rgba(14,10,26,0) 55%);
+  }
+  .cover-mark { width: clamp(100px, min(12vw, 15.5vh), 182px); height: auto; margin-bottom: clamp(9px, 1.9vh, 16px); animation: markGlow 5s ease-in-out infinite alternate; }
+  @keyframes markGlow {
+    from { filter: drop-shadow(0 0 26px rgba(213,253,81,0.35)); }
+    to   { filter: drop-shadow(0 0 58px rgba(213,253,81,0.75)); }
+  }
+  .cover .brandline {
+    font-family: var(--mono); font-size: clamp(11px, 1.15vw, 14px);
+    letter-spacing: 0.44em; text-transform: uppercase; color: var(--paper);
+    margin-bottom: clamp(8px, 1.7vh, 14px); text-indent: 0.44em;
+  }
+  .cover h1 { font-size: clamp(36px, min(6.4vw, 8.6vh), 100px); line-height: 0.98; color: var(--lime-glow); }
+  .cover .sub { margin-top: clamp(11px, 2.2vh, 20px); font-size: clamp(14.5px, min(1.6vw, 2.5vh), 22px); font-weight: 500; color: var(--paper); max-width: 32ch; }
+  .cover .tagline {
+    margin-top: clamp(13px, 2.6vh, 24px); font-family: var(--mono); font-size: clamp(9.5px, 0.9vw, 11.5px);
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted);
+  }
+  .cover .tagline .dot { color: var(--lime); }
+  .cover .badges { margin-top: clamp(14px, 2.8vh, 26px); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 76ch; }
+  /* The genesis line-up, sitting on the cover's horizon. Its own art is already
+     purple-on-starfield, so it blends into the slide gradient with a mask. */
+  #s1 { --fu: clamp(205px, min(35vh, 23vw), 380px); padding-bottom: calc(var(--fu) * 0.64 + 4px); }
+  /* The cover grounds its crew rather than bleeding them: almost no clip, and a
+     shorter top fade so the heads stay solid. */
+  #s1 .lineup-band {
+    bottom: calc(var(--fu) * -0.155);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 17%, #000 100%);
+            mask-image: linear-gradient(180deg, transparent 0%, #000 17%, #000 100%);
+  }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 15px; border-radius: 999px;
+    border: 1px solid var(--panel-brd); background: var(--panel);
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; color: var(--muted);
+  }
+  .badge .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 9px var(--lime); animation: pulse 1.9s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.35;transform:scale(.65);} }
+  .badge b { color: var(--lime-glow); font-weight: 500; }
+
+  /* ---------- Layout helpers ---------- */
+  .two { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: clamp(30px, 4.5vw, 72px); align-items: center; }
+  .cards { display: grid; gap: clamp(11px, 1.7vh, 16px); }
+  .cards.c3 { grid-template-columns: repeat(3, 1fr); }
+  .cards.c2 { grid-template-columns: repeat(2, 1fr); }
+  .card {
+    border: 1px solid var(--panel-brd); background: var(--panel);
+    border-radius: 16px; padding: clamp(15px, 2.4vh, 22px) 21px;
+    transition: border-color .25s, transform .25s;
+  }
+  .card:hover { border-color: rgba(213,253,81,0.38); transform: translateY(-3px); }
+  .card h3 { margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: clamp(13px, min(1.05vw, 1.95vh), 14.5px); line-height: 1.5; }
+  .card .tag { display:inline-block; margin-bottom:11px; font-family: var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color: var(--lime); }
+  .card .ico { font-size: 23px; margin-bottom: 10px; display: block; }
+  /* Card art uses the same mascots the live site does, rather than emoji. */
+  .card .art { display: block; height: clamp(54px, 9vh, 86px); width: auto; margin-bottom: 10px; filter: drop-shadow(0 6px 16px rgba(0,0,0,.5)); }
+  .card .art.pix { image-rendering: pixelated; }
+
+  /* ---------- Stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .stat { border-left: 2px solid var(--lime); padding-left: 18px; }
+  .stat .n { font-family: var(--mono); font-size: clamp(26px, min(3.4vw, 5vh), 46px); font-weight: 500; letter-spacing: -0.02em; color: var(--lime-glow); line-height: 1; }
+  .stat .l { margin-top: 8px; color: var(--muted); font-size: clamp(12.5px, min(1vw, 1.85vh), 13.5px); line-height: 1.42; }
+
+  /* ---------- Lists ---------- */
+  ul.check { list-style: none; }
+  ul.check li { position: relative; padding-left: 28px; margin-bottom: 14px; color: var(--muted); font-size: clamp(14.5px,1.25vw,17px); line-height: 1.52; }
+  ul.check li::before { content: '→'; position: absolute; left: 0; color: var(--lime); font-weight: 700; }
+  ul.check li b { color: var(--paper); }
+
+  .quote { font-family: var(--display); font-size: clamp(19px, 2.2vw, 31px); font-weight: 700; line-height: 1.32; letter-spacing: -0.01em; max-width: 20ch; }
+
+  /* ---------- The cycle orbit (same art + pentagon the live site uses) ------- */
+  .cycle { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: clamp(20px, 3vw, 48px); align-items: center; }
+  .orbit {
+    position: relative; width: 100%; aspect-ratio: 1 / 0.92;
+    max-height: 66vh; margin: 0 auto; justify-self: center;
+  }
+  .orbit-ring {
+    position: absolute; inset: 9% 11%; border-radius: 50%;
+    border: 1px dashed rgba(213,253,81,0.17);
+  }
+  .orbit-center {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 34%; z-index: 2;
+  }
+  .orbit-center img { width: 100%; height: auto; display: block; filter: drop-shadow(0 12px 40px rgba(0,0,0,0.6)); animation: simmer 5.5s ease-in-out infinite alternate; }
+  @keyframes simmer { from { transform: translateY(0) } to { transform: translateY(-7px) } }
+  .orbit-node {
+    position: absolute; transform: translate(-50%,-50%);
+    width: 22%; text-align: center; z-index: 3;
+    transition: transform .4s cubic-bezier(.2,.9,.3,1.2), opacity .4s;
+    opacity: .5;
+  }
+  .orbit-node img {
+    width: 74%; height: auto; display: block; margin: 0 auto 7px;
+    border-radius: 50%; background: #1b1233;
+    border: 2px solid rgba(213,253,81,0.22);
+    box-shadow: 0 6px 20px rgba(0,0,0,.5);
+    transition: border-color .4s, box-shadow .4s;
+  }
+  .orbit-node .l {
+    font-family: var(--mono); font-size: clamp(9.5px, 0.85vw, 11.5px);
+    letter-spacing: .2em; text-transform: uppercase; color: var(--muted); display: block;
+  }
+  .orbit-node .d { font-size: clamp(9.5px, 0.8vw, 11px); color: var(--muted-2); display: block; margin-top: 2px; }
+  .orbit-node.on { opacity: 1; transform: translate(-50%,-50%) scale(1.13); }
+  .orbit-node.on img { border-color: var(--lime); box-shadow: 0 0 26px rgba(213,253,81,.45); }
+  .orbit-node.on .l { color: var(--lime); }
+  .orbit-node.death.on img { border-color: var(--rose); box-shadow: 0 0 26px rgba(255,77,109,.45); }
+  .orbit-node.death.on .l { color: var(--rose); }
+
+  .cycle-meters { display: grid; gap: clamp(12px, 2.2vh, 20px); }
+  .meter .k { font-family: var(--mono); font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted-2); }
+  .meter .v { font-family: var(--mono); font-size: clamp(22px, min(2.7vw, 4vh), 38px); line-height: 1.05; margin-top: 4px; color: var(--lime); }
+  .meter .v.violet { color: var(--violet); }
+  .meter .v.rose { color: var(--rose); }
+  .meter .s { font-size: 11.5px; color: var(--muted-2); margin-top: 3px; }
+  .cycle-cap { font-family: var(--mono); font-size: 11.5px; color: var(--muted-2); letter-spacing: .04em; line-height: 1.65; margin-top: 4px; }
+  .cycle-cap b { color: var(--muted); font-weight: 400; }
+
+  /* ---------- Flow / money map ---------- */
+  .flowbox {
+    border: 1px solid var(--panel-brd);
+    background: linear-gradient(180deg, rgba(213,253,81,0.045), rgba(14,10,26,0));
+    border-radius: 18px; padding: clamp(16px, 2.8vh, 26px) 28px;
+  }
+  .split { display: grid; gap: clamp(7px, 1.3vh, 10px); }
+  .split-row { display: grid; grid-template-columns: 1.25fr 2fr auto; gap: 18px; align-items: center; }
+  .split-row .who .t { font-weight: 700; font-size: clamp(14px,1.2vw,16.5px); color: var(--paper); }
+  .split-row .who .d { color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.4; }
+  .split-row .track { height: 11px; border-radius: 999px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(213,253,81,0.12); }
+  .split-row .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--lime-deep), var(--lime-glow)); box-shadow: 0 0 14px rgba(213,253,81,0.35); transform-origin: left; animation: growBar 1s cubic-bezier(.16,.84,.28,1) both; }
+  .split-row .fill.v { background: linear-gradient(90deg, #4c33b0, var(--violet)); box-shadow: 0 0 14px rgba(124,92,252,0.4); }
+  @keyframes growBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .split-row .amt { text-align: right; white-space: nowrap; font-family: var(--mono); color: var(--lime-glow); font-size: clamp(14px,1.3vw,17px); }
+  .split-row .amt.v { color: var(--violet); }
+
+  /* ---------- Ledger diagram ---------- */
+  .ledgers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ledger { border-radius: 16px; padding: 20px 21px; border: 1px solid rgba(245,240,232,0.13); background: rgba(255,255,255,0.02); }
+  .ledger.a { border-color: rgba(213,253,81,0.35); background: rgba(213,253,81,0.05); }
+  .ledger.b { border-color: rgba(124,92,252,0.42); background: rgba(124,92,252,0.07); }
+  .ledger .t { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .ledger .m { font-size: 18px; font-weight: 700; margin-top: 5px; }
+  .ledger .s { font-size: 13.5px; color: var(--muted); margin-top: 7px; line-height: 1.48; }
+  .ledger .rule { margin-top: 12px; padding-top: 11px; border-top: 1px dashed rgba(245,240,232,0.15); font-family: var(--mono); font-size: 11.5px; color: var(--lime); letter-spacing: .04em; }
+  .ledger.b .rule { color: var(--violet); }
+
+  /* ---------- Tables ---------- */
+  .addr-table { width: 100%; border-collapse: collapse; }
+  .addr-table td { padding: 9px 4px; border-bottom: 1px solid rgba(245,240,232,0.08); font-size: 13.5px; vertical-align: middle; }
+  .addr-table td:first-child { color: var(--muted); white-space: nowrap; padding-right: 20px; }
+  .addr-table td:last-child { font-family: var(--mono); color: var(--lime-glow); font-size: 12px; text-align: right; }
+  .addr-table tr.hl td:first-child { color: var(--paper); font-weight: 700; }
+
+  .spec { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 34px; }
+  .spec .sp { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 8px 0; border-bottom: 1px solid rgba(245,240,232,0.08); }
+  .spec .sp .k { color: var(--muted); font-size: 14px; }
+  .spec .sp .v { color: var(--lime-glow); font-weight: 500; font-family: var(--mono); font-size: 13.5px; white-space: nowrap; }
+
+  /* ---------- The genesis line-up (same 7 layered frens as the landing hero,
+       HomePreview.tsx:347-372 — face + body + item SVGs, proportions kept and
+       driven off one --fu unit so the whole band scales together) ---------- */
+  .lineup-band {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--fu) * -0.085);
+    z-index: 0; pointer-events: none;
+    display: flex; justify-content: center; align-items: flex-end;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 100%);
+            mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 100%);
+  }
+  .lf {
+    position: relative; flex-shrink: 0; image-rendering: pixelated;
+    filter: drop-shadow(0 6px 18px rgba(0,0,0,0.6)) drop-shadow(0 0 22px rgba(213,253,81,0.12));
+  }
+  .lf img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+  .lf--0 { width: calc(var(--fu)*.727); height: calc(var(--fu)*.727); margin-right: calc(var(--fu)*-.440); z-index: 1; }
+  .lf--1 { width: calc(var(--fu)*.809); height: calc(var(--fu)*.809); margin-right: calc(var(--fu)*-.473); z-index: 2; transform: translateY(calc(var(--fu)*-.011)); }
+  .lf--2 { width: calc(var(--fu)*.891); height: calc(var(--fu)*.891); margin-right: calc(var(--fu)*-.527); z-index: 3; transform: translateY(calc(var(--fu)*-.036)); }
+  .lf--3 { width: var(--fu); height: var(--fu); z-index: 7; transform: translateY(calc(var(--fu)*-.027)); filter: drop-shadow(0 6px 32px rgba(42,31,84,0.6)) drop-shadow(0 0 30px rgba(213,253,81,0.16)); }
+  .lf--4 { width: calc(var(--fu)*.891); height: calc(var(--fu)*.891); margin-left: calc(var(--fu)*-.480); z-index: 3; transform: translateY(calc(var(--fu)*-.015)); }
+  .lf--5 { width: calc(var(--fu)*.809); height: calc(var(--fu)*.809); margin-left: calc(var(--fu)*-.498); z-index: 2; }
+  .lf--6 { width: calc(var(--fu)*.727); height: calc(var(--fu)*.727); margin-left: calc(var(--fu)*-.465); z-index: 1; }
+
+  /* ---------- Raise slide ---------- */
+  /* One unit drives the line-up's scale AND the padding the copy reserves for
+     it, so the band can never grow into the text above it. */
+  #s10 { --fu: clamp(170px, min(28vh, 19vw), 300px); padding-bottom: calc(var(--fu) * 0.78 + 6px); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi {
+    border: 1px solid var(--panel-brd); border-radius: 14px;
+    background: linear-gradient(180deg, rgba(213,253,81,0.055), rgba(20,14,36,0.5));
+    padding: clamp(12px, 2vh, 18px) clamp(13px, 1.2vw, 18px);
+    position: relative; overflow: hidden;
+  }
+  .kpi::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, var(--lime-deep), var(--lime-glow));
+  }
+  .kpi.v { background: linear-gradient(180deg, rgba(124,92,252,0.10), rgba(20,14,36,0.5)); border-color: rgba(124,92,252,0.34); }
+  .kpi.v::after { background: linear-gradient(90deg, #4c33b0, var(--violet)); }
+  .kpi .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted-2); }
+  .kpi .n { font-family: var(--mono); font-size: clamp(22px, min(2.5vw, 3.6vh), 36px); line-height: 1.05; margin-top: 6px; color: var(--lime-glow); letter-spacing: -0.02em; }
+  .kpi.v .n { color: #a48bff; }
+  .kpi .s { font-size: clamp(10.5px, 1.5vh, 12px); color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+  /* supply allocation bar */
+  .alloc-bar { display: flex; height: 16px; border-radius: 999px; overflow: hidden; border: 1px solid rgba(213,253,81,0.16); background: rgba(255,255,255,0.04); }
+  .alloc-bar i { display: block; height: 100%; }
+  .alloc-bar i.a { background: linear-gradient(90deg, var(--lime-deep), var(--lime-glow)); }
+  .alloc-bar i.b { background: linear-gradient(90deg, #4c33b0, var(--violet)); }
+  .alloc-bar i.c { background: rgba(245,240,232,0.22); }
+  .alloc-key { display: flex; gap: clamp(14px, 2vw, 30px); flex-wrap: wrap; margin-top: 9px; font-size: clamp(11px, 1.6vh, 12.5px); color: var(--muted); }
+  .alloc-key span { display: inline-flex; align-items: center; gap: 7px; }
+  .alloc-key b { color: var(--paper); font-weight: 700; }
+  .alloc-key em { font-style: normal; font-family: var(--mono); color: var(--muted-2); }
+  .dot-a, .dot-b, .dot-c { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .dot-a { background: var(--lime); } .dot-b { background: var(--violet); } .dot-c { background: rgba(245,240,232,0.3); }
+
+  /* the headline equality callout */
+  .equals {
+    border: 1px dashed rgba(213,253,81,0.42); border-radius: 12px;
+    padding: 10px 16px; background: rgba(213,253,81,0.045);
+    font-size: clamp(12.5px, 1.75vh, 14.5px); color: var(--muted); line-height: 1.5;
+  }
+  .equals b { color: var(--lime-glow); font-family: var(--mono); font-weight: 500; }
+  .equals strong { color: var(--paper); }
+
+  .raise-total { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 4px; }
+  .raise-total .n { font-family: var(--mono); font-size: clamp(40px, 5.4vw, 74px); font-weight: 500; letter-spacing: -0.03em; color: var(--lime-glow); line-height: 1; text-shadow: 0 0 36px rgba(213,253,81,0.26); }
+  .raise-total .l { color: var(--muted); font-size: clamp(13.5px,1.3vw,16px); max-width: 44ch; }
+  .terms { display: flex; flex-wrap: wrap; gap: 9px; margin: 18px 0 2px; }
+  .term { border: 1px solid var(--panel-brd); background: var(--panel); border-radius: 11px; padding: 10px 14px; }
+  .term .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted-2); }
+  .term .v { font-weight: 700; color: var(--paper); font-size: clamp(13.5px, 1.25vw, 17px); margin-top: 3px; letter-spacing: -0.01em; }
+  .term .v b { color: var(--lime-glow); font-family: var(--mono); font-weight: 500; }
+  .term .v span { color: var(--muted); font-weight: 400; font-size: 0.8em; }
+  .foot-note { margin-top: 16px; font-size: 11.5px; color: var(--muted-2); line-height: 1.5; max-width: 86ch; }
+
+  .versus { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+  .vs { border-radius: 14px; padding: 18px 19px; border: 1px solid rgba(245,240,232,0.12); }
+  .vs.bad { border-color: rgba(255,77,109,0.3); background: rgba(255,77,109,0.05); }
+  .vs.good { border-color: rgba(213,253,81,0.38); background: rgba(213,253,81,0.055); }
+  .vs .t { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; margin-bottom: 9px; }
+  .vs.bad .t { color: #ff8099; }
+  .vs.good .t { color: var(--lime); }
+  .vs p { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+  .vs p b { color: var(--paper); }
+
+  /* ---------- Close ---------- */
+  .closing { align-items: center; text-align: center; justify-content: center; }
+  .closing::before { background: radial-gradient(58% 58% at 50% 50%, rgba(213,253,81,0.13), rgba(14,10,26,0) 66%), radial-gradient(90% 70% at 50% 110%, rgba(124,92,252,0.26), rgba(14,10,26,0) 60%); }
+  .closing .mark { width: clamp(78px, 8.5vw, 116px); margin-bottom: 22px; filter: drop-shadow(0 0 28px rgba(213,253,81,.5)); }
+  .closing h2 { font-size: clamp(32px, 5vw, 70px); max-width: 17ch; margin-bottom: 8px; }
+  .closing .link { margin-top: 16px; font-family: var(--mono); font-size: clamp(17px,2vw,27px); font-weight: 500; color: var(--lime-glow); letter-spacing:-0.01em; }
+  .closing .foot { margin-top: 26px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.13em; text-transform: uppercase; font-size: 11.5px; line-height: 1.9; }
+
+  /* ---------- Fixed nav ---------- */
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--violet), var(--lime-glow)); z-index: 1000; width: 0; transition: width .2s; box-shadow: 0 0 12px var(--lime); }
+  .dots { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+  .dots a { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(213,253,81,0.42); display: block; transition: all .2s; cursor: pointer; }
+  .dots a.on { background: var(--lime); box-shadow: 0 0 9px var(--lime); transform: scale(1.3); }
+  .nav-hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; padding: 6px 16px; border-radius: 999px; background: rgba(14,10,26,0.72); backdrop-filter: blur(7px); border: 1px solid rgba(213,253,81,0.10); font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); display: flex; gap: 12px; align-items: center; }
+  .nav-hint kbd { border: 1px solid rgba(245,240,232,0.18); border-radius: 4px; padding: 2px 6px; font-family: inherit; }
+
+  /* ---------- Responsive ---------- */
+  /* A laptop viewport is ~750px tall once browser chrome is gone. With mandatory
+     snap, anything past the fold is unreachable — so the dense slides tighten
+     their own spacing rather than losing content. */
+  @media (max-height: 880px) and (min-width: 901px) {
+    .slide { padding-top: clamp(54px, 6.4vh, 70px); padding-bottom: clamp(34px, 4.4vh, 50px); }
+    .flowbox { padding: 14px 20px; }
+    .cards { gap: 10px; }
+    .card { padding: 13px 16px; }
+    .split-row .who .d { font-size: 11.5px; }
+    .terms { gap: 7px; margin: 12px 0 2px; }
+    .term { padding: 8px 12px; }
+    .versus { gap: 10px; margin-top: 12px !important; }
+    .vs { padding: 13px 15px; }
+    .vs p { font-size: 13px; }
+    .foot-note { margin-top: 10px; font-size: 10.8px; }
+    .raise-total .n { font-size: clamp(34px, 4.4vw, 54px); }
+    ul.check li { margin-bottom: 9px; }
+    .addr-table td { padding: 6px 4px; }
+    .spec .sp { padding: 6px 0; }
+    .stats { gap: 18px; }
+  }
+
+  @media (max-width: 900px) {
+    /* Single-column stacking makes every slide taller than the viewport, and
+       mandatory snap on a section you cannot fit is a scroll trap. Drop it. */
+    html { scroll-snap-type: none; }
+    .slide { scroll-snap-align: none; }
+    .cycle { grid-template-columns: 1fr; }
+    .orbit { max-width: 440px; }
+    .foot-note { column-count: 1 !important; }
+    .two, .cards.c3, .cards.c2, .ledgers, .versus, .spec { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr; gap: 16px; }
+    .split-row { grid-template-columns: 1fr auto; }
+    .split-row .track { grid-column: 1 / -1; order: 3; }
+    .dots { display: none; }
+    .nav-hint { display: none; }
+    .slide { padding: 78px 22px 54px; }
+    #cycleSvg { max-height: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+    html { scroll-behavior: auto; }
+  }
+
+  @media print {
+    html { scroll-snap-type: none; }
+    .slide { min-height: 100vh; page-break-after: always; border: none; }
+    .progress, .dots, .nav-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="dots" id="dots"></div>
+<div class="nav-hint"><kbd>↓</kbd> / <kbd>Space</kbd> next <span>•</span> <kbd>←</kbd> <kbd>→</kbd> navigate</div>
+
+<!-- The real wordmark wizard — inlined verbatim from public/mifrens-logo.svg.
+     `fill: currentColor` so each usage tints it with CSS `color` instead of
+     shipping three recoloured copies. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="wiz" transform="translate(10.24, 501.76) scale(0.048, -0.048)" fill="currentColor" stroke="none">
+    <path d="M3783 8411 c-93 -24 -158 -61 -326 -187 -182 -138 -273 -191 -381 -224 -70 -22 -213 -56 -269 -64 -52 -8 -126 -48 -163 -88 -23 -23 -37 -53 -49 -103 -9 -38 -27 -99 -39 -135 -25 -74 -88 -193 -122 -230 -32 -34 -64 -140 -64 -209 0 -31 7 -92 16 -136 8 -44 17 -97 20 -117 2 -20 19 -86 39 -146 37 -116 43 -182 22 -242 -22 -61 -96 -158 -157 -207 -32 -26 -58 -49 -56 -50 1 -1 38 10 82 26 185 65 319 174 388 316 31 65 42 104 58 210 12 83 17 150 13 187 -5 50 -3 59 17 78 13 12 61 39 108 62 47 22 87 43 90 47 3 3 49 28 103 55 l99 48 36 -35 c20 -20 57 -43 82 -52 36 -13 66 -16 146 -11 99 6 103 6 133 -19 62 -53 52 -158 -28 -300 -45 -79 -51 -97 -51 -147 0 -52 3 -60 35 -93 20 -19 54 -44 76 -55 24 -13 46 -34 56 -54 15 -32 14 -36 -10 -89 -28 -62 -98 -160 -139 -195 -16 -13 -28 -30 -28 -37 0 -7 -7 -16 -16 -19 -9 -4 -14 -9 -11 -12 3 -3 95 -12 204 -19 186 -13 374 -9 563 10 148 15 509 98 745 170 61 19 138 42 172 51 l62 17 -6 83 c-7 99 3 121 68 148 24 10 71 31 104 47 33 15 85 37 115 49 30 12 66 28 80 35 54 30 158 65 193 65 31 0 46 -8 86 -47 26 -27 50 -54 53 -62 3 -11 32 -1 121 44 64 32 122 64 127 71 9 10 -1 14 -44 19 l-56 7 0 99 c0 75 -5 111 -21 154 -12 31 -27 59 -34 61 -7 3 -15 14 -18 24 -6 23 -136 86 -195 95 -53 8 -145 61 -193 112 -34 35 -78 98 -104 148 -8 16 -25 21 -75 26 -36 4 -74 10 -85 14 -72 27 -169 83 -211 123 -157 149 -309 276 -407 339 -61 40 -120 76 -131 79 -12 3 -54 21 -94 40 -40 19 -77 34 -83 34 -5 0 -40 14 -76 31 -36 17 -73 32 -82 34 -9 2 -47 18 -85 35 -135 62 -229 92 -301 95 -38 3 -84 1 -102 -4z m256 -248 c11 -38 26 -90 34 -118 13 -46 16 -50 48 -53 80 -6 234 -33 246 -43 7 -6 13 -25 13 -41 0 -26 -7 -32 -84 -68 -47 -22 -90 -40 -96 -40 -23 0 -90 -41 -90 -55 0 -9 7 -59 16 -112 15 -97 15 -98 -6 -115 -12 -10 -30 -18 -39 -18 -17 0 -88 43 -106 65 -18 21 -117 85 -131 85 -8 0 -53 -20 -101 -45 -47 -25 -96 -45 -109 -45 -23 0 -54 23 -54 41 0 13 80 173 89 179 8 5 31 45 31 53 0 3 -37 32 -83 65 -46 33 -89 68 -96 76 -19 22 -6 64 22 71 12 3 83 0 157 -8 156 -17 141 -24 196 88 19 39 44 78 55 88 12 9 32 17 45 17 20 0 26 -9 43 -67z m1167 -712 c7 -25 11 -48 8 -52 -8 -14 32 -28 100 -35 62 -6 66 -8 66 -31 0 -21 -11 -29 -70 -56 -44 -19 -70 -37 -70 -46 1 -9 5 -36 9 -60 5 -25 7 -51 4 -58 -9 -23 -45 -14 -84 22 -21 19 -49 37 -63 41 -15 3 -41 -3 -74 -20 -51 -26 -82 -26 -82 0 0 8 14 42 31 76 29 57 30 62 13 71 -10 6 -33 24 -52 42 -25 22 -33 37 -29 49 6 15 17 16 91 10 l84 -7 27 52 c22 45 30 52 52 49 21 -2 28 -11 39 -47z m-790 -644 c2 -7 -2 -42 -11 -78 -14 -62 -14 -64 6 -79 12 -8 51 -31 87 -50 40 -22 68 -43 71 -55 6 -34 -26 -45 -129 -45 -110 0 -105 4 -131 -98 -10 -40 -18 -54 -35 -58 -13 -3 -28 -3 -34 1 -6 4 -25 31 -41 61 -17 30 -42 63 -56 74 -21 16 -35 18 -107 13 -71 -5 -84 -3 -89 11 -10 26 2 44 51 78 59 40 82 60 82 70 0 4 -16 33 -36 63 -19 31 -34 64 -32 73 6 32 55 26 140 -17 88 -44 79 -45 162 14 49 36 93 45 102 22z"/>
+    <path d="M6546 6745 c-11 -8 -33 -15 -48 -15 -16 0 -115 -44 -229 -102 -212 -109 -239 -130 -239 -192 0 -46 -39 -104 -95 -138 -47 -29 -123 -64 -240 -109 -27 -11 -75 -32 -105 -46 -30 -14 -78 -28 -107 -31 -50 -4 -53 -3 -100 41 l-49 46 -64 -18 c-36 -10 -101 -30 -145 -44 -136 -44 -251 -77 -317 -92 -358 -79 -471 -97 -724 -116 -138 -10 -301 -6 -444 11 -99 12 -281 40 -300 45 -11 4 -22 -12 -39 -55 -20 -51 -24 -79 -25 -173 -1 -93 -4 -118 -21 -146 -29 -49 -90 -104 -169 -153 -37 -24 -94 -59 -125 -79 -31 -20 -93 -58 -139 -85 -45 -27 -112 -68 -150 -91 -37 -23 -96 -59 -131 -80 -36 -21 -76 -45 -90 -53 -14 -9 -44 -27 -66 -41 -22 -15 -62 -39 -89 -55 -27 -16 -65 -39 -85 -51 -20 -13 -63 -39 -96 -59 -33 -20 -109 -67 -170 -104 -60 -38 -144 -89 -185 -114 -76 -47 -223 -143 -347 -228 -83 -56 -179 -155 -189 -193 -4 -15 -3 -40 2 -54 22 -61 248 -131 423 -131 162 0 414 61 606 147 84 37 123 59 233 132 78 51 60 34 282 254 96 95 193 187 215 204 98 75 272 182 405 249 297 148 736 292 1230 403 74 17 155 33 180 37 25 3 111 19 192 35 81 16 182 33 225 38 43 4 175 22 293 39 118 17 343 47 500 67 831 105 1256 163 1470 201 80 14 183 32 230 40 86 15 246 58 355 96 149 52 174 61 233 89 34 16 65 29 69 29 3 0 62 28 131 63 147 74 202 116 202 157 0 28 -1 29 -87 60 -28 10 -315 36 -703 65 -113 8 -324 15 -470 15 -146 1 -284 5 -307 9 -23 4 -49 16 -58 25 -15 14 -107 78 -180 123 -11 7 -65 35 -120 62 -99 50 -177 81 -199 81 -6 0 -20 -7 -30 -15z"/>
+    <path d="M7660 4905 c-158 -25 -335 -76 -465 -136 -39 -17 -141 -74 -165 -92 -14 -9 -65 -44 -115 -77 -237 -157 -551 -386 -561 -408 -14 -32 -15 -47 -14 -163 1 -124 -9 -182 -47 -268 -27 -63 -38 -120 -29 -155 5 -22 20 -30 119 -60 61 -19 166 -43 232 -53 157 -24 386 -22 547 5 125 20 172 40 161 70 -3 9 -26 42 -51 72 -25 30 -64 96 -88 145 -34 68 -47 110 -55 175 -7 48 -9 125 -5 180 4 52 7 102 7 110 2 35 33 129 64 189 69 137 155 225 282 287 118 58 278 67 403 21 60 -22 142 -71 207 -124 81 -65 152 -175 198 -308 26 -74 31 -266 11 -394 -9 -56 -16 -108 -16 -116 0 -48 374 31 521 110 37 19 84 54 106 77 21 24 54 75 72 113 27 55 35 86 39 146 3 61 0 90 -18 143 -12 36 -26 66 -31 66 -5 0 -9 6 -9 13 0 17 -129 141 -173 166 -17 10 -64 37 -103 60 -164 95 -397 172 -624 207 -116 17 -285 17 -400 -1z"/>
+    <path d="M7470 4579 c-46 -18 -79 -60 -91 -114 -10 -44 -9 -60 5 -103 20 -58 51 -88 104 -98 39 -7 95 8 126 35 28 24 58 90 58 126 0 33 -23 87 -51 118 -19 23 -75 47 -105 46 -11 0 -32 -5 -46 -10z"/>
+    <path d="M4990 4485 c-105 -18 -299 -70 -373 -100 -69 -29 -246 -115 -262 -127 -5 -5 -48 -34 -95 -64 -95 -63 -101 -68 -288 -237 -72 -66 -167 -146 -210 -178 -42 -32 -89 -67 -103 -78 -56 -43 -232 -111 -288 -111 -39 0 -98 -31 -108 -56 -3 -9 2 -23 13 -33 10 -10 71 -40 134 -66 63 -26 120 -51 126 -56 7 -6 21 -11 32 -14 11 -2 39 -13 63 -25 24 -12 71 -32 104 -45 75 -29 250 -101 290 -119 63 -28 233 -75 310 -85 126 -16 185 -17 195 -1 5 8 -16 60 -62 149 -39 75 -82 172 -95 216 -20 63 -25 102 -26 185 0 83 6 128 28 215 33 133 80 218 171 310 44 44 86 75 136 99 112 53 186 69 298 63 113 -6 210 -37 314 -100 138 -82 240 -214 289 -372 26 -84 44 -173 73 -365 9 -63 18 -117 20 -119 1 -1 33 11 70 29 38 18 75 33 84 35 8 2 75 34 149 70 163 82 213 127 254 231 45 116 54 158 56 257 2 64 -3 106 -12 130 -8 19 -40 59 -70 88 -57 56 -167 117 -317 177 -86 34 -282 85 -387 101 -95 15 -419 12 -513 -4z"/>
+    <path d="M7822 4400 c-23 -16 -51 -49 -64 -72 -16 -32 -22 -60 -22 -113 0 -48 6 -81 18 -105 41 -79 93 -113 174 -113 44 0 59 5 90 30 20 16 51 50 68 75 28 41 31 53 29 110 -2 68 -20 115 -64 161 -38 42 -74 57 -134 57 -44 0 -62 -5 -95 -30z"/>
+    <path d="M7412 4128 c-55 -74 -64 -92 -53 -120 5 -13 30 -43 54 -67 l46 -44 41 33 c45 36 81 96 71 121 -6 17 -106 129 -114 129 -3 0 -23 -24 -45 -52z"/>
+    <path d="M4623 4153 c-26 -5 -103 -86 -104 -110 -7 -120 -1 -148 41 -188 35 -34 115 -56 161 -46 68 16 120 54 149 111 16 31 14 103 -4 138 -21 41 -68 81 -107 92 -34 10 -94 11 -136 3z"/>
+    <path d="M5125 4068 c-38 -21 -77 -63 -99 -108 -18 -35 -22 -60 -21 -115 2 -78 23 -131 72 -177 28 -27 100 -58 134 -58 10 0 42 11 72 23 107 48 173 177 142 278 -13 41 -65 109 -107 140 -36 25 -50 29 -107 29 -36 0 -75 -6 -86 -12z"/>
+    <path d="M7567 3880 c-37 -37 -41 -71 -10 -104 13 -14 28 -26 32 -26 5 0 42 11 82 24 55 18 75 29 77 43 2 15 -11 27 -55 50 -32 17 -67 33 -78 36 -13 3 -29 -4 -48 -23z"/>
+    <path d="M4722 3724 c-30 -21 -52 -66 -52 -108 0 -27 9 -45 40 -77 38 -40 41 -42 86 -35 48 6 79 27 133 88 l30 35 -47 46 c-26 25 -60 51 -75 56 -41 16 -89 13 -115 -5z"/>
+    <path d="M4873 3475 c-35 -15 -63 -50 -63 -81 0 -12 22 -45 49 -74 l49 -52 31 28 c18 15 41 43 53 61 17 29 18 38 8 63 -21 51 -78 75 -127 55z"/>
+    <path d="M8545 3478 c-11 -6 -45 -34 -75 -61 -30 -28 -82 -70 -115 -95 -33 -24 -62 -48 -65 -52 -5 -8 -78 -52 -178 -107 -82 -45 -254 -121 -312 -138 -25 -7 -79 -24 -120 -38 -100 -34 -284 -86 -346 -96 -27 -5 -121 -22 -209 -39 -156 -30 -267 -46 -550 -78 -295 -33 -1320 -33 -1735 0 -107 8 -285 22 -395 31 -110 9 -369 31 -575 50 -598 55 -684 60 -792 45 -63 -9 -112 -23 -152 -42 -120 -60 -215 -200 -224 -329 -3 -56 0 -73 21 -115 14 -27 38 -61 54 -76 43 -40 132 -89 188 -103 59 -15 195 -54 350 -100 61 -17 128 -37 150 -42 22 -6 85 -22 140 -36 142 -37 359 -87 408 -93 23 -3 96 -16 162 -29 143 -28 198 -36 665 -87 148 -17 1112 -17 1365 0 539 35 667 45 849 63 109 11 242 27 295 34 53 8 116 16 141 19 25 2 106 18 180 34 74 17 150 33 169 35 18 3 88 19 155 35 66 16 164 40 216 52 52 12 118 32 147 45 105 47 212 180 236 291 9 43 8 59 -7 97 -21 56 -73 104 -121 113 -24 4 -74 -3 -153 -21 -64 -15 -135 -31 -157 -35 -22 -4 -74 -18 -115 -30 -41 -12 -102 -28 -135 -35 -33 -7 -116 -27 -185 -44 -217 -53 -635 -137 -805 -161 -142 -20 -453 -60 -565 -72 -158 -17 -1416 -17 -1585 0 -66 7 -203 24 -305 37 -169 23 -297 44 -740 121 -85 15 -175 36 -200 47 l-45 20 32 10 c25 8 66 4 180 -18 82 -15 166 -29 188 -32 22 -2 123 -19 225 -38 297 -54 574 -96 694 -105 61 -5 172 -14 246 -20 89 -8 231 -10 420 -6 365 8 560 20 895 58 149 16 313 33 365 38 103 10 178 20 340 50 58 10 125 21 149 24 43 6 174 35 461 102 80 19 159 36 176 39 17 2 86 18 155 34 68 16 149 32 179 36 82 10 263 72 343 119 129 74 235 191 293 322 42 96 28 187 -40 252 -53 51 -172 132 -194 132 -9 0 -26 -6 -37 -12z"/>
+  </g>
+</defs></svg>
+
+<!-- ============ 01 · COVER ============ -->
+<section class="slide cover" id="s1">
+  <div class="rail">
+    <span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>Magic Internet Frens</b></span></span>
+    <span class="num">Protocol deck · 2026</span>
+  </div>
+  <svg class="cover-mark" viewBox="62 91 388 330"><use href="#wiz"/></svg>
+  <div class="brandline">Magic Internet Frens</div>
+  <h1>The Cauldron</h1>
+  <div class="sub">A token machine that refuses to die — and 2222 pixel wizards who govern it.</div>
+  <div class="tagline">Launch <span class="dot">•</span> Trade <span class="dot">•</span> Die <span class="dot">•</span> Recover <span class="dot">•</span> Relaunch <span class="dot">•</span> Forever</div>
+  <div class="badges">
+    <span class="badge"><span class="live-dot"></span> <b>LIVE</b>&nbsp;on Ethereum Sepolia · round 44</span>
+    <span class="badge">Mainnet target · <b>Robinhood Chain</b></span>
+    <span class="badge">Uniswap v4 hook</span>
+    <span class="badge">Fully on-chain art</span>
+  </div>
+  <div class="lineup-band">
+    <div class="lf lf--0" aria-hidden="true"><img src="/frens/elf-face-01.svg" alt="" /><img src="/frens/elf-03.svg" alt="" /><img src="/frens/elf-item-00.svg" alt="" /></div>
+    <div class="lf lf--1" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/peasant-01.svg" alt="" /><img src="/frens/peasant-item-01.svg" alt="" /></div>
+    <div class="lf lf--2" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/apprentice-01.svg" alt="" /><img src="/frens/apprentice-item-01.svg" alt="" /></div>
+    <div class="lf lf--3" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/wizard-01.svg" alt="" /><img src="/frens/wiz-item-01.svg" alt="" /></div>
+    <div class="lf lf--4" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/king-cloth-black.svg" alt="" /><img src="/frens/king-item-black.svg" alt="" /></div>
+    <div class="lf lf--5" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/knight-bronze.svg" alt="" /><img src="/frens/knight-item-bronze.svg" alt="" /></div>
+    <div class="lf lf--6" aria-hidden="true"><img src="/frens/gnome-face-01.svg" alt="" /><img src="/frens/gnome-01.svg" alt="" /><img src="/frens/gnome-item-01.svg" alt="" /></div>
+  </div>
+</section>
+
+<!-- ============ 02 · PROBLEM ============ -->
+<section class="slide" id="s2">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>02</b> / 13 · Problem</span></div>
+  <span class="kicker">The graveyard</span>
+  <h2>Crypto is a machine for<br>manufacturing <span class="em">dead liquidity.</span></h2>
+  <div class="two" style="margin-top:8px;">
+    <p class="lede">
+      You have held a hundred coins. Ninety-nine are corpses — a flatlined chart, a
+      Telegram of ghosts, and a pool full of tokens nobody will ever trade again.
+      <br><br>
+      The dev left. The community left. But the <strong>liquidity is still sitting
+      there</strong>, frozen forever. Value with nowhere to go. A tombstone with a
+      market cap.
+      <br><br>
+      Every launchpad ever built treats this as someone else's problem. Pump, dump,
+      abandon, repeat — and the ETH that seeded a thousand rugs is scattered across
+      a thousand corpses, and <span class="em">none of it ever comes home.</span>
+    </p>
+    <div class="stats" style="grid-template-columns:1fr; gap:26px;">
+      <div class="stat"><div class="n">∞</div><div class="l">dead pools holding real, permanently stranded liquidity across every chain</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">launchpads that recover it and put it back to work</div></div>
+      <div class="stat"><div class="n">100%</div><div class="l">of that value is recoverable — it is sitting in a smart contract, not lost</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 · INSIGHT ============ -->
+<section class="slide" id="s3">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>03</b> / 13 · Insight</span></div>
+  <span class="kicker">The core idea</span>
+  <h2>Stop pretending tokens don't die.<br><span class="em">Make death the fuel.</span></h2>
+  <div class="two">
+    <p class="lede">
+      The Cauldron is a state machine that lives <strong>inside a Uniswap v4 pool</strong>.
+      It launches a token, lets the market trade it, and watches the volume.
+      <br><br>
+      When rolling 24-hour volume falls below a threshold, the pool is <strong>dead</strong> —
+      and because the guild has already voted on a successor, <em>anyone</em> can call
+      <span class="mono em">relaunch()</span>. In one transaction it recovers the liquidity,
+      burns the recovered tokens, and summons the next iteration. Holders migrate 1:1.
+      <br><br>
+      Then it happens again. And again. Nobody has to be alive for it to work.
+    </p>
+    <div class="quote">
+      The token is energy — it cycles.<br>
+      The fren is <span class="em">ownership</span> — it never dies, and it earns from every cycle.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 · THE ETERNAL CYCLE ============ -->
+<section class="slide" id="s4">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>04</b> / 13 · The cycle</span></div>
+  <span class="kicker">One loop, and it has already run seven times</span>
+  <div class="cycle">
+    <div>
+      <h2 style="margin-bottom:14px;">Trade. Die.<br>Claim. Vote.<br><span class="em">Relaunch.</span></h2>
+      <div class="cycle-meters">
+        <div class="meter">
+          <div class="k">Liquidity carried forward</div>
+          <div class="v" id="carryVal">0.00 &#926;</div>
+          <div class="s">never resets &middot; never withdrawable</div>
+        </div>
+        <div class="meter">
+          <div class="k">Genesis fees paid</div>
+          <div class="v violet" id="divVal">0.000 &#926;</div>
+          <div class="s">15% of every fee &middot; every generation</div>
+        </div>
+        <div class="meter">
+          <div class="k">Tokens burned at rebirth</div>
+          <div class="v rose" id="burnVal">0</div>
+          <div class="s">recovered supply, destroyed on migration</div>
+        </div>
+      </div>
+      <p class="cycle-cap">
+        <b>Live mechanics, illustrative counters.</b> The liquidity figure is the point &mdash;
+        it is the only number in the machine that never goes back to zero.
+      </p>
+    </div>
+
+    <div class="orbit" id="orbit">
+      <div class="orbit-ring"></div>
+      <div class="orbit-center"><img src="/images/wizard-cauldron.png" alt="The Cauldron" loading="lazy" /></div>
+
+      <div class="orbit-node trade"    style="left:50%;  top:13%;"   data-i="0">
+        <img src="/stickers/trade.png" alt="Trade" loading="lazy" /><span class="l">Trade</span><span class="d">volume accrues</span>
+      </div>
+      <div class="orbit-node death"    style="left:85.2%;top:38.6%;" data-i="1">
+        <img src="/stickers/death.png" alt="Death" loading="lazy" /><span class="l">Death</span><span class="d">24h volume dies</span>
+      </div>
+      <div class="orbit-node claim"    style="left:71.8%;top:79.9%;" data-i="2">
+        <img src="/stickers/claim.png" alt="Claim" loading="lazy" /><span class="l">Claim</span><span class="d">floors stay funded</span>
+      </div>
+      <div class="orbit-node vote"     style="left:28.2%;top:79.9%;" data-i="3">
+        <img src="/stickers/vote.png" alt="Vote" loading="lazy" /><span class="l">Vote</span><span class="d">frens pick the next</span>
+      </div>
+      <div class="orbit-node relaunch" style="left:14.8%;top:38.6%;" data-i="4">
+        <img src="/stickers/relaunch.png" alt="Relaunch" loading="lazy" /><span class="l">Relaunch</span><span class="d">LP recovered, reseeded</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · WHY A HOOK ============ -->
+<section class="slide" id="s5">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>05</b> / 13 · Architecture</span></div>
+  <span class="kicker">Why a hook, and not a router</span>
+  <h2>If you can route around it,<br>it isn't a <span class="em">rule.</span></h2>
+  <div class="two" style="margin-top:4px;">
+    <div>
+      <p class="lede" style="margin-bottom:20px;">
+        Everything interesting happens <strong>inside the swap</strong>, in
+        <span class="mono em">beforeSwap</span> / <span class="mono em">afterSwap</span>.
+        That is not an aesthetic choice — it is what makes the mechanics non-bypassable.
+      </p>
+      <p class="lede">
+        A router-based launchpad can always be sidestepped: trade straight against the
+        pool and you skip the fee, the volume accounting and the gacha. Because this is
+        a hook, <strong>a raw Uniswap swap from any aggregator is charged, counted, and
+        can forge an NFT.</strong> There is no privileged path and no way around it.
+      </p>
+      <p class="lede" style="margin-top:20px;color:var(--lime-glow);font-weight:600;">
+        It also means leverage moves the real chart. A perp open is an actual pool swap
+        with actual price impact — not a bet settled against an oracle.
+      </p>
+    </div>
+    <div class="flowbox">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted-2);margin-bottom:14px;">One user swap · five contracts · one unlock</div>
+      <pre class="mono" style="font-size:12.5px;line-height:1.85;color:var(--muted);white-space:pre-wrap;">user swap
+ └─ <span style="color:var(--lime)">beforeSwap</span>        charge the ETH fee on buys
+ └─ PoolManager executes the swap
+ └─ <span style="color:var(--lime)">afterSwap</span>
+     ├─ legacy buyback      nested swap, buys the token back
+     ├─ seeder poke         streams the next liquidity sliver
+     ├─ liquidation sweep   real settlement swaps, in-lock
+     ├─ gacha step          commits + resolves crystals, may mint
+     └─ charge the fee on sells</pre>
+      <div class="ledger" style="margin-top:16px;padding:14px 15px;border-color:rgba(213,253,81,0.28);background:rgba(213,253,81,0.045);">
+        <div class="s" style="margin-top:0;font-size:13px;">Every side-effect is <strong>gas-bounded and result-ignored</strong> — called with a reserved budget, failure swallowed. An optional step can never revert a user's swap or run it out of gas.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 · THE TWO LEDGERS ============ -->
+<section class="slide" id="s6">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>06</b> / 13 · Custody</span></div>
+  <span class="kicker">The single most load-bearing decision</span>
+  <h2>100% of supply reads as liquidity.<br>There is <span class="em">no treasury wallet.</span></h2>
+  <p class="lede" style="max-width:76ch;margin-bottom:22px;">
+    Look up any launch and you will find a wallet holding 20% of supply, with a thread
+    explaining why it is fine. Here the entire supply lives in two Uniswap v4 positions,
+    and the reserve one is parked <strong>out of range, below spot</strong> — so it is
+    visible, auditable, and structurally unsellable.
+  </p>
+  <div class="ledgers">
+    <div class="ledger a">
+      <div class="t">Ledger A</div>
+      <div class="m">The active band</div>
+      <div class="s">Tradeable depth. Either one full-range position on an atomic launch, or the seeder's distributed mini-positions on a progressive one. This is the market.</div>
+      <div class="rule">the seeder can only ever touch this one</div>
+    </div>
+    <div class="ledger b">
+      <div class="t">Ledger B</div>
+      <div class="m">The reserve</div>
+      <div class="s">A single-sided token position parked out of range, below spot. Holds the migration supply, the genesis floor, and every collection's legacy entitlement.</div>
+      <div class="rule">leaves ONLY against a 1:1 burn or a debited claim</div>
+    </div>
+  </div>
+  <div class="stats" style="margin-top:26px;">
+    <div class="stat"><div class="n">777,000,000</div><div class="l">fixed supply per iteration — non-mintable, non-freezable, minted once at birth</div></div>
+    <div class="stat"><div class="n">1 : 1</div><div class="l">migration parity between iterations. Optional — keep your vintage if you want</div></div>
+    <div class="stat"><div class="n">CREATE</div><div class="l">not <span class="mono">CREATE2</span>. A predictable address could be squatted to brick relaunch forever</div></div>
+  </div>
+</section>
+
+<!-- ============ 07 · MONEY MAP ============ -->
+<section class="slide" id="s7">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>07</b> / 13 · Money map</span></div>
+  <span class="kicker">Where a swap fee actually goes</span>
+  <h2>3% in ETH, on both legs.<br>The Uniswap LP tier is <span class="em">zero.</span></h2>
+  <p class="lede" style="max-width:78ch;margin-bottom:16px;">
+    The LP is protocol-owned and recovered at relaunch, so a second LP tax would be
+    redundant. The fee is taken in ETH on <strong>both</strong> legs, because the
+    protocol must never accrue value in a token that is about to die.
+  </p>
+  <div class="flowbox">
+    <div class="split">
+      <div class="split-row">
+        <div class="who"><div class="t">Genesis guild dividend</div><div class="d">Split among enchanted genesis frens — a perpetual founder's cut</div></div>
+        <div class="track"><div class="fill v" style="width:15%;animation-delay:.05s"></div></div>
+        <div class="amt v">14.9%</div>
+      </div>
+      <div class="split-row">
+        <div class="who"><div class="t">Legacy live buyback</div><div class="d">Market-buys the live token to back the collection floor — no keeper, it fires inside the swap</div></div>
+        <div class="track"><div class="fill" style="width:34%;animation-delay:.15s"></div></div>
+        <div class="amt">33.8%</div>
+      </div>
+      <div class="split-row">
+        <div class="who"><div class="t">Collection floor vault</div><div class="d">The redeemable ETH floor behind every NFT this generation forged</div></div>
+        <div class="track"><div class="fill" style="width:51%;animation-delay:.25s"></div></div>
+        <div class="amt">50.7%</div>
+      </div>
+      <div class="split-row">
+        <div class="who"><div class="t">Winning proposer</div><div class="d">Author of the proposal that summoned this brew — <b>pull, never pushed</b></div></div>
+        <div class="track"><div class="fill" style="width:1.5%;animation-delay:.35s"></div></div>
+        <div class="amt">0.5%</div>
+      </div>
+    </div>
+  </div>
+  <div class="cards c2" style="margin-top:16px;">
+    <div class="card" style="padding:16px 18px;">
+      <span class="tag" style="margin-bottom:7px;">Why the proposer slice is a pull</span>
+      <p style="font-size:13.5px;"><span class="mono">activeProposer</span> is attacker-controlled. Pushing would put an untrusted external call in the swap hot path — so a rejecting sink never bricks a swap, and its share rolls into the relaunch reserve.</p>
+    </div>
+    <div class="card" style="padding:16px 18px;">
+      <span class="tag" style="margin-bottom:7px;">Where the next launch's money comes from</span>
+      <p style="font-size:13.5px;">Not a slice of the fee — <strong>the recovered LP itself.</strong> At relaunch the old position is unwound and re-seeded into the new pool. That is why no team treasury ever tops it up.</p>
+    </div>
+  </div>
+  <p class="foot-note">Percentages are of the hook fee at deployed settings (<span class="mono">taxBps 300 · guildBps 1500 · legacyBps 4000 · floorBps 10000 · proposerBps 50</span>), hard-capped at 10% and governance-tunable. Perp fees route separately: 30% genesis dividend, 70% perp stakers, side-attributed.</p>
+</section>
+
+<!-- ============ 08 · WHAT BACKS A FREN ============ -->
+<section class="slide" id="s8">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>08</b> / 13 · Floors</span></div>
+  <span class="kicker">Not a jpeg — a perpetual claim</span>
+  <h2>Three things back a fren,<br>and <span class="em">none of them is a promise.</span></h2>
+  <div class="cards c3" style="margin-top:6px;">
+    <div class="card">
+      <img class="art" src="/images/wizard-guild.png" alt="" loading="lazy" />
+      <span class="tag">Cash flow</span>
+      <h3>The genesis dividend</h3>
+      <p>Genesis MiFrens share <b>15% of every iteration's fees, forever.</b> A holder "casts the spell" to switch earning on; transferring breaks the enchantment. Iteration 1 pays you, iteration 50 pays you.</p>
+    </div>
+    <div class="card">
+      <img class="art" src="/images/wizard-scroll.png" alt="" loading="lazy" />
+      <span class="tag">Redemption</span>
+      <h3>The genesis floor</h3>
+      <p>Each genesis fren carries a live floor denominated in whatever token is running now, and the design <b>ratchets it up</b>. Burn the fren, receive its share of the reserve.</p>
+    </div>
+    <div class="card">
+      <img class="art" src="/images/wizard-market.png" alt="" loading="lazy" />
+      <span class="tag">Per-collection</span>
+      <h3>Collection floors</h3>
+      <p>Every iteration's NFT collection earns a floor from its own volume and royalties — and <b>keeps it forever, through every future rebirth.</b> Recycle an NFT to claim its share.</p>
+    </div>
+  </div>
+  <div class="two" style="margin-top:20px;align-items:start;">
+    <div>
+      <h3 style="margin-bottom:10px;">Break-glass, stated plainly</h3>
+      <p class="lede" style="font-size:14.5px;">
+        No unilateral or instant team withdrawal exists. There <em>is</em> a governed
+        emergency path that can move protocol-owned liquidity — restricted to an
+        immutable admin (the timelock), announced, time-delayed, guardian-vetoable, and
+        <strong>arming it forces the redemption exit open</strong> so holders can leave
+        at the floor first.
+      </p>
+      <p class="lede" style="margin-top:11px;color:var(--lime-glow);font-weight:600;font-size:15px;">
+        Nobody can mint, freeze, or remove tokens or NFTs from your wallet.
+      </p>
+    </div>
+    <div>
+      <h3 style="margin-bottom:10px;">The caveat we print rather than bury</h3>
+      <p class="lede" style="font-size:14.5px;">
+        The genesis floor is claimable while the token trades <strong>below</strong> its
+        per-iteration reserve ceiling; above it, claims are bounded. That is a real
+        limitation, documented in §7.4 of the public spec — and it is on this slide
+        because a floor with an undisclosed bound is not a floor.
+      </p>
+      <p class="lede" style="margin-top:11px;font-size:14.5px;">
+        Royalties are 5% (EIP-2981 + ERC-721C): genesis to the dividend, collection
+        royalties to that collection's own floor.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 09 · THE GAME LAYER ============ -->
+<section class="slide" id="s9">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>09</b> / 13 · Game layer</span></div>
+  <span class="kicker">Two systems that live inside the swap</span>
+  <h2>Perps with no oracle.<br>NFTs forged by <span class="em">volume.</span></h2>
+  <div class="cards c2" style="margin-top:4px;">
+    <div class="card" style="border-color:rgba(124,92,252,0.4);background:rgba(124,92,252,0.055);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+        <span class="tag" style="color:var(--violet);margin-bottom:0;">Perps</span>
+        <img src="/images/liq-short.png" alt="" loading="lazy" style="height:clamp(42px,6.5vh,64px);width:auto;image-rendering:pixelated;border-radius:8px;" />
+      </div>
+      <h3 style="margin:10px 0 12px;">Leverage that moves the real chart</h3>
+      <p style="margin-bottom:14px;">Every open, close and liquidation is an <b>actual Uniswap v4 swap</b>. Marked off a cumulative-tick TWAP the hook builds from the pool's own ticks — <b>no external oracle, no keeper network.</b> Any swap on any interface auto-liquidates underwater positions.</p>
+      <div class="spec" style="grid-template-columns:1fr;">
+        <div class="sp"><span class="k">Max leverage</span><span class="v">min(depth tier, 3×)</span></div>
+        <div class="sp"><span class="k">Open fee</span><span class="v">6.9% of collateral</span></div>
+        <div class="sp"><span class="k">Maintenance margin</span><span class="v">15%</span></div>
+        <div class="sp"><span class="k">Per-side OI cap</span><span class="v">≤30% of depth</span></div>
+      </div>
+      <p style="margin-top:11px;font-size:13px;">The open fee is charged on <b>collateral, not notional</b> — a notional fee would start a 3× position roughly 20% underwater on day one.</p>
+    </div>
+    <div class="card" style="border-color:rgba(213,253,81,0.4);background:rgba(213,253,81,0.05);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+        <span class="tag" style="margin-bottom:0;">Crystal gacha</span>
+        <img src="/images/crystal.gif" alt="" loading="lazy" style="height:clamp(42px,6.5vh,64px);width:auto;" />
+      </div>
+      <h3 style="margin:10px 0 12px;">Trading volume forges the other 1111</h3>
+      <p style="margin-bottom:14px;">Volume banks credit — <b>buys weighted 1.5×, sells 0.5×</b>. Credit commits a crystal batch along a rising curve. Each ticket rolls from its <b>commit block's hash</b> — a value that did not exist when you played.</p>
+      <div class="spec" style="grid-template-columns:1fr;">
+        <div class="sp"><span class="k">Max win chance</span><span class="v">90%, with a pity counter</span></div>
+        <div class="sp"><span class="k">Randomness</span><span class="v">commit-block hash</span></div>
+        <div class="sp"><span class="k">Router required</span><span class="v">no — plain swaps work</span></div>
+        <div class="sp"><span class="k">Liquidate a perp</span><span class="v">mints a Liquidatoor badge</span></div>
+      </div>
+      <p style="margin-top:11px;font-size:13px;">On an L2 sequencer naive <span class="mono">prevrandao</span> entropy is grindable. This protocol uses <b>none of it</b> — and the limits of the commit-hash guarantee are documented rather than hand-waved.</p>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:13px;color:var(--lime-glow);font-weight:600;font-size:15.5px;">Liquidating a perp engraves the kill on-chain: victim, side, leverage, entry, the mark that killed them, your bounty.</p>
+</section>
+
+<!-- ============ 10 · THE GENESIS RAISE ============ -->
+<section class="slide" id="s10">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>10</b> / 13 &middot; The raise</span></div>
+  <span class="kicker">The genesis mint is the raise</span>
+  <h2 style="margin-bottom:clamp(12px,2vh,18px);">No round. No allocation.<br>Just <span class="em">1111 frens and a pool.</span></h2>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="k">Collection raise</div>
+      <div class="n">6.8882 &#926;</div>
+      <div class="s">1111 genesis &times; 0.0062&nbsp;&#926;, at sellout</div>
+    </div>
+    <div class="kpi v">
+      <div class="k">Token FDV at launch</div>
+      <div class="n">8.610 &#926;</div>
+      <div class="s">777,000,000 &times; the settled opening price</div>
+    </div>
+    <div class="kpi">
+      <div class="k">Launch price</div>
+      <div class="n">11.08 <span style="font-size:.5em;color:var(--muted)">gwei</span></div>
+      <div class="s">6.8882&nbsp;&#926; against the 621.6M active band</div>
+    </div>
+    <div class="kpi v">
+      <div class="k">Opening candle</div>
+      <div class="n">+56.25%</div>
+      <div class="s">a real market buy, inside the launch tx</div>
+    </div>
+  </div>
+
+  <div style="margin-top:clamp(14px,2.4vh,22px);">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted-2);">Token supply &middot; 777,000,000 fixed, minted once</span>
+      <span style="font-family:var(--mono);font-size:11.5px;color:var(--lime);">no mint function &middot; no unlock schedule</span>
+    </div>
+    <div class="alloc-bar">
+      <i class="a" style="width:80%"></i><i class="b" style="width:14%"></i><i class="c" style="width:6%"></i>
+    </div>
+    <div class="alloc-key">
+      <span><i class="dot-a"></i><b>80%</b> active band &mdash; tradeable at launch <em>621,600,000</em></span>
+      <span><i class="dot-b"></i><b>14%</b> genesis bonus, claimed 1:1 <em>97,912 / fren</em></span>
+      <span><i class="dot-c"></i><b>6%</b> reserve &mdash; migration + floors <em>46,620,000</em></span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:clamp(14px,1.6vw,26px);align-items:stretch;margin-top:clamp(14px,2.4vh,22px);">
+    <div class="equals">
+      <strong>Market cap and FDV are the same number, permanently.</strong>
+      Supply is fixed at <b>777,000,000</b>, minted once at birth, with no mint function and
+      nothing vesting &mdash; so there is no unlock chart and no future dilution to price in.
+      The launch <em>float</em> cap is <b>6.8882&nbsp;&#926;</b>, which is the raise, exactly:
+      you buy at the price your own mint set.
+    </div>
+    <div class="equals" style="border-style:solid;border-color:rgba(124,92,252,0.4);background:rgba(124,92,252,0.06);">
+      <strong>Team allocation of the raise: zero.</strong>
+      <span style="font-family:var(--mono);color:#a48bff;">igniteCauldron()</span> forwards the
+      entire contract balance into <span style="font-family:var(--mono);color:#a48bff;">summon()</span>.
+      There is no owner withdraw function to call. If the sale never sells out,
+      <span style="font-family:var(--mono);color:#a48bff;">cancelPresale()</span> +
+      <span style="font-family:var(--mono);color:#a48bff;">refund()</span> return 100% of every minter's ETH.
+    </div>
+  </div>
+
+  <p class="foot-note" style="max-width:none;position:relative;z-index:1;">
+    <strong style="color:var(--rose);">Derived, not quoted &mdash; and one number to be honest about.</strong>
+    The green candle opens at <span class="mono">ethActive / 777M</span> = 7.09&nbsp;gwei and buys the 20%
+    reserve back out in the same transaction, settling at <span class="mono">6.8882&nbsp;&#926; / 621.6M</span>.
+    It cross-checks: 97,912&nbsp;&times;&nbsp;11.08&nbsp;gwei = 17.5% of the mint price, exactly as
+    <span class="mono">DeployLaunchpad.s.sol:147</span> documents. But a 6.9&nbsp;&#926; opening pool is a
+    <em>thin book</em> &mdash; deliberate, since the machine compounds liquidity from fees rather than opening
+    deep and bleeding, and it is why perp leverage is pinned at 3&times;. Mainnet parameters from
+    <span class="mono">docs/MAINNET_LAUNCH.md</span>. Not an offer or a solicitation.
+  </p>
+
+  <div class="lineup-band">
+    <div class="lf lf--0" aria-hidden="true"><img src="/frens/elf-face-01.svg" alt="" /><img src="/frens/elf-03.svg" alt="" /><img src="/frens/elf-item-00.svg" alt="" /></div>
+    <div class="lf lf--1" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/peasant-01.svg" alt="" /><img src="/frens/peasant-item-01.svg" alt="" /></div>
+    <div class="lf lf--2" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/apprentice-01.svg" alt="" /><img src="/frens/apprentice-item-01.svg" alt="" /></div>
+    <div class="lf lf--3" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/wizard-01.svg" alt="" /><img src="/frens/wiz-item-01.svg" alt="" /></div>
+    <div class="lf lf--4" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/king-cloth-black.svg" alt="" /><img src="/frens/king-item-black.svg" alt="" /></div>
+    <div class="lf lf--5" aria-hidden="true"><img src="/frens/face-01.svg" alt="" /><img src="/frens/knight-bronze.svg" alt="" /><img src="/frens/knight-item-bronze.svg" alt="" /></div>
+    <div class="lf lf--6" aria-hidden="true"><img src="/frens/gnome-face-01.svg" alt="" /><img src="/frens/gnome-01.svg" alt="" /><img src="/frens/gnome-item-01.svg" alt="" /></div>
+  </div>
+</section>
+
+<!-- ============ 11 · PROOF ============ -->
+<section class="slide" id="s11">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>11</b> / 13 · Proof</span></div>
+  <span class="kicker"><span class="live-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 9px var(--lime);"></span>&nbsp;Deployed and exercised</span>
+  <h2>Not a diagram.<br>It has <span class="em">already died and come back.</span></h2>
+  <div class="two" style="margin-top:4px;align-items:start;">
+    <div>
+      <ul class="check" style="margin-top:2px;">
+        <li><b>44 deployment rounds</b> on Ethereum Sepolia, each a full 14-contract stack.</li>
+        <li><b>Six complete death-and-rebirth cycles on one round</b> — r43 reached <span class="mono">currentGeneration() == 7</span>: died, recovered, resummoned, migrated 1:1.</li>
+        <li><b>Stranded LP recovered through the break-glass path</b> after its 48h delay — 6.8881 Ξ out of a retired round, which then funded round 44.</li>
+        <li><b>Perps opened, marked and liquidated inside a swap</b>, with no keeper.</li>
+        <li><b>A governance quote rotation executed live</b> — ETH → USDG across 12 permissionless slices.</li>
+        <li><b>Chain-agnostic by construction</b> — a chain needs only EIP-1153 transient storage and a CREATE2 factory. Everything else is config, so the mainnet port is an env change, not a rewrite.</li>
+      </ul>
+    </div>
+    <div>
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted-2);margin-bottom:8px;">Ethereum Sepolia · round 44</div>
+      <table class="addr-table">
+        <tr class="hl"><td>CauldronHook</td><td>0xc6dc…10cc</td></tr>
+        <tr><td>CauldronRegistry</td><td>0x3dc6…0325</td></tr>
+        <tr><td>MiFrensGenesis</td><td>0xfd48…92ba</td></tr>
+        <tr><td>PerpEngine</td><td>0xaD0b…43C6</td></tr>
+        <tr><td>CauldronGovernor</td><td>0xf0b1…36b3</td></tr>
+        <tr><td>Timelock</td><td>0x987b…b831</td></tr>
+      </table>
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted-2);margin:18px 0 8px;">Mainnet target · Robinhood Chain 4663</div>
+      <div class="ledger" style="padding:14px 16px;border-color:rgba(124,92,252,0.4);background:rgba(124,92,252,0.06);">
+        <div class="s" style="margin-top:0;font-size:13px;">
+          Native ETH, 18 decimals, ~100 ms blocks. Uniswap v4 is already deployed there —
+          <span class="mono">PoolManager</span> and <span class="mono">PositionManager</span> both
+          verified to carry code by <span class="mono">eth_getCode</span>.
+          <strong style="display:block;margin-top:8px;color:var(--violet);">Not yet broadcast — and the deck says so.</strong>
+          The cutover path exists and is gated: it refuses to broadcast to any chain but 4663,
+          refuses a testnet-shaped parameter set, refuses a mock quote token with an ungated
+          <span class="mono">mint()</span>, refuses a stale build or an over-EIP-170 contract,
+          and refuses a manifest with a surviving <span class="mono">&lt;FILL&gt;</span>.
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:12px;">Per-generation addresses rotate every rebirth and are deliberately not pinned here — read them from the registry: <span class="mono">currentToken()</span>, <span class="mono">generationCollection(gen)</span>, <span class="mono">generationPoolId(gen)</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12 · SECURITY ============ -->
+<section class="slide" id="s12">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>12</b> / 13 · Security</span></div>
+  <span class="kicker">Adversarial by default</span>
+  <h2>185 of our tests are<br>exploits that <span class="em">actually worked.</span></h2>
+  <p class="lede" style="max-width:78ch;margin-bottom:22px;">
+    Not hypotheticals. Each one is an attack that was landed against this protocol
+    first — then fixed, then pinned as a regression test so it can never come back.
+    Three security reviews ship in the repo as PDFs with their LaTeX sources.
+  </p>
+  <div class="stats" style="margin-bottom:24px;">
+    <div class="stat"><div class="n">185</div><div class="l">proof-of-concept exploit suites in <span class="mono">test/attacks</span> + <span class="mono">test/audit</span></div></div>
+    <div class="stat"><div class="n">1,116</div><div class="l">tests passing across 255 Foundry files — unit, fork, invariant, adversarial</div></div>
+    <div class="stat"><div class="n">36</div><div class="l">protocol contracts and libraries, ~22,400 lines of Solidity</div></div>
+  </div>
+  <div class="cards c2">
+    <div class="card">
+      <span class="tag">What we hardened</span>
+      <p><span class="mono">CREATE2</span> squat prevention on relaunch · gas-bounded re-entrant side-effects · deterministic O(n) force-close · exact-out sell fee bypass · reserve ceiling enforcement · governance spam and lockout resistance · storage-layout invariance across the delegatecall facet · L2 block-clock semantics.</p>
+    </div>
+    <div class="card" style="border-color:rgba(255,77,109,0.3);background:rgba(255,77,109,0.045);">
+      <span class="tag" style="color:#ff8099;">What is still open</span>
+      <p><b>Known limitations are documented, not hidden</b> — §15 of the public spec. No HIGH is open: the two that were live on round 44 are closed, and a blind red-team pass over the new code found and closed six more. <b>That work is not yet deployed</b>, and <b>44 tests are currently red</b> on the in-flight treasury-rotation branch. Both facts are on this slide on purpose.</p>
+    </div>
+  </div>
+  <p class="foot-note">
+    Fork-only tests require an archive endpoint and <strong>fail loudly rather than skipping silently</strong> — a fork test that quietly passes with no fork is worse than no test. Without the fork gate a bare run hides the entire rotation, perp and relaunch surface, and reports green.
+  </p>
+</section>
+
+<!-- ============ 13 · CLOSE ============ -->
+<section class="slide closing" id="s13">
+  <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>13</b> / 13</span></div>
+  <svg class="mark" viewBox="62 91 388 330"><use href="#wiz"/></svg>
+  <h2>Trade the token.<br><span class="em">Hold the fren.</span></h2>
+  <p class="lede" style="max-width:52ch;margin:10px auto 0;text-align:center;">
+    The token is energy — it cycles, mutates, is reborn. The fren is ownership — it never
+    dies, and it earns from every cycle.
+  </p>
+  <div class="link">mifrens.xyz</div>
+  <div class="foot">
+    2222 pixel wizards · fully on-chain<br>
+    The Cauldron never dies · gm fren · wagmi
+  </div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------------- slide nav ---------------- */
+  const slides = [...document.querySelectorAll('.slide')];
+  const dots = document.getElementById('dots');
+  const progress = document.getElementById('progress');
+
+  slides.forEach((s, i) => {
+    const a = document.createElement('a');
+    a.href = '#' + s.id;
+    a.title = 'Slide ' + (i + 1);
+    a.addEventListener('click', (e) => { e.preventDefault(); s.scrollIntoView({ behavior: 'smooth' }); });
+    dots.appendChild(a);
+  });
+  const dotEls = [...dots.children];
+
+  let current = 0;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        current = slides.indexOf(e.target);
+        dotEls.forEach((d, i) => d.classList.toggle('on', i === current));
+        progress.style.width = ((current + 1) / slides.length * 100) + '%';
+      }
+    });
+  }, { threshold: 0.5 });
+  slides.forEach(s => io.observe(s));
+
+  function go(dir) {
+    const next = Math.max(0, Math.min(slides.length - 1, current + dir));
+    slides[next].scrollIntoView({ behavior: 'smooth' });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); go(1); }
+    if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+    if (e.key === 'Home') slides[0].scrollIntoView({ behavior: 'smooth' });
+    if (e.key === 'End') slides[slides.length - 1].scrollIntoView({ behavior: 'smooth' });
+  });
+
+  /* ---------------- the eternal cycle ---------------- */
+  const orbit = document.getElementById('orbit');
+  const nodes = [...orbit.querySelectorAll('.orbit-node')];
+  const carryVal = document.getElementById('carryVal');
+  const divVal   = document.getElementById('divVal');
+  const burnVal  = document.getElementById('burnVal');
+
+  let step = 0, carried = 0, dividend = 0, burned = 0;
+  const fmt = (n, d) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  function paint() {
+    carryVal.textContent = fmt(carried, 2) + ' \u039e';
+    divVal.textContent   = fmt(dividend, 3) + ' \u039e';
+    burnVal.textContent  = burned.toLocaleString('en-US');
+  }
+
+  function advance() {
+    nodes.forEach(n => n.classList.toggle('on', Number(n.dataset.i) === step));
+    // TRADE accrues fees; RELAUNCH is where the recovered LP lands and supply burns.
+    if (step === 0) dividend += 0.004 + Math.random() * 0.006;
+    if (step === 4) { carried += 1.6 + Math.random() * 1.1; burned += Math.round(180 + Math.random() * 260); }
+    paint();
+    step = (step + 1) % nodes.length;
+  }
+
+  // Seed a few completed cycles so the counters open with history, not zeroes.
+  for (let i = 0; i < 3; i++) { carried += 1.9; dividend += 0.06; burned += 300; }
+  paint();
+  nodes.forEach(n => n.classList.toggle('on', Number(n.dataset.i) === 0));
+
+  if (!reduced) {
+    const tick = () => advance();
+    let timer = setInterval(tick, 1500);
+    // Pause the loop while the slide is off-screen — no point burning frames.
+    new IntersectionObserver((es) => es.forEach(e => {
+      clearInterval(timer);
+      if (e.isIntersecting) timer = setInterval(tick, 1500);
+    }), { threshold: 0.35 }).observe(document.getElementById('s4'));
+  }
+})();
+</script>
+</body>
+</html>
