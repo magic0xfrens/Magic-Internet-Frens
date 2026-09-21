@@ -3,6 +3,7 @@ import { pool, candle, swap, collection, nft, holder, gachaPlayer, proposal, vot
 import { RegistryGenReadAbi } from "../abis/PerpEngineAbi";
 import round from "../deployments/active";
 import { normaliseQuotePerToken, rawToQuoteAmount } from "./quoteUnits";
+import { encodeAbiParameters, keccak256 } from "viem";
 
 const CANDLE_SECONDS = Number(process.env.CANDLE_SECONDS ?? 30);
 const Q96 = 2 ** 96;
@@ -47,38 +48,40 @@ const nftId = (col: string, id: bigint) => `${lc(col)}-${id}`;
 const holderId = (col: string, addr: string) => `${lc(col)}-${lc(addr)}`;
 
 /* ── registry: pools + collections ─────────────────────────────────────── */
-async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token: `0x${string}`, name: string, symbol: string, ts: bigint, block: bigint, authoritative = true) {
-  const clean = name.replace(/\s*by Magic Internet Frens\s*$/i, "").trim();
-  //  WHAT IS THIS POOL PRICED IN? Read once, at registration. The quote is
-  //  fixed for a generation's whole life (`generationQuote[gen]` is written at
-  //  rebirth and never revised), so there is nothing to keep in sync. A
-  //  registry that predates the multi-quote work has no such function; treat
-  //  that as native, which is what those generations actually are.
-  let quote = ZERO as `0x${string}`;
-  try {
-    quote = lc(await ctx.client.readContract({
-      abi: RegistryGenReadAbi, address: REGISTRY_ADDR,
-      functionName: "generationQuote", args: [BigInt(gen)],
-    }) as string);
-  } catch { /* pre-quote registry, or an RPC blip: native is the right answer */ }
-  //  AND HOW MANY DECIMALS DOES IT HAVE? A price is a ratio of raw units until
-  //  this number is applied; without it a 6-decimal quote reported a price 1e12
-  //  off (see `normaliseQuotePerToken`). Native ETH is 18 by definition, and a
-  //  token that will not answer `decimals()` is treated as 18 — the same answer
-  //  the old code assumed unconditionally, so this can only improve on it.
-  let quoteDecimals = 18;
-  if (quote !== ZERO) {
-    try {
-      quoteDecimals = Number(await ctx.client.readContract({
-        abi: ERC20_DECIMALS_ABI, address: quote, functionName: "decimals",
-      }));
-      if (!Number.isFinite(quoteDecimals) || quoteDecimals < 0 || quoteDecimals > 36) quoteDecimals = 18;
-    } catch { quoteDecimals = 18; }
+async function quoteDecimals(ctx: any, quote: `0x${string}`): Promise<number> {
+  if (quote === ZERO) return 18;
+  const decimals = Number(await ctx.client.readContract({
+    abi: ERC20_DECIMALS_ABI, address: quote, functionName: "decimals",
+  }));
+  if (!Number.isSafeInteger(decimals) || decimals < 0 || decimals > 36) {
+    throw new Error(`invalid quote decimals for ${quote}`);
   }
+  return decimals;
+}
+
+async function registerPool(
+  ctx: any, poolId: `0x${string}`, gen: number, token: `0x${string}`,
+  name: string, symbol: string, ts: bigint, block: bigint, authoritative = true,
+  exact?: { quote: `0x${string}`; isPrimary: boolean },
+) {
+  const clean = name.replace(/\s*by Magic Internet Frens\s*$/i, "").trim();
+  // A pool's quote is immutable, while `generationQuote` changes after a full
+  // rotation. Primary registration therefore reads the launch PoolKey itself;
+  // rotation registration supplies an exact key derived from authenticated
+  // LegOpened data plus immutable registry generation state.
+  const primaryKey = exact ? null : await ctx.client.readContract({
+    abi: REG_LAZY_ABI, address: REGISTRY_ADDR,
+    functionName: "generationPoolKey", args: [BigInt(gen)],
+  }) as readonly [`0x${string}`, `0x${string}`, number, number, `0x${string}`];
+  const quote = lc(exact?.quote ?? primaryKey![0]);
+  // An unreadable ERC20 is not native and is not safely assumed to have 18
+  // decimals. Throw so Ponder retries the event without committing a false row.
+  const decimals = await quoteDecimals(ctx, quote);
+  const isPrimary = exact?.isPrimary ?? true;
   await ctx.db.insert(pool).values({
     id: poolId, generation: gen, token: lc(token), name: clean, symbol,
     createdAt: ts, createdBlock: block, dead: false, lastPrice: 0, lastPriceRaw: 0, swapCount: 0, volumeEth: 0, updatedAt: ts,
-    quote, quoteDecimals, isPrimary: true,
+    quote, quoteDecimals: decimals, isPrimary,
     //  A lazily-registered row (see `ensurePool`) is a GUESS about the name:
     //  the swaps inside a summon/rebirth transaction are emitted BEFORE the
     //  CauldronSummoned/Reborn event that carries the real one. With
@@ -88,7 +91,7 @@ async function registerPool(ctx: any, poolId: `0x${string}`, gen: number, token:
   }).onConflictDoUpdate((row: any) => (authoritative
     //  `quoteDecimals` travels WITH `quote`: correcting one without the other
     //  would leave the price normalised by the wrong power of ten.
-    ? { generation: gen, token: lc(token), name: clean, symbol, quote, quoteDecimals }
+    ? { generation: gen, token: lc(token), name: clean, symbol, quote, quoteDecimals: decimals, isPrimary }
     : {}));
   await ctx.db.insert(iteration).values({ id: gen, token: lc(token), symbol, createdAt: ts })
     .onConflictDoUpdate(() => ({ token: lc(token), symbol }));
@@ -308,17 +311,14 @@ ponder.on("CauldronRegistry:AutoMigrated", async ({ event, context }) => { await
 const REG_LAZY_ABI = [
   { type: "function", name: "currentGeneration", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "currentToken", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "generationToken", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { type: "function", name: "getCreatureForGeneration", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "string" }, { type: "string" }] },
   { type: "function", name: "generationPoolId", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "generationPoolKey", stateMutability: "view", inputs: [{ type: "uint256" }],
+    outputs: [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }] },
 ] as const;
 
-//  Pool ids proven NOT to be ours. Without the topic filter every v4 swap on the
-//  chain reaches this handler, and re-asking the registry about the same foreign
-//  pool on every one of its trades would be a pointless RPC per log.
-const foreignPools = new Set<string>();
 async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bigint) {
-  if (foreignPools.has(poolId)) return null;
-  try {
     //  TIMING, BECAUSE IT IS LOAD-BEARING. The green-candle swap is emitted
     //  INSIDE the summon/rebirth transaction, BEFORE `generationPoolId[gen]` is
     //  written (the registry records the seed after PoolOps returns). A
@@ -341,7 +341,6 @@ async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bi
       address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "generationPoolId", args: [gen],
     });
     if (String(ours).toLowerCase() !== poolId.toLowerCase()) {
-      foreignPools.add(poolId);
       return null;
     }
     const [token, creature] = await Promise.all([
@@ -352,7 +351,6 @@ async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bi
     //  CauldronReborn, which overwrites this (see registerPool).
     await registerPool(ctx, poolId, Number(gen), token as `0x${string}`, (creature as string[])[0], (creature as string[])[1], ts, block, false);
     return await ctx.db.find(pool, { id: poolId });
-  } catch { return null; }
 }
 
 ponder.on("PoolManager:Swap", async ({ event, context }) => {
@@ -925,6 +923,53 @@ ponder.on("RotationExec:SliceRotated", async ({ event, context }) => {
     block: event.block.number,
     txHash: event.transaction.hash,
   }).onConflictDoNothing();
+});
+
+ponder.on("RotationExec:LegOpened", async ({ event, context }) => {
+  const gen = Number(event.args.gen);
+  const genId = BigInt(gen);
+  const quote = lc(event.args.quote as string);
+  // PositionManager clears positionInfo when an NFT is burned. Because indexed
+  // reads see end-of-block state, an authenticated LegOpened can already have
+  // been replaced later in the same block. Derive the pair from facts that do
+  // survive the block: event quote, immutable generation token, and the launch
+  // key's fee/tick/hook parameters (the same parameters PoolOps uses for legs).
+  const [tokenRaw, launchKey, primary, creature] = await Promise.all([
+    context.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
+      functionName: "generationToken", args: [genId],
+    }),
+    context.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
+      functionName: "generationPoolKey", args: [genId],
+    }),
+    context.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
+      functionName: "generationPoolId", args: [genId],
+    }),
+    context.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
+      functionName: "getCreatureForGeneration", args: [genId],
+    }),
+  ]) as readonly [
+    `0x${string}`,
+    readonly [`0x${string}`, `0x${string}`, number, number, `0x${string}`],
+    `0x${string}`,
+    readonly [string, string],
+  ];
+  const token = lc(tokenRaw);
+  if (token === ZERO || token !== lc(launchKey[1]) || quote === token) {
+    throw new Error(`invalid LegOpened generation state for generation ${gen}`);
+  }
+  const poolId = keccak256(encodeAbiParameters(
+    [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }],
+    [quote, token, launchKey[2], launchKey[3], lc(launchKey[4])],
+  ));
+  await registerPool(
+    context, poolId, gen, token, creature[0], creature[1],
+    event.block.timestamp, event.block.number, true,
+    { quote, isPrimary: lc(primary) === lc(poolId) },
+  );
 });
 
 //  ── WHICH LP POSITIONS THE REGISTRY OWNS ────────────────────────────────────

@@ -461,6 +461,54 @@ async function brewChain(gen: number, collectionAddr: `0x${string}`, poolId: `0x
 // homepage hero never depends on the browser's flaky public Sepolia RPC.
 app.get("/presale", async (c) => c.json((await presaleState()) ?? { minted: 0, soldOut: false, finalized: false, supply: 0 }));
 
+type IndexedPool = typeof schema.pool.$inferSelect;
+type MarketSelection = {
+  market: IndexedPool;
+  launch: IndexedPool;
+  quote: `0x${string}`;
+} | {
+  unavailable: true;
+  reason: "quote-rpc" | "missing-market" | "missing-launch";
+  quote: `0x${string}` | null;
+};
+
+export async function selectGenerationMarket(
+  pools: IndexedPool[], gen: number, readQuote: (gen: number) => Promise<string>,
+): Promise<MarketSelection> {
+  const launch = pools.find((row) => row.isPrimary);
+  if (!launch) return { unavailable: true, reason: "missing-launch", quote: null };
+  let quote: `0x${string}`;
+  try {
+    quote = (await readQuote(gen)).toLowerCase() as `0x${string}`;
+  } catch {
+    return { unavailable: true, reason: "quote-rpc", quote: null };
+  }
+  const market = pools.find((row) => row.quote.toLowerCase() === quote);
+  if (!market) return { unavailable: true, reason: "missing-market", quote };
+  return { market, launch, quote };
+}
+
+/** Select the market matching the registry's authoritative denomination.
+ * A generation retains all historical pool rows, so database order and
+ * `isPrimary` do not identify its current market. The launch pool remains a
+ * separate identity because hook death/link-volume state is rooted there. */
+async function generationMarket(gen: number): Promise<MarketSelection> {
+  // Rotation is capped by the on-chain quote allowlist; this generous bound
+  // prevents a corrupt database from turning a public GET into an unbounded
+  // allocation while retaining every legitimate historical sibling.
+  const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(256);
+  return selectGenerationMarket(pools, gen, async (generation) =>
+    await perpClient.readContract({
+      address: REGISTRY, abi: REG_QUOTE, functionName: "generationQuote", args: [BigInt(gen)],
+    }) as string,
+  );
+}
+
+const unavailableMarket = (gen: number, selection: Extract<MarketSelection, { unavailable: true }>) => ({
+  unavailable: true as const, generation: gen, quote: selection.quote,
+  reason: selection.reason,
+});
+
 /* ── TREASURY COMPOSITION — what the LP is denominated in, and what the guild
       actually holds across every allowed quote.
 
@@ -1151,6 +1199,11 @@ app.get("/cauldron", async (c) => {
     return c.json({ summoned: false, gen: 0, presale: ps, presaleMinted: ps?.minted ?? 0, presaleSoldOut: ps?.soldOut ?? false, presaleFinalized: ps?.finalized ?? false });
   }
   const gen = p.generation;
+  const selection = await generationMarket(gen);
+  if ("unavailable" in selection) {
+    return c.json({ summoned: true, gen, poolId: null, ...unavailableMarket(gen, selection) }, 503);
+  }
+  const { market: selected, launch } = selection;
 
   // NFT collection for this gen (volume-mint art).
   const cols = await db.select().from(schema.collection).where(eq(schema.collection.generation, gen)).limit(1);
@@ -1159,10 +1212,10 @@ app.get("/cauldron", async (c) => {
   // 24h volume from indexed swaps.
   const since = BigInt(Math.floor(Date.now() / 1000) - 86400);
   const recent = await db.select().from(schema.swap)
-    .where(and(eq(schema.swap.generation, gen), gte(schema.swap.timestamp, since)));
+    .where(and(eq(schema.swap.poolId, selected.id), gte(schema.swap.timestamp, since)));
   const vol24hEth = recent.reduce((s, r) => s + r.amountEth, 0);
 
-  const chain = col ? await brewChain(gen, col.id as `0x${string}`, p.id as `0x${string}`) : null;
+  const chain = col ? await brewChain(gen, col.id as `0x${string}`, launch.id as `0x${string}`) : null;
   const deathEth = chain?.deathThresholdEth ?? 0;
 
   //  ── ASK THE HOOK, DO NOT ONLY TRUST THE STORED FLAG ──────────────────────
@@ -1174,24 +1227,27 @@ app.get("/cauldron", async (c) => {
   //  clean, and the button absent. Reading the same source the transaction does
   //  is the only way the two can agree.
   const liveDead = await perpClient.readContract({
-    address: HOOK, abi: HOOK_READ, functionName: "isDead", args: [p.id as `0x${string}`],
+    address: HOOK, abi: HOOK_READ, functionName: "isDead", args: [launch.id as `0x${string}`],
   }).catch(() => null) as boolean | null;
 
-  const isDead = p.dead || liveDead === true;
+  const isDead = launch.dead || liveDead === true;
   const phase = isDead ? "dead" : (deathEth > 0 && vol24hEth < deathEth ? "dying" : "live");
 
   return c.json({
     summoned: true,
     gen,
-    token: p.token,
+    token: selected.token,
     collection: col?.id ?? null,
-    poolId: p.id,
-    name: p.name,
-    ticker: p.symbol,
+    poolId: selected.id,
+    launchPoolId: launch.id,
+    quote: selected.quote,
+    quoteDecimals: selected.quoteDecimals,
+    name: selected.name,
+    ticker: selected.symbol,
     dead: isDead,
     phase,
-    spotPrice: p.lastPrice,
-    volumeEth: p.volumeEth,
+    spotPrice: selected.lastPrice,
+    volumeEth: selected.volumeEth,
     vol24hEth,
     nftMinted: col?.totalMinted ?? 0,
     nftMax: chain?.nftMax ?? 0,
@@ -1223,20 +1279,20 @@ app.get("/candles/:generation", async (c) => {
   const gen = genParam(c.req.param("generation"));
   if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
   const limit = limitParam(c.req.query("limit"), 120, 500);
-  const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
-  const p = pools[0];
-  if (!p) return c.json({ pool: null, candles: [], last: 0 });
+  const selection = await generationMarket(gen);
+  if ("unavailable" in selection) return c.json({ pool: null, candles: [], last: 0, ...unavailableMarket(gen, selection) }, 503);
+  const p = selection.market;
   const rows = await db.select().from(schema.candle).where(eq(schema.candle.poolId, p.id)).orderBy(desc(schema.candle.bucketStart)).limit(limit);
   const candles = rows.reverse().map((r) => ({ t: r.bucketStart, o: r.open, h: r.high, l: r.low, c: r.close, v: r.volumeEth }));
-  return c.json({ pool: { id: p.id, generation: p.generation, token: p.token, name: p.name, symbol: p.symbol, dead: p.dead }, candles, last: p.lastPrice, volumeEth: p.volumeEth, swapCount: p.swapCount });
+  return c.json({ pool: { id: p.id, generation: p.generation, token: p.token, name: p.name, symbol: p.symbol, dead: p.dead, quote: p.quote, quoteDecimals: p.quoteDecimals, launchPoolId: selection.launch.id }, candles, last: p.lastPrice, volumeEth: p.volumeEth, swapCount: p.swapCount });
 });
 app.get("/recent/:generation", async (c) => {
   const gen = genParam(c.req.param("generation"));
   if (gen === null) return c.json({ error: "generation must be a non-negative integer" }, 400);
   const limit = limitParam(c.req.query("limit"), 150, 5000);
-  const pools = await db.select().from(schema.pool).where(eq(schema.pool.generation, gen)).limit(1);
-  const p = pools[0];
-  if (!p) return c.json({ swaps: [] });
+  const selection = await generationMarket(gen);
+  if ("unavailable" in selection) return c.json({ swaps: [], ...unavailableMarket(gen, selection) }, 503);
+  const p = selection.market;
   // Order by strict EXECUTION order (block*1e6+logIndex), NOT timestamp — many
   // swaps share a block (liquidation buy-backs), and timestamp ties scramble the
   // tick chart's close. Newest first for the tape; the frontend reverses.
@@ -1250,6 +1306,10 @@ app.get("/recent/:generation", async (c) => {
   return c.json({
     gachaRouter: (round.contracts as Record<string, string>).gachaRouter ?? null,
     legacyBps: LEGACY_BPS,
+    poolId: p.id,
+    launchPoolId: selection.launch.id,
+    quote: p.quote,
+    quoteDecimals: p.quoteDecimals,
     swaps: rows.map((r) => ({
       price: r.price, amountEth: r.amountEth, isBuy: r.isBuy,
       t: Number(r.timestamp), o: Number(r.orderKey), tx: r.txHash, s: r.sender,

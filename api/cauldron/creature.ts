@@ -225,8 +225,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
     rarity = Number((await read({ address: col, abi: COLLECTION_ABI, functionName: "rarityOf", args: [tokenId] })) as number);
-  } catch (e) {
-    reason = (e as Error)?.message?.slice(0, 160) ?? "chain read failed";
+  } catch {
+    // Provider errors can include credential-bearing RPC URLs. Public metadata
+    // must never serialize transport diagnostics, even a truncated prefix.
+    reason = "chain read failed";
   }
 
   if (rarity === null) {

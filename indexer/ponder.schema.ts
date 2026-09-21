@@ -25,11 +25,13 @@ export const pool = onchainTable("pool", (t) => ({
    *
    *  A generation can run several pools against different quotes, so "what is
    *  the LP denominated in" is a per-pool fact, not a per-generation one. Read
-   *  from `registry.generationQuote(gen)` at registration.  */
+   *  Read from this pool's immutable PoolKey currency0 at registration. It is
+   *  not the mutable `registry.generationQuote(gen)`, which selects the current
+   *  market while historical sibling rows remain indexed.  */
   quote: t.hex().notNull().default("0x0000000000000000000000000000000000000000"),
-  /** Decimals of `quote`, read once at registration. Native ETH and an
-   *  unreadable token both fall back to 18. Without it a pool ratio cannot be
-   *  turned into a price. */
+  /** Decimals of `quote`, read once at registration. Native ETH is 18; an
+   *  unreadable ERC20 aborts registration rather than being guessed as 18.
+   *  Without it a pool ratio cannot be turned into a price. */
   quoteDecimals: t.integer().notNull().default(18),
   /** False for a pool linked to a generation as a SIBLING via
    *  `CauldronHook.linkVolume` — the guild's LP split across a second quote.

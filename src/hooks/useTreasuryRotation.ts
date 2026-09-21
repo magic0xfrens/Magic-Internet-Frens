@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { CAULDRON } from "@/config/cauldron";
 import { NATIVE_QUOTE } from "@/config/quotes";
 import { usePoll } from "@/hooks/usePoll";
+import { isIdleRotationAllowance } from "@/lib/treasuryRotation";
 
 /**
  * THE TREASURY ROTATION, against the API the contracts actually expose.
@@ -346,7 +347,9 @@ export function useTreasuryRotation() {
       const readyAt = Number(lastAt) + (cooldown ?? 0);
       setEnv({
         timing: { votingPeriod, executionWindow, envelopeLifetime, cooldown },
-        idle: allow[0] === NATIVE_QUOTE,
+        // `address(0)` is a legitimate destination (native ETH). The governor
+        // defines the non-zero remainder as the envelope's liveness signal.
+        idle: isIdleRotationAllowance(allow),
         quote: envelope[0],
         maxTotalBps: envelope[1],
         movedBps: envelope[2],

@@ -9,6 +9,7 @@ import {
   remainingAfter, earliestCompletion, type RouteKey,
 } from "@/hooks/useTreasuryRotation";
 import { useRotationGovernance, type RotationProposal } from "@/hooks/useRotationGovernance";
+import { routeForRotationLeg } from "@/lib/treasuryRotation";
 
 /**
  * THE TREASURY DESK — govern a rotation, then execute it.
@@ -363,19 +364,23 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   const dest = env.idle ? (target as Address) : env.quote;
   const destMeta = quoteMeta(dest || NATIVE_QUOTE);
 
-  /** The venue `rotateSlice` will route through: the live quote against `dest`. */
+  /** The venue `rotateSliceFrom` will route through: selected leg against `dest`. */
   const route: RouteKey | null = useMemo(() => {
-    if (!dest || dest === NATIVE_QUOTE ? !dest : false) return null;
-    const a = (liveQuote || NATIVE_QUOTE).toLowerCase();
-    const b = (dest || NATIVE_QUOTE).toLowerCase();
-    if (a === b) return null;
-    // currency0 is the lower address; v4 PoolKeys are sorted.
-    const [c0, c1] = a < b ? [a, b] : [b, a];
-    return {
-      currency0: c0 as Address, currency1: c1 as Address,
-      fee: 3000, tickSpacing: 60, hooks: NATIVE_QUOTE as Address,
-    };
-  }, [liveQuote, dest]);
+    return routeForRotationLeg(env.legs ?? [], fromLeg, dest, NATIVE_QUOTE);
+  }, [env.legs, fromLeg, dest]);
+
+  // A poll may remove/reindex a leg, and a newly-open envelope can make the
+  // previously selected source equal its destination. Refuse that stale choice
+  // and move the UI to the first executable leg before enabling a transaction.
+  useEffect(() => {
+    if (env.idle || !dest) return;
+    const selected = (env.legs ?? []).find((leg) => leg.index === fromLeg);
+    if (selected && selected.quote.toLowerCase() !== dest.toLowerCase()) return;
+    const replacement = (env.legs ?? []).find(
+      (leg) => leg.quote.toLowerCase() !== dest.toLowerCase(),
+    );
+    if (replacement && replacement.index !== fromLeg) setFromLeg(replacement.index);
+  }, [env.idle, env.legs, fromLeg, dest]);
 
   // A curated venue is a precondition, not a detail: the allowlist FAILS CLOSED,
   // so an unlisted pool reverts `NoRoute` however deep it is. Check before the
@@ -422,7 +427,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
   //  be offered at all — every rotation drained the original quote, so the
   //  treasury could split but never rebalance or merge back.
   const legs = env.legs ?? [];
-  const srcMeta = quoteMeta(legs[fromLeg]?.quote ?? from.address);
+  const srcMeta = quoteMeta(legs.find((leg) => leg.index === fromLeg)?.quote ?? from.address);
   const slicesFor = (bps: number) => Math.floor(bps / SLICE_BPS);
   const conversionFor = (bps: number) => 1 - remainingAfter(slicesFor(bps));
 
@@ -678,7 +683,7 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
 
           {venueOk === false && (
             <p className="tr-warn tc-mono">
-              The {from.symbol}/{destMeta.symbol} venue is not curated on the
+              The {srcMeta.symbol}/{destMeta.symbol} venue is not curated on the
               rotator. Slices will revert <code>NoRoute</code> until the treasury
               calls <code>setVenue</code> — the allowlist fails closed on purpose,
               so an uncurated pool cannot be used to fill at the floor price.
@@ -716,7 +721,10 @@ export function TreasuryRotation({ gen, col }: { gen: number; col: string }) {
 
           <button
             className="tc-btn tc-btn--ritual"
-            disabled={!!busy || env.slicesLeft === 0 || venueOk === false}
+            disabled={
+              !!busy || !route || quoting || expectedOut === null ||
+              env.slicesLeft === 0 || venueOk !== true
+            }
             onClick={slice}
           >
             {busy === "slice"

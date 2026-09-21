@@ -10,6 +10,7 @@ import {
 import { CAULDRON, GACHA_ROUTER_ABI, ERC20_SWAP_ABI, COLLECTION_ABI } from "@/config/cauldron";
 import { NATIVE_QUOTE, isNativeQuote } from "@/config/quotes";
 import { quoteInForTypedAmount, scaleFloor } from "@/lib/quoteUnits";
+import { estimateBufferedSwapGas, pinSwapWrite } from "@/lib/swapGas";
 
 /** NativeQuoteZap — ether in, the generation's quote out, to the caller. */
 const ZAP_ABI = [{
@@ -31,44 +32,31 @@ const MOCK_MINT_ABI = [{
   inputs: [{ type: "address" }, { type: "uint256" }], outputs: [],
 }] as const;
 
-/**
- * Gas limit for any swap that may auto-liquidate, sized to fund a FULL sweep.
- *
- *  ── WHY NOT JUST LET THE WALLET ESTIMATE ─────────────────────────────────
- *  `eth_estimateGas` runs against the CURRENT state. If nothing is liquidatable
- *  at the moment of estimation, the estimate excludes the sweep entirely — and
- *  if a position becomes liquidatable between estimate and inclusion, the swap
- *  arrives without the gas to pay for the sweep it now triggers. The sweep is
- *  best-effort and its failure is swallowed by the hook, so the user sees a
- *  successful swap and NO liquidation, with nothing anywhere saying why. Forcing
- *  a floor removes that race.
- *
- *  ── HOW THIS NUMBER IS DERIVED ───────────────────────────────────────────
- *  From the engine's own bounds, not from guesswork:
- *    MAX_LIQ_PER_SWAP    8       kills allowed in one sweep
- *    SWEEP_KILL_RESERVE  420,000 gas that must remain to attempt each kill
- *    LIQ_GAS_RESERVE     180,000 the hook keeps for afterSwap to finish
- *    GACHA_GAS_RESERVE   200,000 kept for the in-swap gacha step
- *  8 x 420k = 3.36M for kills, plus ~380k of hook/gacha reserves, plus ~330k for
- *  the swap itself (measured: a buy WITH one kill estimated 1,005,895, of which
- *  the sweep was 680,638). That is ~4.1M; 5M leaves honest headroom.
- *
- *  The previous 3,000,000 could not fund a full sweep — it would break after
- *  five or six kills. That degrades gracefully (the sweep checks `gasleft()` and
- *  stops rather than reverting), so it was never visible as an error; it just
- *  meant some liquidatable positions survived a swap that should have taken them.
- *
- *  Costs the user nothing extra: EIP-1559 charges for gas USED, not the limit.
- *  The only side effect is a higher "max fee" figure in the wallet prompt.
- */
-//  TWO sweeps per swap now, not one. Pre-emptive liquidation runs in
-//  `beforeSwap` (closing what the pending trade would sink, at the pre-trade
-//  price) and the original post-trade sweep still runs in `afterSwap`. Each is
-//  bounded at 8 kills, so the honest worst case is roughly double the single
-//  sweep budget derived above: ~4.1M + ~3.4M. 8M funds both in full; a heavy
-//  pre-sweep no longer starves the swap's own gacha step of gas.
-const LIQ_SWAP_GAS = 8_000_000n;
+type RouterPlayRequest = {
+  address: Address;
+  abi: typeof GACHA_ROUTER_ABI;
+  functionName: "play";
+  args: readonly [bigint, bigint, bigint, bigint, bigint];
+  value: bigint;
+};
+type RouterChurnRequest = {
+  address: Address;
+  abi: typeof GACHA_ROUTER_ABI;
+  functionName: "playChurn";
+  args: readonly [bigint, bigint, bigint, bigint];
+  value: bigint;
+};
+type RouterSwapRequest = RouterPlayRequest | RouterChurnRequest;
 
+/**
+ * Swap gas is estimated from the exact account/calldata/value request because
+ * the pre-trade sweep may now inspect the complete bounded perp book. A measured
+ * 24-position cascade needs more than the former fixed 8M ceiling. The estimator
+ * retains 8M as a floor for the state-change race where the book becomes heavier
+ * after simulation, then adds 20% to larger estimates. That cannot eliminate the
+ * estimate-to-inclusion race entirely; the on-chain gas-starvation revert remains
+ * the final safety boundary, and RPC/simulation errors are surfaced to the user.
+ */
 /**
  * Does the DEPLOYED router actually implement `playChurn`?
  *
@@ -120,6 +108,42 @@ export function useCauldronSwap() {
   //  Needed to READ an allowance and to WAIT on the approval before `play`
   //  pulls the quote — an ERC20-quoted buy is two transactions, not one.
   const pc = usePublicClient({ chainId: CAULDRON.chainId });
+
+  /** Estimate the exact prepared swap on the configured chain and connected
+   * account. Errors are deliberately not caught: a failed simulation or RPC is
+   * safer than signing with a guessed ceiling on the wrong/currently stale state. */
+  const swapGas = useCallback(async (request: RouterSwapRequest): Promise<bigint> => {
+    if (!address) throw new Error("Connect a wallet first");
+    if (!pc) throw new Error("Swap RPC is unavailable on the configured chain");
+    return estimateBufferedSwapGas(pc.chain?.id, CAULDRON.chainId, () =>
+      request.functionName === "play"
+        ? pc.estimateContractGas({ ...request, functionName: "play", args: request.args, account: address })
+        : pc.estimateContractGas({ ...request, functionName: "playChurn", args: request.args, account: address }),
+    );
+  }, [address, pc]);
+
+  /** Estimate and submit with the SAME captured account and configured chain.
+   * If the wallet changes account/network during an approval or RPC wait, wagmi
+   * rejects this pinned write instead of silently sending a different request. */
+  const writeSwap = useCallback(async (request: RouterSwapRequest): Promise<`0x${string}`> => {
+    if (!address) throw new Error("Connect a wallet first");
+    const gas = await swapGas(request);
+    const pinned = pinSwapWrite(request, address, CAULDRON.chainId, gas);
+    // Preserve the discriminant for viem's ABI-derived tuple validation.
+    return request.functionName === "play"
+      ? writeContractAsync({ ...pinned, functionName: "play", args: request.args })
+      : writeContractAsync({ ...pinned, functionName: "playChurn", args: request.args });
+  }, [address, swapGas, writeContractAsync]);
+
+  const ensureSwapChain = useCallback(async () => {
+    if (chainId !== CAULDRON.chainId) {
+      const selected = await switchChainAsync({ chainId: CAULDRON.chainId });
+      if (selected.id !== CAULDRON.chainId) throw new Error("Wallet did not switch to the configured chain");
+    }
+    if (!pc || pc.chain?.id !== CAULDRON.chainId) {
+      throw new Error("Swap RPC is unavailable on the configured chain");
+    }
+  }, [chainId, pc, switchChainAsync]);
   const {
     isLoading: confirming,
     isSuccess: mined,
@@ -214,9 +238,7 @@ export function useCauldronSwap() {
     ): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (ethIn <= 0) throw new Error("Enter an amount");
-      if (chainId !== CAULDRON.chainId) {
-        await switchChainAsync({ chainId: CAULDRON.chainId });
-      }
+      await ensureSwapChain();
 
       //  ── AN ERC20-QUOTED GENERATION BUYS DIFFERENTLY ──────────────────────
       //  `CauldronGachaRouter._pullQuote` branches on the generation's quote:
@@ -298,12 +320,12 @@ export function useCauldronSwap() {
           //  revert inside transferFrom — a failure that reads like a bad trade.
           await pc!.waitForTransactionReceipt({ hash });
         }
-        return writeContractAsync({
+        const request = {
           address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
           functionName: "play",
           args: [spend, 0n, floor, 0n, BigInt(openMax)], value: 0n,
-          gas: LIQ_SWAP_GAS,
-        });
+        } as const;
+        return writeSwap(request);
       }
 
       const value = parseEther(ethIn.toFixed(18));
@@ -312,7 +334,7 @@ export function useCauldronSwap() {
       // Force a generous gas limit: any buy can trigger an in-swap liquidation
       // (nested pool swaps) that the wallet's estimate — taken when the target was
       // still healthy — can't foresee, which would OOG. Unused gas is refunded.
-      return writeContractAsync({
+      const request = {
         address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
         functionName: "play",
         //  `quoteIn: 0n` — this path supplies the buy side as native `value`.
@@ -321,10 +343,10 @@ export function useCauldronSwap() {
         //  (functional audit R-05). A USDG-denominated buy needs an approve +
         //  a non-zero `quoteIn` with no value.
         args: [0n, 0n, minOut, 0n, BigInt(openMax)], value,
-        gas: LIQ_SWAP_GAS,
-      });
+      } as const;
+      return writeSwap(request);
     },
-    [address, chainId, switchChainAsync, writeContractAsync, pc],
+    [address, writeContractAsync, pc, writeSwap, ensureSwapChain],
   );
 
   /**
@@ -367,9 +389,7 @@ export function useCauldronSwap() {
       if (minTokenOut <= 0n) {
         throw new Error("Could not compute a slippage floor for the spin — refusing to sign");
       }
-      if (chainId !== CAULDRON.chainId) {
-        await switchChainAsync({ chainId: CAULDRON.chainId });
-      }
+      await ensureSwapChain();
       //  ── AN ERC20-QUOTED GENERATION CHURNS DIFFERENTLY (audit FG-4) ────
       //  `_pullQuote` takes no value on a non-native quote, so this hard-coded
       //  native `value` reverted `ErcQuoteTakesNoValue` and SPIN was simply dead
@@ -412,37 +432,45 @@ export function useCauldronSwap() {
           await pc!.waitForTransactionReceipt({ hash: ah });
         }
         const canChurn = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
-        return writeContractAsync({
+        // `play` is the same trade without the extra loops; on a router that
+        // lacks `playChurn` it is the difference between spinning and a bare
+        // revert. Keep separate tuples so both estimation and signing use the
+        // exact selected selector rather than a widened argument union.
+        if (canChurn) {
+          const request = {
+            address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
+            functionName: "playChurn", args: [spend, BigInt(loops), floor, BigInt(openMax)], value: 0n,
+          } as const;
+          return writeSwap(request);
+        }
+        const request = {
           address: CAULDRON.gachaRouter as Address,
           abi: GACHA_ROUTER_ABI,
-          //  `play` is the same trade without the extra loops; on a router that
-          //  lacks `playChurn` it is the difference between spinning and a bare
-          //  revert. See {routerHasChurn}.
-          functionName: canChurn ? "playChurn" : "play",
-          args: canChurn
-            ? [spend, BigInt(loops), floor, BigInt(openMax)]
-            : [spend, 0n, floor, 0n, BigInt(openMax)],
+          functionName: "play", args: [spend, 0n, floor, 0n, BigInt(openMax)],
           value: 0n,
-          //  A churn is N pool swaps, so it can trigger the sweep exactly like a
-          //  plain buy. This path set no gas at all and relied on estimation.
-          gas: LIQ_SWAP_GAS,
-        });
+        } as const;
+        return writeSwap(request);
       }
 
       const canChurnNative = await routerHasChurn(pc!, CAULDRON.gachaRouter as Address);
-      return writeContractAsync({
+      const value = parseEther(ethIn.toFixed(18));
+      if (canChurnNative) {
+        const request = {
+          address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
+          functionName: "playChurn", args: [0n, BigInt(loops), minTokenOut, BigInt(openMax)], value,
+        } as const;
+        return writeSwap(request);
+      }
+      const request = {
         address: CAULDRON.gachaRouter as Address,
         abi: GACHA_ROUTER_ABI,
-        functionName: canChurnNative ? "playChurn" : "play",
+        functionName: "play",
         //  See the note in `buy`: native value, so `quoteIn` is 0.
-        args: canChurnNative
-          ? [0n, BigInt(loops), minTokenOut, BigInt(openMax)]
-          : [0n, 0n, minTokenOut, 0n, BigInt(openMax)],
-        value: parseEther(ethIn.toFixed(18)),
-        gas: LIQ_SWAP_GAS,
-      });
+        args: [0n, 0n, minTokenOut, 0n, BigInt(openMax)], value,
+      } as const;
+      return writeSwap(request);
     },
-    [address, chainId, switchChainAsync, writeContractAsync, pc, zapNativeToQuote],
+    [address, writeContractAsync, pc, zapNativeToQuote, writeSwap, ensureSwapChain],
   );
 
   /** Open a sealed crystal you own → reveals the creature inside. */
@@ -540,23 +568,21 @@ export function useCauldronSwap() {
     async (tokenIn: number, minEthOut: bigint = 0n, openMax = 0, liqHint: bigint = 0n, maxWei?: bigint): Promise<`0x${string}`> => {
       if (!address) throw new Error("Connect a wallet first");
       if (tokenIn <= 0) throw new Error("Enter an amount");
-      if (chainId !== CAULDRON.chainId) {
-        await switchChainAsync({ chainId: CAULDRON.chainId });
-      }
+      await ensureSwapChain();
       let tokenInWei = parseEther(tokenIn.toFixed(18));
       if (maxWei != null && maxWei > 0n && tokenInWei > maxWei) tokenInWei = maxWei;
       liqHint; // LEGACY/IGNORED — hook auto-liquidates hint-free; never call playLiq.
-      return writeContractAsync({
+      const request = {
         address: CAULDRON.gachaRouter as Address, abi: GACHA_ROUTER_ABI,
         //  A SELL supplies no buy side at all, so `quoteIn` is 0 and no value is
         //  sent — which is valid on a native AND an ERC20-quote generation. The
         //  proceeds come back in whatever the generation trades, so `minEthOut`
         //  is really a min-QUOTE-out (functional audit R-05).
         functionName: "play", args: [0n, tokenInWei, 0n, minEthOut, BigInt(openMax)], value: 0n,
-        gas: LIQ_SWAP_GAS,
-      });
+      } as const;
+      return writeSwap(request);
     },
-    [address, chainId, switchChainAsync, writeContractAsync],
+    [address, writeSwap, ensureSwapChain],
   );
 
   return {
