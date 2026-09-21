@@ -74,7 +74,7 @@ machine cannot leave."*
 
 ## 2. Findings
 
-### FINDING-1 — HIGH (liveness, unpatchable tier) — in-flight, not yet committed
+### FINDING-1 — HIGH (liveness, unpatchable tier) — **RESOLVED 2026-09-22, never shipped**
 
 **An uncommitted change to `CauldronHook._liqSweep` converts a result-ignored
 side-effect into an unconditional revert, which can brick every swap on the pool.**
@@ -155,8 +155,17 @@ liquidation guarantee instead of bricking the market. If fail-closed on `!swept`
 genuinely wanted, S08_E must be updated deliberately and the owner should accept the
 liveness trade explicitly, as was done for the `LiqGasStarved` gas-floor decision.
 
-**Not fixed by me.** It is another session's uncommitted work; editing it would repeat
-the data-loss incident already recorded this week.
+**Not fixed by me.** It was another session's uncommitted work; editing it would have
+repeated the data-loss incident already recorded this week. Raised with the owning
+session instead.
+
+> **Resolution (2026-09-22).** `magic-internet-frens-2c` reverted the fail-closed
+> variant; the guard line is byte-identical to committed again, so this never reached
+> a commit and never reached a deploy. They went further than a revert and pinned the
+> reasoning in-place as a comment — naming the asymmetry, and citing `S08` by name —
+> so the next reader has to argue with the reason rather than re-derive the same
+> fail-closed instinct. That instinct is correct in isolation, which is precisely why
+> it would otherwise keep returning. **Verified by diff, not taken on report.**
 
 ---
 
@@ -262,7 +271,20 @@ proof-of-concept exploit suites, and the in-code audit lineage on every path pro
 (X1b, X1f, X4c, X4e, H-03, F-02, F-08, B-03, GACHA1-b, I-07, D-1, R1C, H1) is consistent
 with it. Checklist-shaped findings on this tier are exhausted.
 
-The one item worth acting on is **FINDING-1**, and it is in a working tree rather than in
-the protocol: an in-flight change trades the hook's "an optional step can never revert a
-user's swap" guarantee for a solvency guarantee, in a contract that can never be patched,
-and two committed tests already disagree with it.
+The one item worth acting on was **FINDING-1**, and it was in a working tree rather than
+in the protocol: an in-flight change traded the hook's "an optional step can never revert
+a user's swap" guarantee for a solvency guarantee, in a contract that can never be
+patched, while a committed test disagreed with it by name. **It was reverted before it
+reached a commit, and the reasoning is now pinned in the source.**
+
+**Every finding from this pass is closed.** FINDING-1 reverted by its owner; FINDING-3
+fixed in `072dbd7` with a non-vacuous regression test; FINDING-2 deliberately left alone
+with its reasoning recorded so it is not "fixed" later by someone reading it as an
+oversight.
+
+**What this pass does NOT establish.** No audit proves the absence of bugs, and this one
+is narrower than most: it deliberately excluded everything behind a setter, and it could
+not measure the test suite against committed code, because the shared tree did not
+compile throughout. A clean-tree suite run is still owed, and is the single most useful
+next step — the most recent trustworthy number predates several in-flight changes to
+`PerpVault`, `PerpEngine`, `PoolOps`, `CauldronBase` and `RedemptionExt`.
