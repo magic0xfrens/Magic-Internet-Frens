@@ -106,7 +106,17 @@ contract S01_PerpQuoteDeadlock is YBase {
 
         rotator = new QuoteRotator(address(registry), pm);
 
-        //  ROT-01: `swapOnce` now refuses any rotation it cannot price
+        //  PRICED AT THE VENUE RATE, NOT UNDER IT. Files that rotate ONE way can
+    //  under-value ETH and leave the ETH->USDG floor slack. This file rotates
+    //  BOTH ways -- out to USDG and home again -- and the floor inverts with the
+    //  direction, so slack in one direction is a binding constraint in the other:
+    //  at 3,000 the come-home leg demanded 0.000267 ETH per USDG against a venue
+    //  paying 0.0001, and reverted `SlippageTooHigh`. The feed therefore carries
+    //  the venue's actual rate (40 ETH : 400,000 USDG = 10,000), which leaves the
+    //  20% band to absorb the slice's own impact -- measured ~11% for a 2,400 bps
+    //  slice of a 20 ETH treasury into a 40 ETH venue.
+    //
+    //  ROT-01: `swapOnce` now refuses any rotation it cannot price
 
         //  independently -- an UNWIRED oracle included -- so without a price
 
@@ -122,7 +132,7 @@ contract S01_PerpQuoteDeadlock is YBase {
 
             QuoteOracle _rotOracle = new QuoteOracle(address(this));
 
-            _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
+            _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 10000e8)), 4 hours, 18);
 
             _rotOracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, usdg.decimals());
 
@@ -147,11 +157,21 @@ contract S01_PerpQuoteDeadlock is YBase {
     /// @dev Stand up + curate the ETH/USDG venue the rotator swaps through.
     ///      Lifted verbatim from F-10, which is the canonical rotation rig.
     function _seedVenue() internal returns (PoolKey memory route) {
-        uint256 venueUsdg = 400_000e6;
+        //  DEEPENED 10x FOR A TWO-WAY ROTATION. At 40 ETH : 400,000 USDG a
+        //  2,400-2,500 bps slice moved this venue ~11%, and ROT-01's floor is 97%
+        //  of oracle-fair (opened to 80% here). One direction always fit and the
+        //  other did not: under-value ETH and the come-home leg reverts
+        //  `SlippageTooHigh`; price it at the venue rate and the outbound leg
+        //  does. Depth is the variable that frees BOTH -- at 400 ETH : 4,000,000
+        //  USDG the same slice moves ~1%, so the 20% band covers the impact and
+        //  the feed can sit on the venue's own rate (10,000) instead of being
+        //  tuned per direction. The RATE is unchanged, so nothing about the
+        //  attack semantics here moves; only the slippage the slice suffers.
+        uint256 venueUsdg = 4_000_000e6;
         usdg.mint(address(this), venueUsdg);
         PoolOps.openOrAddPair(
             pm, IPositionManagerOps(posm), address(0),
-            address(usdg), address(0), 40 ether, venueUsdg, 60, 3000
+            address(usdg), address(0), 400 ether, venueUsdg, 60, 3000
         );
         route = PoolKey({
             currency0: Currency.wrap(address(0)),

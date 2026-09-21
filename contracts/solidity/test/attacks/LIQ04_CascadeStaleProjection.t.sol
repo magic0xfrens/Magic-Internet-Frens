@@ -90,12 +90,23 @@ contract LIQ04_CascadeStaleProjection is YBase {
         badDebt; // no BadDebt event on this path: the loss lands via settlement, not _absorbPlvLoss
     }
 
+    /// @dev External so the buy can be attempted and CAUGHT. A trade the
+    ///      pre-trade sweep refuses (`LiqTradeTooLarge` once the cascade would
+    ///      outrun one swap's kill ceiling) reverts atomically -- it charges PLV
+    ///      exactly nothing, which is the property this scan measures. Letting
+    ///      the revert escape would fail the test on the one outcome that proves
+    ///      the invariant rather than breaking it.
+    function extBuy(uint256 ethIn) external {
+        require(msg.sender == address(this), "self only");
+        _buy(ethIn, address(this));
+    }
+
     function _run(uint256 ethIn) internal returns (uint256 opened, uint256 remaining, uint256 plvDrop, uint256 badDebt) {
         opened = _openShorts(8);
         uint256 plvBefore = perp.plv();
         vm.recordLogs();
-        _buy(ethIn, address(this));
-        Vm.Log[] memory logs = vm.getRecordedLogs();
+        (bool filled,) = address(this).call(abi.encodeCall(this.extBuy, (ethIn)));
+        Vm.Log[] memory logs = filled ? vm.getRecordedLogs() : new Vm.Log[](0);
         badDebt = _scanBadDebt(logs);
         uint256 plvAfter = perp.plv();
         plvDrop = plvBefore > plvAfter ? plvBefore - plvAfter : 0;

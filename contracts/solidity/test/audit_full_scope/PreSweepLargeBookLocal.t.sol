@@ -47,12 +47,23 @@ contract PreSweepLargeBookLocalTest is LocalLifecycleBoot {
         assertGe(perp.plv(), beforePlv, "preemption must preserve PLV for this scenario");
     }
 
+    /// @dev EITHER outcome is a pass, and that is the point. A book the sweep can
+    ///      clear inside its kill ceiling fills and leaves nothing insolvent; a
+    ///      book it cannot is REFUSED and leaves the state untouched. What must
+    ///      never happen is the third outcome -- filling while stranding an
+    ///      insolvent tail -- which `_assertSafe` checks in both branches. The
+    ///      raw `_buy` here let a correct refusal fail the test.
     function _scenario(uint256 count) internal {
         uint256[] memory ids = _openBook(count);
         uint256 beforePlv = perp.plv();
         uint256 beforeGas = gasleft();
-        _buy(45 ether, attacker);
+        (bool filled,) = address(this).call(abi.encodeCall(this.cappedBuy, ()));
         emit log_named_uint("swap gas excluding book setup", beforeGas - gasleft());
+        emit log_named_uint("trade filled", filled ? 1 : 0);
+        if (!filled) {
+            assertEq(perp.openCount(), ids.length, "a refused trade rolls back every kill");
+            assertEq(perp.plv(), beforePlv, "a refused trade charges PLV nothing");
+        }
         _assertSafe(ids, beforePlv);
     }
 

@@ -1192,6 +1192,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         _pokeFunding();
         uint256 len = _openIds.length;
         if (len == 0) return status;
+        // Pre-trade membership must survive swap-pop and partial rebooking.
+        // Rotating live indices can revisit an id while skipping an original one.
+        uint256[] memory pendingIds;
+        if (spec != 0) pendingIds = _openIds;
         _liqReentry = true;
         _inLocked = inLocked;
         uint256 cursor = sweepCursor;
@@ -1294,7 +1298,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             uint256 n = _openIds.length;
             if (n == 0) break;
             if (cursor >= n) cursor = 0;
-            uint256 id = _openIds[cursor];
+            uint256 id = spec != 0 ? pendingIds[scanned] : _openIds[cursor];
             //  RE-PROJECT PER KILL, FROM LIVE SPOT (red-team LIQ04-D). Each
             //  settlement swap in this loop moves spot, so a projection taken once
             //  before the loop valued kills 2..N against a price that no longer
@@ -1340,7 +1344,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  Deliberately CONSERVATIVE: a second kill pass could clear some of
         //  these within the cap. Refusing is the answer that cannot leave bad
         //  debt, and a smaller trade always succeeds.
-        if (status == SWEEP_OK && kills != 0 && spec != 0) {
+        if (status == SWEEP_OK && spec != 0) {
+            // The last settlement may change spot even without removing an id.
+            _projSqrtP = _project(spec, isBuy, limit);
             uint256 m = _openIds.length;
             for (uint256 i; i < m; ) {
                 Position memory pv = _pos(_openIds[i]);
@@ -2536,6 +2542,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///      buffer. Any uncovered remainder is already reflected as a lower plv.
     /// @dev The `BadDebt` tail both insurance paths share, byte for byte (EIP-170
     ///      — the T3d death band needed the bytes). Same event, same order.
+    /// @notice ETH of realised loss that exceeded BOTH insurance and the whole
+    ///         PLV, i.e. debt the protocol could not absorb from anything it
+    ///         held. Monotonic: it records what WAS owed, not what is owed now.
+    ///         Zero on a solvent machine, and any non-zero value is a permanent
+    ///         on-chain statement that a liquidation was funded by nobody.
+    ///  Read it before trusting `plv` as a measure of staker backing.
+    ///
+    ///  ── NEVER GATE ON THIS. IT IS A LEDGER, NOT A BALANCE. ─────────────────
+    ///  `unabsorbedEth > 0` means "this HAPPENED", never "this is outstanding".
+    ///  It is monotonic and is never decremented, not even by a full recovery,
+    ///  because its job is to make a past shortfall permanently readable. So a
+    ///  future `require(unabsorbedEth == 0)` or `if (unabsorbedEth != 0) revert`
+    ///  -- pausing deposits, blocking a relaunch, refusing opens -- would be a
+    ///  PERMANENT BRICK on the first wei of bad debt, surviving any repayment.
+    ///  That is the state-flag-that-reverts-forever class this protocol has
+    ///  already been bitten by; the name reading like a balance is what makes it
+    ///  an easy mistake. If a gate ever needs one, add a SEPARATE decrementable
+    ///  `outstandingEth` and gate on that. Not built speculatively.
+    uint256 public unabsorbedEth;
+
+    /// @notice Emitted when loss outruns insurance AND plv. `total` is the
+    ///         running `unabsorbedEth` so an indexer needs no prior state.
+    event BadDebtUnabsorbed(uint256 amount, uint256 total);
+
     function _bd(uint256 amount, uint256 fromInsurance) private {
         emit BadDebt(amount, fromInsurance);
     }
@@ -2570,7 +2600,32 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         uint256 fromIns = loss < insuranceEth ? loss : insuranceEth;
         insuranceEth -= fromIns;
         uint256 rest = loss - fromIns;
-        if (rest > 0) plv = plv > rest ? plv - rest : 0; // socialized LP loss
+        if (rest > 0) {
+            //  ── A CLAMP IS NOT AN ABSORPTION (solvency contract I1) ─────────
+            //  This was `plv = plv > rest ? plv - rest : 0`, and the `: 0` was
+            //  the whole problem: when the loss outran `plv` the excess was
+            //  DROPPED. `plv` floored at zero, no state recorded that the
+            //  protocol had owed more than it held, and the only trace was the
+            //  `BadDebt` log -- which nothing on-chain can read, so nothing can
+            //  gate on it, surface it, or repay it later. Silent insolvency.
+            //
+            //  The waterfall is unchanged (insurance first, then LP principal);
+            //  what changes is that the remainder becomes a NUMBER. Monotonic on
+            //  purpose: this is a liability ledger, not a balance, so it only
+            //  ever grows and `unabsorbedEth > 0` is a permanent, readable
+            //  statement that stakers were short by that much at some point.
+            //
+            //  Reachability is not theoretical and got worse on purpose: raising
+            //  MAX_LIQ_PER_SWAP from 8 to 30 means more realised losses per swap,
+            //  which is exactly the regime that saturates `plv`.
+            uint256 covered = plv < rest ? plv : rest;
+            plv -= covered;
+            uint256 uncovered = rest - covered;
+            if (uncovered != 0) {
+                unchecked { unabsorbedEth += uncovered; }
+                emit BadDebtUnabsorbed(uncovered, unabsorbedEth);
+            }
+        }
         _bd(loss, fromIns);
     }
     /// @dev Mint the Liquidatoor badge to `to` from the ACTIVE brew's collection
