@@ -10,24 +10,33 @@ Ledger: `audit/R46_2026-09-16/LEDGER.md`. Nine agents, ≤4 concurrent.
 
 ## 1. Verdict
 
-**DO NOT DEPLOY.** Not because the protocol is unsound — it is in materially
-better shape than when this run opened — but because of one defect found in the
-last hours and one measurement problem that makes the tree unverifiable today.
+**DO NOT DEPLOY — but for a weaker reason than this document originally
+claimed, and the correction is the most important result of the run.**
 
-**The treasury rotation cannot execute on the mainnet deploy path.** Not
-degraded: every `rotateSlice` reverts. The guild can pass a mandate and never
-spend it. The fix is written and compiles; **half of it is still uncommitted**
-because it is interleaved with another session's in-flight work (§2).
+**RETRACTED: "treasury rotation cannot execute on the mainnet deploy path."** I
+reported that as a Critical, a peer session independently corroborated it from
+the deploy side, and it is **wrong about committed code**. Proven by execution
+(§2a). It was an artefact of reading a **dirty worktree**.
 
-**The suite is at 38 failures against a baseline of 4**, and ~27 of those are
-that one defect. That is the good news — it is one cause, not thirty-eight. The bad
-news is that **`test/attacks/YBase.sol`, the shared harness every attack PoC
-boots from, is uncommitted and unclaimed**, so no suite number anyone reports
-right now is reproducible — and that it took four attempts to measure the suite
-correctly at all (§6).
+What remains is real but smaller: the protocol's committed behaviour with no
+oracle wired is *bounded by caller `minOut`* rather than by an oracle-derived
+floor. That is a deliberate design choice, documented in the code. Whether it is
+the right one for mainnet is a **hardening decision**, not a blocker.
 
-Deploy when: the rotation oracle wiring is committed, the suite returns to ~4
-known failures, and the harness is pinned. That is days, not weeks.
+The actual reason not to deploy today is **the measurement problem**: the working
+tree carries uncommitted changes to `QuoteRotator.sol`, `CauldronHook.sol`,
+`MiFrensGenesis.sol`, `RedemptionExt.sol`, `YBase.sol` and others from three
+concurrent sessions, and **every suite number in this document was measured
+against that tree.** Until it is clean, nothing here is reproducible.
+
+**The suite reads 38 failures against a baseline of 4 — and ~27 of those are
+caused by ONE UNCOMMITTED LINE**, not by any committed defect. VERIFIED: the
+baseline passes, every contract commit since passes, and **HEAD in a clean
+worktree passes**.
+
+Deploy when: the tree is clean, the suite is re-measured from a clean worktree
+and returns to ~4 known failures, and the oracle-floor question below is decided
+deliberately. That is days, not weeks.
 
 ---
 
@@ -41,7 +50,63 @@ and was **rehearsed end to end against a 4663 fork**: deploy → mint-out → ig
 over `POST 127.0.0.1:8545`. `MAX_PER_WALLET` was read back from deployed state.
 **EIP-170 is clear**: 1,605 rows, zero negative runtime margins.
 
-### The blocker
+### 2a. THE RETRACTION — read this before anything else in this section
+
+**Claim as originally reported:** `QuoteRotator.quoteOracle` is never wired on a
+`DEPLOY_QUOTES=false` deploy, so `_oracleFloor` returns 0 and
+`QuoteRotator.sol:389` reverts `NotPriceable()` on every `rotateSlice` — treasury
+rotation dead on arrival on the mainnet path, ~27 suite failures as proof.
+
+**Two sessions believed it.** I traced it with `-vvv`; a peer independently ran
+the deploy script twice and confirmed no `QuoteOracle` is deployed. Both
+observations were true. **The conclusion was still wrong.**
+
+**Execution, in order, each in a fresh `git worktree`:**
+
+| what | result |
+|---|---|
+| baseline `6eaf67c`, `S0x_RotationPerpHostage` | **4 passed, 0 failed** |
+| `c20671a` · `712c2b1` · `a552a28` · `98a97ec` | **PASS** (each, individually) |
+| **HEAD in a clean worktree** | **PASS** |
+| HEAD in the working tree | FAIL ×27 |
+
+So no committed change broke rotation. The cause is **one uncommitted line** in
+`cauldron/QuoteRotator.sol`:
+
+```diff
+-        if (floor == 0 && quoteOracle != address(0)) revert NotPriceable();
++        if (floor == 0) revert NotPriceable();
+```
+
+Committed code **deliberately fails open** when no oracle is wired, and the
+comment the edit deleted says so outright: *"NO oracle wired is a different
+statement from 'the oracle declines': a deployment that never set one is bounded
+by `minOut` by design and nothing here can invent a price for it."*
+
+**What survives.** `quoteOracle` genuinely is `address(0)` on a
+`DEPLOY_QUOTES=false` stack — that part was right, and it means a mainnet
+rotation is bounded by **caller-supplied `minOut`** rather than an oracle floor.
+The frontend signs a flat 1-unit minimum, so in practice that is close to no
+bound, with the venue allowlist as the remaining protection. **That is a real
+hardening question and it should be decided deliberately** — but it is a design
+choice the code documents, not a dead feature.
+
+**Consequences for what shipped.** `56613ed` (wiring `setArbParams` from
+`QUOTE_ORACLE`) remains a genuine improvement — an oracle-derived floor beats
+caller `minOut`. But its `ACCEPT_NO_ORACLE` refusal is now **arguably too
+strong**: it refuses a configuration the protocol deliberately supports. Worth
+revisiting as hardening, not as a blocker.
+
+**Why this is the run's most important result.** The same error occurred **three
+times**: this retraction, my earlier round-trip-inversion retraction, and the
+peer's `QUOTE_ORACLE` escape hatch. Every one was a confident conclusion drawn
+from a **dirty worktree** and attributed to committed code, and in two of the
+three a second session independently agreed — which felt like corroboration and
+was actually two people making the same omission. The discipline that catches it
+costs about forty minutes: **`git worktree add <commit>` and run there before
+characterising committed behaviour.** Neither session did it until the end.
+
+### The original blocker analysis (superseded by 2a, retained for the mechanism)
 
 `QuoteRotator.quoteOracle` has exactly **one** writer in the entire protocol —
 `setArbParams` (`QuoteRotator.sol:484`) — and the only call to it is
