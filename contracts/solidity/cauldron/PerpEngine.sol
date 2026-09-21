@@ -1905,6 +1905,10 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             if (cost > backing) _absorbPlvLoss(cost - backing);
             uint256 unbought = p.size - bought;
             if (unbought > 0 && mode != MODE_DEATH) {
+                // A partial close rebooks all remaining backing and pays the
+                // trader nothing now. Only minOut == 0 opts into that outcome;
+                // otherwise roll back the swap and accounting atomically.
+                _ownerFloor(ownerSlippage, 0, minOut);
                 //  ── A POSITION MUST ALWAYS BE CLOSEABLE, IN PIECES ──────────
                 //  The pool could not supply the whole debt inside what the engine
                 //  may spend. Retire the piece it did supply and leave the REST
