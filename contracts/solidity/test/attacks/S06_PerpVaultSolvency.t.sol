@@ -596,21 +596,45 @@ contract S06_PerpVaultSolvency is YBase {
         vm.skip(!active);
         Bad memory b = _realBadDebtRun();
 
-        // 1. The vault is insolvent against its own queue.
-        assertGt(b.pending, b.backing, "expected the queue to outgrow the backing");
+        //  ── THIS PoC IS NOW A REGRESSION (S06 re-review, 2026-09-21) ────────
+        //  It used to assert that the ATTACK SUCCEEDS, and had been carried as an
+        //  open finding for three reviews purely because it was red. Verbatim,
+        //  what steps 1-3 used to say:
+        //
+        //      assertGt(b.pending, b.backing, "expected the queue to outgrow the backing");
+        //      assertEq(vault.assetsEth(), 0, "live share base should have been zeroed");
+        //      assertEq(bRedeem, 0, "lpB's shares are worth nothing");
+        //      assertEq(swept, b.free, "lpA swept the entire free buffer");
+        //      assertEq(perp.totalEth(), 0, "lpA drained the engine to ZERO");
+        //
+        //  {PerpVault._syncEthQueue} (:455-475) now recognises a shortfall ONCE,
+        //  globally, by scaling `ethQueueIndex`, so a queued exit can no longer be
+        //  carried above the backing that exists. Measured on this exact run:
+        //  pending 344218925886143795 vs backing 459182015833333191 — the vault is
+        //  solvent against its own queue by 0.1149 ETH, lpB's share base is NOT
+        //  zero, and lpA cannot drain the engine. The assertions below pin that.
+        //
+        //  STILL OPEN, and deliberately NOT asserted here: a loss SMALLER than the
+        //  queue is not haircut at all (`backing >= claims` early-returns at :461),
+        //  so queued stakers eat 0% of it and stayers eat 100% (red-team R2A).
+        //  Closing that changes who eats what in the loss waterfall, which is an
+        //  owner decision, not a test change.
 
-        // 2. lpB, who never moved, is wiped: assetsEth saturates at 0 (:117).
-        assertEq(vault.assetsEth(), 0, "live share base should have been zeroed");
+        // 1. The vault is solvent against its own queue.
+        assertLe(b.pending, b.backing, "the queue must never outgrow the backing");
+
+        // 2. lpB, who never moved, is NOT wiped by lpA's queued exit.
+        assertGt(vault.assetsEth(), 0, "a queued exit must not zero the live share base");
         (uint256 bRedeem,,) = vault.ethPosition(lpB);
-        assertEq(bRedeem, 0, "lpB's shares are worth nothing");
+        assertGt(bRedeem, 0, "lpB, who stayed, must keep positive value");
 
-        // 3. ...and lpA still sweeps every wei the engine has left.
+        // 3. ...and lpA cannot sweep every wei the engine has left.
         uint256 aBefore = lpA.balance;
         vm.prank(lpA);
         uint256 swept = vault.claimPendingEth();
-        assertEq(swept, b.free, "lpA swept the entire free buffer");
-        assertEq(lpA.balance - aBefore, swept, "and banked it");
-        assertEq(perp.totalEth(), 0, "lpA drained the engine to ZERO");
+        assertLe(swept, b.free, "lpA cannot take more than the free buffer");
+        assertEq(lpA.balance - aBefore, swept, "and banked exactly what he took");
+        assertGt(perp.totalEth(), 0, "lpA must not be able to drain the engine to ZERO");
         //  ── INVERTED BY THE L-3 HAIRCUT ─────────────────────────────────────
         //  Pre-fix lpA swept what the engine had AND remained owed the rest — a
         //  nominal claim larger than everything that existed, senior to every LP
@@ -620,12 +644,11 @@ contract S06_PerpVaultSolvency is YBase {
         assertEq(vault.pendingEthOf(lpA), 0, "the unbacked part of lpA's claim is written off");
         assertLe(vault.pendingEth(), perp.totalEth() + 2, "the queue never outruns backing");
 
-        // 4. lpB cannot even queue for the remainder — there is nothing to name.
+        // 4. lpB still has something to exit with (pre-fix: exactly zero).
         vm.prank(lpB);
         (uint256 bPaid, uint256 bQueued) = vault.withdrawEth(b.bShares);
-        assertEq(bPaid, 0, "lpB paid nothing");
-        assertEq(bQueued, 0, "lpB could not even queue a claim");
-        assertEq(vault.ethShareOf(lpB), 0, "lpB burned every share for zero");
+        assertGt(bPaid + bQueued, 0, "lpB must not be left with a zero exit");
+        assertEq(vault.ethShareOf(lpB), 0, "lpB burned every share");
 
         // 5. Loss attribution, in numbers. Both LPs bore identical risk for the
         //    identical span; the ONLY difference is that lpA's exit was booked as a
@@ -640,11 +663,28 @@ contract S06_PerpVaultSolvency is YBase {
         //  would also have outranked every FUTURE depositor. That is the property
         //  this PoC now pins.
         uint256 aRecovered = b.aPaid + swept;
-        assertGt(aRecovered, 0, "lpA recovered something");
-        assertLe(aRecovered, b.aStake, "but never more than lpA actually staked");
         console2.log("lpA staked/recovered:", b.aStake, aRecovered);
-        console2.log("lpB staked/recovered:", b.bStake, bPaid);
+        console2.log("lpB staked/recovered:", b.bStake, bPaid + bQueued);
         console2.log("residual queue claim:", vault.pendingEth());
+        //  The old line here was:
+        //
+        //      assertLe(aRecovered, b.aStake, "but never more than lpA actually staked");
+        //
+        //  It assumed the run ends in net bad debt, so any recovery above stake had
+        //  to be seniority. At HEAD it does not: the book's realised fees outrun the
+        //  shortfall and BOTH LPs end above stake (lpA 0.4 -> 0.423124296455424267,
+        //  +5.78%; lpB 0.1 -> 0.114963089947189395, +14.96%). Bounding lpA by his
+        //  nominal stake therefore no longer measures anything about seniority — it
+        //  measures whether fees accrued. The property the owner actually wants is
+        //  the comparison, so assert THAT: the LP who queued must not come out ahead
+        //  of the LP who stayed. Here he comes out behind, by 9.18 points.
+        assertGt(aRecovered, 0, "lpA recovered something");
+        assertGt(bPaid + bQueued, 0, "lpB recovered something");
+        assertLe(
+            FullMath.mulDiv(aRecovered, 1e18, b.aStake),
+            FullMath.mulDiv(bPaid + bQueued, 1e18, b.bStake),
+            "the LP who queued first must not out-recover the LP who stayed"
+        );
         assertTrue(reachedRealPoc = true, "reached: the queue is bounded by backing");
     }
 
@@ -1246,6 +1286,48 @@ contract S06_PerpVaultQueue is Test {
         assertLt(alice.balance, before + 10 ether, "solo staker profited from the queue");
         assertLe(alice.balance - before, 10 ether, "solo staker got more than the stake back");
         assertTrue(reachedSolo = true, "reached: no solo profit");
+    }
+
+    /**
+     * R2A — OPEN, PASSES TODAY, reported not fixed.
+     *
+     *  {PerpVault._syncEthQueue} (`cauldron/PerpVault.sol:461`) early-returns on
+     *  `backing >= claims`, so the queue is only ever haircut when it outruns the
+     *  ENTIRE backing. For any smaller loss no haircut runs at all, and
+     *  {assetsEth} (`:265-269`) is the residual `totalEth - pendingEth` — so the
+     *  whole shortfall lands on live shares. Measured below: a 5 ETH loss on a
+     *  20 ETH book leaves the queued LP whole (10/10, 0% of the loss) and the LP
+     *  who stayed with half (5/10, 100% of it). Pro-rata would be 7.5 each.
+     *
+     *  Closing this means making a queued exit bear bad-debt risk again, i.e.
+     *  changing who eats what in the documented waterfall. That is an owner
+     *  decision, so this test pins the CURRENT behaviour as evidence rather than
+     *  asserting the fixed property.
+     */
+    function test_R2A_SmallLossFallsEntirelyOnTheStakerWhoStayed() public {
+        vm.prank(alice);
+        uint256 aSh = vault.depositEth{value: 10 ether}();
+        vm.prank(bob);
+        uint256 bSh = vault.depositEth{value: 10 ether}();
+
+        engine.lend(20 ether);
+        vm.prank(alice);
+        vault.withdrawEth(aSh);                 // 10 ether queued, 0 paid
+
+        engine.repayWithLoss(20 ether, 5 ether); // loss 5 < queue 10
+        console2.log("backing after loss :", engine.totalEth());
+        console2.log("queue claim        :", vault.pendingEth());
+        console2.log("live assets (bob)  :", vault.assetsEth());
+
+        uint256 aBefore = alice.balance;
+        vm.prank(alice);
+        vault.claimPendingEth();
+        console2.log("alice recovered    :", alice.balance - aBefore);
+        vm.prank(bob);
+        (uint256 bPaid, uint256 bQueued) = vault.withdrawEth(bSh);
+        console2.log("bob recovered      :", bPaid + bQueued);
+        assertEq(alice.balance - aBefore, 10 ether, "alice eats 0% of the loss");
+        assertEq(bPaid + bQueued, 5 ether, "bob eats 100% of it");
     }
 }
 
