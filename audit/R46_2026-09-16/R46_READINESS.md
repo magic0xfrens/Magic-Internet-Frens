@@ -19,8 +19,8 @@ degraded: every `rotateSlice` reverts. The guild can pass a mandate and never
 spend it. The fix is written and compiles; **half of it is still uncommitted**
 because it is interleaved with another session's in-flight work (§2).
 
-**The suite is at 40 failures against a baseline of 4**, and ~27 of those are
-that one defect. That is the good news — it is one cause, not forty. The bad
+**The suite is at 38 failures against a baseline of 4**, and ~27 of those are
+that one defect. That is the good news — it is one cause, not thirty-eight. The bad
 news is that **`test/attacks/YBase.sol`, the shared harness every attack PoC
 boots from, is uncommitted and unclaimed**, so no suite number anyone reports
 right now is reproducible — and that it took four attempts to measure the suite
@@ -406,7 +406,7 @@ findings in §2 dominate every cap here.
 | suites | 264 | **295** |
 | passed | 1030 | **1113** |
 | skipped | 1 | **1** |
-| failed | 4 | **43** → **40** (see below) |
+| failed | 4 | **43** → **38** (see below) |
 
 Measured under `FOUNDRY_PROFILE=cauldron` with **only** the mandatory permit2
 skip. **Skipped did not grow.** Zero infrastructure noise in this run.
@@ -426,11 +426,16 @@ they were wrong matters more than the values.**
 - **"89 failures" — infrastructure.** The first unskipped run was contaminated:
   **66 of 89 were DNS failures** against `ethereum-sepolia-rpc.publicnode.com`
   (`failed to lookup address information`). The endpoint recovered on retry.
-  Discarded per the brief's own rule that 429s/5xx are infrastructure.
+  Discarded per the brief's own rule that 429s/5xx are infrastructure. A peer
+  session saw the identical spike (110 FAIL lines, `could not instantiate forked
+  environment`) on the same host, and **zero** infrastructure failures on a keyed
+  endpoint. **Record for anyone re-measuring: the free public endpoint cannot
+  carry a 295-suite run.** `rpc.sepolia.org` now 404s and `sepolia.drpc.org` is
+  paywalled, so a keyed provider is effectively required to measure this suite.
 - **A peer's "35"** was a tree seven commits stale. Same endpoint, so the RPC was
   never the variable.
 
-**43 → 40: three of the failures were mine, and uncommitted.** Three badge tests
+**43 → 38: five of the failures were mine, and uncommitted.** Three badge tests
 (`test_AutoLiquidateOnSwap_MintsBadge`, `test_AutoLiquidate_Many_RektsAll`,
 `test_AutoLiquidate_ReentrantKeeper_Blocked`) failed `0 != 1` / `0 != 2` — no
 badge struck in-swap. Cause: an uncommitted `_doSweep` hunk in the worktree
@@ -457,7 +462,7 @@ test that pins the badge path.
 4. **`test_S08_E_PoC_ABiggerBookRaisesTheBarForEverySweep`** — still failing
    ("the swap still fills below the bar"). Encodes pre-fix behaviour.
 
-### The 37 remaining new failures
+### The 35 remaining new failures
 
 - **~27 are ONE cause** — §2's unwired rotation oracle. The `NotPriceable()` ten
   (`S02_*`, `T02_*`, `refute_routeB`) and the rotation-control seventeen
@@ -473,11 +478,15 @@ test that pins the badge path.
 - **`R2D`** now fails on `"a leg holding the current denomination (ETH) exists
   beside the launch pair: 0 <= 0"` — which is the assertion that **refutes** the
   round-trip inversion rather than confirming it. See §3.
-- **2 unattributed and worth a look**: `test_decimalOverflowRejected`
-  (`InvalidHeartbeat(0) != FeedUnusable(0xF628…820a)` — an oracle error-shape
-  mismatch, plausibly related to the heartbeat work) and
-  `test_LIQ05_GriefCrossoverVersusVictimHealth` (`WrappedError`). **Neither was
-  investigated.** They are in §7.
+- **2 more were the same reverted hunk** — `test_decimalOverflowRejected`
+  (`InvalidHeartbeat(0) != FeedUnusable(0xF628…820a)`) and
+  `test_LIQ05_GriefCrossoverVersusVictimHealth` (`WrappedError`). Both **PASS**
+  in isolation against the reverted tree (gas 207,565 and 27,744,033), confirmed
+  independently by two sessions with matching gas figures. Neither touches the
+  oracle surface the first error shape suggested. **So the uncommitted `_doSweep`
+  hunk accounted for 5 of the 43, not 3** — and two of those five wore error
+  shapes that pointed at an unrelated subsystem. An uncommitted change does not
+  fail where you expect it to.
 
 **Caveat that undermines all of the above:** `test/attacks/YBase.sol` is
 **uncommitted**. Until it is committed or dropped, every suite number in this
@@ -496,10 +505,6 @@ document means the latter.
 - **`test/attacks/YBase.sol` is dirty and unclaimed.** Shared harness, `_boot`
   made virtual. Neither this session nor the peer owns it. **No suite number is
   reproducible until it is resolved.**
-- **Two failures were never investigated:** `test_decimalOverflowRejected`
-  (`InvalidHeartbeat(0) != FeedUnusable(0xF628…820a)`) and
-  `test_LIQ05_GriefCrossoverVersusVictimHealth` (`WrappedError`). The first sits
-  in the oracle/heartbeat surface this run touched, so it deserves a look.
 - **The LEG-01 orphan lead is open** — a come-home slice that mints into the
   ETH/token pair while `legCount` stays 1. Possibly High, possibly a stub
   artifact. Not run.
