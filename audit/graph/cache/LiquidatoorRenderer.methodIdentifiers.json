@@ -1,0 +1,11 @@
+{
+ "appendArt(bool,bytes[])": "1d22ed7c",
+ "art(bool)": "ea0285f1",
+ "longArt(uint256)": "128b0de1",
+ "owner()": "8da5cb5b",
+ "renderSVG(uint256,(address,bool,uint8,uint96,uint96,uint64,uint128,uint128))": "5a11b04d",
+ "setArt(bool,bytes[])": "858acd97",
+ "shortArt(uint256)": "7a726e63",
+ "tokenURI(uint256)": "c87b56dd",
+ "transferOwnership(address)": "f2fde38b"
+}

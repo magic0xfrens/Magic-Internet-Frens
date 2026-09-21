@@ -1,0 +1,428 @@
+Command: python3 audit/graph/join.py audit/graph
+Exit: 1
+| cluster | edges | in-cluster label | other scope label | resolved to node (all scopes) | resolved to dependency/low-level (all scopes) | unresolved | malformed |
+|---|---|---|---|---|---|---|---|
+| hook | 149 | 67 | 82 | 94 | 55 | 0 | 0 |
+| registry | 104 | 23 | 81 | 75 | 18 | 11 | 0 |
+| pool | 110 | 22 | 88 | 57 | 32 | 21 | 0 |
+| perp | 600 | 449 | 151 | 415 | 50 | 135 | 0 |
+| rotation | 184 | 104 | 80 | 109 | 8 | 67 | 0 |
+| governance | 21 | 11 | 10 | 15 | 1 | 5 | 0 |
+| nft | 134 | 92 | 42 | 102 | 23 | 9 | 0 |
+| seed | 70 | 21 | 49 | 33 | 19 | 18 | 0 |
+| art | 15 | 0 | 15 | 7 | 0 | 8 | 0 |
+| deploy | 148 | 0 | 148 | 7 | 3 | 138 | 0 |
+
+Unresolved edges (412):
+- registry | CauldronRegistry.setCollectionMetadata | external.setMetadata (CauldronRegistry.sol:651), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | hook.isDead (CauldronRegistry.sol:833), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | governor.hasProposals (CauldronRegistry.sol:841), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | external.burn (CauldronRegistry.sol:865), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | hook.resolveTickets (CauldronRegistry.sol:876), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | governor.winner (CauldronRegistry.sol:903), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | governor.winner (CauldronRegistry.sol:1012), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | governor.markConsumed (CauldronRegistry.sol:1031), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | hook.setActiveProposer (CauldronRegistry.sol:1043), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | collectionLedger.totalEntitled (CauldronRegistry.sol:1096), UNTRUSTED, out-of-cluster
+- registry | CauldronRegistry.relaunch | hook.setNftCurveFrom (CauldronRegistry.sol:1146), UNTRUSTED, out-of-cluster
+- pool | PoolOps._sqrtPrice | governor.markConsumed (PoolOps.sol:234), UNTRUSTED, out-of-cluster
+- pool | PoolOps.createAndSeed | PoolIdLibrary.toId (PoolOps.sol:284), TRUSTED, library
+- pool | PoolOps.createAndSeedProgressive | governor.markConsumed (PoolOps.sol:350), UNTRUSTED, out-of-cluster
+- pool | PoolOps.createAndSeedProgressive | external.approve (PoolOps.sol:414), UNTRUSTED, out-of-cluster
+- pool | PoolOps.createAndSeedProgressive | external.startSeed (PoolOps.sol:415), UNTRUSTED, out-of-cluster
+- pool | PoolOps.createAndSeedWithBuy | PoolIdLibrary.toId (PoolOps.sol:468), TRUSTED, library
+- pool | PoolOps._seedActive | LiquidityAmounts.getLiquidityForAmounts (PoolOps.sol:808), TRUSTED, library
+- pool | PoolOps.openOrAddPair | PoolIdLibrary.toId (PoolOps.sol:926), TRUSTED, library
+- pool | PoolOps.seedFunding | external.close (PoolOps.sol:1084), UNTRUSTED, out-of-cluster
+- pool | PoolOps.seedFunding | governor.markConsumed (PoolOps.sol:1152), UNTRUSTED, out-of-cluster
+- pool | PoolOps._pullAsset | external.releaseRelaunchAsset (PoolOps.sol:1227), UNTRUSTED, out-of-cluster
+- pool | PoolOps._pullEth | external.releaseRelaunchETH (PoolOps.sol:1246), UNTRUSTED, out-of-cluster
+- pool | PoolOps._eligible | external.totalMinted (PoolOps.sol:1561), UNTRUSTED, out-of-cluster
+- pool | PoolOps.recycleCollection | external.ownerOf (PoolOps.sol:1581), UNTRUSTED, out-of-cluster
+- pool | PoolOps.recycleCollection | external.redeem (PoolOps.sol:1610), UNTRUSTED, out-of-cluster
+- pool | PoolOps.recycleCollection | external.custodyTransfer (PoolOps.sol:1611), UNTRUSTED, out-of-cluster
+- pool | PoolOps.buyCollection | external.ownerOf (PoolOps.sol:1631), UNTRUSTED, out-of-cluster
+- pool | PoolOps.buyCollection | external.floorPerNFT (PoolOps.sol:1633), UNTRUSTED, out-of-cluster
+- pool | PoolOps.buyCollection | external.transferFrom (PoolOps.sol:1635), UNTRUSTED, out-of-cluster
+- pool | PoolOps.buyCollection | external.buyback (PoolOps.sol:1637), UNTRUSTED, out-of-cluster
+- pool | PoolOps.buyCollection | external.custodyTransfer (PoolOps.sol:1638), UNTRUSTED, out-of-cluster
+- perp | PerpEngine._quoteIsNative | PerpEngine.returns (PerpEngine.sol:224), TRUSTED, out-of-cluster
+- perp | PerpEngine. | registry.currentGeneration (PerpEngine.sol:559), UNTRUSTED, in-cluster
+- perp | PerpEngine. | registry.currentToken (PerpEngine.sol:560), UNTRUSTED, in-cluster
+- perp | PerpEngine.totalEth | PerpEngine.returns (PerpEngine.sol:585), TRUSTED, out-of-cluster
+- perp | PerpEngine.freeEth | PerpEngine.returns (PerpEngine.sol:587), TRUSTED, out-of-cluster
+- perp | PerpEngine.totalTokenAssets | PerpEngine.returns (PerpEngine.sol:589), TRUSTED, out-of-cluster
+- perp | PerpEngine.freeToken | PerpEngine.returns (PerpEngine.sol:591), TRUSTED, out-of-cluster
+- perp | PerpEngine._tok | registry.currentToken (PerpEngine.sol:602), UNTRUSTED, in-cluster
+- perp | PerpEngine._tok | PerpEngine.returns (PerpEngine.sol:602), TRUSTED, out-of-cluster
+- perp | PerpEngine._gq | registry.generationQuote (PerpEngine.sol:603), UNTRUSTED, in-cluster
+- perp | PerpEngine._gq | PerpEngine.returns (PerpEngine.sol:603), TRUSTED, out-of-cluster
+- perp | PerpEngine._bal | PerpEngine.returns (PerpEngine.sol:606), TRUSTED, out-of-cluster
+- perp | PerpEngine._liq | PerpEngine.returns (PerpEngine.sol:607), TRUSTED, out-of-cluster
+- perp | PerpEngine._col | PerpEngine.returns (PerpEngine.sol:608), TRUSTED, out-of-cluster
+- perp | PerpEngine._gen | registry.currentGeneration (PerpEngine.sol:609), UNTRUSTED, in-cluster
+- perp | PerpEngine._gen | PerpEngine.returns (PerpEngine.sol:609), TRUSTED, out-of-cluster
+- perp | PerpEngine._key | PerpEngine.returns (PerpEngine.sol:611), TRUSTED, out-of-cluster
+- perp | PerpEngine._pid | PerpEngine.returns (PerpEngine.sol:618), TRUSTED, out-of-cluster
+- perp | PerpEngine._slot0 | PerpEngine.returns (PerpEngine.sol:620), TRUSTED, out-of-cluster
+- perp | PerpEngine._sqrtP | PerpEngine.returns (PerpEngine.sol:621), TRUSTED, out-of-cluster
+- perp | PerpEngine._q | PerpEngine.returns (PerpEngine.sol:673), TRUSTED, out-of-cluster
+- perp | PerpEngine._currentTick | PerpEngine.returns (PerpEngine.sol:711), TRUSTED, out-of-cluster
+- perp | PerpEngine._currentTick | PerpEngine.and (PerpEngine.sol:723), TRUSTED, out-of-cluster
+- perp | PerpEngine.twapTick | PerpEngine.returns (PerpEngine.sol:799), TRUSTED, out-of-cluster
+- perp | PerpEngine.blocksVolumeLink | PerpEngine.returns (PerpEngine.sol:856), TRUSTED, out-of-cluster
+- perp | PerpEngine.markSqrtPriceX96 | PerpEngine.returns (PerpEngine.sol:862), TRUSTED, out-of-cluster
+- perp | PerpEngine.activeEthDepth | PerpEngine.returns (PerpEngine.sol:867), TRUSTED, out-of-cluster
+- perp | PerpEngine.maxLeverage | PerpEngine.returns (PerpEngine.sol:873), TRUSTED, out-of-cluster
+- perp | PerpEngine._quoteAt | PerpEngine.returns (PerpEngine.sol:892), TRUSTED, out-of-cluster
+- perp | PerpEngine._quoteEth | PerpEngine.returns (PerpEngine.sol:896), TRUSTED, out-of-cluster
+- perp | PerpEngine._quoteMark | PerpEngine.returns (PerpEngine.sol:898), TRUSTED, out-of-cluster
+- perp | PerpEngine._fundingDelta | PerpEngine.returns (PerpEngine.sol:926), TRUSTED, out-of-cluster
+- perp | PerpEngine._pos | PerpEngine.returns (PerpEngine.sol:956), TRUSTED, out-of-cluster
+- perp | PerpEngine.fundingDelta | PerpEngine.returns (PerpEngine.sol:959), TRUSTED, out-of-cluster
+- perp | PerpEngine._project | PerpEngine.returns (PerpEngine.sol:1112), TRUSTED, out-of-cluster
+- perp | PerpEngine._sweepAfterOpen | this.selfSweep (PerpEngine.sol:1135), TRUSTED, in-cluster
+- perp | PerpEngine._open | PerpEngine.returns (PerpEngine.sol:1268), TRUSTED, out-of-cluster
+- perp | PerpEngine.isLiquidatable | PerpEngine.returns (PerpEngine.sol:1546), TRUSTED, out-of-cluster
+- perp | PerpEngine._underwater | PerpEngine.returns (PerpEngine.sol:1553), TRUSTED, out-of-cluster
+- perp | PerpEngine._liqTest | PerpEngine.returns (PerpEngine.sol:1599), TRUSTED, out-of-cluster
+- perp | PerpEngine._insolventVal | PerpEngine.returns (PerpEngine.sol:1656), TRUSTED, out-of-cluster
+- perp | PerpEngine._throttle | PerpEngine.returns (PerpEngine.sol:1682), TRUSTED, out-of-cluster
+- perp | PerpEngine._underwaterVal | PerpEngine.returns (PerpEngine.sol:1695), TRUSTED, out-of-cluster
+- perp | PerpEngine._run | PerpEngine.returns (PerpEngine.sol:1914), TRUSTED, out-of-cluster
+- perp | PerpEngine._run | poolManager.unlock (PerpEngine.sol:1916), TRUSTED, out-of-cluster
+- perp | PerpEngine.unlockCallback | PerpEngine.returns (PerpEngine.sol:1966), TRUSTED, out-of-cluster
+- perp | PerpEngine._swapBody | PerpEngine.returns (PerpEngine.sol:1975), TRUSTED, out-of-cluster
+- perp | PerpEngine._guardOpen | registry.lastSummonAt (PerpEngine.sol:2019), UNTRUSTED, in-cluster
+- perp | PerpEngine._isDead | PerpEngine.returns (PerpEngine.sol:2069), TRUSTED, out-of-cluster
+- perp | PerpEngine._isDead | registry.generationPoolId (PerpEngine.sol:2081), UNTRUSTED, in-cluster
+- perp | PerpEngine._isDead | PerpEngine.returns (PerpEngine.sol:2081), TRUSTED, out-of-cluster
+- perp | PerpEngine._isDead | PerpEngine.returns (PerpEngine.sol:2084), TRUSTED, out-of-cluster
+- perp | PerpEngine._takeFee | PerpEngine.returns (PerpEngine.sol:2086), TRUSTED, out-of-cluster
+- perp | PerpEngine._insuranceNeed | PerpEngine.returns (PerpEngine.sol:2147), TRUSTED, out-of-cluster
+- perp | PerpEngine._ethToToken | PerpEngine.returns (PerpEngine.sol:2195), TRUSTED, out-of-cluster
+- perp | PerpEngine._tryPush | PerpEngine.returns (PerpEngine.sol:2262), TRUSTED, out-of-cluster
+- perp | PerpEngine.claimPayout | PerpEngine.returns (PerpEngine.sol:2357), TRUSTED, out-of-cluster
+- perp | PerpMarkSource.poolCount | PerpMarkSource.returns (PerpMarkSource.sol:161), TRUSTED, out-of-cluster
+- perp | PerpMarkSource.weightedTick | PerpMarkSource.returns (PerpMarkSource.sol:173), TRUSTED, out-of-cluster
+- perp | PerpStakerOracle.isInstant | PerpStakerOracle.returns (PerpStakerOracle.sol:29), TRUSTED, out-of-cluster
+- perp | PerpStakerOracle.isInstant | perpVault.ethShareOf (PerpStakerOracle.sol:30), TRUSTED, in-cluster
+- perp | PerpStakerOracle.isInstant | perpVault.tokShareOf (PerpStakerOracle.sol:30), TRUSTED, in-cluster
+- perp | PerpSwapLib.unitOf | PerpSwapLib.returns (PerpSwapLib.sol:71), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._unitOf | PerpSwapLib.returns (PerpSwapLib.sol:75), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._unitOf | PerpSwapLib.decimals (PerpSwapLib.sol:77), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.quoteFactor | PerpSwapLib.returns (PerpSwapLib.sol:108), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._usdPerRawUnit | PerpSwapLib.returns (PerpSwapLib.sol:123), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._usdPerRawUnit | PerpSwapLib.usdPerRawUnit (PerpSwapLib.sol:125), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.projectedSqrtPriceX96 | PerpSwapLib.returns (PerpSwapLib.sol:182), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.twapTick | PerpSwapLib.returns (PerpSwapLib.sol:286), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.sqrtPriceAtTick | PerpSwapLib.returns (PerpSwapLib.sol:367), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.tryMintBadge | PerpSwapLib.returns (PerpSwapLib.sol:385), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.quoteAt | PerpSwapLib.returns (PerpSwapLib.sol:406), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.ethToToken | PerpSwapLib.returns (PerpSwapLib.sol:411), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.ethDepth | PerpSwapLib.returns (PerpSwapLib.sol:417), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.tryTransferFrom | PerpSwapLib.returns (PerpSwapLib.sol:438), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.tryTransfer | PerpSwapLib.returns (PerpSwapLib.sol:446), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.swapLeg | PerpSwapLib.returns (PerpSwapLib.sol:486), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.swapLeg | poolManager.swap (PerpSwapLib.sol:512), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.swapLeg | poolManager.take (PerpSwapLib.sol:526), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.swapLeg | poolManager.take (PerpSwapLib.sol:531), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._settle | poolManager.settle (PerpSwapLib.sol:540), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._settle | poolManager.sync (PerpSwapLib.sol:542), TRUSTED, out-of-cluster
+- perp | PerpSwapLib._settle | poolManager.settle (PerpSwapLib.sol:551), TRUSTED, out-of-cluster
+- perp | PerpSwapLib.migrateInventory | PerpSwapLib.claimByBurnUpTo (PerpSwapLib.sol:582), TRUSTED, in-cluster
+- perp | PerpSwapLib._band | PerpSwapLib.returns (PerpSwapLib.sol:701), TRUSTED, out-of-cluster
+- perp | PerpVault.hasStakers | PerpVault.returns (PerpVault.sol:236), TRUSTED, out-of-cluster
+- perp | PerpVault.hasQuoteStake | PerpVault.returns (PerpVault.sol:259), TRUSTED, out-of-cluster
+- perp | PerpVault.assetsEth | PerpVault.returns (PerpVault.sol:265), TRUSTED, out-of-cluster
+- perp | PerpVault.assetsEth | engine.totalEth (PerpVault.sol:266), TRUSTED, in-cluster
+- perp | PerpVault.assetsTok | PerpVault.returns (PerpVault.sol:271), TRUSTED, out-of-cluster
+- perp | PerpVault.assetsTok | engine.totalTokenAssets (PerpVault.sol:272), TRUSTED, in-cluster
+- perp | PerpVault.deposit | PerpVault.returns (PerpVault.sol:292), TRUSTED, out-of-cluster
+- perp | PerpVault.deposit | engine.totalEth (PerpVault.sol:309), TRUSTED, in-cluster
+- perp | PerpVault.deposit | engine.fundFromVault (PerpVault.sol:327), TRUSTED, in-cluster
+- perp | PerpVault.depositEth | PerpVault.returns (PerpVault.sol:333), TRUSTED, out-of-cluster
+- perp | PerpVault._engineQuote | PerpVault.returns (PerpVault.sol:337), TRUSTED, out-of-cluster
+- perp | PerpVault._engineQuote | PerpVault.quote (PerpVault.sol:339), TRUSTED, in-cluster
+- perp | PerpVault._pull | PerpVault.transferFrom (PerpVault.sol:349), TRUSTED, out-of-cluster
+- perp | PerpVault._approve | PerpVault.approve (PerpVault.sol:355), TRUSTED, out-of-cluster
+- perp | PerpVault.withdrawEth | PerpVault.returns (PerpVault.sol:361), TRUSTED, out-of-cluster
+- perp | PerpVault.withdrawEth | engine.freeEth (PerpVault.sol:367), TRUSTED, in-cluster
+- perp | PerpVault.withdrawEth | engine.withdrawPlvTo (PerpVault.sol:377), TRUSTED, in-cluster
+- perp | PerpVault.pendingEth | PerpVault.returns (PerpVault.sol:410), TRUSTED, out-of-cluster
+- perp | PerpVault.pendingEthOf | PerpVault.returns (PerpVault.sol:414), TRUSTED, out-of-cluster
+- perp | PerpVault._syncEthQueue | engine.totalEth (PerpVault.sol:460), TRUSTED, in-cluster
+- perp | PerpVault.settlePendingEth | PerpVault.returns (PerpVault.sol:493), TRUSTED, out-of-cluster
+- perp | PerpVault.claimPendingEth | PerpVault.returns (PerpVault.sol:505), TRUSTED, out-of-cluster
+- perp | PerpVault.claimPendingEth | engine.freeEth (PerpVault.sol:510), TRUSTED, in-cluster
+- perp | PerpVault.claimPendingEth | engine.withdrawPlvTo (PerpVault.sol:522), TRUSTED, in-cluster
+- perp | PerpVault._syncTokYield | engine.tokYieldCumulative (PerpVault.sol:548), TRUSTED, in-cluster
+- perp | PerpVault._syncTokYield | engine.tokYieldEth (PerpVault.sol:550), TRUSTED, in-cluster
+- perp | PerpVault.depositToken | PerpVault.returns (PerpVault.sol:623), TRUSTED, out-of-cluster
+- perp | PerpVault.depositToken | engine.totalTokenAssets (PerpVault.sol:634), TRUSTED, in-cluster
+- perp | PerpVault.depositToken | registry.currentToken (PerpVault.sol:635), UNTRUSTED, in-cluster
+- perp | PerpVault.depositToken | engine.fundTokenFromVault (PerpVault.sol:645), TRUSTED, in-cluster
+- perp | PerpVault.claimTokYield | PerpVault.returns (PerpVault.sol:651), TRUSTED, out-of-cluster
+- perp | PerpVault.claimTokYield | engine.withdrawTokYieldTo (PerpVault.sol:657), TRUSTED, in-cluster
+- perp | PerpVault.withdrawToken | PerpVault.returns (PerpVault.sol:663), TRUSTED, out-of-cluster
+- perp | PerpVault.withdrawToken | engine.freeToken (PerpVault.sol:670), TRUSTED, in-cluster
+- perp | PerpVault.withdrawToken | engine.withdrawPlvTokenTo (PerpVault.sol:678), TRUSTED, in-cluster
+- perp | PerpVault.pendingTok | PerpVault.returns (PerpVault.sol:683), TRUSTED, out-of-cluster
+- perp | PerpVault.pendingTokOf | PerpVault.returns (PerpVault.sol:687), TRUSTED, out-of-cluster
+- perp | PerpVault._syncTokQueue | engine.totalTokenAssets (PerpVault.sol:715), TRUSTED, in-cluster
+- perp | PerpVault.settlePendingToken | PerpVault.returns (PerpVault.sol:730), TRUSTED, out-of-cluster
+- perp | PerpVault.claimPendingToken | PerpVault.returns (PerpVault.sol:745), TRUSTED, out-of-cluster
+- perp | PerpVault.claimPendingToken | engine.freeToken (PerpVault.sol:750), TRUSTED, in-cluster
+- perp | PerpVault.claimPendingToken | engine.withdrawPlvTokenTo (PerpVault.sol:762), TRUSTED, in-cluster
+- perp | PerpVault.ethPosition | PerpVault.returns (PerpVault.sol:770), TRUSTED, out-of-cluster
+- perp | PerpVault.ethPosition | engine.freeEth (PerpVault.sol:773), TRUSTED, in-cluster
+- perp | PerpVault.tokenPosition | PerpVault.returns (PerpVault.sol:778), TRUSTED, out-of-cluster
+- perp | PerpVault.tokenPosition | engine.freeToken (PerpVault.sol:781), TRUSTED, in-cluster
+- perp | PerpVault.pendingTokYield | PerpVault.returns (PerpVault.sol:787), TRUSTED, out-of-cluster
+- perp | PerpVault.pendingTokYield | engine.tokYieldCumulative (PerpVault.sol:791), TRUSTED, in-cluster
+- perp | PerpVault.pendingTokYield | engine.tokYieldEth (PerpVault.sol:794), TRUSTED, in-cluster
+- rotation | CauldronVault.outstanding | CauldronVault.returns (CauldronVault.sol:60), TRUSTED, out-of-cluster
+- rotation | CauldronVault.outstanding | collection.totalMinted (CauldronVault.sol:61), UNTRUSTED, in-cluster
+- rotation | CauldronVault._minter | CauldronVault.returns (CauldronVault.sol:130), TRUSTED, out-of-cluster
+- rotation | CauldronVault.floorPerNFT | CauldronVault.returns (CauldronVault.sol:138), TRUSTED, out-of-cluster
+- rotation | CauldronVault.redeem | CauldronVault.returns (CauldronVault.sol:155), TRUSTED, out-of-cluster
+- rotation | CauldronVault.redeem | collection.ownerOf (CauldronVault.sol:158), UNTRUSTED, in-cluster
+- rotation | CauldronVault.redeem | collection.burnFromVault (CauldronVault.sol:168), UNTRUSTED, in-cluster
+- rotation | CauldronVault.close | CauldronVault.returns (CauldronVault.sol:184), TRUSTED, out-of-cluster
+- rotation | MockQuoteToken.decimals | MockQuoteToken.returns (MockQuoteToken.sol:24), TRUSTED, out-of-cluster
+- rotation | MockQuoteToken.mint | MockQuoteToken._mint (MockQuoteToken.sol:27), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.zap | NativeQuoteZap.returns (NativeQuoteZap.sol:101), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.zap | poolManager.unlock (NativeQuoteZap.sol:107), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.unlockCallback | NativeQuoteZap.returns (NativeQuoteZap.sol:123), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.unlockCallback | poolManager.swap (NativeQuoteZap.sol:132), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.unlockCallback | poolManager.sync (NativeQuoteZap.sol:146), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.unlockCallback | poolManager.settle (NativeQuoteZap.sol:147), TRUSTED, out-of-cluster
+- rotation | NativeQuoteZap.unlockCallback | poolManager.take (NativeQuoteZap.sol:148), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.usdPerRawUnit | QuoteOracle.returns (QuoteOracle.sol:202), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.usdPerRawUnit | aggregator.latestRoundData (QuoteOracle.sol:231), TRUSTED, in-cluster
+- rotation | QuoteOracle.usdPerRawUnit | QuoteOracle.returns (QuoteOracle.sol:231), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.usdPerRawUnit | aggregator.decimals (QuoteOracle.sol:249), TRUSTED, in-cluster
+- rotation | QuoteOracle.usdPerRawUnit | QuoteOracle.returns (QuoteOracle.sol:249), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.cachedUsdPerRawUnit | QuoteOracle.returns (QuoteOracle.sol:334), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.cachedUsdPerRawUnit | this.usdPerRawUnit (QuoteOracle.sol:339), TRUSTED, in-cluster
+- rotation | QuoteOracle.priceable | QuoteOracle.returns (QuoteOracle.sol:346), TRUSTED, out-of-cluster
+- rotation | QuoteOracle.priceable | this.usdPerRawUnit (QuoteOracle.sol:347), TRUSTED, in-cluster
+- rotation | QuoteOracle._sequencerOk | QuoteOracle.returns (QuoteOracle.sol:350), TRUSTED, out-of-cluster
+- rotation | QuoteOracle._sequencerOk | s.latestRoundData (QuoteOracle.sol:358), TRUSTED, in-cluster
+- rotation | QuoteOracle._sequencerOk | QuoteOracle.returns (QuoteOracle.sol:358), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.isVenueAllowed | QuoteRotator.returns (QuoteRotator.sol:197), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.nextSliceSize | QuoteRotator.returns (QuoteRotator.sol:263), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.rotateStep | QuoteRotator.returns (QuoteRotator.sol:284), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.swapOnce | QuoteRotator.returns (QuoteRotator.sol:341), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.arbStep | poolManager.unlock (QuoteRotator.sol:577), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._usdLive | QuoteRotator.returns (QuoteRotator.sol:622), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._usdLive | QuoteRotator.usdPerRawUnit (QuoteRotator.sol:626), TRUSTED, in-cluster
+- rotation | QuoteRotator._swap | poolManager.unlock (QuoteRotator.sol:669), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.unlockCallback | QuoteRotator.returns (QuoteRotator.sol:673), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.unlockCallback | poolManager.swap (QuoteRotator.sol:684), TRUSTED, out-of-cluster
+- rotation | QuoteRotator.unlockCallback | poolManager.take (QuoteRotator.sol:696), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._arbCallback | QuoteRotator.returns (QuoteRotator.sol:705), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._arbCallback | poolManager.swap (QuoteRotator.sol:710), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._arbCallback | poolManager.swap (QuoteRotator.sol:720), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._arbCallback | poolManager.take (QuoteRotator.sol:728), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._settle | poolManager.settle (QuoteRotator.sol:734), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._settle | poolManager.sync (QuoteRotator.sol:736), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._settle | poolManager.settle (QuoteRotator.sol:738), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._balanceOf | QuoteRotator.returns (QuoteRotator.sol:778), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._allowed | QuoteRotator.returns (QuoteRotator.sol:782), TRUSTED, out-of-cluster
+- rotation | QuoteRotator._allowed | QuoteRotator.allowedQuote (QuoteRotator.sol:785), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.redeemOgFren | RedemptionExt.returns (RedemptionExt.sol:78), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.redeemOgFren | RedemptionExt._redeemBlocked (RedemptionExt.sol:79), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.buyTreasuryOgFren | RedemptionExt.returns (RedemptionExt.sol:115), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.materializeLegacyReserve | RedemptionExt.returns (RedemptionExt.sol:147), TRUSTED, out-of-cluster
+- rotation | RedemptionExt._pullGrow | RedemptionExt.returns (RedemptionExt.sol:165), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.rotateSlice | RedemptionExt.returns (RedemptionExt.sol:273), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.rotateSliceFrom | RedemptionExt.returns (RedemptionExt.sol:285), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.rotateSliceFrom | hook.perpEngine (RedemptionExt.sol:650), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.floorClaimableNow | RedemptionExt.returns (RedemptionExt.sol:723), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.claimByBurnUpTo | hook.perpEngine (RedemptionExt.sol:747), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.legCount | RedemptionExt.returns (RedemptionExt.sol:766), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.recoverLegs | RedemptionExt.returns (RedemptionExt.sol:848), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.recoverLegsAtTeardown | RedemptionExt.returns (RedemptionExt.sol:899), TRUSTED, out-of-cluster
+- rotation | RedemptionExt._recoverLegs | RedemptionExt.returns (RedemptionExt.sol:903), TRUSTED, out-of-cluster
+- rotation | RedemptionExt._recoverLegs | RedemptionExt.returns (RedemptionExt.sol:940), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.legProceedsOf | RedemptionExt.returns (RedemptionExt.sol:961), TRUSTED, out-of-cluster
+- rotation | RedemptionExt.sweepLegProceeds | RedemptionExt.returns (RedemptionExt.sol:998), TRUSTED, out-of-cluster
+- governance | CauldronGovernor._propose | mifrens.getVotes (CauldronGovernor.sol:506), UNTRUSTED, out-of-cluster
+- governance | CauldronGovernor.vote | IVotes.getPastVotes (CauldronGovernor.sol:659), TRUSTED, out-of-cluster
+- governance | TreasuryGovernor.propose | mifrens.getVotes (TreasuryGovernor.sol:416), UNTRUSTED, out-of-cluster
+- governance | TreasuryGovernor.propose | external.allowedQuote (TreasuryGovernor.sol:420), UNTRUSTED, out-of-cluster
+- governance | TreasuryGovernor.execute | external.allowedQuote (TreasuryGovernor.sol:629), UNTRUSTED, out-of-cluster
+- nft | CauldronCollection._update | ERC721._update (CauldronCollection.sol:178), TRUSTED, out-of-cluster
+- nft | CauldronCollection.supportsInterface | ERC2981.supportsInterface (CauldronCollection.sol:200), TRUSTED, out-of-cluster
+- nft | CauldronCollection._reveal | ERC721.ownerOf (CauldronCollection.sol:256), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis.mint | ERC721.balanceOf (MiFrensGenesis.sol:338), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis._reveal | ERC721.ownerOf (MiFrensGenesis.sol:591), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis._update | ERC721Votes._update (MiFrensGenesis.sol:806), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis._update | ERC721._update (MiFrensGenesis.sol:816), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis._increaseBalance | ERC721._increaseBalance (MiFrensGenesis.sol:870), TRUSTED, out-of-cluster
+- nft | MiFrensGenesis.supportsInterface | ERC2981.supportsInterface (MiFrensGenesis.sol:875), TRUSTED, out-of-cluster
+- seed | CauldronSeeder.startSeed | external.transferFrom (CauldronSeeder.sol:283), UNTRUSTED, out-of-cluster
+- seed | CauldronSeeder.fundPrime | external.owner (CauldronSeeder.sol:348), UNTRUSTED, out-of-cluster
+- seed | CauldronSeeder.refundPrime | external.owner (CauldronSeeder.sol:380), UNTRUSTED, out-of-cluster
+- seed | CauldronSeeder._primeStep | poolManager.swap (CauldronSeeder.sol:434), UNTRUSTED, out-of-cluster
+- seed | CauldronSeeder._advance | PoolIdLibrary.toId (CauldronSeeder.sol:530), TRUSTED, library
+- seed | CauldronSeeder._advance | poolManager.getSlot0 (CauldronSeeder.sol:530), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._teardown | external.balanceOf (CauldronSeeder.sol:673), UNTRUSTED, out-of-cluster
+- seed | CauldronSeeder._placeBase | PoolIdLibrary.toId (CauldronSeeder.sol:702), TRUSTED, library
+- seed | CauldronSeeder._placeBase | poolManager.getSlot0 (CauldronSeeder.sol:702), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._placeBase | LiquidityAmounts.getLiquidityForAmounts (CauldronSeeder.sol:707), TRUSTED, library
+- seed | CauldronSeeder._placeBase | poolManager.modifyLiquidity (CauldronSeeder.sol:716), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._settle | poolManager.sync (CauldronSeeder.sol:730), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._settle | poolManager.settle (CauldronSeeder.sol:732), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._settle | poolManager.take (CauldronSeeder.sol:725), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._settle | poolManager.settle (CauldronSeeder.sol:732), TRUSTED, out-of-cluster
+- seed | CauldronSeeder._settle | poolManager.take (CauldronSeeder.sol:725), TRUSTED, out-of-cluster
+- seed | CauldronSeeder.withdrawAll | poolManager.unlock (CauldronSeeder.sol:851), TRUSTED, out-of-cluster
+- seed | CauldronSeeder.rescue | external.balanceOf (CauldronSeeder.sol:890), UNTRUSTED, out-of-cluster
+- art | CauldronArtAdapter.tokenURI | frenRenderer.tokenURI (CauldronArtAdapter.sol:94), UNTRUSTED, out-of-cluster
+- art | CauldronArtAdapter.traitsOf | external.revealed (CauldronArtAdapter.sol:105), UNTRUSTED, out-of-cluster
+- art | CauldronArtAdapter.traitsOf | external.rarityOf (CauldronArtAdapter.sol:106), UNTRUSTED, out-of-cluster
+- art | BadgeArtLib._uploadSide | r.setArt (BadgeArtLib.sol:72), UNTRUSTED, out-of-cluster
+- art | BadgeArtLib._uploadSide | r.appendArt (BadgeArtLib.sol:73), UNTRUSTED, out-of-cluster
+- art | FrenRenderer.renderSVG | store.getPalette (FrenRenderer.sol:74), UNTRUSTED, out-of-cluster
+- art | FrenRenderer._appendLayer | store.getTraitOrEmpty (FrenRenderer.sol:135), UNTRUSTED, out-of-cluster
+- art | LiquidatoorRenderer.tokenURI | external.liqStats (LiquidatoorRenderer.sol:109), UNTRUSTED, out-of-cluster
+- deploy | DeployCauldron (declared in DeployCauldron.s.sol).run | registry.setRedemptionExt (DeployCauldron.s.sol:101), UNTRUSTED, out-of-cluster
+- deploy | DeployCauldron (declared in DeployCauldron.s.sol).run | hook.setRegistry (DeployCauldron.s.sol:105), UNTRUSTED, out-of-cluster
+- deploy | DeployCauldron (declared in DeployCauldron.s.sol).run | hook.setOpener (DeployCauldron.s.sol:110), UNTRUSTED, out-of-cluster
+- deploy | DeployCauldron (declared in DeployCauldron.s.sol).run | hook.setTaxExempt (DeployCauldron.s.sol:111), UNTRUSTED, out-of-cluster
+- deploy | DeployCauldron (declared in DeployCauldron.s.sol).run | registry.summon (DeployCauldron.s.sol:114), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | hook.setOpener (DeployLaunchSniper.s.sol:38), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | external.isOpener (DeployLaunchSniper.s.sol:44), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | hook.setOpener (DeployLaunchSniper.s.sol:45), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | external.setTaxExempt (DeployLaunchSniper.s.sol:52), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | external.setFinalizer (DeployLaunchSniper.s.sol:55), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchSniper (declared in DeployLaunchSniper.s.sol).run | sniper.launch (DeployLaunchSniper.s.sol:60), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | timelock.schedule (DeployLaunchpad.s.sol:170), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setRedemptionExt (DeployLaunchpad.s.sol:204), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setRegistry (DeployLaunchpad.s.sol:250), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setGuild (DeployLaunchpad.s.sol:251), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setOpener (DeployLaunchpad.s.sol:252), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | gacha.setOracle (DeployLaunchpad.s.sol:262), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setDeathThreshold (DeployLaunchpad.s.sol:286), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setPolicies (DeployLaunchpad.s.sol:329), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | curve.totalToMintOut (DeployLaunchpad.s.sol:332), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | curve.priceAt (DeployLaunchpad.s.sol:334), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setOpener (DeployLaunchpad.s.sol:343), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setTaxExempt (DeployLaunchpad.s.sol:344), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setRoyalty (DeployLaunchpad.s.sol:346), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | presale.setRoyalty (DeployLaunchpad.s.sol:347), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | presale.setDividend (DeployLaunchpad.s.sol:350), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | dividend.setRegistry (DeployLaunchpad.s.sol:354), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | dividend.setFunder (DeployLaunchpad.s.sol:359), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setFactory (DeployLaunchpad.s.sol:360), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setGovernor (DeployLaunchpad.s.sol:361), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setSeeder (DeployLaunchpad.s.sol:372), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setSeedWindow (DeployLaunchpad.s.sol:373), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setOpener (DeployLaunchpad.s.sol:380), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setTaxExempt (DeployLaunchpad.s.sol:381), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setSnipeParams (DeployLaunchpad.s.sol:393), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | seeder.refundPrime (DeployLaunchpad.s.sol:405), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.fundPrimeBuy (DeployLaunchpad.s.sol:410), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | seeder.fundPrime (DeployLaunchpad.s.sol:413), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setCollectionLedger (DeployLaunchpad.s.sol:426), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | hook.setLegacyBuyback (DeployLaunchpad.s.sol:427), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setGenesisMetadata (DeployLaunchpad.s.sol:433), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setGenesisMetadata (DeployLaunchpad.s.sol:435), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | presale.setLiquidatorRenderer (DeployLaunchpad.s.sol:441), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | factory.setLiquidatorRenderer (DeployLaunchpad.s.sol:449), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | treasuryGov.setQuoteOracle (DeployLaunchpad.s.sol:514), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | treasuryGov.setQuoteOracle (DeployLaunchpad.s.sol:517), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setRotationWiring (DeployLaunchpad.s.sol:520), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setGenesisBonus (DeployLaunchpad.s.sol:537), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setAirdropReserve (DeployLaunchpad.s.sol:545), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.fundPrimeBuy (DeployLaunchpad.s.sol:554), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | governor.setRegistry (DeployLaunchpad.s.sol:561), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | presale.setRegistry (DeployLaunchpad.s.sol:562), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | registry.setIgniter (DeployLaunchpad.s.sol:582), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol).run | external.transferOwnership (DeployLaunchpad.s.sol:583), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.setPegged (DeployLaunchpad.s.sol:691), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.setFeed (DeployLaunchpad.s.sol:693), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.setBounds (DeployLaunchpad.s.sol:694), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.setPegged (DeployLaunchpad.s.sol:713), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.setFeed (DeployLaunchpad.s.sol:715), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | rotator.setArbParams (DeployLaunchpad.s.sol:717), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | rotator.setRotationSlipBps (DeployLaunchpad.s.sol:730), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | registry.setAllowedQuote (DeployLaunchpad.s.sol:733), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.usdPerRawUnit (DeployLaunchpad.s.sol:757), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | oracle.usdPerRawUnit (DeployLaunchpad.s.sol:758), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | usdg.mint (DeployLaunchpad.s.sol:773), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | vs.seed (DeployLaunchpad.s.sol:791), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | vs.seedBand (DeployLaunchpad.s.sol:796), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | rotator.setVenue (DeployLaunchpad.s.sol:803), UNTRUSTED, out-of-cluster
+- deploy | DeployLaunchpad (declared in DeployLaunchpad.s.sol)._deployRotationStack | hook.commitCrystals (DeployLaunchpad.s.sol:821), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.vault (DeployMigrationVesting.s.sol:64), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.perpEngine (DeployMigrationVesting.s.sol:68), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.vault (DeployMigrationVesting.s.sol:70), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.emergencyAdmin (DeployMigrationVesting.s.sol:89), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.setClaimGate (DeployMigrationVesting.s.sol:91), UNTRUSTED, out-of-cluster
+- deploy | DeployMigrationVesting (declared in DeployMigrationVesting.s.sol).run | external.claimGate (DeployMigrationVesting.s.sol:107), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | hook.collection (DeployPerp.s.sol:92), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.setPerpEngine (DeployPerp.s.sol:94), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setVault (DeployPerp.s.sol:100), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setVaultLimits (DeployPerp.s.sol:105), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setRisk (DeployPerp.s.sol:119), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.fundInsurance (DeployPerp.s.sol:132), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setGuards (DeployPerp.s.sol:158), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setRouting (DeployPerp.s.sol:178), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | markSource.addPool (DeployPerp.s.sol:179), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.currentGeneration (DeployPerp.s.sol:208), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.generationPoolKey (DeployPerp.s.sol:210), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | ms.setPrimary (DeployPerp.s.sol:216), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | engine.setRouting (DeployPerp.s.sol:228), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.depositEth (DeployPerp.s.sol:235), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.setPerpEngine (DeployPerp.s.sol:246), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.transferOwnership (DeployPerp.s.sol:247), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.transferOwnership (DeployPerp.s.sol:248), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.transferOwnership (DeployPerp.s.sol:254), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.collection (DeployPerp.s.sol:261), UNTRUSTED, out-of-cluster
+- deploy | DeployPerp (declared in DeployPerp.s.sol).run | external.liquidatorMinter (DeployPerp.s.sol:264), UNTRUSTED, out-of-cluster
+- deploy | DeployQuoteAssets (declared in DeployQuoteAssets.s.sol).run | reg.owner (DeployQuoteAssets.s.sol:45), UNTRUSTED, out-of-cluster
+- deploy | DeployQuoteAssets (declared in DeployQuoteAssets.s.sol).run | reg.setAllowedQuote (DeployQuoteAssets.s.sol:47), UNTRUSTED, out-of-cluster
+- deploy | DeployQuoteAssets (declared in DeployQuoteAssets.s.sol).run | reg.setAllowedQuote (DeployQuoteAssets.s.sol:48), UNTRUSTED, out-of-cluster
+- deploy | DeployRenderer (declared in DeployRenderer.s.sol).run | store.storeTraits (DeployRenderer.s.sol:73), UNTRUSTED, out-of-cluster
+- deploy | DeployRenderer (declared in DeployRenderer.s.sol).run | external.setRenderer (DeployRenderer.s.sol:79), UNTRUSTED, out-of-cluster
+- deploy | DeployRenderer (declared in DeployRenderer.s.sol).run | store.freeze (DeployRenderer.s.sol:85), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | reg.owner (DeployRotationStack.s.sol:126), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | reg.mifrens (DeployRotationStack.s.sol:127), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | rotator.setArbParams (DeployRotationStack.s.sol:182), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | oracle.setFeed (DeployRotationStack.s.sol:189), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | oracle.setFeed (DeployRotationStack.s.sol:190), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | oracle.transferOwnership (DeployRotationStack.s.sol:195), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | usdg.mint (DeployRotationStack.s.sol:201), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | seeder.seed (DeployRotationStack.s.sol:212), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | rotator.setVenue (DeployRotationStack.s.sol:219), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | reg.setAllowedQuote (DeployRotationStack.s.sol:223), UNTRUSTED, out-of-cluster
+- deploy | DeployRotationStack (declared in DeployRotationStack.s.sol).run | reg.setRotationWiring (DeployRotationStack.s.sol:227), UNTRUSTED, out-of-cluster
+- deploy | VenueSeeder (declared in DeployRotationStack.s.sol).seedBand | external.approve (DeployRotationStack.s.sol:384), UNTRUSTED, out-of-cluster
+- deploy | VenueSeeder (declared in DeployRotationStack.s.sol).seedBand | external.approve (DeployRotationStack.s.sol:385), UNTRUSTED, out-of-cluster
+- deploy | VenueSeeder (declared in DeployRotationStack.s.sol).seedBand | posm.nextTokenId (DeployRotationStack.s.sol:391), UNTRUSTED, out-of-cluster
+- deploy | VenueSeeder (declared in DeployRotationStack.s.sol).seedBand | posm.modifyLiquidities (DeployRotationStack.s.sol:392), UNTRUSTED, out-of-cluster
+- deploy | VenueSeeder (declared in DeployRotationStack.s.sol).recover | external.balanceOf (DeployRotationStack.s.sol:432), UNTRUSTED, out-of-cluster
+- deploy | FixFactoryWiring (declared in FixFactoryWiring.s.sol).run | factory.setLiquidatorRenderer (FixFactoryWiring.s.sol:43), UNTRUSTED, out-of-cluster
+- deploy | FixFactoryWiring (declared in FixFactoryWiring.s.sol).run | external.getMinDelay (FixFactoryWiring.s.sol:46), UNTRUSTED, out-of-cluster
+- deploy | FixFactoryWiring (declared in FixFactoryWiring.s.sol).run | external.execute (FixFactoryWiring.s.sol:51), UNTRUSTED, out-of-cluster
+- deploy | FixFactoryWiring (declared in FixFactoryWiring.s.sol).run | external.schedule (FixFactoryWiring.s.sol:54), UNTRUSTED, out-of-cluster
+- deploy | SellVolume (declared in SellVolume.s.sol).run | external.approve (SellVolume.s.sol:42), UNTRUSTED, out-of-cluster
+- deploy | SellVolume (declared in SellVolume.s.sol).run | router.swap (SellVolume.s.sol:53), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.deployedWad (SnipeBuy.s.sol:72), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.isComplete (SnipeBuy.s.sol:73), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.seeding (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.isComplete (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.balanceOf (SnipeBuy.s.sol:81), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | router.swap (SnipeBuy.s.sol:91), UNTRUSTED, out-of-cluster
+- deploy | SnipeBuy (declared in SnipeBuy.s.sol).run | external.balanceOf (SnipeBuy.s.sol:94), UNTRUSTED, out-of-cluster
+- deploy | SwapVolume (declared in SwapVolume.s.sol).run | router.swap (SwapVolume.s.sol:66), UNTRUSTED, out-of-cluster
+- deploy | SwapVolume (declared in SwapVolume.s.sol).run | hv.crystalsReady (SwapVolume.s.sol:77), UNTRUSTED, out-of-cluster
+- deploy | SwapVolume (declared in SwapVolume.s.sol).run | external.totalMinted (SwapVolume.s.sol:80), UNTRUSTED, out-of-cluster
+- deploy | SwapVolume (declared in SwapVolume.s.sol).run | external.balanceOf (SwapVolume.s.sol:81), UNTRUSTED, out-of-cluster
+- deploy | TopUpVenue (declared in TopUpVenue.s.sol).run | external.mint (TopUpVenue.s.sol:73), UNTRUSTED, out-of-cluster
+- deploy | TopUpVenue (declared in TopUpVenue.s.sol).run | vs.seed (TopUpVenue.s.sol:74), UNTRUSTED, out-of-cluster
+- deploy | TopUpVenue (declared in TopUpVenue.s.sol).run | external.setRotationSlipBps (TopUpVenue.s.sol:83), UNTRUSTED, out-of-cluster
+- deploy | RecoverVenue (declared in TopUpVenue.s.sol).run | external.recover (TopUpVenue.s.sol:120), UNTRUSTED, out-of-cluster

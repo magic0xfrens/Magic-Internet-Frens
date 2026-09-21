@@ -26,6 +26,7 @@
  "registry()": "7b103999",
  "setGuardian(address)": "8a0dac4a",
  "setQuoteOracle(address)": "8d2e672d",
+ "stalled()": "526e3e64",
  "vote(uint256,bool)": "c9d27afe",
  "winner()": "dfbf53ae"
 }

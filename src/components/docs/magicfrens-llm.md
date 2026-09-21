@@ -13,6 +13,11 @@
 > shipped configuration differs from what a contract *could* do, the shipped
 > behaviour is what is documented, and the difference is called out.
 >
+> **Local audit changes, 2026-09-18:** the checkout contains uncommitted security
+> remediations that have not been deployed. Sections explicitly marked as local
+> fixes describe that checkout, not the live Sepolia contracts. Full-scope audit
+> acceptance is still pending; see `audit/FULL_SCOPE_2026-09-18/FINDINGS.md`.
+>
 > **Live addresses are not in this file on purpose.** They rotate every round and
 > every rebirth. The docs page renders them live from the same manifest the app
 > reads (`indexer/deployments/round.json`); read iteration-specific addresses from
@@ -435,12 +440,13 @@ In order, from the top:
 
 A rejecting sink never bricks a swap: its share rolls into the relaunch reserve.
 
-**Current denomination defect.** `legacyThreshold` defaults to `0.02 ether` and
-is compared directly with raw quote units. That is 0.02 of an 18-decimal quote,
-but **20 billion units of a 6-decimal quote**, so a USDG generation cannot
-realistically trigger its live collection-floor buyback at the default. The
-ERC-20 settlement path itself works; the raw-unit threshold is the blocker. This
-is an open code finding, not an intended economic parameter.
+**Local denomination fix (not deployed).** `legacyThreshold` is configured in
+18-decimal whole-quote units and cached in the live quote's raw units when the
+quote or threshold changes. The default represents 0.02 quote tokens: 20,000
+raw units for a 6-decimal quote, not the previous unreachable 20-billion-token
+threshold. This normalizes decimals, not the market value of different quotes.
+The earlier raw-unit comparison remains a deployment concern until a corrected
+hook is deployed and verified.
 
 ### 5.3 Perp swap fees route differently
 
@@ -457,15 +463,15 @@ shipped configuration the floor share does **not** become ETH in a vault — it
 joins the legacy buffer and becomes **token buy pressure** backing the
 collection's token floor.
 
-With the shipped zero-balance configuration, `CauldronVault.redeem` reverts with
-`UnifiedFloorActive()` and points holders at `recycleCollectionNFT` — the live
-token-denominated floor. **That is configuration, not structural
-unreachability:** the vault's `receive()` is public, and an outsider can donate
-enough ETH to make the old burn-and-redeem path execute. That burn does not
-decrement `totalMinted`, so it desynchronizes the live ledger denominator and can
-strand part of the collection entitlement. Do not fund these vaults; this is a
-known open defect, not a supported second floor. The vault remains load-bearing
-because crystallization reads its `outstanding()` count at death.
+Under unified mode, use `recycleCollectionNFT` for the live token-denominated
+floor. Earlier code inferred that mode from an empty ETH balance, so donated or
+forced ETH could re-enable the obsolete burn path without updating the ledger.
+**Local audit fix (not deployed):** ETH redemption now requires the collection's
+minter to explicitly select this exact vault. Zero, different, reverting or
+malformed getter responses fail closed with `UnifiedFloorActive()`; disabled
+vaults report zero redeemable ETH floor. Eight focused regressions and six
+legacy controls pass. The vault still supplies `outstanding()` at crystallization.
+This patch does not repair previously burned NFTs or change a deployed vault.
 
 ### 5.5 Royalties
 
@@ -846,10 +852,11 @@ TWAP oracle history before anything can be marked against it.
 - **Large short liquidations may be partial.** The buyback never executes outside
   a 10% mark-centred band. If the pool cannot supply the entire debt inside that
   band, the engine rebooks the remainder for another liquidation rather than
-  buying at an attacker-made price. In the current checkout `_rebook` sets that
-  remainder's `collateral` to zero and folds all backing into `principal`; because
-  funding, the final liquidation penalty and keeper bounty are collateral-based,
-  they become zero for the rest of that position. This is an open economic defect.
+  buying at an attacker-made price. The local audit fix preserves collateral up
+  to the remaining backing and assigns the rest to principal, retaining the
+  basis for subsequent funding, liquidation penalty and keeper bounty. Earlier
+  code erased collateral during rebooking. Focused regressions pass; this is
+  not a deployed fix or a completed liquidation-matrix audit.
 
 ### 11.4 The liquidation mark
 
@@ -912,7 +919,10 @@ density histogram, and LONG/SHORT open-interest pills.
   liquidation, including the ordinary swapper whose trade tipped a position over.
   The award is **hybrid**: it auto-mints in-swap when there is gas headroom, and
   otherwise falls back to a claimable credit (`claimLiquidatorBadges`). A
-  liquidation never reverts on the trophy. A mark-band-refused **partial**
+  liquidation never reverts on the trophy. During a gas-bounded **pre-trade**
+  sweep, claim-later credits deliberately omit per-liquidation stats so the
+  bounded book can fit the transaction ceiling; keeper payment and one-credit-
+  per-liquidation attribution remain unchanged. A mark-band-refused **partial**
   liquidation awards no badge yet; the badge is attempted only when a later piece
   actually finishes the position. Badges mint into the id range at
   `LIQUIDATOR_ID_BASE = 1,000,000`, so they never consume art supply.
@@ -1142,10 +1152,16 @@ violation:
 | **Anti-snipe surtax is block-denominated**, so on an L2 its decay is a ~12-second step function rather than a smooth ramp. | Accepted. The window keeps its intended wall-clock length; only resolution is lost. |
 | **The TWAP floor (`MIN_TWAP = 1 s`)** is not a meaningful manipulation defence on a sub-second-block chain. | Configuration. `twapWindow` is set from real pool depth, never near the floor. |
 | **Funding is not strictly zero-sum** — an insolvent payer pays less than it owes while the receiver draws in full, from insurance first. | Bounded. The funding rate is capped, as is per-position funding P&L. |
-| **Partial short rebooking erases collateral-based economics** — future funding, final penalty and keeper bounty become zero (§11.3). | Open code defect in `_rebook`; solvency backing remains, but incentives/accounting do not. |
+| **Partial short rebooking previously erased collateral-based economics** (§11.3). | Locally patched with focused regressions; deployment and full lifecycle acceptance pending. |
 | **Pre-trade liquidation can require millions of gas.** A four-short measured cascade needed about 3M gas; fixed-cap routers may see `LiqGasStarved`. | Safety trade-off: the swap reverts instead of externalizing bad debt. Wallet estimation should find the required gas. |
-| **The default live-buyback threshold is denomination-unsafe** for 6-decimal quotes (§5.2). | Open. `0.02 ether` becomes an unreachable 20-billion-token raw threshold on USDG. |
-| **The old ETH vault can be donation-rearmed** despite the unified-floor configuration, and burning there desynchronizes the ledger denominator (§5.4). | Open. Do not send ETH to per-brew vaults; use the registry's token-floor recycle path. |
+| **The default live-buyback threshold previously mixed decimal domains** (§5.2). | Locally normalized to raw quote units; deployed remediation not attested. |
+| **The old ETH vault could be donation-rearmed** despite unified mode (§5.4). | Locally mode-gated with regressions; no deployed fix or historical-burn repair claimed. Use registry recycling. |
+| **Repeated token-yield write-offs could preserve stale rewards** and misallocate later yield. | Local PerpVault watermark fix passes focused tests/fuzzing; production rotation integration remains open. |
+| **Missing rotation oracle bypassed an independent price floor.** | Local QuoteRotator fix rejects absent/unpriceable oracle floors; caller-triggered rotation waits for pricing. |
+| **Returning to the launch quote created duplicate active treasury positions.** | Local facet consolidates them and preserves reserve identity; existing one-shot facet deployments require a separately reviewed migration. |
+| **Partial owner short close bypassed nonzero minimum output.** | Local guard rejects zero-output partial settlement unless minimum is zero; focused regressions pass, full lifecycle/deployment acceptance pending. |
+| **Protected four-argument `playChurn` is absent from the observed Sepolia router.** | Legacy three-argument selector is not equivalent: it lacks the final token-output floor. App mode/deployment alignment remains pending. |
+| **Rotation pools were absent from indexer discovery; consumers assumed one market per generation.** | Local authenticated discovery and explicit market selection pass focused tests; full service/reorg recovery remains unverified. |
 | **Progressive seeding is dormant** while `SEED_BASE_WAD = 1e18`; wiring a seeder and a window does not activate it (§4.2). | Shipped configuration. Launches use the atomic green-candle path. |
 | **A completed quote migration leaves a geometric tail** in the previous pair because each slice removes a fraction of what remains (§13.7). | Accepted and tracked. Every leg, including the tail, is recovered at rebirth. |
 | **The unrevealed placeholder URI is deployer-settable.** Final revealed art remains on-chain, but the temporary shared image is an operational metadata pointer. | Deliberate escape hatch from a metered endpoint; deployments should point it at IPFS/Arweave. |

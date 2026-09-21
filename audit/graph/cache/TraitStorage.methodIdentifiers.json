@@ -1,0 +1,17 @@
+{
+ "freeze()": "62a5af3b",
+ "frozen()": "054f7d9c",
+ "getPalette()": "3dda6452",
+ "getTrait(uint256)": "acb586df",
+ "getTraitOrEmpty(uint8,uint8,uint8)": "e52a7459",
+ "hasTrait(uint256)": "e505f68b",
+ "owner()": "8da5cb5b",
+ "palettePointer()": "40ce89c2",
+ "renounceOwnership()": "715018a6",
+ "storePalette(bytes)": "4f31249b",
+ "storeTrait(uint256,bytes)": "887fd117",
+ "storeTraits(uint256[],bytes[])": "5a4705bf",
+ "traitKey(uint8,uint8,uint8)": "908c3634",
+ "traitPointer(uint256)": "679e6103",
+ "transferOwnership(address)": "f2fde38b"
+}

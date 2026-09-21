@@ -1,0 +1,60 @@
+{
+ "storage": [
+  {
+   "astId": 8,
+   "contract": "render/TraitStorage.sol:TraitStorage",
+   "label": "_owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 281,
+   "contract": "render/TraitStorage.sol:TraitStorage",
+   "label": "traitPointer",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_mapping(t_uint256,t_address)"
+  },
+  {
+   "astId": 284,
+   "contract": "render/TraitStorage.sol:TraitStorage",
+   "label": "palettePointer",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_address"
+  },
+  {
+   "astId": 287,
+   "contract": "render/TraitStorage.sol:TraitStorage",
+   "label": "frozen",
+   "offset": 20,
+   "slot": "2",
+   "type": "t_bool"
+  }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_bool": {
+   "encoding": "inplace",
+   "label": "bool",
+   "numberOfBytes": "1"
+  },
+  "t_mapping(t_uint256,t_address)": {
+   "encoding": "mapping",
+   "key": "t_uint256",
+   "label": "mapping(uint256 => address)",
+   "numberOfBytes": "32",
+   "value": "t_address"
+  },
+  "t_uint256": {
+   "encoding": "inplace",
+   "label": "uint256",
+   "numberOfBytes": "32"
+  }
+ }
+}

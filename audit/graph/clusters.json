@@ -1,10 +1,12 @@
 {
-  "hook": ["CauldronHook.sol", "vendor/BaseHook.sol", "vendor/HookMiner.sol", "cauldron/FeeRouteLib.sol", "cauldron/DefaultFeeRouter.sol", "cauldron/ReserveLib.sol", "cauldron/RoyaltyRouter.sol", "cauldron/LegacyBuyLib.sol"],
+  "hook": ["CauldronHook.sol", "vendor/BaseHook.sol", "vendor/HookMiner.sol", "cauldron/FeeRouteLib.sol", "cauldron/DefaultFeeRouter.sol", "cauldron/ReserveLib.sol", "cauldron/RoyaltyRouter.sol", "cauldron/LegacyBuyLib.sol", "cauldron/SurtaxLib.sol"],
   "registry": ["CauldronRegistry.sol", "CauldronToken.sol", "cauldron/IPolicies.sol", "cauldron/IDeathChecker.sol", "cauldron/ILiquidatorMintable.sol", "cauldron/ICauldron.sol"],
   "pool": ["cauldron/CauldronBase.sol", "cauldron/PoolOps.sol"],
   "perp": ["cauldron/PerpEngine.sol", "cauldron/PerpVault.sol", "cauldron/PerpSwapLib.sol", "cauldron/PerpMarkSource.sol", "cauldron/PerpStakerOracle.sol"],
-  "rotation": ["cauldron/QuoteRotator.sol", "cauldron/QuoteOracle.sol", "cauldron/RedemptionExt.sol", "cauldron/CauldronVault.sol", "cauldron/MockAggregator.sol", "cauldron/MockQuoteToken.sol"],
+  "rotation": ["cauldron/QuoteRotator.sol", "cauldron/QuoteOracle.sol", "cauldron/RedemptionExt.sol", "cauldron/CauldronVault.sol", "cauldron/NativeQuoteZap.sol", "cauldron/MockAggregator.sol", "cauldron/MockQuoteToken.sol"],
   "governance": ["cauldron/CauldronGovernor.sol", "cauldron/TreasuryGovernor.sol"],
-  "nft": ["cauldron/MiFrensGenesis.sol", "cauldron/CauldronCollection.sol", "cauldron/CollectionLedger.sol", "cauldron/CauldronGachaRouter.sol", "cauldron/MiFrensDividend.sol", "cauldron/MintCurvePolicy.sol", "cauldron/CauldronFactory.sol", "cauldron/ICreatorToken.sol", "interfaces/INFTContract.sol"],
-  "seed": ["cauldron/CauldronSeeder.sol", "cauldron/SeedLib.sol", "cauldron/ISeeder.sol", "cauldron/MigrationVesting.sol", "cauldron/LaunchSniper.sol"]
+  "nft": ["cauldron/MiFrensGenesis.sol", "cauldron/CauldronCollection.sol", "cauldron/CollectionLedger.sol", "cauldron/CauldronGachaRouter.sol", "cauldron/GachaLib.sol", "cauldron/MiFrensDividend.sol", "cauldron/MintCurvePolicy.sol", "cauldron/CauldronFactory.sol", "cauldron/ICreatorToken.sol", "interfaces/INFTContract.sol"],
+  "seed": ["cauldron/CauldronSeeder.sol", "cauldron/SeedLib.sol", "cauldron/ISeeder.sol", "cauldron/MigrationVesting.sol", "cauldron/LaunchSniper.sol"],
+  "art": ["cauldron/CauldronArtAdapter.sol", "render/FrenRenderer.sol", "render/LiquidatoorRenderer.sol", "render/SSTORE2.sol", "render/TraitStorage.sol", "deploy/BadgeArtLib.sol"],
+  "deploy": ["deploy/DeployCauldron.s.sol", "deploy/DeployLaunchSniper.s.sol", "deploy/DeployLaunchpad.s.sol", "deploy/DeployMigrationVesting.s.sol", "deploy/DeployPerp.s.sol", "deploy/DeployQuoteAssets.s.sol", "deploy/DeployRenderer.s.sol", "deploy/DeployRotationStack.s.sol", "deploy/DeployV4Core.s.sol", "deploy/FixFactoryWiring.s.sol", "deploy/SellVolume.s.sol", "deploy/SnipeBuy.s.sol", "deploy/SwapVolume.s.sol", "deploy/TopUpVenue.s.sol"]
 }

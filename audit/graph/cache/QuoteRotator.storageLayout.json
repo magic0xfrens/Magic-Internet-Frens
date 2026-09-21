@@ -30,10 +30,10 @@
    "label": "allowedVenue",
    "offset": 0,
    "slot": "7",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)4077,t_bool)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)4070,t_bool)"
   },
   {
-   "astId": 695,
+   "astId": 688,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "rotationSlipBps",
    "offset": 0,
@@ -41,7 +41,7 @@
    "type": "t_uint16"
   },
   {
-   "astId": 776,
+   "astId": 769,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "quoteOracle",
    "offset": 2,
@@ -49,7 +49,7 @@
    "type": "t_address"
   },
   {
-   "astId": 780,
+   "astId": 773,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "arbKeeperBps",
    "offset": 22,
@@ -57,7 +57,7 @@
    "type": "t_uint16"
   },
   {
-   "astId": 784,
+   "astId": 777,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "minArbProfitUsd",
    "offset": 0,
@@ -65,7 +65,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 788,
+   "astId": 781,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "maxArbNotionalUsd",
    "offset": 0,
@@ -73,7 +73,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 791,
+   "astId": 784,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "arbBlock",
    "offset": 0,
@@ -81,7 +81,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 793,
+   "astId": 786,
    "contract": "cauldron/QuoteRotator.sol:QuoteRotator",
    "label": "arbUsdThisBlock",
    "offset": 0,
@@ -100,9 +100,9 @@
    "label": "bool",
    "numberOfBytes": "1"
   },
-  "t_mapping(t_userDefinedValueType(PoolId)4077,t_bool)": {
+  "t_mapping(t_userDefinedValueType(PoolId)4070,t_bool)": {
    "encoding": "mapping",
-   "key": "t_userDefinedValueType(PoolId)4077",
+   "key": "t_userDefinedValueType(PoolId)4070",
    "label": "mapping(PoolId => bool)",
    "numberOfBytes": "32",
    "value": "t_bool"
@@ -211,7 +211,7 @@
    "label": "uint64",
    "numberOfBytes": "8"
   },
-  "t_userDefinedValueType(PoolId)4077": {
+  "t_userDefinedValueType(PoolId)4070": {
    "encoding": "inplace",
    "label": "PoolId",
    "numberOfBytes": "32"

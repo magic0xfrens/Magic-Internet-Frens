@@ -1,15 +1,15 @@
 {
  "storage": [
   {
-   "astId": 78,
+   "astId": 80,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_key",
    "offset": 0,
    "slot": "0",
-   "type": "t_struct(PoolKey)5679_storage"
+   "type": "t_struct(PoolKey)6311_storage"
   },
   {
-   "astId": 80,
+   "astId": 82,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "token",
    "offset": 0,
@@ -17,7 +17,7 @@
    "type": "t_address"
   },
   {
-   "astId": 82,
+   "astId": 84,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "gen",
    "offset": 0,
@@ -25,7 +25,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 84,
+   "astId": 86,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "startTs",
    "offset": 0,
@@ -33,7 +33,7 @@
    "type": "t_uint64"
   },
   {
-   "astId": 86,
+   "astId": 88,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "window",
    "offset": 8,
@@ -41,7 +41,7 @@
    "type": "t_uint64"
   },
   {
-   "astId": 88,
+   "astId": 90,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "seedFloorWad",
    "offset": 0,
@@ -49,7 +49,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 90,
+   "astId": 92,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "ethTotal",
    "offset": 0,
@@ -57,7 +57,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 92,
+   "astId": 94,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "tokenTotal",
    "offset": 0,
@@ -65,7 +65,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 94,
+   "astId": 96,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "placedWad",
    "offset": 0,
@@ -73,7 +73,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 96,
+   "astId": 98,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "minStepWad",
    "offset": 0,
@@ -81,7 +81,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 98,
+   "astId": 100,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "baseWad",
    "offset": 0,
@@ -89,7 +89,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 100,
+   "astId": 102,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_spacing",
    "offset": 0,
@@ -97,7 +97,7 @@
    "type": "t_int24"
   },
   {
-   "astId": 102,
+   "astId": 104,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_bandWidth",
    "offset": 3,
@@ -105,7 +105,7 @@
    "type": "t_int24"
   },
   {
-   "astId": 104,
+   "astId": 106,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "seeding",
    "offset": 6,
@@ -113,7 +113,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 106,
+   "astId": 108,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "complete",
    "offset": 7,
@@ -121,7 +121,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 108,
+   "astId": 110,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_basePlaced",
    "offset": 8,
@@ -129,31 +129,31 @@
    "type": "t_bool"
   },
   {
-   "astId": 118,
+   "astId": 120,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "ranges",
    "offset": 0,
    "slot": "13",
-   "type": "t_array(t_struct(Range)114_storage)dyn_storage"
+   "type": "t_array(t_struct(Range)116_storage)dyn_storage"
   },
   {
-   "astId": 122,
+   "astId": 124,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_lastAsk",
    "offset": 0,
    "slot": "14",
-   "type": "t_struct(Range)114_storage"
+   "type": "t_struct(Range)116_storage"
   },
   {
-   "astId": 125,
+   "astId": 127,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_lastBid",
    "offset": 0,
    "slot": "15",
-   "type": "t_struct(Range)114_storage"
+   "type": "t_struct(Range)116_storage"
   },
   {
-   "astId": 131,
+   "astId": 133,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "primeBudget",
    "offset": 0,
@@ -161,7 +161,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 133,
+   "astId": 135,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "primeSpent",
    "offset": 0,
@@ -169,7 +169,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 135,
+   "astId": 137,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "primeTo",
    "offset": 0,
@@ -177,7 +177,23 @@
    "type": "t_address"
   },
   {
-   "astId": 141,
+   "astId": 150,
+   "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
+   "label": "_refTick",
+   "offset": 20,
+   "slot": "18",
+   "type": "t_int24"
+  },
+  {
+   "astId": 152,
+   "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
+   "label": "_refBlock",
+   "offset": 23,
+   "slot": "18",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 154,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_locked",
    "offset": 0,
@@ -185,7 +201,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 1788,
+   "astId": 2395,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_lastEthOut",
    "offset": 0,
@@ -193,7 +209,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 1790,
+   "astId": 2397,
    "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
    "label": "_lastTokenOut",
    "offset": 0,
@@ -207,18 +223,18 @@
    "label": "address",
    "numberOfBytes": "20"
   },
-  "t_array(t_struct(Range)114_storage)dyn_storage": {
+  "t_array(t_struct(Range)116_storage)dyn_storage": {
    "encoding": "dynamic_array",
    "label": "struct CauldronSeeder.Range[]",
    "numberOfBytes": "32",
-   "base": "t_struct(Range)114_storage"
+   "base": "t_struct(Range)116_storage"
   },
   "t_bool": {
    "encoding": "inplace",
    "label": "bool",
    "numberOfBytes": "1"
   },
-  "t_contract(IHooks)2659": {
+  "t_contract(IHooks)3291": {
    "encoding": "inplace",
    "label": "contract IHooks",
    "numberOfBytes": "20"
@@ -228,29 +244,29 @@
    "label": "int24",
    "numberOfBytes": "3"
   },
-  "t_struct(PoolKey)5679_storage": {
+  "t_struct(PoolKey)6311_storage": {
    "encoding": "inplace",
    "label": "struct PoolKey",
    "numberOfBytes": "96",
    "members": [
     {
-     "astId": 5664,
+     "astId": 6296,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "currency0",
      "offset": 0,
      "slot": "0",
-     "type": "t_userDefinedValueType(Currency)5333"
+     "type": "t_userDefinedValueType(Currency)5965"
     },
     {
-     "astId": 5668,
+     "astId": 6300,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "currency1",
      "offset": 0,
      "slot": "1",
-     "type": "t_userDefinedValueType(Currency)5333"
+     "type": "t_userDefinedValueType(Currency)5965"
     },
     {
-     "astId": 5671,
+     "astId": 6303,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "fee",
      "offset": 20,
@@ -258,7 +274,7 @@
      "type": "t_uint24"
     },
     {
-     "astId": 5674,
+     "astId": 6306,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "tickSpacing",
      "offset": 23,
@@ -266,22 +282,22 @@
      "type": "t_int24"
     },
     {
-     "astId": 5678,
+     "astId": 6310,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "hooks",
      "offset": 0,
      "slot": "2",
-     "type": "t_contract(IHooks)2659"
+     "type": "t_contract(IHooks)3291"
     }
    ]
   },
-  "t_struct(Range)114_storage": {
+  "t_struct(Range)116_storage": {
    "encoding": "inplace",
    "label": "struct CauldronSeeder.Range",
    "numberOfBytes": "32",
    "members": [
     {
-     "astId": 111,
+     "astId": 113,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "lo",
      "offset": 0,
@@ -289,7 +305,7 @@
      "type": "t_int24"
     },
     {
-     "astId": 113,
+     "astId": 115,
      "contract": "cauldron/CauldronSeeder.sol:CauldronSeeder",
      "label": "hi",
      "offset": 3,
@@ -313,7 +329,7 @@
    "label": "uint64",
    "numberOfBytes": "8"
   },
-  "t_userDefinedValueType(Currency)5333": {
+  "t_userDefinedValueType(Currency)5965": {
    "encoding": "inplace",
    "label": "Currency",
    "numberOfBytes": "20"

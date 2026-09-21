@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 45,
+   "astId": 57,
    "contract": "cauldron/CauldronVault.sol:CauldronVault",
    "label": "redeemed",
    "offset": 0,
@@ -9,12 +9,20 @@
    "type": "t_uint256"
   },
   {
-   "astId": 51,
+   "astId": 63,
    "contract": "cauldron/CauldronVault.sol:CauldronVault",
    "label": "closed",
    "offset": 0,
    "slot": "1",
    "type": "t_bool"
+  },
+  {
+   "astId": 99,
+   "contract": "cauldron/CauldronVault.sol:CauldronVault",
+   "label": "accountedDeposits",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_uint256"
   }
  ],
  "types": {

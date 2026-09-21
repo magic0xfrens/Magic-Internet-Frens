@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 14673,
+   "astId": 15928,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "_owner",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9126,
+   "astId": 9360,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "nextReserveCeilingOffset",
    "offset": 20,
@@ -17,7 +17,7 @@
    "type": "t_int24"
   },
   {
-   "astId": 9128,
+   "astId": 9362,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "summoned",
    "offset": 23,
@@ -25,7 +25,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 9131,
+   "astId": 9365,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "_seedBuyUnlocked",
    "offset": 24,
@@ -33,7 +33,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 9133,
+   "astId": 9367,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "currentGeneration",
    "offset": 0,
@@ -41,7 +41,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9135,
+   "astId": 9369,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "currentToken",
    "offset": 0,
@@ -49,7 +49,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9140,
+   "astId": 9374,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationToken",
    "offset": 0,
@@ -57,7 +57,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 9145,
+   "astId": 9379,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationProposer",
    "offset": 0,
@@ -65,7 +65,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 9150,
+   "astId": 9384,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationParent",
    "offset": 0,
@@ -73,23 +73,23 @@
    "type": "t_mapping(t_uint256,t_uint256)"
   },
   {
-   "astId": 9156,
+   "astId": 9390,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationPoolId",
    "offset": 0,
    "slot": "6",
-   "type": "t_mapping(t_uint256,t_userDefinedValueType(PoolId)20544)"
+   "type": "t_mapping(t_uint256,t_userDefinedValueType(PoolId)21799)"
   },
   {
-   "astId": 9162,
+   "astId": 9396,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationPoolKey",
    "offset": 0,
    "slot": "7",
-   "type": "t_mapping(t_uint256,t_struct(PoolKey)20590_storage)"
+   "type": "t_mapping(t_uint256,t_struct(PoolKey)21845_storage)"
   },
   {
-   "astId": 9167,
+   "astId": 9401,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationPositionId",
    "offset": 0,
@@ -97,7 +97,7 @@
    "type": "t_mapping(t_uint256,t_uint256)"
   },
   {
-   "astId": 9172,
+   "astId": 9406,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationReservePositionId",
    "offset": 0,
@@ -105,7 +105,7 @@
    "type": "t_mapping(t_uint256,t_uint256)"
   },
   {
-   "astId": 9177,
+   "astId": 9411,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "reserveTickLower",
    "offset": 0,
@@ -113,7 +113,7 @@
    "type": "t_mapping(t_uint256,t_int24)"
   },
   {
-   "astId": 9181,
+   "astId": 9415,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "reserveTickUpper",
    "offset": 0,
@@ -121,7 +121,7 @@
    "type": "t_mapping(t_uint256,t_int24)"
   },
   {
-   "astId": 9184,
+   "astId": 9418,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisReserveOutstanding",
    "offset": 0,
@@ -129,7 +129,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9191,
+   "astId": 9425,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "claimed",
    "offset": 0,
@@ -137,7 +137,7 @@
    "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))"
   },
   {
-   "astId": 9196,
+   "astId": 9430,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationCollection",
    "offset": 0,
@@ -145,7 +145,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 9201,
+   "astId": 9435,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationVault",
    "offset": 0,
@@ -153,15 +153,15 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 9205,
+   "astId": 9439,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "collectionLedger",
    "offset": 0,
    "slot": "16",
-   "type": "t_contract(ICollectionLedger)8977"
+   "type": "t_contract(ICollectionLedger)9211"
   },
   {
-   "astId": 9208,
+   "astId": 9442,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisPending",
    "offset": 0,
@@ -169,23 +169,23 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9212,
+   "astId": 9446,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "factory",
    "offset": 0,
    "slot": "18",
-   "type": "t_contract(ICauldronFactory)8919"
+   "type": "t_contract(ICauldronFactory)9153"
   },
   {
-   "astId": 9216,
+   "astId": 9450,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "governor",
    "offset": 0,
    "slot": "19",
-   "type": "t_contract(ICauldronGovernor)10079"
+   "type": "t_contract(ICauldronGovernor)10868"
   },
   {
-   "astId": 9220,
+   "astId": 9454,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "nftMaxSupply",
    "offset": 0,
@@ -193,7 +193,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9223,
+   "astId": 9457,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "royaltyDividend",
    "offset": 0,
@@ -201,7 +201,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9227,
+   "astId": 9461,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "royaltyBps",
    "offset": 20,
@@ -209,15 +209,15 @@
    "type": "t_uint96"
   },
   {
-   "astId": 9231,
+   "astId": 9465,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisMode",
    "offset": 0,
    "slot": "22",
-   "type": "t_enum(MetadataMode)10004"
+   "type": "t_enum(MetadataMode)10793"
   },
   {
-   "astId": 9233,
+   "astId": 9467,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisBaseURI",
    "offset": 0,
@@ -225,7 +225,7 @@
    "type": "t_string_storage"
   },
   {
-   "astId": 9235,
+   "astId": 9469,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisRenderer",
    "offset": 0,
@@ -233,7 +233,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9238,
+   "astId": 9472,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "mifrens",
    "offset": 0,
@@ -241,7 +241,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9241,
+   "astId": 9475,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisBonusBps",
    "offset": 0,
@@ -249,7 +249,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9244,
+   "astId": 9478,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisShares",
    "offset": 0,
@@ -257,7 +257,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9247,
+   "astId": 9481,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "genesisSharePerFren",
    "offset": 0,
@@ -265,7 +265,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9251,
+   "astId": 9485,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "enchantFeeMultBps",
    "offset": 0,
@@ -273,7 +273,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9254,
+   "astId": 9488,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "redemptionPaused",
    "offset": 0,
@@ -281,7 +281,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 9257,
+   "astId": 9491,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "guardian",
    "offset": 1,
@@ -289,7 +289,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9260,
+   "astId": 9494,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "successor",
    "offset": 0,
@@ -297,7 +297,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9263,
+   "astId": 9497,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "claimGate",
    "offset": 0,
@@ -305,7 +305,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9266,
+   "astId": 9500,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "airdropWallet",
    "offset": 0,
@@ -313,7 +313,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9268,
+   "astId": 9502,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "airdropReserve",
    "offset": 0,
@@ -321,7 +321,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9271,
+   "astId": 9505,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "primeBuyEth",
    "offset": 0,
@@ -329,7 +329,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9274,
+   "astId": 9508,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "primeFunder",
    "offset": 0,
@@ -337,7 +337,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9277,
+   "astId": 9511,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "emergencyReadyAt",
    "offset": 0,
@@ -345,7 +345,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9280,
+   "astId": 9514,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "lastSummonAt",
    "offset": 0,
@@ -353,7 +353,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9284,
+   "astId": 9518,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "minLifetime",
    "offset": 0,
@@ -361,7 +361,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 9289,
+   "astId": 9523,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "autoMigrate",
    "offset": 0,
@@ -369,31 +369,31 @@
    "type": "t_mapping(t_address,t_bool)"
   },
   {
-   "astId": 9292,
+   "astId": 9526,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "poolManager",
    "offset": 0,
    "slot": "41",
-   "type": "t_contract(IPoolManager)16501"
+   "type": "t_contract(IPoolManager)17756"
   },
   {
-   "astId": 9295,
+   "astId": 9529,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "positionManager",
    "offset": 0,
    "slot": "42",
-   "type": "t_contract(IPositionManager)8998"
+   "type": "t_contract(IPositionManager)9232"
   },
   {
-   "astId": 9298,
+   "astId": 9532,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "hook",
    "offset": 0,
    "slot": "43",
-   "type": "t_contract(CauldronHook)5282"
+   "type": "t_contract(CauldronHook)5446"
   },
   {
-   "astId": 9301,
+   "astId": 9535,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "redemptionExt",
    "offset": 0,
@@ -401,7 +401,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9304,
+   "astId": 9538,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "seeder",
    "offset": 0,
@@ -409,7 +409,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9307,
+   "astId": 9541,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "nextSeedWindow",
    "offset": 20,
@@ -417,7 +417,7 @@
    "type": "t_uint64"
   },
   {
-   "astId": 9310,
+   "astId": 9544,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "igniter",
    "offset": 0,
@@ -425,7 +425,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9315,
+   "astId": 9549,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "allowedQuote",
    "offset": 0,
@@ -433,7 +433,7 @@
    "type": "t_mapping(t_address,t_bool)"
   },
   {
-   "astId": 9320,
+   "astId": 9554,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationQuote",
    "offset": 0,
@@ -441,7 +441,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 9323,
+   "astId": 9557,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "quoteRotator",
    "offset": 0,
@@ -449,7 +449,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9326,
+   "astId": 9560,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "treasuryGovernor",
    "offset": 0,
@@ -457,7 +457,7 @@
    "type": "t_address"
   },
   {
-   "astId": 9331,
+   "astId": 9565,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "quoteScale",
    "offset": 0,
@@ -465,15 +465,15 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 9406,
+   "astId": 9640,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "generationLegs",
    "offset": 0,
    "slot": "52",
-   "type": "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9399_storage)dyn_storage)"
+   "type": "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9633_storage)dyn_storage)"
   },
   {
-   "astId": 9411,
+   "astId": 9645,
    "contract": "CauldronRegistry.sol:CauldronRegistry",
    "label": "legProceeds",
    "offset": 0,
@@ -487,53 +487,53 @@
    "label": "address",
    "numberOfBytes": "20"
   },
-  "t_array(t_struct(TreasuryLeg)9399_storage)dyn_storage": {
+  "t_array(t_struct(TreasuryLeg)9633_storage)dyn_storage": {
    "encoding": "dynamic_array",
    "label": "struct CauldronBase.TreasuryLeg[]",
    "numberOfBytes": "32",
-   "base": "t_struct(TreasuryLeg)9399_storage"
+   "base": "t_struct(TreasuryLeg)9633_storage"
   },
   "t_bool": {
    "encoding": "inplace",
    "label": "bool",
    "numberOfBytes": "1"
   },
-  "t_contract(CauldronHook)5282": {
+  "t_contract(CauldronHook)5446": {
    "encoding": "inplace",
    "label": "contract CauldronHook",
    "numberOfBytes": "20"
   },
-  "t_contract(ICauldronFactory)8919": {
+  "t_contract(ICauldronFactory)9153": {
    "encoding": "inplace",
    "label": "contract ICauldronFactory",
    "numberOfBytes": "20"
   },
-  "t_contract(ICauldronGovernor)10079": {
+  "t_contract(ICauldronGovernor)10868": {
    "encoding": "inplace",
    "label": "contract ICauldronGovernor",
    "numberOfBytes": "20"
   },
-  "t_contract(ICollectionLedger)8977": {
+  "t_contract(ICollectionLedger)9211": {
    "encoding": "inplace",
    "label": "contract ICollectionLedger",
    "numberOfBytes": "20"
   },
-  "t_contract(IHooks)16218": {
+  "t_contract(IHooks)17473": {
    "encoding": "inplace",
    "label": "contract IHooks",
    "numberOfBytes": "20"
   },
-  "t_contract(IPoolManager)16501": {
+  "t_contract(IPoolManager)17756": {
    "encoding": "inplace",
    "label": "contract IPoolManager",
    "numberOfBytes": "20"
   },
-  "t_contract(IPositionManager)8998": {
+  "t_contract(IPositionManager)9232": {
    "encoding": "inplace",
    "label": "contract IPositionManager",
    "numberOfBytes": "20"
   },
-  "t_enum(MetadataMode)10004": {
+  "t_enum(MetadataMode)10793": {
    "encoding": "inplace",
    "label": "enum MetadataMode",
    "numberOfBytes": "1"
@@ -564,12 +564,12 @@
    "numberOfBytes": "32",
    "value": "t_address"
   },
-  "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9399_storage)dyn_storage)": {
+  "t_mapping(t_uint256,t_array(t_struct(TreasuryLeg)9633_storage)dyn_storage)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => struct CauldronBase.TreasuryLeg[])",
    "numberOfBytes": "32",
-   "value": "t_array(t_struct(TreasuryLeg)9399_storage)dyn_storage"
+   "value": "t_array(t_struct(TreasuryLeg)9633_storage)dyn_storage"
   },
   "t_mapping(t_uint256,t_int24)": {
    "encoding": "mapping",
@@ -585,12 +585,12 @@
    "numberOfBytes": "32",
    "value": "t_mapping(t_address,t_bool)"
   },
-  "t_mapping(t_uint256,t_struct(PoolKey)20590_storage)": {
+  "t_mapping(t_uint256,t_struct(PoolKey)21845_storage)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => struct PoolKey)",
    "numberOfBytes": "32",
-   "value": "t_struct(PoolKey)20590_storage"
+   "value": "t_struct(PoolKey)21845_storage"
   },
   "t_mapping(t_uint256,t_uint256)": {
    "encoding": "mapping",
@@ -599,41 +599,41 @@
    "numberOfBytes": "32",
    "value": "t_uint256"
   },
-  "t_mapping(t_uint256,t_userDefinedValueType(PoolId)20544)": {
+  "t_mapping(t_uint256,t_userDefinedValueType(PoolId)21799)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => PoolId)",
    "numberOfBytes": "32",
-   "value": "t_userDefinedValueType(PoolId)20544"
+   "value": "t_userDefinedValueType(PoolId)21799"
   },
   "t_string_storage": {
    "encoding": "bytes",
    "label": "string",
    "numberOfBytes": "32"
   },
-  "t_struct(PoolKey)20590_storage": {
+  "t_struct(PoolKey)21845_storage": {
    "encoding": "inplace",
    "label": "struct PoolKey",
    "numberOfBytes": "96",
    "members": [
     {
-     "astId": 20575,
+     "astId": 21830,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "currency0",
      "offset": 0,
      "slot": "0",
-     "type": "t_userDefinedValueType(Currency)20244"
+     "type": "t_userDefinedValueType(Currency)21499"
     },
     {
-     "astId": 20579,
+     "astId": 21834,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "currency1",
      "offset": 0,
      "slot": "1",
-     "type": "t_userDefinedValueType(Currency)20244"
+     "type": "t_userDefinedValueType(Currency)21499"
     },
     {
-     "astId": 20582,
+     "astId": 21837,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "fee",
      "offset": 20,
@@ -641,7 +641,7 @@
      "type": "t_uint24"
     },
     {
-     "astId": 20585,
+     "astId": 21840,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "tickSpacing",
      "offset": 23,
@@ -649,22 +649,22 @@
      "type": "t_int24"
     },
     {
-     "astId": 20589,
+     "astId": 21844,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "hooks",
      "offset": 0,
      "slot": "2",
-     "type": "t_contract(IHooks)16218"
+     "type": "t_contract(IHooks)17473"
     }
    ]
   },
-  "t_struct(TreasuryLeg)9399_storage": {
+  "t_struct(TreasuryLeg)9633_storage": {
    "encoding": "inplace",
    "label": "struct CauldronBase.TreasuryLeg",
    "numberOfBytes": "160",
    "members": [
     {
-     "astId": 9391,
+     "astId": 9625,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "quote",
      "offset": 0,
@@ -672,7 +672,7 @@
      "type": "t_address"
     },
     {
-     "astId": 9394,
+     "astId": 9628,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "positionId",
      "offset": 0,
@@ -680,12 +680,12 @@
      "type": "t_uint256"
     },
     {
-     "astId": 9398,
+     "astId": 9632,
      "contract": "CauldronRegistry.sol:CauldronRegistry",
      "label": "key",
      "offset": 0,
      "slot": "2",
-     "type": "t_struct(PoolKey)20590_storage"
+     "type": "t_struct(PoolKey)21845_storage"
     }
    ]
   },
@@ -709,12 +709,12 @@
    "label": "uint96",
    "numberOfBytes": "12"
   },
-  "t_userDefinedValueType(Currency)20244": {
+  "t_userDefinedValueType(Currency)21499": {
    "encoding": "inplace",
    "label": "Currency",
    "numberOfBytes": "20"
   },
-  "t_userDefinedValueType(PoolId)20544": {
+  "t_userDefinedValueType(PoolId)21799": {
    "encoding": "inplace",
    "label": "PoolId",
    "numberOfBytes": "32"

@@ -1,0 +1,5 @@
+{
+ "allowedQuote(address)": "77732c2c",
+ "owner()": "8da5cb5b",
+ "setAllowedQuote(address,bool,uint256)": "63f7b132"
+}

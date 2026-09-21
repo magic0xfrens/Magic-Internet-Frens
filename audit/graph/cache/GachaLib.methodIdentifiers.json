@@ -1,0 +1,3 @@
+{
+ "resolveTickets(GachaLib.Batch[] storage,mapping(address => uint256) storage,mapping(address => uint256) storage,mapping(address => uint256) storage,mapping(address => uint256) storage,GachaLib.State storage,uint256,uint256)": "0a44fbbb"
+}

@@ -28,9 +28,10 @@ ELEMENTARY |= {"int%d" % b for b in range(8, 264, 8)}
 ELEMENTARY |= {"bytes%d" % b for b in range(1, 33)}
 
 EXT_ALLOW = {"IPoolManager", "PoolManager", "IPositionManager", "PositionManager",
+             "IVotes", "PoolIdLibrary", "LiquidityAmounts", "Base64", "Strings", "Vm",
              "IHooks", "Hooks", "Currency", "CurrencyLibrary", "IERC20", "SafeERC20",
-             "IERC721", "IERC1155", "IERC20Metadata", "SafeTransferLib", "Address",
-             "Math", "FixedPointMathLib", "TickMath", "StateLibrary",
+             "IERC721", "IERC1155", "IERC20Metadata", "ERC721", "ERC2981", "SafeTransferLib", "Address",
+             "Math", "FullMath", "FixedPointMathLib", "TickMath", "StateLibrary",
              "TransientStateLibrary", "LPFeeLibrary", "BalanceDeltaLibrary", "Permit2",
              "IAllowanceTransfer", "IUnlockCallback", "AggregatorV3Interface", "IWETH",
              "IWETH9", "IERC165", "Ownable", "ReentrancyGuard", "Pausable", "EnumerableSet"}
@@ -38,11 +39,12 @@ LOWLEVEL = {"call", "delegatecall", "transfer", "send", "staticcall"}
 ID_EXCL = {"V2", "V3", "V4", "L1", "L2", "Q64", "Q96", "Q128", "X96", "X128", "X192"}
 
 RE_LINEREF = re.compile(r"\(line\s+(\d+)(?:\s*,\s*(immutable|constant))?\)")
-RE_FILEREF = re.compile(r"([A-Za-z0-9_$]+\.sol):(\d+)")
-RE_EDGE = re.compile(r"^(.+?)\s*\(([A-Za-z0-9_$]+\.sol):(\d+)\)\s*,\s*"
+SOL_BASENAME = r"[A-Za-z0-9_$][A-Za-z0-9_.$-]*\.sol"
+RE_FILEREF = re.compile(r"(%s):(\d+)" % SOL_BASENAME)
+RE_EDGE = re.compile(r"^(.+?)\s*\((%s):(\d+)\)\s*,\s*" % SOL_BASENAME +
                      r"(TRUSTED|UNTRUSTED)\s*,\s*"
                      r"(in-cluster|out-of-cluster|delegatecall|library)\s*$")
-RE_GATE = re.compile(r"^(.*)\s*\(([A-Za-z0-9_$]+\.sol):(\d+)\)\s*$", re.S)
+RE_GATE = re.compile(r"^(.*)\s*\((%s):(\d+)\)\s*$" % SOL_BASENAME, re.S)
 RE_TAG = re.compile(r"\b([A-Z]{1,2})(-?)([0-9]{1,2})\b")
 RE_ID = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
 RE_IMMCONST = re.compile(r"\b(?:immutable|constant)\s+([A-Za-z_$][A-Za-z0-9_$]*)")
@@ -63,7 +65,8 @@ class Ctx(object):
         self._lines = {}
         self._files = None
         self._libfns = None
-        self._srcfns = None
+        self._contract_fns = None
+        self._getter_fns = None
         self._immconst = {}
         self._mi = {}
         self._sl = {}
@@ -115,28 +118,53 @@ class Ctx(object):
     def libfns(self):
         if self._libfns is None:
             cache = os.path.join(self.gdir, "cache", "libfns.json")
+            self._libfns = {}
             if os.path.exists(cache):
-                self._libfns = set(json.load(open(cache)))
-                return self._libfns
-            libdir = os.path.realpath(os.path.join(self.root, "lib"))  # lib may be a symlink
-            r = subprocess.run(["grep", "-RhoE",
-                                r"\b(function|modifier) +[A-Za-z_$][A-Za-z0-9_$]*",
-                                libdir, "--include=*.sol"],
-                               capture_output=True, text=True)
-            self._libfns = {l.split()[-1] for l in r.stdout.splitlines() if l.split()}
-            if self._libfns:
-                json.dump(sorted(self._libfns), open(cache, "w"))
+                with open(cache) as fh:
+                    data = json.load(fh)
+                # A global bag of names accepts e.g. TickMath.safeTransfer merely
+                # because SafeTransferLib declares it. Legacy caches fail closed.
+                if isinstance(data, dict):
+                    self._libfns = data
         return self._libfns
 
-    def srcfns(self):
-        if self._srcfns is None:
-            s = set()
-            for base, path in self.index().items():
-                txt = "\n".join(self.lines(path) or [])
-                for m in re.finditer(r"\b(function|modifier)\s+([A-Za-z_$][A-Za-z0-9_$]*)", txt):
-                    s.add(m.group(2))
-            self._srcfns = s
-        return self._srcfns
+    def contract_fns(self):
+        """Return skeleton-declared methods keyed by their declaring contract."""
+        if self._contract_fns is None:
+            out = {}
+            skdir = os.path.join(self.gdir, "skeleton")
+            for fn_ in os.listdir(skdir) if os.path.isdir(skdir) else []:
+                if not fn_.endswith(".json"):
+                    continue
+                try:
+                    nodes = json.load(open(os.path.join(skdir, fn_))).get("nodes", [])
+                except Exception:
+                    continue
+                for node in nodes:
+                    cn = str(node.get("contract", "")).split(" (declared in ")[0]
+                    name = node.get("name")
+                    if cn and cn != "<free>" and name:
+                        out.setdefault(cn, set()).add(name)
+            self._contract_fns = out
+        return self._contract_fns
+
+    def getter_fns(self):
+        """Return compiler-exposed methods (notably public getters) by contract."""
+        if self._getter_fns is None:
+            out = {}
+            suffix = ".methodIdentifiers.json"
+            for fn_ in os.listdir(self.cache) if os.path.isdir(self.cache) else []:
+                if not fn_.endswith(suffix):
+                    continue
+                cn = fn_[:-len(suffix)].split(":")[-1]
+                try:
+                    data = json.load(open(os.path.join(self.cache, fn_)))
+                except Exception:
+                    continue
+                if isinstance(data, dict) and "__error__" not in data:
+                    out.setdefault(cn, set()).update(k.split("(")[0] for k in data)
+            self._getter_fns = out
+        return self._getter_fns
 
     def immconst(self, path):
         if path not in self._immconst:
@@ -162,7 +190,10 @@ class Ctx(object):
                 return json.load(open(p))
             except ValueError:
                 pass
-        env = dict(os.environ, FOUNDRY_PROFILE="cauldron")
+        # Renderer sources are excluded from the cauldron profile. Use their
+        # dedicated profile so storage layouts and selectors are real rather
+        # than synthetic missing-artifact failures.
+        env = dict(os.environ, FOUNDRY_PROFILE=("render" if self.cluster == "art" else "cauldron"))
         r = subprocess.run(["forge", "inspect", "%s:%s" % (relpath, name), what, "--json"],
                            cwd=self.root, capture_output=True, text=True, env=env)
         try:
@@ -257,6 +288,23 @@ def prose_of(v):
     if isinstance(v, list):
         return "\n".join(str(x) for x in v)
     return str(v or "")
+
+
+def edge_target_resolves(callee, fn, scope, contract_fns, getter_fns, libfns):
+    """Resolve an edge without treating a globally matching name as evidence."""
+    # Low-level-looking names still need receiver/type evidence. Do not accept
+    # an arbitrary Unknown.transfer/call merely because the name is familiar.
+    if fn in contract_fns.get(callee, set()):
+        return True
+    if fn in getter_fns.get(callee, set()):
+        return True
+    # Dependency methods lack first-party skeleton nodes. A known dependency type
+    # is still required; a caller-supplied scope cannot make an arbitrary callee valid.
+    if (callee in EXT_ALLOW and isinstance(libfns, dict)
+            and isinstance(libfns.get(callee), (list, set, tuple))
+            and fn in libfns[callee]):
+        return True
+    return False
 
 
 # -------------------------------------------------------------------- rules
@@ -407,21 +455,15 @@ def run(src_root, graph_dir, cluster, skeleton_only, partial=False):
                 else:
                     callee, fn = "", callee_fn
                 p = ctx.resolve(fb)
-                if p is None and fn not in LOWLEVEL:
+                if p is None:
                     fail(i, "R2", "edge file %s not found" % fb)
                 elif p is not None and not ctx.word_on(p, ln, fn):
                     fail(i, "R2", "edge: %r not on %s:%d" % (fn, fb, ln))
-                # R4 resolution
-                if fn in LOWLEVEL:
-                    ok = True
-                elif fn in ctx.srcfns():
-                    ok = True
-                elif fn in ctx.libfns():
-                    ok = True
-                elif callee in EXT_ALLOW and fn in ctx.libfns():
-                    ok = True
-                else:
-                    ok = False
+                # R4 resolution. A same-named function on another contract does
+                # not resolve this edge.
+                scope = m.group(5)
+                ok = edge_target_resolves(callee, fn, scope, ctx.contract_fns(),
+                                          ctx.getter_fns(), ctx.libfns())
                 if not ok:
                     fail(i, "R4", "edge callee %s.%s unresolved" % (callee, fn))
                     unresolved_edges.append("%s.%s" % (callee, fn))

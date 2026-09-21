@@ -1,1198 +1,1361 @@
 {
- "cluster": "governance",
- "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-12T11:37:55",
- "files": {
-  "cauldron/CauldronGovernor.sol": 573,
-  "cauldron/TreasuryGovernor.sol": 950
- },
- "nodes": [
-  {
-   "contract": "IRegistryQuotes (declared in CauldronGovernor.sol)",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 25,
-   "kind": "function",
-   "name": "allowedQuote",
-   "signature": "function allowedQuote(address quote) external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body in this file; the selector is dispatched by propose through a low-level staticcall on the owner-set registry address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `allowedQuote` (CauldronGovernor.sol:25) has no body here. Its selector is encoded by `abi.encodeWithSelector` (CauldronGovernor.sol:340) and dispatched by `staticcall` (CauldronGovernor.sol:339) inside propose, where a failed call, a short return or a false decode all revert `QuoteNotAllowed` (CauldronGovernor.sol:342). The callee address is the storage slot `registry` (CauldronGovernor.sol:339), so the code actually reached is the registry's public allowlist mapping `allowedQuote` (CauldronRegistry.sol:321), which is written only by the owner-gated `setAllowedQuote` (CauldronRegistry.sol:308) and pre-seeded true for native ether at `allowedQuote` (CauldronRegistry.sol:175).",
-   "observations": []
+  "cluster": "governance",
+  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
+  "generated": "2026-09-18T09:06:10",
+  "files": {
+    "cauldron/CauldronGovernor.sol": 861,
+    "cauldron/TreasuryGovernor.sol": 1059
   },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 195,
-   "kind": "function",
-   "name": "renounceOwnership",
-   "signature": "function renounceOwnership() public view override onlyOwner",
-   "visibility": "public",
-   "mutability": "view",
-   "modifiers": [
-    "onlyOwner"
-   ],
-   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
-   "body_lines": [
-    195,
-    197
-   ],
-   "value": "none - it reverts (DERIVED)",
-   "authority": "owner (and it always reverts)",
-   "reads": [],
-   "edges": [],
-   "observations": [],
-   "reachability": "Override that disables OpenZeppelin's live `renounceOwnership` by reverting `OwnershipCannotBeRenounced` (CauldronGovernor.sol:196). The owner is the only caller of `setRegistry` (CauldronGovernor.sol:251), so renouncing would permanently pin the registry wiring with no redeploy that preserves the stockpiled mandates. `transferOwnership` is untouched, so handing the seat away remains available (DERIVED).",
-   "authority_gate_quote": "function renounceOwnership() public view override onlyOwner { (CauldronGovernor.sol:195)",
-   "writes": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 243,
-   "kind": "constructor",
-   "name": "",
-   "signature": "constructor(address _mifrens) Ownable(msg.sender)",
-   "visibility": "",
-   "mutability": "nonpayable",
-   "modifiers": [
-    "Ownable(msg.sender)"
-   ],
-   "body_sha1": "553bff73875d6628c6e82def7ba04bfd67b7098c",
-   "body_lines": [
-    243,
-    246
-   ],
-   "authority": "deployer",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [
-    "mifrens (line 245, immutable)"
-   ],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Runs once at deployment. A zero electorate reverts `EmptyField` (CauldronGovernor.sol:244); otherwise the voting token is frozen into the immutable `mifrens` (CauldronGovernor.sol:245) that every later weight read uses. `Ownable` (CauldronGovernor.sol:243) installs the deployer as owner, and the owner is the only account that can ever wire `registry` (CauldronGovernor.sol:254). The registry is NOT set here, so until `setRegistry` (CauldronGovernor.sol:251) runs the only caller `NotRegistry` (CauldronGovernor.sol:476) would accept is address zero, and a non-native quote in propose staticalls address zero, whose empty return fails the length test at `QuoteNotAllowed` (CauldronGovernor.sol:342).",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 251,
-   "kind": "function",
-   "name": "setRegistry",
-   "signature": "function setRegistry(address _registry) external onlyOwner",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [
-    "onlyOwner"
-   ],
-   "body_sha1": "2024a32a88be75b107b7f0d94e16ce96946e8514",
-   "body_lines": [
-    251,
-    256
-   ],
-   "authority": "owner",
-   "authority_gate_quote": "onlyOwner (CauldronGovernor.sol:251)",
-   "reads": [
-    "registry (line 252)"
-   ],
-   "writes": [
-    "registry (line 254)"
-   ],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Owner-only and one-shot: a non-zero current value reverts `RegistryAlreadySet` (CauldronGovernor.sol:252) and a zero argument reverts `EmptyField` (CauldronGovernor.sol:253), so the consumer address can never be rotated or cleared once written to `registry` (CauldronGovernor.sol:254). Whatever lands here becomes the sole caller accepted by `NotRegistry` (CauldronGovernor.sol:476) and the target of the allowlist `staticcall` (CauldronGovernor.sol:339) in propose. Ownership itself is Ownable's: it can be transferred or renounced, and renouncing before this call leaves `markConsumed` (CauldronGovernor.sol:475) permanently unreachable (DERIVED).",
-   "observations": [
-    "comment `markConsumed` (CauldronGovernor.sol:20) says the only privileged call is markConsumed, restricted to the registry; code `onlyOwner` (CauldronGovernor.sol:251) adds an owner-gated setter, and `Ownable` (CauldronGovernor.sol:243) adds transferOwnership and renounceOwnership to the external surface."
-   ]
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 280,
-   "kind": "function",
-   "name": "propose",
-   "signature": "function propose( string calldata name, string calldata symbol, MetadataMode mode, string calldata baseURI, address renderer, string calldata website, string calldata socials, uint256 nftSupply, uint256 volumePerNFT, address quote ) external returns (uint256 id)",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "6d85c35d634f91371b09c9623a6d09722a34890a",
-   "body_lines": [
-    291,
-    366
-   ],
-   "authority": "voter/holder (any address with non-zero live MiFrens voting power)",
-   "authority_gate_quote": "if (mifrens.getVotes(msg.sender) == 0) revert NoVotingPower(); (CauldronGovernor.sol:294)",
-   "reads": [
-    "mifrens (line 294, immutable)",
-    "MAX_NAME_BYTES (line 301, constant)",
-    "MAX_SYMBOL_BYTES (line 301, constant)",
-    "MAX_URI_BYTES (line 302, constant)",
-    "MAX_LINK_BYTES (line 303, constant)",
-    "MAX_NFT_SUPPLY (line 316, constant)",
-    "registry (line 339)",
-    "proposalCount (line 345)",
-    "VOTING_PERIOD (line 360, constant)"
-   ],
-   "writes": [
-    "proposalCount (line 345)",
-    "_proposals[id] (line 346)",
-    "_proposals[id].quote (line 354)",
-    "_proposals[id].votes (line 358)",
-    "_proposals[id].snapshot (line 359)",
-    "_proposals[id].votingEndsAt (line 360)",
-    "_proposals[id].consumed (line 361)",
-    "_proposals[id].exists (line 362)"
-   ],
-   "value": "NONE",
-   "edges": [
-    "IVotes.getVotes (CauldronGovernor.sol:294), TRUSTED, out-of-cluster",
-    "registry.staticcall (CauldronGovernor.sol:339), UNTRUSTED, out-of-cluster",
-    "IRegistryQuotes.allowedQuote (CauldronGovernor.sol:340), UNTRUSTED, out-of-cluster"
-   ],
-   "reachability": "Permissionless for anyone holding one MiFren of live voting power: `getVotes` (CauldronGovernor.sol:294) must be non-zero, with no deposit, cooldown or per-address cap. Input bounds applied here are empty name/symbol `EmptyField` (CauldronGovernor.sol:295), five byte caps `FieldTooLong` (CauldronGovernor.sol:305), a renderer that must have code `BadRenderer` (CauldronGovernor.sol:310), the collection-size ceiling `SupplyOutOfRange` (CauldronGovernor.sol:316) and, for any non-native quote, the registry allowlist `QuoteNotAllowed` (CauldronGovernor.sol:342). `volumePerNFT` (CauldronGovernor.sol:356) is stored unbounded and reaches the hook through `setNftCurveFrom` (CauldronRegistry.sol:1098). The new id is `proposalCount` (CauldronGovernor.sol:345) incremented, the power snapshot is the current block `snapshot` (CauldronGovernor.sol:359), and the vote closes at `votingEndsAt` (CauldronGovernor.sol:360), i.e. three days out. The record is what `winner` (CauldronGovernor.sol:451) hands the registry and what `relaunch` replays via `winner` (CauldronRegistry.sol:867).",
-   "observations": [
-    "comment `markConsumed` (CauldronGovernor.sol:315) says a proposal is untrusted input that must be rejected at this boundary because a deeper revert would freeze the machine; code bounds `nftSupply` (CauldronGovernor.sol:316) and the five strings at `FieldTooLong` (CauldronGovernor.sol:305) but stores `volumePerNFT` (CauldronGovernor.sol:356) unbounded, and it reaches the hook unclamped at `setNftCurveFrom` (CauldronRegistry.sol:1098)."
-   ]
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 369,
-   "kind": "function",
-   "name": "displayName",
-   "signature": "function displayName(uint256 proposalId) external view returns (string memory)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "155a9be255686b7f2a18bf527eccddffe5903128",
-   "body_lines": [
-    369,
-    373
-   ],
-   "authority": "anyone",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "_proposals (line 370)",
-    "_proposals[proposalId].exists (line 371)",
-    "_proposals[proposalId].name (line 372)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "LaunchLib.displayName (CauldronGovernor.sol:372), TRUSTED, library"
-   ],
-   "reachability": "Unrestricted view. Reverts `UnknownProposal` (CauldronGovernor.sol:371) for an id that was never written, otherwise returns the stored name through the pure library helper `displayName` (CauldronGovernor.sol:372). No state, no value, no reachable side effect.",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 383,
-   "kind": "function",
-   "name": "vote",
-   "signature": "function vote(uint256 proposalId) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "2ef12a37597419495aa02c478b078ddab5edbb53",
-   "body_lines": [
-    383,
-    424
-   ],
-   "value": "none - it only records votes; no asset moves (DERIVED)",
-   "authority": "anyone holding checkpointed MiFrens voting power at the proposal's snapshot",
-   "reads": [
-    "_proposals (line 384)",
-    "hasVoted (line 392)",
-    "mifrens (line 398, immutable)",
-    "_leaderVotes (line 407)",
-    "_leaderId (line 410)",
-    "_runnerVotes (line 416)"
-   ],
-   "edges": [
-    "IVotes.getPastVotes (CauldronGovernor.sol:398), TRUSTED, out-of-cluster",
-    "CauldronGovernor._benchRecord (CauldronGovernor.sol:421), TRUSTED, in-cluster"
-   ],
-   "observations": [],
-   "reachability": "Permissionless per proposal, once per address: an unknown or already-consumed proposal is refused at `UnknownProposal` (CauldronGovernor.sol:385) and `AlreadyConsumed` (CauldronGovernor.sol:386), the window is checked before the double-vote test so a closed vote always reports as closed at `VotingClosed` (CauldronGovernor.sol:391), and repeat voting at `AlreadyVoted` (CauldronGovernor.sol:392). Weight is CHECKPOINTED power at the proposal's snapshot block at `getPastVotes` (CauldronGovernor.sol:398), with the snapshot required to be in the past at `SnapshotNotReady` (CauldronGovernor.sol:397), so moving MiFrens to a fresh wallet mints no new votes. The leader/runner-up hints are still maintained - ties keep the incumbent at `_leaderVotes` (CauldronGovernor.sol:407), and a leader gaining votes is not demoted into its own runner slot at `_leaderId` (CauldronGovernor.sol:410) - and the NEW effect is that every vote also enters the fixed 8-slot bench at `_benchRecord` (CauldronGovernor.sol:421), which is what the leader rescan now walks instead of a positional window over the proposal list.",
-   "authority_gate_quote": "if (weight == 0) revert NoVotingPower(); (CauldronGovernor.sol:399)",
-   "writes": [
-    "hasVoted (line 401)",
-    "_proposals.votes (line 402)",
-    "_runnerId (line 411)",
-    "_runnerVotes (line 412)",
-    "_leaderVotes (line 414)",
-    "_leaderId (line 415)",
-    "_runnerVotes (line 417)",
-    "_runnerId (line 418)"
-   ]
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 429,
-   "kind": "function",
-   "name": "_benchRecord",
-   "signature": "function _benchRecord(uint256 id, uint256 votes) private",
-   "visibility": "private",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "3cfcd6c482bd8e523b76ed4a1cd7d3890f379ca8",
-   "body_lines": [
-    429,
-    444
-   ],
-   "value": "none - bookkeeping only (DERIVED)",
-   "authority": "private (single caller: vote)",
-   "reads": [
-    "BENCH_SLOTS (line 432, constant)",
-    "_bench (line 433)",
-    "_proposals (line 437)"
-   ],
-   "edges": [],
-   "observations": [
-    "eight slots is a hard ceiling on simultaneously-tracked mandates at `BENCH_SLOTS` (CauldronGovernor.sol:200): a ninth live mandate weaker than all eight incumbents is not recorded, so `_recomputeLeader` (CauldronGovernor.sol:554) cannot elect it even though it exists, is settled and is unconsumed (DERIVED)"
-   ],
-   "reachability": "Called on every vote from `_benchRecord` (CauldronGovernor.sol:421). Entry is priced in VOTES rather than position: a proposal already on the bench returns immediately at `b` (CauldronGovernor.sol:434), and otherwise the incoming weight must exceed the WEAKEST live entry at `weakVotes` (CauldronGovernor.sol:443) to displace it. A slot holding a consumed or vanished proposal is valued at zero at `consumed` (CauldronGovernor.sol:439) so it is reclaimed first and the bench self-cleans as the machine is reborn. The loop is a fixed `BENCH_SLOTS` (CauldronGovernor.sol:432) = 8 iterations whatever the proposal count, which is what keeps the rebirth scan O(1) (DERIVED). Because displacement needs more votes than the weakest LIVE mandate, a proposal nobody voted for can never enter, and spam filings cost the bench nothing (DERIVED).",
-   "authority_gate_quote": "UNGATED",
-   "writes": [
-    "_bench (line 443)"
-   ]
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 451,
-   "kind": "function",
-   "name": "winner",
-   "signature": "function winner() external view returns (uint256 proposalId, BrewSpec memory spec)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "5513e4155dc9158324fbf8ce67075894b88ee3ab",
-   "body_lines": [
-    451,
-    468
-   ],
-   "authority": "anyone (the registry is the production caller)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "_proposals (line 454)",
-    "_proposals[proposalId].name (line 456)",
-    "_proposals[proposalId].quote (line 463)",
-    "_proposals[proposalId].nftSupply (line 464)",
-    "_proposals[proposalId].volumePerNFT (line 465)",
-    "_proposals[proposalId].proposer (line 466)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:452), TRUSTED, in-cluster"
-   ],
-   "reachability": "Unrestricted view, but only meaningful to the registry: `relaunch` calls `winner` (CauldronRegistry.sol:867) to build the next brew and later retires it with `markConsumed` (CauldronRegistry.sol:995). Selection is delegated to `_bestUnconsumed` (CauldronGovernor.sol:452), which returns the cached leader only once its voting window has closed; zero reverts `NoProposals` (CauldronGovernor.sol:453). The returned struct copies seven proposer-controlled strings and addresses into memory, which is the replay cost the byte caps in propose bound.",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 470,
-   "kind": "function",
-   "name": "hasProposals",
-   "signature": "function hasProposals() external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "9b0f687cb5cd64653bd56aaeb169c52ec8865c65",
-   "body_lines": [
-    470,
-    472
-   ],
-   "authority": "anyone (the registry is the production caller)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:471), TRUSTED, in-cluster"
-   ],
-   "reachability": "Unrestricted view wrapping the same selection as winner. `relaunch` gates the whole rebirth on it at `hasProposals` (CauldronRegistry.sol:805) and reverts `NoProposal` there when it is false, so a false answer stops the machine being reborn until a settled, unconsumed proposal exists. It costs a scan whenever the cached-leader fast path in `_bestUnconsumed` (CauldronGovernor.sol:471) misses.",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 475,
-   "kind": "function",
-   "name": "markConsumed",
-   "signature": "function markConsumed(uint256 proposalId) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "c01725ed0fa6c320272624f113fcd0069a24923c",
-   "body_lines": [
-    475,
-    506
-   ],
-   "authority": "registry",
-   "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronGovernor.sol:476)",
-   "reads": [
-    "registry (line 476)",
-    "_proposals (line 477)",
-    "_proposals[proposalId].exists (line 478)",
-    "_proposals[proposalId].consumed (line 479)",
-    "_leaderId (line 483)",
-    "_runnerId (line 488)",
-    "_runnerVotes (line 489)"
-   ],
-   "writes": [
-    "_proposals[proposalId].consumed (line 480)",
-    "_leaderId (line 490)",
-    "_leaderVotes (line 491)",
-    "_runnerId (line 497)",
-    "_runnerVotes (line 498)"
-   ],
-   "value": "NONE",
-   "edges": [
-    "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:495), TRUSTED, in-cluster"
-   ],
-   "reachability": "Reachable only from the address stored in `registry` (CauldronGovernor.sol:476), which in production is CauldronRegistry inside relaunch at `markConsumed` (CauldronRegistry.sol:995); any other caller reverts `NotRegistry` (CauldronGovernor.sol:476). It re-checks existence `UnknownProposal` (CauldronGovernor.sol:478) and idempotence `AlreadyConsumed` (CauldronGovernor.sol:479), then sets `consumed` (CauldronGovernor.sol:480) one-way. Leader maintenance: consuming the leader promotes the carried runner-up when it is still live at `_runnerVotes` (CauldronGovernor.sol:489), else falls back to the bounded rescan `_recomputeLeader` (CauldronGovernor.sol:495); both slots are then cleared at `_runnerId` (CauldronGovernor.sol:497). Because this call sits inside relaunch, any revert downstream of it rolls the consumption back with the transaction (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 512,
-   "kind": "function",
-   "name": "getProposal",
-   "signature": "function getProposal(uint256 id) external view returns (Proposal memory)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "b6060ba3afa1e8a7f1fc367372f89d8bce2e9948",
-   "body_lines": [
-    512,
-    516
-   ],
-   "authority": "anyone",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "_proposals (line 513)",
-    "_proposals[id].exists (line 514)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Unrestricted view. Copies the whole proposal, five strings included, into memory `_proposals` (CauldronGovernor.sol:513) and reverts `UnknownProposal` (CauldronGovernor.sol:514) for an id never written. No gate, no state change, no value.",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 522,
-   "kind": "function",
-   "name": "_bestUnconsumed",
-   "signature": "function _bestUnconsumed() private view returns (uint256)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "68fc0e2d5f4878b5d9c631552595667e7a076b43",
-   "body_lines": [
-    522,
-    530
-   ],
-   "authority": "internal (callers: winner, hasProposals)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "_proposals (line 523)",
-    "_leaderId (line 523)",
-    "_proposals[_leaderId].exists (line 524)",
-    "_proposals[_leaderId].consumed (line 524)",
-    "_leaderVotes (line 524)",
-    "_proposals[_leaderId].votingEndsAt (line 525)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:528), TRUSTED, in-cluster"
-   ],
-   "reachability": "Private; reached from `winner` (CauldronGovernor.sol:451) and `hasProposals` (CauldronGovernor.sol:470), hence from the registry's relaunch path. The fast path returns the cached `_leaderId` (CauldronGovernor.sol:526) only when it exists, is unconsumed, has votes and its window has closed at `votingEndsAt` (CauldronGovernor.sol:525); a proposal still taking votes therefore cannot be launched. Any miss pays the bounded scan `_recomputeLeader` (CauldronGovernor.sol:528), and returning zero is what makes relaunch revert.",
-   "observations": []
-  },
-  {
-   "contract": "CauldronGovernor",
-   "file": "cauldron/CauldronGovernor.sol",
-   "line": 554,
-   "kind": "function",
-   "name": "_recomputeLeader",
-   "signature": "function _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "131f2c089a4971b4e54f09239b2a70958b2dae35",
-   "body_lines": [
-    554,
-    571
-   ],
-   "value": "none - a view (DERIVED)",
-   "authority": "private view (caller: _bestUnconsumed)",
-   "reads": [
-    "BENCH_SLOTS (line 560, constant)",
-    "_bench (line 561)",
-    "_proposals (line 563)"
-   ],
-   "edges": [],
-   "observations": [
-    "the doc block for `MAX_LEADER_SCAN` (CauldronGovernor.sol:550) still describes bounding a scan over the proposal list at 64; code no longer reads that constant here - the loop bound is `BENCH_SLOTS` (CauldronGovernor.sol:560) - so the constant is retained but unused by this function"
-   ],
-   "reachability": "The rescan behind `_recomputeLeader` (CauldronGovernor.sol:528), reached from `hasProposals` (CauldronGovernor.sol:470) and from `winner` (CauldronGovernor.sol:451) - i.e. on the relaunch path - whenever the cached leader is consumed, gone or still taking votes at `votingEndsAt` (CauldronGovernor.sol:525). It now iterates the fixed 8-slot bench at `_bench` (CauldronGovernor.sol:561) instead of a window over the most recent proposal ids, which is what removes the flood: ids were mintable by any single MiFren holder with no cooldown, so a voted, settled, unconsumed mandate could be pushed out of a positional window. Each candidate must still exist and be unconsumed at `consumed` (CauldronGovernor.sol:564) and must have CLOSED its voting window at `votingEndsAt` (CauldronGovernor.sol:565), and the comparison is strict at `bestVotes` (CauldronGovernor.sol:566) so ties keep the lower bench slot rather than the earlier proposal.",
-   "authority_gate_quote": "UNGATED",
-   "writes": []
-  },
-  {
-   "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 5,
-   "kind": "function",
-   "name": "getPastVotes",
-   "signature": "function getPastVotes(address account, uint256 blockNumber) external view returns (uint256)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `getPastVotes` (TreasuryGovernor.sol:5) has no body here. It is called once, in vote at `getPastVotes` (TreasuryGovernor.sol:471), against the proposal's stored `snapshot` (TreasuryGovernor.sol:471), and a zero result reverts `NoVotingPower` (TreasuryGovernor.sol:472). The callee is the immutable set at `mifrens` (TreasuryGovernor.sol:373), so a deployment that wires a contract without this selector makes every vote revert (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 6,
-   "kind": "function",
-   "name": "getVotes",
-   "signature": "function getVotes(address account) external view returns (uint256)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `getVotes` (TreasuryGovernor.sol:6) has no body here. It is called once, as the proposal-threshold gate `getVotes` (TreasuryGovernor.sol:416), where a live balance below `PROPOSAL_THRESHOLD` (TreasuryGovernor.sol:416) reverts BelowProposalThreshold. Unlike the ballot weight it is read LIVE, not at a snapshot, so threshold power can be borrowed for the length of one transaction (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 15,
-   "kind": "function",
-   "name": "getPastTotalSupply",
-   "signature": "function getPastTotalSupply(uint256 timepoint) external view returns (uint256)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `getPastTotalSupply` (TreasuryGovernor.sol:15) has no body here. It is the quorum denominator, called once at `getPastTotalSupply` (TreasuryGovernor.sol:887) inside the pass test, measured at the proposal's `snapshot` (TreasuryGovernor.sol:887) and scaled by `QUORUM_BPS` (TreasuryGovernor.sol:887). Every path that decides an outcome runs through it: `_passed` (TreasuryGovernor.sol:563) in execute, `_passed` (TreasuryGovernor.sol:721) inside the bench scan's executability test, `_passed` (TreasuryGovernor.sol:721) and the public `passing` (TreasuryGovernor.sol:897), so a reverting or missing implementation blocks execution entirely.",
-   "observations": []
-  },
-  {
-   "contract": "IRegistryQuotes (declared in TreasuryGovernor.sol)",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 19,
-   "kind": "function",
-   "name": "allowedQuote",
-   "signature": "function allowedQuote(address quote) external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body; dispatched on the immutable registry address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `allowedQuote` (TreasuryGovernor.sol:19) has no body here. It is called twice on the immutable `registry` (TreasuryGovernor.sol:374): once when a rotation target is named at `allowedQuote` (TreasuryGovernor.sol:420) and again when the envelope is installed at `allowedQuote` (TreasuryGovernor.sol:594), both reverting QuoteNotAllowed. The implementation is the registry's public mapping `allowedQuote` (CauldronRegistry.sol:321), writable only through the owner-gated `setAllowedQuote` (CauldronRegistry.sol:308) \u2014 so the allowlist is outside the reach of any vote here.",
-   "observations": []
-  },
-  {
-   "contract": "IQuotePrice (declared in TreasuryGovernor.sol)",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 24,
-   "kind": "function",
-   "name": "usdPerRawUnit",
-   "signature": "function usdPerRawUnit(address quote) external view returns (uint256)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "",
-   "body_lines": [],
-   "authority": "anyone (declaration only, no body; dispatched on the guardian-set quoteOracle address)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Declaration only: `usdPerRawUnit` (TreasuryGovernor.sol:24) has no body here. It is called once, at `usdPerRawUnit` (TreasuryGovernor.sol:938), and only when the target is non-native and an oracle is wired; a zero price reverts `QuoteNotPriceable` (TreasuryGovernor.sol:938). The address is the mutable `quoteOracle` (TreasuryGovernor.sol:936), which the guardian may repoint at any contract via `setQuoteOracle` (TreasuryGovernor.sol:943), so this call is to an address an admin controls (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 317,
-   "kind": "function",
-   "name": "conversionFor",
-   "signature": "function conversionFor(uint16 spendBps, uint16 sliceBps) external pure returns (uint16)",
-   "visibility": "external",
-   "mutability": "pure",
-   "modifiers": [],
-   "body_sha1": "4b0adffb793faf2842ac259ccb0bbcbfd68f8b5c",
-   "body_lines": [
-    317,
-    326
-   ],
-   "authority": "anyone",
-   "authority_gate_quote": "UNGATED",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Unrestricted pure helper with no storage access and no caller inside this file; it exists for user interfaces that must translate a spend budget into the share of the position it converts. Both arguments are caller-supplied, so the loop trip count `n` (TreasuryGovernor.sol:319) is spendBps divided by sliceBps and is bounded only by the uint16 range \u2014 up to 65535 iterations when `sliceBps` (TreasuryGovernor.sol:319) is 1, which is a caller-paid cost in a view call (DERIVED). Each step multiplies before dividing at `rem` (TreasuryGovernor.sol:323), truncating toward zero, so the remaining share rounds DOWN and the reported conversion at `rem` (TreasuryGovernor.sol:325) rounds UP (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 363,
-   "kind": "constructor",
-   "name": "",
-   "signature": "constructor( IVotes721 _mifrens, address _registry, address _guardian, uint64 votingPeriod, uint64 envelopeLifetime, uint64 cooldown, uint64 executionWindow, bool testnet )",
-   "visibility": "",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "7c369dc80b632df2abba18a75ff1e137e5c20a67",
-   "body_lines": [
-    372,
-    399
-   ],
-   "authority": "deployer",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "MAINNET_VOTING (line 379, constant)",
-    "MAINNET_LIFETIME (line 380, constant)",
-    "MAINNET_COOLDOWN (line 381, constant)",
-    "MAINNET_EXEC_WINDOW (line 382, constant)",
-    "MIN_VOTING (line 385, constant)",
-    "MIN_COOLDOWN (line 386, constant)",
-    "MIN_EXEC_WINDOW (line 387, constant)"
-   ],
-   "writes": [
-    "mifrens (line 373, immutable)",
-    "registry (line 374, immutable)",
-    "guardian (line 375)",
-    "VOTING_PERIOD (line 394, immutable)",
-    "ENVELOPE_LIFETIME (line 395, immutable)",
-    "COOLDOWN (line 396, immutable)",
-    "EXECUTION_WINDOW (line 397, immutable)"
-   ],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Runs once at deployment and is the only writer of every timing parameter. Zero arguments fall back to the mainnet defaults at `MAINNET_VOTING` (TreasuryGovernor.sol:379) and its three siblings; unless `testnet` (TreasuryGovernor.sol:384) is passed, the one-day floors at `MIN_VOTING` (TreasuryGovernor.sol:385), `MIN_COOLDOWN` (TreasuryGovernor.sol:386) and `MIN_EXEC_WINDOW` (TreasuryGovernor.sol:387) apply, and in BOTH modes a lifetime shorter than the execution window reverts `BadTiming` (TreasuryGovernor.sol:392). No floor exists on `ENVELOPE_LIFETIME` (TreasuryGovernor.sol:395) itself beyond that coherence test, and neither `mifrens` (TreasuryGovernor.sol:373) nor `registry` (TreasuryGovernor.sol:374) nor `guardian` (TreasuryGovernor.sol:375) is checked for zero or for code, so a mis-wired deployment is only detectable later: a zero guardian dead-ends `cancel` (TreasuryGovernor.sol:616), `setGuardian` (TreasuryGovernor.sol:631) and `setQuoteOracle` (TreasuryGovernor.sol:943) forever (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 415,
-   "kind": "function",
-   "name": "propose",
-   "signature": "function propose(address quote, uint16 maxTotalBps) external returns (uint256 id)",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "f3e652083714d286a31ef306a7fc19acd4fbb7c9",
-   "body_lines": [
-    415,
-    463
-   ],
-   "reachability": "Permissionless above a MiFrens threshold at `PROPOSAL_THRESHOLD` (TreasuryGovernor.sol:416); the size is bounded at `MAX_ENVELOPE_BPS` (TreasuryGovernor.sol:417), and the destination must be both allowlisted at `allowedQuote` (TreasuryGovernor.sol:420) and oracle-priceable at `_requirePriceable` (TreasuryGovernor.sol:421), both re-checked at execution. Proposals COMPETE rather than queue - only the ENVELOPE is exclusive, refused while one is live at `ProposalActive` (TreasuryGovernor.sol:437) or inside `CooldownActive` (TreasuryGovernor.sol:438) - so a spammer cannot hold a single slot and veto treasury governance. The vote snapshot is now the PREVIOUS block at `snapshot` (TreasuryGovernor.sol:455): taking it at the current block let a proposer file and then acquire MiFrens later in the same block, because `getPastVotes` at an unsealed block counts transfers that land after the proposing transaction. Voting closes a fixed `VOTING_PERIOD` (TreasuryGovernor.sol:444) after filing.",
-   "authority": "anyone holding at least PROPOSAL_THRESHOLD MiFrens of live voting power",
-   "value": "none - filing a proposal moves nothing (DERIVED)",
-   "authority_gate_quote": "if (mifrens.getVotes(msg.sender) < PROPOSAL_THRESHOLD) revert BelowProposalThreshold(); (TreasuryGovernor.sol:416)",
-   "edges": [
-    "IVotes721.getVotes (TreasuryGovernor.sol:416), TRUSTED, out-of-cluster",
-    "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:420), TRUSTED, out-of-cluster",
-    "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:421), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "mifrens (line 416, immutable)",
-    "PROPOSAL_THRESHOLD (line 416, constant)",
-    "MAX_ENVELOPE_BPS (line 417, constant)",
-    "registry (line 420, immutable)",
-    "envelope (line 437)",
-    "lastEnvelopeAt (line 438)",
-    "COOLDOWN (line 438, immutable)",
-    "proposalCount (line 440)",
-    "VOTING_PERIOD (line 444, immutable)"
-   ],
-   "observations": [],
-   "writes": [
-    "proposalCount (line 440)",
-    "proposals (line 441)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 465,
-   "kind": "function",
-   "name": "vote",
-   "signature": "function vote(uint256 id, bool support) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "c46131e57e23ac7593fc5b00842be7effc17589c",
-   "body_lines": [
-    465,
-    530
-   ],
-   "reachability": "Permissionless once per address per proposal: unknown ids are refused at `UnknownProposal` (TreasuryGovernor.sol:467), a closed window at `VotingClosed` (TreasuryGovernor.sol:468), a repeat at `AlreadyVoted` (TreasuryGovernor.sol:469), and zero checkpointed power at `NoVotingPower` (TreasuryGovernor.sol:472). Weight comes from the proposal's own snapshot at `getPastVotes` (TreasuryGovernor.sol:471). The `_leadId` hint is maintained here, where the counts move: the incumbent growing at `_leadVotes` (TreasuryGovernor.sol:487), the first-ever support at `_leadId` (TreasuryGovernor.sol:491), an overtake that dates the displaced rival at `_openVotedAt` (TreasuryGovernor.sol:498), the ONLY branch that lowers the bar - retiring a hint that is provably dead and older than a full vote-plus-execution window at `_dead` (TreasuryGovernor.sol:502) - and otherwise just re-dating at `_openVotedAt` (TreasuryGovernor.sol:525). NEW: a FOR-vote also enters the fixed 8-slot bench at `_benchRecord` (TreasuryGovernor.sol:528), which is what `winner` now falls back to instead of any scan over the proposal list. AGAINST-votes are counted at `againstVotes` (TreasuryGovernor.sol:475) but touch neither the hint nor the bench (DERIVED).",
-   "authority": "anyone holding checkpointed MiFrens power at the proposal's snapshot",
-   "value": "none - it only records votes (DERIVED)",
-   "authority_gate_quote": "if (w == 0) revert NoVotingPower(); (TreasuryGovernor.sol:472)",
-   "edges": [
-    "IVotes721.getPastVotes (TreasuryGovernor.sol:471), TRUSTED, out-of-cluster",
-    "TreasuryGovernor._dead (TreasuryGovernor.sol:502), TRUSTED, in-cluster",
-    "TreasuryGovernor._benchRecord (TreasuryGovernor.sol:528), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "proposals (line 466)",
-    "hasVoted (line 469)",
-    "mifrens (line 471, immutable)",
-    "_leadId (line 483)",
-    "_leadVotes (line 493)",
-    "_openVotedAt (line 503)",
-    "VOTING_PERIOD (line 503, immutable)",
-    "EXECUTION_WINDOW (line 503, immutable)"
-   ],
-   "observations": [],
-   "writes": [
-    "hasVoted (line 474)",
-    "proposals.forVotes (line 475)",
-    "_leadVotes (line 487)",
-    "_leadId (line 491)",
-    "_openVotedAt (line 498)",
-    "_leadId (line 499)",
-    "_leadVotes (line 500)",
-    "_leadId (line 519)",
-    "_leadVotes (line 520)",
-    "_openVotedAt (line 525)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 534,
-   "kind": "function",
-   "name": "_benchRecord",
-   "signature": "function _benchRecord(uint256 id, uint256 votes) private",
-   "visibility": "private",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "69fa561714786cab856ac84c5156cf8d304baefe",
-   "body_lines": [
-    534,
-    550
-   ],
-   "reachability": "Reached only from a supporting vote at `_benchRecord` (TreasuryGovernor.sol:528). An id already tracked returns immediately at `b` (TreasuryGovernor.sol:539); otherwise the incoming FOR-total must beat the WEAKEST live entry at `weakVotes` (TreasuryGovernor.sol:549). Entries that can never execute again are valued at zero through the monotone `_dead` (TreasuryGovernor.sol:545) - the same test the hint retires on - so dead slots are reclaimed before live ones. Fixed `BENCH_SLOTS` (TreasuryGovernor.sol:537) iterations, so the cost does not grow with the proposal count (DERIVED).",
-   "authority": "private (single caller: vote, on a FOR-vote only)",
-   "value": "none - bookkeeping only (DERIVED)",
-   "authority_gate_quote": "UNGATED",
-   "edges": [
-    "TreasuryGovernor._dead (TreasuryGovernor.sol:545), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "BENCH_SLOTS (line 537, constant)",
-    "_bench (line 538)",
-    "proposals (line 542)"
-   ],
-   "observations": [
-    "eight slots bounds how many mandates can be tracked at once at `BENCH_SLOTS` (TreasuryGovernor.sol:209); a ninth passing proposal weaker than every incumbent never enters, so `winner` (TreasuryGovernor.sol:667) cannot elect it once the `_leadId` fast path misses (DERIVED)"
-   ],
-   "writes": [
-    "_bench (line 549)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 558,
-   "kind": "function",
-   "name": "execute",
-   "signature": "function execute(uint256 id) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "80c2b3a5c3bd093bf4445bc323eb08377680c4f8",
-   "body_lines": [
-    558,
-    611
-   ],
-   "reachability": "Permissionless. Order of refusals: unknown id at `UnknownProposal` (TreasuryGovernor.sol:560), vote still open at `VotingOpen` (TreasuryGovernor.sol:561), already executed or cancelled at `AlreadyExecuted` (TreasuryGovernor.sol:562), failed the majority-plus-quorum test at `_passed` (TreasuryGovernor.sol:563), not the chosen leader at `winner` (TreasuryGovernor.sol:568), and past its execution window at `EXECUTION_WINDOW` (TreasuryGovernor.sol:571). NEW: the two gates `propose` applies are now applied here too - no second envelope while one is live at `ProposalActive` (TreasuryGovernor.sol:590) and none inside the cooldown of the last at `CooldownActive` (TreasuryGovernor.sol:591). Without them, two proposals passing in the same window could both be executed: the first installs an envelope and stamps `lastEnvelopeAt` (TreasuryGovernor.sol:609), the loser then becomes the leader because the winner is executed, and executing it overwrote the live envelope with `movedBps` and `movedPrimaryBps` reset to zero at `envelope` (TreasuryGovernor.sol:601) - two full budgets inside one cooldown. A guardian cancel clears only `active` at `active` (TreasuryGovernor.sol:619) and not the stamp, so an emergency stop does not reopen the window. The allowlist and the oracle are re-checked last at `allowedQuote` (TreasuryGovernor.sol:594) and `_requirePriceable` (TreasuryGovernor.sol:598).",
-   "authority": "anyone (permissionless, by design - an approved rotation must not need a privileged executor)",
-   "value": "no asset moves here - it installs the envelope that later authorises `rotateSliceFrom` to move liquidity, at `envelope` (line 601)",
-   "authority_gate_quote": "UNGATED",
-   "edges": [
-    "TreasuryGovernor._passed (TreasuryGovernor.sol:563), TRUSTED, in-cluster",
-    "TreasuryGovernor.winner (TreasuryGovernor.sol:568), TRUSTED, in-cluster",
-    "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:594), TRUSTED, out-of-cluster",
-    "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:598), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "proposals (line 559)",
-    "EXECUTION_WINDOW (line 571, immutable)",
-    "envelope (line 590)",
-    "lastEnvelopeAt (line 591)",
-    "COOLDOWN (line 591, immutable)",
-    "registry (line 594, immutable)",
-    "ENVELOPE_LIFETIME (line 605, immutable)"
-   ],
-   "observations": [
-    "comment at `propose` (TreasuryGovernor.sol:572) cites those two gates as ':387-388'; code has them at `ProposalActive` (TreasuryGovernor.sol:437) and `CooldownActive` (TreasuryGovernor.sol:438), so the in-comment line numbers have drifted"
-   ],
-   "writes": [
-    "proposals.executed (line 600)",
-    "envelope (line 601)",
-    "lastEnvelopeAt (line 609)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 616,
-   "kind": "function",
-   "name": "cancel",
-   "signature": "function cancel(uint256 id) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "c7a5e016493edfedd57b64bf40f9f7a630b4c9cf",
-   "body_lines": [
-    616,
-    621
-   ],
-   "authority": "guardian",
-   "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:617)",
-   "reads": [
-    "guardian (line 617)",
-    "envelope.active (line 619)",
-    "proposals[id].executed (line 619)"
-   ],
-   "writes": [
-    "proposals[id].cancelled (line 618)",
-    "envelope.active (line 619)"
-   ],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Only the address in `guardian` (TreasuryGovernor.sol:617) reaches this; everyone else reverts NotGuardian. It accepts ANY id, including one never proposed and one whose vote is still open, and writes `cancelled` (TreasuryGovernor.sol:618) unconditionally; a later proposal that draws that id overwrites the whole struct at `proposals` (TreasuryGovernor.sol:441), so a pre-marked slot does not persist (DERIVED). The live envelope is only stood down when the cancelled proposal is the one that installed it, via the `executed` (TreasuryGovernor.sol:619) test, and `lastEnvelopeAt` (TreasuryGovernor.sol:609) is NOT rewound, so the cooldown from the cancelled envelope still runs against the next `propose` (TreasuryGovernor.sol:415) (DERIVED). The guardian can stop but cannot start or redirect a rotation: no path here writes `quote` (TreasuryGovernor.sol:602) or `maxTotalBps` (TreasuryGovernor.sol:603).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 631,
-   "kind": "function",
-   "name": "setGuardian",
-   "signature": "function setGuardian(address g) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "fd65e99d7286b6f82ca479ffd70469b4c48f0960",
-   "body_lines": [
-    631,
-    635
-   ],
-   "reachability": "Guardian-only hand-off of the guardian seat. Zero is now REFUSED at `BadParam` (TreasuryGovernor.sol:633): the guardian is the sole caller of `cancel` (TreasuryGovernor.sol:616) and of the oracle setter, and this setter is itself guardian-gated at `guardian` (TreasuryGovernor.sol:632), so burning the seat would dead-end the emergency stop permanently with no way to appoint a replacement. There is no two-step acceptance, so a typo'd non-zero address still loses the seat irrecoverably (DERIVED).",
-   "authority": "guardian only",
-   "value": "none (DERIVED)",
-   "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:632)",
-   "edges": [],
-   "reads": [
-    "guardian (line 632)"
-   ],
-   "observations": [
-    "comment at `cancel` (TreasuryGovernor.sol:625) cites cancel at ':518'; code has it at `cancel` (TreasuryGovernor.sol:616) (DERIVED)"
-   ],
-   "writes": [
-    "guardian (line 634)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 667,
-   "kind": "function",
-   "name": "winner",
-   "signature": "function winner() public view returns (uint256 best)",
-   "visibility": "public",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "b21b38ae9e50b2fdaaca8725ff7c1792bd4303cd",
-   "body_lines": [
-    667,
-    713
-   ],
-   "reachability": "Public view that `execute` gates on at `winner` (TreasuryGovernor.sol:568), so it sits on the ONLY path that installs an envelope. Fast path: the `_leadId` (TreasuryGovernor.sol:671) hint is returned only after the same executability test the fallback applies, at `_executable` (TreasuryGovernor.sol:672), so a stale or beaten hint costs a scan rather than electing the wrong proposal. The fallback is now the fixed 8-slot bench at `_bench` (TreasuryGovernor.sol:707) - not the original unbounded `1..proposalCount` loop, and not the positional newest-64 window that replaced it, because a window over a list anyone may grow is a window anyone may flood. Candidates must be executable at `_executable` (TreasuryGovernor.sol:710) and the comparison is strict at `bestVotes` (TreasuryGovernor.sol:711). Cost is O(1) in the proposal count (DERIVED).",
-   "authority": "anyone (public view)",
-   "value": "none - a view (DERIVED)",
-   "authority_gate_quote": "UNGATED",
-   "edges": [
-    "TreasuryGovernor._executable (TreasuryGovernor.sol:672), TRUSTED, in-cluster",
-    "TreasuryGovernor._executable (TreasuryGovernor.sol:710), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "_leadId (line 671)",
-    "proposals (line 672)",
-    "BENCH_SLOTS (line 706, constant)",
-    "_bench (line 707)"
-   ],
-   "observations": [
-    "the doc block above still describes a time-bounded BACKWARDS walk over proposal ids stopping at the first too-old proposal, at `votingEndsAt` (TreasuryGovernor.sol:690); code walks only `_bench` (TreasuryGovernor.sol:707) and never touches `proposalCount`, so that description no longer matches the loop it precedes",
-    "with the bench fallback, ties break to the LOWEST BENCH SLOT rather than to the lower proposal id promised by the header at `Ties` (TreasuryGovernor.sol:642); bench slots are assigned by displacement order, so the tie-break is no longer id-deterministic (DERIVED)"
-   ],
-   "writes": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 717,
-   "kind": "function",
-   "name": "_executable",
-   "signature": "function _executable(Proposal storage p) private view returns (bool)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "13e0c544b3c86c9fbd6aff712d266e1913370f92",
-   "body_lines": [
-    717,
-    722
-   ],
-   "authority": "internal (callers: winner)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "proposals[hint].votingEndsAt (line 718)",
-    "proposals[hint].executed (line 718)",
-    "proposals[hint].cancelled (line 718)",
-    "EXECUTION_WINDOW (line 720, immutable)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "TreasuryGovernor._passed (TreasuryGovernor.sol:721), TRUSTED, in-cluster"
-   ],
-   "reachability": "Private; the single call site is the fast path in `_executable` (TreasuryGovernor.sol:672). It is the one definition of executability: unknown, executed or cancelled proposals fail at `votingEndsAt` (TreasuryGovernor.sol:718), a still-open vote fails at `votingEndsAt` (TreasuryGovernor.sol:719), a stale one fails at `EXECUTION_WINDOW` (TreasuryGovernor.sol:720), and the remainder must clear `_passed` (TreasuryGovernor.sol:721). Because it is a superset of the scan's own tests, trusting the hint can only elect a proposal the scan would also accept, though not necessarily the highest-voted one unless the hint is maintained as a maximum (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 736,
-   "kind": "function",
-   "name": "_dead",
-   "signature": "function _dead(Proposal storage p) private view returns (bool)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "716cdaa004fc2fcedfdd22817a2c48fbb30d3fcb",
-   "body_lines": [
-    736,
-    739
-   ],
-   "authority": "internal (callers: vote)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "proposals[lead].executed (line 737)",
-    "proposals[lead].cancelled (line 737)",
-    "proposals[lead].votingEndsAt (line 738)",
-    "EXECUTION_WINDOW (line 738, immutable)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Private; reached only from the hint-retirement branch at `_dead` (TreasuryGovernor.sol:502). It is monotone: `executed` (TreasuryGovernor.sol:737) and `cancelled` (TreasuryGovernor.sol:737) are one-way flags and the deadline at `EXECUTION_WINDOW` (TreasuryGovernor.sol:738) only recedes, so a true answer can never become false. An id that was never proposed reads dead because `votingEndsAt` (TreasuryGovernor.sol:738) is zero (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 753,
-   "kind": "function",
-   "name": "allowance",
-   "signature": "function allowance() public view returns (address quote, uint16 remainingBps)",
-   "visibility": "public",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "caf47906ed500c65ab4bf085c461a49f93137648",
-   "body_lines": [
-    753,
-    778
-   ],
-   "reachability": "Read by the rotation path at `allowance` (RedemptionExt.sol:303) and by `consume` itself at `allowance` (TreasuryGovernor.sol:830). Returns (0,0) for an absent or expired envelope at `active` (TreasuryGovernor.sol:755) and for a spent one at `spent` (TreasuryGovernor.sol:776), which is why the REMAINDER rather than the destination address is the liveness flag - address(0) is a legitimate destination. NEW: the counter it meters against depends on the size of the mandate at `BPS_ONE` (TreasuryGovernor.sol:775) - a full-position mandate reports progress from `movedPrimaryBps`, anything smaller from the shared `movedBps`. That closes a starvation shape: `movedBps` counts every slice including ones a stranger takes out of a secondary leg, so reporting the shared remainder let the voted migration budget be spent on side pools until the remainder hit zero while `movedPrimaryBps` was still zero, leaving the migration uncompletable and the 7-day cooldown blocking a replacement.",
-   "authority": "anyone (public view)",
-   "value": "none - a view (DERIVED)",
-   "authority_gate_quote": "UNGATED",
-   "edges": [],
-   "reads": [
-    "envelope (line 754)",
-    "BPS_ONE (line 775, constant)"
-   ],
-   "observations": [],
-   "writes": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 811,
-   "kind": "function",
-   "name": "migrationMandateSpent",
-   "signature": "function migrationMandateSpent() external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "1325b6f35bec2af140d27bcac478352981b0a8ef",
-   "body_lines": [
-    811,
-    814
-   ],
-   "authority": "anyone (the registry rotation path is the production caller)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "envelope (line 812)",
-    "envelope.maxTotalBps (line 813)",
-    "envelope.movedPrimaryBps (line 813)",
-    "BPS_ONE (line 813, constant)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Unrestricted view with one production consumer: the rotation facet redenominates a generation on it at `migrationMandateSpent` (RedemptionExt.sol:526), and only when the slice came from the primary leg. It returns true only when the guild budgeted at least one whole position `BPS_ONE` (TreasuryGovernor.sol:813) AND that budget has been spent out of the generation's own position `movedPrimaryBps` (TreasuryGovernor.sol:813), so secondary-leg slices counted in `movedBps` (TreasuryGovernor.sol:857) can never declare a migration complete. Because slices take a share of CURRENT liquidity, a spent budget does not mean a drained position (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 827,
-   "kind": "function",
-   "name": "consume",
-   "signature": "function consume(uint16 bps, bool fromPrimary) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "aa27ae40787b3957bc5b75485ff08868684a51b5",
-   "body_lines": [
-    827,
-    872
-   ],
-   "reachability": "Registry-only, called after a slice has already succeeded at `consume` (RedemptionExt.sol:459), which also reports whether the slice came out of the generation's own position. Liveness is tested on the REMAINDER at `left` (TreasuryGovernor.sol:837) rather than on a zero destination address, so an envelope rotating back to native ether is no longer indistinguishable from no envelope. NEW: the two kinds of slice are bounded by different budgets - a primary slice against the remainder `allowance` reports at `left` (TreasuryGovernor.sol:853), a secondary slice against the SHARED total at `movedBps` (TreasuryGovernor.sol:854) - so leg-to-leg rebalancing is still capped by the vote but can no longer starve the migration. Both counters advance at `movedBps` (TreasuryGovernor.sol:857), and only a primary slice advances `movedPrimaryBps` (TreasuryGovernor.sol:858), which is the sole counter `migrationMandateSpent` (TreasuryGovernor.sol:811) reads. Deactivation follows the SAME counter `allowance` reports at `movedPrimaryBps` (TreasuryGovernor.sol:870), so a spent envelope stops blocking `propose` instead of holding the slot until expiry.",
-   "authority": "registry only",
-   "value": "none - accounting only; the liquidity has already moved in the caller (DERIVED)",
-   "authority_gate_quote": "if (msg.sender != registry) revert NotGuardian(); (TreasuryGovernor.sol:828)",
-   "edges": [
-    "TreasuryGovernor.allowance (TreasuryGovernor.sol:830), TRUSTED, in-cluster"
-   ],
-   "reads": [
-    "registry (line 828, immutable)",
-    "envelope (line 829)",
-    "envelope.maxTotalBps (line 851)",
-    "envelope.movedBps (line 854)",
-    "BPS_ONE (line 870, constant)"
-   ],
-   "observations": [
-    "the registry gate reverts `NotGuardian` (TreasuryGovernor.sol:828), which names the wrong role for a registry-only check (DERIVED)",
-    "comment at `propose` (TreasuryGovernor.sol:860) cites propose's envelope gate at ':322' and cancel at ':409'; code has them at `ProposalActive` (TreasuryGovernor.sol:437) and `cancel` (TreasuryGovernor.sol:616) (DERIVED)"
-   ],
-   "writes": [
-    "envelope.movedBps (line 857)",
-    "envelope.movedPrimaryBps (line 858)",
-    "envelope.active (line 870)"
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 876,
-   "kind": "function",
-   "name": "_passed",
-   "signature": "function _passed(Proposal storage p) private view returns (bool)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "6a150bedcf01350bcc17ef30f3ce34c042d6c3c0",
-   "body_lines": [
-    876,
-    889
-   ],
-   "authority": "internal (callers: execute, winner, _executable, passing)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "proposals[id].forVotes (line 877)",
-    "proposals[id].againstVotes (line 877)",
-    "mifrens (line 887, immutable)",
-    "proposals[id].snapshot (line 887)",
-    "QUORUM_BPS (line 887, constant)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "IVotes721.getPastTotalSupply (TreasuryGovernor.sol:887), TRUSTED, out-of-cluster"
-   ],
-   "reachability": "Private, reached from `_passed` (TreasuryGovernor.sol:563) in execute, `_passed` (TreasuryGovernor.sol:721) inside the bench scan's executability test, `_passed` (TreasuryGovernor.sol:721) in the executability test and `_passed` (TreasuryGovernor.sol:898) in the public view. Two conditions: a strict majority at `forVotes` (TreasuryGovernor.sol:877), so a tie fails, and a quorum of `QUORUM_BPS` (TreasuryGovernor.sol:887) \u2014 ten percent \u2014 of the supply measured at the proposal's own `snapshot` (TreasuryGovernor.sol:887), not live, so minting or burning after the vote opens cannot move the bar. The comparison at `forVotes` (TreasuryGovernor.sol:888) is inclusive, and the division at `need` (TreasuryGovernor.sol:887) truncates, so the effective quorum rounds DOWN (DERIVED).",
-   "observations": [
-    "comment `vote` (TreasuryGovernor.sol:881) says quorum is read at the same timepoint the vote weighs ballots and points at line 384; code weighs ballots at `getPastVotes` (TreasuryGovernor.sol:471) and reads the denominator at `getPastTotalSupply` (TreasuryGovernor.sol:887)."
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 891,
-   "kind": "function",
-   "name": "_settled",
-   "signature": "function _settled(uint256 id) private view returns (bool)",
-   "visibility": "private",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "183e173b32e571e3d8ab8bafb95a17e921d8831f",
-   "body_lines": [
-    891,
-    894
-   ],
-   "authority": "internal (callers: none in this file)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "proposals (line 892)",
-    "proposals[id].executed (line 893)",
-    "proposals[id].cancelled (line 893)",
-    "proposals[id].votingEndsAt (line 893)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Private and unreferenced: no call site exists for `_settled` (TreasuryGovernor.sol:891) anywhere in the file, so it is unreachable from every external entry and contributes no runtime behaviour (DERIVED). Had it been used it would report a proposal as settled once `executed` (TreasuryGovernor.sol:893) or `cancelled` (TreasuryGovernor.sol:893) is set or its window has closed \u2014 a WEAKER condition than `_executable` (TreasuryGovernor.sol:717) and a different one from `_dead` (TreasuryGovernor.sol:736).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 897,
-   "kind": "function",
-   "name": "passing",
-   "signature": "function passing(uint256 id) external view returns (bool)",
-   "visibility": "external",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "7ef1f043ff7df34e050f4e01c5c21a6d64a31e20",
-   "body_lines": [
-    897,
-    899
-   ],
-   "authority": "anyone",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "proposals (line 898)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "TreasuryGovernor._passed (TreasuryGovernor.sol:898), TRUSTED, in-cluster"
-   ],
-   "reachability": "Unrestricted view for interfaces: it answers whether `_passed` (TreasuryGovernor.sol:898) holds right now, with no timing test at all, so it reports on an open vote and on a long-stale one alike. An id that was never proposed reads false because both tallies are zero and the majority test at `forVotes` (TreasuryGovernor.sol:877) fails first (DERIVED).",
-   "observations": []
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 934,
-   "kind": "function",
-   "name": "_requirePriceable",
-   "signature": "function _requirePriceable(address quote) internal view",
-   "visibility": "internal",
-   "mutability": "view",
-   "modifiers": [],
-   "body_sha1": "5766e9968d3f15505f15f63fa8d74a1165b92de3",
-   "body_lines": [
-    934,
-    939
-   ],
-   "authority": "internal (callers: propose, execute)",
-   "authority_gate_quote": "UNGATED",
-   "reads": [
-    "quoteOracle (line 936)"
-   ],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "IQuotePrice.usdPerRawUnit (TreasuryGovernor.sol:938), UNTRUSTED, out-of-cluster"
-   ],
-   "reachability": "Internal, reached from `_requirePriceable` (TreasuryGovernor.sol:421) when a target is named and again from `_requirePriceable` (TreasuryGovernor.sol:598) when the envelope is installed. Two exemptions make it a no-op: a native destination returns at `quote` (TreasuryGovernor.sol:935) and an unset oracle returns at `o` (TreasuryGovernor.sol:937). Otherwise it calls out to the guardian-controlled `quoteOracle` (TreasuryGovernor.sol:936) and treats a zero price as fatal `QuoteNotPriceable` (TreasuryGovernor.sol:938); a reverting oracle propagates and blocks both proposing and executing, and a guardian able to repoint `setQuoteOracle` (TreasuryGovernor.sol:943) therefore controls whether any non-native mandate can be installed (DERIVED).",
-   "observations": [
-    "comment `setQuoteAllowed` (TreasuryGovernor.sol:905) names the registry's allowlist setter; code in the registry declares it as `setAllowedQuote` (CauldronRegistry.sol:308) and writes the mapping at `allowedQuote` (CauldronRegistry.sol:321)."
-   ]
-  },
-  {
-   "contract": "TreasuryGovernor",
-   "file": "cauldron/TreasuryGovernor.sol",
-   "line": 943,
-   "kind": "function",
-   "name": "setQuoteOracle",
-   "signature": "function setQuoteOracle(address o) external",
-   "visibility": "external",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "33072ab81d9037e2a3177d2c1b22d21f818caac0",
-   "body_lines": [
-    943,
-    947
-   ],
-   "authority": "guardian",
-   "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:944)",
-   "reads": [
-    "guardian (line 944)"
-   ],
-   "writes": [
-    "quoteOracle (line 945)"
-   ],
-   "value": "NONE",
-   "edges": [],
-   "reachability": "Only the current `guardian` (TreasuryGovernor.sol:944) may write `quoteOracle` (TreasuryGovernor.sol:945), with no zero-check and no code-check, and it may be rewritten any number of times. Because the stored address is called during both `_requirePriceable` (TreasuryGovernor.sol:421) and `_requirePriceable` (TreasuryGovernor.sol:598), the holder of this setter can make any non-native quote unproposable and unexecutable, or clear the slot to skip the check entirely at `o` (TreasuryGovernor.sol:937) (DERIVED).",
-   "observations": [
-    "comment `Timelock` (TreasuryGovernor.sol:941) says the oracle is timelock-set, and comment `timelock` (TreasuryGovernor.sol:48) says only the timelock adds assets; code gates this setter on `guardian` (TreasuryGovernor.sol:944) and the allowlist on the registry owner at `setAllowedQuote` (CauldronRegistry.sol:308)."
-   ]
-  }
- ]
+  "nodes": [
+    {
+      "contract": "IRegistryQuotes (declared in CauldronGovernor.sol)",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 25,
+      "kind": "function",
+      "name": "allowedQuote",
+      "signature": "function allowedQuote(address quote) external view returns (bool)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body in this file; the selector is dispatched by propose through a low-level staticcall on the owner-set registry address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `allowedQuote` (CauldronGovernor.sol:25) has no body here. Its selector is encoded by `abi.encodeWithSelector` (CauldronGovernor.sol:394) and dispatched by `staticcall` (CauldronGovernor.sol:388) inside propose, where a failed call, a short return or a false decode all revert `QuoteNotAllowed` (CauldronGovernor.sol:601). The callee address is the storage slot `registry` (CauldronGovernor.sol:23), so the code actually reached is the registry's public allowlist mapping `allowedQuote` (CauldronRegistry.sol:327), which is written only by the owner-gated `setAllowedQuote` (CauldronRegistry.sol:314) and pre-seeded true for native ether at `allowedQuote` (CauldronRegistry.sol:181).",
+      "observations": []
+    },
+    {
+      "contract": "IRegistryHook (declared in CauldronGovernor.sol)",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 32,
+      "kind": "function",
+      "name": "hook",
+      "signature": "function hook() external view returns (address)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "implementation-defined caller through this interface",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`hook` is declared at CauldronGovernor.sol:32; implementation-defined caller through this interface.",
+      "observations": []
+    },
+    {
+      "contract": "IHookCurve (declared in CauldronGovernor.sol)",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 35,
+      "kind": "function",
+      "name": "curvePolicy",
+      "signature": "function curvePolicy() external view returns (address)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "implementation-defined caller through this interface",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`curvePolicy` is declared at CauldronGovernor.sol:35; implementation-defined caller through this interface.",
+      "observations": []
+    },
+    {
+      "contract": "ICurveCalibration (declared in CauldronGovernor.sol)",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 38,
+      "kind": "function",
+      "name": "supply",
+      "signature": "function supply() external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "implementation-defined caller through this interface",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`supply` is declared at CauldronGovernor.sol:38; implementation-defined caller through this interface.",
+      "observations": []
+    },
+    {
+      "contract": "IHookCurveBase (declared in CauldronGovernor.sol)",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 43,
+      "kind": "function",
+      "name": "volumePerNFT",
+      "signature": "function volumePerNFT() external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "implementation-defined caller through this interface",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`volumePerNFT` is declared at CauldronGovernor.sol:43; implementation-defined caller through this interface.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 315,
+      "kind": "function",
+      "name": "renounceOwnership",
+      "signature": "function renounceOwnership() public view override onlyOwner",
+      "visibility": "public",
+      "mutability": "view",
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+      "body_lines": [
+        315,
+        317
+      ],
+      "authority": "owner (and it always reverts)",
+      "authority_gate_quote": "function renounceOwnership() public view override onlyOwner { (CauldronGovernor.sol:315)",
+      "reads": [],
+      "writes": [],
+      "value": "none - it reverts (DERIVED)",
+      "edges": [],
+      "reachability": "Override that disables OpenZeppelin's live `renounceOwnership` by reverting `OwnershipCannotBeRenounced` (CauldronGovernor.sol:313). The owner is the only caller of `setRegistry` (CauldronGovernor.sol:304), so renouncing would permanently pin the registry wiring with no redeploy that preserves the stockpiled mandates. `transferOwnership` is untouched, so handing the seat away remains available (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 365,
+      "kind": "constructor",
+      "name": "",
+      "signature": "constructor(address _mifrens, uint256 _votingPeriod) Ownable(msg.sender)",
+      "visibility": "",
+      "mutability": "nonpayable",
+      "modifiers": [
+        "Ownable(msg.sender)"
+      ],
+      "body_sha1": "2162ee5d62d4a73b312997cae33265b71498a212",
+      "body_lines": [
+        365,
+        370
+      ],
+      "authority": "deployer",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`constructor` is declared at CauldronGovernor.sol:365; deployer.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 375,
+      "kind": "function",
+      "name": "setRegistry",
+      "signature": "function setRegistry(address _registry) external onlyOwner",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "body_sha1": "2024a32a88be75b107b7f0d94e16ce96946e8514",
+      "body_lines": [
+        375,
+        380
+      ],
+      "authority": "owner",
+      "authority_gate_quote": "onlyOwner (CauldronGovernor.sol:375)",
+      "reads": [
+        "registry (line 374)"
+      ],
+      "writes": [
+        "registry (line 374)"
+      ],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Owner-only and one-shot: a non-zero current value reverts `RegistryAlreadySet` (CauldronGovernor.sol:376) and a zero argument reverts `EmptyField` (CauldronGovernor.sol:377), so the consumer address can never be rotated or cleared once written to `registry` (CauldronGovernor.sol:374). Whatever lands here becomes the sole caller accepted by `NotRegistry` (CauldronGovernor.sol:764) and the target of the allowlist `staticcall` (CauldronGovernor.sol:388) in propose. Ownership itself is Ownable's: it can be transferred or renounced, and renouncing before this call leaves `markConsumed` (CauldronGovernor.sol:374) permanently unreachable (DERIVED).",
+      "observations": [
+        "comment `markConsumed` (CauldronGovernor.sol:374) says the only privileged call is markConsumed, restricted to the registry; code `onlyOwner` (CauldronGovernor.sol:375) adds an owner-gated setter, and `Ownable` (CauldronGovernor.sol:303) adds transferOwnership and renounceOwnership to the external surface."
+      ]
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 391,
+      "kind": "function",
+      "name": "_calibratedSupply",
+      "signature": "function _calibratedSupply() private view returns (uint256)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "b230f7e8fd2b77fd99e9bdaaac19767e775524fd",
+      "body_lines": [
+        391,
+        401
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._liveHook (CauldronGovernor.sol:392), TRUSTED, in-cluster",
+        "h.staticcall (CauldronGovernor.sol:394), UNTRUSTED, out-of-cluster",
+        "p.staticcall (CauldronGovernor.sol:398), UNTRUSTED, out-of-cluster"
+      ],
+      "reachability": "`_calibratedSupply` is declared at CauldronGovernor.sol:391; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 405,
+      "kind": "function",
+      "name": "_liveHook",
+      "signature": "function _liveHook() private view returns (address)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "922033613eec2279f6a3304d41cb25e66097294e",
+      "body_lines": [
+        405,
+        411
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "r.staticcall (CauldronGovernor.sol:408), UNTRUSTED, out-of-cluster"
+      ],
+      "reachability": "`_liveHook` is declared at CauldronGovernor.sol:405; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 415,
+      "kind": "function",
+      "name": "_liveCurveBase",
+      "signature": "function _liveCurveBase() private view returns (uint256)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "a9a951fafc142f65deb4d40fe86cea51c97735b1",
+      "body_lines": [
+        415,
+        421
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._liveHook (CauldronGovernor.sol:416), TRUSTED, in-cluster",
+        "h.staticcall (CauldronGovernor.sol:418), UNTRUSTED, out-of-cluster"
+      ],
+      "reachability": "`_liveCurveBase` is declared at CauldronGovernor.sol:415; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 443,
+      "kind": "function",
+      "name": "propose",
+      "signature": "function propose( string calldata name, string calldata symbol, MetadataMode mode, string calldata baseURI, address renderer, string calldata website, string calldata socials, string calldata logo, string calldata banner, uint256 nftSupply, uint256 volumePerNFT, address quote ) external returns (uint256 id)",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "8270b24a993f33760bcba7f4b7e003742a7916ac",
+      "body_lines": [
+        456,
+        461
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._propose (CauldronGovernor.sol:457), TRUSTED, in-cluster"
+      ],
+      "reachability": "`propose` is declared at CauldronGovernor.sol:443; anyone.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 472,
+      "kind": "function",
+      "name": "propose",
+      "signature": "function propose( string calldata name, string calldata symbol, MetadataMode mode, string calldata baseURI, address renderer, string calldata website, string calldata socials, uint256 nftSupply, uint256 volumePerNFT, address quote ) external returns (uint256 id)",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "df5ef4bcef2fb30996f40e8ee2949ce725f7655d",
+      "body_lines": [
+        483,
+        488
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._propose (CauldronGovernor.sol:484), TRUSTED, in-cluster"
+      ],
+      "reachability": "`propose` is declared at CauldronGovernor.sol:472; anyone.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 490,
+      "kind": "function",
+      "name": "_propose",
+      "signature": "function _propose( string memory name, string memory symbol, MetadataMode mode, string memory baseURI, address renderer, string memory website, string memory socials, string memory logo, string memory banner, uint256 nftSupply, uint256 volumePerNFT, address quote ) internal returns (uint256 id)",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "206597095d5d8ad76ac5baffd42f04c2a35e38ee",
+      "body_lines": [
+        503,
+        627
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "IVotes.getVotes (CauldronGovernor.sol:506), UNTRUSTED, out-of-cluster",
+        "registry.staticcall (CauldronGovernor.sol:598), UNTRUSTED, out-of-cluster",
+        "CauldronGovernor._calibratedSupply (CauldronGovernor.sol:544), TRUSTED, in-cluster",
+        "CauldronGovernor._liveCurveBase (CauldronGovernor.sol:571), TRUSTED, in-cluster"
+      ],
+      "reachability": "`_propose` is declared at CauldronGovernor.sol:490; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 630,
+      "kind": "function",
+      "name": "displayName",
+      "signature": "function displayName(uint256 proposalId) external view returns (string memory)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "155a9be255686b7f2a18bf527eccddffe5903128",
+      "body_lines": [
+        630,
+        634
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "_proposals (line 631)",
+        "_proposals[proposalId].exists (line 632)",
+        "_proposals[proposalId].name (line 629)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "LaunchLib.displayName (CauldronGovernor.sol:630), TRUSTED, library"
+      ],
+      "reachability": "Unrestricted view. Reverts `UnknownProposal` (CauldronGovernor.sol:632) for an id that was never written, otherwise returns the stored name through the pure library helper `displayName` (CauldronGovernor.sol:630). No state, no value, no reachable side effect.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 644,
+      "kind": "function",
+      "name": "vote",
+      "signature": "function vote(uint256 proposalId) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "2ef12a37597419495aa02c478b078ddab5edbb53",
+      "body_lines": [
+        644,
+        685
+      ],
+      "authority": "anyone holding checkpointed MiFrens voting power at the proposal's snapshot",
+      "authority_gate_quote": "if (weight == 0) revert NoVotingPower(); (CauldronGovernor.sol:659)",
+      "reads": [
+        "_proposals (line 645)",
+        "hasVoted (line 650)",
+        "mifrens (line 659, immutable)",
+        "_leaderVotes (line 668)",
+        "_leaderId (line 671)",
+        "_runnerVotes (line 673)"
+      ],
+      "writes": [
+        "hasVoted (line 650)",
+        "_proposals.votes (line 656)",
+        "_runnerId (line 667)",
+        "_runnerVotes (line 673)",
+        "_leaderVotes (line 668)",
+        "_leaderId (line 671)",
+        "_runnerVotes (line 673)",
+        "_runnerId (line 667)"
+      ],
+      "value": "none - it only records votes; no asset moves (DERIVED)",
+      "edges": [
+        "IVotes.getPastVotes (CauldronGovernor.sol:659), TRUSTED, out-of-cluster",
+        "CauldronGovernor._benchRecord (CauldronGovernor.sol:682), TRUSTED, in-cluster"
+      ],
+      "reachability": "Permissionless per proposal, once per address: an unknown or already-consumed proposal is refused at `UnknownProposal` (CauldronGovernor.sol:646) and `AlreadyConsumed` (CauldronGovernor.sol:647), the window is checked before the double-vote test so a closed vote always reports as closed at `VotingClosed` (CauldronGovernor.sol:652), and repeat voting at `AlreadyVoted` (CauldronGovernor.sol:653). Weight is CHECKPOINTED power at the proposal's snapshot block at `getPastVotes` (CauldronGovernor.sol:659), with the snapshot required to be in the past at `SnapshotNotReady` (CauldronGovernor.sol:658), so moving MiFrens to a fresh wallet mints no new votes. The leader/runner-up hints are still maintained - ties keep the incumbent at `_leaderVotes` (CauldronGovernor.sol:668), and a leader gaining votes is not demoted into its own runner slot at `_leaderId` (CauldronGovernor.sol:671) - and the NEW effect is that every vote also enters the fixed 8-slot bench at `_benchRecord` (CauldronGovernor.sol:682), which is what the leader rescan now walks instead of a positional window over the proposal list.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 706,
+      "kind": "function",
+      "name": "_benchRecord",
+      "signature": "function _benchRecord(uint256 id, uint256 votes) private",
+      "visibility": "private",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "96a275ef131d9ea407827cd56fd790891eb102df",
+      "body_lines": [
+        706,
+        732
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`_benchRecord` is declared at CauldronGovernor.sol:706; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 739,
+      "kind": "function",
+      "name": "winner",
+      "signature": "function winner() external view returns (uint256 proposalId, BrewSpec memory spec)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "5513e4155dc9158324fbf8ce67075894b88ee3ab",
+      "body_lines": [
+        739,
+        756
+      ],
+      "authority": "anyone (the registry is the production caller)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "_proposals (line 742)",
+        "_proposals[proposalId].name (line 744)",
+        "_proposals[proposalId].quote (line 751)",
+        "_proposals[proposalId].nftSupply (line 752)",
+        "_proposals[proposalId].volumePerNFT (line 753)",
+        "_proposals[proposalId].proposer (line 754)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:740), TRUSTED, in-cluster"
+      ],
+      "reachability": "Unrestricted view, but only meaningful to the registry: `relaunch` calls `winner` (CauldronRegistry.sol:903) to build the next brew and later retires it with `markConsumed` (CauldronRegistry.sol:1011). Selection is delegated to `_bestUnconsumed` (CauldronGovernor.sol:740), which returns the cached leader only once its voting window has closed; zero reverts `NoProposals` (CauldronGovernor.sol:741). The returned struct copies seven proposer-controlled strings and addresses into memory, which is the replay cost the byte caps in propose bound.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 758,
+      "kind": "function",
+      "name": "hasProposals",
+      "signature": "function hasProposals() external view returns (bool)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "9b0f687cb5cd64653bd56aaeb169c52ec8865c65",
+      "body_lines": [
+        758,
+        760
+      ],
+      "authority": "anyone (the registry is the production caller)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._bestUnconsumed (CauldronGovernor.sol:759), TRUSTED, in-cluster"
+      ],
+      "reachability": "Unrestricted view wrapping the same selection as winner. `relaunch` gates the whole rebirth on it at `hasProposals` (CauldronRegistry.sol:841) and reverts `NoProposal` there when it is false, so a false answer stops the machine being reborn until a settled, unconsumed proposal exists. It costs a scan whenever the cached-leader fast path in `_bestUnconsumed` (CauldronGovernor.sol:759) misses.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 763,
+      "kind": "function",
+      "name": "markConsumed",
+      "signature": "function markConsumed(uint256 proposalId) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "c01725ed0fa6c320272624f113fcd0069a24923c",
+      "body_lines": [
+        763,
+        794
+      ],
+      "authority": "registry",
+      "authority_gate_quote": "if (msg.sender != registry) revert NotRegistry(); (CauldronGovernor.sol:763)",
+      "reads": [
+        "registry (line 764)",
+        "_proposals (line 765)",
+        "_proposals[proposalId].exists (line 766)",
+        "_proposals[proposalId].consumed (line 767)",
+        "_leaderId (line 771)",
+        "_runnerId (line 775)",
+        "_runnerVotes (line 777)"
+      ],
+      "writes": [
+        "_proposals[proposalId].consumed (line 767)",
+        "_leaderId (line 771)",
+        "_leaderVotes (line 779)",
+        "_runnerId (line 775)",
+        "_runnerVotes (line 777)"
+      ],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:783), TRUSTED, in-cluster"
+      ],
+      "reachability": "Reachable only from the address stored in `registry` (CauldronGovernor.sol:764), which in production is CauldronRegistry inside relaunch at `markConsumed` (CauldronRegistry.sol:1011); any other caller reverts `NotRegistry` (CauldronGovernor.sol:764). It re-checks existence `UnknownProposal` (CauldronGovernor.sol:766) and idempotence `AlreadyConsumed` (CauldronGovernor.sol:767), then sets `consumed` (CauldronGovernor.sol:767) one-way. Leader maintenance: consuming the leader promotes the carried runner-up when it is still live at `_runnerVotes` (CauldronGovernor.sol:777), else falls back to the bounded rescan `_recomputeLeader` (CauldronGovernor.sol:783); both slots are then cleared at `_runnerId` (CauldronGovernor.sol:775). Because this call sits inside relaunch, any revert downstream of it rolls the consumption back with the transaction (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 800,
+      "kind": "function",
+      "name": "getProposal",
+      "signature": "function getProposal(uint256 id) external view returns (Proposal memory)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "b6060ba3afa1e8a7f1fc367372f89d8bce2e9948",
+      "body_lines": [
+        800,
+        804
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "_proposals (line 801)",
+        "_proposals[id].exists (line 802)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Unrestricted view. Copies the whole proposal, five strings included, into memory `_proposals` (CauldronGovernor.sol:801) and reverts `UnknownProposal` (CauldronGovernor.sol:802) for an id never written. No gate, no state change, no value.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 810,
+      "kind": "function",
+      "name": "_bestUnconsumed",
+      "signature": "function _bestUnconsumed() private view returns (uint256)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "68fc0e2d5f4878b5d9c631552595667e7a076b43",
+      "body_lines": [
+        810,
+        818
+      ],
+      "authority": "internal (callers: winner, hasProposals)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "_proposals (line 811)",
+        "_leaderId (line 811)",
+        "_proposals[_leaderId].exists (line 812)",
+        "_proposals[_leaderId].consumed (line 812)",
+        "_leaderVotes (line 812)",
+        "_proposals[_leaderId].votingEndsAt (line 813)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "CauldronGovernor._recomputeLeader (CauldronGovernor.sol:816), TRUSTED, in-cluster"
+      ],
+      "reachability": "Private; reached from `winner` (CauldronGovernor.sol:340) and `hasProposals` (CauldronGovernor.sol:336), hence from the registry's relaunch path. The fast path returns the cached `_leaderId` (CauldronGovernor.sol:811) only when it exists, is unconsumed, has votes and its window has closed at `votingEndsAt` (CauldronGovernor.sol:813); a proposal still taking votes therefore cannot be launched. Any miss pays the bounded scan `_recomputeLeader` (CauldronGovernor.sol:816), and returning zero is what makes relaunch revert.",
+      "observations": []
+    },
+    {
+      "contract": "CauldronGovernor",
+      "file": "cauldron/CauldronGovernor.sol",
+      "line": 842,
+      "kind": "function",
+      "name": "_recomputeLeader",
+      "signature": "function _recomputeLeader() private view returns (uint256 bestId, uint256 bestVotes)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "131f2c089a4971b4e54f09239b2a70958b2dae35",
+      "body_lines": [
+        842,
+        859
+      ],
+      "authority": "private view (caller: _bestUnconsumed)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "BENCH_SLOTS (line 848, constant)",
+        "_bench (line 847)",
+        "_proposals (line 851)"
+      ],
+      "writes": [],
+      "value": "none - a view (DERIVED)",
+      "edges": [],
+      "reachability": "The rescan behind `_recomputeLeader` (CauldronGovernor.sol:842), reached from `hasProposals` (CauldronGovernor.sol:336) and from `winner` (CauldronGovernor.sol:340) - i.e. on the relaunch path - whenever the cached leader is consumed, gone or still taking votes at `votingEndsAt` (CauldronGovernor.sol:853). It now iterates the fixed 8-slot bench at `_bench` (CauldronGovernor.sol:847) instead of a window over the most recent proposal ids, which is what removes the flood: ids were mintable by any single MiFren holder with no cooldown, so a voted, settled, unconsumed mandate could be pushed out of a positional window. Each candidate must still exist and be unconsumed at `consumed` (CauldronGovernor.sol:852) and must have CLOSED its voting window at `votingEndsAt` (CauldronGovernor.sol:853), and the comparison is strict at `bestVotes` (CauldronGovernor.sol:842) so ties keep the lower bench slot rather than the earlier proposal.",
+      "observations": [
+        "the doc block for `MAX_LEADER_SCAN` (CauldronGovernor.sol:841) still describes bounding a scan over the proposal list at 64; code no longer reads that constant here - the loop bound is `BENCH_SLOTS` (CauldronGovernor.sol:848) - so the constant is retained but unused by this function"
+      ]
+    },
+    {
+      "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 5,
+      "kind": "function",
+      "name": "getPastVotes",
+      "signature": "function getPastVotes(address account, uint256 blockNumber) external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `getPastVotes` (TreasuryGovernor.sol:5) has no body here. It is called once, in vote at `getPastVotes` (TreasuryGovernor.sol:5), against the proposal's stored `snapshot` (TreasuryGovernor.sol:474), and a zero result reverts `NoVotingPower` (TreasuryGovernor.sol:475). The callee is the immutable set at `mifrens` (TreasuryGovernor.sol:373), so a deployment that wires a contract without this selector makes every vote revert (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 6,
+      "kind": "function",
+      "name": "getVotes",
+      "signature": "function getVotes(address account) external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `getVotes` (TreasuryGovernor.sol:6) has no body here. It is called once, as the proposal-threshold gate `getVotes` (TreasuryGovernor.sol:6), where a live balance below `PROPOSAL_THRESHOLD` (TreasuryGovernor.sol:416) reverts BelowProposalThreshold. Unlike the ballot weight it is read LIVE, not at a snapshot, so threshold power can be borrowed for the length of one transaction (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "IVotes721 (declared in TreasuryGovernor.sol)",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 15,
+      "kind": "function",
+      "name": "getPastTotalSupply",
+      "signature": "function getPastTotalSupply(uint256 timepoint) external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body; dispatched on the immutable mifrens address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `getPastTotalSupply` (TreasuryGovernor.sol:15) has no body here. It is the quorum denominator, called once at `getPastTotalSupply` (TreasuryGovernor.sol:15) inside the pass test, measured at the proposal's `snapshot` (TreasuryGovernor.sol:996) and scaled by `QUORUM_BPS` (TreasuryGovernor.sol:922). Every path that decides an outcome runs through it: `_passed` (TreasuryGovernor.sol:593) in execute, `_passed` (TreasuryGovernor.sol:758) inside the bench scan's executability test, `_passed` (TreasuryGovernor.sol:758) and the public `passing` (TreasuryGovernor.sol:1006), so a reverting or missing implementation blocks execution entirely.",
+      "observations": []
+    },
+    {
+      "contract": "IRegistryQuotes (declared in TreasuryGovernor.sol)",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 19,
+      "kind": "function",
+      "name": "allowedQuote",
+      "signature": "function allowedQuote(address quote) external view returns (bool)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body; dispatched on the immutable registry address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `allowedQuote` (TreasuryGovernor.sol:19) has no body here. It is called twice on the immutable `registry` (TreasuryGovernor.sol:374): once when a rotation target is named at `allowedQuote` (TreasuryGovernor.sol:19) and again when the envelope is installed at `allowedQuote` (TreasuryGovernor.sol:19), both reverting QuoteNotAllowed. The implementation is the registry's public mapping `allowedQuote` (CauldronRegistry.sol:327), writable only through the owner-gated `setAllowedQuote` (CauldronRegistry.sol:314) \u2014 so the allowlist is outside the reach of any vote here.",
+      "observations": []
+    },
+    {
+      "contract": "IQuotePrice (declared in TreasuryGovernor.sol)",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 24,
+      "kind": "function",
+      "name": "usdPerRawUnit",
+      "signature": "function usdPerRawUnit(address quote) external view returns (uint256)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "",
+      "body_lines": [],
+      "authority": "anyone (declaration only, no body; dispatched on the guardian-set quoteOracle address)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Declaration only: `usdPerRawUnit` (TreasuryGovernor.sol:24) has no body here. It is called once, at `usdPerRawUnit` (TreasuryGovernor.sol:24), and only when the target is non-native and an oracle is wired; a zero price reverts `QuoteNotPriceable` (TreasuryGovernor.sol:1047). The address is the mutable `quoteOracle` (TreasuryGovernor.sol:1045), which the guardian may repoint at any contract via `setQuoteOracle` (TreasuryGovernor.sol:1052), so this call is to an address an admin controls (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 317,
+      "kind": "function",
+      "name": "conversionFor",
+      "signature": "function conversionFor(uint16 spendBps, uint16 sliceBps) external pure returns (uint16)",
+      "visibility": "external",
+      "mutability": "pure",
+      "modifiers": [],
+      "body_sha1": "4b0adffb793faf2842ac259ccb0bbcbfd68f8b5c",
+      "body_lines": [
+        317,
+        326
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Unrestricted pure helper with no storage access and no caller inside this file; it exists for user interfaces that must translate a spend budget into the share of the position it converts. Both arguments are caller-supplied, so the loop trip count `n` (TreasuryGovernor.sol:319) is spendBps divided by sliceBps and is bounded only by the uint16 range \u2014 up to 65535 iterations when `sliceBps` (TreasuryGovernor.sol:319) is 1, which is a caller-paid cost in a view call (DERIVED). Each step multiplies before dividing at `rem` (TreasuryGovernor.sol:323), truncating toward zero, so the remaining share rounds DOWN and the reported conversion at `rem` (TreasuryGovernor.sol:325) rounds UP (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 363,
+      "kind": "constructor",
+      "name": "",
+      "signature": "constructor( IVotes721 _mifrens, address _registry, address _guardian, uint64 votingPeriod, uint64 envelopeLifetime, uint64 cooldown, uint64 executionWindow, bool testnet )",
+      "visibility": "",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "7c369dc80b632df2abba18a75ff1e137e5c20a67",
+      "body_lines": [
+        372,
+        399
+      ],
+      "authority": "deployer",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "MAINNET_VOTING (line 379, constant)",
+        "MAINNET_LIFETIME (line 380, constant)",
+        "MAINNET_COOLDOWN (line 381, constant)",
+        "MAINNET_EXEC_WINDOW (line 382, constant)",
+        "MIN_VOTING (line 385, constant)",
+        "MIN_COOLDOWN (line 386, constant)",
+        "MIN_EXEC_WINDOW (line 387, constant)"
+      ],
+      "writes": [
+        "mifrens (line 373, immutable)",
+        "registry (line 374, immutable)",
+        "guardian (line 375)",
+        "VOTING_PERIOD (line 394, immutable)",
+        "ENVELOPE_LIFETIME (line 395, immutable)",
+        "COOLDOWN (line 396, immutable)",
+        "EXECUTION_WINDOW (line 397, immutable)"
+      ],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Runs once at deployment and is the only writer of every timing parameter. Zero arguments fall back to the mainnet defaults at `MAINNET_VOTING` (TreasuryGovernor.sol:379) and its three siblings; unless `testnet` (TreasuryGovernor.sol:384) is passed, the one-day floors at `MIN_VOTING` (TreasuryGovernor.sol:385), `MIN_COOLDOWN` (TreasuryGovernor.sol:386) and `MIN_EXEC_WINDOW` (TreasuryGovernor.sol:387) apply, and in BOTH modes a lifetime shorter than the execution window reverts `BadTiming` (TreasuryGovernor.sol:392). No floor exists on `ENVELOPE_LIFETIME` (TreasuryGovernor.sol:395) itself beyond that coherence test, and neither `mifrens` (TreasuryGovernor.sol:373) nor `registry` (TreasuryGovernor.sol:374) nor `guardian` (TreasuryGovernor.sol:375) is checked for zero or for code, so a mis-wired deployment is only detectable later: a zero guardian dead-ends `cancel` (TreasuryGovernor.sol:616), `setGuardian` (TreasuryGovernor.sol:666) and `setQuoteOracle` (TreasuryGovernor.sol:1052) forever (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 415,
+      "kind": "function",
+      "name": "propose",
+      "signature": "function propose(address quote, uint16 maxTotalBps) external returns (uint256 id)",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "144fa4653ed56a9679e8af32c5130c8d18670166",
+      "body_lines": [
+        415,
+        466
+      ],
+      "authority": "caller satisfying the in-body msg.sender check",
+      "authority_gate_quote": "if (mifrens.getVotes(msg.sender) < PROPOSAL_THRESHOLD) revert BelowProposalThreshold(); (TreasuryGovernor.sol:415)",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "IVotes721.getVotes (TreasuryGovernor.sol:416), UNTRUSTED, out-of-cluster",
+        "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:420), UNTRUSTED, out-of-cluster",
+        "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:421), TRUSTED, in-cluster",
+        "TreasuryGovernor.stalled (TreasuryGovernor.sol:440), TRUSTED, in-cluster"
+      ],
+      "reachability": "`propose` is declared at TreasuryGovernor.sol:415; caller satisfying the in-body msg.sender check.",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 468,
+      "kind": "function",
+      "name": "vote",
+      "signature": "function vote(uint256 id, bool support) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "c46131e57e23ac7593fc5b00842be7effc17589c",
+      "body_lines": [
+        468,
+        533
+      ],
+      "authority": "anyone holding checkpointed MiFrens power at the proposal's snapshot",
+      "authority_gate_quote": "if (w == 0) revert NoVotingPower(); (TreasuryGovernor.sol:474)",
+      "reads": [
+        "proposals (line 469)",
+        "hasVoted (line 472)",
+        "mifrens (line 474, immutable)",
+        "_leadId (line 481)",
+        "_leadVotes (line 495)",
+        "_openVotedAt (line 501)",
+        "VOTING_PERIOD (line 506, immutable)",
+        "EXECUTION_WINDOW (line 506, immutable)"
+      ],
+      "writes": [
+        "hasVoted (line 472)",
+        "proposals.forVotes (line 478)",
+        "_leadVotes (line 490)",
+        "_leadId (line 494)",
+        "_openVotedAt (line 501)",
+        "_leadId (line 502)",
+        "_leadVotes (line 499)",
+        "_leadId (line 522)",
+        "_leadVotes (line 523)",
+        "_openVotedAt (line 528)"
+      ],
+      "value": "none - it only records votes (DERIVED)",
+      "edges": [
+        "IVotes721.getPastVotes (TreasuryGovernor.sol:474), TRUSTED, out-of-cluster",
+        "TreasuryGovernor._dead (TreasuryGovernor.sol:505), TRUSTED, in-cluster",
+        "TreasuryGovernor._benchRecord (TreasuryGovernor.sol:531), TRUSTED, in-cluster"
+      ],
+      "reachability": "Permissionless once per address per proposal: unknown ids are refused at `UnknownProposal` (TreasuryGovernor.sol:470), a closed window at `VotingClosed` (TreasuryGovernor.sol:471), a repeat at `AlreadyVoted` (TreasuryGovernor.sol:472), and zero checkpointed power at `NoVotingPower` (TreasuryGovernor.sol:475). Weight comes from the proposal's own snapshot at `getPastVotes` (TreasuryGovernor.sol:474). The `_leadId` hint is maintained here, where the counts move: the incumbent growing at `_leadVotes` (TreasuryGovernor.sol:490), the first-ever support at `_leadId` (TreasuryGovernor.sol:494), an overtake that dates the displaced rival at `_openVotedAt` (TreasuryGovernor.sol:501), the ONLY branch that lowers the bar - retiring a hint that is provably dead and older than a full vote-plus-execution window at `_dead` (TreasuryGovernor.sol:505) - and otherwise just re-dating at `_openVotedAt` (TreasuryGovernor.sol:528). NEW: a FOR-vote also enters the fixed 8-slot bench at `_benchRecord` (TreasuryGovernor.sol:531), which is what `winner` now falls back to instead of any scan over the proposal list. AGAINST-votes are counted at `againstVotes` (TreasuryGovernor.sol:478) but touch neither the hint nor the bench (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 554,
+      "kind": "function",
+      "name": "_benchRecord",
+      "signature": "function _benchRecord(uint256 id, uint256 votes) private",
+      "visibility": "private",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "79d7722b775112cdb74f17e7d3f7803b92f461dd",
+      "body_lines": [
+        554,
+        580
+      ],
+      "authority": "internal (callers are paths that reference this function)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "TreasuryGovernor._dead (TreasuryGovernor.sol:567), TRUSTED, in-cluster",
+        "TreasuryGovernor._executable (TreasuryGovernor.sol:570), TRUSTED, in-cluster"
+      ],
+      "reachability": "`_benchRecord` is declared at TreasuryGovernor.sol:554; internal (callers are paths that reference this function).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 588,
+      "kind": "function",
+      "name": "execute",
+      "signature": "function execute(uint256 id) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "4d5db09d2f57ebafecfbae31d350df70d4d23371",
+      "body_lines": [
+        588,
+        646
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "IRegistryQuotes.allowedQuote (TreasuryGovernor.sol:629), UNTRUSTED, out-of-cluster",
+        "TreasuryGovernor._passed (TreasuryGovernor.sol:593), TRUSTED, in-cluster",
+        "TreasuryGovernor.winner (TreasuryGovernor.sol:598), TRUSTED, in-cluster",
+        "TreasuryGovernor.stalled (TreasuryGovernor.sol:625), TRUSTED, in-cluster",
+        "TreasuryGovernor._requirePriceable (TreasuryGovernor.sol:633), TRUSTED, in-cluster"
+      ],
+      "reachability": "`execute` is declared at TreasuryGovernor.sol:588; anyone.",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 651,
+      "kind": "function",
+      "name": "cancel",
+      "signature": "function cancel(uint256 id) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "c7a5e016493edfedd57b64bf40f9f7a630b4c9cf",
+      "body_lines": [
+        651,
+        656
+      ],
+      "authority": "guardian",
+      "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:651)",
+      "reads": [
+        "guardian (line 649)",
+        "envelope.active (line 654)",
+        "proposals[id].executed (line 654)"
+      ],
+      "writes": [
+        "proposals[id].cancelled (line 653)",
+        "envelope.active (line 654)"
+      ],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Only the address in `guardian` (TreasuryGovernor.sol:649) reaches this; everyone else reverts NotGuardian. It accepts ANY id, including one never proposed and one whose vote is still open, and writes `cancelled` (TreasuryGovernor.sol:653) unconditionally; a later proposal that draws that id overwrites the whole struct at `proposals` (TreasuryGovernor.sol:653), so a pre-marked slot does not persist (DERIVED). The live envelope is only stood down when the cancelled proposal is the one that installed it, via the `executed` (TreasuryGovernor.sol:654) test, and `lastEnvelopeAt` (TreasuryGovernor.sol:607) is NOT rewound, so the cooldown from the cancelled envelope still runs against the next `propose` (TreasuryGovernor.sol:415) (DERIVED). The guardian can stop but cannot start or redirect a rotation: no path here writes `quote` (TreasuryGovernor.sol:629) or `maxTotalBps` (TreasuryGovernor.sol:638).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 666,
+      "kind": "function",
+      "name": "setGuardian",
+      "signature": "function setGuardian(address g) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "fd65e99d7286b6f82ca479ffd70469b4c48f0960",
+      "body_lines": [
+        666,
+        670
+      ],
+      "authority": "guardian only",
+      "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:666)",
+      "reads": [
+        "guardian (line 667)"
+      ],
+      "writes": [
+        "guardian (line 667)"
+      ],
+      "value": "none (DERIVED)",
+      "edges": [],
+      "reachability": "Guardian-only hand-off of the guardian seat. Zero is now REFUSED at `BadParam` (TreasuryGovernor.sol:668): the guardian is the sole caller of `cancel` (TreasuryGovernor.sol:616) and of the oracle setter, and this setter is itself guardian-gated at `guardian` (TreasuryGovernor.sol:667), so burning the seat would dead-end the emergency stop permanently with no way to appoint a replacement. There is no two-step acceptance, so a typo'd non-zero address still loses the seat irrecoverably (DERIVED).",
+      "observations": [
+        "comment at `cancel` (TreasuryGovernor.sol:618) cites cancel at ':518'; code has it at `cancel` (TreasuryGovernor.sol:616) (DERIVED)"
+      ]
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 702,
+      "kind": "function",
+      "name": "winner",
+      "signature": "function winner() public view returns (uint256 best)",
+      "visibility": "public",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "b21b38ae9e50b2fdaaca8725ff7c1792bd4303cd",
+      "body_lines": [
+        702,
+        750
+      ],
+      "authority": "anyone (public view)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "_leadId (line 706)",
+        "proposals (line 707)",
+        "BENCH_SLOTS (line 743, constant)",
+        "_bench (line 742)"
+      ],
+      "writes": [],
+      "value": "none - a view (DERIVED)",
+      "edges": [
+        "TreasuryGovernor._executable (TreasuryGovernor.sol:707), TRUSTED, in-cluster",
+        "TreasuryGovernor._executable (TreasuryGovernor.sol:747), TRUSTED, in-cluster"
+      ],
+      "reachability": "Public view that `execute` gates on at `winner` (TreasuryGovernor.sol:700), so it sits on the ONLY path that installs an envelope. Fast path: the `_leadId` (TreasuryGovernor.sol:706) hint is returned only after the same executability test the fallback applies, at `_executable` (TreasuryGovernor.sol:707), so a stale or beaten hint costs a scan rather than electing the wrong proposal. The fallback is now the fixed 8-slot bench at `_bench` (TreasuryGovernor.sol:742) - not the original unbounded `1..proposalCount` loop, and not the positional newest-64 window that replaced it, because a window over a list anyone may grow is a window anyone may flood. Candidates must be executable at `_executable` (TreasuryGovernor.sol:707) and the comparison is strict at `bestVotes` (TreasuryGovernor.sol:709). Cost is O(1) in the proposal count (DERIVED).",
+      "observations": [
+        "the doc block above still describes a time-bounded BACKWARDS walk over proposal ids stopping at the first too-old proposal, at `votingEndsAt` (TreasuryGovernor.sol:727); code walks only `_bench` (TreasuryGovernor.sol:742) and never touches `proposalCount`, so that description no longer matches the loop it precedes",
+        "with the bench fallback, ties break to the LOWEST BENCH SLOT rather than to the lower proposal id promised by the header at `Ties` (TreasuryGovernor.sol:677); bench slots are assigned by displacement order, so the tie-break is no longer id-deterministic (DERIVED)"
+      ]
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 754,
+      "kind": "function",
+      "name": "_executable",
+      "signature": "function _executable(Proposal storage p) private view returns (bool)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "13e0c544b3c86c9fbd6aff712d266e1913370f92",
+      "body_lines": [
+        754,
+        759
+      ],
+      "authority": "internal (callers: winner)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "proposals[hint].votingEndsAt (line 755)",
+        "proposals[hint].executed (line 752)",
+        "proposals[hint].cancelled (line 755)",
+        "EXECUTION_WINDOW (line 757, immutable)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "TreasuryGovernor._passed (TreasuryGovernor.sol:758), TRUSTED, in-cluster"
+      ],
+      "reachability": "Private; the single call site is the fast path in `_executable` (TreasuryGovernor.sol:754). It is the one definition of executability: unknown, executed or cancelled proposals fail at `votingEndsAt` (TreasuryGovernor.sol:755), a still-open vote fails at `votingEndsAt` (TreasuryGovernor.sol:755), a stale one fails at `EXECUTION_WINDOW` (TreasuryGovernor.sol:757), and the remainder must clear `_passed` (TreasuryGovernor.sol:758). Because it is a superset of the scan's own tests, trusting the hint can only elect a proposal the scan would also accept, though not necessarily the highest-voted one unless the hint is maintained as a maximum (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 773,
+      "kind": "function",
+      "name": "_dead",
+      "signature": "function _dead(Proposal storage p) private view returns (bool)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "716cdaa004fc2fcedfdd22817a2c48fbb30d3fcb",
+      "body_lines": [
+        773,
+        776
+      ],
+      "authority": "internal (callers: vote)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "proposals[lead].executed (line 772)",
+        "proposals[lead].cancelled (line 774)",
+        "proposals[lead].votingEndsAt (line 771)",
+        "EXECUTION_WINDOW (line 775, immutable)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Private; reached only from the hint-retirement branch at `_dead` (TreasuryGovernor.sol:773). It is monotone: `executed` (TreasuryGovernor.sol:772) and `cancelled` (TreasuryGovernor.sol:774) are one-way flags and the deadline at `EXECUTION_WINDOW` (TreasuryGovernor.sol:775) only recedes, so a true answer can never become false. An id that was never proposed reads dead because `votingEndsAt` (TreasuryGovernor.sol:771) is zero (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 790,
+      "kind": "function",
+      "name": "allowance",
+      "signature": "function allowance() public view returns (address quote, uint16 remainingBps)",
+      "visibility": "public",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "980e6857815aed5e8e58b30d5db97f2d80e619bd",
+      "body_lines": [
+        790,
+        828
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`allowance` is declared at TreasuryGovernor.sol:790; anyone.",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 861,
+      "kind": "function",
+      "name": "migrationMandateSpent",
+      "signature": "function migrationMandateSpent() external view returns (bool)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "1325b6f35bec2af140d27bcac478352981b0a8ef",
+      "body_lines": [
+        861,
+        864
+      ],
+      "authority": "anyone (the registry rotation path is the production caller)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "envelope (line 859)",
+        "envelope.maxTotalBps (line 863)",
+        "envelope.movedPrimaryBps (line 863)",
+        "BPS_ONE (line 863, constant)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Unrestricted view with one production consumer: the rotation facet reads `migrationMandateSpent` at RedemptionExt.sol:631, and only when the slice came from the primary leg. It returns true only when the guild budgeted at least one whole position `BPS_ONE` (TreasuryGovernor.sol:863) AND that budget has been spent out of the generation's own position `movedPrimaryBps` (TreasuryGovernor.sol:863), so secondary-leg slices counted in `movedBps` (TreasuryGovernor.sol:853) can never declare a migration complete. Because slices take a share of CURRENT liquidity, a spent budget does not mean a drained position (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 926,
+      "kind": "function",
+      "name": "stalled",
+      "signature": "function stalled() public view returns (bool)",
+      "visibility": "public",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "c01f1ce7442ae39539e4f90d42cee1e6254f04e8",
+      "body_lines": [
+        926,
+        933
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "`stalled` is declared at TreasuryGovernor.sol:926; anyone.",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 935,
+      "kind": "function",
+      "name": "consume",
+      "signature": "function consume(uint16 bps, bool fromPrimary) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "05f5b3a30d5341e805e72392e8952fb96820ca88",
+      "body_lines": [
+        935,
+        981
+      ],
+      "authority": "caller satisfying the in-body msg.sender check",
+      "authority_gate_quote": "if (msg.sender != registry) revert NotGuardian(); (TreasuryGovernor.sol:935)",
+      "reads": [],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "TreasuryGovernor.allowance (TreasuryGovernor.sol:938), TRUSTED, in-cluster"
+      ],
+      "reachability": "`consume` is declared at TreasuryGovernor.sol:935; caller satisfying the in-body msg.sender check.",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 985,
+      "kind": "function",
+      "name": "_passed",
+      "signature": "function _passed(Proposal storage p) private view returns (bool)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "6a150bedcf01350bcc17ef30f3ce34c042d6c3c0",
+      "body_lines": [
+        985,
+        998
+      ],
+      "authority": "internal (callers: execute, winner, _executable, passing)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "proposals[id].forVotes (line 986)",
+        "proposals[id].againstVotes (line 986)",
+        "mifrens (line 996, immutable)",
+        "proposals[id].snapshot (line 996)",
+        "QUORUM_BPS (line 996, constant)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "IVotes721.getPastTotalSupply (TreasuryGovernor.sol:996), TRUSTED, out-of-cluster"
+      ],
+      "reachability": "Private, reached from `_passed` (TreasuryGovernor.sol:985) in execute, `_passed` (TreasuryGovernor.sol:985) inside the bench scan's executability test, `_passed` (TreasuryGovernor.sol:985) in the executability test and `_passed` (TreasuryGovernor.sol:985) in the public view. Two conditions: a strict majority at `forVotes` (TreasuryGovernor.sol:986), so a tie fails, and a quorum of `QUORUM_BPS` (TreasuryGovernor.sol:996) \u2014 ten percent \u2014 of the supply measured at the proposal's own `snapshot` (TreasuryGovernor.sol:996), not live, so minting or burning after the vote opens cannot move the bar. The comparison at `forVotes` (TreasuryGovernor.sol:986) is inclusive, and the division at `need` (TreasuryGovernor.sol:996) truncates, so the effective quorum rounds DOWN (DERIVED).",
+      "observations": [
+        "comment `vote` (TreasuryGovernor.sol:987) says quorum is read at the same timepoint the vote weighs ballots and points at line 384; code weighs ballots at `getPastVotes` (TreasuryGovernor.sol:474) and reads the denominator at `getPastTotalSupply` (TreasuryGovernor.sol:994)."
+      ]
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 1000,
+      "kind": "function",
+      "name": "_settled",
+      "signature": "function _settled(uint256 id) private view returns (bool)",
+      "visibility": "private",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "183e173b32e571e3d8ab8bafb95a17e921d8831f",
+      "body_lines": [
+        1000,
+        1003
+      ],
+      "authority": "internal (callers: none in this file)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "proposals (line 1001)",
+        "proposals[id].executed (line 1002)",
+        "proposals[id].cancelled (line 1002)",
+        "proposals[id].votingEndsAt (line 1002)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Private and unreferenced: no call site exists for `_settled` (TreasuryGovernor.sol:1000) anywhere in the file, so it is unreachable from every external entry and contributes no runtime behaviour (DERIVED). Had it been used it would report a proposal as settled once `executed` (TreasuryGovernor.sol:1002) or `cancelled` (TreasuryGovernor.sol:1002) is set or its window has closed \u2014 a WEAKER condition than `_executable` (TreasuryGovernor.sol:707) and a different one from `_dead` (TreasuryGovernor.sol:773).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 1006,
+      "kind": "function",
+      "name": "passing",
+      "signature": "function passing(uint256 id) external view returns (bool)",
+      "visibility": "external",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "7ef1f043ff7df34e050f4e01c5c21a6d64a31e20",
+      "body_lines": [
+        1006,
+        1008
+      ],
+      "authority": "anyone",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "proposals (line 1007)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "TreasuryGovernor._passed (TreasuryGovernor.sol:1007), TRUSTED, in-cluster"
+      ],
+      "reachability": "Unrestricted view for interfaces: it answers whether `_passed` (TreasuryGovernor.sol:1007) holds right now, with no timing test at all, so it reports on an open vote and on a long-stale one alike. An id that was never proposed reads false because both tallies are zero and the majority test at `forVotes` (TreasuryGovernor.sol:986) fails first (DERIVED).",
+      "observations": []
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 1043,
+      "kind": "function",
+      "name": "_requirePriceable",
+      "signature": "function _requirePriceable(address quote) internal view",
+      "visibility": "internal",
+      "mutability": "view",
+      "modifiers": [],
+      "body_sha1": "5766e9968d3f15505f15f63fa8d74a1165b92de3",
+      "body_lines": [
+        1043,
+        1048
+      ],
+      "authority": "internal (callers: propose, execute)",
+      "authority_gate_quote": "UNGATED",
+      "reads": [
+        "quoteOracle (line 1045)"
+      ],
+      "writes": [],
+      "value": "NONE",
+      "edges": [
+        "IQuotePrice.usdPerRawUnit (TreasuryGovernor.sol:1047), UNTRUSTED, out-of-cluster"
+      ],
+      "reachability": "Internal, reached from `_requirePriceable` (TreasuryGovernor.sol:1043) when a target is named and again from `_requirePriceable` (TreasuryGovernor.sol:1043) when the envelope is installed. Two exemptions make it a no-op: a native destination returns at `quote` (TreasuryGovernor.sol:1043) and an unset oracle returns at `o` (TreasuryGovernor.sol:1045). Otherwise it calls out to the guardian-controlled `quoteOracle` (TreasuryGovernor.sol:1045) and treats a zero price as fatal `QuoteNotPriceable` (TreasuryGovernor.sol:1047); a reverting oracle propagates and blocks both proposing and executing, and a guardian able to repoint `setQuoteOracle` (TreasuryGovernor.sol:1052) therefore controls whether any non-native mandate can be installed (DERIVED).",
+      "observations": [
+        "comment `setQuoteAllowed` (TreasuryGovernor.sol:1014) names the registry's allowlist setter; code in the registry declares it as `setAllowedQuote` (CauldronRegistry.sol:314) and writes the mapping at `allowedQuote` (CauldronRegistry.sol:327)."
+      ]
+    },
+    {
+      "contract": "TreasuryGovernor",
+      "file": "cauldron/TreasuryGovernor.sol",
+      "line": 1052,
+      "kind": "function",
+      "name": "setQuoteOracle",
+      "signature": "function setQuoteOracle(address o) external",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "modifiers": [],
+      "body_sha1": "33072ab81d9037e2a3177d2c1b22d21f818caac0",
+      "body_lines": [
+        1052,
+        1056
+      ],
+      "authority": "guardian",
+      "authority_gate_quote": "if (msg.sender != guardian) revert NotGuardian(); (TreasuryGovernor.sol:1052)",
+      "reads": [
+        "guardian (line 1053)"
+      ],
+      "writes": [
+        "quoteOracle (line 1054)"
+      ],
+      "value": "NONE",
+      "edges": [],
+      "reachability": "Only the current `guardian` (TreasuryGovernor.sol:1053) may write `quoteOracle` (TreasuryGovernor.sol:1054), with no zero-check and no code-check, and it may be rewritten any number of times. Because the stored address is called during both `_requirePriceable` (TreasuryGovernor.sol:1051) and `_requirePriceable` (TreasuryGovernor.sol:1051), the holder of this setter can make any non-native quote unproposable and unexecutable, or clear the slot to skip the check entirely at `o` (TreasuryGovernor.sol:1052) (DERIVED).",
+      "observations": [
+        "comment `Timelock` (TreasuryGovernor.sol:1050) says the oracle is timelock-set, and comment `timelock` (TreasuryGovernor.sol:48) says only the timelock adds assets; code gates this setter on `guardian` (TreasuryGovernor.sol:1053) and the allowlist on the registry owner at `setAllowedQuote` (CauldronRegistry.sol:314)."
+      ]
+    }
+  ]
 }

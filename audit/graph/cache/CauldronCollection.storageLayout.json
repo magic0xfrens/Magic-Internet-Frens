@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 1549,
+   "astId": 1603,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_name",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_string_storage"
   },
   {
-   "astId": 1551,
+   "astId": 1605,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_symbol",
    "offset": 0,
@@ -17,7 +17,7 @@
    "type": "t_string_storage"
   },
   {
-   "astId": 1555,
+   "astId": 1609,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_owners",
    "offset": 0,
@@ -25,7 +25,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 1559,
+   "astId": 1613,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_balances",
    "offset": 0,
@@ -33,7 +33,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 1563,
+   "astId": 1617,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_tokenApprovals",
    "offset": 0,
@@ -41,7 +41,7 @@
    "type": "t_mapping(t_uint256,t_address)"
   },
   {
-   "astId": 1569,
+   "astId": 1623,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_operatorApprovals",
    "offset": 0,
@@ -49,20 +49,20 @@
    "type": "t_mapping(t_address,t_mapping(t_address,t_bool))"
   },
   {
-   "astId": 2748,
+   "astId": 2802,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_defaultRoyaltyInfo",
    "offset": 0,
    "slot": "6",
-   "type": "t_struct(RoyaltyInfo)2745_storage"
+   "type": "t_struct(RoyaltyInfo)2799_storage"
   },
   {
-   "astId": 2753,
+   "astId": 2807,
    "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
    "label": "_tokenRoyaltyInfo",
    "offset": 0,
    "slot": "7",
-   "type": "t_mapping(t_uint256,t_struct(RoyaltyInfo)2745_storage)"
+   "type": "t_mapping(t_uint256,t_struct(RoyaltyInfo)2799_storage)"
   },
   {
    "astId": 59,
@@ -78,7 +78,7 @@
    "label": "mode",
    "offset": 20,
    "slot": "8",
-   "type": "t_enum(MetadataMode)1175"
+   "type": "t_enum(MetadataMode)1229"
   },
   {
    "astId": 69,
@@ -134,7 +134,7 @@
    "label": "_liqStats",
    "offset": 0,
    "slot": "15",
-   "type": "t_mapping(t_uint256,t_struct(LiqStats)1329_storage)"
+   "type": "t_mapping(t_uint256,t_struct(LiqStats)1383_storage)"
   },
   {
    "astId": 97,
@@ -199,6 +199,14 @@
    "offset": 0,
    "slot": "23",
    "type": "t_address"
+  },
+  {
+   "astId": 525,
+   "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
+   "label": "reanchored",
+   "offset": 0,
+   "slot": "24",
+   "type": "t_mapping(t_uint256,t_bool)"
   }
  ],
  "types": {
@@ -218,7 +226,7 @@
    "label": "bool",
    "numberOfBytes": "1"
   },
-  "t_enum(MetadataMode)1175": {
+  "t_enum(MetadataMode)1229": {
    "encoding": "inplace",
    "label": "enum MetadataMode",
    "numberOfBytes": "1"
@@ -258,19 +266,19 @@
    "numberOfBytes": "32",
    "value": "t_bool"
   },
-  "t_mapping(t_uint256,t_struct(LiqStats)1329_storage)": {
+  "t_mapping(t_uint256,t_struct(LiqStats)1383_storage)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => struct LiqStats)",
    "numberOfBytes": "32",
-   "value": "t_struct(LiqStats)1329_storage"
+   "value": "t_struct(LiqStats)1383_storage"
   },
-  "t_mapping(t_uint256,t_struct(RoyaltyInfo)2745_storage)": {
+  "t_mapping(t_uint256,t_struct(RoyaltyInfo)2799_storage)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => struct ERC2981.RoyaltyInfo)",
    "numberOfBytes": "32",
-   "value": "t_struct(RoyaltyInfo)2745_storage"
+   "value": "t_struct(RoyaltyInfo)2799_storage"
   },
   "t_mapping(t_uint256,t_uint48)": {
    "encoding": "mapping",
@@ -291,13 +299,13 @@
    "label": "string",
    "numberOfBytes": "32"
   },
-  "t_struct(LiqStats)1329_storage": {
+  "t_struct(LiqStats)1383_storage": {
    "encoding": "inplace",
    "label": "struct LiqStats",
    "numberOfBytes": "96",
    "members": [
     {
-     "astId": 1314,
+     "astId": 1368,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "victim",
      "offset": 0,
@@ -305,7 +313,7 @@
      "type": "t_address"
     },
     {
-     "astId": 1316,
+     "astId": 1370,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "wasLong",
      "offset": 20,
@@ -313,7 +321,7 @@
      "type": "t_bool"
     },
     {
-     "astId": 1318,
+     "astId": 1372,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "leverage",
      "offset": 21,
@@ -321,7 +329,7 @@
      "type": "t_uint8"
     },
     {
-     "astId": 1320,
+     "astId": 1374,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "collateralWei",
      "offset": 0,
@@ -329,7 +337,7 @@
      "type": "t_uint96"
     },
     {
-     "astId": 1322,
+     "astId": 1376,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "bountyWei",
      "offset": 12,
@@ -337,7 +345,7 @@
      "type": "t_uint96"
     },
     {
-     "astId": 1324,
+     "astId": 1378,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "blockNo",
      "offset": 24,
@@ -345,7 +353,7 @@
      "type": "t_uint64"
     },
     {
-     "astId": 1326,
+     "astId": 1380,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "entryPrice",
      "offset": 0,
@@ -353,7 +361,7 @@
      "type": "t_uint128"
     },
     {
-     "astId": 1328,
+     "astId": 1382,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "liqPrice",
      "offset": 16,
@@ -362,13 +370,13 @@
     }
    ]
   },
-  "t_struct(RoyaltyInfo)2745_storage": {
+  "t_struct(RoyaltyInfo)2799_storage": {
    "encoding": "inplace",
    "label": "struct ERC2981.RoyaltyInfo",
    "numberOfBytes": "32",
    "members": [
     {
-     "astId": 2742,
+     "astId": 2796,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "receiver",
      "offset": 0,
@@ -376,7 +384,7 @@
      "type": "t_address"
     },
     {
-     "astId": 2744,
+     "astId": 2798,
      "contract": "cauldron/CauldronCollection.sol:CauldronCollection",
      "label": "royaltyFraction",
      "offset": 20,

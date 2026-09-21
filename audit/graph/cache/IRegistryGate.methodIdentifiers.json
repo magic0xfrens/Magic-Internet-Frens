@@ -1,0 +1,6 @@
+{
+ "claimGate()": "ed7f8d46",
+ "emergencyAdmin()": "70905dce",
+ "emergencyDelay()": "edeb3f44",
+ "setClaimGate(address)": "dc7e4851"
+}

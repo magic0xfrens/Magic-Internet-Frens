@@ -1,12 +1,13 @@
 {
  "cluster": "rotation",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-13T18:22:53",
+ "generated": "2026-09-18T09:06:10",
  "files": {
   "cauldron/QuoteRotator.sol": 791,
   "cauldron/QuoteOracle.sol": 375,
-  "cauldron/RedemptionExt.sol": 983,
+  "cauldron/RedemptionExt.sol": 1017,
   "cauldron/CauldronVault.sol": 198,
+  "cauldron/NativeQuoteZap.sol": 183,
   "cauldron/MockAggregator.sol": 95,
   "cauldron/MockQuoteToken.sol": 29
  },
@@ -347,6 +348,54 @@
    "body_lines": [
     27,
     27
+   ]
+  },
+  {
+   "contract": "NativeQuoteZap",
+   "file": "cauldron/NativeQuoteZap.sol",
+   "line": 80,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(IPoolManager _poolManager)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7bf8814a77ded7cc6f2856ad4c7e701603e5760d",
+   "body_lines": [
+    80,
+    82
+   ]
+  },
+  {
+   "contract": "NativeQuoteZap",
+   "file": "cauldron/NativeQuoteZap.sol",
+   "line": 101,
+   "kind": "function",
+   "name": "zap",
+   "signature": "function zap(PoolKey calldata key, uint256 minOut) external payable returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "27c7eee560ea79d0a333343f00bd05d27e0af963",
+   "body_lines": [
+    101,
+    121
+   ]
+  },
+  {
+   "contract": "NativeQuoteZap",
+   "file": "cauldron/NativeQuoteZap.sol",
+   "line": 123,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata raw) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "96e03cbf396d8981a241b9bf031ee120fafa2917",
+   "body_lines": [
+    123,
+    173
    ]
   },
   {
@@ -1266,16 +1315,16 @@
    "visibility": "public",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "86fee0206f71539198386d136bd8c6dad04e8f33",
+   "body_sha1": "a3f72e33e4e9056e41bf16825458f7e96937148a",
    "body_lines": [
     285,
-    623
+    657
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 689,
+   "line": 723,
    "kind": "function",
    "name": "floorClaimableNow",
    "signature": "function floorClaimableNow() external view returns (bool claimable, uint256 perFren)",
@@ -1284,14 +1333,14 @@
    "modifiers": [],
    "body_sha1": "9d6bcc8ce9db6a413608a84b1689a9b9d3cdcfdc",
    "body_lines": [
-    689,
-    695
+    723,
+    729
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 708,
+   "line": 742,
    "kind": "function",
    "name": "claimByBurnUpTo",
    "signature": "function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256 claimedAmount)",
@@ -1300,14 +1349,14 @@
    "modifiers": [],
    "body_sha1": "761527f7c0e68bb23e95279c1de2160b47dfbd7f",
    "body_lines": [
-    711,
-    729
+    745,
+    763
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 732,
+   "line": 766,
    "kind": "function",
    "name": "legCount",
    "signature": "function legCount(uint256 gen) external view returns (uint256)",
@@ -1316,14 +1365,14 @@
    "modifiers": [],
    "body_sha1": "9822da989af6d7a3edde9f38fc620498db347c6b",
    "body_lines": [
-    732,
-    734
+    766,
+    768
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 737,
+   "line": 771,
    "kind": "function",
    "name": "legAt",
    "signature": "function legAt(uint256 gen, uint256 i) external view returns (address quote, uint256 positionId, PoolKey memory key)",
@@ -1332,14 +1381,14 @@
    "modifiers": [],
    "body_sha1": "5afb5cbb7eb904ad5b929467bca20356d14c7c88",
    "body_lines": [
-    741,
-    744
+    775,
+    778
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 752,
+   "line": 786,
    "kind": "function",
    "name": "_legPosition",
    "signature": "function _legPosition(uint256 gen, address quote) private view returns (uint256 positionId, PoolKey memory key)",
@@ -1348,14 +1397,14 @@
    "modifiers": [],
    "body_sha1": "c7839d8057cce4b9331d6adf79d7fc214f42e4e2",
    "body_lines": [
-    756,
-    762
+    790,
+    796
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 765,
+   "line": 799,
    "kind": "function",
    "name": "_recordLeg",
    "signature": "function _recordLeg(uint256 gen, address quote, uint256 positionId, PoolKey memory key) private",
@@ -1364,14 +1413,14 @@
    "modifiers": [],
    "body_sha1": "530514556843220c0cc3ba725ae1508e2d390d58",
    "body_lines": [
-    765,
-    782
+    799,
+    816
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 814,
+   "line": 848,
    "kind": "function",
    "name": "recoverLegs",
    "signature": "function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut)",
@@ -1380,14 +1429,14 @@
    "modifiers": [],
    "body_sha1": "8783320ef194e669b8f5055052f4d5f231c68ea3",
    "body_lines": [
-    814,
-    818
+    848,
+    852
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 841,
+   "line": 875,
    "kind": "function",
    "name": "_bookLegProceeds",
    "signature": "function _bookLegProceeds(uint256 gen, uint256 quoteOut, uint256 tokenOut) internal",
@@ -1396,14 +1445,14 @@
    "modifiers": [],
    "body_sha1": "91bfc4c6690343c9064a2dad25c72743c516527b",
    "body_lines": [
-    841,
-    852
+    875,
+    886
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 865,
+   "line": 899,
    "kind": "function",
    "name": "recoverLegsAtTeardown",
    "signature": "function recoverLegsAtTeardown(uint256 gen) external returns (uint256, uint256)",
@@ -1412,14 +1461,14 @@
    "modifiers": [],
    "body_sha1": "d7dece021b5e0c665568aba60abe9e784dab521d",
    "body_lines": [
-    865,
-    867
+    899,
+    901
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 869,
+   "line": 903,
    "kind": "function",
    "name": "_recoverLegs",
    "signature": "function _recoverLegs(uint256 gen) private returns (uint256 quoteOut, uint256 tokenOut)",
@@ -1428,14 +1477,14 @@
    "modifiers": [],
    "body_sha1": "cac662339040ee882a1e967945a1ce70b843ae72",
    "body_lines": [
-    869,
-    923
+    903,
+    957
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 927,
+   "line": 961,
    "kind": "function",
    "name": "legProceedsOf",
    "signature": "function legProceedsOf(address asset) external view returns (uint256)",
@@ -1444,14 +1493,14 @@
    "modifiers": [],
    "body_sha1": "bfb0294c1f4fec68b57be7f90a59c88c86b8a909",
    "body_lines": [
-    927,
-    929
+    961,
+    963
    ]
   },
   {
    "contract": "RedemptionExt",
    "file": "cauldron/RedemptionExt.sol",
-   "line": 964,
+   "line": 998,
    "kind": "function",
    "name": "sweepLegProceeds",
    "signature": "function sweepLegProceeds(address asset, address to) external onlyOwner returns (uint256 amount)",
@@ -1462,8 +1511,8 @@
    ],
    "body_sha1": "0c3687441f4eb237bd6d61f5eddeff3ae817de43",
    "body_lines": [
-    964,
-    974
+    998,
+    1008
    ]
   }
  ]

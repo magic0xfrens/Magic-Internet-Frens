@@ -1,0 +1,6 @@
+{
+ "creditEpoch()": "5e7f102d",
+ "crystalsReady(address)": "ad12c7ac",
+ "getVolume24h(bytes32)": "06de7171",
+ "nftCredit(uint256,address)": "fe8958df"
+}

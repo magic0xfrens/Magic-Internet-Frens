@@ -1,0 +1,41 @@
+{
+ "storage": [
+  {
+   "astId": 63,
+   "contract": "render/LiquidatoorRenderer.sol:LiquidatoorRenderer",
+   "label": "owner",
+   "offset": 0,
+   "slot": "0",
+   "type": "t_address"
+  },
+  {
+   "astId": 67,
+   "contract": "render/LiquidatoorRenderer.sol:LiquidatoorRenderer",
+   "label": "longArt",
+   "offset": 0,
+   "slot": "1",
+   "type": "t_array(t_address)dyn_storage"
+  },
+  {
+   "astId": 70,
+   "contract": "render/LiquidatoorRenderer.sol:LiquidatoorRenderer",
+   "label": "shortArt",
+   "offset": 0,
+   "slot": "2",
+   "type": "t_array(t_address)dyn_storage"
+  }
+ ],
+ "types": {
+  "t_address": {
+   "encoding": "inplace",
+   "label": "address",
+   "numberOfBytes": "20"
+  },
+  "t_array(t_address)dyn_storage": {
+   "encoding": "dynamic_array",
+   "label": "address[]",
+   "numberOfBytes": "32",
+   "base": "t_address"
+  }
+ }
+}

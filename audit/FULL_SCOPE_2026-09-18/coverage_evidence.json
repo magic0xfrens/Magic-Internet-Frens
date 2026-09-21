@@ -1,0 +1,458 @@
+{
+  "function:b940cf6cc4faa0a26d619f92": {
+    "reviewer": "root",
+    "source_sha256": "0d53b05f23dec00fd07808769c114fe4c0dfafe294f7bb98efb103bea138960e",
+    "property": "Cache scales configured WAD threshold to live quote units, clamps sub-unit values to one, saturates overflow, and falls back for short/reverting/unsupported metadata. Hostile gas consumption is a reproduced limitation, not a passing totality guarantee.",
+    "source_citations": ["contracts/solidity/CauldronHook.sol:2078"],
+    "tests": ["test/audit_full_scope/LegacyThresholdAcceptance.t.sol:LegacyThresholdAcceptanceTest — 10 tests, including two inherited F2A cases and 512 metadata fuzz cases"],
+    "result": "Exit 0, 10 passed/0 failed/0 skipped on 2026-09-19. One pass deliberately reproduces a 200k-gas setter failure, verifies rollback, then succeeds with 2M gas. See REVIEW_HOOK_THRESHOLD_ACCEPTANCE.md.",
+    "consumers": ["setLiveKey and setLegacyBuyback refresh the cache; _tryLegacyBuy and legacyBuyStep compare live quote buffers against the raw threshold"],
+    "limitations": "PoolManager stub and mocked ordinary metadata; actual hostile metadata contract for exhaustion. No full native-pool lifecycle, deployment parity, large-returndata bound or comprehensive access-control coverage is claimed. EVIDENCE_RECORDED is not full node acceptance."
+  },
+  "function:0a874ceaccac7e6666cb6496": {
+    "reviewer": "root",
+    "source_sha256": "0e3ea4d442881fb527c8d3d22415732455b28af206c752cb682955463b440583",
+    "property": "Partial short rebook preserves collateral up to backing and collateral + principal equals remaining backing; later funding is nonzero.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpEngine.sol:2172"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpRebookAccounting.t.sol — 2 unit tests and 256 fuzz cases",
+      "test/audit_full_scope/PerpPartialCloseLocal.t.sol:test_partialCloseKeepsFundingAndBacking — partial event, residual size/collateral, subsequent funding"
+    ],
+    "result": "VERIFIED in the 43-pass / 0-fail / 0-skip focused run recorded in VERIFICATION.md, before the subsequent local full-rotation fixture.",
+    "consumers": [
+      "PerpEngine partial short settlement; fundingDelta and liquidation penalty consumers"
+    ],
+    "limitations": "Isolated fuzz harness does not prove every input reachable. Real partial-fill fixture uses production V4/engine with test hook/registry. Funding proportionality, full waterfall and sync remain open."
+  },
+  "function:80bb32c26df03449e2ce7cd1": {
+    "reviewer": "root",
+    "source_sha256": "51543d63ea9f3855f18c5bf8c14aebcb7b0ada58684a16b1925e52ea358377c4",
+    "property": "Treasury swapOnce requires a nonzero independent oracle floor; adverse execution rolls back, while a priceable small trade settles conserved balances.",
+    "source_citations": [
+      "contracts/solidity/cauldron/QuoteRotator.sol:335"
+    ],
+    "tests": [
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_unsetOracleMustNotRemovePermissionlessPriceFloor — NotPriceable and native balance unchanged",
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_controlFreshOracleRejectsLargePriceImpact — SlippageTooHigh and rollback",
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_controlFreshOracleAcceptsSmallTradeAndConservesInput — input spent/output received",
+      "test/attacks/X2c_OracleFloorFailsSafe.t.sol — fresh/dead/unset oracle controls"
+    ],
+    "result": "VERIFIED in the 43-pass / 0-fail / 0-skip focused run recorded in VERIFICATION.md, before the subsequent local full-rotation fixture.",
+    "consumers": [
+      "cauldron/RedemptionExt.sol:432 — forwards permissionless caller-selected minOut through the registry"
+    ],
+    "limitations": "Real V4 rotator boundary executed with registry fixture; full registry round-trip and deployed wiring remain open. Artifact source-hash attestation pending."
+  },
+  "selector:9b1c1b3b1f748fb26316035f": {
+    "reviewer": "root",
+    "source_sha256": "51543d63ea9f3855f18c5bf8c14aebcb7b0ada58684a16b1925e52ea358377c4",
+    "property": "Treasury swapOnce requires a nonzero independent oracle floor; adverse execution rolls back, while a priceable small trade settles conserved balances.",
+    "source_citations": [
+      "contracts/solidity/cauldron/QuoteRotator.sol:335"
+    ],
+    "tests": [
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_unsetOracleMustNotRemovePermissionlessPriceFloor — NotPriceable and native balance unchanged",
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_controlFreshOracleRejectsLargePriceImpact — SlippageTooHigh and rollback",
+      "test/audit_full_scope/QuoteRotationLocalIntegration.t.sol:test_controlFreshOracleAcceptsSmallTradeAndConservesInput — input spent/output received",
+      "test/attacks/X2c_OracleFloorFailsSafe.t.sol — fresh/dead/unset oracle controls"
+    ],
+    "result": "VERIFIED in the 43-pass / 0-fail / 0-skip focused run recorded in VERIFICATION.md, before the subsequent local full-rotation fixture.",
+    "consumers": [
+      "cauldron/RedemptionExt.sol:432 — forwards permissionless caller-selected minOut through the registry"
+    ],
+    "limitations": "Real V4 rotator boundary executed with registry fixture; full registry round-trip and deployed wiring remain open. Artifact source-hash attestation pending."
+  },
+  "function:5c80b5db30b6eef83eb1cdf7": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "a2d9995d0e184ea965094c785f55fc6d82ea8920af25e915e652c1061c0a5c84",
+    "property": "Quote-stack chain/feed checks run before signer/broadcast; fresh explicit Sepolia feeds/pegs accepted, stale/future/nonpositive/overflow/zero-normalized feeds rejected.",
+    "source_citations": [
+      "contracts/solidity/deploy/DeployLaunchpad.s.sol:683"
+    ],
+    "tests": [
+      "test/audit_full_scope/QuotePreflightEdges.t.sol — 9 passing tests",
+      "test/audit_full_scope/DeployLaunchpadSafety.t.sol — 3 passing run() rejection tests"
+    ],
+    "result": "VERIFIED — 12/12 deployment preflight tests passed after explicit per-case environment reset and normalized-zero check.",
+    "consumers": [
+      "DeployLaunchpad.run; production deployment operator configuration"
+    ],
+    "limitations": "Preflight-only tests are not a full production deployment rehearsal or proof of all oracle configuration boundaries."
+  },
+  "function:7a39c4deff7d1445e1b20912": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:547"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:af3e718c847ee0637181ca12": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:600"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:df2248942a17738b3b45cdfd": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:616"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:8c9202ae26e1a0c423c85bd7": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:624"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:e7c97600d0762806a48b844c": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:652"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:05e516cff79f03f91189ce3e": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:788"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "selector:667df887ab724edac188968d": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:652"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "selector:7f520e6744d80134228f5bea": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:624"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "selector:c7947800907da5ed32c29627": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "b74dcc6626e492d2cdbba750bb75cc4bed1c76c16c57269e4d96a5d85561277a",
+    "property": "Repeated reward write-offs do not resurrect stale claims; current pot + pulled/write-off watermark equals cumulative credits. Pending view matches claims with bounded rounding.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpVault.sol:788"
+    ],
+    "tests": [
+      "test/audit_full_scope/PerpVaultRepeatedWriteoff.t.sol — 4 tests, including 257 fuzz runs and both claim orders"
+    ],
+    "result": "VERIFIED — 4/4 pass, 0 skipped, final focused run in LOCAL_LIFECYCLE_RESULTS.md. Older K3b and Ja suites also passed.",
+    "consumers": [
+      "PerpEngine credit/write-off/pull boundary; frontend and API token-staker pending/claim views"
+    ],
+    "limitations": "Production vault with model engine; not full engine rotation/denomination integration. Queue/principal solvency not certified by these assertions."
+  },
+  "function:3180cfe36b484b8c6147ff9e": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "d0cec8d1edd3061d8737d9d4ea5696a9ef24e9d52f00e9a375aa7376f907143c",
+    "property": "Returning to the launch denomination consolidates active treasury positions, preserves redemption reserve, and consumes primary rotation allowance on the following migration. Failed swaps roll back.",
+    "source_citations": [
+      "contracts/solidity/cauldron/RedemptionExt.sol:280"
+    ],
+    "tests": [
+      "test/audit_full_scope/RotationLifecycleLocal.t.sol — 4 actual registry/V4 lifecycle tests"
+    ],
+    "result": "VERIFIED — 4/4 pass, no skips, recorded in VERIFICATION.md.",
+    "consumers": [
+      "Registry facet forwarding; TreasuryGovernor allowance; treasury UI route; LegOpened/SliceRotated indexer consumers"
+    ],
+    "limitations": "Local production V4/registry/facet with fixture quote/votes/pegs; not deployed upgrade/recovery proof. One-shot facet prevents direct replacement on existing registry."
+  },
+  "function:4c1425887480f857c89b9c54": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "d0cec8d1edd3061d8737d9d4ea5696a9ef24e9d52f00e9a375aa7376f907143c",
+    "property": "Returning to the launch denomination consolidates active treasury positions, preserves redemption reserve, and consumes primary rotation allowance on the following migration. Failed swaps roll back.",
+    "source_citations": [
+      "contracts/solidity/cauldron/RedemptionExt.sol:815"
+    ],
+    "tests": [
+      "test/audit_full_scope/RotationLifecycleLocal.t.sol — 4 actual registry/V4 lifecycle tests"
+    ],
+    "result": "VERIFIED — 4/4 pass, no skips, recorded in VERIFICATION.md.",
+    "consumers": [
+      "Registry facet forwarding; TreasuryGovernor allowance; treasury UI route; LegOpened/SliceRotated indexer consumers"
+    ],
+    "limitations": "Local production V4/registry/facet with fixture quote/votes/pegs; not deployed upgrade/recovery proof. One-shot facet prevents direct replacement on existing registry."
+  },
+  "selector:536658f4f0f4c4f6c3291795": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "d0cec8d1edd3061d8737d9d4ea5696a9ef24e9d52f00e9a375aa7376f907143c",
+    "property": "Returning to the launch denomination consolidates active treasury positions, preserves redemption reserve, and consumes primary rotation allowance on the following migration. Failed swaps roll back.",
+    "source_citations": [
+      "contracts/solidity/cauldron/RedemptionExt.sol:280"
+    ],
+    "tests": [
+      "test/audit_full_scope/RotationLifecycleLocal.t.sol — 4 actual registry/V4 lifecycle tests"
+    ],
+    "result": "VERIFIED — 4/4 pass, no skips, recorded in VERIFICATION.md.",
+    "consumers": [
+      "Registry facet forwarding; TreasuryGovernor allowance; treasury UI route; LegOpened/SliceRotated indexer consumers"
+    ],
+    "limitations": "Local production V4/registry/facet with fixture quote/votes/pegs; not deployed upgrade/recovery proof. One-shot facet prevents direct replacement on existing registry."
+  },
+  "function:3c7a4a6509458bb905e3445b": {
+    "reviewer": "root (vault formulas independently rechecked by graph_remaining)",
+    "source_sha256": "a2d9995d0e184ea965094c785f55fc6d82ea8920af25e915e652c1061c0a5c84",
+    "property": "Quote-stack chain/feed checks run before signer/broadcast; fresh explicit Sepolia feeds/pegs accepted, stale/future/nonpositive/overflow/zero-normalized feeds rejected.",
+    "source_citations": [
+      "contracts/solidity/deploy/DeployLaunchpad.s.sol:709"
+    ],
+    "tests": [
+      "test/audit_full_scope/QuotePreflightEdges.t.sol — 9 passing tests",
+      "test/audit_full_scope/DeployLaunchpadSafety.t.sol — 3 passing run() rejection tests"
+    ],
+    "result": "VERIFIED — 12/12 deployment preflight tests passed after explicit per-case environment reset and normalized-zero check.",
+    "consumers": [
+      "DeployLaunchpad.run; production deployment operator configuration"
+    ],
+    "limitations": "Preflight-only tests are not a full production deployment rehearsal or proof of all oracle configuration boundaries."
+  },
+  "selector:ff7cf84b1b4233c21b6099e5": {
+    "reviewer": "root",
+    "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+    "property": "Unified mode cannot be rearmed by donated/forced ETH; only an exact affirmative hook vault getter enables ETH burn redemption; malformed/unsupported responses fail closed.",
+    "source_citations": [
+      "contracts/solidity/cauldron/CauldronVault.sol:142"
+    ],
+    "tests": [
+      "test/audit_full_scope/UnifiedVaultDonation.t.sol — 8 tests",
+      "test/CauldronLaunchpad.t.sol:VaultTest and test/attacks/Z2_VaultDonationEntitlement.t.sol — 6 legacy controls"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "CauldronFactory-created vault; collection burnFromVault; registry unified-floor recycling; ETH floorPerNFT consumers"
+    ],
+    "limitations": "Fixture hook/registry roles, production collection/vault/ledger. Does not certify all NFT transfer-validator behavior, historical burned-state recovery or full continuation deployment."
+  },
+  "selector:3e56eceb29b32605c0c1c6a6": {
+    "reviewer": "root",
+    "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+    "property": "Unified mode cannot be rearmed by donated/forced ETH; only an exact affirmative hook vault getter enables ETH burn redemption; malformed/unsupported responses fail closed.",
+    "source_citations": [
+      "contracts/solidity/cauldron/CauldronVault.sol:161"
+    ],
+    "tests": [
+      "test/audit_full_scope/UnifiedVaultDonation.t.sol — 8 tests",
+      "test/CauldronLaunchpad.t.sol:VaultTest and test/attacks/Z2_VaultDonationEntitlement.t.sol — 6 legacy controls"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "CauldronFactory-created vault; collection burnFromVault; registry unified-floor recycling; ETH floorPerNFT consumers"
+    ],
+    "limitations": "Fixture hook/registry roles, production collection/vault/ledger. Does not certify all NFT transfer-validator behavior, historical burned-state recovery or full continuation deployment."
+  },
+  "selector:019a83d097195e2b8cd575ad": {
+    "reviewer": "root",
+    "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+    "property": "Ordinary fee-bearing no-hook V4 exact-input multi-tick swaps stay within budget, deliver output and refund partial fills; impossible minimum rolls back custody/price; unauthorized callback and zero floor are rejected.",
+    "source_citations": [
+      "contracts/solidity/cauldron/NativeQuoteZap.sol:123"
+    ],
+    "tests": [
+      "test/audit_full_scope/NativeQuoteZapLocal.t.sol — 4 tests including 256 fuzz cases"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "Native-ETH to ERC20 quote acquisition before direct player gacha call; V4 unlock callback"
+    ],
+    "limitations": "Real local V4 with ordinary mock ERC20 and no hook. Does not establish malicious-hook/token behavior, forced balances, refund-recipient rejection or fair pricing."
+  },
+  "selector:18e6825d2c4d2eaae04eb92c": {
+    "reviewer": "root",
+    "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+    "property": "Ordinary fee-bearing no-hook V4 exact-input multi-tick swaps stay within budget, deliver output and refund partial fills; impossible minimum rolls back custody/price; unauthorized callback and zero floor are rejected.",
+    "source_citations": [
+      "contracts/solidity/cauldron/NativeQuoteZap.sol:101"
+    ],
+    "tests": [
+      "test/audit_full_scope/NativeQuoteZapLocal.t.sol — 4 tests including 256 fuzz cases"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "Native-ETH to ERC20 quote acquisition before direct player gacha call; V4 unlock callback"
+    ],
+    "limitations": "Real local V4 with ordinary mock ERC20 and no hook. Does not establish malicious-hook/token behavior, forced balances, refund-recipient rejection or fair pricing."
+  },
+  "function:8fc212fb6dbf8d834f559361": {
+    "reviewer": "root",
+    "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+    "property": "Unified mode cannot be rearmed by donated/forced ETH; only an exact affirmative hook vault getter enables ETH burn redemption; malformed/unsupported responses fail closed.",
+    "source_citations": [
+      "contracts/solidity/cauldron/CauldronVault.sol:142"
+    ],
+    "tests": [
+      "test/audit_full_scope/UnifiedVaultDonation.t.sol — 8 tests",
+      "test/CauldronLaunchpad.t.sol:VaultTest and test/attacks/Z2_VaultDonationEntitlement.t.sol — 6 legacy controls"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "CauldronFactory-created vault; collection burnFromVault; registry unified-floor recycling; ETH floorPerNFT consumers"
+    ],
+    "limitations": "Fixture hook/registry roles, production collection/vault/ledger. Does not certify all NFT transfer-validator behavior, historical burned-state recovery or full continuation deployment."
+  },
+  "function:45a334ab3310357442585bdb": {
+    "reviewer": "root",
+    "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+    "property": "Unified mode cannot be rearmed by donated/forced ETH; only an exact affirmative hook vault getter enables ETH burn redemption; malformed/unsupported responses fail closed.",
+    "source_citations": [
+      "contracts/solidity/cauldron/CauldronVault.sol:161"
+    ],
+    "tests": [
+      "test/audit_full_scope/UnifiedVaultDonation.t.sol — 8 tests",
+      "test/CauldronLaunchpad.t.sol:VaultTest and test/attacks/Z2_VaultDonationEntitlement.t.sol — 6 legacy controls"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "CauldronFactory-created vault; collection burnFromVault; registry unified-floor recycling; ETH floorPerNFT consumers"
+    ],
+    "limitations": "Fixture hook/registry roles, production collection/vault/ledger. Does not certify all NFT transfer-validator behavior, historical burned-state recovery or full continuation deployment."
+  },
+  "function:2636a415a2fcad8a263be2bc": {
+    "reviewer": "root",
+    "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+    "property": "Unified mode cannot be rearmed by donated/forced ETH; only an exact affirmative hook vault getter enables ETH burn redemption; malformed/unsupported responses fail closed.",
+    "source_citations": [
+      "contracts/solidity/cauldron/CauldronVault.sol:181"
+    ],
+    "tests": [
+      "test/audit_full_scope/UnifiedVaultDonation.t.sol — 8 tests",
+      "test/CauldronLaunchpad.t.sol:VaultTest and test/attacks/Z2_VaultDonationEntitlement.t.sol — 6 legacy controls"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "CauldronFactory-created vault; collection burnFromVault; registry unified-floor recycling; ETH floorPerNFT consumers"
+    ],
+    "limitations": "Fixture hook/registry roles, production collection/vault/ledger. Does not certify all NFT transfer-validator behavior, historical burned-state recovery or full continuation deployment."
+  },
+  "function:9c673bf1dc24829e1ffabf0d": {
+    "reviewer": "root",
+    "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+    "property": "Ordinary fee-bearing no-hook V4 exact-input multi-tick swaps stay within budget, deliver output and refund partial fills; impossible minimum rolls back custody/price; unauthorized callback and zero floor are rejected.",
+    "source_citations": [
+      "contracts/solidity/cauldron/NativeQuoteZap.sol:101"
+    ],
+    "tests": [
+      "test/audit_full_scope/NativeQuoteZapLocal.t.sol — 4 tests including 256 fuzz cases"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "Native-ETH to ERC20 quote acquisition before direct player gacha call; V4 unlock callback"
+    ],
+    "limitations": "Real local V4 with ordinary mock ERC20 and no hook. Does not establish malicious-hook/token behavior, forced balances, refund-recipient rejection or fair pricing."
+  },
+  "function:4bcebba435c585b356e5a273": {
+    "reviewer": "root",
+    "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+    "property": "Ordinary fee-bearing no-hook V4 exact-input multi-tick swaps stay within budget, deliver output and refund partial fills; impossible minimum rolls back custody/price; unauthorized callback and zero floor are rejected.",
+    "source_citations": [
+      "contracts/solidity/cauldron/NativeQuoteZap.sol:123"
+    ],
+    "tests": [
+      "test/audit_full_scope/NativeQuoteZapLocal.t.sol — 4 tests including 256 fuzz cases"
+    ],
+    "result": "VERIFIED in 22-pass / 1-fail / 0-skip focused run; unrelated gas-ladder assertion failed. See LOCAL_LIFECYCLE_RESULTS.md.",
+    "consumers": [
+      "Native-ETH to ERC20 quote acquisition before direct player gacha call; V4 unlock callback"
+    ],
+    "limitations": "Real local V4 with ordinary mock ERC20 and no hook. Does not establish malicious-hook/token behavior, forced balances, refund-recipient rejection or fair pricing."
+  },
+  "function:7b38a76e8602f3137aeb55ee": {
+    "reviewer": "root",
+    "source_sha256": "0e3ea4d442881fb527c8d3d22415732455b28af206c752cb682955463b440583",
+    "property": "Generation sync refuses permissionless quote adoption while quote-side vault stake exists, but an owner/timelock can override and adopt the new quote; an empty vault adopts permissionlessly.",
+    "source_citations": [
+      "contracts/solidity/cauldron/PerpEngine.sol:1341"
+    ],
+    "tests": [
+      "test/attacks/K3c_RotationStrandsPerpEngine.t.sol — 5 local tests covering stake veto, owner override, authorization, warmup, and empty-vault adoption"
+    ],
+    "result": "VERIFIED: 5 passed / 0 failed / 0 skipped with the production cauldron profile.",
+    "consumers": [
+      "RedemptionExt quote rotation callback and PerpEngine generation re-arming"
+    ],
+    "limitations": "Stub registry, pool manager, hook, and token; no deployed wiring or hostile-vault fork execution."
+  }
+}
