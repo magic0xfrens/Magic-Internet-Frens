@@ -187,3 +187,88 @@ EIP-7825's 16,777,216 cap. **That is tight, not comfortable.**
    `InvalidHeartbeat(0) != FeedUnusable(...)` and a bare `WrappedError`. **Run
    all five canaries**, not just the ones whose names match your change.
 6. Keyed archive RPC only; never add an `audit_full_scope` skip.
+
+---
+
+# Addendum — "no bad debt" as shipped, and the one twin still open
+
+Owner directive: *no bad debt allowed.* Two halves landed; one sibling remains.
+
+## The property, stated honestly
+
+**"Bad debt cannot exist" is not achievable.** Pre-swap liquidation bounds
+*trade-induced* insolvency; it cannot eliminate insolvency, for four measured
+reasons:
+
+1. **Insolvency arises with no trade at all.** `H1C` drives 18 positions
+   underwater with funding accrual plus a `maintenanceBps` change and **zero
+   swaps**. No swap means no pre-swap hook.
+2. **Closing is itself a price-moving swap.** `XL1` asserts a position larger
+   than pool depth stays liquidatable — at that size the buy-back costs more
+   than its backing by construction.
+3. **The mark band deliberately refuses a bad close** (`55ba6fe`), leaving an
+   oversized position **intact** rather than settling it at a price the
+   liquidator made. Correct, and it means a shortfall can sit open.
+4. **Liquidation is itself price-moving, so the solvent set is not fixed while
+   you liquidate.** Kill #9 can condemn a position kill #1 left healthy.
+   Measured by session `2c`: **2 positions insolvent at spot after a *successful*
+   45-ETH buy** on a 24-position book.
+
+**The achievable property, and the one now enforced: bad debt is never silently
+created, and never silently reallocated.**
+
+## Half 1 — never silently created (`PerpEngine`, session `2c`)
+
+`_absorbPlvLoss`'s `plv = plv > rest ? plv - rest : 0` clamp dropped any loss
+exceeding insurance + PLV. `_bd` only emitted an event; no state recorded it.
+Now the remainder accumulates in a `public`, monotonic `unabsorbedEth` with
+`BadDebtUnabsorbed` carrying the running total. **The waterfall is unchanged** —
+insurance, then PLV.
+
+**Trap, flagged and not live today** (grep: written and emitted, never read):
+`unabsorbedEth` is monotonic and never decremented, so any future
+`require(unabsorbedEth == 0)` is a **permanent brick on first bad debt**, even
+after full recovery. It means *"this once happened"*, never *"this is
+outstanding"*. Never gate on it.
+
+## Half 2 — never silently reallocated (`PerpVault`, this session)
+
+**R2A was live.** `_syncEthQueue:461` early-returned on `backing >= claims`, so a
+loss *smaller than the queue* was not haircut at all. Measured: 5 ETH loss on a
+20 ETH book → queued LP kept **10/10** (0% of the loss), stayer kept **5/10**
+(100%).
+
+Fixed in `6634f2a`: a new `ethBackingMark` slot records backing as of the last
+vault action; `_syncEthQueue` scales `ethQueueIndex` by `backing/mark` on any
+fall in `engine.totalEth()` the vault did not cause; `_markEth()` re-baselines
+after every transfer. **One global index write — no per-user write-down**, which
+is what made 80 calls move 9.878 of 10 ETH. Same loss now splits **7.5 / 7.5**.
+
+Insurance-vs-PLV ordering untouched. ABI addition only (`ethBackingMark()`).
+
+**Verified in a clean worktree at `6634f2a`: 60/60, 0 failed** — `test_R2A_*`
+green, `E1B` `drain wei: 0` on both scales, `XL1`/`D04`/`H1B`/`H1C` green.
+(The fixer's own runs were in the shared dirty tree and it said so; this re-run
+is why that caveat is now discharged.)
+
+## Still open — the token twin
+
+`_syncTokQueue:762` carries the **identical** early-return the ETH fix replaced:
+
+```solidity
+if (claims != 0 && backing >= claims) return;
+```
+
+So the token-denominated exit queue has the same seniority hole: a token loss
+smaller than the token queue falls entirely on stakers who stayed. The exposure
+differs — token principal is structurally more protected than ETH — but the
+defect is the same shape and the fix is the same shape (`tokBackingMark`
+mirroring `ethBackingMark`).
+
+**Not fixed, deliberately: it is an owner call**, because it is a second
+economic surface rather than a repeat of an approved one. If the answer is
+"treat both sides identically", it is a mechanical port of `6634f2a`.
+
+## Also noted, not defects
+- `assetsEth()` reads stale between vault calls; every money path syncs first,
+  so pricing is never stale at the point it is used.
