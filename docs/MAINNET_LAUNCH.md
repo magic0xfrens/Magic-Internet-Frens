@@ -45,7 +45,10 @@ export POSITION_MANAGER=0x58daec3116aae6d93017baaea7749052e8a04fa7
 
 # ── DECIDE (real money) ──
 export TIMELOCK_DELAY=172800        # 48h (audit rec up to 7d=604800). NOT 180.
-export PRESALE_PRICE=6200000000000000   # 0.0062 ETH/fren → 1111 ≈ 6.9 ETH raise. REAL ETH now.
+export PRESALE_PRICE=11110000000000000  # 0.01111 ETH/fren → 1111 = 12.34321 ETH raise. REAL ETH now.
+#   Downstream, all forced by this one number (green-candle path, 80% active band):
+#     pool opens 12.709 gwei → settles 19.857 gwei (+56.25% candle) → FDV 15.429 ETH.
+#   DEATH_THRESHOLD below is NOT auto-scaled — re-check it against the bigger pool.
 export DEATH_THRESHOLD=1000000000000000000  # 1 ETH/24h vol floor to stay alive
 export GUARDIAN=<gnosis safe>       # migration veto — a MULTISIG, not the EOA
 export TREASURY=<treasury addr>     # defaults to deployer if unset
