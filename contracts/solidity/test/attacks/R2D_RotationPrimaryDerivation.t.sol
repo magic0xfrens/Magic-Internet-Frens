@@ -226,19 +226,34 @@ contract R2D_RotationPrimaryDerivation is YBase {
         assertTrue(flippedToUsd, "denomination migrated to USD");
         assertTrue(h1 && h2 && h3 && h4, "home slices must succeed");
         assertTrue(flippedHome, "denomination came home to ETH");
-        assertGt(ethLeg, 0, "a leg holding the current denomination (ETH) exists beside the launch pair");
-
-        assertTrue(okLaunch, "slice out of the launch residual succeeds");
-        assertTrue(okLeg, "slice out of the come-home leg succeeds");
-
-        // The come-home leg holds strictly more of the treasury than the launch
-        // residual does — it is the position a migration mandate is about.
-        assertGt(movedLeg, movedLaunch, "the come-home leg holds the treasury");
-
-        // ...yet the derivation books the RESIDUAL as primary and the TREASURY
-        // as a secondary leg.
-        assertEq(primaryAfterLaunch, 2500, "launch residual booked as the PRIMARY slice");
-        assertEq(primaryAfterLeg, 0, "the position holding the treasury booked as SECONDARY");
+        //  ── INVERTED: THE INVERSION THIS TEST HUNTED DOES NOT EXIST ────────
+        //  Written to prove that after ETH -> USD -> ETH the derivation at
+        //  RedemptionExt.sol:412-415 books the DRAINED launch residual as
+        //  primary and the position actually holding the treasury as secondary.
+        //  Two sessions reached that reading independently from the code --
+        //  `_upsertLeg` does contain a branch that pushes a new leg, and
+        //  `generationPoolKey` is never rewritten -- and both were wrong,
+        //  because neither checked whether the come-home path REACHES that
+        //  branch with the launch quote. It does not.
+        //
+        //  The original assertions, kept verbatim so the refutation is legible:
+        //      assertGt(ethLeg, 0,             "a leg holding the current denomination (ETH) exists beside the launch pair");
+        //      assertTrue(okLeg,               "slice out of the come-home leg succeeds");
+        //      assertGt(movedLeg, movedLaunch, "the come-home leg holds the treasury");
+        //      assertEq(primaryAfterLaunch, 2500, "launch residual booked as the PRIMARY slice");
+        //      assertEq(primaryAfterLeg, 0,    "the position holding the treasury booked as SECONDARY");
+        //
+        //  What actually happens: the come-home consolidates into the launch
+        //  pair, `legCount` stays 1 (the USD leg), and NO second ETH-quoted leg
+        //  is ever created. With exactly one position holding the current
+        //  denomination, `fromPrimary` being true for `fromLeg == 0` is CORRECT.
+        //
+        //  Agreement between two readings is not evidence; execution is. Do not
+        //  re-raise this without a leg book that shows two ETH-quoted positions.
+        assertEq(ethLeg, 0, "REFUTED: the come-home creates no second ETH leg to misclassify");
+        assertTrue(okLaunch, "the launch pair -- the only ETH holder -- is sliceable");
+        assertGt(movedLaunch, 0, "and a slice out of it moves real value");
+        assertEq(primaryAfterLaunch, 2500, "booked as PRIMARY, which is the honest answer");
     }
 
     function _primaryBps() internal view returns (uint16) {

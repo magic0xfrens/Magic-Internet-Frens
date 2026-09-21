@@ -102,6 +102,14 @@ contract T02_EnvelopeBurnedOnADustLeg is YBase {
             _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
 
             _rotOracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, usdg.decimals());
+            //  EQTY NEEDS A FEED TOO. This file allowlists TWO quotes, and
+            //  ROT-01 refuses any rotation it cannot price -- so a dust leg
+            //  denominated in the one without a feed reverts `NotPriceable`
+            //  before the attack under test can even begin, and the PoC reports
+            //  a spend of 0 for the wrong reason. Feeding only the quote a file
+            //  happens to name first is how a wiring gap disguises itself as a
+            //  security property.
+            _rotOracle.setFeed(address(eqty), address(new MockAggregator("EQTY/USD", 100e8)), 4 hours, eqty.decimals());
 
             rotator.setArbParams(address(_rotOracle), 1000, 5e18);
 
