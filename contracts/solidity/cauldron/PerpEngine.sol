@@ -1213,10 +1213,32 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  LIVENESS, STATED PLAINLY: a book holding more than MAX_LIQ_PER_SWAP
         //  positions that one trade would condemn now refuses that trade, and
         //  refusing it also rolls back the kills, so swaps cannot self-heal it.
-        //  The escape is {liquidate}, which is permissionless, runs outside the
-        //  swap path and is paced only by the per-block throttle: anyone can
-        //  drain the book back under the cap and trading resumes. That escape is
-        //  asserted in test/attacks/H1B_SweepCapCertifiesUnscanned.t.sol.
+        //  THE {liquidate} ESCAPE IS PARTIAL, AND THE GAP IS THE INTERESTING
+        //  CASE. For a book that is insolvent AT SPOT the escape is real:
+        //  {liquidate} is permissionless, runs outside the swap path, is paced
+        //  only by the per-block throttle, and anyone can drain the backlog until
+        //  trading resumes (asserted in H1C_PreExistingBacklogWedge.t.sol).
+        //
+        //  But the condition that REFUSES a trade here is
+        //  {_condemnedByThisTrade}: trips at the PROJECTED post-trade price and
+        //  NOT at spot. Such a position is healthy at spot, so `liquidate` reverts
+        //  `Healthy()` on it — the escape cannot clear the very positions whose
+        //  presence caused the refusal. It is also a KILL-COUNT bound, not a gas
+        //  bound: once `kills == MAX_LIQ_PER_SWAP` one more condemned position
+        //  refuses the trade at ANY gas limit, so no caller can buy their way
+        //  through by supplying more.
+        //
+        //  Net effect is a SIZE CAP, not a brick: smaller trades that condemn
+        //  <= 8 still fill, and the refusal is atomic (kills, book, price, PLV,
+        //  payer balance and keeper payout all roll back). The residual is that
+        //  an adversary can PLACE that cap by opening nine dust positions a large
+        //  trade would condemn — ~0.027 ETH at `minCollateral`, and because they
+        //  stay healthy at spot they are never liquidated, so the grief is cheap
+        //  and sustained. Named and accepted, not overlooked: lifting it means
+        //  raising the pre-trade kill ceiling AND re-deriving the hybrid badge
+        //  gas budget, since a wider kill loop pushes the badge out of auto-mint
+        //  into `badgesOwed` (measured: five failures, three of them wearing
+        //  error shapes from unrelated subsystems).
         while (scanned < len && (kills < MAX_LIQ_PER_SWAP || spec != 0)) {
             //  ── STOP BEFORE RUNNING OUT, NOT AFTER (red-team L-2) ───────────
             //  The hook fires this with a fixed gas budget and discards the
