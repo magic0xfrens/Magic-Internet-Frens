@@ -181,7 +181,7 @@ unpatchable library that assumption would be unrecoverable.
 
 ---
 
-### FINDING-3 — INFORMATIONAL
+### FINDING-3 — INFORMATIONAL — **FIXED in `072dbd7`**
 
 **`FeeRouteLib.deliver` clears its allowance only on failure.** `FeeRouteLib.sol:255`.
 The comment says *"Leave no standing allowance behind"*, but the reset runs under
@@ -191,6 +191,22 @@ allowance against the hook.
 Not exploitable as wired: the only pull entrypoint, `MiFrensDividend.fundToken`
 (`:273-289`), pulls exactly `amount`. Recorded because the library is unpatchable and the
 comment overstates what the code does.
+
+**Resolution.** The revoke is now unconditional. Fixed despite being unreachable because
+of *where* it lives: a linked library's address is baked into `CauldronHook` at link
+time, so it cannot be repointed after deploy and a future call site cannot be handed the
+guard later. Cost is one warm zero-over-zero SSTORE on the happy path.
+
+Pinned by `test/audit/CI1_DeliverLeavesNoAllowance.t.sol`, **verified non-vacuous rather
+than assumed**: against the pre-fix library `test_CI1_partialPullLeavesNoStandingAllowance`
+fails with exactly 40 ether still approved, and passes after. Three controls (full pull,
+reverting pull, codeless recipient) hold in both directions, so the X4e guard is pinned
+alongside it.
+
+Verified in a throwaway worktree at `HEAD` carrying only the two changed files — the
+shared tree does not currently compile (another session has `PerpEngine`/`PoolOps`/
+`CauldronBase` mid-edit; the build dies on stack-too-deep), so a result measured there
+would have described their work rather than this change.
 
 ---
 
@@ -239,6 +255,8 @@ explicit prior-audit lineage in-code, which is why it held.
 ## 6. Conclusion
 
 **No Critical, High or Medium defect was found in committed code in the immutable tier.**
+One informational hardening (FINDING-3) was fixed in `072dbd7` with a non-vacuous
+regression test; FINDING-2 was deliberately left alone with its reasoning recorded.
 That is the expected outcome for a codebase carrying five prior audits and 185
 proof-of-concept exploit suites, and the in-code audit lineage on every path probed here
 (X1b, X1f, X4c, X4e, H-03, F-02, F-08, B-03, GACHA1-b, I-07, D-1, R1C, H1) is consistent
