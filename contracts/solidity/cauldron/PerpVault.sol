@@ -128,6 +128,10 @@ contract PerpVault is ReentrancyGuard {
     uint256 public ethQueueUnits;                   // total outstanding ETH queue units
     uint256 public ethQueueIndex;                   // wei per QSCALE units
     uint64  public ethQueueEpoch;                   // bumped when a queue is wiped out
+    /// @notice `engine.totalEth()` as of the last vault action. A fall below this
+    ///         that the vault did not cause is a realised loss, and the queue
+    ///         bears its share of it (see {_syncEthQueue}, red-team R2A).
+    uint256 public ethBackingMark;
     mapping(address => uint256) internal _ethUnitsOf;
     mapping(address => uint64)  internal _ethEpochOf;
 
@@ -291,6 +295,7 @@ contract PerpVault is ReentrancyGuard {
      */
     function deposit(uint256 amount) public payable nonReentrant returns (uint256 shares) {
         if (amount == 0) revert ZeroAmount();
+        _syncEthQueue();   // recognise any loss BEFORE pricing the new shares
         //  ── NO NEW MONEY INTO AN INSOLVENT QUEUE (red-team T3a) ─────────────
         //  {assetsEth} saturates at zero (`:196`), so once `pendingEth` outruns the
         //  engine's backing the share price collapses to the 1-wei OFFSET base and
@@ -325,6 +330,7 @@ contract PerpVault is ReentrancyGuard {
         ethShares += shares;
         ethShareOf[msg.sender] += shares;
         engine.fundFromVault{value: q == address(0) ? amount : 0}(amount);
+        _markEth();
         emit DepositEth(msg.sender, amount, shares);
     }
 
@@ -359,6 +365,7 @@ contract PerpVault is ReentrancyGuard {
     /// @notice Redeem ETH shares. Pays instantly up to the engine's FREE ETH; any
     ///         remainder is queued (claim later via {claimPendingEth}).
     function withdrawEth(uint256 shares) external nonReentrant returns (uint256 paid, uint256 queued) {
+        _syncEthQueue();   // recognise any loss BEFORE valuing the exit
         uint256 bal = ethShareOf[msg.sender];
         if (shares == 0) revert ZeroShares();
         if (shares > bal) revert InsufficientShares();
@@ -375,6 +382,7 @@ contract PerpVault is ReentrancyGuard {
         ethShares -= shares;
         if (queued > 0) _queueEth(msg.sender, queued);
         if (paid > 0) engine.withdrawPlvTo(paid, msg.sender); // INTERACTION last
+        _markEth();
         emit WithdrawEth(msg.sender, shares, paid, queued);
     }
 
@@ -416,6 +424,10 @@ contract PerpVault is ReentrancyGuard {
         return FullMath.mulDiv(_ethUnitsOf[user], ethQueueIndex, QSCALE);
     }
 
+    /// @dev Re-baseline the loss mark AFTER this vault moved ETH in or out of the
+    ///      engine, so its own transfer is never read as a loss by {_syncEthQueue}.
+    function _markEth() private { ethBackingMark = engine.totalEth(); }
+
     /// @dev Book `amount` of queued ETH for `user` as units at the live index.
     function _queueEth(address user, uint256 amount) private {
         uint256 u = FullMath.mulDiv(amount, QSCALE, ethQueueIndex);
@@ -452,14 +464,43 @@ contract PerpVault is ReentrancyGuard {
     ///
     ///  The pro-rata rule itself is unchanged — see {_haircut}, which is applied
     ///  to the INDEX here instead of to one victim's balance.
+    ///
+    ///  ── PARI PASSU, NOT SENIOR (red-team R2A) ─────────────────────────────
+    ///  The clamp below fires only when the queue outruns the WHOLE backing. For
+    ///  any smaller loss it did nothing, and {assetsEth} is the residual
+    ///  `totalEth - pendingEth`, so the entire shortfall landed on live shares:
+    ///  measured, a 5 ETH loss on a 20 ETH book left the queued LP with 10/10
+    ///  (0% of the loss) and the LP who stayed with 5/10 (100% of it), where
+    ///  pro-rata is 7.5 each. Queueing was free, so reacting first was every LP's
+    ///  dominant move — a bank run with a protocol-enforced starting gun.
+    ///
+    ///  A drop in `engine.totalEth()` that the vault did not itself cause IS the
+    ///  loss, so `ethBackingMark` records the backing as of the last vault action
+    ///  and the index is scaled by `backing / mark`. Both sides then fall at the
+    ///  same rate: live shares because `assetsEth` is the residual, the queue
+    ///  because its index moved. Still ONE global index write, so the idempotence
+    ///  and order-independence above are untouched.
+    ///
+    ///  Every path that moves ETH in or out of the engine re-baselines the mark
+    ///  through {_markEth} AFTER its transfer, so a payout is never mistaken for
+    ///  a loss. A RISE in backing is not distributed to the queue: a queued exit
+    ///  stops earning yield, which is unchanged and deliberate.
     function _syncEthQueue() private {
+        uint256 backing = engine.totalEth();
         uint256 units = ethQueueUnits;
-        if (units == 0) return;
+        if (units == 0) { ethBackingMark = backing; return; }
         uint256 idx = ethQueueIndex;
         uint256 claims = FullMath.mulDiv(units, idx, QSCALE);
-        uint256 backing = engine.totalEth();
-        if (claims != 0 && backing >= claims) return;          // fully backed
-        uint256 newIdx = claims == 0 ? 0 : _haircut(idx, backing, claims);
+        uint256 mark = ethBackingMark;
+        //  (1) pari passu: bear the same proportional loss a live share bears.
+        uint256 newIdx = (mark != 0 && backing < mark)
+            ? FullMath.mulDiv(idx, backing, mark)
+            : idx;
+        //  (2) and never carry a claim larger than what exists.
+        uint256 c2 = FullMath.mulDiv(units, newIdx, QSCALE);
+        if (c2 == 0 || backing < c2) newIdx = c2 == 0 ? 0 : _haircut(newIdx, backing, c2);
+        ethBackingMark = backing;
+        if (newIdx == idx) return;                             // nothing to recognise
         if (newIdx == 0) {
             //  Nothing the engine holds can pay anyone: retire the whole queue so
             //  it stops blocking {deposit} and {hasStakers} (red-team R2B/R2C).
@@ -471,7 +512,10 @@ contract PerpVault is ReentrancyGuard {
             return;
         }
         ethQueueIndex = newIdx;
-        emit QueueWrittenDown(false, claims - backing, newIdx);
+        //  What the queue actually gave up. NOT `claims - backing`: under (1) the
+        //  queue can be written down while still fully backed, and that
+        //  subtraction underflows (checked arithmetic) exactly then.
+        emit QueueWrittenDown(false, claims - FullMath.mulDiv(units, newIdx, QSCALE), newIdx);
     }
 
     /// @notice Permissionlessly recognise the ETH queue's write-down. Pays nobody.
@@ -520,6 +564,7 @@ contract PerpVault is ReentrancyGuard {
             ethQueueUnits -= du;
         }
         engine.withdrawPlvTo(paid, msg.sender);
+        _markEth();
         emit ClaimEth(msg.sender, paid);
     }
 

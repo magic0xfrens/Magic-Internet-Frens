@@ -1205,7 +1205,10 @@ contract S06_PerpVaultQueue is Test {
         console2.log("still owed after write-down  :", vault.pendingEthOf(alice));
 
         assertLe(claimed, 5 ether, "the queue cannot take more than the engine holds");
-        assertApproxEqAbs(claimed, 5 ether, 2, "and takes its pro-rata share of what is left");
+        //  Was `assertApproxEqAbs(claimed, 5 ether, 2, ...)` — the queue took the
+        //  WHOLE remaining pot because it was senior. Pari passu (R2A): alice and
+        //  bob each held half the book, so each gets half of the 5 that is left.
+        assertApproxEqAbs(claimed, 2.5 ether, 2, "and takes its pro-rata share of what is left");
         assertEq(vault.pendingEthOf(alice), 0, "the unbacked half of the claim is written off");
         assertLe(vault.pendingEth(), engine.totalEth() + 2, "the queue no longer outruns backing");
         assertTrue(true, "reached");
@@ -1243,23 +1246,30 @@ contract S06_PerpVaultQueue is Test {
         //  worthless before she claimed, so there is nothing to share it with),
         //  but the UNBACKED half of her claim is now written off instead of
         //  standing as a permanent first-in-line debt against future deposits.
-        assertEq(alice.balance - aBefore, 5 ether, "alice draws the remaining pot");
-        assertEq(vault.pendingEthOf(alice), 0, "the unbacked half of her claim is written off");
+        //  ── FIXED (R2A). This PoC used to assert the shedding its name describes:
+        //      assertEq(alice.balance - aBefore, 5 ether, "alice draws the remaining pot");
+        //      assertEq(redeem, 0, "bob's shares are worthless");
+        //      assertEq(bPaid, 0, "bob gets nothing");
+        //      assertEq(bQueued, 0, "and cannot even queue for anything");
+        //  {PerpVault._syncEthQueue} now scales the queue index by
+        //  backing/ethBackingMark, so the queue falls at the same rate live shares
+        //  do. Alice no longer takes the whole remaining pot.
+        assertEq(alice.balance - aBefore, 2.5 ether, "alice draws only her half of what is left");
+        assertEq(vault.pendingEthOf(alice), 0, "the unbacked part of her claim is written off");
         assertLe(vault.pendingEth(), 2, "and the queue no longer outruns the engine");
 
         // Bob: still holds every one of his shares, and they are worth nothing.
         (uint256 redeem,,) = vault.ethPosition(bob);
-        assertEq(redeem, 0, "bob's shares are worthless");
+        assertEq(redeem, 2.5 ether, "bob keeps his half of what is left");
         vm.prank(bob);
         vm.expectRevert(PerpVault.ZeroAmount.selector); // owed 0 -> :219 ... via withdraw
         vault.claimPendingEth();
         vm.prank(bob);
         (uint256 bPaid, uint256 bQueued) = vault.withdrawEth(bSh);
-        assertEq(bPaid, 0, "bob gets nothing");
-        assertEq(bQueued, 0, "and cannot even queue for anything");
+        assertEq(bPaid + bQueued, 2.5 ether, "bob gets the same as alice");
 
         // Loss allocation: 15 ether of loss, 100% of it on the staker who stayed.
-        assertEq(alice.balance - aBefore, 5 ether, "alice recovered 5 of 10");
+        assertEq(alice.balance - aBefore, bPaid + bQueued, "equal stakes, equal recovery");
         assertEq(vault.ethShareOf(bob), 0, "bob burned every share");
         assertTrue(reachedSeniority = true, "reached: the queue can no longer exceed backing");
     }
@@ -1326,8 +1336,14 @@ contract S06_PerpVaultQueue is Test {
         vm.prank(bob);
         (uint256 bPaid, uint256 bQueued) = vault.withdrawEth(bSh);
         console2.log("bob recovered      :", bPaid + bQueued);
-        assertEq(alice.balance - aBefore, 10 ether, "alice eats 0% of the loss");
-        assertEq(bPaid + bQueued, 5 ether, "bob eats 100% of it");
+        //  ── FIXED (R2A). Before the pari-passu sync these two lines read:
+        //      assertEq(alice.balance - aBefore, 10 ether, "alice eats 0% of the loss");
+        //      assertEq(bPaid + bQueued,          5 ether, "bob eats 100% of it");
+        //  A 5 ETH loss on a 20 ETH book is now split 2.5/2.5, so each LP who put
+        //  in 10 gets 7.5 back whether they queued or stayed.
+        assertEq(alice.balance - aBefore, 7.5 ether, "the LP who queued bears half the loss");
+        assertEq(bPaid + bQueued,         7.5 ether, "the LP who stayed bears the other half");
+        assertEq(alice.balance - aBefore, bPaid + bQueued, "equal stakes, equal outcome");
     }
 }
 
