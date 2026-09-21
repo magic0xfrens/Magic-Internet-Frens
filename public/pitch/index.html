@@ -491,7 +491,7 @@
     <span class="badge"><span class="live-dot"></span> <b>LIVE</b>&nbsp;on Ethereum Sepolia · round 44</span>
     <span class="badge">Mainnet target · <b>Robinhood Chain</b></span>
     <span class="badge">Uniswap v4 hook</span>
-    <span class="badge">Fully on-chain art</span>
+    <span class="badge">Hand-drawn pixel traits</span>
   </div>
   <div class="lineup-band">
     <div class="lf lf--0" aria-hidden="true"><img src="/frens/elf-face-01.svg" alt="" /><img src="/frens/elf-03.svg" alt="" /><img src="/frens/elf-item-00.svg" alt="" /></div>
@@ -557,7 +557,7 @@
 <!-- ============ 04 · THE ETERNAL CYCLE ============ -->
 <section class="slide" id="s4">
   <div class="rail"><span class="brand-mini"><svg viewBox="62 91 388 330"><use href="#wiz"/></svg><span><b>MiFrens</b></span></span><span class="num"><b>04</b> / 13 · The cycle</span></div>
-  <span class="kicker">One loop, and it has already run seven times</span>
+  <span class="kicker">One loop, and it has already run six times</span>
   <div class="cycle">
     <div>
       <h2 style="margin-bottom:14px;">Trade. Die.<br>Claim. Vote.<br><span class="em">Relaunch.</span></h2>
@@ -698,14 +698,9 @@
         <div class="amt v">14.9%</div>
       </div>
       <div class="split-row">
-        <div class="who"><div class="t">Legacy live buyback</div><div class="d">Market-buys the live token to back the collection floor — no keeper, it fires inside the swap</div></div>
-        <div class="track"><div class="fill" style="width:34%;animation-delay:.15s"></div></div>
-        <div class="amt">33.8%</div>
-      </div>
-      <div class="split-row">
-        <div class="who"><div class="t">Collection floor vault</div><div class="d">The redeemable ETH floor behind every NFT this generation forged</div></div>
-        <div class="track"><div class="fill" style="width:51%;animation-delay:.25s"></div></div>
-        <div class="amt">50.7%</div>
+        <div class="who"><div class="t">Collection floor — via live buyback</div><div class="d">Market-buys the live token inside the swap, no keeper. A <b>token-denominated</b> floor that survives every rebirth</div></div>
+        <div class="track"><div class="fill" style="width:84.6%;animation-delay:.15s"></div></div>
+        <div class="amt">84.6%</div>
       </div>
       <div class="split-row">
         <div class="who"><div class="t">Winning proposer</div><div class="d">Author of the proposal that summoned this brew — <b>pull, never pushed</b></div></div>
@@ -720,11 +715,11 @@
       <p style="font-size:13.5px;"><span class="mono">activeProposer</span> is attacker-controlled. Pushing would put an untrusted external call in the swap hot path — so a rejecting sink never bricks a swap, and its share rolls into the relaunch reserve.</p>
     </div>
     <div class="card" style="padding:16px 18px;">
-      <span class="tag" style="margin-bottom:7px;">Where the next launch's money comes from</span>
-      <p style="font-size:13.5px;">Not a slice of the fee — <strong>the recovered LP itself.</strong> At relaunch the old position is unwound and re-seeded into the new pool. That is why no team treasury ever tops it up.</p>
+      <span class="tag" style="margin-bottom:7px;">One floor, not two — the unified floor</span>
+      <p style="font-size:13.5px;">Both collection-deployment paths wire <span class="mono">hook.setVault(0)</span>, so there is <strong>no redeemable ETH vault.</strong> The floor share joins the buyback buffer and becomes token buy pressure too. Redeem via <span class="mono">recycleCollectionNFT</span>.</p>
     </div>
   </div>
-  <p class="foot-note">Percentages are of the hook fee at deployed settings (<span class="mono">taxBps 300 · guildBps 1500 · legacyBps 4000 · floorBps 10000 · proposerBps 50</span>), hard-capped at 10% and governance-tunable. Perp fees route separately: 30% genesis dividend, 70% perp stakers, side-attributed.</p>
+  <p class="foot-note">Percentages are of the hook fee at deployed settings (<span class="mono">taxBps 300 · guildBps 1500 · legacyBps 4000 · floorBps 10000 · proposerBps 50</span>), hard-capped at 10% and governance-tunable. The 84.6% arrives in two carves — <span class="mono">legacyBps</span> takes 33.8% off the post-guild remainder, then the 50.7% floor share follows it into the same buffer because <span class="mono">vault == address(0)</span>. The relaunch reserve gets nothing from the split by default; it is funded by the recovered LP. Perp fees route separately: 30% genesis dividend, 70% perp stakers, side-attributed.</p>
 </section>
 
 <!-- ============ 08 · WHAT BACKS A FREN ============ -->
@@ -814,7 +809,7 @@
         <div class="sp"><span class="k">Max win chance</span><span class="v">90%, with a pity counter</span></div>
         <div class="sp"><span class="k">Randomness</span><span class="v">commit-block hash</span></div>
         <div class="sp"><span class="k">Router required</span><span class="v">no — plain swaps work</span></div>
-        <div class="sp"><span class="k">Liquidate a perp</span><span class="v">mints a Liquidatoor badge</span></div>
+        <div class="sp"><span class="k">Liquidate a perp</span><span class="v">earns a Liquidatoor badge</span></div>
       </div>
       <p style="margin-top:11px;font-size:13px;">On an L2 sequencer naive <span class="mono">prevrandao</span> entropy is grindable. This protocol uses <b>none of it</b> — and the limits of the commit-hash guarantee are documented rather than hand-waved.</p>
     </div>
@@ -992,7 +987,7 @@
   </p>
   <div class="link">mifrens.xyz</div>
   <div class="foot">
-    2222 pixel wizards · fully on-chain<br>
+    2222 pixel wizards · one machine that will not die<br>
     The Cauldron never dies · gm fren · wagmi
   </div>
 </section>
