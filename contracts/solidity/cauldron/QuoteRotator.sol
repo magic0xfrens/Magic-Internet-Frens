@@ -384,10 +384,9 @@ contract QuoteRotator {
         //  measured to be: it does not make the floor safe, it deletes it. The
         //  honest answer is that a rotation nobody can price does not happen.
         //
-        //  NO oracle wired is a different statement from "the oracle declines":
-        //  a deployment that never set one is bounded by `minOut` by design and
-        //  nothing here can invent a price for it, so that case is untouched.
-        if (floor == 0 && quoteOracle != address(0)) revert NotPriceable();
+        //  An unwired oracle is also unpriceable. Caller-selected minOut is not
+        //  an independent treasury price bound, even on a curated venue.
+        if (floor == 0) revert NotPriceable();
 
         out = _swap(route, from, to, amountIn);
         if (out < (minOut > floor ? minOut : floor)) revert SlippageTooHigh();
@@ -416,12 +415,10 @@ contract QuoteRotator {
     ///  the per-RAW-UNIT price carries it. The conversion back to raw `to` units
     ///  divides by that same per-unit price.
     ///
-    ///  FAILS OPEN, DELIBERATELY, AND ONLY WHEN UNPRICEABLE. With no oracle wired
-    ///  (or a leg it cannot value) this returns 0 and the caller's `minOut` stands
-    ///  alone — exactly today's behaviour. Reverting instead would make an
-    ///  oracle outage brick a governance-approved rotation, trading a value bug
-    ///  for a liveness bug. The venue allowlist above is the guard that does not
-    ///  depend on the oracle, which is why R-01 needs both halves.
+    ///  Returns zero when unpriceable, including when no oracle is configured.
+    ///  swapOnce must reject that sentinel before entering the pool. This pauses
+    ///  permissionless rotation until pricing is restored; venue identity alone
+    ///  cannot guarantee an economically acceptable execution price.
     function _oracleFloor(address from, address to, uint256 amountIn)
         internal
         returns (uint256)
