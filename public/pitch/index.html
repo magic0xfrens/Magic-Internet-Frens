@@ -150,7 +150,7 @@
   .cover .badges { margin-top: clamp(14px, 2.8vh, 26px); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 76ch; }
   /* The genesis line-up, sitting on the cover's horizon. Its own art is already
      purple-on-starfield, so it blends into the slide gradient with a mask. */
-  #s1 { --fu: clamp(205px, min(35vh, 23vw), 380px); padding-bottom: calc(var(--fu) * 0.64 + 4px); }
+  #s1 { --fu: clamp(205px, min(35vh, 23vw), 380px); padding-bottom: calc(var(--fu) * 0.62 + 4px); }
   /* The cover grounds its crew rather than bleeding them: almost no clip, and a
      shorter top fade so the heads stay solid. */
   #s1 .lineup-band {
@@ -318,7 +318,7 @@
   /* ---------- Raise slide ---------- */
   /* One unit drives the line-up's scale AND the padding the copy reserves for
      it, so the band can never grow into the text above it. */
-  #s10 { --fu: clamp(170px, min(28vh, 19vw), 300px); padding-bottom: calc(var(--fu) * 0.78 + 6px); }
+  #s10 { --fu: clamp(170px, min(28vh, 19vw), 300px); padding-bottom: calc(var(--fu) * 0.76 + 6px); }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .kpi {
     border: 1px solid var(--panel-brd); border-radius: 14px;
@@ -491,7 +491,7 @@
     <span class="badge"><span class="live-dot"></span> <b>LIVE</b>&nbsp;on Ethereum Sepolia · round 44</span>
     <span class="badge">Mainnet target · <b>Robinhood Chain</b></span>
     <span class="badge">Uniswap v4 hook</span>
-    <span class="badge">Hand-drawn pixel traits</span>
+    <span class="badge">Fully on-chain art</span>
   </div>
   <div class="lineup-band">
     <div class="lf lf--0" aria-hidden="true"><img src="/frens/elf-face-01.svg" alt="" /><img src="/frens/elf-03.svg" alt="" /><img src="/frens/elf-item-00.svg" alt="" /></div>
@@ -797,6 +797,7 @@
         <div class="sp"><span class="k">Per-side OI cap</span><span class="v">≤30% of depth</span></div>
       </div>
       <p style="margin-top:11px;font-size:13px;">The open fee is charged on <b>collateral, not notional</b> — a notional fee would start a 3× position roughly 20% underwater on day one.</p>
+      <p style="margin-top:9px;font-size:13px;color:var(--lime-glow);font-weight:600;">Every kill is engraved on-chain: victim, side, leverage, entry, the mark that killed them, your bounty.</p>
     </div>
     <div class="card" style="border-color:rgba(213,253,81,0.4);background:rgba(213,253,81,0.05);">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
@@ -809,12 +810,14 @@
         <div class="sp"><span class="k">Max win chance</span><span class="v">90%, with a pity counter</span></div>
         <div class="sp"><span class="k">Randomness</span><span class="v">commit-block hash</span></div>
         <div class="sp"><span class="k">Router required</span><span class="v">no — plain swaps work</span></div>
+        <div class="sp"><span class="k">Art</span><span class="v">on-chain SVG, SSTORE2 traits</span></div>
         <div class="sp"><span class="k">Liquidate a perp</span><span class="v">earns a Liquidatoor badge</span></div>
       </div>
-      <p style="margin-top:11px;font-size:13px;">On an L2 sequencer naive <span class="mono">prevrandao</span> entropy is grindable. This protocol uses <b>none of it</b> — and the limits of the commit-hash guarantee are documented rather than hand-waved.</p>
+      <p style="margin-top:11px;font-size:13px;">On an L2 sequencer naive <span class="mono">prevrandao</span> entropy is grindable; this protocol uses <b>none of it</b>, and the limits of the commit-hash guarantee are documented rather than hand-waved.</p>
+      <p style="margin-top:9px;font-size:13px;">The art is composed <b>on-chain</b> — 89 compressed trait blobs and a 247-colour palette in <span class="mono">SSTORE2</span> bytecode, decoded by <span class="mono">FrenRenderer</span> into a layered SVG data-URI, no IPFS and no API. A hosted base URI is the alternate arm, swappable per collection; <b>the live testnet round runs the hosted one.</b></p>
     </div>
   </div>
-  <p class="lede" style="margin-top:13px;color:var(--lime-glow);font-weight:600;font-size:15.5px;">Liquidating a perp engraves the kill on-chain: victim, side, leverage, entry, the mark that killed them, your bounty.</p>
+
 </section>
 
 <!-- ============ 10 · THE GENESIS RAISE ============ -->
@@ -987,7 +990,7 @@
   </p>
   <div class="link">mifrens.xyz</div>
   <div class="foot">
-    2222 pixel wizards · one machine that will not die<br>
+    2222 pixel wizards · fully on-chain<br>
     The Cauldron never dies · gm fren · wagmi
   </div>
 </section>
