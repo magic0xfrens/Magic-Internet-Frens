@@ -19,11 +19,12 @@ degraded: every `rotateSlice` reverts. The guild can pass a mandate and never
 spend it. The fix is written and compiles; **half of it is still uncommitted**
 because it is interleaved with another session's in-flight work (§2).
 
-**The suite is at 36 failures against a baseline of 4**, and ~30 of those are
-that one defect. That is the good news — it is one cause, not thirty. The bad
+**The suite is at 40 failures against a baseline of 4**, and ~27 of those are
+that one defect. That is the good news — it is one cause, not forty. The bad
 news is that **`test/attacks/YBase.sol`, the shared harness every attack PoC
 boots from, is uncommitted and unclaimed**, so no suite number anyone reports
-right now is reproducible.
+right now is reproducible — and that it took four attempts to measure the suite
+correctly at all (§6).
 
 Deploy when: the rotation oracle wiring is committed, the suite returns to ~4
 known failures, and the harness is pinned. That is days, not weeks.
@@ -170,9 +171,31 @@ had to be reconsidered rather than simply raised.
   (`17fe081`): 1,111 genesis across 112 wallets **plus 3,000 badges** leaves the
   bar at 111 votes, where it would be 411 if badges counted; the proposal
   proposes, votes, warps and executes.
-- **`GachaLib` hashed slots held.** `R2E` 5 passed / 0 failed / 0 skipped: the
-  pin is single-assignment and freezes the original seed. This was the last
-  plausible Critical in the re-hunt.
+- **`GachaLib` hashed slots held — VERIFIED against real bytecode.** `R2E`
+  5 passed / 0 failed / 0 skipped, DELEGATECALLed from a harness owning the
+  storage (the same relation as `CauldronHook.sol:2519`), no mock of the code
+  under test. **No collision, no overwrite, no pre-emption, randomness is not
+  caller-biasable.** Slots derive from `keccak256(abi.encode(bi, BASE))` with
+  `BASE` itself a keccak output; 1,024 derived slots across both namespaces gave
+  zero self-collisions and none below 4096, and since a Solidity mapping preimage
+  is `(key, smallSlotIndex)` while these bases exceed 2^200, the 64-byte preimages
+  can never coincide. `_pinSeed` is `private`, single-assignment under
+  `if (_seed(k) == bytes32(0))`, and the pinned value is exactly
+  `blockhash(commitBlock)` with nothing caller-supplied — a second attacker-sent
+  resolve 50 blocks later left it byte-identical, and recomputing wins from the
+  pinned seed matched. One re-anchor then terminal forfeit verified end to end.
+  **One Low, hygiene:** `PIN_SPAN = 4`, so with 8 queued batches at cursor 0 only
+  indices 0–3 pin — the protection does not reach a queue deeper than four.
+  Self-rescuable, since `resolveTickets` is permissionless with arbitrary
+  `maxCount`.
+- **The presale setter held.** Deployer-only, refuses `newCap == 0` or
+  `>= GENESIS_SUPPLY`, refuses widening after the first mint; cannot brick
+  sellout. Two deployer-role Lows only (a deployer can front-run a pending
+  `mint(n)` with a tightening to burn a buyer's gas — zero pre-inclusion privacy
+  on 4663 — and can slow sellout arbitrarily). **Badge-spam DoS of a victim's
+  genesis mint is refuted:** `_mintLiquidator` is gated to the perp engine, which
+  requires sellout, by which point `mint()` is closed; iteration #2 mints ids
+  above `GENESIS_SUPPLY` through a different path.
 
 ### What broke
 
@@ -185,18 +208,60 @@ had to be reconsidered rather than simply raised.
   that "the native settle would revert against an ERC20 quote anyway". It is
   stale — `LegacyBuyLib.sol:263-275` settles ERC20 via sync→transfer→settle.
   Regression `587a6ed`.
-- **The round-trip rotation inversion — DERIVED ×3, zero executions.**
-  `f3d3f9e` fixed the one-way migration and appears to reintroduce the identical
-  defect on the return trip. After ETH → USDG → ETH, `RedemptionExt.sol:413-415`
-  makes `fromPrimary` true **only** for `fromLeg == 0` — the launch pair the
-  outbound migration drained — and false for the rotated leg actually holding the
-  treasury, because `_upsertLeg:838-844` pushes a new leg rather than reusing leg
-  0 and `generationPoolKey` is never rewritten. Consequence: slices book
-  `movedPrimaryBps = 0`, the denomination never flips, and `propose` stays
-  blocked until expiry — **the exact stall `f3d3f9e` was written to fix**.
-  Two independent sessions reached this reading separately. **It is not proven**:
-  `R2D` died on its precondition, downstream of §2's dead rotation. Retest once
-  the oracle is wired.
+- **`stalled()` dust immunity — Medium, VERIFIED.** `696899b`'s `stalled()`
+  (`TreasuryGovernor.sol:926-933`) reads **both** `movedBps` and
+  `movedPrimaryBps`. A single **1-bps secondary** slice — `consume(1, false)`, a
+  leg the mandate is not about — leaves `allowance()` at the full 10,000 and
+  `migrationMandateSpent()` false, i.e. advances the migration by *nothing*, yet
+  makes `stalled()` false at cooldown **and 30 days later**. `propose` is then
+  blocked until envelope expiry. The design separates those two counters
+  precisely so a side-pool slice cannot speak for the migration; `stalled()`
+  reading both undoes that separation. The boundary itself is clean (not stalled
+  at `+COOLDOWN-1`, stalled at exactly `+COOLDOWN`, both directions), and
+  `consume(0,false)` does not immunise — so the dust floor is real but is one
+  bps. `capital:` ~0 ETH plus gas; **not flashloanable** (needs a rotatable
+  secondary leg in a different quote). Guardian `cancel` remains the escape.
+  `R2B_StalledDustImmunity.t.sol`, 3 passed / 0 failed.
+
+### RETRACTED — the round-trip rotation inversion
+
+I reported, and a peer session independently confirmed by its own greps, that
+`f3d3f9e`'s derivation inverts on a return trip: after ETH → USDG → ETH,
+`RedemptionExt.sol:412-415` would make `fromPrimary` true only for `fromLeg == 0`
+(the drained launch pair) and false for the rotated leg holding the treasury.
+
+**Execution refutes the precondition. This is not a finding and must not be
+carried as one.** A third reading reached it independently and then ran it
+against a stub rotator (so `NotPriceable()` never entered the path and the
+rotation genuinely executed). The leg book after the come-home:
+
+```
+AFTER away migration ETH->USD        AFTER come-home USD->ETH
+  legCount 1                           legCount 1
+    .quote      0xA4AD…828c (USD)        .quote      0xA4AD…828c (USD)
+    .positionId 39615                    .positionId 39615   <-- unchanged
+  generationQuote 0xA4AD…828c          generationQuote 0x0000…0000
+```
+
+`generationQuote` came home, but **no ETH-quoted leg was ever pushed** and leg 0
+did not move. With one position holding ETH, `fromPrimary` true for `fromLeg == 0`
+is **correct**.
+
+**What went wrong in the analysis:** `_upsertLeg` *does* contain a branch that
+pushes a new leg, and all three of us verified that branch exists. None of us
+checked whether the come-home path actually reaches it with that argument. Two
+independent readings agreeing raised confidence when what it really meant was
+that both had made the same omission. **Agreement between readings is not
+evidence; execution is.**
+
+**It leaves an open LEAD, possibly High.** The come-home slices demonstrably
+minted into the ETH/token pair — the denomination flip at `RedemptionExt.sol:615`
+requires reaching step 3 with `toQuote == address(0)` — yet
+`_recordLeg(gen, address(0), …)` left `legCount` at 1. Either **that position is
+unreferenced (the LEG-01 orphan class, `:440-460`, reopened on the come-home
+path)**, or the stub rotator's 1:1 accounting routed it somewhere untraced. An
+orphaned position is value, not bookkeeping. Next step: re-run `R2D` with
+`-vvvv` and grep for `MINT_POSITION` / `LegOpened` between the two dumps.
 - **LIQ04 — the bound was wrong, and it was measuring itself.** The assertion was
   `loadedGas <= baselineGas * 4`, failing `3000000 > 1600000`. But the clean-pool
   buy passes at *every* rung, so `baselineGas` reported 400,000 — which is just
@@ -338,17 +403,45 @@ findings in §2 dominate every cap here.
 
 | | §2 baseline (`6eaf67c`) | now |
 |---|---|---|
-| suites | 264 | **271** |
-| passed | 1030 | **1024** |
+| suites | 264 | **295** |
+| passed | 1030 | **1113** |
 | skipped | 1 | **1** |
-| failed | 4 | **36** |
+| failed | 4 | **43** → **40** (see below) |
 
-Measured with both mandatory skips (`permit2` vendored script;
-`test/audit_full_scope/**`, which does not compile). **Skipped did not grow.**
+Measured under `FOUNDRY_PROFILE=cauldron` with **only** the mandatory permit2
+skip. **Skipped did not grow.** Zero infrastructure noise in this run.
 
-**A peer session independently measured 35** on a tree seven commits older.
-Endpoint was identical (`ethereum-sepolia-rpc.publicnode.com`), so the RPC is not
-a variable; the delta is commit drift.
+**Three earlier numbers in this run were wrong. All three are retracted, and how
+they were wrong matters more than the values.**
+
+- **"36 failures" — understated.** It carried a second skip,
+  `test/audit_full_scope/**`, on the belief that `PreSweepLargeBookLocal.t.sol`
+  did not compile. That belief had a first-hand source — agent F2 hit a real
+  `Error (9574): Type uint8 is not implicitly convertible to expected type
+  int256` at `:63`. **But the file was fixed afterwards** (mtime 2026-09-19
+  09:41; `:63` is now `uint256 paid = _buyExactOut(...)`) and nobody re-tested
+  the assumption. The skip silently excluded **14 files / 83 tests**. A peer
+  session caught it. *A workaround adopted from a true observation outlives the
+  condition that justified it.*
+- **"89 failures" — infrastructure.** The first unskipped run was contaminated:
+  **66 of 89 were DNS failures** against `ethereum-sepolia-rpc.publicnode.com`
+  (`failed to lookup address information`). The endpoint recovered on retry.
+  Discarded per the brief's own rule that 429s/5xx are infrastructure.
+- **A peer's "35"** was a tree seven commits stale. Same endpoint, so the RPC was
+  never the variable.
+
+**43 → 40: three of the failures were mine, and uncommitted.** Three badge tests
+(`test_AutoLiquidateOnSwap_MintsBadge`, `test_AutoLiquidate_Many_RektsAll`,
+`test_AutoLiquidate_ReentrantKeeper_Blocked`) failed `0 != 1` / `0 != 2` — no
+badge struck in-swap. Cause: an uncommitted `_doSweep` hunk in the worktree
+changing the loop bound to `spec != 0 || kills < MAX_LIQ_PER_SWAP`, which removes
+the kill cap on pre-trade sweeps and burns enough extra gas that the hybrid badge
+**defers to `badgesOwed` instead of auto-minting**. VERIFIED by reverting the file
+to HEAD: all three pass (gas 1,746,192 / 2,342,949 / 1,828,833). **The hunk has
+been reverted and NOT landed**; it is preserved outside the tree. The behaviour
+it intended — a pre-trade sweep must scan the whole book rather than certify an
+unscanned tail — is still worth having, but not at this cost and not without a
+test that pins the badge path.
 
 ### The four known baseline failures, individually
 
@@ -364,24 +457,37 @@ a variable; the delta is commit drift.
 4. **`test_S08_E_PoC_ABiggerBookRaisesTheBarForEverySweep`** — still failing
    ("the swap still fills below the bar"). Encodes pre-fix behaviour.
 
-### The 32 new failures
+### The 37 remaining new failures
 
-- **~30 are ONE cause** — §2's unwired rotation oracle. The `NotPriceable()` ten
-  (`S02_*`, `T02_*`, `refute_routeB`) and the rotation-control twenty
+- **~27 are ONE cause** — §2's unwired rotation oracle. The `NotPriceable()` ten
+  (`S02_*`, `T02_*`, `refute_routeB`) and the rotation-control seventeen
   (`"the rotation must actually run: 0 <= 0"`, `"no slice executed"`,
-  `"a slice must move value on a clean book"`) are the same defect seen from two
-  angles. **These tests are not broken; they are showing exactly what mainnet
+  `"a slice must move value on a clean book"`, `"the rotation completed"`,
+  `"the envelope must run more than one slice"`) are the same defect seen from
+  two angles. **These tests are not broken; they are showing exactly what mainnet
   would do.** They should go green together when the wiring lands.
 - **2 are stale-by-success** — `test_S0x_DustPerpPositionHoldsTheApprovedRotationHostage`
   and `test_S0x_FIXED_WeightedMarkLetsTheApprovedRotationProceed`, both failing
   with messages beginning `"FIXED: ..."`. They encode pre-fix behaviour and fail
   *because* the fix landed. Retire or invert them; this is bookkeeping.
-- **`R2E`** was failing at measurement time and has since been fixed — 5/5.
-- **`R2D`** fails on its precondition, downstream of the rotation defect.
+- **`R2D`** now fails on `"a leg holding the current denomination (ETH) exists
+  beside the launch pair: 0 <= 0"` — which is the assertion that **refutes** the
+  round-trip inversion rather than confirming it. See §3.
+- **2 unattributed and worth a look**: `test_decimalOverflowRejected`
+  (`InvalidHeartbeat(0) != FeedUnusable(0xF628…820a)` — an oracle error-shape
+  mismatch, plausibly related to the heartbeat work) and
+  `test_LIQ05_GriefCrossoverVersusVictimHealth` (`WrappedError`). **Neither was
+  investigated.** They are in §7.
 
 **Caveat that undermines all of the above:** `test/attacks/YBase.sol` is
 **uncommitted**. Until it is committed or dropped, every suite number in this
 document has an unpinned dependency.
+
+**Build claims are profile-dependent.** Plain `forge build` exits 1 tree-wide
+(`Found incompatible versions` — permit2 pins `=0.8.17` against forge-std's
+ranges), pre-existing and unrelated to any work here.
+`FOUNDRY_PROFILE=cauldron forge build` exits 0. Every "builds clean" in this
+document means the latter.
 
 ---
 
@@ -390,11 +496,18 @@ document has an unpinned dependency.
 - **`test/attacks/YBase.sol` is dirty and unclaimed.** Shared harness, `_boot`
   made virtual. Neither this session nor the peer owns it. **No suite number is
   reproducible until it is resolved.**
-- **`test/audit_full_scope/PreSweepLargeBookLocal.t.sol` does not compile** —
-  untracked, unclaimed, actively being written. It reddens the whole tree for
-  anyone who forgets the skip.
-- **The round-trip rotation inversion has zero executions.** Three readings, no
-  run.
+- **Two failures were never investigated:** `test_decimalOverflowRejected`
+  (`InvalidHeartbeat(0) != FeedUnusable(0xF628…820a)`) and
+  `test_LIQ05_GriefCrossoverVersusVictimHealth` (`WrappedError`). The first sits
+  in the oracle/heartbeat surface this run touched, so it deserves a look.
+- **The LEG-01 orphan lead is open** — a come-home slice that mints into the
+  ETH/token pair while `legCount` stays 1. Possibly High, possibly a stub
+  artifact. Not run.
+- **The pre-trade full-book sweep is not landed.** The intent — a pre-trade sweep
+  must scan the whole bounded book rather than stop at `MAX_LIQ_PER_SWAP` and
+  certify an unscanned tail as safe — is sound and is still unimplemented,
+  because the attempt cost enough in-swap gas to break the hybrid badge mint.
+  Whoever retries it needs a test pinning the badge path.
 - **No trades were executed in the deploy rehearsal**, so "the hook records
   non-zero volume once an oracle is wired" is DERIVED, not verified.
 - **The indexer was never exercised** in the rehearsal — an invented Railway URL,
@@ -434,10 +547,15 @@ treat the brief as a hypothesis document and verify its claims at P0, before
 spending any agent on work premised on them — which is what §5.12 says and what I
 did only partially.
 
-**3. That the suite cannot currently be trusted to tell us anything.** 36
-failures, a dirty shared harness, a non-compiling untracked file, and three
-sessions editing the same worktree. The measurement apparatus is less reliable
-than the thing it measures, and that is the state in which real-money deploys go
-wrong. **What would close it:** freeze the tree to one session, commit or drop
-the harness, re-run, and require a clean ~4-failure suite as a deploy gate rather
-than a status report.
+**3. That it took four attempts to measure the suite, and three of the four
+wrong answers were confidently reported.** 36 (a stale workaround), 89
+(a DNS outage), 35 (a stale tree), and finally 43 — of which 3 were an
+uncommitted change of my own that I had been carrying while reporting numbers
+measured *with* it. A dirty shared harness, an untracked file that was broken
+then silently fixed, and three sessions editing one worktree. **The measurement
+apparatus was less reliable than the thing it measures**, and that is precisely
+the state in which real-money deploys go wrong: not because anyone lied, but
+because every number had a dependency nobody had pinned. **What would close it:**
+freeze the tree to one session, commit or drop the harness, and make a clean
+~4-failure suite a deploy *gate* rather than a status report — so that measuring
+it correctly is forced rather than optional.
