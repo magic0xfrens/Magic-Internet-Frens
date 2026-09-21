@@ -97,14 +97,24 @@ abstract contract YBase is Test, IUnlockCallback {
     /// @param seedEth       ETH paired into the genesis pool
     /// @param genesisFrens  0 = no genesis bonus; >0 = mint that many mock OG frens
     ///                      and reserve 20% of supply as the redemption floor
-    function _boot(uint256 seedEth, uint256 genesisFrens) internal {
+    function _boot(uint256 seedEth, uint256 genesisFrens) internal virtual {
         string memory rpc = vm.envOr("FORK_RPC", string(""));
         if (bytes(rpc).length == 0) return;
         active = true;
         vm.createSelectFork(rpc);
 
         address poolManager = vm.envAddress("POOL_MANAGER");
-        posm = vm.envAddress("POSITION_MANAGER");
+        _bootWithManagers(seedEth, genesisFrens, poolManager, vm.envAddress("POSITION_MANAGER"));
+    }
+
+    /// @dev Shared production-protocol bring-up. Local integration tests supply
+    /// real freshly deployed V4 managers; existing fork callers remain unchanged.
+    function _bootWithManagers(uint256 seedEth, uint256 genesisFrens, address poolManager, address positionManager)
+        internal
+    {
+        require(poolManager.code.length > 0 && positionManager.code.length > 0, "manager code required");
+        active = true;
+        posm = positionManager;
         pm = IPoolManager(poolManager);
 
         uint160 flags = uint160(
