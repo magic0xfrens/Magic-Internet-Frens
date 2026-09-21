@@ -256,8 +256,24 @@ library FeeRouteLib {
         );
         if (!approved) return false;
         (ok, ) = to.call(abi.encodeWithSelector(selector, asset, amount));
-        // Leave no standing allowance behind: an approval that outlives its
-        // purpose is a permission nobody is tracking.
-        if (!ok) asset.call(abi.encodeWithSignature("approve(address,uint256)", to, uint256(0)));
+        //  UNCONDITIONAL, NOT `if (!ok)`. The comment here always promised to
+        //  "leave no standing allowance behind", but the reset only ran on the
+        //  FAILURE path. That is sound only while every pull entrypoint consumes
+        //  the whole approval: a recipient whose pull SUCCEEDS having taken less
+        //  than `amount` leaves the remainder standing, and nothing afterwards
+        //  ever revokes it. No wired recipient does that today
+        //  ({MiFrensDividend.fundToken} pulls exactly `amount`), so this is
+        //  hardening rather than a live bug — but this is a LINKED library whose
+        //  address is baked into {CauldronHook} at link time, so a future call
+        //  site cannot be given the guard later. Closing it costs one warm SSTORE
+        //  of zero-over-zero on the happy path, which is noise beside the two
+        //  external calls above it.
+        //
+        //  Setting an allowance to ZERO is the one approve() that non-standard
+        //  tokens (USDT-style, which revert on non-zero -> non-zero) always
+        //  accept, so this is safe for the same asset set `send` already handles.
+        //  Result deliberately ignored: this runs inside a swap and a token that
+        //  refuses to clear must not take the trade down with it.
+        asset.call(abi.encodeWithSignature("approve(address,uint256)", to, uint256(0)));
     }
 }
