@@ -1186,7 +1186,38 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  and degrade to however many slots the gas actually funds when it does
         //  not: exactly the graceful behaviour the reserve break was added for.
         //  `scanned < len` still terminates in one pass over the book.
-        while (scanned < len && kills < MAX_LIQ_PER_SWAP) {
+        //  ── AND THE KILL CAP MAY NOT CERTIFY WHAT IT NEVER LOOKED AT (H1B) ──
+        //  `complete` used to be assigned false in exactly ONE place (the
+        //  SWEEP_KILL_RESERVE break below). Exiting because `kills` hit
+        //  MAX_LIQ_PER_SWAP with book still unscanned therefore returned TRUE —
+        //  the sweep killed 8 and handed the hook a clean bill of health for the
+        //  <= 64 slot remainder it had never read. Measured on a 20-long book:
+        //  one ordinary sell filled, 8 died pre-trade, 8 post-trade, and 2 were
+        //  left OPEN AND LIQUIDATABLE at the price that swap had just set — the
+        //  exact H1 harm the flag exists to refuse.
+        //
+        //  Raising or dropping the cap is the wrong cure: the kills are what
+        //  cost gas (each runs a settlement swap and a badge mint), and lifting
+        //  the bound on the pre-trade path pushes the in-swap budget past the
+        //  point where the hybrid badge still auto-mints. So the cap STAYS and
+        //  only the lie is removed: once the cap is reached, a PRE-trade sweep
+        //  keeps walking the book in CHECK-ONLY mode — no settle, no badge, no
+        //  state — and reports `complete == false` the moment it finds another
+        //  position the pending trade condemns. `CauldronHook._liqSweep` turns
+        //  that into `LiqGasStarved` and the trade does not happen.
+        //
+        //  Check-only costs nothing on the post-trade path (`spec == 0` keeps
+        //  the original `kills < MAX_LIQ_PER_SWAP` exit, byte for byte) and
+        //  nothing on any swap that never reaches 8 kills.
+        //
+        //  LIVENESS, STATED PLAINLY: a book holding more than MAX_LIQ_PER_SWAP
+        //  positions that one trade would condemn now refuses that trade, and
+        //  refusing it also rolls back the kills, so swaps cannot self-heal it.
+        //  The escape is {liquidate}, which is permissionless, runs outside the
+        //  swap path and is paced only by the per-block throttle: anyone can
+        //  drain the book back under the cap and trading resumes. That escape is
+        //  asserted in test/attacks/H1B_SweepCapCertifiesUnscanned.t.sol.
+        while (scanned < len && (kills < MAX_LIQ_PER_SWAP || spec != 0)) {
             //  ── STOP BEFORE RUNNING OUT, NOT AFTER (red-team L-2) ───────────
             //  The hook fires this with a fixed gas budget and discards the
             //  result (CauldronHook.sol:912), so an OOG in here is not a partial
@@ -1222,6 +1253,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             //  the moved spot with the full pending size is still a bound.
             //  Measured residual before this: 39.6 mETH of PLV at a 0.8 ETH buy.
             if (spec != 0) _projSqrtP = _project(spec, isBuy, limit);
+            // Cap reached on a PRE-trade sweep: look, do not touch. Finding one
+            // more condemned position is what makes `complete` false (H1B).
+            if (kills == MAX_LIQ_PER_SWAP) {
+                Position memory pk = _pos(id);
+                if (pk.trader != address(0)) {
+                    (bool trip,,) = _liqTest(pk);
+                    if (trip) { complete = false; break; }
+                }
+                cursor++;
+                scanned++;
+                continue;
+            }
             _tryLiquidate(id, liquidator);
             // If it liquidated, _removeOpen swap-popped the LAST id into `cursor`,
             // so DON'T advance (re-check the slot's new occupant); else advance.
