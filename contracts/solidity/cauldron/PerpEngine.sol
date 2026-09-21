@@ -1257,10 +1257,7 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
             // more condemned position is what makes `complete` false (H1B).
             if (kills == MAX_LIQ_PER_SWAP) {
                 Position memory pk = _pos(id);
-                if (pk.trader != address(0)) {
-                    (bool trip,,) = _liqTest(pk);
-                    if (trip) { complete = false; break; }
-                }
+                if (pk.trader != address(0) && _condemnedByThisTrade(pk)) { complete = false; break; }
                 cursor++;
                 scanned++;
                 continue;
@@ -1275,6 +1272,40 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         _inLocked = false;
         _liqReentry = false;
         _projSqrtP = 0;
+    }
+
+    /// @dev Is `p` condemned BY THE PENDING TRADE — i.e. does it trip at the
+    ///      projected post-trade price but NOT at the price the trade found?
+    ///
+    ///  ── REFUSING A TRADE OVER A BACKLOG FREEZES THE POOL AND RESCUES NOBODY ──
+    ///  This is the distinction that makes the completeness flag correct rather
+    ///  than merely safe. A position ALREADY liquidatable at live spot is not
+    ///  made safer by refusing the swap; it is made PERMANENT, because the
+    ///  `LiqGasStarved` revert also rolls back the 8 kills the sweep just made.
+    ///  With more than MAX_LIQ_PER_SWAP positions already underwater, every swap
+    ///  then reverts forever and the book can never chip itself down — measured:
+    ///  18 positions taken underwater with NO trade at all (a `setRisk`
+    ///  maintenance tightening plus funding accrual over 45 days of `poke()`),
+    ///  after which 12 consecutive BUYS — the direction that HELPS every one of
+    ///  those longs — all reverted and the book stayed at 18 open / 18
+    ///  liquidatable. Only the external `liquidate()` could exit that state, on
+    ///  a protocol whose entire design is that liquidation happens inside the
+    ///  swap with no keeper.
+    ///
+    ///  So the flag fires on the trade's OWN victims only. Pre-existing backlog
+    ///  lets the swap through, where the very same sweep kills 8 of it per trade
+    ///  and the post-trade sweep kills 8 more — the book grinds itself back to
+    ///  zero across ordinary trades, keeperless, which is the intended design.
+    ///  `_projSqrtP == 0` is what makes {_liqTest} read raw live spot (:1677).
+    function _condemnedByThisTrade(Position memory p) private returns (bool) {
+        (bool trip,,) = _liqTest(p);
+        if (!trip) return false;
+        uint160 pj = _projSqrtP;
+        if (pj == 0) return false;           // no projection ⇒ no trade to blame
+        _projSqrtP = 0;
+        (bool spotTrip,,) = _liqTest(p);
+        _projSqrtP = pj;
+        return !spotTrip;                    // already condemned ⇒ backlog, not us
     }
 
     /// @dev Liquidate one position if {_liqTest} trips it and the per-block
