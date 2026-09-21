@@ -7,6 +7,8 @@ import {PerpEngine} from "../../cauldron/PerpEngine.sol";
 import {QuoteRotator} from "../../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../../cauldron/TreasuryGovernor.sol";
 import {MockQuoteToken} from "../../cauldron/MockQuoteToken.sol";
+import {QuoteOracle} from "../../cauldron/QuoteOracle.sol";
+import {MockAggregator} from "../../cauldron/MockAggregator.sol";
 import {PerpMarkSource} from "../../cauldron/PerpMarkSource.sol";
 import {PoolOps, IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -46,10 +48,29 @@ contract S0x_RotationPerpHostage is YBase {
         usdg = new MockQuoteToken("Magic USD", "USDG", 6);
         registry.setAllowedQuote(address(usdg), true, 1e18);
         rotator = new QuoteRotator(address(registry), pm);
+        _wireRotationOracle();
         governor = new TreasuryGovernor(
             IVotes721(address(new SVotes())), address(registry), address(this), 0, 0, 0, 0, false
         );
         registry.setRotationWiring(address(rotator), address(governor));
+    }
+
+    /// @dev ROT-01: `swapOnce` refuses a rotation it cannot price independently,
+    ///      including when no oracle is wired. Every rotation harness therefore
+    ///      needs a real price source or it is testing the refusal, not the
+    ///      behaviour under test. Prices are the venue's own: it seeds
+    ///      40 ETH : 400,000 USDG, i.e. 1 ETH = 10,000 USDG, so
+    ///      the oracle floor tracks the venue instead of fighting it. The slip
+    ///      band is widened to the 20% ceiling because the floor is 97% of fair
+    ///      by default and a thin test venue moves price far more than 3% on a
+    ///      slice -- that would trade `NotPriceable` for `SlippageTooHigh` and
+    ///      test nothing either way.
+    function _wireRotationOracle() internal {
+        QuoteOracle oracle = new QuoteOracle(address(this));
+        oracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
+        oracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, 6);
+        rotator.setArbParams(address(oracle), 1000, 5e18);
+        rotator.setRotationSlipBps(2000);
     }
 
     // -------------------------------------------------------------- positive

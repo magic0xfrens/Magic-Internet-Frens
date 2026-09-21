@@ -32,9 +32,8 @@ import {MockAggregator} from "../../cauldron/MockAggregator.sol";
  * FIX, in two halves:
  *   1. `_oracleFloor` values both legs through `usdPerRawUnit` (uncached), so a dead
  *      feed reports 0 rather than the factor frozen at the moment it died.
- *   2. `swapOnce` reverts `NotPriceable` when an oracle IS wired and returns no
- *      floor, BEFORE touching the pool. A deployment with no oracle at all is
- *      unchanged — nothing there can invent a price.
+ *   2. `swapOnce` reverts `NotPriceable` whenever there is no independent floor,
+ *      BEFORE touching the pool, including an unwired oracle (ROT-01).
  */
 contract X2c_OracleFloorFailsSafe is Test {
     QuoteRotator internal rotator;
@@ -120,13 +119,10 @@ contract X2c_OracleFloorFailsSafe is Test {
         emit log_named_uint("X2c frozen cache factor still on record", cachedFactor);
     }
 
-    /// @dev An UNWIRED oracle is a different statement from an oracle that declines.
-    ///      That deployment is bounded by `minOut` by design and must keep working.
-    function test_X2c_noOracleWiredIsUnchanged() public {
+    /// @dev ROT-01: caller-selected minOut cannot replace independent pricing.
+    function test_X2c_noOracleWiredRefusesPermissionlessRotation() public {
         rotator.setArbParams(address(0), 1000, 5e18);
-        assertTrue(
-            _rotate(0) != QuoteRotator.NotPriceable.selector,
-            "no oracle wired: the floor cannot exist and is not demanded"
-        );
+        assertEq(_rotate(0), QuoteRotator.NotPriceable.selector);
+        assertEq(_rotate(1), QuoteRotator.NotPriceable.selector);
     }
 }

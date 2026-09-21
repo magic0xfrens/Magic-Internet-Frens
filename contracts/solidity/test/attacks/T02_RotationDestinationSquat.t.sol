@@ -5,6 +5,8 @@ import {console2} from "forge-std/Test.sol";
 import {YBase} from "./YBase.sol";
 import {QuoteRotator} from "../../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../../cauldron/TreasuryGovernor.sol";
+import {QuoteOracle} from "../../cauldron/QuoteOracle.sol";
+import {MockAggregator} from "../../cauldron/MockAggregator.sol";
 import {MockQuoteToken} from "../../cauldron/MockQuoteToken.sol";
 import {PoolOps, IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -60,6 +62,19 @@ contract T02_RotationDestinationSquat is YBase {
         usdg = new MockQuoteToken("Magic USD", "USDG", 6);
         registry.setAllowedQuote(address(usdg), true, 1e18);
         rotator = new QuoteRotator(address(registry), pm);
+        //  ROT-01: `swapOnce` refuses any rotation it cannot price independently,
+        //  an UNWIRED oracle included, so without a price source every slice below
+        //  reverts `NotPriceable` and this file tests that refusal instead of the
+        //  behaviour it was written for. Feeds carry the venue's own rate; the slip
+        //  band opens to the 20% ceiling because the floor is 97% of fair by default
+        //  and a thin test venue moves further than 3% on a single slice.
+        {
+            QuoteOracle _rotOracle = new QuoteOracle(address(this));
+            _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
+            _rotOracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, usdg.decimals());
+            rotator.setArbParams(address(_rotOracle), 1000, 5e18);
+            rotator.setRotationSlipBps(2000);
+        }
         governor = new TreasuryGovernor(
             IVotes721(address(new TVotes())), address(registry), address(this), 0, 0, 0, 0, false
         );

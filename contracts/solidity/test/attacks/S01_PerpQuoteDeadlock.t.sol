@@ -14,6 +14,8 @@ import {BGovQuoted} from "./B05_NonEthRelaunchBrick.t.sol";
 import {PerpEngine} from "../../cauldron/PerpEngine.sol";
 import {QuoteRotator} from "../../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../../cauldron/TreasuryGovernor.sol";
+import {QuoteOracle} from "../../cauldron/QuoteOracle.sol";
+import {MockAggregator} from "../../cauldron/MockAggregator.sol";
 import {MockQuoteToken} from "../../cauldron/MockQuoteToken.sol";
 import {PoolOps, IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 
@@ -103,6 +105,32 @@ contract S01_PerpQuoteDeadlock is YBase {
         registry.setAllowedQuote(address(usdg), true, 1e18);
 
         rotator = new QuoteRotator(address(registry), pm);
+
+        //  ROT-01: `swapOnce` now refuses any rotation it cannot price
+
+        //  independently -- an UNWIRED oracle included -- so without a price
+
+        //  source every slice reverts `NotPriceable` and this file would test
+
+        //  that refusal instead of the deadlock it was written for. `usdg` here
+
+        //  is whichever allowed quote sorts below the watermark, so its decimals
+
+        //  are read from the token rather than assumed.
+
+        {
+
+            QuoteOracle _rotOracle = new QuoteOracle(address(this));
+
+            _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
+
+            _rotOracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, usdg.decimals());
+
+            rotator.setArbParams(address(_rotOracle), 1000, 5e18);
+
+            rotator.setRotationSlipBps(2000);
+
+        }
         governor = new TreasuryGovernor(
             IVotes721(address(new SVotes())), address(registry), address(this), 0, 0, 0, 0, false
         );

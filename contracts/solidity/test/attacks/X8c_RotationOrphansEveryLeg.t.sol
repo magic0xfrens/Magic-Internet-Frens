@@ -5,6 +5,8 @@ import {console2} from "forge-std/Test.sol";
 import {YBase} from "./YBase.sol";
 import {QuoteRotator} from "../../cauldron/QuoteRotator.sol";
 import {TreasuryGovernor, IVotes721} from "../../cauldron/TreasuryGovernor.sol";
+import {QuoteOracle} from "../../cauldron/QuoteOracle.sol";
+import {MockAggregator} from "../../cauldron/MockAggregator.sol";
 import {MockQuoteToken} from "../../cauldron/MockQuoteToken.sol";
 import {PoolOps, IPositionManagerOps} from "../../cauldron/PoolOps.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -72,6 +74,26 @@ contract X8c_RotationOrphansEveryLeg is YBase {
         usdg = new MockQuoteToken("Magic USD", "USDG", 6);
         registry.setAllowedQuote(address(usdg), true, 1e18);
         rotator = new QuoteRotator(address(registry), pm);
+        //  ROT-01: `swapOnce` now refuses any rotation it cannot price
+        //  independently -- an UNWIRED oracle included. Without a price source
+        //  every slice below reverts `NotPriceable` and this file would be
+        //  testing that refusal rather than the behaviour it was written for.
+        //  Feeds carry the venue's OWN rate -- every rotation harness seeds
+        //  40 ETH : 400,000 USDG, i.e. 1 ETH = 10,000 USDG, so the feeds say
+    //  exactly that. A mismatched price does not fail loudly: it turns the
+    //  floor into a slippage bound the venue cannot meet, and the revert
+    //  becomes `SlippageTooHigh` instead of `NotPriceable` -- a different
+    //  wrong answer. The slip band opens to the 20% ceiling because the
+    //  floor is 97% of
+        //  fair by default and a thin test venue moves further than 3% on one
+        //  slice -- which would swap `NotPriceable` for `SlippageTooHigh`.
+        {
+            QuoteOracle _rotOracle = new QuoteOracle(address(this));
+            _rotOracle.setFeed(address(0), address(new MockAggregator("ETH/USD", 3000e8)), 4 hours, 18);
+            _rotOracle.setFeed(address(usdg), address(new MockAggregator("USDG/USD", 1e8)), 4 hours, usdg.decimals());
+            rotator.setArbParams(address(_rotOracle), 1000, 5e18);
+            rotator.setRotationSlipBps(2000);
+        }
         governor = new TreasuryGovernor(
             IVotes721(address(new XVotes())), address(registry), address(this), 0, 0, 0, 0, false
         );
