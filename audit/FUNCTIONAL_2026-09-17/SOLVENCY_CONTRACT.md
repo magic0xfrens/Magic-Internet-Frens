@@ -272,3 +272,94 @@ economic surface rather than a repeat of an approved one. If the answer is
 ## Also noted, not defects
 - `assetsEth()` reads stale between vault calls; every money path syncs first,
   so pricing is never stale at the point it is used.
+
+---
+
+# Addendum 2 — F-3, and what "the refusal is over-scoped" actually means
+
+Two findings were raised against the liquidation throttle during R46. **One was
+never real; the other is real but lives in a different function and is
+deliberately left open.** Both are recorded because the failure modes are
+instructive in opposite directions.
+
+## F-3 as originally written: NOT A DEFECT — the fix already existed
+
+The finding recommended gating the per-block throttle on the `insolvent` flag so
+a merely-underwater position could not be used as a per-block DoS lever at
+~100 ms blocks. `PerpEngine._throttle` (`:1899-1905`) already does exactly that:
+
+```solidity
+if (!insolvent && cap > 0 && liqEthThisBlock + notional > cap) return false;
+```
+
+**An insolvent position is never throttled**, so the positions that actually
+threaten PLV cannot be capped out of a block. Provenance, checked rather than
+assumed: `git log -S 'if (!insolvent && cap > 0'` returns a single commit,
+`9d5cd46` ("a whale's single swap could leave a short unliquidatable with
+unbounded bad debt"), which **pre-dates R46 entirely**.
+
+So this is the S06 shape again — **a finding written recommending a fix that was
+already in the tree.** Third instance this review (S06 carried red across three
+reviews for asserting an attack succeeds; the rotation Critical read off a dirty
+worktree; this). The common cause is asserting a mechanism's behaviour without
+executing or grepping it first.
+
+## The real residual: `_condemnedByThisTrade` refuses on `trip`, not `insolvent`
+
+`PerpEngine.sol:1443-1452`:
+
+```solidity
+function _condemnedByThisTrade(Position memory p) private returns (bool) {
+    (bool trip,,) = _liqTest(p);     // <-- TRIP, and `insolvent` is discarded
+    if (!trip) return false;
+    ...
+    return !spotTrip;                // already condemned => backlog, not us
+}
+```
+
+`_liqTest` returns `(trip, insolvent, notional)` (`:1816-1819`). The two are
+different states:
+- **`trip`** = `_underwaterVal` — the maintenance margin is breached. The
+  position still has collateral. **Closing it costs stakers nothing.**
+- **`insolvent`** = `_insolventVal` — backing is exhausted. **This is the state
+  that reaches `_absorbPlvLoss` and charges PLV.**
+
+Because the refusal keys on `trip`, a trade is turned away for an
+**underwater-but-solvent** position the sweep could not close — one that
+threatens no staker capital. The refusal is therefore **over-scoped relative to
+what it exists to protect**.
+
+### Why it is left open rather than fixed
+
+Loosening a solvency gate from `trip` to `insolvent` is a **permissive change**,
+and permissive changes to this exact surface have been wrong twice in this
+review. Refusing on `trip` is the conservative direction and it is what `H1B` and
+`H1C` pin.
+
+What makes it tolerable rather than merely cautious: `!spotTrip` means a position
+**already** condemned at spot is treated as pre-existing backlog, not blamed on
+the trade. So the refusal only ever fires on damage *this* trade would cause —
+never on a backlog the trader did not create.
+
+**Status: open, deliberately conservative, with a named residual.** Not "fixed",
+not "a DoS". Changing it needs a measurement of how often a merely-underwater
+position actually blocks a trade at realistic sizes, which nobody has taken.
+
+## Coverage gap, named rather than papered over
+
+The fill-clean-after-a-large-cascade branch has **never been exercised above dust
+size**. Per P30, the OI cap binds first: **16 positions at 0.05 ETH collateral on
+a 10 ETH engine** (`maxOiBps = 3000` refuses the 17th), 40 at 0.02 ETH, and only
+at 0.005 ETH does the book reach `MAX_OPEN_POSITIONS = 64`.
+
+So the branch may be **genuinely unreachable at realistic position sizes**. No
+test was manufactured for it: a test contorted into reaching a branch is worth
+less than an honest note that the branch was never reached. If it is ever built,
+the right shape is a book sized just under the refusal boundary.
+
+**Consequence for the count caps, which is the decision-relevant part:**
+`MAX_LIQ_PER_SWAP` and `MAX_OPEN_POSITIONS = 64` are **dust-only ceilings**. With
+meaningful positions the binding constraint is economic (`maxOiBps`), not
+numeric — so raising either buys nothing until `maxOiBps` moves, and `maxOiBps`
+is the parameter that keeps a cascade small relative to the pool that must
+absorb it.
