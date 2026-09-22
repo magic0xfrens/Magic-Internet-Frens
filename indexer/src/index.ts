@@ -334,12 +334,30 @@ async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bi
     //  a pool id that changes at every relaunch), so the check has to be here:
     //  ask the registry for the LIVE generation's pool id and compare. Anything
     //  else is somebody else's v4 pool and must not become our chart.
-    const gen = await ctx.client.readContract({
-      address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentGeneration",
-    });
-    const ours = await ctx.client.readContract({
-      address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "generationPoolId", args: [gen],
-    });
+    //  ── A READ BEFORE THE REGISTRY EXISTS IS NOT AN ERROR, IT IS "NO" ─────
+    //  These are historical reads at the block being indexed. If `blocks.*` in
+    //  round.json points anywhere before the registry's deploy block, eth_call
+    //  returns `0x` and viem throws AbiDecodingZeroDataError -- which Ponder
+    //  treats as a fatal indexing error and crash-loops on, so the service never
+    //  serves a request. That is exactly what happened on the r45 launch:
+    //  apply-deployment.mjs carried a stale block (11696118) while the registry
+    //  deployed at 11757301, and the indexer 502'd until the manifest was fixed.
+    //
+    //  An unreachable registry cannot vouch for this pool, so the honest answer
+    //  is the same as a mismatch: not ours, skip it. Catching here keeps a
+    //  MANIFEST mistake a data gap instead of an outage -- the misconfiguration
+    //  still needs fixing, but it no longer takes the read layer down with it.
+    let ours: unknown;
+    try {
+      const gen = await ctx.client.readContract({
+        address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentGeneration",
+      });
+      ours = await ctx.client.readContract({
+        address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "generationPoolId", args: [gen],
+      });
+    } catch {
+      return null;   // registry not deployed at this block, or unreadable
+    }
     if (String(ours).toLowerCase() !== poolId.toLowerCase()) {
       return null;
     }

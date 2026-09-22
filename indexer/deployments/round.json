@@ -5,9 +5,9 @@
   "chainId": 11155111,
   "indexerUrl": "https://indexer-production-102c.up.railway.app",
   "blocks": {
-    "deploy": 11696118,
-    "perp": 11696118,
-    "indexer": 11696118
+    "deploy": 11757301,
+    "perp": 11757301,
+    "indexer": 11757301
   },
   "contracts": {
     "registry": "0x7ec18b6368d5bceb438e9b96e063d6c8d9464f35",
