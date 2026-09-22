@@ -1,66 +1,66 @@
 {
-    "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
-    "round": 44,
-    "schema": "cauldron_r44e",
-    "chainId": 11155111,
-    "indexerUrl": "https://indexer-production-102c.up.railway.app",
-    "blocks": {
-        "deploy": 11696096,
-        "perp": 11696096,
-        "indexer": 11696096
+  "_comment": "CANONICAL DEPLOYMENT MANIFEST - the single source of truth for the live deployment. Read by the frontend (src/config/cauldron.ts, perp.ts, chains.ts) AND the indexer (ponder.config.ts, src/index.ts, src/api/index.ts, start.mjs). It lives inside indexer/ because `railway up` only uploads that directory; the frontend reaches across the tree for it so neither side can be updated alone. To ship a deployment: edit THIS FILE ONLY, then redeploy both. Bump `schema` to force a clean reindex. NEVER mirror these values into hosting env vars - an env override wins silently and the two drift the moment one is changed alone.",
+  "round": 45,
+  "schema": "cauldron_r45",
+  "chainId": 11155111,
+  "indexerUrl": "https://indexer-production-102c.up.railway.app",
+  "blocks": {
+    "deploy": 11696118,
+    "perp": 11696118,
+    "indexer": 11696118
+  },
+  "contracts": {
+    "registry": "0x7ec18b6368d5bceb438e9b96e063d6c8d9464f35",
+    "hook": "0x011251690b5472dd8cb3fae59e8fd5dfeb40d0cc",
+    "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+    "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
+    "governor": "0xcb19740cdf91bb382ea09b13e1822d3e2973173e",
+    "dividend": "0x8540afaa04fbaee778085376de199acdcf70887a",
+    "presale": "0x4098d51b0714c1132b527bf397f11f5b47f3e3af",
+    "gachaRouter": "0x16df9e45a93dac058aff3c5b1415926ecd0a15b4",
+    "timelock": "0x326abb80166fb7906f9e8e5bd19b31853dc0aee4",
+    "collectionLedger": "0x8800dc2e209a84cfea57fab05036e7e55b46c5ea",
+    "perpEngine": "0x09c9E9d0d462BdbB11c15ea1dF61BB29b402a2e5",
+    "perpVault": "0xB79852514701f777EFFC3d382528b6C3feFeCa5F",
+    "quoteRotator": "0x864b71421769e10048fc9710b36c1f242ef30ce6",
+    "factory": "0x45bb8d4e5c71c3eb1b2d6ae431436f9bc35c9ad5",
+    "collection": "0xe9c3f204d6069a1dfc2966ef404c9bd816ce4ff6",
+    "treasuryGovernor": "0x9d2038abbdcaa8f870dd4bbd33efe3bebd30bb32",
+    "quoteOracle": "0x783c9235f33bcc3707ac76359711ead66067c187",
+    "seeder": "0x561e87c6ec616c8564a34f74d11879a2765f9f2e",
+    "nativeZap": "0xe4c393ee17571fbdcdd0aa4154175cd4d0d26998"
+  },
+  "poolIds": [
+    "0x07b097e6259149f1c07b12afc863f94f6365272629a6c9f6dc9ff851a4646901"
+  ],
+  "genesisSupply": 1111,
+  "deathThresholdEth": 0,
+  "quoteAssets": [
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "name": "Ether",
+      "decimals": 18,
+      "glyph": "\u039e",
+      "blurb": "The default. Deepest liquidity, and the only pair perps support today."
     },
-    "contracts": {
-        "registry": "0x3dc63412e643aa4b798bda6b59c816daf7c10325",
-        "hook": "0xc6dcdd4cffa809cb229f00d24d9b2d3e12d510cc",
-        "poolManager": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
-        "positionManager": "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
-        "governor": "0xf0b1e04897c3ec1248a83316e7305594752036b3",
-        "dividend": "0x3d678e8599f4617cfa2ef3f04a703a0850f07cda",
-        "presale": "0xfd488978344c7018aeb7ecd4043965497feb92ba",
-        "gachaRouter": "0x465819232bd80d89423f5b8ee5b958c61bc82fda",
-        "timelock": "0x987bd1be2ede55d54d2ba272f3519e662b66b831",
-        "collectionLedger": "0x7377c08f4aadea71e76988696e2327ff580d9e80",
-        "perpEngine": "0xaD0b8d2A2556E59f40389171149D65Aaf14a43C6",
-        "perpVault": "0x343b56e3b081f8137ad5a060ae3bf8f94d27575b",
-        "quoteRotator": "0x410e6e7ecaf3f641c4486f38542f37e213aa6653",
-        "factory": "0x88d3d43b09c249c866f29354558515dd2104abd3",
-        "collection": "0xf850df1ae54c45433579b09909d1d6cb26d1a2c4",
-        "treasuryGovernor": "0x7da2b228016ff012e950ea13d93802cdd9e97f86",
-        "quoteOracle": "0x9b7998172e80af1dfbd48a79969e38d988a4831e",
-        "seeder": "0xc28ba531213e9f0074f70e778aa35eb0f2ac2028",
-        "nativeZap": "0x8059cc8bfcb05ec3cc737eb2f560870863566f41"
+    {
+      "address": "0xB9fcDa126b0CB5D1964B714EC7Cd37218Fc4Df78",
+      "symbol": "USDG",
+      "name": "Magic USD",
+      "decimals": 6,
+      "glyph": "$",
+      "blurb": "Stable pair. Park the LP here when the guild wants out of ETH volatility."
     },
-    "poolIds": [
-        "0x84e8d98d71683d4098c50afe87c9ec97977a263b41fd0bb944bd3c5ac2ad6d9d"
-    ],
-    "genesisSupply": 1111,
-    "deathThresholdEth": 0,
-    "quoteAssets": [
-        {
-            "address": "0x0000000000000000000000000000000000000000",
-            "symbol": "ETH",
-            "name": "Ether",
-            "decimals": 18,
-            "glyph": "\u039e",
-            "blurb": "The default. Deepest liquidity, and the only pair perps support today."
-        },
-        {
-            "address": "0xB9fcDa126b0CB5D1964B714EC7Cd37218Fc4Df78",
-            "symbol": "USDG",
-            "name": "Magic USD",
-            "decimals": 6,
-            "glyph": "$",
-            "blurb": "Stable pair. Park the LP here when the guild wants out of ETH volatility."
-        },
-        {
-            "address": "0x01e81fbd6356a98a3a2fec9a42fd2521c5caf39a",
-            "symbol": "xNVDA",
-            "name": "Nvidia (synthetic)",
-            "decimals": 18,
-            "glyph": "",
-            "blurb": "Equity pair. The brew trades against a stock instead of a currency."
-        }
-    ],
-    "legacyThresholdEth": 0.02,
-    "legacyBps": 4000
+    {
+      "address": "0x01e81fbd6356a98a3a2fec9a42fd2521c5caf39a",
+      "symbol": "xNVDA",
+      "name": "Nvidia (synthetic)",
+      "decimals": 18,
+      "glyph": "",
+      "blurb": "Equity pair. The brew trades against a stock instead of a currency."
+    }
+  ],
+  "legacyThresholdEth": 0.02,
+  "legacyBps": 4000
 }
