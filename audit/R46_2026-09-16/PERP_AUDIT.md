@@ -28,6 +28,8 @@ What can be said honestly:
   reentrancy (`_liqReentry`), and `tx.origin` being attribution-only.
 - **One Low remains open by choice** (F-3 below, after correction) and one
   lead is unproven.
+- **EIP-170 headroom is effectively gone** (F-4): the registry deploys with 8
+  bytes to spare, and shipped 12 bytes OVER as recently as `44d2148`.
 
 ---
 
@@ -198,6 +200,54 @@ find condemned set, re-project with their settlement notional) is a natural
 consumer of a tick-indexed book and roughly free there, versus ~1M gas as a
 second book walk today. Less urgent now that the cascade is *resolved* during the
 sweep rather than merely detected.
+
+---
+
+## F-4 — EIP-170 headroom is effectively gone across the deploy set · HIGH (operational) · OWNER DECISION
+
+Measured on a clean tree after `516b5db`. Runtime margin, bytes free, deployed
+contracts only:
+
+| contract | free |
+|---|---|
+| **CauldronRegistry** | **8** |
+| PerpEngine | 238 |
+| PoolOps | 383 |
+| PositionDescriptor | 466 |
+| CauldronHook | 598 |
+
+`CauldronRegistry` shipped **12 bytes OVER** the limit at `44d2148` — genuinely
+undeployable — and was recovered only by collapsing a redundant two-branch
+`floorPerFren` into one clamp and one divide. That bought 20 bytes. There is no
+second `floorPerFren` to find.
+
+**Correction to my own first diagnosis, because it changes where the next change
+should go.** I attributed part of the overrun to the `buyCollection` OG guard.
+Wrong: `PoolOps` is an `external` linked **library** (`cauldron/PoolOps.sol:130`)
+and deploys as its own 24,193-byte artifact, so its code never counts against the
+registry. The overrun came entirely from **`CauldronBase`** — the `treasuryHeldOg`
+public getter plus the extra `floorPerFren` branch — which the registry
+*inherits*. Confirmed independently by another session.
+
+**The consequence is a rule, not a number: `CauldronBase` is now the expensive
+place to put anything, and a linked library is the cheap one.** A single new
+inherited public getter on `CauldronBase` costs the registry its remaining 8
+bytes and puts it back over the limit. Treat `CauldronRegistry` as
+**size-frozen**.
+
+Three contracts under 600 bytes is not headroom, it is three near-misses, and
+EIP-170 failures are absolute — the contract does not deploy at all, there is no
+degraded mode. This is an owner decision because the remedies are structural
+(move logic to linked libraries, or split the registry behind another facet) and
+each carries its own risk.
+
+**Independent evidence the recovery was behaviour-preserving**, worth recording
+because "I simplified a branch on a live contract" normally deserves suspicion:
+the `OgFloorRatchet` suite was written against the OLD two-branch form and all 13
+tests pass against the rewritten one with **zero edits**, including two that
+exist specifically for the folded edges (`test_AllInTreasuryFallsBackInsteadOfDividingByZero`,
+`test_OverCountedTreasuryClamps`). `FacetLayoutInvariant` stays 5/5, so slot 53
+is still agreed across the delegatecall pair.
 
 ---
 
