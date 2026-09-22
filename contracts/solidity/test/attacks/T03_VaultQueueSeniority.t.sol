@@ -37,9 +37,12 @@ contract T03_VaultQueueSeniority is Test {
         vm.deal(lpB, 100 ether);
     }
 
-    /// A 50% vault loss is borne 0% by the LP who queued first and 100% by the
-    /// LP who stayed staked — despite identical share counts at the moment the
-    /// loss lands.
+    /// WAS: a 50% vault loss is borne 0% by the LP who queued first and 100% by
+    /// the LP who stayed staked — despite identical share counts at the moment
+    /// the loss lands.
+    /// NOW (regression, 6634f2a): the same 50% loss is borne 50/50. The name is
+    /// kept so the finding stays traceable; the assertions are inverted onto
+    /// PARI PASSU with the originals quoted in place below.
     function test_QueuedExitIsSeniorToLiveShares() public {
         // ── both LPs stake 1 ETH ────────────────────────────────────────────
         vm.prank(lpA);
@@ -82,11 +85,23 @@ contract T03_VaultQueueSeniority is Test {
         console2.log("lpB (stayed staked) queued  :", bQueued);
         console2.log("engine.totalEth() after     :", engine.totalEth());
 
-        assertApproxEqAbs(aClaimed, 1 ether, 2, "lpA recovered 100% of a 50%-impaired vault");
-        assertEq(bPaid + bQueued, 0, "lpB recovered 0% - he ate the ENTIRE loss");
-
-        bool reached = true;
-        assertTrue(reached, "T03: queued exits are senior; the documented pro-rata fix never engages");
+        //  ── INVERTED BY 6634f2a (stale-by-success) ─────────────────────────
+        //  The property this test was named for — seniority — is the bug that
+        //  commit deliberately removed. `ethBackingMark` records the backing as
+        //  of the last vault action and {_syncEthQueue} scales `ethQueueIndex`
+        //  by `backing / mark`, so a queued claim falls at exactly the rate a
+        //  live share falls. The two ORIGINAL assertions, verbatim:
+        //
+        //      assertApproxEqAbs(aClaimed, 1 ether, 2, "lpA recovered 100% of a 50%-impaired vault");
+        //      assertEq(bPaid + bQueued, 0, "lpB recovered 0% - he ate the ENTIRE loss");
+        //
+        //  Measured after the fix: 0.5 / 0.5 on a 50% loss. Reacting first is
+        //  no longer worth anything, which is the whole point.
+        uint256 bGot = bPaid + bQueued;
+        assertApproxEqAbs(aClaimed, 0.5 ether, 2, "lpA bears HALF of a 50% loss, not none of it");
+        assertApproxEqAbs(bGot, 0.5 ether, 2, "lpB bears the same half - he no longer eats it all");
+        assertApproxEqAbs(aClaimed, bGot, 2, "PARI PASSU: equal shares, equal recovery");
+        assertApproxEqAbs(aClaimed + bGot, 1 ether, 4, "and together they recover exactly the surviving backing");
     }
 
     /// The same mechanism as a strictly-dominant strategy: queueing is free and

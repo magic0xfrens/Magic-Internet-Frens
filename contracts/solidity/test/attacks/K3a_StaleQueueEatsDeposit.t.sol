@@ -71,30 +71,51 @@ contract K3a_StaleQueueEatsDeposit is Test {
 
         uint256 aliceBefore = alice.balance;
 
-        // THE FIX: no new money into an insolvent queue.
-        vm.prank(bob);
-        try vault.depositEth{value: 10 ether}() { bobRefused = false; }
-        catch (bytes memory err) {
-            bobRefused = bytes4(err) == PerpVault.QueueInsolvent.selector;
-        }
+        //  ── INVERTED BY 6634f2a ────────────────────────────────────────────
+        //  The ORIGINAL block, verbatim:
+        //
+        //      // THE FIX: no new money into an insolvent queue.
+        //      vm.prank(bob);
+        //      try vault.depositEth{value: 10 ether}() { bobRefused = false; }
+        //      catch (bytes memory err) {
+        //          bobRefused = bytes4(err) == PerpVault.QueueInsolvent.selector;
+        //      }
+        //
+        //  {deposit} now calls {_syncEthQueue} BEFORE its `QueueInsolvent` check
+        //  (PerpVault.sol:298). The sync writes the dead queue down to the zero
+        //  backing and retires it, so `pendingEth() > engine.totalEth()` is false
+        //  by the time the gate is read and bob is admitted on the first try.
+        //  The gate is untouched and still in place; it is simply pre-empted.
+        //  The PROPERTY K3a exists to protect is unchanged and asserted below:
+        //  the stale queue takes nothing of bob's money and his stake is worth
+        //  what he paid. Recognising the loss beats latching the door.
+        (bobRefused, bobPaid, bobRedeemable) = _bobDeposits();
 
-        // The recovery path is permissionless and unchanged: alice banks her own
-        // haircut (a zero, against zero backing), which drains `pendingEth`...
+        //  Alice's claim is worth zero and is now already banked, so the claim
+        //  reverts `ZeroAmount` exactly as it does for anyone with no pending
+        //  balance. Either way she takes nothing of bob's deposit.
         vm.prank(alice);
-        vault.claimPendingEth();
+        try vault.claimPendingEth() {} catch {}
         aliceGot = alice.balance - aliceBefore;
+    }
 
-        // ...and the side reopens for honest money, which is now worth what it paid.
-        uint256 bobBefore = bob.balance;
+    /// @dev Split out to keep {_insolventRun} under the viaIR stack limit.
+    function _bobDeposits() internal returns (bool refused, uint256 paid, uint256 redeemable) {
+        uint256 before = bob.balance;
         vm.prank(bob);
-        vault.depositEth{value: 10 ether}();
-        bobPaid = bobBefore - bob.balance;
-        (bobRedeemable,,) = vault.ethPosition(bob);
+        try vault.depositEth{value: 10 ether}() { refused = false; }
+        catch (bytes memory err) {
+            refused = bytes4(err) == PerpVault.QueueInsolvent.selector;
+        }
+        paid = before - bob.balance;
+        (redeemable,,) = vault.ethPosition(bob);
     }
 
     function test_attack_staleQueueTakes100PctOfAFreshDeposit() public {
         (bool bobRefused, uint256 aliceGot, uint256 bobRedeemable, uint256 bobPaid) = _insolventRun();
-        assertTrue(bobRefused, "the deposit into an insolvent queue is REFUSED (QueueInsolvent)");
+        //  ORIGINAL, verbatim:
+        //      assertTrue(bobRefused, "the deposit into an insolvent queue is REFUSED (QueueInsolvent)");
+        assertFalse(bobRefused, "the gate is PRE-EMPTED: the dead queue is recognised, not latched against");
         assertEq(aliceGot, 0, "alice's worthless claim is recognised as worthless, not paid from bob");
         assertEq(vault.pendingEth(), 0, "the stale queue is drained by its own haircut");
         assertEq(bobPaid, 10 ether, "bob's later, honest deposit still goes in");

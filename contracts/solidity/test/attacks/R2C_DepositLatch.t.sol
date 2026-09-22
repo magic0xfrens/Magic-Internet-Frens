@@ -105,8 +105,22 @@ contract R2C_DepositLatch is Test {
         console2.log("holdout still paid on his own claim:", r.holdoutStillPaid);
 
         assertGt(r.pendingWhileHeld, r.totalEthWhileHeld, "queue outruns backing");
-        // The gate itself is UNCHANGED: while the queue is unbacked, no new money.
-        assertTrue(r.depositRevertedWhileHeld, "insolvent-queue gate still refuses deposits");
+        //  ── INVERTED BY 6634f2a ────────────────────────────────────────────
+        //  The ORIGINAL assertion, verbatim:
+        //
+        //      // The gate itself is UNCHANGED: while the queue is unbacked, no new money.
+        //      assertTrue(r.depositRevertedWhileHeld, "insolvent-queue gate still refuses deposits");
+        //
+        //  The `QueueInsolvent` gate is still there (PerpVault.sol:314) and is
+        //  not weakened. It is now PRE-EMPTED: {deposit} calls {_syncEthQueue}
+        //  first (:298), which scales the queue index down to the surviving
+        //  backing, so `pendingEth() > engine.totalEth()` is already false when
+        //  the gate is read. R2C's own finding was that this gate could be held
+        //  shut by one holdout; it can now never latch at all, which is strictly
+        //  the stronger outcome. Everything R2C actually protects — the holdout
+        //  keeps his pro-rata share and nobody else can take it — is asserted
+        //  below, unchanged, and still passes.
+        assertFalse(r.depositRevertedWhileHeld, "the gate cannot latch: the loss is recognised first");
         // INVERTED (was: only the holdout's own claim reopens the side).
         assertTrue(r.depositWorksAfterHeClaims, "any third party can now reopen the ETH side");
         assertTrue(r.settleGaveCallerNothing, "settlePendingEth pays the caller nothing");
