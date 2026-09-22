@@ -160,9 +160,33 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///         EIP-7825 caps a transaction at 16,777,216, so past `maxPerSwap`
     ///         no transaction can carry the work. Trade a smaller size.
     error LiqTradeTooLarge(uint256 maxPerSwap);
+    /// @notice The liquidation sweep could not RUN. Not a gas problem and not a
+    ///         size problem -- the engine itself is unreachable or reverting, so
+    ///         neither more gas nor a smaller trade helps. Operator action.
+    error LiqSweepUnavailable();
     /// @dev Mirrors `PerpEngine.MAX_LIQ_PER_SWAP` for the revert payload only.
     ///      Not read for control flow, so a drift here cannot change behaviour.
     uint256 internal constant MAX_LIQ_PER_SWAP_VIEW = 30;
+
+    /// @notice EMERGENCY ONLY. When true, a pre-trade sweep that could not run
+    ///         at all no longer refuses the swap -- the pre-`LiqSweepUnavailable`
+    ///         behaviour. It exists because this hook is unpatchable and its
+    ///         address encodes the PoolKey: without it, an engine stuck in a
+    ///         reverting state would halt every exact-input swap on the pool
+    ///         permanently, and the only remedy would be abandoning the pool.
+    ///  WHILE THIS IS ON, TRADES FILL WITH NO LIQUIDATION GATE. Bad debt accrues
+    ///  to stakers, recorded in `PerpEngine.unabsorbedEth` but NOT prevented.
+    ///  Pull it to repoint a broken engine, then put it back.
+    bool public sweepFailOpen;
+
+    event SweepFailOpenSet(bool on);
+
+    /// @notice Toggle the escape hatch above. Owner is a timelock+multisig on
+    ///         mainnet, so this cannot be flipped silently or quickly.
+    function setSweepFailOpen(bool on) external onlyOwner {
+        sweepFailOpen = on;
+        emit SweepFailOpenSet(on);
+    }
 
     // -----------------------------------------------------------------------
     // Constants
@@ -834,26 +858,35 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             //  retry failed identically. `LiqTradeTooLarge` is the un-retryable
             //  case -- the work exceeds what ANY transaction can do under
             //  EIP-7825, so the only fix is a smaller trade.
-            //  A SWEEP THAT COULD NOT RUN AT ALL STAYS RESULT-IGNORED, ON PURPOSE.
-            //  A fail-closed variant of this (`if (!swept || out.length < 32)
-            //  revert`) was tried and REVERTED. Its instinct is right -- a failed
-            //  bounded call is not a solvency certificate -- but the case it
-            //  actually adds is only "the call could not run", because a sweep
-            //  that RAN and reported trouble already reverts below. And that
-            //  trade is the wrong way round: committed behaviour risks bounded
-            //  bad debt, now permanently readable via `PerpEngine.unabsorbedEth`
-            //  and absorbed by an accepted waterfall, while fail-closed risks
-            //  EVERY exact-input swap on the pool reverting on any condition that
-            //  makes `sweepLiquidations` revert unconditionally -- an engine
-            //  panic, a mid-rotation mismatch, a bad `setPerpEngine`. This hook
-            //  has no proxy and its address encodes the PoolKey, so that remedy
-            //  is abandoning the pool. Bounded+recorded+absorbed must not be
-            //  traded for unbounded+unpatchable. `S08_InSwapGasStarvation`
-            //  asserts this by name: "DEGRADES, NOT ALL-OR-NOTHING".
-            if (amountSpecified != 0 && swept && out.length >= 32) {
-                uint256 status = abi.decode(out, (uint256));
-                if (status == 2) revert LiqTradeTooLarge(MAX_LIQ_PER_SWAP_VIEW);
-                if (status != 0) revert LiqGasStarved();
+            //  ── A SWEEP THAT COULD NOT RUN IS NOT A SOLVENCY CERTIFICATE ────
+            //  Three outcomes, three different instructions, because conflating
+            //  them is how a trader burns gas on a retry that cannot work:
+            //    status 0  -> book clean, fill
+            //    status 1  -> ran, ran out of gas          -> send more gas
+            //    status 2  -> ran, work exceeds one swap   -> trade smaller
+            //    !swept    -> COULD NOT RUN AT ALL         -> neither will help
+            //  The last is an engine panic, a mid-rotation mismatch or a bad
+            //  `setPerpEngine`. Gas will not fix it and a smaller trade will not
+            //  fix it, so it gets its own error rather than borrowing one that
+            //  tells the trader to do something useless.
+            //
+            //  FAIL CLOSED, WITH AN ESCAPE HATCH -- an owner decision, taken
+            //  explicitly. If the sweep cannot run, the protocol does not know
+            //  whether this trade creates bad debt, and "no bad debt" outranks
+            //  "always tradeable". But this hook has no proxy and its address
+            //  encodes the PoolKey, so a permanently-reverting engine would
+            //  otherwise mean abandoning the pool and its liquidity. {setSweepFailOpen}
+            //  is the recovery lever: it restores the old result-ignored
+            //  behaviour, trading liquidation safety for a live market, and is
+            //  meant to be pulled while the engine is repointed -- not left on.
+            if (amountSpecified != 0) {
+                if (!swept || out.length < 32) {
+                    if (!sweepFailOpen) revert LiqSweepUnavailable();
+                } else {
+                    uint256 status = abi.decode(out, (uint256));
+                    if (status == 2) revert LiqTradeTooLarge(MAX_LIQ_PER_SWAP_VIEW);
+                    if (status != 0) revert LiqGasStarved();
+                }
             }
         } else if (amountSpecified != 0) {
             //  ── A GAS-STARVED TRADE FAILS LOUDLY, IT DOES NOT TRADE BLIND (R1C) ──

@@ -550,11 +550,39 @@ contract S08_InSwapGasStarvation is YBase {
         //  afford and leaves the rest for the next swap. Measured here: 3 of 4
         //  die below the old bar where 0 died before. The property that matters
         //  is that the book size can no longer zero out the sweep.
-        assertTrue(okBelow, "the swap still fills below the bar");
-        assertGt(deadBelow, 0, "DEGRADES, NOT ALL-OR-NOTHING: a short sweep still banks kills");
-        console2.log("=> positions killed below the bar (was 0):", deadBelow);
-        // Sentinel.
-        assertTrue(true, "reached");
+        //  ── RE-INVERTED: "DEGRADES" WAS ITSELF REPLACED, DELIBERATELY ───────
+        //  The two assertions here (`okBelow` true, `deadBelow > 0`) encoded the
+        //  L-2 answer: a gas-short PRE-trade sweep should bank what it could
+        //  afford and let the swap fill. Three later fixes replaced that answer,
+        //  in this order:
+        //
+        //    0f71309 (T1a)  an incomplete PRE-trade sweep REVERTS rather than
+        //                   degrading -- a trade that bankrupts N positions must
+        //                   liquidate all N or not happen. Degrading was
+        //                   measured at 4.36 ETH of bad debt to PLV on a 30 ETH
+        //                   vault, for the gas of an ordinary buy, repeatable.
+        //    98a97ec (H1B)  the sweep may not certify a book it stopped reading.
+        //    this run       the sweep may not certify a book whose condemned
+        //                   positions it could not close, and reports WHY --
+        //                   LiqGasStarved (send more gas) vs LiqTradeTooLarge
+        //                   (trade smaller) vs LiqSweepUnavailable (neither).
+        //
+        //  So "the swap still fills below the bar" is now exactly the behaviour
+        //  the protocol refuses. The test has been red since before R46 opened
+        //  and was carried as a known failure across the whole run, which is how
+        //  a stale assertion hides: it looks like a standing debt rather than a
+        //  question nobody re-asked.
+        //
+        //  THE L-2 PROPERTY ITSELF IS NOT ABANDONED -- it just moved to the
+        //  POST-trade sweep, which is still best-effort by design (`spec == 0`
+        //  keeps the original `kills < MAX_LIQ_PER_SWAP` exit, byte for byte).
+        //  What is asserted now is the property that replaced it: below the bar
+        //  the trade is REFUSED, and the refusal is atomic. The original
+        //  assertions are quoted above so the inversion stays legible.
+        assertFalse(okBelow, "below the bar the PRE-trade sweep must REFUSE, not degrade");
+        assertEq(deadBelow, 0, "and a refused trade banks no kills at all");
+        assertEq(perp.openCount(), 4, "the book is untouched by a refused trade");
+        console2.log("=> refused below the bar; kills banked:", deadBelow);
     }
 
     // =======================================================================

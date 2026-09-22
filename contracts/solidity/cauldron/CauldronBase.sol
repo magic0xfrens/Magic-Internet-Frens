@@ -455,12 +455,19 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     function floorPerFren() public view returns (uint256) {
         uint256 shares = genesisShares;
         if (shares == 0) return 0;
-        uint256 active = shares - (treasuryHeldOg < shares ? treasuryHeldOg : shares);
-        //  EVERY fren in the treasury: there is no active claimant to divide by.
-        //  Fall back to the full count so the reserve stays priced (and so
-        //  {RedemptionExt.buyTreasuryOgFren} can still quote a non-zero 2×,
-        //  which is the only way a fren ever leaves the treasury again).
-        if (active == 0) return genesisReserveOutstanding / shares;
+        //  ONE CLAMP, ONE DIVIDE. This clamped `treasuryHeldOg` to `shares`,
+        //  then re-tested for a zero divisor and fell back to `shares` anyway --
+        //  two branches reaching the same number. If the treasury holds every
+        //  fren the divisor IS `shares`, so saturate straight to it. Equivalence
+        //  checked exhaustively over shares 0..11 x held 0..14 x several
+        //  reserves, and this is NOT a style change: `CauldronRegistry` inherits
+        //  this base and was 12 bytes OVER EIP-170 -- undeployable.
+        uint256 active = treasuryHeldOg < shares ? shares - treasuryHeldOg : shares;
+        //  (The all-in-treasury case is folded into the clamp above: there is no
+        //  active claimant to divide by, so the divisor stays the full count and
+        //  the reserve stays priced -- which is what lets
+        //  {RedemptionExt.buyTreasuryOgFren} still quote a non-zero 2x, the only
+        //  way a fren ever leaves the treasury again.)
         return genesisReserveOutstanding / active;
     }
 
