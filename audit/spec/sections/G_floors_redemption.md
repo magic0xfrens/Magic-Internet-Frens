@@ -11,9 +11,21 @@ paths below unless stated otherwise.
 **Mechanism:** genesis holds a single scalar, `genesisReserveOutstanding`
 (`cauldron/CauldronBase.sol:198`), against the shared out-of-range reserve LP
 position (`generationReservePositionId[gen]`, `CauldronBase.sol:193`).
-`floorPerFren() = genesisReserveOutstanding / genesisShares`
-(`CauldronBase.sol:368-372`) — a `view` on the base contract, inherited by both
-the registry and the delegatecall facet.
+`floorPerFren() = genesisReserveOutstanding / (genesisShares - treasuryHeldOg)`
+— a `view` on the base contract, inherited by both the registry and the
+delegatecall facet.
+
+The divisor is the **active** genesis count. `treasuryHeldOg` (appended slot 53)
+counts frens the treasury is holding between a `redeemOgFren` and its matching
+`buyTreasuryOgFren`; while a fren sits there it is nobody's claim, so counting it
+in the divisor charged the remaining OGs for it. Excluding it makes a redemption
+exactly floor-neutral — `(R - F)/(A - 1) == R/A` — where the old divisor decayed
+the floor as `F*(1 - 1/N)^k` over `k` redemptions with no matching resales, and
+left the 2× resale repairing that dip (`F*(1 - 2/N)` per cycle) instead of
+ratcheting. `genesisShares` itself is unchanged and still bounds the OG id range,
+the vault `floorOffset` and the live-buyback split. Degenerate cases: zero shares
+→ 0; every fren in the treasury → falls back to the full divisor so the resale
+stays priceable; an over-counted `treasuryHeldOg` clamps rather than underflows.
 
 **Entrypoints (delegatecall facet `cauldron/RedemptionExt.sol`, forwarded from
 `CauldronRegistry.sol`):**
@@ -44,6 +56,8 @@ NatSpec, verified against the guard checks each function opens with).
 **Behavior — `redeemOgFren` (`RedemptionExt.sol:73-101`):**
 1. `F = floorPerFren()`; revert `BadConfig` if 0.
 2. Debit `genesisReserveOutstanding -= F` (checks-effects, before the pull).
+2a. `treasuryHeldOg += 1` — the fren leaves the active set at the same moment its
+   share leaves the reserve, which is what makes the step floor-neutral.
 3. `custodyTransfer(msg.sender, address(this), tokenId)` — NFT moves to the
    registry (treasury), **not burned**; breaks its dividend spell.
 4. `PoolOps.claimFromReserve(...)` pulls `F` of `generationToken[currentGeneration]`
@@ -57,7 +71,11 @@ iteration's token — always read live, never the token that was current when th
 fren was minted).
 
 **Behavior — `buyTreasuryOgFren` (`RedemptionExt.sol:110-122`):**
-1. `paid = 2 * floorPerFren()`.
+1. `paid = 2 * floorPerFren()` — priced while the fren is still the treasury's,
+   i.e. still out of the divisor.
+1a. `treasuryHeldOg -= 1` (guarded) — the fren rejoins the active set before the
+   deposit, so the `FloorGrew` event reports the true post-trade floor. A revert
+   inside the pull rolls this back with everything else.
 2. `_pullGrow(msg.sender, paid)` — `transferFrom` the buyer, then
    `PoolOps.addToReserve(...)` deposits it back into the same reserve position
    (`RedemptionExt.sol:160-179`); `genesisReserveOutstanding += added` — **the

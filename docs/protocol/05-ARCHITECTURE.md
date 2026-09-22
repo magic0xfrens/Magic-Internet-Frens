@@ -246,6 +246,7 @@ silently corrupts the facet's view of state
 | Appended: ignition role | `igniter` | `:313` |
 | Appended: quotes | `allowedQuote`, `generationQuote`, `quoteRotator`, `treasuryGovernor`, `quoteScale` | `:329-397` |
 | Appended: treasury legs | `generationLegs`, `legProceeds` | `:489`, `:511` |
+| Appended: active-floor divisor (slot 53) | `treasuryHeldOg` | `:430` |
 
 Slots 0..40 are stated to reproduce `docs/registry-storage-baseline.txt` exactly
 (`CauldronBase.sol:90-93`); that file exists in the repo but was not diffed in this

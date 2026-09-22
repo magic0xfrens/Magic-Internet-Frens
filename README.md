@@ -453,7 +453,16 @@ the machine with their mint ETH.
 ### The genesis redemption floor
 
 Each genesis fren has a live floor denominated in whatever token is running now,
-and the design **ratchets it up**. Burn a fren, receive its share of the reserve.
+and the design **ratchets it up**. Recycle a fren, receive its share of the
+reserve — the fren is **never burned**, it moves to the treasury to be resold at
+2× the floor.
+
+The divisor is the **active** genesis count, so a fren sitting in the treasury is
+not counted against anyone. That makes recycling exactly **floor-neutral** for
+every holder who stays, and leaves four things that only ever push the floor up:
+the 2× resale, the paid re-enchant fee, the OG share of trading volume, and any
+permissionless `donateToReserve`. An OG can only leave the treasury through
+`buyTreasuryOgFren` — the collection's cheaper resale door refuses OG ids.
 
 > ⚠️ **Read this caveat, it is real.** The floor is claimable while the token
 > trades below its per-iteration **reserve ceiling**. Above the ceiling, claims

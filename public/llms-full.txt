@@ -518,31 +518,50 @@ Every genesis MiFren has a live redemption floor denominated in **whatever token
 is running right now**.
 
 ```
-floorPerFren() = genesisReserveOutstanding / genesisShares
+floorPerFren() = genesisReserveOutstanding / (genesisShares − treasuryHeldOg)
 ```
 
 `redeemOgFren(tokenId)` pays you that many live tokens from the out-of-range
 reserve. The NFT is **not burned** — it moves to the treasury to be resold, so the
 collection stays 1111 forever.
 
+The divisor is the **active** genesis count: frens the treasury is currently
+holding are excluded, because while one sits there it is nobody's claim. That is
+what makes a redemption floor-neutral rather than dilutive — the reserve and the
+divisor both drop by exactly one share's worth, so `(R − F)/(A − 1) = R/A`.
+
 ### 7.1 Why it ratchets
 
-1. **Recycle.** `redeemOgFren` pays `F` and sends your fren to the treasury. It
-   stops earning the moment it leaves your wallet, so the remaining active frens
-   each earn a bigger slice of fees.
-2. **Resale at 2× floor.** Anyone can buy a treasury-held fren for `2 × floor`
-   (`buyTreasuryOgFren`), paid in the live token, and that payment is added **back
-   into the reserve**.
+1. **Recycle — floor-neutral, not dilutive.** `redeemOgFren` pays `F` and sends
+   your fren to the treasury. Everyone who kept theirs sees the *same* floor
+   afterwards, not a lower one. Your fren also stops earning the moment it leaves
+   your wallet, so the remaining active frens each earn a bigger slice of fees.
+2. **Resale at 2× floor — pure upside.** Anyone can buy a treasury-held fren for
+   `2 × floor` (`buyTreasuryOgFren`), paid in the live token, and that payment is
+   added **back into the reserve** while the fren rejoins the active count. Because
+   step 1 left the floor untouched, the 2× lands on top of a full baseline instead
+   of repairing a dip: a completed cycle is `+F` on the reserve and strictly up on
+   the floor.
 3. **Re-enchant fee.** The new owner's paid re-enchant (§6.1) adds more.
+4. **The OG share of trading volume.** On the MiFrens continuation the live
+   buyback is split by fren count, and the OG slice lands in the genesis reserve.
+   `materializeLegacyReserve` credits it **immediately** — the tokens are already
+   in the reserve LP at that point, so there is nothing to wait for. (Only the
+   sweep that happens *at relaunch* is deferred, via `genesisPending`: there the
+   dying generation's token is burned, so the value has to carry as a bare number
+   until the new reserve is sized to cover it.)
 
-Net per cycle: `−F` then `+2F` then `+fee`. The reserve grows, so `floorPerFren`
-only rises. Anyone can also call `donateToReserve` to lift the floor for everyone.
+Anyone can also call `donateToReserve` to lift the floor for everyone.
 
 - **Non-dilutive.** Redeemed tokens come from the reserve, which was never
   circulating; payments go back into it. Circulating supply is unchanged either
   way, so ordinary token holders are never diluted.
-- **OG tranche only.** Only ids `1..genesisShares` participate. A volume-minted
-  fren can never siphon a founder's share — it has its own collection floor (§8).
+- **OG tranche only, both ways.** Only ids `1..genesisShares` participate, and an
+  OG fren can only *leave* the treasury through `buyTreasuryOgFren` — which pays
+  2× the OG floor into the reserve that funded it. The collection's own resale
+  door (`buyCollectionNFT`) refuses OG ids, so a founder's share cannot be sold
+  out through the forged tranche's cheaper floor. A volume-minted fren likewise
+  can never siphon a founder's share — it has its own collection floor (§8).
 
 ### 7.2 List **way** above the floor
 
@@ -553,7 +572,9 @@ the tokens for instant profit.
 > **Rule of thumb: only list your fren well above the floor.** Check it first — the
 > app shows "Genesis Floor · X /fren", or read `floorPerFren()` directly.
 
-Every such arb does at least raise the floor for everyone who kept theirs.
+Such an arb costs the holders who kept theirs nothing — the recycle leg is
+floor-neutral — and the moment the treasury fren is resold at 2×, it raises the
+floor for all of them.
 
 ### 7.3 Circuit breaker and the exit guarantee
 
