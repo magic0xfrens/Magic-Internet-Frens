@@ -26,7 +26,8 @@ What can be said honestly:
 - Bad debt is **recorded** rather than silently dropped (`unabsorbedEth`).
 - Two independent attack classes were re-verified as held: nested-sweep
   reentrancy (`_liqReentry`), and `tx.origin` being attribution-only.
-- **One Medium remains open by choice** (F-3 below) and one lead is unproven.
+- **One Low remains open by choice** (F-3 below, after correction) and one
+  lead is unproven.
 
 ---
 
@@ -106,34 +107,51 @@ isolation*. **Owner decision.**
 
 ---
 
-## F-3 — Refusal triggers on solvent positions · MEDIUM · OPEN, deliberately
+## F-3 — Refusal is scoped to *underwater*, not *insolvent* · LOW · OPEN, deliberately conservative
 
-`PerpEngine._doSweep`, after the F-1 fix.
+**CORRECTED 2026-09-22. The original finding was wrong on its premise and is
+retracted as written.**
 
-The refusal now fires whenever a **condemned** position cannot be closed. But
-`_condemnedByThisTrade` tests `trip` (underwater), not `insolvent`, and the
-throttle only ever refuses **non-insolvent** positions:
+I reported that `_throttle` needed gating on the `insolvent` flag, and that
+without it a per-block DoS was available at ~100 ms blocks. **It is already
+gated** — `PerpEngine.sol:1902`:
 
 ```solidity
 if (!insolvent && cap > 0 && liqEthThisBlock + notional > cap) return false;
 ```
 
-A merely-underwater position still has backing, so it threatens no PLV. Refusing
-a trade over one is over-conservative, and it opens a **per-block DoS**: fill
-`liqEthThisBlock` to `cap`, and large trades revert for the rest of that block.
-At ~100 ms blocks that is cheap to sustain.
+`git log -S 'if (!insolvent && cap > 0'` returns exactly one commit, `9d5cd46`,
+and `git merge-base --is-ancestor 9d5cd46 6eaf67c` confirms it **pre-dates R46
+entirely**. An insolvent position is never throttled, so the positions that
+actually threaten PLV cannot be blocked, and the DoS I described cannot happen.
+I recommended a fix that had been in the tree the whole time — the same failure
+shape as S06 carried red across three reviews: reasoning about what the code
+should do instead of checking what it does. Caught by a peer session asking
+before re-fixing.
 
-**Recommended fix:** set the refusal flag only when the un-killable condemned
-position is **insolvent** at the projected price — `_liqTest` already returns
-that flag. Strictly more permissive, so it must be re-verified against the
-bad-debt tests rather than assumed.
+**What survives, in a different function than the original finding named.**
+`_condemnedByThisTrade` (`:1443-1452`):
 
-**Why it is open:** this is a permissive change to the safety-critical path, the
-machine is CPU-saturated by another session's invariant campaign, and I cannot
-test it right now. Shipping an unverified loosening of a solvency gate is exactly
-the failure mode this audit exists to catch. **Not ratable as safe until run.**
+```solidity
+(bool trip,,) = _liqTest(p);     // TRIP, not INSOLVENT
+```
 
----
+`_liqTest` returns `(trip, insolvent, notional)`; this discards `insolvent`.
+`trip` is *underwater* (maintenance margin breached); `insolvent` is *backing
+exhausted*. A merely-underwater position still has collateral and costs stakers
+nothing — yet the cascade loop sets `condemnedRemains` for it and can refuse the
+trade. So the refusal is broader than what threatens the vault.
+
+**Left unchanged, deliberately.** Refusing on `trip` is the conservative
+direction, it is what `H1B`/`H1C` pin, and loosening a solvency gate is exactly
+the permissive change that has been wrong twice this week. The mitigating
+property is real: `_condemnedByThisTrade` returns `!spotTrip`, so a position
+already condemned at spot is treated as backlog and **pre-existing backlog can
+never refuse a trade** — the refusal only ever fires on damage *this* trade would
+cause.
+
+Status is **open, deliberately conservative, with a named residual** — neither
+"fixed" nor "a DoS".
 
 ## Verified as held
 
