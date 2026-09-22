@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # The whole testnet bring-up in one run:
-#   1. arm the OLD deployment's break-glass  (starts its 48h clock)
+#   1. arm the OLD deployment's break-glass  (starts its emergencyDelay clock)
 #   2. deploy the new full stack
 #   3. mint out the 1110-fren presale
 #   4. finalize -> summons the pool
@@ -71,9 +71,22 @@ say() { printf "\n\033[1m== %s\033[0m\n" "$*"; }
 
 # ── 1. ARM THE OLD DEPLOYMENT ───────────────────────────────────────────────
 # Arming moves nothing by itself and forces redemption OPEN — the intended
-# holder protection. It starts the old registry's 48h emergencyDelay, which is
-# immutable, so the 6.8882 ETH of stranded LP cannot be recovered before then.
-say "1/5  arming the old deployment (48h clock starts now)"
+# holder protection. It starts the old registry's `emergencyDelay`, which is
+# immutable, so its stranded LP cannot be recovered before that elapses.
+#
+#  THE WAIT IS THE DEPLOYED VALUE, NOT 48h — READ IT, DO NOT ASSUME IT.
+#  These lines said "48h" for several rounds while every testnet deployment
+#  actually shipped `EMERGENCY_DELAY=600` (10 min, deploy-testnet.sh). Measured
+#  on round 44: `emergencyDelay()` = 600 and the timelock's `getMinDelay()` =
+#  180, so the real wait is ~13 minutes end to end, not two days. The stale
+#  comment is worth more than a nit: it is the difference between recovering a
+#  round's liquidity inside a test session and writing it off as unreachable.
+#  Mainnet is the case this text was describing — there the delay is real
+#  (docs/MAINNET_LAUNCH.md sets TIMELOCK_DELAY=172800) and the wait genuinely is
+#  days. Check the chain you are on:
+#      cast call $OLD_REG 'emergencyDelay()(uint256)' --rpc-url $R
+#      cast call $OLD_TL  'getMinDelay()(uint256)'    --rpc-url $R
+say "1/5  arming the old deployment (emergencyDelay clock starts now)"
 #  SKIPPABLE. Arming is a courtesy to the PREVIOUS deployment's holders, not a
 #  precondition for this one, and it fails hard when the timelock already holds
 #  that exact operation — same target, calldata and salt produce the same
@@ -243,4 +256,4 @@ node scripts/apply-deployment.mjs
 say "done"
 echo "next:  cd indexer && railway up     (schema bumped -> clean reindex)"
 echo "       npm run build                (frontend picks up round.json)"
-echo "       in ~48h: ./scripts/recover-old-lp.sh   (the 6.8882 ETH)"
+echo "       after emergencyDelay (600s on r44, NOT 48h): ./scripts/recover-old-lp.sh"

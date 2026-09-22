@@ -49,9 +49,21 @@ export GOV_ENVELOPE_LIFETIME=7200    # 2 h    (mainnet 30 days)
 export ROTATION_SLIP_BPS=2000        # 20% (mainnet: leave unset -> 3%)
 
 # Break-glass delay. 48h on mainnet is the "holders can exit at floor before
-# anything moves" guarantee; 10 minutes here so LP recovery is testable.
+# anything moves" guarantee; minutes here so LP recovery is testable.
 # Zero is refused at deploy, deliberately.
-export EMERGENCY_DELAY=600           # 10 min (mainnet 48 h)
+#
+#  5 min, down from 10. The wait is paid TWICE in a swarm session — once to
+#  recover the previous round's LP into the budget, once more if a run has to be
+#  torn down and re-staged — and on testnet the delay protects nobody: every
+#  holder is a wallet we control. The property it exists to prove (arming forces
+#  the redemption exit OPEN before anything can move) is exercised by the delay
+#  EXISTING, not by its length, and `invariant_exitIsForcedOpenWhileArmed`
+#  asserts it independently of the clock.
+#
+#  The end-to-end wait is this PLUS the timelock's own minDelay (180 s on
+#  testnet, DeployLaunchpad default; the mainnet script hard-refuses anything
+#  under 172800). So ~8 min here against ~48 h there.
+export EMERGENCY_DELAY=300           # 5 min (mainnet 48 h)
 
 # Presale price, which is ALSO the pool's seed liquidity: `igniteCauldron()` summons
 # with the presale's whole balance (MiFrensGenesis.sol:576). Pricing this too
