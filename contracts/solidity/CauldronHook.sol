@@ -834,6 +834,22 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
             //  retry failed identically. `LiqTradeTooLarge` is the un-retryable
             //  case -- the work exceeds what ANY transaction can do under
             //  EIP-7825, so the only fix is a smaller trade.
+            //  A SWEEP THAT COULD NOT RUN AT ALL STAYS RESULT-IGNORED, ON PURPOSE.
+            //  A fail-closed variant of this (`if (!swept || out.length < 32)
+            //  revert`) was tried and REVERTED. Its instinct is right -- a failed
+            //  bounded call is not a solvency certificate -- but the case it
+            //  actually adds is only "the call could not run", because a sweep
+            //  that RAN and reported trouble already reverts below. And that
+            //  trade is the wrong way round: committed behaviour risks bounded
+            //  bad debt, now permanently readable via `PerpEngine.unabsorbedEth`
+            //  and absorbed by an accepted waterfall, while fail-closed risks
+            //  EVERY exact-input swap on the pool reverting on any condition that
+            //  makes `sweepLiquidations` revert unconditionally -- an engine
+            //  panic, a mid-rotation mismatch, a bad `setPerpEngine`. This hook
+            //  has no proxy and its address encodes the PoolKey, so that remedy
+            //  is abandoning the pool. Bounded+recorded+absorbed must not be
+            //  traded for unbounded+unpatchable. `S08_InSwapGasStarvation`
+            //  asserts this by name: "DEGRADES, NOT ALL-OR-NOTHING".
             if (amountSpecified != 0 && swept && out.length >= 32) {
                 uint256 status = abi.decode(out, (uint256));
                 if (status == 2) revert LiqTradeTooLarge(MAX_LIQ_PER_SWAP_VIEW);

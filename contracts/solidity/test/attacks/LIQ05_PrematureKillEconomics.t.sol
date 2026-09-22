@@ -124,6 +124,22 @@ contract LIQ05_PrematureKillEconomics is YBase {
         (address t0,,,,,,,) = perp.positions(id);
         if (t0 == address(0)) { p.preKilled = true; return p; }
 
+        (p.killSize, p.attackerCost, p.victimLoss) = _scanSizes(id);
+    }
+
+    /// @dev The size scan, in its OWN frame. Two reasons, both load-bearing:
+    ///      via_ir ran `_probe` 1 slot too deep once the refusal handling was
+    ///      added, and a refused buy now has to be a DATA POINT rather than a
+    ///      test failure. The pre-trade sweep reverts `LiqTradeTooLarge` when a
+    ///      trade condemns more than one swap can close, or condemns something
+    ///      it cannot close at all -- for a crossover scan that simply means the
+    ///      grief is unavailable at this size: no fill, no kill, nothing spent.
+    ///      Letting the revert escape aborted the whole scan on its first
+    ///      refusal and reported an unavailable attack as a broken test.
+    function _scanSizes(uint256 id)
+        internal
+        returns (uint256 killSize, uint256 attackerCost, uint256 victimLoss)
+    {
         uint256[8] memory sizes = [
             uint256(0.005 ether), 0.01 ether, 0.02 ether, 0.05 ether,
             0.1 ether, 0.2 ether, 0.35 ether, 0.5 ether
@@ -132,21 +148,31 @@ contract LIQ05_PrematureKillEconomics is YBase {
             uint256 s = vm.snapshotState();
             uint256 vStart = victim.balance;
             uint256 aStart = address(this).balance;
-            uint256 got = _buy(sizes[i], address(this));
+            uint256 got = _tryBuy(sizes[i]);
+            if (got == 0) { vm.revertToState(s); continue; }
             (address t,,,,,,,) = perp.positions(id);
-            bool killed = t == address(0);
             _sell(got, address(this));
-            uint256 cost = aStart > address(this).balance ? aStart - address(this).balance : 0;
-            uint256 back = victim.balance - vStart;
-            uint256 loss = COL > back ? COL - back : 0;
-            vm.revertToState(s);
-            if (killed) {
-                p.killSize = sizes[i];
-                p.attackerCost = cost;
-                p.victimLoss = loss;
-                break;
+            if (t == address(0)) {
+                killSize = sizes[i];
+                attackerCost = aStart > address(this).balance ? aStart - address(this).balance : 0;
+                uint256 back = victim.balance - vStart;
+                victimLoss = COL > back ? COL - back : 0;
+                vm.revertToState(s);
+                return (killSize, attackerCost, victimLoss);
             }
+            vm.revertToState(s);
         }
+    }
+
+    /// @dev Self-call so a refused buy returns 0 instead of aborting the scan.
+    function extBuy(uint256 ethIn) external returns (uint256) {
+        require(msg.sender == address(this), "self only");
+        return _buy(ethIn, address(this));
+    }
+
+    function _tryBuy(uint256 ethIn) internal returns (uint256) {
+        (bool ok, bytes memory ret) = address(this).call(abi.encodeCall(this.extBuy, (ethIn)));
+        return ok ? abi.decode(ret, (uint256)) : 0;
     }
 
     function test_LIQ05_GriefCrossoverVersusVictimHealth() public {

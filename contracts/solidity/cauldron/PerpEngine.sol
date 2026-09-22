@@ -1355,10 +1355,30 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  count itself is capped. Cascades converge fast -- each round of kills
         //  carries less impact than the one before -- so a book needing more
         //  than MAX_CASCADE_PASSES rounds is one the trader should split.
+        //  ── AND "NOTHING KILLED" IS NOT "NOTHING CONDEMNED" ─────────────────
+        //  The first cut of this loop broke out when a pass killed nothing and
+        //  treated that as a clean book. It is not. `_tryLiquidate` is a TRY:
+        //  it returns without removing when the per-block throttle is hit
+        //  (`!_throttle`) and when `_settle`'s mark band refuses the buy-back
+        //  and leaves the position INTACT (55ba6fe). So a pass could find a
+        //  position the trade condemns, fail to close it, kill nothing else,
+        //  and exit reporting SWEEP_OK -- certifying the trade while an
+        //  insolvent position stayed open. That is N1 through a new door:
+        //  not an UNSCANNED book, a scanned one whose condemned positions could
+        //  not be killed. Exhausting MAX_CASCADE_PASSES while still killing had
+        //  the same hole.
+        //
+        //  So the ONLY clean exit is a full pass that finds nothing condemned.
+        //  Every other way out -- passes exhausted, or condemned positions that
+        //  will not close -- is a refusal. Note `_condemnedByThisTrade` is false
+        //  for a position already underwater at spot, so a pre-existing backlog
+        //  still does not freeze the pool; this only ever refuses over damage
+        //  THIS trade would do.
         if (spec != 0) {
-            for (uint256 pass; pass < MAX_CASCADE_PASSES; ) {
-                if (status != SWEEP_OK) break;
-                bool killedAny = false;
+            bool clean;
+            for (uint256 pass; pass < MAX_CASCADE_PASSES && status == SWEEP_OK; ) {
+                bool killedAny;
+                bool condemnedRemains;
                 uint256 m = _openIds.length;
                 uint256 i;
                 while (i < m) {
@@ -1374,15 +1394,21 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
                             killedAny = true;
                             m = _openIds.length;
                         } else {
+                            //  Condemned and still here: throttled, or the band
+                            //  refused. Record it -- do NOT treat silence as safety.
+                            condemnedRemains = true;
                             unchecked { ++i; }
                         }
                     } else {
                         unchecked { ++i; }
                     }
                 }
-                if (!killedAny) break; // a clean pass: nothing the trade condemns remains
+                if (status != SWEEP_OK) break;
+                if (!condemnedRemains) { clean = true; break; }
+                if (!killedAny) break;   // condemned remain and nothing can close them
                 unchecked { ++pass; }
             }
+            if (status == SWEEP_OK && !clean) status = SWEEP_TOO_LARGE;
         }
 
         sweepCursor = cursor;
