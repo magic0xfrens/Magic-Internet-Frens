@@ -42,6 +42,9 @@ export interface Proposal {
 export interface MachineState {
   loading: boolean;
   summoned: boolean;
+  /** The chain has a live brew the indexer has not reached yet (backfill).
+   *  Render a SYNCING state, never the pre-ignition screen — see {CauldronDto}. */
+  syncing: boolean;
   phase: Phase;
   gen: number;
   token?: Address;
@@ -79,7 +82,7 @@ export interface MigratableBalance {
 }
 
 const EMPTY: MachineState = {
-  loading: true, summoned: false, phase: "presale", gen: 0,
+  loading: true, summoned: false, syncing: false, phase: "presale", gen: 0,
   name: "", ticker: "", vol24hEth: 0, vitality: 0,
   deathThresholdEth: CAULDRON.deathThresholdEth, isDead: false,
   nftMinted: 0, nftMax: 0, presaleMinted: 0, presaleGoal: CAULDRON.genesisSupply,
@@ -99,6 +102,13 @@ const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
 /** Shape of the /cauldron endpoint — the full brew state in one fetch. */
 interface CauldronDto {
   summoned: boolean;
+  /** The chain says a brew is live but the indexer has not reached that block
+   *  yet — a BACKFILL, not a pre-ignition state. A schema bump forces one, and
+   *  on the r45 launch this window rendered an ignited protocol as "igniting…"
+   *  with no token name for the whole replay. `summoned === false` alone can no
+   *  longer be read as "not ignited"; check this first. */
+  syncing?: boolean;
+  summonedOnChain?: boolean;
   gen: number;
   token?: string;
   collection?: string | null;
@@ -230,7 +240,11 @@ export function useCauldronMachine() {
       if (!d) { setS((prev) => ({ ...prev, loading: false })); return; }
 
       if (!d.summoned) {
-        setS((prev) => ({ ...EMPTY, loading: false, summoned: false, phase: "presale",
+        setS((prev) => ({ ...EMPTY, loading: false, summoned: false,
+          //  NOT the same as "not ignited": the chain may already be live and the
+          //  indexer still replaying. The UI must show a sync state here.
+          syncing: d.syncing === true || d.summonedOnChain === true,
+          phase: "presale",
           presaleMinted: d.presaleMinted ?? prev.presaleMinted, proposals: prev.proposals }));
         // proposals in the background (governance tab; never blocks first paint)
         loadProposalsIndexed().then((proposals) => setS((prev) => ({ ...prev, proposals }))).catch(() => {});
@@ -244,7 +258,7 @@ export function useCauldronMachine() {
       const availableEth = (d.relaunchEth ?? 0) + (d.vaultEth ?? 0);
 
       setS((prev) => ({
-        loading: false, summoned: true, phase, gen: d.gen,
+        loading: false, summoned: true, syncing: false, phase, gen: d.gen,
         token: d.token as Address, collection: (d.collection ?? "") as Address,
         vault: prev.vault, poolId: d.poolId as `0x${string}`,
         name: cleanName(d.name ?? ""), ticker: d.ticker ?? "",

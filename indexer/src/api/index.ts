@@ -281,6 +281,11 @@ const REG_GENESIS = [
   { type: "function", name: "genesisReserveOutstanding", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "enchantFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
+/** @dev Just `summoned()`, so `/cauldron` can tell "not ignited" apart from
+ *       "not indexed yet". See the note in that handler. */
+const REG_SUMMONED = [
+  { type: "function", name: "summoned", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+] as const;
 let presaleCache: { at: number; v: { minted: number; soldOut: boolean; finalized: boolean; supply: number; airdropPerFren: number; airdropTicker: string } | null } = { at: 0, v: null };
 async function presaleState() {
   if (Date.now() - presaleCache.at < 4000 && presaleCache.v) return presaleCache.v;
@@ -1194,9 +1199,36 @@ app.get("/cauldron", async (c) => {
   const p = pools[0];
   if (!p) {
     const ps = await presaleState();
-    // presaleMinted at the TOP level too (useCauldronMachine reads it there) +
-    // nested `presale` for the richer hero. Both from the server-side read.
-    return c.json({ summoned: false, gen: 0, presale: ps, presaleMinted: ps?.minted ?? 0, presaleSoldOut: ps?.soldOut ?? false, presaleFinalized: ps?.finalized ?? false });
+    //  ── "NOT INDEXED YET" IS NOT "NOT SUMMONED" (r45 launch) ──────────────
+    //  This used to return a flat `summoned: false` whenever the pool table was
+    //  empty, and the browser rendered that as the pre-ignition screen. But
+    //  {presaleState} reads the CHAIN (`readContract`, :289-297) while this read
+    //  the DB, so one response mixed two clocks: on the r45 launch it served
+    //  `finalized: true` beside `summoned: false` — both true of different
+    //  moments, and impossible together, since the same transaction does both.
+    //
+    //  During a backfill (a schema bump forces one) that is a LIE the UI cannot
+    //  detect: a live, ignited protocol renders as "igniting…" with no token
+    //  name, for as long as the replay takes. The indexer already knows it is
+    //  behind — `freshness.warmingUp` — so the honest answer is to say so.
+    //
+    //  `summonedOnChain` is the authority the DB is trying to catch up WITH, so
+    //  it is read from the same client `presaleState` already uses. `syncing`
+    //  lets the browser distinguish "not ignited" from "not indexed yet" and
+    //  show a spinner instead of the wrong screen.
+    const summonedOnChain = await perpClient
+      .readContract({ address: REGISTRY, abi: REG_SUMMONED, functionName: "summoned" })
+      .catch(() => false) as boolean;
+    return c.json({
+      summoned: false,
+      syncing: summonedOnChain,        // chain says live, we have not indexed it yet
+      summonedOnChain,
+      gen: 0,
+      presale: ps,
+      presaleMinted: ps?.minted ?? 0,
+      presaleSoldOut: ps?.soldOut ?? false,
+      presaleFinalized: ps?.finalized ?? false,
+    });
   }
   const gen = p.generation;
   const selection = await generationMarket(gen);
