@@ -1484,7 +1484,11 @@ library PoolOps {
     ///         path (deposit into the reserve LP); false = the relaunch flush (the
     ///         dying gen's reserve is gone, so BURN the dead token and carry the value
     ///         as a pure ledger number covered by the new reserve's sizing). Returns
-    ///         (credited, ogShare) — the registry folds ogShare into genesisPending.
+    ///         (credited, ogShare). The caller books ogShare where its backing
+    ///         actually is: the LIVE path credits `genesisReserveOutstanding`
+    ///         directly (the tokens are already in the reserve LP), the relaunch
+    ///         path parks it in `genesisPending` (the dead token was burned, so the
+    ///         value carries as a number until the new reserve is sized).
     ///         No-op (0,0) if the ledger/hook aren't wired or nothing is pending.
     function materializeLegacy(
         IPositionManagerOps pm, address hook, address registryAddr,
@@ -1629,7 +1633,22 @@ library PoolOps {
         ReserveRef memory r
     ) external returns (uint256 added) {
         if (ICollectionOps(collection).ownerOf(tokenId) != address(this)) revert("not treasury");
-        uint256 mintedNow = _eligible(collection, _ogCount(collection));
+        //  ── THE OG TRANCHE MAY NOT BE SOLD OUT OF THE FORGED DOOR ───────────
+        //  `recycleCollection` guards the way IN (an OG cannot draw the forged
+        //  floor); this path guarded the way OUT with nothing but "the treasury
+        //  owns it". On the iteration-#2 continuation the generation's collection
+        //  IS the MiFrens contract, so a fren that reached the treasury through
+        //  {RedemptionExt.redeemOgFren} could be bought back here for 2× the
+        //  FORGED floor — which is by construction <= the OG floor — with the
+        //  payment landing in the forged ledger instead of the genesis reserve.
+        //  That is a loop, not a leak: buy the OG fren cheap here, redeem it at
+        //  the higher OG floor, repeat, draining `genesisReserveOutstanding` while
+        //  crediting the wrong tranche. OGs leave the treasury only through
+        //  {RedemptionExt.buyTreasuryOgFren}, which pays 2× the OG floor into the
+        //  reserve that funded them.
+        uint256 ogCount = _ogCount(collection);
+        if (ogCount != 0 && tokenId <= ogCount) revert("og tranche");
+        uint256 mintedNow = _eligible(collection, ogCount);
         uint256 paid = 2 * ILedgerOps(ledger).floorPerNFT(gen, mintedNow);
         require(paid > 0, "no floor");
         require(IERC20(token).transferFrom(caller, address(this), paid), "pay");

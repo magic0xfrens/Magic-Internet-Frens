@@ -232,8 +232,14 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
 
     /// @notice The legacy-floor cap table (see CollectionLedger). Zero = off.
     ICollectionLedger internal collectionLedger;
-    /// @notice OG share of iteration-#2 live buybacks, folded into
-    ///         `genesisReserveOutstanding` at the next relaunch.
+    /// @notice OG share of iteration-#2 live buybacks swept at RELAUNCH, folded
+    ///         into `genesisReserveOutstanding` at the next summon.
+    ///
+    ///  Only the relaunch sweep lands here. That path burns the dying generation's
+    ///  token, so its value has to carry as a bare number until the new reserve is
+    ///  sized to cover it. The LIVE path ({RedemptionExt.materializeLegacyReserve})
+    ///  credits `genesisReserveOutstanding` directly, because it has already
+    ///  deposited the matching tokens into the reserve LP.
     uint256 internal genesisPending;
 
     /// @notice Factory that deploys each brew's collection + vault.
@@ -414,16 +420,48 @@ abstract contract CauldronBase is Ownable, ReentrancyGuard {
     ///  must keep failing safe. That change belongs to whoever owns the hook.
     mapping(address => uint256) public quoteScale;         // slot 52
 
+    /// @notice Genesis frens currently sitting in the TREASURY, i.e. redeemed via
+    ///         {RedemptionExt.redeemOgFren} and awaiting resale through
+    ///         {RedemptionExt.buyTreasuryOgFren}. Excluded from the floor divisor.
+    ///
+    ///  Appended at the end for the reason given on `allowedQuote` above: this
+    ///  base is the shared layout for the registry AND its delegatecall facet, so
+    ///  a new slot may only go after the last one.
+    uint256 public treasuryHeldOg;                         // slot 53
+
     // -----------------------------------------------------------------------
     // Shared views / guards (used by BOTH the registry and the facet)
     // -----------------------------------------------------------------------
 
     /// @notice LIVE redemption value per genesis fren = reserve backing / genesis
     ///         count. Ratchets up with buybacks + re-enchant fees.
+    ///
+    ///  ── WHY THE DIVISOR EXCLUDES TREASURY-HELD FRENS ──────────────────────
+    ///  A redeemed fren is NOT burned — it moves to the treasury to be resold at
+    ///  2× (that is what makes the resale ratchet possible). But while it sits
+    ///  there it is nobody's claim, and dividing by the full `genesisShares`
+    ///  counted it anyway: a redeemer withdrew `R/N` while the divisor stayed
+    ///  `N`, so every remaining OG's floor fell by a factor of `(1 − 1/N)` and a
+    ///  run of redemptions with no matching resales decayed the floor as
+    ///  `F·(1 − 1/N)^k`. The 2× resale was then priced off that ALREADY-LOWERED
+    ///  floor, so a full cycle only returned `F·(1 − 2/N)` — it repaired the
+    ///  damage rather than ratcheting.
+    ///
+    ///  Excluding the treasury's own holdings makes redemption EXACTLY floor-
+    ///  neutral — `(R − F)/(A − 1) == R/A` — and leaves the resale as pure
+    ///  upside: `(R + 2F)/A > F`. `genesisShares` itself is unchanged, so the
+    ///  OG id range, the vault's `floorOffset` and the live-buyback split all
+    ///  keep reading the same number they always did.
     function floorPerFren() public view returns (uint256) {
         uint256 shares = genesisShares;
         if (shares == 0) return 0;
-        return genesisReserveOutstanding / shares;
+        uint256 active = shares - (treasuryHeldOg < shares ? treasuryHeldOg : shares);
+        //  EVERY fren in the treasury: there is no active claimant to divide by.
+        //  Fall back to the full count so the reserve stays priced (and so
+        //  {RedemptionExt.buyTreasuryOgFren} can still quote a non-zero 2×,
+        //  which is the only way a fren ever leaves the treasury again).
+        if (active == 0) return genesisReserveOutstanding / shares;
+        return genesisReserveOutstanding / active;
     }
 
     /// @dev THE EXIT GUARANTEE. Redemptions are blocked ONLY by the fast circuit-

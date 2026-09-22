@@ -69,11 +69,13 @@ contract RedemptionExt is CauldronBase {
      *         resold at 2× floor via `buyTreasuryOgFren`. The fren stops earning the
      *         instant it moves (the collection's transfer hook breaks its spell).
      *
-     *  The floor is DYNAMIC (`floorPerFren()` = reserve / genesisShares) and
-     *  RATCHETS UP: each redeem pulls `F` from the reserve, but the matching resale
-     *  puts `2F` back + re-enchant fees add more → the reserve (and floor) only
-     *  grows over time. Non-dilutive: tokens come from the out-of-range reserve
-     *  (never circulating); circulating supply is unchanged.
+     *  The floor is DYNAMIC (`floorPerFren()` = reserve / ACTIVE genesis count,
+     *  i.e. excluding frens the treasury is holding) and RATCHETS UP: the redeem
+     *  pulls `F` out and drops the divisor by one at the same time, which is
+     *  exactly floor-NEUTRAL for everyone who stays; the matching resale then puts
+     *  `2F` back against the restored divisor, and re-enchant fees and the OG share
+     *  of live buybacks add more on top. Non-dilutive: tokens come from the
+     *  out-of-range reserve (never circulating); circulating supply is unchanged.
      */
     function redeemOgFren(uint256 mifrenTokenId) external nonReentrant returns (uint256 amount) {
         if (_redeemBlocked()) revert RedemptionPaused(); // circuit-breaker (forced open while armed)
@@ -89,6 +91,10 @@ contract RedemptionExt is CauldronBase {
         // (breaks its spell, sets everMoved). Then pull the tokens from the LP; a
         // short reserve reverts the whole tx, so the fren is never lost for free.
         if (genesisReserveOutstanding >= F) genesisReserveOutstanding -= F;
+        //  The fren joins the treasury, so it stops counting as a claimant. Paired
+        //  with the debit above this makes the redemption EXACTLY floor-neutral for
+        //  everyone who stays — see {CauldronBase.floorPerFren}.
+        treasuryHeldOg += 1;
         IMiFrensContinuable(mifrens).custodyTransfer(msg.sender, address(this), mifrenTokenId);
 
         uint256 g = currentGeneration;
@@ -121,6 +127,11 @@ contract RedemptionExt is CauldronBase {
         paid = 2 * floorPerFren();
         if (paid == 0) revert BadConfig();
 
+        //  Price FIRST (the fren is still the treasury's, so it is out of the
+        //  divisor), then return it to the active set BEFORE `_pullGrow` so the
+        //  `FloorGrew` event it emits reports the true post-trade floor. A revert
+        //  inside `_pullGrow` rolls this back with everything else.
+        if (treasuryHeldOg > 0) treasuryHeldOg -= 1;
         paid = _pullGrow(msg.sender, paid);
         IMiFrensContinuable(mifrens).custodyTransfer(address(this), msg.sender, mifrenTokenId);
         emit FrenBought(mifrenTokenId, msg.sender, paid, currentGeneration);
@@ -155,7 +166,22 @@ contract RedemptionExt is CauldronBase {
             ReserveRef(generationReservePositionId[g], generationPoolKey[g], reserveTickLower[g], reserveTickUpper[g]),
             true
         );
-        genesisPending += og;
+        //  ── CREDIT THE OG SHARE LIVE, NOT AT THE NEXT RELAUNCH ──────────────
+        //  This is the `toReserve == true` path: `PoolOps.materializeLegacy` has
+        //  ALREADY deposited the full swept amount into the reserve LP, and the
+        //  `og` figure is a slice of the `credited` return of that deposit — so
+        //  the tokens backing it are in the reserve right now. The forged half of
+        //  the same split is credited live (`PoolOps.sol` — "credit LIVE
+        //  (redeemable immediately)"); parking the OG half in `genesisPending`
+        //  until the next relaunch left the two tranches rising at the same RATE
+        //  but not at the same TIME, with OG-backing tokens sitting in the reserve
+        //  backing nothing claimable.
+        //
+        //  `genesisPending` is still the right home on the RELAUNCH path
+        //  (`_flushLegacyAtRelaunch`, `toReserve == false`): there the dying
+        //  generation's token is BURNED and the value legitimately has to carry as
+        //  a bare number until the new reserve is sized to cover it.
+        genesisReserveOutstanding += og;
         if (added > 0) emit LegacyMaterialized(g, added);
     }
 
