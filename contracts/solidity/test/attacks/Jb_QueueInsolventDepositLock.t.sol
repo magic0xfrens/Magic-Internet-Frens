@@ -56,6 +56,8 @@ contract Jb_QueueInsolventDepositLock is Test {
         vm.deal(newLp, 100 ether);
     }
 
+    uint256 internal freeAtTrigger;   // eng.freeEth() at the moment the guard is read
+
     function _run() internal returns (bool depositShut, bool claimShut, uint256 pend, uint256 backing) {
         vm.prank(lp); vault.deposit{value: 10 ether}(10 ether);
         assertEq(eng.totalEth(), 10 ether, "engine took the stake");
@@ -75,6 +77,7 @@ contract Jb_QueueInsolventDepositLock is Test {
 
         backing = eng.totalEth();
         pend = vault.pendingEth();
+        freeAtTrigger = eng.freeEth();   // captured BEFORE any deposit lands
 
         vm.prank(newLp);
         try vault.deposit{value: 5 ether}(5 ether) returns (uint256) { depositShut = false; }
@@ -102,10 +105,23 @@ contract Jb_QueueInsolventDepositLock is Test {
         emit log_named_uint("engine.freeEth", eng.freeEth());
         emit log_named_uint("pendingEth after the release call", vault.pendingEth());
 
-        // The trigger and the guard are unchanged — both still fire.
-        assertGt(pend, backing, "queue outruns backing: the guard's trigger");
-        assertTrue(depositShut, "deposits are shut (QueueInsolvent)");
-        assertEq(eng.freeEth(), 0, "and nothing is payable: this is the latching case");
+        //  ── INVERTED BY 6634f2a ────────────────────────────────────────────
+        //  The ORIGINAL block, verbatim:
+        //
+        //      // The trigger and the guard are unchanged — both still fire.
+        //      assertGt(pend, backing, "queue outruns backing: the guard's trigger");
+        //      assertTrue(depositShut, "deposits are shut (QueueInsolvent)");
+        //      assertEq(eng.freeEth(), 0, "and nothing is payable: this is the latching case");
+        //
+        //  The trigger still forms — the queue's NOMINAL really does outrun the
+        //  backing, and nothing is free to pay it. What changed is that {deposit}
+        //  now runs {_syncEthQueue} before reading the `QueueInsolvent` gate
+        //  (PerpVault.sol:298), so the write-down is banked and the gate never
+        //  sees an insolvent queue. The latch Jb was written about cannot form.
+        //  The gate itself is untouched at PerpVault.sol:314.
+        assertGt(pend, backing, "queue outruns backing: the guard's trigger still forms");
+        assertEq(freeAtTrigger, 0, "and nothing was payable: this WAS the latching case");
+        assertFalse(depositShut, "deposits are never shut: the loss is recognised, not latched against");
 
         // ...but the release path now WORKS, with no privilege and nothing freed.
         assertFalse(claimShut, "the documented release path no longer reverts");
@@ -118,6 +134,19 @@ contract Jb_QueueInsolventDepositLock is Test {
         uint256 shares = vault.deposit{value: 5 ether}(5 ether);
         assertGt(shares, 0, "deposits reopened permissionlessly");
         (uint256 redeemable,,) = vault.ethPosition(newLp);
-        assertApproxEqAbs(redeemable, 5 ether, 1e12, "and the newcomer's stake is worth what he paid");
+        //  ── CORRECTED EXPECTED VALUE (the principal, not the haircut) ───────
+        //  The previous expectation, verbatim:
+        //
+        //      assertApproxEqAbs(redeemable, 5 ether, 1e12, "and the newcomer's stake is worth what he paid");
+        //
+        //  `5 ether` was right only while the FIRST deposit reverted. `_run` also
+        //  sends `newLp` 5 ether (`:83`), and since 6634f2a that deposit SUCCEEDS —
+        //  `depositShut` is asserted false at `:124`. So newLp has paid 5 + 5 = 10
+        //  ETH by this line and the property "worth what he paid" is 10, not 5.
+        //  Nothing here is weakened: the claim is still exact equality to his own
+        //  principal, i.e. he funded none of the pre-existing queue's write-down.
+        //  (Independent of the pro-rata split: his deposits both land at par,
+        //  after the loss is already recognised by {_syncEthQueue}.)
+        assertApproxEqAbs(redeemable, 10 ether, 1e12, "and the newcomer's stake is worth what he paid (5 in _run + 5 here)");
     }
 }

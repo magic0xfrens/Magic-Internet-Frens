@@ -129,12 +129,13 @@ contract X3cStaleQueueSurvivesRotation is Test {
         bool emptyReported = vault.hasQuoteStake();
         bool rotatedWhenDrained = _tryAdopt(address(usdg));
 
-        _bobDepositsNewQuote(1_000e6);
-        uint256 plvAfterBob = engine.plv();
-
-        (bool aliceClaimed, ) = _claim(alice);
-        uint256 aliceUsdg = usdg.balanceOf(alice);
-        (uint256 bobRedeemableAfter,,) = vault.ethPosition(bob);
+        //  The bob-deposit leg lives in its OWN frame. Under `via_ir` this
+        //  function held 14 locals and overflowed the stack ("Variable _89 is 1
+        //  too deep"), which fails the WHOLE tree with no filename attached —
+        //  it cost two other sessions a debugging cycle each before it was
+        //  isolated. Splitting is the standard remedy on this profile; the same
+        //  was already done for {_assertProRata} below.
+        _assertBobsDepositIsHisOwn();
 
         // ── assertions ───────────────────────────────────────────────────────
         assertEq(queued, 8 ether, "8 ETH queued behind the utilisation cap");
@@ -152,9 +153,19 @@ contract X3cStaleQueueSurvivesRotation is Test {
         assertFalse(emptyReported, "a drained side reports no quote stake");
         assertTrue(rotatedWhenDrained, "a drained vault CAN rotate - not bricked");
 
-        assertEq(plvAfterBob, 1_000e6, "bob's 1000 USDG reaches the engine");
+    }
+
+    /// @dev Split out of the test above purely for the `via_ir` stack limit — the
+    ///      assertions are unchanged and still run inside the same test.
+    function _assertBobsDepositIsHisOwn() internal {
+        _bobDepositsNewQuote(1_000e6);
+        assertEq(engine.plv(), 1_000e6, "bob's 1000 USDG reaches the engine");
+
+        (bool aliceClaimed, ) = _claim(alice);
         assertFalse(aliceClaimed, "the stale wei claim is NOT payable in USDG");
-        assertEq(aliceUsdg, 0, "alice takes nothing of bob's deposit");
+        assertEq(usdg.balanceOf(alice), 0, "alice takes nothing of bob's deposit");
+
+        (uint256 bobRedeemableAfter,,) = vault.ethPosition(bob);
         assertGe(bobRedeemableAfter, 999e6, "bob's shares are worth his own money");
         assertEq(usdg.balanceOf(address(engine)), 1_000e6, "engine still holds all of it");
     }
@@ -178,9 +189,57 @@ contract X3cStaleQueueSurvivesRotation is Test {
         vm.deal(bob, 1_000 ether);
         vm.prank(bob);
         vault.deposit{value: 1_000 ether}(1_000 ether);
-        engine.longTotalLoss(8 ether);
+        uint256 markBefore = engine.totalEth();          // 1008 ETH
+        engine.longTotalLoss(8 ether);                    // a REAL 8 ETH loss
+        uint256 backingAfter = engine.totalEth();         // 1000 ETH
         (bool ok, uint256 paid) = _claim(alice);
         assertTrue(ok, "claim succeeds");
-        assertEq(paid, 8 ether, "bounded to the 8 ETH actually queued");
+
+        //  ── INVERTED BY 6634f2a (stale-by-success) ─────────────────────────
+        //  The ORIGINAL assertion, verbatim:
+        //
+        //      assertEq(paid, 8 ether, "bounded to the 8 ETH actually queued");
+        //
+        //  That equality encoded SENIORITY, not the bound. `longTotalLoss(8 ether)`
+        //  on the line above is a real 8 ETH impairment of a 1008 ETH book, and
+        //  the old queue took none of it. {_syncEthQueue} now scales the index by
+        //  `backing / ethBackingMark` = 1000/1008 = 125/126, so alice pays her
+        //  pro-rata 1/126 of her own claim and bob pays the rest as a live LP.
+        //  Measured: 7936507936507936507 wei. The bound the test is NAMED for —
+        //  "cannot reach into bob's stake" — is asserted below and is unchanged.
+        _assertProRata(paid, markBefore, backingAfter);
+    }
+
+    /// @dev Split out to keep the control test under the viaIR stack limit.
+    function _assertProRata(uint256 paid, uint256 markBefore, uint256 backingAfter) internal view {
+        uint256 expected = (8 ether * backingAfter) / markBefore;
+        assertEq(paid, expected, "pro-rata: 8 ETH scaled by backing/mark (1000/1008)");
+        assertLt(paid, 8 ether, "strictly LESS than nominal - she bore her share of the loss");
+        assertEq(vault.pendingEth(), 0, "and the queue is fully retired by the claim");
+        //  bob's live stake absorbed the rest of the loss, and nothing more.
+        //
+        //  ── CORRECTED EXPECTED VALUE (this assertion's arithmetic was wrong) ──
+        //  The previous expectation, verbatim:
+        //
+        //      assertApproxEqAbs(bobRedeemable, 1_000 ether - (8 ether - expected), 1e6,
+        //          "bob bears exactly the remainder of the 8 ETH - alice took none of his principal");
+        //
+        //  `8 ether - expected` is 0.063492 ETH — ALICE's share of the loss, not
+        //  bob's. That expectation had bob keep 999.9365 of 1000 while alice lost
+        //  0.0635 of 8, so only 0.127 ETH of a REAL 8 ETH loss was borne by anyone:
+        //  it did not conserve. Pari passu splits L in proportion to CLAIMS, not
+        //  equally: on T = 1008, L = 8, alice's claim is 8 and bob's is 1000, so
+        //      alice bears 8/1008 * 8    = 0.063492 ETH -> claim  7.936507 ETH
+        //      bob   bears 1000/1008 * 8 = 7.936507 ETH -> stake 992.063492 ETH
+        //  and 0.063492 + 7.936507 = 8 ETH exactly. Equivalently every position is
+        //  scaled by the SAME factor backing/mark = 1000/1008, which is precisely
+        //  what {_syncEthQueue} does to the index and what {assetsEth}, as the
+        //  residual, does to live shares. So bob's value is 1000 * 1000/1008.
+        (uint256 bobRedeemable,,) = vault.ethPosition(bob);
+        assertApproxEqAbs(bobRedeemable, (1_000 ether * backingAfter) / markBefore, 1e6,
+            "bob bears his pro-rata 1000/1008 of the 8 ETH - alice took none of his principal");
+        //  ...and the two shares of the loss add back up to the whole loss.
+        assertApproxEqAbs((8 ether - paid) + (1_000 ether - bobRedeemable), 8 ether, 1e6,
+            "conservation: alice's share + bob's share == the realised 8 ETH loss");
     }
 }
