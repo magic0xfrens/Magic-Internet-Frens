@@ -348,10 +348,11 @@ async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bi
     //  MANIFEST mistake a data gap instead of an outage -- the misconfiguration
     //  still needs fixing, but it no longer takes the read layer down with it.
     let ours: unknown;
+    let gen: bigint;
     try {
-      const gen = await ctx.client.readContract({
+      gen = await ctx.client.readContract({
         address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentGeneration",
-      });
+      }) as bigint;
       ours = await ctx.client.readContract({
         address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "generationPoolId", args: [gen],
       });
