@@ -55,6 +55,12 @@ interface IPerpSync {
     function openCount() external view returns (uint256);
 }
 
+/// @notice The rotation's flip hands the perp engine its whole book to carry
+///         onto the new quote — see {PerpEngine.requoteBook}.
+interface IPerpBook {
+    function requoteBook(address rotator) external;
+}
+
 interface ICollectionLedger {
     function totalEntitled() external view returns (uint256);
 }

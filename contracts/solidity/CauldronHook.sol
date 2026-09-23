@@ -1599,11 +1599,15 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         if (wantFloor > 0) {
             if (vault == address(0)) {
                 toFloor = 0;
-                //  Same native-only rule as the buyback carve above: the buffer is
-                //  spent as ether, so only ether may be booked into it.
-                if (_feeAsset == address(0) && legacyRegistry != address(0)
-                    && (legacyBuffer == 0 || legacyBufferAsset == address(0))) {
-                    legacyBufferAsset = address(0);
+                //  Same MATCH rule as the buyback carve above — it used to say
+                //  "native-only" after that carve had stopped being so, and this
+                //  branch is the bigger of the two (the floor share). A generation
+                //  rotated off ether therefore stopped growing its floor: the
+                //  live key now follows the rotation (RedemptionExt), so a fee in
+                //  the live quote funds the buyback whatever that quote is.
+                if (_feeAsset == Currency.unwrap(_liveKey.currency0) && legacyRegistry != address(0)
+                    && (legacyBuffer == 0 || legacyBufferAsset == _feeAsset)) {
+                    legacyBufferAsset = _feeAsset;
                     legacyBuffer += wantFloor;
                 }
                 else wantRelaunch += wantFloor; // no vault + no buyback → fold into relaunch
@@ -2144,6 +2148,20 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     ///      but must not be able to brick `setLiveKey`; an unusable decimals()
     ///      response therefore degrades to a one-raw-unit trigger.
     function _cacheLegacyThreshold(address quote) private {
+        //  BY VALUE, once the quote can be priced (rotation totality). The trigger
+        //  is written in native terms; read as "whole tokens" of a rotated quote,
+        //  0.02 would become two cents of USDG and fire a buyback inside nearly
+        //  every swap. Restated through the volume oracle, it is the same value
+        //  in every quote. Falls back to the decimals rule when unpriced.
+        if (quote != address(0) && quoteOracle != address(0)) {
+            uint256 perQuote = _toUsd(quote, 1e18);
+            uint256 value = _toUsd(address(0), legacyThreshold);
+            if (perQuote != 0 && value != 0) {
+                uint256 r = (value * 1e18) / perQuote;
+                legacyThresholdRaw = r == 0 ? 1 : r;
+                return;
+            }
+        }
         uint256 d = 18;
         if (quote != address(0)) {
             (bool ok, bytes memory out) = quote.staticcall(abi.encodeWithSignature("decimals()"));

@@ -10,6 +10,54 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
+/// @dev An open perp position. Declared at FILE level rather than inside
+///      {PerpEngine} so {PerpSwapLib.requoteBook} can take the engine's `positions`
+///      mapping as a storage reference. Same fields, same order, same storage
+///      layout — the struct moved, nothing about it changed.
+struct Position {
+    address trader;
+    bool    isLong;
+    uint128 collateral;   // quote stake (net of open fee)
+    uint256 size;         // token: long → held; short → owed
+    uint256 principal;    // long → quote borrowed; short → quote proceeds held
+    uint64  openedAt;
+    uint8   leverage;
+    int256  entryFunding; // funding index snapshot at open
+}
+
+/// @dev The engine's own getters, read by {PerpSwapLib.requoteBook} through a
+///      self-call because the engine has no bytes to pass them in.
+interface IRequoteEngine {
+    function quote() external view returns (address);
+    function vault() external view returns (address);
+    function registry() external view returns (address);
+    function syncedGeneration() external view returns (uint256);
+    function payoutOwedTotal() external view returns (uint256);
+    function owner() external view returns (address);
+    function treasury() external view returns (address);
+    function poke() external;
+}
+
+interface IVaultQuoteStake {
+    function hasQuoteStake() external view returns (bool);
+}
+
+interface IRequoteRegistry {
+    function currentGeneration() external view returns (uint256);
+    function generationQuote(uint256 gen) external view returns (address);
+}
+
+/// @dev The {QuoteRotator} surface {PerpSwapLib.requoteBook} converts through.
+interface IRequoteRotator {
+    function quoteOracle() external view returns (address);
+    function venueFor(address a, address b) external view returns (PoolKey memory route, bool ok);
+    function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut)
+        external
+        returns (uint256 out);
+    function withdraw(address asset, address to, uint256 amount) external;
+}
 
 /**
  * @title PerpSwapLib
@@ -106,6 +154,10 @@ library PerpSwapLib {
      *         governance can retune every one of these thresholds by hand.
      */
     function quoteFactor(address oracle, address q) external view returns (uint256 f) {
+        return _quoteFactor(oracle, q);
+    }
+
+    function _quoteFactor(address oracle, address q) private view returns (uint256 f) {
         if (q == address(0)) return 1e18;
         if (oracle != address(0)) {
             uint256 pNative = _usdPerRawUnit(oracle, address(0));
@@ -730,4 +782,417 @@ library PerpSwapLib {
 
     uint160 internal constant MIN_LIMIT = 4295128740;
     uint160 internal constant SQRT_MAX = 1461446703485210103287273052203988822378723970342;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  CARRY THE BOOK ACROSS A QUOTE ROTATION (rotation totality, 2026-09-23)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Only the registry (the rotation's flip) may carry the book.
+    error RequoteNotRegistry();
+    /// The rotator's oracle cannot price one side, so no claim can be restated.
+    error RequoteUnpriced();
+    /// Settlement payouts are owed in the old asset to addresses no loop can reach.
+    error RequotePayoutsOwed();
+    /// The vault refused to re-express its own ledger — nothing may move without it.
+    error RequoteVault();
+    /// The conversion did not deliver what it reported.
+    error RequoteShort();
+
+    /**
+     * @notice Re-denominate the WHOLE perp book into the generation's new quote,
+     *         with positions still open. Called by {PerpEngine.requoteBook}, which
+     *         the registry calls at a rotation's flip; DELEGATECALLed, so
+     *         `address(this)` is the engine and this code runs on its storage.
+     *
+     *  ── WHY (red-team D-1) ────────────────────────────────────────────────
+     *  The engine used to refuse a new quote while any position was open, so the
+     *  flip PARKED it and made the book force-closeable — against the old pool,
+     *  which the rotation had just drained of ~97% of its liquidity. Measured
+     *  (F14c): a solvent long force-sold into that depth was paid 0 and the short
+     *  that closed after it made +0.78 ETH; insurance covered the gap. Carrying
+     *  the book removes the forced sale entirely: positions keep living on the
+     *  NEW pool and close there, in the new asset, whenever their owner (or an
+     *  honest liquidation) decides.
+     *
+     *  ── WHAT MOVES, AND AT WHICH RATE ─────────────────────────────────────
+     *   tokens (long `size` held, short `size` owed)  untouched — both pools trade
+     *                                                 the same generation token
+     *   money the engine HOLDS in the old quote:      SWAPPED once, together, and
+     *     plv, each short's collateral + proceeds,    each re-expressed at the rate
+     *     insuranceEth, tokYieldEth                   the swap actually REALIZED
+     *   claims that are NOT money:                    RESTATED at the ORACLE rate —
+     *     each long's principal and collateral,       that ETH already bought the
+     *     longOiEth (their sum)                       long's tokens; nothing to swap
+     *   the funding index                             untouched: it is a rate, and
+     *                                                 funding owed follows collateral
+     *   the TWAP ring                                 SHIFTED by the oracle tick
+     *                                                 offset, never reset (see below)
+     *
+     *  Longs are restated at the oracle rather than the realized rate on purpose
+     *  (owner decision): the swap's slippage belongs to the money that was
+     *  actually swapped. Restating a long's DEBT at the realized rate would move
+     *  that slippage from the long onto the stakers it owes.
+     *
+     *  ── ALL OR NOTHING ────────────────────────────────────────────────────
+     *  Every failure reverts — unpriceable pair, owed payouts, a venue that cannot
+     *  clear the rotator's oracle floor, a vault that will not re-express its
+     *  ledger — and the registry does NOT try/catch this call, so the flipping
+     *  slice reverts with it. There is no half-converted book, and no window in
+     *  which one unit is priced while another is paid.
+     *
+     *  ── HOW IT REACHES THE ENGINE'S FIGURES (EIP-170) ─────────────────────
+     *  The engine has no bytes to pass six figures in and write six back, so it
+     *  passes their storage SLOTS instead, packed 16 bits apiece in `slots` and
+     *  resolved by its compiler from its own layout (`plv.slot` etc.). All six are
+     *  full-slot `uint256`s, so a plain SLOAD/SSTORE is exact. Everything else is
+     *  read through the engine's public getters.
+     *
+     *  Inert when there is nothing to carry: the quote already agrees, or the
+     *  engine is not on the live generation ({PerpEngine.syncGeneration} adopts
+     *  the generation and its quote together then, as it always has).
+     */
+    function _requoteBook(
+        mapping(uint256 => Position) storage positions,
+        uint256[] storage openIds,
+        Observation[OBS_CARDINALITY] storage observations,
+        Ring storage ring,
+        address rot,
+        uint256 slots
+    ) internal {
+        IRequoteEngine me = IRequoteEngine(address(this));
+        address oq = me.quote();
+        address nq;
+        {
+            //  DELEGATECALL preserves `msg.sender`: this is the registry's call.
+            IRequoteRegistry reg = IRequoteRegistry(me.registry());
+            if (msg.sender != address(reg)) revert RequoteNotRegistry();
+            uint256 gen = reg.currentGeneration();
+            nq = reg.generationQuote(gen);
+            if (nq == oq || me.syncedGeneration() != gen) return;
+        }
+        if (me.payoutOwedTotal() != 0) revert RequotePayoutsOwed();
+        (uint256 fOld, uint256 fNew) = _factors(rot, oq, nq);
+        address vault = me.vault();
+
+        me.poke(); // settle funding and sample the OLD pool up to now
+        //  Losses and yield recognised in the OLD unit, before anything moves.
+        _vaultHook(vault, abi.encodeWithSignature("beforeBookRequote()"));
+
+        uint256 oldTotal = _ld(slots, 0) + _ld(slots, 1);
+        uint256 spent = _ld(slots, 0) + _ld(slots, 2) + _ld(slots, 3) + _shortBacking(positions, openIds);
+        uint256 got = spent != 0 ? _convert(rot, oq, nq, spent) : 0;
+
+        (uint256 longOi, uint256 shortsNew) = _restatePositions(positions, openIds, fOld, fNew, got, spent);
+        (uint256 newPlv, uint256 kNum, uint256 kDen) = _restatePots(slots, got, spent, shortsNew, fOld, fNew);
+        _st(slots, 1, longOi);
+
+        //  Adopt: the engine now speaks the new asset. The weighted mark priced
+        //  the OLD pair, so it is dropped; the carried ring marks until re-armed.
+        _stAddr(slots, 96, nq);
+        _stAddr(slots, 120, address(0));
+
+        _shiftRing(observations, ring, fOld, fNew);
+        //  Remember the rotator: a later RELAUNCH back to the native quote carries
+        //  the (then empty) book through it too — see {syncQuoteChangeAt}.
+        bytes32 rs = ROT_SLOT;
+        assembly ("memory-safe") { sstore(rs, rot) }
+        _vaultHook(
+            vault,
+            abi.encodeWithSignature(
+                "afterBookRequote(uint256,uint256,uint256,uint256)", oldTotal, newPlv + longOi, kNum, kDen
+            )
+        );
+    }
+
+    /// @dev Raw units per 1e18 wei for both sides, from the ROTATOR's oracle:
+    ///      rotation cannot run without it (its slice floor needs it), so it is
+    ///      always there when this is reached — unlike the engine's own optional
+    ///      `quoteOracle` (RT-5).
+    function _factors(address rot, address oq, address nq) private view returns (uint256 fOld, uint256 fNew) {
+        address oracle = IRequoteRotator(rot).quoteOracle();
+        fOld = _factorStrict(oracle, oq);
+        fNew = _factorStrict(oracle, nq);
+    }
+
+    /// @dev Re-express every PHYSICAL pot at the realized rate `got/spent`, write
+    ///      them back, and move the yield cumulative and `quoteUnit`. Stakers take
+    ///      their pro-rata share plus every rounding remainder — the physical
+    ///      figures sum to exactly what arrived, never more.
+    function _restatePots(uint256 slots, uint256 got, uint256 spent, uint256 shortsNew, uint256 fOld, uint256 fNew)
+        private
+        returns (uint256 newPlv, uint256 kNum, uint256 kDen)
+    {
+        uint256 ins;
+        uint256 ty;
+        if (spent != 0) {
+            ins = FullMath.mulDiv(_ld(slots, 2), got, spent);
+            ty = FullMath.mulDiv(_ld(slots, 3), got, spent);
+        }
+        newPlv = got - shortsNew - ins - ty;
+        _st(slots, 0, newPlv);
+        _st(slots, 2, ins);
+        _st(slots, 3, ty);
+        //  The token-side yield ledger moves at the pot's rate: the realized one,
+        //  or the oracle's when there was no pot to realize a rate on.
+        (kNum, kDen) = spent != 0 ? (got, spent) : (fNew, fOld);
+        _st(slots, 4, FullMath.mulDiv(_ld(slots, 4), kNum, kDen));
+        _st(slots, 5, fNew); // quoteUnit: raw new-quote units worth 1e18 wei
+    }
+
+    bytes32 private constant ROT_SLOT = keccak256("cauldron.perp.requote.rotator");
+
+    /// Same selector as {PerpEngine.VaultStaked} — the refusal is unchanged.
+    error VaultStaked();
+    /// Same signature as {PerpEngine.TokYieldWrittenOff}, emitted as the engine.
+    event TokYieldWrittenOff(address indexed asset, uint256 amount);
+
+    /**
+     * @notice The quote-change half of {PerpEngine.syncGeneration}: a RELAUNCH
+     *         into a different quote (relaunch forces native, so this is the way
+     *         home after a rotation). The engine has already checked the book is
+     *         empty and zeroed `longOiEth`; it writes `quote` itself afterwards.
+     *
+     *  ── CARRIED, NOT VETOED (adversarial A6) ─────────────────────────────
+     *  This used to be a veto: any quote-side stake made a non-owner sync revert
+     *  `VaultStaked`, so after a rotation the relaunch's own (try-caught) sync
+     *  failed and the engine sat on the dead generation — perps off for the new
+     *  one — until every staker had exited. Measured in RQ1.A6. Now, if a
+     *  rotation ever carried this book (its rotator is remembered), the empty
+     *  book's money converts through that rotator's curated venue under its
+     *  oracle floor, exactly as at the flip; all-or-nothing, so a sync that
+     *  cannot convert reverts and stays permissionlessly retryable.
+     *
+     *  The OWNER keeps the old path as an explicit escape hatch: the veto does not
+     *  apply to it, and it writes the old-asset figures off to the treasury.
+     */
+    function syncQuoteChangeAt(uint256 slots) external {
+        IRequoteEngine me = IRequoteEngine(address(this));
+        if (me.payoutOwedTotal() != 0) revert VaultStaked();
+        address oq = me.quote();
+        address nq;
+        {
+            IRequoteRegistry reg = IRequoteRegistry(me.registry());
+            nq = reg.generationQuote(reg.currentGeneration());
+        }
+        address rot;
+        bytes32 rs = ROT_SLOT;
+        assembly ("memory-safe") { rot := sload(rs) }
+        address owner_ = me.owner();
+        if (rot != address(0) && msg.sender != owner_) {
+            _carryEmpty(rot, oq, nq, slots, me.vault());
+            return;
+        }
+        //  The original path, behaviour unchanged.
+        address v = me.vault();
+        if (msg.sender != owner_ && v != address(0) && IVaultQuoteStake(v).hasQuoteStake()) revert VaultStaked();
+        uint256 ty = _ld(slots, 3);
+        emit TokYieldWrittenOff(oq, ty);
+        uint256 sweep = _ld(slots, 0) + ty + _ld(slots, 2);
+        _st(slots, 0, 0);
+        _st(slots, 3, 0);
+        _st(slots, 2, 0);
+        address tre = me.treasury();
+        if (sweep != 0 && tre != address(0)) {
+            //  Capped, and retired either way — the engine's `_tryPush(.., true)`.
+            if (oq == address(0)) {
+                (bool sent, ) = tre.call{value: sweep, gas: 30_000}("");
+                sent;
+            } else {
+                (bool called, ) = oq.call(abi.encodeWithSelector(IERC20.transfer.selector, tre, sweep));
+                called;
+            }
+        }
+        _st(slots, 5, _quoteFactor(_ldAddr(slots, 144), nq));
+    }
+
+    /// @dev {requoteBook}'s conversion for an EMPTY book (relaunch).
+    function _carryEmpty(address rot, address oq, address nq, uint256 slots, address vault) private {
+        (uint256 fOld, uint256 fNew) = _factors(rot, oq, nq);
+        _vaultHook(vault, abi.encodeWithSignature("beforeBookRequote()"));
+        uint256 oldTotal = _ld(slots, 0) + _ld(slots, 1);
+        uint256 spent = _ld(slots, 0) + _ld(slots, 2) + _ld(slots, 3);
+        uint256 got = spent != 0 ? _convert(rot, oq, nq, spent) : 0;
+        (uint256 newPlv, uint256 kNum, uint256 kDen) = _restatePots(slots, got, spent, 0, fOld, fNew);
+        _vaultHook(
+            vault,
+            abi.encodeWithSignature(
+                "afterBookRequote(uint256,uint256,uint256,uint256)", oldTotal, newPlv + _ld(slots, 1), kNum, kDen
+            )
+        );
+    }
+
+    /// @dev An address variable at (16-bit slot, 8-bit byte offset) from bit `at`.
+    function _ldAddr(uint256 slots, uint256 at) private view returns (address a) {
+        uint256 s = (slots >> at) & 0xffff;
+        uint256 sh = ((slots >> (at + 16)) & 0xff) * 8;
+        assembly ("memory-safe") { a := and(shr(sh, sload(s)), 0xffffffffffffffffffffffffffffffffffffffff) }
+    }
+
+    /// @dev {requoteBook} with its storage references rebuilt from packed slots.
+    function requoteBookAt(address rot, uint256 slots, uint256 refs) external {
+        _requoteBook(
+            _posAt(refs & 0xffff), _idsAt((refs >> 16) & 0xffff),
+            _obsAt((refs >> 32) & 0xffff), _ringAt((refs >> 48) & 0xffff), rot, slots
+        );
+    }
+
+    function _posAt(uint256 s) private pure returns (mapping(uint256 => Position) storage m) {
+        assembly { m.slot := s }
+    }
+    function _idsAt(uint256 s) private pure returns (uint256[] storage a) {
+        assembly { a.slot := s }
+    }
+    function _obsAt(uint256 s) private pure returns (Observation[OBS_CARDINALITY] storage o) {
+        assembly { o.slot := s }
+    }
+    function _ringAt(uint256 s) private pure returns (Ring storage r) {
+        assembly { r.slot := s }
+    }
+
+    /// @dev The `i`-th packed engine slot (see {requoteBook}).
+    function _slot(uint256 slots, uint256 i) private pure returns (uint256) {
+        return (slots >> (16 * i)) & 0xffff;
+    }
+
+    function _ld(uint256 slots, uint256 i) private view returns (uint256 v) {
+        uint256 s = _slot(slots, i);
+        assembly { v := sload(s) }
+    }
+
+    function _st(uint256 slots, uint256 i, uint256 v) private {
+        uint256 s = _slot(slots, i);
+        assembly { sstore(s, v) }
+    }
+
+    /// @dev Write an address variable packed at (16-bit slot, 8-bit byte offset)
+    ///      starting at bit `at` of `slots`, preserving its slot-mates.
+    function _stAddr(uint256 slots, uint256 at, address a) private {
+        uint256 s = (slots >> at) & 0xffff;
+        uint256 sh = ((slots >> (at + 16)) & 0xff) * 8;
+        assembly {
+            let m := shl(sh, 0xffffffffffffffffffffffffffffffffffffffff)
+            sstore(s, or(and(sload(s), not(m)), shl(sh, a)))
+        }
+    }
+
+    /// @dev Raw units of `q` worth 1e18 wei — {quoteFactor}, but it refuses to
+    ///      fall back to decimals: a guessed rate here would restate real debts.
+    function _factorStrict(address oracle, address q) private view returns (uint256) {
+        if (q == address(0)) return 1e18;
+        if (oracle == address(0)) revert RequoteUnpriced();
+        uint256 pNative = _usdPerRawUnit(oracle, address(0));
+        uint256 pQuote = _usdPerRawUnit(oracle, q);
+        if (pNative == 0 || pQuote == 0) revert RequoteUnpriced();
+        return FullMath.mulDiv(1e18, pNative, pQuote);
+    }
+
+    /// @dev Old-quote money the shorts hold: collateral plus the proceeds of the
+    ///      token they sold. It sits in the engine's balance, outside `plv`.
+    function _shortBacking(mapping(uint256 => Position) storage positions, uint256[] storage openIds)
+        private
+        view
+        returns (uint256 backing)
+    {
+        uint256 n = openIds.length;
+        for (uint256 i; i < n; ++i) {
+            Position storage p = positions[openIds[i]];
+            if (!p.isLong) backing += uint256(p.collateral) + p.principal;
+        }
+    }
+
+    /// @dev Swap `spent` of the old quote into the new one through the rotator's
+    ///      curated venue. `minOut` 0: the rotator's ORACLE floor binds anyway and
+    ///      is the tighter of the two. Checked by balance, not by return value.
+    function _convert(address rot, address oq, address nq, uint256 spent) private returns (uint256 got) {
+        //  The rotator's CURATED venue for this pair — the same allowlist every
+        //  slice is held to. The engine never names a venue, so it cannot name a price.
+        (PoolKey memory route, bool ok) = IRequoteRotator(rot).venueFor(oq, nq);
+        if (!ok) revert RequoteUnpriced();
+        if (oq == address(0)) {
+            (bool sent, ) = rot.call{value: spent}("");
+            if (!sent) revert RequoteShort();
+        } else {
+            (bool called, bytes memory ret) =
+                oq.call(abi.encodeWithSelector(IERC20.transfer.selector, rot, spent));
+            if (!(called && (ret.length == 0 || abi.decode(ret, (bool))))) revert RequoteShort();
+        }
+        uint256 before = _held(nq);
+        got = IRequoteRotator(rot).swapOnce(route, oq, nq, spent, 0);
+        IRequoteRotator(rot).withdraw(nq, address(this), got);
+        if (_held(nq) < before + got) revert RequoteShort();
+    }
+
+    function _held(address asset) private view returns (uint256) {
+        return asset == address(0) ? address(this).balance : IERC20(asset).balanceOf(address(this));
+    }
+
+    /// @dev Longs at the ORACLE rate (their debt rounds UP — it is owed to
+    ///      stakers); shorts at the REALIZED rate (their backing was swapped).
+    function _restatePositions(
+        mapping(uint256 => Position) storage positions,
+        uint256[] storage openIds,
+        uint256 fOld,
+        uint256 fNew,
+        uint256 got,
+        uint256 spent
+    ) private returns (uint256 longOi, uint256 shortsNew) {
+        uint256 n = openIds.length;
+        for (uint256 i; i < n; ++i) {
+            Position storage p = positions[openIds[i]];
+            uint256 c;
+            uint256 pr;
+            if (p.isLong) {
+                c = FullMath.mulDiv(p.collateral, fNew, fOld);
+                pr = FullMath.mulDivRoundingUp(p.principal, fNew, fOld);
+                longOi += pr;
+            } else {
+                c = FullMath.mulDiv(p.collateral, got, spent);
+                pr = FullMath.mulDiv(p.principal, got, spent);
+                shortsNew += c + pr;
+            }
+            if (c > type(uint128).max) revert RequoteUnpriced();
+            p.collateral = uint128(c);
+            p.principal = pr;
+        }
+    }
+
+    /**
+     * @dev Re-express the TWAP history in the new pool's ticks instead of
+     *      wiping it. The price is token per RAW quote unit, so every new-pool
+     *      tick sits log_1.0001(fOld / fNew) above its old-pool twin. Adding
+     *      `d * ts` to each stored cumulative shifts every TWAP window by exactly
+     *      `d`, because a window is (cumB - cumA) / (tsB - tsA).
+     *
+     *      Resetting instead (what an empty-book adoption does) would leave a
+     *      LIVE book marked off the new pool's spot for a whole warm-up window —
+     *      the cheapest price in the system to push, at exactly the moment every
+     *      carried position is exposed to it. The offset comes from the oracle,
+     *      not the pools' spot ticks, so nobody can move it within the block.
+     */
+    function _shiftRing(Observation[OBS_CARDINALITY] storage obs, Ring storage r, uint256 fOld, uint256 fNew)
+        private
+    {
+        uint256 sq = Math.sqrt(FullMath.mulDiv(fOld, uint256(1) << 192, fNew));
+        if (sq < TickMath.MIN_SQRT_PRICE || sq >= TickMath.MAX_SQRT_PRICE) revert RequoteUnpriced();
+        int56 d = int56(TickMath.getTickAtSqrtPrice(uint160(sq)));
+        unchecked {
+            for (uint256 i; i < OBS_CARDINALITY; ++i) {
+                uint32 ts = obs[i].ts;
+                if (ts != 0) obs[i].tickCumulative += d * int56(uint56(ts));
+            }
+            r.tickCumulative += d * int56(uint56(r.lastObsTs));
+        }
+        int256 lt = int256(r.lastTick) + d;
+        if (lt < TickMath.MIN_TICK || lt > TickMath.MAX_TICK) revert RequoteUnpriced();
+        r.lastTick = int24(lt);
+    }
+
+    /// @dev The vault's two ledger hooks. Fail CLOSED: a vault that cannot
+    ///      re-express its queue would price new-unit backing against old-unit
+    ///      claims (the D-2 saturation), so the whole requote reverts instead.
+    function _vaultHook(address vault, bytes memory data) private {
+        if (vault == address(0)) return;
+        (bool ok, ) = vault.call(data);
+        if (!ok) revert RequoteVault();
+    }
 }

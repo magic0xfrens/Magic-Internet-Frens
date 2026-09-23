@@ -17,7 +17,7 @@ import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ILiquidatorMintable, LiqStats} from "./ILiquidatorMintable.sol";
-import {PerpSwapLib} from "./PerpSwapLib.sol";
+import {PerpSwapLib, Position} from "./PerpSwapLib.sol";
 
 interface IPerpRegistry {
     function currentToken() external view returns (address);
@@ -404,16 +404,8 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     int256 internal fundingIndex;
     uint64 internal lastFundingAt;
 
-    struct Position {
-        address trader;
-        bool    isLong;
-        uint128 collateral;   // ETH stake (net of open fee)
-        uint256 size;         // token: long → held; short → owed
-        uint256 principal;    // long → ETH borrowed; short → ETH proceeds held
-        uint64  openedAt;
-        uint8   leverage;
-        int256  entryFunding; // funding index snapshot at open
-    }
+    //  `Position` is declared at file level in PerpSwapLib.sol (same fields, same
+    //  layout) so {PerpSwapLib.requoteBook} can take this mapping by reference.
     mapping(uint256 => Position) public positions;
     uint256 public nextId = 1;
     uint256 public openCount;    // live open positions (must be 0 to sync a new gen)
@@ -1525,6 +1517,57 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
     ///           2. re-points plvToken to the engine's real new-token balance, and
     ///           3. resets the TWAP oracle for the new pool.
     ///         The ETH vault (plv) carries over untouched.
+    /**
+     * @notice Carry the WHOLE book onto the generation's new quote, positions
+     *         still open. Registry-only: the rotation calls it at the slice that
+     *         flips `generationQuote`, and does not catch a revert — so the flip
+     *         and the conversion land together or not at all. The work lives in
+     *         {PerpSwapLib.requoteBook} (EIP-170); this only hands it the storage
+     *         and writes the restated figures back.
+     *
+     *  Inert when there is nothing to carry: the quote already agrees, or this
+     *  engine is not synced to the live generation (then {syncGeneration} adopts
+     *  the generation and its quote together, as it always has).
+     */
+    /// @dev The figures {PerpSwapLib} restates in place, 16 bits per slot: six
+    ///      full-slot uint256s, then `quote`, `markSource`, `quoteOracle` as slot +
+    ///      byte offset. Compiler-resolved, so a moved variable moves with them.
+    function _bookSlots() private pure returns (uint256 s) {
+        assembly ("memory-safe") {
+            s := or(
+                or(
+                    or(or(plv.slot, shl(16, longOiEth.slot)), or(shl(32, insuranceEth.slot), shl(48, tokYieldEth.slot))),
+                    or(shl(64, tokYieldCumulative.slot), shl(80, quoteUnit.slot))
+                ),
+                or(
+                    or(or(shl(96, quote.slot), shl(112, quote.offset)), or(shl(120, markSource.slot), shl(136, markSource.offset))),
+                    or(shl(144, quoteOracle.slot), shl(160, quoteOracle.offset))
+                )
+            )
+        }
+    }
+
+    function requoteBook(address rot) external nonReentrant {
+        //  What the library restates IN PLACE (it runs on this storage), packed
+        //  16 bits per slot: six full-slot uint256s, then `quote` and `markSource`
+        //  as slot + byte offset, and — in `r` — the four structures it walks.
+        //  All resolved by the compiler from this layout, so a moved or re-packed
+        //  variable moves with them.
+        uint256 s = _bookSlots();
+        uint256 r;
+        assembly ("memory-safe") {
+            r := or(or(positions.slot, shl(16, _openIds.slot)), or(shl(32, observations.slot), shl(48, ring.slot)))
+        }
+        //  A raw DELEGATECALL, not a typed library call: measured, the typed call
+        //  costs this contract 726 bytes under via_ir and this one 144 — the
+        //  difference between fitting under EIP-170 and not. Reverts bubble
+        //  unchanged, so the library's own errors reach the caller.
+        (bool ok, bytes memory ret) = address(PerpSwapLib).delegatecall(
+            abi.encodeWithSelector(PerpSwapLib.requoteBookAt.selector, rot, s, r)
+        );
+        if (!ok) assembly ("memory-safe") { revert(add(ret, 32), mload(ret)) }
+    }
+
     function syncGeneration() external nonReentrant notNested {
         uint256 gen = _gen();
         //  A ROTATION CHANGES THE QUOTE WITHOUT CHANGING THE GENERATION.
@@ -1623,119 +1666,18 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
         //  native (red-team B-05), so the rebirth path sees `newQuote == quote`
         //  and never reaches this line.
         if (newQuote != quote) {
-            //  ── DEMANDING ZERO WAS A PERMANENT FREEZE (red-team X8-01) ────
-            //  The first version of this guard required
-            //  `plv | tokYieldEth | insuranceEth | payoutOwedTotal == 0`. THREE of
-            //  those four cannot be driven to zero by a healthy engine:
-            //    * `insuranceEth` is floored. {skimInsurance} protects
-            //      max(insuranceFloor, riskMin) and deploy/DeployPerp.s.sol arms
-            //      INSURANCE_FLOOR_WEI = 0.05 ether, so not one wei is skimmable
-            //      below it — and the engine REQUIRES the buffer above that floor or
-            //      every open reverts `InsurancePaused`. The guard demanded exactly
-            //      the state that breaks the engine.
-            //    * orphaned `tokYieldEth` (credited at zero token shares) is
-            //      attributable to nobody and therefore never payable out (R-09), and
-            //    * `plv` keeps a wei of redemption-floor dust behind the last staker.
-            //  The sync then failed forever, `_isDead()` read true on the diverged
-            //  quote, and the book was force-closed and frozen for the rest of the
-            //  generation — at zero attacker cost, from the shipped default.
-            //
-            //  REDENOMINATE, don't refuse. Only what is genuinely owed BY NAME still
-            //  gates, and both are satisfiable — {retirePayout} clears a stranded
-            //  payout, and stakers can always exit:
-            if (payoutOwedTotal != 0) revert VaultStaked();
-            //  ── AND THE TOKEN SIDE MUST NOT GET A VETO (red-team F-01) ─────
-            //  This asked `hasStakers()`, which is `(ethShares | tokShares |
-            //  pendingEth | pendingTok) != 0`. The token side is NOT redenominated
-            //  by a quote rotation — `tokShares`/`pendingTok` count the
-            //  generation's TOKEN — so it has nothing to be protected from here,
-            //  and it cannot be cleared without its owner's cooperation. One dust
-            //  {PerpVault.depositToken} (≈ assetsTok()/1e6, enough for one share)
-            //  therefore vetoed every future adoption, `_isDead()` read the
-            //  divergence as death, and leverage was off for the whole generation
-            //  with no governance escape — the X8-01 permanent-freeze shape,
-            //  re-entered through the token side at negligible cost. The deploy
-            //  script's own PLV_SEED_ETH reaches the same state by doing nothing
-            //  wrong. Ask the QUOTE-side question the vault's header (PerpVault.sol
-            //  :174-186) always documented as the one being asked:
-            //  ── ...BUT IT MUST NOT BE A VETO WITH NO WAY OUT (red-team T3c) ─
-            //  One wei of `ethShares` makes {hasQuoteStake} true, this reverted, and
-            //  {RedemptionExt} `:617` swallows the revert — so the quote flipped in
-            //  the registry, `_isDead()` (`:1797`) read the divergence as death, every
-            //  open reverted `TokenDead`, and {setVault} (`:2435`) was vetoed by the
-            //  same dust. Nothing owner, timelock or registry could call un-stranded
-            //  it: only the vandal's own withdrawal, or the next relaunch. A 1-wei,
-            //  un-evictable shutdown of all leverage for a generation.
-            //  So the guard stands for EVERYONE EXCEPT the owner (a timelock+multisig
-            //  on mainnet), which now always has a way through. The stakers are not
-            //  silently redenominated when it uses it — the sweep below zeroes `plv`
-            //  in the OLD asset and sends it to the treasury BEFORE `quote` flips, the
-            //  same explicit, logged write-off shape this block already applies to
-            //  `tokYieldEth`, so governance can make them whole in the old unit
-            //  instead of the vault paying an 18-decimal figure out of a 6-decimal pot.
-            if (msg.sender != owner() && vault != address(0) && IPerpVaultStake(vault).hasQuoteStake()) {
-                revert VaultStaked();
-            }
-            //  ...and with nobody left owning them, the protocol's own old-asset
-            //  equity is swept to the treasury IN THE OLD ASSET — `quote` has not
-            //  flipped yet, so `_payOut` still pays the right thing — and the
-            //  counters are zeroed so no old-unit figure survives to claim units of
-            //  the NEW asset. Opens
-            //  stay paused until someone re-funds insurance in the new asset through
-            //  the permissionless {fundInsurance} — honest, because there IS no
-            //  buffer in the new asset yet. A pause, not a brick.
-            //  ── AN EXPLICIT, LOGGED WRITE-OFF (red-team F-01) ──────────────
-            //  `hasQuoteStake()` no longer covers the token side, so token stakers
-            //  CAN still be present at this line — and `tokYieldEth` is their
-            //  accrued short-side reward, denominated in the OLD quote. It cannot
-            //  survive the flip (`_pushQuote` would pay an old-asset figure in the
-            //  NEW asset, the exact redenomination e964d54 closed) and paying it on
-            //  the way out needs a reachable per-asset parked pot this contract has
-            //  no EIP-170 room for. So it is written off ON THE RECORD, naming the
-            //  asset and the amount, and the value lands in the treasury with the
-            //  rest of the sweep where governance can make the stakers whole. A
-            //  bounded, announced, one-time loss of accrued REWARD in place of a
-            //  permanent attacker-triggerable shutdown of the whole engine. Token
-            //  PRINCIPAL (`plvToken`) is not touched here and stays withdrawable.
-            uint256 writtenOff = tokYieldEth;
-            emit TokYieldWrittenOff(quote, writtenOff);
-            uint256 sweep = plv + writtenOff + insuranceEth;
-            plv = 0; tokYieldEth = 0; insuranceEth = 0;
-            if (sweep != 0 && treasury != address(0)) {
-                //  DELIBERATELY NOT `_payOut`. That credits `payoutOwed` when the
-                //  push fails — booking an OLD-asset amount that {claimPayout} would
-                //  then pay out in the NEW one, which is the exact redenomination
-                //  this block exists to prevent. A treasury that cannot accept the
-                //  sweep leaves the value as engine residue owned by nobody, which
-                //  is inert and cannot mispay anyone. Capped gas so a reverting
-                //  treasury cannot burn the adoption's budget either.
-                _tryPush(treasury, sweep, true); // retired either way — see above
-            }
-            //  ── THE MARK SOURCE MUST NOT SURVIVE THE ROTATION (red-team T02) ──
-            //  {PerpMarkSource.primary} stays armed on the OLD pair, and the engine
-            //  is not its owner so it cannot re-point it. Measured position-value
-            //  overstatement on a rotated book: 112,805,296x. `_isDead` cannot catch
-            //  it either — that test compares `quote` against `generationQuote`, and
-            //  by this line those AGREE. So the pointer is dropped here and
-            //  {_currentTick} fails soft to THIS engine's own `_key()`, which is
-            //  correct for the new quote by construction. Governance re-arms the
-            //  weighted mark on the new pair through {setRouting} when it is ready;
-            //  until then the primary pool's tick is used, exactly as it is on any
-            //  engine with no mark source wired.
-            //  ── AND NOT ONLY THE ROTATION (red-team T3e) ──────────────────
-            //  The drop used to live HERE, inside the `newQuote != quote` branch, so
-            //  a RELAUNCH — which clamps its quote to native and therefore never
-            //  enters this branch — left the source armed on the DEAD generation's
-            //  pool, marking the new token off the old one's price. Moved below, out
-            //  of the branch: {syncGeneration} only ever runs on a generation change
-            //  or a quote change, and BOTH invalidate the pointer.
-            //  And the decimals the thresholds are compared in (see {_q}).
-            //  ── AND THE VALUE THE THRESHOLDS ARE COMPARED IN (see {_q}) ────
-            //  This was `unitOf(newQuote)`, which rescaled the UNITS only: on a
-            //  6-decimal quote `25 ether` of tier depth became 25e6 raw = $25, and
-            //  the leverage tiers, the dust filter and the insurance circuit
-            //  breaker all lost ~1e12 of economic meaning (red-team F-03).
-            quoteUnit = PerpSwapLib.quoteFactor(quoteOracle, newQuote);
+            //  A relaunch into a different quote. Once a rotation has carried this
+            //  book, its money is CARRIED home too instead of vetoed or written
+            //  off (adversarial A6); otherwise — and always for the owner — the
+            //  original veto / write-off, whose history (red-team X8-01, F-01,
+            //  T3c: why only owed payouts and QUOTE-side stake gate it, and why
+            //  the owner may always write off) moved with it into
+            //  {PerpSwapLib.syncQuoteChangeAt} (EIP-170). Reached by raw
+            //  DELEGATECALL for the same reason as {requoteBook}; reverts bubble.
+            (bool ok, bytes memory ret) = address(PerpSwapLib).delegatecall(
+                abi.encodeWithSelector(PerpSwapLib.syncQuoteChangeAt.selector, _bookSlots())
+            );
+            if (!ok) assembly ("memory-safe") { revert(add(ret, 32), mload(ret)) }
         }
         quote = newQuote;
         //  The mark pointer never survives a sync — see the note in the branch above.

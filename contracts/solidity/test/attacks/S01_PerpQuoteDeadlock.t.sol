@@ -293,25 +293,37 @@ contract S01_PerpQuoteDeadlock is YBase {
         _approveEnvelope();
         assertGt(_rotateToCompletion(route), 0, "the rotation must actually run");
 
+        //  ── RE-AMENDED BY THE BOOK REQUOTE (rotation totality, 2026-09-23) ────
+        //  The flipping slice now CARRIES the engine's book onto the new quote in
+        //  the same call — which means swapping the money the engine holds through
+        //  the venue, under the rotator's oracle floor. This rig's engine holds a
+        //  60 ETH donation: three times its own 20 ETH pool. After the rotation's
+        //  own slices have walked the venue, that cannot clear the floor, so the
+        //  flipping slice REFUSES rather than landing a half-converted book — and
+        //  refuses cleanly: nothing moved, nothing flipped, retryable.
+        assertEq(registry.generationQuote(1), address(0), "the flip waits for a venue that can take the book");
+        assertEq(perp.quote(), address(0), "the engine was not touched");
+        assertEq(perp.plv(), 60 ether, "every wei of its PLV still here, still ETH");
+        vm.expectRevert(bytes4(0x850c6f76)); // QuoteRotator.SlippageTooHigh
+        registry.rotateSlice(2500, 0, route);
+
+        //  Deepen the venue and the SAME slice lands, carrying the book.
+        uint256 moreUsdg = 10_000_000e6;
+        usdg.mint(address(this), moreUsdg);
+        PoolOps.openOrAddPair(
+            pm, IPositionManagerOps(posm), address(0), address(usdg), address(0), 1_000 ether, moreUsdg, 60, 3000
+        );
+        registry.rotateSlice(2500, 0, route);
         assertEq(registry.generationQuote(1), address(usdg), "generation followed the liquidity");
 
-        //  ── RE-AMENDED BY X8-01: THE ORIGINAL ASSERTION IS TRUE AGAIN ───────
-        //  R-08 weakened this from "adopts" to "parks", because `plv` is a bare
-        //  counter paid out in whatever `quote` names today and adopting would have
-        //  re-denominated the 60 ETH `_bootPerp` donates into an asset the engine
-        //  does not hold. Adoption no longer does that: it SWEEPS the old-asset
-        //  counters to the treasury IN THE OLD ASSET (before the flip) and zeroes
-        //  them, so there is nothing left to re-denominate. `_bootPerp` funds through
-        //  `fundPlv`, which is documented as a SHARE-LESS PERMANENT DONATION by the
-        //  owner — so the treasury is precisely where that capital belongs, and no
-        //  staker exists to mispay. (Staker capital arrives via the vault, and
-        //  `hasQuoteStake()` still refuses the flip while any QUOTE-denominated part
-        //  of it is present — the token side does not veto, red-team F-01/X9b.)
-        //
-        //  So Route B is refuted in its strongest form: the engine never diverges.
+        //  Route B stays refuted in its strongest form — the engine never
+        //  diverges — and its money is now CONVERTED rather than swept (X8-01).
         assertEq(perp.quote(), address(usdg), "the engine re-points in the SAME call");
-        assertEq(perp.plv(), 0, "its old-asset PLV was swept, not re-denominated");
-        assertEq(perp.insuranceEth(), 0, "and neither was the old-asset buffer");
+        assertGt(perp.plv(), 0, "its PLV was converted, not swept");
+        assertGe(
+            usdg.balanceOf(address(perp)), perp.plv() + perp.insuranceEth() + perp.tokYieldEth(),
+            "and is held in the asset it now quotes"
+        );
         vm.expectRevert(PerpEngine.AlreadySynced.selector);
         perp.syncGeneration();
     }

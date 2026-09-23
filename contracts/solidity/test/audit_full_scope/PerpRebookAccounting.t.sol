@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {PerpEngine} from "../../cauldron/PerpEngine.sol";
+import {Position} from "../../cauldron/PerpSwapLib.sol"; // file-level since the book requote
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 
 contract RebookRegistry {

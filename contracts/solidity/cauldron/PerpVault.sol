@@ -89,10 +89,12 @@ contract PerpVault is ReentrancyGuard {
     //  another (R-08) — so the rule is written down rather than assumed:
     //
     //      ONE ASSET AT A TIME. This side holds exactly one denomination, the
-    //      engine's current `quote`. {PerpEngine.syncGeneration} refuses to adopt
-    //      a new quote while {hasQuoteStake} is true, so the asset cannot change
-    //      underneath a staker: the vault must be drained first, and a queue left
-    //      against zero backing is written down to zero by {_haircut} before then.
+    //      engine's current `quote`. It changes in exactly two ways:
+    //        - a RELAUNCH into a new quote: {PerpEngine.syncGeneration} refuses
+    //          while {hasQuoteStake} is true, so the vault must be drained first;
+    //        - a live ROTATION: {PerpEngine.requoteBook} converts the whole book
+    //          and calls {beforeBookRequote}/{afterBookRequote} in the same
+    //          transaction, so every figure here moves with it or nothing moves.
     //
     //  ── THE INVARIANT WAS NOT ENFORCEABLE AS WRITTEN (red-team H-2) ───────
     //  It used to cite `plv != 0` as the engine's guard. That is the WEAKEST
@@ -182,6 +184,23 @@ contract PerpVault is ReentrancyGuard {
     /// @notice The epoch a staker's `tokRewardDebt`/`tokRewardOwed` were last
     ///         rebased against. Behind {yieldEpoch} == carrying a written-off claim.
     mapping(address => uint32) public stakerEpoch;
+    //  ── QUOTE ROTATIONS CONVERT THE YIELD LEDGER, THEY DO NOT FORFEIT IT ────
+    //  A rotation used to WRITE OFF `tokYieldEth` (the forfeit machinery above).
+    //  {PerpEngine.requoteBook} now converts the pot instead. The per-share side
+    //  of this ledger (`accEthPerTokShare`, `epochAcc`, every `debt`/`owed`) is
+    //  kept in ONE FIXED internal unit — the quote at genesis — and converted only
+    //  at its edges: yield entering through {_syncTokYield} is divided by
+    //  {tokYieldScale}, a claim leaving through {claimTokYield} is multiplied by
+    //  it. So a rotation touches three totals and nothing per staker.
+    //
+    //  Rescaling the accumulator itself was the first cut, and it was WRONG:
+    //  with the 1e6 share offset the accumulator is ~1e9, and multiplying it by an
+    //  ETH→USDG rate of 2.85e-9 floored it to 2 — measured, a 1 ETH claim came
+    //  out as 2,000 USDG instead of 2,850 (F12b). Fixed internal units keep full
+    //  precision in every era.
+    /// @notice Raw current-quote units per internal unit, 1e18-scaled: the
+    ///         product of every rotation's realized token-yield rate. 1e18 = none.
+    uint256 public tokYieldScale = 1e18;
 
     event DepositEth(address indexed user, uint256 assets, uint256 shares);
     event WithdrawEth(address indexed user, uint256 shares, uint256 paid, uint256 queued);
@@ -199,11 +218,15 @@ contract PerpVault is ReentrancyGuard {
     ///         rightful claimant and is deliberately NOT back-paid to the next
     ///         depositor; it stays in the engine's segregated pot. (Audit H-05.)
     event UnattributedYield(uint256 amount);
+    /// @notice The engine carried its book onto a new quote. The ETH-side queue
+    ///         moved by `newTotal/oldTotal`; the token-side yield ledger by `kNum/kDen`.
+    event BookRequoted(uint256 oldTotal, uint256 newTotal, uint256 kNum, uint256 kDen, uint256 newQueueIndex);
     /// @notice A rotation write-off was observed: every token-side entitlement
     ///         accrued at or below the new {epochAcc} line is forfeited.
     event TokYieldForfeited(uint32 indexed epoch, uint256 amount);
 
     error ZeroAmount();
+    error NotEngine();
     error ZeroShares();
     error InsufficientShares();
     /// The queued-exit nominal outruns the engine's ETH backing; deposits are shut
@@ -428,6 +451,62 @@ contract PerpVault is ReentrancyGuard {
     ///      engine, so its own transfer is never read as a loss by {_syncEthQueue}.
     function _markEth() private { ethBackingMark = engine.totalEth(); }
 
+    // ── THE ENGINE CARRIES ITS BOOK ONTO A NEW QUOTE ─────────────────────────
+    /**
+     * @notice Called by the engine FIRST, while every figure is still in the OLD
+     *         quote: recognise any queue loss and fold any pending yield, so the
+     *         rescale that follows moves a settled ledger, not an unsettled one.
+     */
+    function beforeBookRequote() external nonReentrant {
+        if (msg.sender != address(engine)) revert NotEngine();
+        _syncEthQueue();
+        _syncTokYield();
+    }
+
+    /**
+     * @notice Called by the engine once its book is restated in the new quote.
+     *
+     *  ETH SIDE. Live shares need nothing: {assetsEth} derives their value from
+     *  `engine.totalEth()`, which now reads the new figure. The exit QUEUE is an
+     *  absolute claim, so it moves with the pot it is a claim on — `oldTotal` →
+     *  `newTotal`, which blends the realized rate (on `plv`) and the oracle rate
+     *  (on the longs' restated debt) exactly as the engine did. Leave it behind
+     *  and a new-unit backing has an old-unit claim subtracted from it: every
+     *  live share saturates to zero and {_syncEthQueue} retires the queue as a
+     *  total loss (the D-2 failure mode). The mark is re-taken in the new unit.
+     *
+     *  TOKEN SIDE. The yield pot was swapped at `kNum/kDen`. The per-share
+     *  ledger is in fixed internal units (see {tokYieldScale}), so only the
+     *  totals and the scale move — nothing per staker, no iteration.
+     */
+    function afterBookRequote(uint256 oldTotal, uint256 newTotal, uint256 kNum, uint256 kDen)
+        external
+        nonReentrant
+    {
+        if (msg.sender != address(engine)) revert NotEngine();
+        if (ethQueueUnits != 0 && oldTotal != 0) {
+            uint256 ni = FullMath.mulDiv(ethQueueIndex, newTotal, oldTotal);
+            //  Never to zero: that path retires every claim and bumps the epoch,
+            //  which would make a change of UNIT indistinguishable from a loss.
+            ethQueueIndex = ni == 0 ? 1 : ni;
+        }
+        ethBackingMark = newTotal;
+        if (kDen != 0) {
+            //  Totals the detector compares against the engine's (now converted)
+            //  cumulative and pot. Rounded so `pot + pulled >= cumulative` still
+            //  holds and no phantom forfeit fires.
+            lastTokYieldCum = FullMath.mulDiv(lastTokYieldCum, kNum, kDen);
+            totalTokYieldPulled = FullMath.mulDivRoundingUp(totalTokYieldPulled, kNum, kDen);
+            tokYieldScale = FullMath.mulDiv(tokYieldScale, kNum, kDen);
+        }
+        emit BookRequoted(oldTotal, newTotal, kNum, kDen, ethQueueIndex);
+    }
+
+    /// @dev A current-quote yield amount into the ledger's fixed internal unit.
+    function _toYieldUnit(uint256 v) private view returns (uint256) {
+        return FullMath.mulDiv(v, 1e18, tokYieldScale);
+    }
+
     /// @dev Book `amount` of queued ETH for `user` as units at the live index.
     function _queueEth(address user, uint256 amount) private {
         uint256 u = FullMath.mulDiv(amount, QSCALE, ethQueueIndex);
@@ -622,11 +701,11 @@ contract PerpVault is ReentrancyGuard {
                 if (cut < last) cut = last;
                 if (cut > cum) cut = cum;
                 if (lost != 0) {
-                    accEthPerTokShare += FullMath.mulDiv(cut - last, ACC, sh);
+                    accEthPerTokShare += FullMath.mulDiv(_toYieldUnit(cut - last), ACC, sh);
                     epochAcc = accEthPerTokShare;  // the forfeit line
-                    accEthPerTokShare += FullMath.mulDiv(cum - cut, ACC, sh);
+                    accEthPerTokShare += FullMath.mulDiv(_toYieldUnit(cum - cut), ACC, sh);
                 } else {
-                    accEthPerTokShare += FullMath.mulDiv(cum - last, ACC, sh);
+                    accEthPerTokShare += FullMath.mulDiv(_toYieldUnit(cum - last), ACC, sh);
                 }
             }
         } else if (lost != 0) {
@@ -696,7 +775,7 @@ contract PerpVault is ReentrancyGuard {
     ///         principal stays staked and protected).
     function claimTokYield() external nonReentrant returns (uint256 paid) {
         _syncTokYield(); _settleTok(msg.sender); _resetTokDebt(msg.sender);
-        paid = tokRewardOwed[msg.sender];
+        paid = FullMath.mulDiv(tokRewardOwed[msg.sender], tokYieldScale, 1e18); // internal → today's quote
         if (paid == 0) revert ZeroAmount();
         tokRewardOwed[msg.sender] = 0;
         totalTokYieldPulled += paid;                  // see {_syncTokYield}'s detector
@@ -853,11 +932,11 @@ contract PerpVault is ReentrancyGuard {
                 if (cut < last) cut = last;
                 if (cut > cum) cut = cum;
                 if (lost != 0) {
-                    acc += FullMath.mulDiv(cut - last, ACC, shTot);
+                    acc += FullMath.mulDiv(_toYieldUnit(cut - last), ACC, shTot);
                     eAcc = acc;
-                    acc += FullMath.mulDiv(cum - cut, ACC, shTot);
+                    acc += FullMath.mulDiv(_toYieldUnit(cum - cut), ACC, shTot);
                 } else {
-                    acc += FullMath.mulDiv(cum - last, ACC, shTot);
+                    acc += FullMath.mulDiv(_toYieldUnit(cum - last), ACC, shTot);
                 }
             }
         } else if (lost != 0) {
@@ -871,7 +950,8 @@ contract PerpVault is ReentrancyGuard {
         if (stakerEpoch[user] != ep) { owed = 0; debt = FullMath.mulDiv(sh, eAcc, ACC); }
         uint256 earned;
         if (sh > 0) { uint256 a = FullMath.mulDiv(sh, acc, ACC); if (a > debt) earned = a - debt; }
-        return owed + earned;
+        //  Internal units → today's quote, exactly as {claimTokYield} pays it.
+        return FullMath.mulDiv(owed + earned, tokYieldScale, 1e18);
     }
 
     // ── internal ERC20 helpers ────────────────────────────────────────────────

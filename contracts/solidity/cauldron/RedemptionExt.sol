@@ -10,7 +10,7 @@ import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
-import {CauldronBase, IMiFrensContinuable, IPerpSync} from "./CauldronBase.sol";
+import {CauldronBase, IMiFrensContinuable, IPerpSync, IPerpBook} from "./CauldronBase.sol";
 
 /**
  * @title RedemptionExt
@@ -657,40 +657,50 @@ contract RedemptionExt is CauldronBase {
         if (fromPrimary && ITreasuryGovernor(gov).migrationMandateSpent()) {
             generationQuote[gen] = toQuote;
 
-            //  ── RE-POINT THE PERP ENGINE IN THE SAME TRANSACTION ────────────
-            //  `PerpEngine.quote` is assigned in exactly ONE place — inside
-            //  {PerpEngine.syncGeneration} — and that refuses while any position
-            //  is open (PerpEngine.sol:987). `forceCloseDead` / `forceCloseAllDead`
-            //  both require the generation to be DEAD (:937, :950). So on a LIVE
-            //  generation the engine can only be re-pointed while the book is
-            //  empty, and nothing was doing it.
+            //  ── CARRY THE PERP BOOK ACROSS, IN THE SAME TRANSACTION ─────────
+            //  This used to assert the book was provably empty here, because
+            //  `linkVolume` "reverts PerpsOpen unless openCount == 0". It does
+            //  not: {PerpEngine.blocksVolumeLink} returns false whenever a mark is
+            //  armed, and one is. So the flip routinely landed on an open book;
+            //  `syncGeneration` refused it, the engine parked, and the book became
+            //  force-closeable against the pool this rotation had just drained —
+            //  a solvent long paid 0 and the short after it +0.78 ETH (red-team D-1,
+            //  measured in F14c).
             //
-            //  That left a real window. The moment this line flips the quote, the
-            //  engine still marks against the pool this rotation just drained
-            //  (`_key()` reads its own `quote` slot, PerpEngine.sol:450 — NOT
-            //  `generationQuote`, despite what CauldronHook.sol:1499 claims). A
-            //  trader opening in that window pins it there: `_guardOpen`
-            //  (:1210-1214) checks warmup, death and leverage but never quote
-            //  freshness, and once `openCount != 0` no reachable call can correct
-            //  it until every position voluntarily closes. Marks, funding and
-            //  in-swap liquidations would run off a thin pool that is cheap to
-            //  push while the deep sibling sets the real price — exactly the
-            //  hazard CauldronHook.sol:1504-1508 describes.
+            //  Now the engine carries the book instead: every position stays open,
+            //  the money it holds is swapped through the rotator's curated venue
+            //  for the pair (under its oracle floor), every claim is restated in
+            //  the new quote, and it adopts — see {PerpSwapLib.requoteBook}.
             //
-            //  Doing it HERE is safe and needs no new guard: reaching this line
-            //  required `linkVolume` to succeed earlier in this same call
-            //  (:372), and that reverts `PerpsOpen()` unless `openCount == 0`
-            //  (CauldronHook.sol:1518). So the book is provably empty right now,
-            //  which is the one condition `syncGeneration` demands. No user can
-            //  interleave an open — this is a single transaction.
-            //
-            //  Best-effort, mirroring `CauldronRegistry._perpHousekeep` (:1063):
-            //  a broken or unset engine must never block a governance-approved
-            //  rotation. If it does fail, the engine is merely stale — the same
-            //  state as before this fix — and `syncGeneration` stays
-            //  permissionless for a keeper to retry.
+            //  NOT caught. If the book cannot be carried (the pair cannot be
+            //  priced, the venue cannot clear the floor, payouts are owed), this
+            //  slice reverts and can be retried; the flip never lands on a book
+            //  it could not move. An engine that is not on this generation yet
+            //  returns early and adopts through {syncGeneration} below, which is
+            //  also what makes the call inert-but-harmless for everything else.
+            //  ── THE HOOK'S LIVE POOL FOLLOWS TOO ────────────────────────────
+            //  `_liveKey` is the one pool the legacy buyback spends into and the
+            //  quote its fee carves match. Left on the old pair, a rotated
+            //  generation's fees stopped funding the collection floor entirely —
+            //  84.6% of the fee split fell through to the relaunch reserve — and
+            //  the buyback kept waiting for trades on a drained pool. The new
+            //  leg is where the liquidity now lives; any buffer still in the old
+            //  quote is credited back to its own reserve bucket by the hook.
+            if (address(hook) != address(0)) {
+                hook.setLiveKey(PoolKey({
+                    currency0: Currency.wrap(toQuote),
+                    currency1: Currency.wrap(token),
+                    fee: POOL_FEE,
+                    tickSpacing: TICK_SPACING,
+                    hooks: IHooks(address(hook))
+                }));
+            }
+
             address eng = address(hook) != address(0) ? hook.perpEngine() : address(0);
-            if (eng != address(0)) { try IPerpSync(eng).syncGeneration() {} catch {} }
+            if (eng != address(0)) {
+                IPerpBook(eng).requoteBook(rot);
+                try IPerpSync(eng).syncGeneration() {} catch {}
+            }
 
             emit GenerationRequoted(gen, fromQuote, toQuote);
         }

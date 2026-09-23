@@ -122,9 +122,29 @@ contract QuoteRotator {
     ///  execution is the registry's (it derives size and floor from governed
     ///  limits, which is what the comment was reaching for), configuration stays
     ///  the treasury's.
+    ///  ── AND THE GENERATION'S OWN PERP ENGINE (rotation totality) ─────────
+    ///  At the slice that flips the quote, the registry has the engine carry its
+    ///  whole book across ({PerpEngine.requoteBook}), which converts the money the
+    ///  engine holds through THIS contract. The engine is recognised by asking the
+    ///  registry's hook — the same pointer every other contract trusts — rather
+    ///  than through a slot someone must remember to set: the previous design had
+    ///  such a slot, and no deploy path set it. The engine only reaches here from
+    ///  `requoteBook`, which is registry-only, and still gets no discretion the
+    ///  gate protects: the venue must be curated and the oracle floor still binds.
     modifier onlyRegistry() {
-        if (msg.sender != registry) revert NotOwner();
+        if (msg.sender != registry && msg.sender != _liveEngine()) revert NotOwner();
         _;
+    }
+
+    /// @dev `registry.hook().perpEngine()`, or zero when either link is absent.
+    function _liveEngine() internal view returns (address e) {
+        (bool ok, bytes memory ret) = registry.staticcall(abi.encodeWithSignature("hook()"));
+        if (!ok || ret.length < 32) return address(0);
+        address h = abi.decode(ret, (address));
+        if (h == address(0)) return address(0);
+        (ok, ret) = h.staticcall(abi.encodeWithSignature("perpEngine()"));
+        if (!ok || ret.length < 32) return address(0);
+        e = abi.decode(ret, (address));
     }
 
     modifier onlyOwner() {
@@ -190,7 +210,34 @@ contract QuoteRotator {
     function setVenue(PoolKey calldata route, bool allowed) external onlyOwner {
         PoolId id = PoolIdLibrary.toId(route);
         allowedVenue[id] = allowed;
+        //  Remember the pair's latest curated venue, so the perp engine can carry
+        //  its book across a rotation without being told one (it has no bytes to
+        //  take a route, and must never choose it). Revoking it forgets it.
+        bytes32 pk = _pairKey(Currency.unwrap(route.currency0), Currency.unwrap(route.currency1));
+        if (allowed) {
+            _pairVenue[pk] = route;
+        } else if (PoolId.unwrap(PoolIdLibrary.toId(_pairVenue[pk])) == PoolId.unwrap(id)) {
+            delete _pairVenue[pk];
+        }
         emit VenueSet(id, allowed);
+    }
+
+    mapping(bytes32 => PoolKey) internal _pairVenue;
+
+    function _pairKey(address a, address b) internal pure returns (bytes32) {
+        return a < b ? keccak256(abi.encode(a, b)) : keccak256(abi.encode(b, a));
+    }
+
+    /// @notice The curated venue for a pair, in either order; `ok` false when
+    ///         none is allowlisted. It is the LAST venue `setVenue` allowed for the
+    ///         pair: revoking that one forgets it, so re-`setVenue` another allowed
+    ///         venue for the pair or the next rotation's flip cannot carry the book.
+    function venueFor(address a, address b) external view returns (PoolKey memory route, bool ok) {
+        route = _pairVenue[_pairKey(a, b)];
+        address c0 = Currency.unwrap(route.currency0);
+        address c1 = Currency.unwrap(route.currency1);
+        ok = route.tickSpacing != 0 && allowedVenue[PoolIdLibrary.toId(route)]
+            && ((c0 == a && c1 == b) || (c0 == b && c1 == a));
     }
 
     /// @notice Whether `route` is a venue `rotateStep` will execute through.
@@ -648,7 +695,14 @@ contract QuoteRotator {
     ///      (RedemptionExt:297), and the treasury still needs a sweep for dust a
     ///      cancelled plan leaves behind.
     function withdraw(address asset, address to, uint256 amount) external {
-        if (msg.sender != registry && msg.sender != owner) revert NotOwner();
+        //  ...and the live perp engine, which pulls its own {swapOnce} proceeds
+        //  back during {PerpEngine.requoteBook}. See {onlyRegistry}.
+        if (msg.sender != registry && msg.sender != owner) {
+            //  The engine may only pull proceeds to ITSELF — never direct this
+            //  contract's balance elsewhere (defence in depth: it is trusted only
+            //  as far as `requoteBook` needs).
+            if (msg.sender != _liveEngine() || to != msg.sender) revert NotOwner();
+        }
         if (to == address(0)) revert BadConfig();
         _send(asset, to, amount);
         emit Withdrawn(asset, to, amount);

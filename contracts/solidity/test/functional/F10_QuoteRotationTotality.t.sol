@@ -179,44 +179,29 @@ contract F10_QuoteRotationTotality is YBase {
         //                 death, so `_guardOpen` refuses new leverage (closing
         //                 the pin-the-engine window this test was written for)
         //                 and the book is force-closeable by anyone.
-        if (perp.plv() == 0) {
-            assertEq(
-                perp.quote(), address(usdg),
-                "the perp engine must mark against the asset the pool now trades"
-            );
-        } else {
-            assertEq(perp.quote(), address(0), "a funded engine keeps the asset it can pay in");
-            //  It must be INERT while diverged, or this branch would be a hole.
-            address late = address(0xF10DEF);
-            vm.deal(late, 1 ether);
-            vm.prank(late, late);
-            vm.expectRevert(PerpEngine.TokenDead.selector);
-            perp.openLong{value: 0.004 ether}(1, 0, 0, 0.004 ether);
-            console2.log("engine PARKED (plv funded), new leverage refused:", perp.plv());
-        }
+        //  ── RE-AMENDED BY THE BOOK REQUOTE (rotation totality, 2026-09-23) ────
+        //  R-08 made a FUNDED engine park here — keep ETH, refuse new leverage,
+        //  wait for a drain — because adopting would have re-denominated `plv`
+        //  into an asset the engine did not hold. {PerpEngine.requoteBook} now
+        //  CONVERTS that money through the curated venue inside this same slice,
+        //  so the engine adopts AND holds the asset it adopted. That is the
+        //  property R-08 protected, without the park, whose force-close against
+        //  the drained pool was red-team D-1. Both branches collapse into one.
+        assertEq(
+            perp.quote(), address(usdg),
+            "the perp engine must mark against the asset the pool now trades"
+        );
+        assertGt(perp.plv(), 0, "the funded PLV was converted, not swept or stranded");
+        assertGe(
+            usdg.balanceOf(address(perp)), perp.plv() + perp.insuranceEth() + perp.tokYieldEth(),
+            "and the engine holds the new asset for every figure it now quotes"
+        );
+        console2.log("engine adopted with plv converted:", perp.plv());
 
-        //  3. AND A REDUNDANT SYNC IS A NO-OP, not a correction. `AlreadySynced`
-        //     here is the positive signal that step 2 was not luck: there is
-        //     nothing left for a keeper to adopt. On the parked branch the
-        //     equivalent signal is `VaultStaked` — the refusal is deliberate and
-        //     named, not an incidental failure, and it LIFTS once the vault is
-        //     drained, which is asserted below rather than assumed.
-        if (perp.plv() == 0) {
-            vm.expectRevert(PerpEngine.AlreadySynced.selector);
-            perp.syncGeneration();
-        } else {
-            vm.expectRevert(PerpEngine.VaultStaked.selector);
-            perp.syncGeneration();
-
-            //  THE PARK IS TEMPORARY, WHICH IS WHAT MAKES IT ACCEPTABLE: the
-            //  refusal lifts the moment the quote-side capital is drained, and the
-            //  engine then adopts on an ordinary permissionless call — no
-            //  privileged key and no relaunch. This rig has no PerpVault wired
-            //  (`_bootPerp` seeds `plv` straight from the owner), so the
-            //  drain-then-adopt leg is proved where a real vault exists:
-            //  S06_PerpVaultSolvency::test_S06_POC_QuoteRotationDrainsTheNewQuoteStakers.
-            console2.log("engine parked pending a drain; plv:", perp.plv());
-        }
+        //  3. AND A REDUNDANT SYNC IS A NO-OP, not a correction: there is nothing
+        //     left for a keeper to adopt.
+        vm.expectRevert(PerpEngine.AlreadySynced.selector);
+        perp.syncGeneration();
     }
 
     /// @dev Stand up the ETH/USDG venue the rotation swaps through, and curate

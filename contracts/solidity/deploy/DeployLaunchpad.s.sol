@@ -287,6 +287,32 @@ contract DeployLaunchpad is Script {
         //  ether terms, sizes pass through); WIRE IT IN THE SAME OPERATION THAT
         //  CALLS `setDeathThreshold` with an oracle, or the two drift apart.
         address quoteOracle = vm.envOr("QUOTE_ORACLE", address(0));
+        //  ── DEPLOY_QUOTES BRINGS ITS OWN ORACLE, AND IT MUST REACH THE HOOK ──
+        //  (red-team rotation totality, 2026-09-23). This path used to create its
+        //  QuoteOracle inside `_deployRotationStack`, long after the wiring below
+        //  had read `quoteOracle` from the environment — so it reached the ROTATOR
+        //  (rotation priced and ran) and nothing else. The hook kept measuring
+        //  volume in RAW quote units, which is consistent only while every pool
+        //  shares one quote: after an ETH → USDG rotation the same dollar arrives
+        //  on the new leg as 1e6 instead of ~3.3e14 wei, the generation's 24h
+        //  volume collapses ~3e8x, and a busy brew reads DEAD — which is what
+        //  `relaunch()` is gated on. Measured in
+        //  `test/functional/F14_RotationTotality.t.sol` (F14b): $30k of USDG
+        //  volume recorded as 4.7e10 against a 1e18 threshold.
+        //
+        //  So the oracle is created HERE, and flows through the one wiring path
+        //  every consumer already shares: the hook (volume + mint ladder), the
+        //  router (play size), the treasury governor (quote admission) and, in
+        //  `_deployRotationStack`, the rotator (the slice floor). One oracle
+        //  prices the whole protocol — a second one, from QUOTE_ORACLE, would
+        //  make volume and the rotation floor disagree, so both at once refuse.
+        if (deployQuotes) {
+            require(
+                quoteOracle == address(0),
+                "DEPLOY_QUOTES deploys its own QuoteOracle: leave QUOTE_ORACLE unset, or two oracles price one protocol"
+            );
+            quoteOracle = address(_deployQuoteOracle(deployer));
+        }
         if (quoteOracle != address(0)) gacha.setOracle(quoteOracle);
 
         //  ── MAKE VOLUME CURRENCY-AGNOSTIC ────────────────────────────────
@@ -562,7 +588,7 @@ contract DeployLaunchpad is Script {
         // variable must never silently create and allowlist a freely mintable
         // token.
         if (deployQuotes) {
-            _deployRotationStack(registry, rotator, poolManager, positionManager, deployer);
+            _deployRotationStack(registry, rotator, poolManager, positionManager, QuoteOracle(quoteOracle));
         } else if (quoteOracle != address(0)) {
             //  ── THE ROTATOR HAS ITS OWN ORACLE SLOT, AND QUOTE_ORACLE DID NOT
             //     REACH IT ───────────────────────────────────────────────────
@@ -774,40 +800,12 @@ contract DeployLaunchpad is Script {
         }
     }
 
-    /**
-     * @dev Quote asset, oracle feeds, and the curated venue the rotation swaps
-     *      through. Separate function purely to keep `run()` under the stack
-     *      limit; it is part of the same broadcast.
-     *
-     *  THE VENUE IS THE PART THAT IS EASY TO FORGET. `QuoteRotator`'s allowlist
-     *  FAILS CLOSED, so a rotation through an uncurated pool reverts `NoRoute`
-     *  however deep that pool is. And USDG here is a fresh mock, so no ETH/USDG
-     *  pool exists to curate — it has to be CREATED and given depth first. A
-     *  curated venue with no liquidity is a rotation that reverts on `minOut`.
-     */
-    function _deployRotationStack(
-        CauldronRegistry registry,
-        QuoteRotator rotator,
-        address poolManager,
-        address positionManager,
-        address deployer
-    ) internal {
-//  A QUOTE MUST SORT BELOW THE WATERMARK. `setAllowedQuote` rejects any quote at
-        //  or above `0xf000…` (CauldronRegistry.sol:320) because iteration tokens are
-        //  MINED above it, and a quote above it could sort as currency1 and silently
-        //  invert every pool key. A plain `new` gets whatever address the nonce yields,
-        //  so roughly one deploy in sixteen landed at `0xf…` and died here AFTER
-        //  fourteen contracts were already created. Redeploy until it sorts correctly —
-        //  the token is tiny, and the expected number of attempts is ~1.07.
-        MockQuoteToken usdg;
-        for (uint256 i = 0; i < 32; ++i) {
-            usdg = new MockQuoteToken("Magic USD", "USDG", 6);
-            if (uint160(address(usdg)) < uint160(0xf000000000000000000000000000000000000000)) break;
-            console2.log("  usdg landed above the quote watermark, retrying:", address(usdg));
-            usdg = MockQuoteToken(address(0));
-        }
-        require(address(usdg) != address(0), "could not place usdg below the quote watermark");
-        QuoteOracle oracle = new QuoteOracle(deployer);
+    /// @dev The protocol's one QuoteOracle on a DEPLOY_QUOTES run, with its NATIVE
+    ///      leg configured. Created before the hook is wired so volume, play size,
+    ///      quote admission and the rotation floor all read the same prices; the
+    ///      stable leg is added by {_deployRotationStack}, which mints the stable.
+    function _deployQuoteOracle(address deployer) internal returns (QuoteOracle oracle) {
+        oracle = new QuoteOracle(deployer);
 
         //  Real Chainlink where it exists. USDG is a mock USD stablecoin, so
         //  pricing it off the real USDC/USD feed is the accurate model rather
@@ -851,7 +849,41 @@ contract DeployLaunchpad is Script {
             );
             require(oracle.usdPerRawUnit(address(0)) != 0, "native feed unusable");
         }
+    }
 
+    /**
+     * @dev Quote asset, oracle feeds, and the curated venue the rotation swaps
+     *      through. Separate function purely to keep `run()` under the stack
+     *      limit; it is part of the same broadcast.
+     *
+     *  THE VENUE IS THE PART THAT IS EASY TO FORGET. `QuoteRotator`'s allowlist
+     *  FAILS CLOSED, so a rotation through an uncurated pool reverts `NoRoute`
+     *  however deep that pool is. And USDG here is a fresh mock, so no ETH/USDG
+     *  pool exists to curate — it has to be CREATED and given depth first. A
+     *  curated venue with no liquidity is a rotation that reverts on `minOut`.
+     */
+    function _deployRotationStack(
+        CauldronRegistry registry,
+        QuoteRotator rotator,
+        address poolManager,
+        address positionManager,
+        QuoteOracle oracle
+    ) internal {
+//  A QUOTE MUST SORT BELOW THE WATERMARK. `setAllowedQuote` rejects any quote at
+        //  or above `0xf000…` (CauldronRegistry.sol:320) because iteration tokens are
+        //  MINED above it, and a quote above it could sort as currency1 and silently
+        //  invert every pool key. A plain `new` gets whatever address the nonce yields,
+        //  so roughly one deploy in sixteen landed at `0xf…` and died here AFTER
+        //  fourteen contracts were already created. Redeploy until it sorts correctly —
+        //  the token is tiny, and the expected number of attempts is ~1.07.
+        MockQuoteToken usdg;
+        for (uint256 i = 0; i < 32; ++i) {
+            usdg = new MockQuoteToken("Magic USD", "USDG", 6);
+            if (uint160(address(usdg)) < uint160(0xf000000000000000000000000000000000000000)) break;
+            console2.log("  usdg landed above the quote watermark, retrying:", address(usdg));
+            usdg = MockQuoteToken(address(0));
+        }
+        require(address(usdg) != address(0), "could not place usdg below the quote watermark");
         //  THE DOLLAR STABLE IS PEGGED, NOT FED. Its feed answers ~1.0000 and
         //  the only thing it can realistically contribute is a way to FAIL —
         //  which it already did: Sepolia's USDC/USD pair was measured 23.7h
@@ -941,8 +973,15 @@ contract DeployLaunchpad is Script {
         //  The same 2 ETH in a +/-5% band costs 0.59% — ~18x better for no extra
         //  capital — because a rotation only ever needs the venue to quote NEAR
         //  the oracle. A thin tranche establishes the price; the bulk goes into
-        //  the band around it. VENUE_BAND_BPS=0 restores pure full range.
-        uint16 bandBps = uint16(vm.envOr("VENUE_BAND_BPS", uint256(500)));
+        //  the band around it.
+        //
+        //  ── DEFAULT IS FULL RANGE (owner decision, 2026-09-23) ──────────────
+        //  The band's weakness is a cliff: once a slice walks price past its
+        //  edge, only the thin 5% tranche is left, and the stake conversion that
+        //  follows the rotation fills against that. Full range cannot be walked
+        //  out of. The cost is capital — the figures above — so size VENUE_ETH
+        //  for full range. A band is still available by setting VENUE_BAND_BPS.
+        uint16 bandBps = uint16(vm.envOr("VENUE_BAND_BPS", uint256(0)));
         uint256 openEth = bandBps == 0 ? venueEth : venueEth / 20;
         uint256 openUsdg = bandBps == 0 ? venueUsdg : venueUsdg / 20;
         vs.seed{value: openEth}(
