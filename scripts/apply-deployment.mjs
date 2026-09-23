@@ -19,7 +19,7 @@
  * Usage:
  *   node scripts/apply-deployment.mjs [--chain 11155111] [--dry]
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -77,7 +77,7 @@ if (!launchpad.found && !rotation.found && !perp.found) {
 function pick(name, ...sources) {
   const matches = (n) => n === name || (typeof n === "string" && n.startsWith(name + "."));
   for (const src of sources) {
-    const hit = [...src.creates].reverse().find((t) => matches(t.contractName));
+    const hit = [...src.creates].reverse().find((t) => matches(t.contractName) || byCode(name, t));
     if (hit) return hit.contractAddress;
   }
   return null;
@@ -85,8 +85,57 @@ function pick(name, ...sources) {
 
 /** Nth CREATE of a repeated contract (MockQuoteToken is deployed twice). */
 function pickNth(name, n, src) {
-  const all = src.creates.filter((t) => t.contractName === name);
+  const all = src.creates.filter((t) => t.contractName === name || byCode(name, t));
   return all[n]?.contractAddress ?? null;
+}
+
+//  UNNAMED CREATES ARE IDENTIFIED BY THEIR INIT CODE, NOT SKIPPED.
+//  r47: Foundry recorded five CREATEs with `contractName: null` (QuoteOracle,
+//  QuoteRotator, MockQuoteToken among them), so `pick` matched nothing and the
+//  manifest silently kept r46's rotator and oracle. A CREATE's calldata is the
+//  creation bytecode followed by constructor args, so it is compared against every
+//  compiled artifact of that name under contracts/solidity/out (the tree the
+//  deploy just force-built), library link placeholders matching any address.
+const _codes = new Map();
+function artifactCodes(name) {
+  if (_codes.has(name)) return _codes.get(name);
+  const out = join(root, "contracts/solidity/out");
+  const codes = [];
+  if (existsSync(out)) {
+    for (const dir of readdirSync(out)) {
+      const d = join(out, dir);
+      let files = [];
+      try { files = readdirSync(d); } catch { continue; }
+      for (const f of files) {
+        if (f !== `${name}.json` && !(f.startsWith(`${name}.`) && f.endsWith(".json"))) continue;
+        try {
+          const obj = JSON.parse(readFileSync(join(d, f), "utf8")).bytecode?.object ?? "";
+          const hex = obj.replace(/^0x/, "").toLowerCase();
+          if (hex.length > 0) codes.push(hex);
+        } catch { /* not an artifact */ }
+      }
+    }
+  }
+  _codes.set(name, codes);
+  return codes;
+}
+function byCode(name, t) {
+  if (t.contractName) return false;
+  const input = (t.transaction?.input ?? t.transaction?.data ?? "").replace(/^0x/, "").toLowerCase();
+  return input.length > 0 && artifactCodes(name).some((code) => sameCode(code, input));
+}
+//  Byte-for-byte prefix match; a 40-hex-char `__$...$__` link placeholder in the
+//  artifact matches whatever library address was linked in.
+function sameCode(code, input) {
+  if (input.length < code.length) return false;
+  for (let i = 0; i < code.length;) {
+    if (code.startsWith("__$", i)) { i += 40; continue; }
+    const j = code.indexOf("__$", i);
+    const end = j < 0 ? code.length : j;
+    if (input.slice(i, end) !== code.slice(i, end)) return false;
+    i = end;
+  }
+  return true;
 }
 
 //  CauldronHook is CREATE2-deployed via a mined salt.
@@ -180,7 +229,7 @@ for (const [k, v] of Object.entries(updates)) {
 //  Missing this is why an earlier version left `quoteAssets[].address` pointing
 //  at the previous round's USDG while every other address moved — the frontend
 //  would then offer a quote the new registry has never allowlisted.
-const quoteSrc = launchpad.creates.some((t) => t.contractName === "MockQuoteToken")
+const quoteSrc = launchpad.creates.some((t) => t.contractName === "MockQuoteToken" || byCode("MockQuoteToken", t))
   ? launchpad
   : rotation;
 //  FAIL LOUDLY WHEN THE QUOTE MOCK IS NOT IN THE BROADCAST.

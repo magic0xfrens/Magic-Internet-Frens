@@ -1,30 +1,26 @@
 # Fresh audit status
 
-**FINAL (2026-09-23, continuation by Claude Opus 5.5 after Codex credit exhaustion):
-66/66 files traversed, 66/66 signed off at local scope with stated limitations.**
-Verdict: do not deploy this exact tree to mainnet today; ready for a testnet
-redeploy and the target-chain gates in FINAL_REPORT.md.
+**FINAL (2026-09-23): 66/66 files traversed, 66/66 signed off at local scope with
+stated limitations; every finding fixed; the fixed tree is live on Sepolia as r47.**
+Verdict: do not deploy this exact tree to mainnet today; the target-chain gates
+in FINAL_REPORT.md remain.
 
-- Findings: 2 High + 12 Medium, all fixed with passing regressions; 11 Low (1
-  fixed, 10 documented); Informational items documented. New this continuation:
-  FS-relaunch-01 (High), FS-gacha-01 (Medium), FS-successor-01 (Medium), plus
-  Low/Info dispositions for every remaining worksheet lead.
-- Final full local suite: 1100 pass / 42 fail (39 need a fork, 3 documented
-  Lows) / 276 skip. Same suite against a local anvil chain with V4 core:
-  1448 pass / 12 fail (8 need real Sepolia state, 3 documented Lows, 1
-  superseded premise since tightened and passing) / 1 skip.
-- Production scripts DeployV4Core, DeployLaunchpad, DeployPerp rehearsed on the
-  local chain with a full lifecycle incl. relaunch with an open perp book.
-- Gates: snapshot 4,304/4,304 intact; 66/66 source-matched artifacts; all
-  deployables within EIP-170 (registry 24,553 bytes); only intended ABI/storage
-  deltas; 43/43 frontend selectors present; git diff --check clean; no project secrets.
-- LIVE DEPLOYMENT WARNING: deployed Sepolia r46 predates these fixes and still
-  contains FS-relaunch-01 — relaunch only with an explicit gas limit well above
-  8.5M and preferably an empty perp book until redeployed.
+- Findings: 2 High + 12 Medium + 11 Low, all fixed with passing regressions
+  (`5f420af`, Lows in `6961bb4`); Informational items accepted (KNOWN.md).
+- Local chain lane on the final tree: 1459 pass / 8 fail (the 8 need real
+  Sepolia state) / 1 skip, 367 suites.
+- Gates on the final tree: snapshot 4,304/4,304 intact; 66/66 source-matched
+  artifacts; all deployables within EIP-170 (registry 24,342, PoolOps 24,465);
+  only intended ABI/storage deltas; 43/43 frontend selectors; git diff --check clean.
+- Function graph refreshed onto the fixed code (`afb5642`): 1102 nodes, validator
+  0 failures on all ten clusters, every edge resolves.
+- Sepolia: r46 liquidity retired (R46_RETIREMENT.md); r47 deployed from the fixed
+  tree, 32/32 runtimes byte-identical to the artifacts, manifest round 47
+  (R47_DEPLOYMENT.md). Indexer `railway up` and the site merge are owner steps.
 
-Documents: FINAL_REPORT.md, SIGNOFF_CHECKLIST.md, FINDINGS.md, VALIDATION.md,
-LEDGER.md, rehearsal/README.md, remediation/FINAL_*.json. No commit, push,
-public broadcast or deployment was performed.
+Documents: FINAL_REPORT.md, SIGNOFF_CHECKLIST.md, FINDINGS.md, KNOWN.md,
+VALIDATION.md, LEDGER.md, R46_RETIREMENT.md, R47_DEPLOYMENT.md, rehearsal/README.md,
+remediation/FINAL_*.json.
 
 Historical checkpoints follow (superseded by the summary above).
 

@@ -42,6 +42,7 @@ if [ -n "$PK" ]; then
   source "$SCRIPT_DIR/lib/signer.sh"
   resolve_signer || exit 1
   W=(--rpc-url "$R" "${SIGNER[@]}")
+  WA=(--private-key "$PK")
   #  Remove it on ANY exit — success, failure or Ctrl-C. A testnet key left on
   #  disk after the job that needed it is just a liability with no upside.
   #  KEY REMOVAL IS OPT-IN NOW. Deleting it on EVERY exit — including a failure
@@ -58,13 +59,18 @@ if [ -n "$PK" ]; then
 else
   read -rsp "keystore password for 'deployer': " PWD_IN; echo
   W=(--rpc-url "$R" --account deployer --from "$DEP" --password "$PWD_IN")
+  WA=(--account deployer --password "$PWD_IN")
 fi
 
 #  Refuse to start unless the signer is actually the expected deployer. Sending
 #  the arm/deploy from the wrong account would produce a deployment nobody owns.
-ACTUAL=$(cast wallet address "${W[@]}" 2>/dev/null | tail -1 || true)
-if [ -n "$ACTUAL" ] && [ "${ACTUAL,,}" != "${DEP,,}" ]; then
-  echo "signer mismatch: got $ACTUAL, expected $DEP"; exit 1
+#  `cast wallet address` takes signer flags only: handed the full `W` (with
+#  --rpc-url) it printed a usage error, ACTUAL came back empty and this check
+#  silently passed. `${var,,}` is bash 4+ and macOS ships 3.2, so lowercase via tr.
+ACTUAL=$(cast wallet address "${WA[@]}" 2>/dev/null | tail -1 || true)
+lc() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
+if [ -z "$ACTUAL" ] || [ "$(lc "$ACTUAL")" != "$(lc "$DEP")" ]; then
+  echo "signer mismatch: got ${ACTUAL:-<none>}, expected $DEP"; exit 1
 fi
 
 say() { printf "\n\033[1m== %s\033[0m\n" "$*"; }

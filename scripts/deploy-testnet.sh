@@ -185,6 +185,15 @@ export INSURANCE_SEED_WEI=60000000000000000   # 0.06 ETH, just over the 0.05 flo
 #  rotation slice of a 2.2 ETH pool needs. Recoverable via VenueSeeder.recover.
 export VENUE_ETH=300000000000000000  # 0.3 ETH
 # export VENUE_USDG=                 # leave unset -> priced from the oracle
+#  The band above only exists if it is asked for: DeployLaunchpad reads
+#  VENUE_BAND_BPS and defaults to 0 (full range), so r46 shipped its 0.3 ETH as a
+#  full-range venue, ~20x shallower than this block assumes. 500 = +/-5%.
+export VENUE_BAND_BPS=500
+#  The mock quote stack (USDG, QuoteOracle, the venue) is OPT-IN since the
+#  2026-09-18 audit flipped the script default to false for mainnet safety; it
+#  reverts on any chain but Sepolia. Without it the launchpad refuses to deploy
+#  a rotator with no oracle (ACCEPT_NO_ORACLE), before anything is broadcast.
+export DEPLOY_QUOTES=true
 # ── end TESTNET block ───────────────────────────────────────────────────────
 
 #  PRIVATE_KEY (exported by go-testnet.sh from the gitignored .env) wins when

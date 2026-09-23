@@ -7,6 +7,7 @@
     "first_party_changed": [
       "contracts/solidity/CauldronHook.sol",
       "contracts/solidity/CauldronRegistry.sol",
+      "contracts/solidity/cauldron/CauldronGachaRouter.sol",
       "contracts/solidity/cauldron/CauldronVault.sol",
       "contracts/solidity/cauldron/CollectionLedger.sol",
       "contracts/solidity/cauldron/GachaLib.sol",
@@ -18,9 +19,13 @@
       "contracts/solidity/cauldron/QuoteOracle.sol",
       "contracts/solidity/cauldron/RedemptionExt.sol",
       "contracts/solidity/cauldron/SurtaxLib.sol",
+      "contracts/solidity/cauldron/TreasuryGovernor.sol",
       "contracts/solidity/deploy/DeployCauldron.s.sol",
       "contracts/solidity/deploy/DeployLaunchpad.s.sol",
-      "contracts/solidity/deploy/DeployRotationStack.s.sol"
+      "contracts/solidity/deploy/DeployMigrationVesting.s.sol",
+      "contracts/solidity/deploy/DeployRotationStack.s.sol",
+      "contracts/solidity/deploy/FixFactoryWiring.s.sol",
+      "contracts/solidity/render/FrenRenderer.sol"
     ],
     "other_changed": [
       "contracts/solidity/.DS_Store",
@@ -50,6 +55,7 @@
       "contracts/solidity/test/attacks/R23_GovernorBench.t.sol",
       "contracts/solidity/test/attacks/R23_LedgerDeathCredit.t.sol",
       "contracts/solidity/test/attacks/R23_LedgerRegistryLocal.t.sol",
+      "contracts/solidity/test/attacks/R23_LowFixes.t.sol",
       "contracts/solidity/test/attacks/R23_MarkAcceptance.t.sol",
       "contracts/solidity/test/attacks/R23_MarkBeforeSwap.t.sol",
       "contracts/solidity/test/attacks/R23_MarkBoundaries.t.sol",
@@ -79,14 +85,14 @@
     ],
     "added_other_count": 1,
     "first_party_current_sha256": {
-      "contracts/solidity/CauldronHook.sol": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
-      "contracts/solidity/CauldronRegistry.sol": "5831cab4bc5957e77e16453527a9c2ae07a057aab0be01f6de7f8f8b2773c96b",
+      "contracts/solidity/CauldronHook.sol": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
+      "contracts/solidity/CauldronRegistry.sol": "eb1e7903dbdf93d86633df5990c79495804759eae4217469c7ce1eaa25ffb9e7",
       "contracts/solidity/CauldronToken.sol": "014d7f130b79895c95a9850e563ad02715365a037531a670f67d8f30b7fa488d",
       "contracts/solidity/cauldron/CauldronArtAdapter.sol": "a0543f1f06d9c3a111eb5b520147d5084df7c3628a099e84d5cbb09b78b61685",
       "contracts/solidity/cauldron/CauldronBase.sol": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
       "contracts/solidity/cauldron/CauldronCollection.sol": "027606f0538c51ea0e5072f38e1cda1f18cf75a816620543630175e7fc300d8c",
       "contracts/solidity/cauldron/CauldronFactory.sol": "0e19b190b260a27b29c79c79594a31143d2589fee406902ff48239b1ea01d99d",
-      "contracts/solidity/cauldron/CauldronGachaRouter.sol": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "contracts/solidity/cauldron/CauldronGachaRouter.sol": "86b4b5f15365d0a18d457a144366802e331537c467e8831cef0276e2a6b788a6",
       "contracts/solidity/cauldron/CauldronGovernor.sol": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
       "contracts/solidity/cauldron/CauldronSeeder.sol": "cbdb3b2311055856cefba56a3f10afd65d7a861ecfa061a8152678ea16db7eb6",
       "contracts/solidity/cauldron/CauldronVault.sol": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
@@ -117,29 +123,29 @@
       "contracts/solidity/cauldron/PoolOps.sol": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
       "contracts/solidity/cauldron/QuoteOracle.sol": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
       "contracts/solidity/cauldron/QuoteRotator.sol": "462d3d473964c33a114bd9a508d4eeae692b8308e2b84ae6161650f9e7930654",
-      "contracts/solidity/cauldron/RedemptionExt.sol": "1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d60",
+      "contracts/solidity/cauldron/RedemptionExt.sol": "c551b4a87f40bb62a4fc93e06ac53b009b493b948a976c9f8e095e928b156738",
       "contracts/solidity/cauldron/ReserveLib.sol": "a83c215b930c080a5b1c617c9f902fe0ba137edb3f7850818fbbdb677ea68191",
       "contracts/solidity/cauldron/RoyaltyRouter.sol": "1495a805f243e4299765d752d4885991270c57cd6df82aa53b763af844b4229f",
       "contracts/solidity/cauldron/SeedLib.sol": "5e576ec3698518ba185f254eb201a135f13f6c1f98c11a6f011200c3d66fdc47",
       "contracts/solidity/cauldron/SurtaxLib.sol": "a83bfde89367484756b24f69fb6ce002c8491a4b5efc89f0a126b4e5d4b06aad",
-      "contracts/solidity/cauldron/TreasuryGovernor.sol": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "contracts/solidity/cauldron/TreasuryGovernor.sol": "6704bbb30c34a9a202b6ac183bf3564d87179c16bf597dff510a80242a49b984",
       "contracts/solidity/deploy/BadgeArtLib.sol": "72d00710f97f0a65ea36e851c0ff0b9fdda4a6fe7b318977f92941496093bbdf",
       "contracts/solidity/deploy/DeployCauldron.s.sol": "e11a2f686d2112c9fa921379e682b0d80f24633a9f69a36774682f665c2369c5",
       "contracts/solidity/deploy/DeployLaunchSniper.s.sol": "cf27a01d8873ace7a1e0262e53a6bac0ca50d7eaa224eb90f53b7e4e706e9c81",
       "contracts/solidity/deploy/DeployLaunchpad.s.sol": "acef2fb1cdd08f628a89db02d3d9cc5e22888238d34d5e77fe47cc481e419f03",
-      "contracts/solidity/deploy/DeployMigrationVesting.s.sol": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "contracts/solidity/deploy/DeployMigrationVesting.s.sol": "8424c34915f634500c7699b950c84ae967a712f3ac82daf2e28adf7fb35efd54",
       "contracts/solidity/deploy/DeployPerp.s.sol": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
       "contracts/solidity/deploy/DeployQuoteAssets.s.sol": "426c05c3fd6fc9c245bd575859929d8ecb6ce677fbf05f2c545e08888393ea4b",
       "contracts/solidity/deploy/DeployRenderer.s.sol": "b25e9d8ca7dd6ac612e57e86a61e19db54c09f5ff39e88d67daede14eaf9a93e",
-      "contracts/solidity/deploy/DeployRotationStack.s.sol": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "contracts/solidity/deploy/DeployRotationStack.s.sol": "f353e393b183092e528e52e6279a8d7c9eef888a33e8b8b15ea1d6e39dae3b7a",
       "contracts/solidity/deploy/DeployV4Core.s.sol": "1bc10c2c4940bcec544080976f0423a83eee471ec3fd0f18c67bce40690bef0d",
-      "contracts/solidity/deploy/FixFactoryWiring.s.sol": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "contracts/solidity/deploy/FixFactoryWiring.s.sol": "d9a051150a09659416bebeeb4d2057597a82ed24bc6f0d495984403754ee7175",
       "contracts/solidity/deploy/SellVolume.s.sol": "529ea7423dc159b3b1234597404ed24e074d84a2b2bcf4272db643b2db37a8e7",
       "contracts/solidity/deploy/SnipeBuy.s.sol": "849617088a736370cfa567df629a5f481752e6ee6fe1472e6818e469a4b3f0a8",
       "contracts/solidity/deploy/SwapVolume.s.sol": "6e286cb2aa942d8de2af481388ef30d25b066d62c62699766b195a9276a1f83d",
       "contracts/solidity/deploy/TopUpVenue.s.sol": "b655f7414ffbceda6625bc6cb26e978e95a81b588da6662af5312fedd5a7ad93",
       "contracts/solidity/interfaces/INFTContract.sol": "15bdc18bed71c2ccbe3cc98bb6f585b3a5043f46d0af5636fed5100cd4da678c",
-      "contracts/solidity/render/FrenRenderer.sol": "1cfeefe97d5e90f72ae76b74744a5eaa55e384f56530594ee885d0bc078ecd0f",
+      "contracts/solidity/render/FrenRenderer.sol": "9bc5a2098b3bbd4eb9befe9dee63269a40edc608c9ef3c4bfc7628fc28f5300b",
       "contracts/solidity/render/LiquidatoorRenderer.sol": "f91523f1efdcbaf66221a5c625aff1595f8aa903f0658103aa6c7e553f915a9c",
       "contracts/solidity/render/SSTORE2.sol": "8ba47cf78fd00362e2b3330e73c8ff664e8d23e957c1cb5e34c0354c1ca96056",
       "contracts/solidity/render/TraitStorage.sol": "574f498c88cecacb7340044222f0f723b8c189bafb3b30820462a9a853dcd862",
@@ -230,7 +236,7 @@
     "output": ""
   },
   "secret_scan": {
-    "files_scanned": 400,
+    "files_scanned": 429,
     "hits": [
       "audit/SOLIDITY_REAUDIT_2026-09-23/logs/baseline-build.log:5665 <redacted>",
       "audit/SOLIDITY_REAUDIT_2026-09-23/logs/baseline-build.log:5666 <redacted>",
@@ -260,7 +266,6 @@
       "audit/SOLIDITY_REAUDIT_2026-09-23/logs/baseline-build.log:36733 <redacted>",
       "audit/SOLIDITY_REAUDIT_2026-09-23/logs/baseline-build.log:36740 <redacted>",
       "audit/SOLIDITY_REAUDIT_2026-09-23/logs/baseline-build.log:36741 <redacted>"
-    ],
-    "classification": "All hits are vendored forge-std StdChains.sol public default RPC URLs echoed by compiler warnings in logs/baseline-build.log; zero keyed RPC URLs in first-party contracts/tests/scripts/frontend/indexer/api. No project secret found."
+    ]
   }
 }

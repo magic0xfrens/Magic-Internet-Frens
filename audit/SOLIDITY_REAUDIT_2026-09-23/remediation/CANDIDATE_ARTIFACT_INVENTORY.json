@@ -7,7 +7,7 @@
       "source": "CauldronHook.sol",
       "contract": "CauldronHook",
       "artifact": "out/CauldronHook.sol/CauldronHook.json",
-      "artifact_sha256": "fa476a629edea511acfe8e5bc3b46f796b01e206bd9a48d5bd946237f6787859",
+      "artifact_sha256": "7a324375c95538c770baac383923bb5828390b41317158298a99d883de25952c",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -15,14 +15,14 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 24401,
-      "initcode_bytes_without_args": 25497,
-      "runtime_headroom": 175,
-      "initcode_headroom_without_args": 23655,
+      "runtime_bytes": 24338,
+      "initcode_bytes_without_args": 25434,
+      "runtime_headroom": 238,
+      "initcode_headroom_without_args": 23718,
       "link_references": {
         "cauldron/FeeRouteLib.sol": {
           "FeeRouteLib": [
@@ -35,19 +35,19 @@
               "length": 20
             },
             {
-              "start": 21769,
+              "start": 21706,
               "length": 20
             },
             {
-              "start": 22058,
+              "start": 21995,
               "length": 20
             },
             {
-              "start": 22810,
+              "start": 22747,
               "length": 20
             },
             {
-              "start": 24138,
+              "start": 24075,
               "length": 20
             }
           ]
@@ -67,7 +67,7 @@
         "cauldron/LegacyBuyLib.sol": {
           "LegacyBuyLib": [
             {
-              "start": 15550,
+              "start": 15501,
               "length": 20
             }
           ]
@@ -75,7 +75,7 @@
         "cauldron/SurtaxLib.sol": {
           "SurtaxLib": [
             {
-              "start": 14487,
+              "start": 14438,
               "length": 20
             }
           ]
@@ -86,7 +86,7 @@
       "source": "CauldronHook.sol",
       "contract": "ICollectionLiquidator",
       "artifact": "out/CauldronHook.sol/ICollectionLiquidator.json",
-      "artifact_sha256": "8b4b3aa405796525ca8ee7bfd13843f603eabe619f0efa97d297ccdd47355e3b",
+      "artifact_sha256": "dcc66f8535af1a863f4a6a9a641871deaf51edf57f72d5c0e2fd63035642e60a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -94,7 +94,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -108,7 +108,7 @@
       "source": "CauldronHook.sol",
       "contract": "ILegacyNote",
       "artifact": "out/CauldronHook.sol/ILegacyNote.json",
-      "artifact_sha256": "22a6f6c9a4c3b3724389561974631130e8052672abc8970dd17f5bba02d99d19",
+      "artifact_sha256": "015664ddc2ad11b66394f37ad5a08b349e9b783bf0152fc364570420d9651cbc",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -116,7 +116,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -130,7 +130,7 @@
       "source": "CauldronHook.sol",
       "contract": "IPerpEngineLiq",
       "artifact": "out/CauldronHook.sol/IPerpEngineLiq.json",
-      "artifact_sha256": "2b368a47029644248c5991e08161cf0f4a7793430cbc25c817abd1027f1dbbc3",
+      "artifact_sha256": "a3c0bce0655f7e71ba87b420f262841d24c2b302ee69f9cd43af5dbb49d7a6b7",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -138,7 +138,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -152,7 +152,7 @@
       "source": "CauldronHook.sol",
       "contract": "IPerpFeeCredit",
       "artifact": "out/CauldronHook.sol/IPerpFeeCredit.json",
-      "artifact_sha256": "589e6772bc446b2974382dd0a229fb4cc927587bfc1ea27c21d7b42bdfdeac5d",
+      "artifact_sha256": "9af5b1d25917c27550ca68e755ef47c52de2b390bab3db23145e6f06c762b91f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -160,7 +160,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -174,7 +174,7 @@
       "source": "CauldronHook.sol",
       "contract": "IPerpForceClose",
       "artifact": "out/CauldronHook.sol/IPerpForceClose.json",
-      "artifact_sha256": "a69280dd242fd053aaa8c0b0854ccdcf43e81baa3f1a9bf730cd4208bd0ded35",
+      "artifact_sha256": "b3340d599da864a64185a347a6e25a30251f5305f60b0716b13910e69133339b",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -182,7 +182,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -196,7 +196,7 @@
       "source": "CauldronHook.sol",
       "contract": "IPerpOpenCount",
       "artifact": "out/CauldronHook.sol/IPerpOpenCount.json",
-      "artifact_sha256": "cc34151f872d8c079289bf3eab7677ad38c87c709a4582db91059af6d4aa1fb3",
+      "artifact_sha256": "b5f990afd252b621847b90d72a35ecc4467d25d858e59eb7d1ee8686468e2294",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -204,7 +204,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -218,7 +218,7 @@
       "source": "CauldronHook.sol",
       "contract": "IQuoteOracle",
       "artifact": "out/CauldronHook.sol/IQuoteOracle.json",
-      "artifact_sha256": "3ed714b11657ac89b865982a111a568562d24c8b8276cfda79fe6c4d45a55ee4",
+      "artifact_sha256": "10c8839d4d9cffee3ddb469d64b675de62aca861b29d96dafb5364e2804b9bbd",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -226,7 +226,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -240,7 +240,7 @@
       "source": "CauldronHook.sol",
       "contract": "IRegistryQuotes",
       "artifact": "out/CauldronHook.sol/IRegistryQuotes.json",
-      "artifact_sha256": "2b04410bb77c72fa6e94d0cf293a432a50763c914378ad08cfc5dea69cb8929d",
+      "artifact_sha256": "a89bcd3736f07f26aba85a851526737673d5d3aaeb5f44041148c0fb955d00ed",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -248,7 +248,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -262,7 +262,7 @@
       "source": "CauldronHook.sol",
       "contract": "ISeederInSwap",
       "artifact": "out/CauldronHook.sol/ISeederInSwap.json",
-      "artifact_sha256": "6e8ec9fb68395c77666472a4593ef3b922f193fab500beeb011689c193017d47",
+      "artifact_sha256": "62305a9fc776291ad81ee355ab004edb45f3b5d6ef35ac7af8d5748c87e800d4",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -270,7 +270,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "source_sha256": "01593cebe27a4512b7c5bfb670269c4980a03c4b47b8cfe7c67d1fe097d4d668",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -284,7 +284,7 @@
       "source": "CauldronRegistry.sol",
       "contract": "CauldronRegistry",
       "artifact": "out/CauldronRegistry.sol/CauldronRegistry.json",
-      "artifact_sha256": "ab057c86ad0accf2c2ea30c6998d2f5d7d865cbc9bd16824d78a5e84d986fd8d",
+      "artifact_sha256": "7fa92a97fd439d33f6ef6e50e74e326378c525b1b3e4985ad003b7a6bab4921a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -292,75 +292,75 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "5831cab4bc5957e77e16453527a9c2ae07a057aab0be01f6de7f8f8b2773c96b",
+      "source_sha256": "eb1e7903dbdf93d86633df5990c79495804759eae4217469c7ce1eaa25ffb9e7",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 24553,
-      "initcode_bytes_without_args": 25189,
-      "runtime_headroom": 23,
-      "initcode_headroom_without_args": 23963,
+      "runtime_bytes": 24342,
+      "initcode_bytes_without_args": 24978,
+      "runtime_headroom": 234,
+      "initcode_headroom_without_args": 24174,
       "link_references": {
         "cauldron/PoolOps.sol": {
           "PoolOps": [
             {
-              "start": 4705,
+              "start": 4475,
               "length": 20
             },
             {
-              "start": 6846,
+              "start": 6621,
               "length": 20
             },
             {
-              "start": 8696,
+              "start": 8471,
               "length": 20
             },
             {
-              "start": 11178,
+              "start": 10967,
               "length": 20
             },
             {
-              "start": 12383,
+              "start": 12172,
               "length": 20
             },
             {
-              "start": 13081,
+              "start": 12870,
               "length": 20
             },
             {
-              "start": 18345,
+              "start": 18134,
               "length": 20
             },
             {
-              "start": 19874,
+              "start": 19325,
               "length": 20
             },
             {
-              "start": 19978,
+              "start": 19519,
               "length": 20
             },
             {
-              "start": 20313,
+              "start": 20220,
               "length": 20
             },
             {
-              "start": 20507,
+              "start": 20592,
               "length": 20
             },
             {
-              "start": 21208,
+              "start": 22948,
               "length": 20
             },
             {
-              "start": 21580,
+              "start": 23052,
               "length": 20
             },
             {
-              "start": 23648,
+              "start": 23437,
               "length": 20
             },
             {
-              "start": 24512,
+              "start": 24301,
               "length": 20
             }
           ]
@@ -371,7 +371,7 @@
       "source": "CauldronRegistry.sol",
       "contract": "ICollectionMetadata",
       "artifact": "out/CauldronRegistry.sol/ICollectionMetadata.json",
-      "artifact_sha256": "468f38413142a7a1965011f0bb5daf0a323584ff06cb59063ec59e92f92bf32e",
+      "artifact_sha256": "372bbfffbd56f3d7fc4f16a4818e6b91dd228bdda2b91d9c6a684702a5f832c3",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -379,7 +379,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "5831cab4bc5957e77e16453527a9c2ae07a057aab0be01f6de7f8f8b2773c96b",
+      "source_sha256": "eb1e7903dbdf93d86633df5990c79495804759eae4217469c7ce1eaa25ffb9e7",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -393,7 +393,7 @@
       "source": "CauldronToken.sol",
       "contract": "CauldronToken",
       "artifact": "out/CauldronToken.sol/CauldronToken.json",
-      "artifact_sha256": "95ea3bf8deb9cf3ea68de9b08a87fa112bedc97b5bdf4a781c1349d687682754",
+      "artifact_sha256": "eff59611c9bc34adb456200a60ba1131b3e12d8d1d8715ab16016d126affaf8a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -415,7 +415,7 @@
       "source": "cauldron/CauldronArtAdapter.sol",
       "contract": "CauldronArtAdapter",
       "artifact": "out/CauldronArtAdapter.sol/CauldronArtAdapter.json",
-      "artifact_sha256": "b94f814b6ebac659d3940266f75240138d5e52db625ede7f402a31d802f308a2",
+      "artifact_sha256": "db3d9859301437744c7452109e9129c1cd0c2e9ce0981b7c590d430ccb224b50",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -481,7 +481,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "CauldronBase",
       "artifact": "out/CauldronBase.sol/CauldronBase.json",
-      "artifact_sha256": "b09e707940f2c8b7ced73f52e307b3cae77a397373b5bf86fb1dd2d4a1839641",
+      "artifact_sha256": "55243f4eaa61b41ebf71c7b1b8d6c2c9c83fa74defa2a47bd58ab5ccf7fd7202",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -503,7 +503,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "ICauldronFactory",
       "artifact": "out/CauldronBase.sol/ICauldronFactory.json",
-      "artifact_sha256": "9fb418e4665a3cc7a4c78e000e30b63bd396746f5569e169fd4277f303a89278",
+      "artifact_sha256": "489a549c5bbebd245ef464f5835b5e0a90f45a6cf6775e1848435f6ccf162187",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -525,7 +525,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "ICollectionLedger",
       "artifact": "out/CauldronBase.sol/ICollectionLedger.json",
-      "artifact_sha256": "f1650cf7a72d898bfe6325ad7fba0d23d8a2d9dcd790de26c584b87947dd47cf",
+      "artifact_sha256": "ecfc73764415a701bae8cc6fe59c61a152c21744ee3371202318d66107728c18",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -547,7 +547,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "IMiFrensContinuable",
       "artifact": "out/CauldronBase.sol/IMiFrensContinuable.json",
-      "artifact_sha256": "58db1ed842fde466bd4da65c1b9f08490d407038cecb2b481c3113d1fd17a68a",
+      "artifact_sha256": "3f3e04fde787b8f758296b40bde526e5072e133a6501b2a370ab348e7303ae23",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -569,7 +569,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "IPerpBook",
       "artifact": "out/CauldronBase.sol/IPerpBook.json",
-      "artifact_sha256": "32f9c64ce8978dcc19122c869aaee2561bcf662ba0e07a7588a142e9591c4c5d",
+      "artifact_sha256": "bef1bef8b389cf6c2ab2d9e54bf9eebecbb0cfed5aedc459ccc93de4c24fe327",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -591,7 +591,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "IPerpSync",
       "artifact": "out/CauldronBase.sol/IPerpSync.json",
-      "artifact_sha256": "74849f9833ffe1ced7e0cf02e0d92da21c1071c29cb28687bf12db99b90c2058",
+      "artifact_sha256": "7f00b1c346fc62747273eb458aa9bdd93f527777dccd2997f8fd200207d6962f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -613,7 +613,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "IPositionManager",
       "artifact": "out/CauldronBase.sol/IPositionManager.json",
-      "artifact_sha256": "b98f36014ba156a151a6809751a545d0bdc2165ccd1468f3c6afd6a375edb07a",
+      "artifact_sha256": "2e09f28c8cc384b0de3b393ba91a93495609242fcf87cbf620c0cc5566d0bbfa",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -635,7 +635,7 @@
       "source": "cauldron/CauldronBase.sol",
       "contract": "IVaultClose",
       "artifact": "out/CauldronBase.sol/IVaultClose.json",
-      "artifact_sha256": "bb5333885cbc984eb0666a0f900ca9ebbbd63262ef883fa00d870939fe82aa83",
+      "artifact_sha256": "5ea91885eebbc0e643ef5943dc74df01b0d87254def2e44040dcf8b72acb03fc",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -657,7 +657,7 @@
       "source": "cauldron/CauldronCollection.sol",
       "contract": "CauldronCollection",
       "artifact": "out/CauldronCollection.sol/CauldronCollection.json",
-      "artifact_sha256": "c633f44adcaa763f0a3c090ca88431115bd767b4811920a3634bd07cdd826ae2",
+      "artifact_sha256": "e9d3fab3d22fe665d0b585219c3a0bf9a066d7a7b9793681d74a2170bbe6f52e",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -679,7 +679,7 @@
       "source": "cauldron/CauldronFactory.sol",
       "contract": "CauldronFactory",
       "artifact": "out/CauldronFactory.sol/CauldronFactory.json",
-      "artifact_sha256": "d8b0ef87d7228f5155d9aac3cd9e2dc2ed4124c9baea19b68db5dd3ec9c001b7",
+      "artifact_sha256": "20cf54cfb600bbe5ed3f9e6579ec39ef7d5bf177d82b436ed60c1e3b4eeec560",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -701,7 +701,7 @@
       "source": "cauldron/CauldronGachaRouter.sol",
       "contract": "CauldronGachaRouter",
       "artifact": "out/CauldronGachaRouter.sol/CauldronGachaRouter.json",
-      "artifact_sha256": "b473c4b9bc217eca41f978fa5311d32b2bb0d6910d36cddc80a27711e9080185",
+      "artifact_sha256": "5284a10b4c4cc2742d3bcbee183c43b31aabd6fd8da29d9ba48230517756cafa",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -709,21 +709,21 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "source_sha256": "86b4b5f15365d0a18d457a144366802e331537c467e8831cef0276e2a6b788a6",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 8814,
-      "initcode_bytes_without_args": 9283,
-      "runtime_headroom": 15762,
-      "initcode_headroom_without_args": 39869,
+      "runtime_bytes": 8828,
+      "initcode_bytes_without_args": 9297,
+      "runtime_headroom": 15748,
+      "initcode_headroom_without_args": 39855,
       "link_references": {}
     },
     {
       "source": "cauldron/CauldronGachaRouter.sol",
       "contract": "ICauldronHookGacha",
       "artifact": "out/CauldronGachaRouter.sol/ICauldronHookGacha.json",
-      "artifact_sha256": "85498371b8fec4d7a0c377c85c715bd7449830417727d244a6b12b7d8659eee2",
+      "artifact_sha256": "b584e01cd2490684b84910911a26bbea8f5dcd41e6554524a56513caad8053a0",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -731,7 +731,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "source_sha256": "86b4b5f15365d0a18d457a144366802e331537c467e8831cef0276e2a6b788a6",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -745,7 +745,7 @@
       "source": "cauldron/CauldronGachaRouter.sol",
       "contract": "IQuoteOracleView",
       "artifact": "out/CauldronGachaRouter.sol/IQuoteOracleView.json",
-      "artifact_sha256": "72066186c060d2a0c0c1734473ccdb675225e184cfb8f39fda763e5636c360ec",
+      "artifact_sha256": "abf9ef9c085b767c00939eff4fe8c0c13bae4a6bb7d8185d0a21792ba874f1da",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -753,7 +753,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "source_sha256": "86b4b5f15365d0a18d457a144366802e331537c467e8831cef0276e2a6b788a6",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -767,7 +767,7 @@
       "source": "cauldron/CauldronGachaRouter.sol",
       "contract": "IRegistryCurrent",
       "artifact": "out/CauldronGachaRouter.sol/IRegistryCurrent.json",
-      "artifact_sha256": "472da6153051860001c9a794e80e80958c141f5f7a0a105d7c743ffa073ee9b4",
+      "artifact_sha256": "92f4d884ba94eb08b90630f6aac8a337cbb555edc60a8ce4846d554156ace016",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -775,7 +775,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "source_sha256": "86b4b5f15365d0a18d457a144366802e331537c467e8831cef0276e2a6b788a6",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -789,7 +789,7 @@
       "source": "cauldron/CauldronGovernor.sol",
       "contract": "CauldronGovernor",
       "artifact": "out/CauldronGovernor.sol/CauldronGovernor.json",
-      "artifact_sha256": "97a0d7efa9cff66f8ab86c31704936d4d8e31a6faf9fdcca0c62b4a5b9a86c22",
+      "artifact_sha256": "a19d2ab2ff91d01d297715c5e0fdccdc6539c00e30a87c418d0d4ef36366c145",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -921,7 +921,7 @@
       "source": "cauldron/CauldronSeeder.sol",
       "contract": "CauldronSeeder",
       "artifact": "out/CauldronSeeder.sol/CauldronSeeder.json",
-      "artifact_sha256": "0dd2e14dd61908f5ca28d1f3385114150391da22880e8b29b5a0471aa1524895",
+      "artifact_sha256": "1da3caa51ee68e9d1c39fa43cad6417dd78309ee57de36c89726f027aa2218f0",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -965,7 +965,7 @@
       "source": "cauldron/CauldronVault.sol",
       "contract": "CauldronVault",
       "artifact": "out/CauldronVault.sol/CauldronVault.json",
-      "artifact_sha256": "e53c1543c5c9fdb11681298a206bfb3630bb3003bc1af4014b140a23ad153d82",
+      "artifact_sha256": "0072d9cbd4e4ee469888d4d70fd16dec27e5b62c72b820940add69f5744d053c",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -987,7 +987,7 @@
       "source": "cauldron/CauldronVault.sol",
       "contract": "IBurnableCollection",
       "artifact": "out/CauldronVault.sol/IBurnableCollection.json",
-      "artifact_sha256": "b8314374236575344e5d0760b7e0666641ed847bfa885ebac200ea3e241e1c03",
+      "artifact_sha256": "7afc5ab4f95ac106a92ba2288384cae11a094764cde3036ba16138f10b77fcb1",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1009,7 +1009,7 @@
       "source": "cauldron/CauldronVault.sol",
       "contract": "ILegacyFloorHook",
       "artifact": "out/CauldronVault.sol/ILegacyFloorHook.json",
-      "artifact_sha256": "30fc4f2290d8d0606db0267793986d7f074574f76cad808de5600e614fcc3971",
+      "artifact_sha256": "bc5981e53d83bb687d7d375e6a42d7098d6d9cc2295fa60948cb9a08fcb5c635",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1031,7 +1031,7 @@
       "source": "cauldron/CollectionLedger.sol",
       "contract": "CollectionLedger",
       "artifact": "out/CollectionLedger.sol/CollectionLedger.json",
-      "artifact_sha256": "fd5cb98731eef4c648c4f0966e33f2b8404ad82b019f0bc97cf0b40f98910cc5",
+      "artifact_sha256": "6ac0c3c3df91c71c8dc2fd67908cc3a9a9fca18e2e18137174cc6b2d26acbda9",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1097,7 +1097,7 @@
       "source": "cauldron/GachaLib.sol",
       "contract": "GachaLib",
       "artifact": "out/GachaLib.sol/GachaLib.json",
-      "artifact_sha256": "954cbc8f58e9c8eaf13bdbd1adeabb946ad311ff19489f63bb96440b9aeb27e6",
+      "artifact_sha256": "04392be03b16fc62d4cb570b1fbcc36b200ea00a8f08fb8553b7f615c1300919",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1537,7 +1537,7 @@
       "source": "cauldron/MiFrensDividend.sol",
       "contract": "IMiFrensShares",
       "artifact": "out/MiFrensDividend.sol/IMiFrensShares.json",
-      "artifact_sha256": "20cae2c9b5e0b1e909936c7be9b4055f1d81cafcbe8c4d5bd74dad7619637d35",
+      "artifact_sha256": "b4ff683bf039f1fe108b6e828e8030778138de512ef7e2e81200c209e6053807",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1559,7 +1559,7 @@
       "source": "cauldron/MiFrensDividend.sol",
       "contract": "IReserveRegistry",
       "artifact": "out/MiFrensDividend.sol/IReserveRegistry.json",
-      "artifact_sha256": "c36a64cf586a0d8b1508f3515e7213b6e87c1564e76ecba62c98d327e1fe58c2",
+      "artifact_sha256": "b43a60e3de0f0737c88562c3f37a8c3e43181d2a42b1820e4178a16c2b6a6173",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1581,7 +1581,7 @@
       "source": "cauldron/MiFrensDividend.sol",
       "contract": "MiFrensDividend",
       "artifact": "out/MiFrensDividend.sol/MiFrensDividend.json",
-      "artifact_sha256": "308080c2f6e75b2c00d35a4b4d2ca0a597c893429e9413bb37f29961d79aadcd",
+      "artifact_sha256": "e85f1c5d323131232d9a280972aa6f4766a0ef5806286f99aa4056e11ddbfc4f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1647,7 +1647,7 @@
       "source": "cauldron/MiFrensGenesis.sol",
       "contract": "MiFrensGenesis",
       "artifact": "out/MiFrensGenesis.sol/MiFrensGenesis.json",
-      "artifact_sha256": "08f3fc5a164be1bdbea610bc000ae3296a021a60552bcd6d0eb375f98146c637",
+      "artifact_sha256": "a8b86e28c0f6e8b0208206664cbdbff620d46e83b055ee66555ca5d6281a578c",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1669,7 +1669,7 @@
       "source": "cauldron/MigrationVesting.sol",
       "contract": "IStakerOracle",
       "artifact": "out/MigrationVesting.sol/IStakerOracle.json",
-      "artifact_sha256": "2df3a24d2cbbb35d33e3241d796825de2275b9516212667ed4e981f4e11dc0d3",
+      "artifact_sha256": "0a0a43701bb575886391fdca380ce654fae24b87b63345945c7fb9ed85253a35",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1691,7 +1691,7 @@
       "source": "cauldron/MigrationVesting.sol",
       "contract": "IVestingRegistry",
       "artifact": "out/MigrationVesting.sol/IVestingRegistry.json",
-      "artifact_sha256": "ce5463feb2c6ff41d15b4cfe1bcba9ae3fdc196c05a31abf2068bde390de9a87",
+      "artifact_sha256": "d4be9ce861a63db8893189fbacee96bd8b53c527abe9704764d902e9b1f77fed",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1713,7 +1713,7 @@
       "source": "cauldron/MigrationVesting.sol",
       "contract": "MigrationVesting",
       "artifact": "out/MigrationVesting.sol/MigrationVesting.json",
-      "artifact_sha256": "84ee85c6a6cdedcf57cdaa65d0b75f35938757ca4dfd7f7b5b5208be1e47a1ec",
+      "artifact_sha256": "741e9d20bca8cbbd81f54b394425236983477db4e198cc0a79673504603420df",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1735,7 +1735,7 @@
       "source": "cauldron/MintCurvePolicy.sol",
       "contract": "MintCurvePolicy",
       "artifact": "out/MintCurvePolicy.sol/MintCurvePolicy.json",
-      "artifact_sha256": "e5b8b66a007e4bbe14ee3169568d9a01a86bbfe4effb636745c5aa1c92436039",
+      "artifact_sha256": "84f8d428e84d90a3be8407cf0c11b519089eb39ee8cfe8addbad1665be1aa4ea",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1779,7 +1779,7 @@
       "source": "cauldron/MockQuoteToken.sol",
       "contract": "MockQuoteToken",
       "artifact": "out/MockQuoteToken.sol/MockQuoteToken.json",
-      "artifact_sha256": "86ef0d268a6ed869e091bd05bbd88b872163dce1882f17c2798a323f7d690f21",
+      "artifact_sha256": "77559d8c313fd247458c34cf5ffed12803c2a37c6c78bdbeb5fef041cc55f88a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1801,7 +1801,7 @@
       "source": "cauldron/NativeQuoteZap.sol",
       "contract": "NativeQuoteZap",
       "artifact": "out/NativeQuoteZap.sol/NativeQuoteZap.json",
-      "artifact_sha256": "87e579853528b3ec05370c61635bcd234bd68a5619c22d81dcb6b6a80b3b6393",
+      "artifact_sha256": "54bb3ee60adefdeffb80a150cd2d6fb9074b3f0e30c7163f02666e63948a48f8",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1822,98 +1822,8 @@
     {
       "source": "cauldron/PerpEngine.sol",
       "contract": "IMarkSource",
-      "artifact": "out/PerpEngine.sol/IMarkSource.0.8.26.json",
-      "artifact_sha256": "c930908610c9b96972c5c6dfb9633fe9786d8ef2d4f7590c25df1373eb20a164",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IMarkSource",
-      "artifact": "out/PerpEngine.sol/IMarkSource.0.8.30.json",
-      "artifact_sha256": "4f7ef1da8917d5b7f890105890481abbe176458e50844afec7095bf27ed87de5",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IMarkSource",
       "artifact": "out/PerpEngine.sol/IMarkSource.json",
-      "artifact_sha256": "7474ea9d22cd35112fc3c7cbb1fb6b38e4fc11e5a1ea91be9b8de7210ef61b2b",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/PerpEngine.sol"
-      ],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpHook",
-      "artifact": "out/PerpEngine.sol/IPerpHook.0.8.26.json",
-      "artifact_sha256": "b1aa5f57d2038e29f72a35088c38f8553bd4800e8baec62456c8e207f7d9a85f",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpHook",
-      "artifact": "out/PerpEngine.sol/IPerpHook.0.8.30.json",
-      "artifact_sha256": "9bbc7c138b9b1df0c4953ef669c6a19288f4aa772ca6d6a151150c6b3e52813c",
+      "artifact_sha256": "727e3e3609ecaeb774eadc9ad46d868a3782706e59b3c4acd7e984fb5559a31d",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -1935,53 +1845,7 @@
       "source": "cauldron/PerpEngine.sol",
       "contract": "IPerpHook",
       "artifact": "out/PerpEngine.sol/IPerpHook.json",
-      "artifact_sha256": "3c11658078b174ef4cf0df17cedbfbf02b6751cb54fd768d8958e6115620cf98",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/PerpEngine.sol"
-      ],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpRegistry",
-      "artifact": "out/PerpEngine.sol/IPerpRegistry.0.8.26.json",
-      "artifact_sha256": "051c526ea84584d7ca35ebc653272ee6674cb60e0214061a137603d7d8d032a5",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpRegistry",
-      "artifact": "out/PerpEngine.sol/IPerpRegistry.0.8.30.json",
-      "artifact_sha256": "1e4b980e374a132a3a03f843fa2545ebc9078fdb789250fe447069bfca5fb03f",
+      "artifact_sha256": "f3fa4757308546027da5a4a8ccb37a267e7b0d3a9a1024db679f9d91e39f518b",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2003,53 +1867,7 @@
       "source": "cauldron/PerpEngine.sol",
       "contract": "IPerpRegistry",
       "artifact": "out/PerpEngine.sol/IPerpRegistry.json",
-      "artifact_sha256": "6e48b7ef499e61270deac1487fdff9b166d1c2f760849d735af9871e87cb1dd0",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/PerpEngine.sol"
-      ],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpVaultStake",
-      "artifact": "out/PerpEngine.sol/IPerpVaultStake.0.8.26.json",
-      "artifact_sha256": "b3824d2a7ce91167fac78811705e8b94227a73a98cb42bd0351e6cdc5b281111",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "IPerpVaultStake",
-      "artifact": "out/PerpEngine.sol/IPerpVaultStake.0.8.30.json",
-      "artifact_sha256": "e7c2997bb2103ec0cd4cbf1cc0451652972c6762e0225eee1d874c8514e58ad6",
+      "artifact_sha256": "d243a8da98a06035325d53372a83961eb8b423e2024891303298da725345273f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2071,7 +1889,7 @@
       "source": "cauldron/PerpEngine.sol",
       "contract": "IPerpVaultStake",
       "artifact": "out/PerpEngine.sol/IPerpVaultStake.json",
-      "artifact_sha256": "89ea27cfa390705d9b16d1a9e79560cd9026fc08135545b0a2f7c26b7cb88754",
+      "artifact_sha256": "95a248b8dceac82c69d772f345a8c534680b6486bbe2d960ceb014087c5adf13",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2080,10 +1898,8 @@
       "viaIR": true,
       "evmVersion": "cancun",
       "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/PerpEngine.sol"
-      ],
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
       "unavailable_inputs": [],
       "runtime_bytes": 0,
       "initcode_bytes_without_args": 0,
@@ -2094,230 +1910,8 @@
     {
       "source": "cauldron/PerpEngine.sol",
       "contract": "PerpEngine",
-      "artifact": "out/PerpEngine.sol/PerpEngine.0.8.26.json",
-      "artifact_sha256": "6d8a8e7b51fccf30992a0a38966a42e229baf7fd8cb46bc45250e32ab9b4fa6e",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 24207,
-      "initcode_bytes_without_args": 26229,
-      "runtime_headroom": 369,
-      "initcode_headroom_without_args": 22923,
-      "link_references": {
-        "cauldron/PerpSwapLib.sol": {
-          "PerpSwapLib": [
-            {
-              "start": 9944,
-              "length": 20
-            },
-            {
-              "start": 10248,
-              "length": 20
-            },
-            {
-              "start": 10709,
-              "length": 20
-            },
-            {
-              "start": 11243,
-              "length": 20
-            },
-            {
-              "start": 12297,
-              "length": 20
-            },
-            {
-              "start": 12629,
-              "length": 20
-            },
-            {
-              "start": 12799,
-              "length": 20
-            },
-            {
-              "start": 13297,
-              "length": 20
-            },
-            {
-              "start": 13626,
-              "length": 20
-            },
-            {
-              "start": 15484,
-              "length": 20
-            },
-            {
-              "start": 16891,
-              "length": 20
-            },
-            {
-              "start": 17700,
-              "length": 20
-            },
-            {
-              "start": 18246,
-              "length": 20
-            },
-            {
-              "start": 18760,
-              "length": 20
-            },
-            {
-              "start": 19167,
-              "length": 20
-            },
-            {
-              "start": 20926,
-              "length": 20
-            },
-            {
-              "start": 21063,
-              "length": 20
-            },
-            {
-              "start": 23017,
-              "length": 20
-            },
-            {
-              "start": 23517,
-              "length": 20
-            },
-            {
-              "start": 24262,
-              "length": 20
-            },
-            {
-              "start": 25588,
-              "length": 20
-            }
-          ]
-        }
-      }
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "PerpEngine",
-      "artifact": "out/PerpEngine.sol/PerpEngine.0.8.30.json",
-      "artifact_sha256": "fd6f6fe1124281ea15e2e3b1178b8fa5dcccabaef7df68388d183dc01b83e816",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 24207,
-      "initcode_bytes_without_args": 26229,
-      "runtime_headroom": 369,
-      "initcode_headroom_without_args": 22923,
-      "link_references": {
-        "cauldron/PerpSwapLib.sol": {
-          "PerpSwapLib": [
-            {
-              "start": 9944,
-              "length": 20
-            },
-            {
-              "start": 10248,
-              "length": 20
-            },
-            {
-              "start": 10709,
-              "length": 20
-            },
-            {
-              "start": 11243,
-              "length": 20
-            },
-            {
-              "start": 12297,
-              "length": 20
-            },
-            {
-              "start": 12629,
-              "length": 20
-            },
-            {
-              "start": 12799,
-              "length": 20
-            },
-            {
-              "start": 13297,
-              "length": 20
-            },
-            {
-              "start": 13626,
-              "length": 20
-            },
-            {
-              "start": 15484,
-              "length": 20
-            },
-            {
-              "start": 16891,
-              "length": 20
-            },
-            {
-              "start": 17700,
-              "length": 20
-            },
-            {
-              "start": 18246,
-              "length": 20
-            },
-            {
-              "start": 18760,
-              "length": 20
-            },
-            {
-              "start": 19167,
-              "length": 20
-            },
-            {
-              "start": 20926,
-              "length": 20
-            },
-            {
-              "start": 21063,
-              "length": 20
-            },
-            {
-              "start": 23017,
-              "length": 20
-            },
-            {
-              "start": 23517,
-              "length": 20
-            },
-            {
-              "start": 24262,
-              "length": 20
-            },
-            {
-              "start": 25588,
-              "length": 20
-            }
-          ]
-        }
-      }
-    },
-    {
-      "source": "cauldron/PerpEngine.sol",
-      "contract": "PerpEngine",
       "artifact": "out/PerpEngine.sol/PerpEngine.json",
-      "artifact_sha256": "9713b4ca7b306b492039b58f4b4fb905a378713f69d8b76464d8c1136b4ce66a",
+      "artifact_sha256": "6e9deaf5776ae272c3f582ea4f9467ce1c2fe3be2f24e9e5cc4aa6396426f0fa",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2326,100 +1920,98 @@
       "viaIR": true,
       "evmVersion": "cancun",
       "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/PerpEngine.sol"
-      ],
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 24168,
-      "initcode_bytes_without_args": 26151,
-      "runtime_headroom": 408,
-      "initcode_headroom_without_args": 23001,
+      "runtime_bytes": 24207,
+      "initcode_bytes_without_args": 26229,
+      "runtime_headroom": 369,
+      "initcode_headroom_without_args": 22923,
       "link_references": {
         "cauldron/PerpSwapLib.sol": {
           "PerpSwapLib": [
             {
-              "start": 9905,
+              "start": 9944,
               "length": 20
             },
             {
-              "start": 10209,
+              "start": 10248,
               "length": 20
             },
             {
-              "start": 10670,
+              "start": 10709,
               "length": 20
             },
             {
-              "start": 11204,
+              "start": 11243,
               "length": 20
             },
             {
-              "start": 12258,
+              "start": 12297,
               "length": 20
             },
             {
-              "start": 12590,
+              "start": 12629,
               "length": 20
             },
             {
-              "start": 12760,
+              "start": 12799,
               "length": 20
             },
             {
-              "start": 13258,
+              "start": 13297,
               "length": 20
             },
             {
-              "start": 13587,
+              "start": 13626,
               "length": 20
             },
             {
-              "start": 15406,
+              "start": 15484,
               "length": 20
             },
             {
-              "start": 16813,
+              "start": 16891,
               "length": 20
             },
             {
-              "start": 17622,
+              "start": 17700,
               "length": 20
             },
             {
-              "start": 18168,
+              "start": 18246,
               "length": 20
             },
             {
-              "start": 18682,
+              "start": 18760,
               "length": 20
             },
             {
-              "start": 19089,
+              "start": 19167,
               "length": 20
             },
             {
-              "start": 20848,
+              "start": 20926,
               "length": 20
             },
             {
-              "start": 20985,
+              "start": 21063,
               "length": 20
             },
             {
-              "start": 22939,
+              "start": 23017,
               "length": 20
             },
             {
-              "start": 23439,
+              "start": 23517,
               "length": 20
             },
             {
-              "start": 24184,
+              "start": 24262,
               "length": 20
             },
             {
-              "start": 25510,
+              "start": 25588,
               "length": 20
             }
           ]
@@ -2430,7 +2022,7 @@
       "source": "cauldron/PerpMarkSource.sol",
       "contract": "PerpMarkSource",
       "artifact": "out/PerpMarkSource.sol/PerpMarkSource.json",
-      "artifact_sha256": "1b95c99c26356d5c9e0169e2ac65a550d3ea75091856e844f9963908f22216a7",
+      "artifact_sha256": "f24ac018ed60c92d53da24a2a69fc8cc7183ec2e4b61586f0e272e2853d67dd4",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2452,7 +2044,7 @@
       "source": "cauldron/PerpStakerOracle.sol",
       "contract": "IPerpShares",
       "artifact": "out/PerpStakerOracle.sol/IPerpShares.json",
-      "artifact_sha256": "9ce64b3c21cb17a61a2c00019965c491c3ec3819cfc3244ee65e443eca028261",
+      "artifact_sha256": "bde854bc48e4c6ad94e4ce63ec809ba7728e379dfb90a472f7ebd429cd375531",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2474,7 +2066,7 @@
       "source": "cauldron/PerpStakerOracle.sol",
       "contract": "PerpStakerOracle",
       "artifact": "out/PerpStakerOracle.sol/PerpStakerOracle.json",
-      "artifact_sha256": "8382c2fe0cace999a2dd7485251a2ab775e002319f3132b0621f44bd34e1d348",
+      "artifact_sha256": "35649df7a2159b06510152db35ce7cf2912c8114b01c098bc69dbb613595ccac",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2606,7 +2198,7 @@
       "source": "cauldron/PerpVault.sol",
       "contract": "IPerpEngineVault",
       "artifact": "out/PerpVault.sol/IPerpEngineVault.json",
-      "artifact_sha256": "c825e25f12276086096c9e6d92336c5de0aad35fcd1d3d7bbaa540a6eeb3348e",
+      "artifact_sha256": "3849839dd14314d3b0b80a06b78150cc3bfbfd671f35179d7996ad188d3dc519",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2628,7 +2220,7 @@
       "source": "cauldron/PerpVault.sol",
       "contract": "IVaultRegistry",
       "artifact": "out/PerpVault.sol/IVaultRegistry.json",
-      "artifact_sha256": "6cb41a7f1cd128e721bea936c3950af90e250559f97b117332abfd0676b7402a",
+      "artifact_sha256": "f22a875e5b6349fcd33e361b83f3530b7b6d04a704fb894de5a7e407c3c6a115",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2650,7 +2242,7 @@
       "source": "cauldron/PerpVault.sol",
       "contract": "PerpVault",
       "artifact": "out/PerpVault.sol/PerpVault.json",
-      "artifact_sha256": "8e4e3c70d1a1d8150a80dd00044a6150fbcb6f642990d5ce131bff2aa1082f84",
+      "artifact_sha256": "c632c7f1f314416385a1e4acfb99091500f764c18e21b03538f26bb64bef4827",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2672,7 +2264,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IAutoFlag",
       "artifact": "out/PoolOps.sol/IAutoFlag.json",
-      "artifact_sha256": "21dc38b0f6cbc52a26ae26ef8af9f0b88f66641c441b2f8857ff33c7c12dc17e",
+      "artifact_sha256": "0e6e98e89d9c86cba01e61bae6e736728fdfe25a5a61d43ea2aa71759bfff6d4",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2694,7 +2286,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "ICauldronBurn",
       "artifact": "out/PoolOps.sol/ICauldronBurn.json",
-      "artifact_sha256": "dfbf1943145c3ffe4411ed8bf641fc23b66ac4c74042158a46c029e86102702d",
+      "artifact_sha256": "3e7288449be96a919955c941327fd3c7767b7c7970ea885d56d208612d3ec9a3",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2716,7 +2308,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IColMinted",
       "artifact": "out/PoolOps.sol/IColMinted.json",
-      "artifact_sha256": "e553de423cdd5950e9ae5c4bb8f42c762ff82622a76592793a3264bc9d4cea54",
+      "artifact_sha256": "b33f1c88ac4ed8366dff3a85ffce179e662c36c3bcc8d4745df1ec9b573ee142",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2738,7 +2330,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "ICollectionOps",
       "artifact": "out/PoolOps.sol/ICollectionOps.json",
-      "artifact_sha256": "002a690b8d1749883748e4bd3769f39aca74377ef787c75638af752550067583",
+      "artifact_sha256": "b822adcca4cdb9698ebe462797fba61876b46f107e33e87a14dfe4c4904a7a6b",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2760,7 +2352,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IHookReserves",
       "artifact": "out/PoolOps.sol/IHookReserves.json",
-      "artifact_sha256": "d3917aac599783c5c7d3b4dc866f7de473256d58372a0a94d369448e49410000",
+      "artifact_sha256": "edb023c8f7decae2b8b08004be4f43913778ca43f96d85da6b8eb986599b8760",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2782,7 +2374,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "ILedgerOps",
       "artifact": "out/PoolOps.sol/ILedgerOps.json",
-      "artifact_sha256": "fda3e66e3d7363628032e9794b2f819f61ba6d69e7ad757e3c6a4f291c6e3d40",
+      "artifact_sha256": "8be49ab9c198d19c0347649fde13d78bd36f33d073bc4d56ef6c399297e3137a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2804,7 +2396,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "ILegacyHookOps",
       "artifact": "out/PoolOps.sol/ILegacyHookOps.json",
-      "artifact_sha256": "92c648a5423676677e59aa057ab8a325c4025d33ca1a5caef165a38e3fd5d2eb",
+      "artifact_sha256": "4211a320df19ded8ad4899e6130b08aebdbf6214c459cb18eeecba4ce47a607f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2826,7 +2418,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IPermit2Ops",
       "artifact": "out/PoolOps.sol/IPermit2Ops.json",
-      "artifact_sha256": "a40ea1f652899b271c82c9a462517ebd66c079fca2f36b77aa1aaa13aecabc0b",
+      "artifact_sha256": "7700b7949f80c7cf778f1555d7c52637c436a1e7eee15be337850eff7be6dedd",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2848,7 +2440,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IPositionManagerOps",
       "artifact": "out/PoolOps.sol/IPositionManagerOps.json",
-      "artifact_sha256": "6e3f1087a2e1eab33a48d5b13b7eaf75ee74834d58b8f1a626d9dc67884405d8",
+      "artifact_sha256": "834c793b2b5c95e5d0cd615d6cc35601dc721815a8f4f697ca77d07c2e08713a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2870,7 +2462,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IVaultCloseOps",
       "artifact": "out/PoolOps.sol/IVaultCloseOps.json",
-      "artifact_sha256": "9018ffd51799d24a34fb0a13e65c579d1323f6e05c6abb07ed904805640b96f6",
+      "artifact_sha256": "724cb96bf43e72c75eb020d10e6972bc5189466e615dd810f96c5a100790d5db",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2892,7 +2484,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "IVaultRedeemedOps",
       "artifact": "out/PoolOps.sol/IVaultRedeemedOps.json",
-      "artifact_sha256": "db4dc06c919c96f831a34bc249e5778d9004867142fa1f8752af68f7f79a8cba",
+      "artifact_sha256": "d468562f4e3c75e40ec0dfebb72b282e624c1da5acff471e67f057aa63c5f290",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2914,7 +2506,7 @@
       "source": "cauldron/PoolOps.sol",
       "contract": "PoolOps",
       "artifact": "out/PoolOps.sol/PoolOps.json",
-      "artifact_sha256": "698ca83853d04732b4c1f8e348887c1f77a054a5cd16a59d733a1b6788610bc3",
+      "artifact_sha256": "77d64286c9146e4458e61c8dc24def5e196066fbfee54c37c153b6fa00f387fc",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -2935,98 +2527,8 @@
     {
       "source": "cauldron/QuoteOracle.sol",
       "contract": "IAggregatorV3",
-      "artifact": "out/QuoteOracle.sol/IAggregatorV3.0.8.26.json",
-      "artifact_sha256": "4d8b1df22e61334cae065801199222c428443db18209c912fe61b9a7dfa510a5",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "IAggregatorV3",
-      "artifact": "out/QuoteOracle.sol/IAggregatorV3.0.8.30.json",
-      "artifact_sha256": "2a8ac2086ef4838ced2b976c1bb6ce4dd4fd87d70b143d47b03f740047afc586",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "IAggregatorV3",
       "artifact": "out/QuoteOracle.sol/IAggregatorV3.json",
-      "artifact_sha256": "579066664c8800bf4d9c2d3e24cf46b111eafa80a47852a8c616de451ba0a3a0",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/QuoteOracle.sol"
-      ],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "IERC20Decimals",
-      "artifact": "out/QuoteOracle.sol/IERC20Decimals.0.8.26.json",
-      "artifact_sha256": "625ce577aecee84e37a6f91793d853f8abe3b7cc0f2fec6ae4eb3e873ba72dd0",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 0,
-      "initcode_bytes_without_args": 0,
-      "runtime_headroom": 24576,
-      "initcode_headroom_without_args": 49152,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "IERC20Decimals",
-      "artifact": "out/QuoteOracle.sol/IERC20Decimals.0.8.30.json",
-      "artifact_sha256": "0a684ddf45b7cc71e099353787c59c696b086fc8f0316868a02624b549568c07",
+      "artifact_sha256": "fca1bd89b7e6429079e936d86de87eb313c9b6f64b422b11a785a99640435a5a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3048,7 +2550,7 @@
       "source": "cauldron/QuoteOracle.sol",
       "contract": "IERC20Decimals",
       "artifact": "out/QuoteOracle.sol/IERC20Decimals.json",
-      "artifact_sha256": "c22d77807018432fc3a46c57969974eb9442b8c825ff961306360ebaf08b332b",
+      "artifact_sha256": "fd8ab6cbded3eb0da1dbcf8feeed00a6b99b9d53e9d5415408a7ad4bfcc18bc6",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3057,10 +2559,8 @@
       "viaIR": true,
       "evmVersion": "cancun",
       "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/QuoteOracle.sol"
-      ],
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
       "unavailable_inputs": [],
       "runtime_bytes": 0,
       "initcode_bytes_without_args": 0,
@@ -3071,52 +2571,8 @@
     {
       "source": "cauldron/QuoteOracle.sol",
       "contract": "QuoteOracle",
-      "artifact": "out/QuoteOracle.sol/QuoteOracle.0.8.26.json",
-      "artifact_sha256": "f8827fbe74f3c48bc9f41f1484a3fdb930dfbf7db99c5b183351536d8f497206",
-      "compiler": "0.8.26+commit.8a97fa7a",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 3970,
-      "initcode_bytes_without_args": 4128,
-      "runtime_headroom": 20606,
-      "initcode_headroom_without_args": 45024,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "QuoteOracle",
-      "artifact": "out/QuoteOracle.sol/QuoteOracle.0.8.30.json",
-      "artifact_sha256": "7b83ecbf5c6037c1b10d955e06843e01a2038c73f8255b7b47f15fe154fbcef6",
-      "compiler": "0.8.30+commit.73712a01",
-      "optimizer": {
-        "enabled": true,
-        "runs": 1
-      },
-      "viaIR": true,
-      "evmVersion": "cancun",
-      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": true,
-      "mismatched_inputs": [],
-      "unavailable_inputs": [],
-      "runtime_bytes": 3970,
-      "initcode_bytes_without_args": 4128,
-      "runtime_headroom": 20606,
-      "initcode_headroom_without_args": 45024,
-      "link_references": {}
-    },
-    {
-      "source": "cauldron/QuoteOracle.sol",
-      "contract": "QuoteOracle",
       "artifact": "out/QuoteOracle.sol/QuoteOracle.json",
-      "artifact_sha256": "f05cb19094dd66b4b793a90375192851d596768c8f081fb432908d6f881522ad",
+      "artifact_sha256": "05cb723ff80377ad63cd7946018d50606ddbc5cbacc29513256e2672eebbf6ce",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3125,22 +2581,20 @@
       "viaIR": true,
       "evmVersion": "cancun",
       "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
-      "all_metadata_inputs_match": false,
-      "mismatched_inputs": [
-        "cauldron/QuoteOracle.sol"
-      ],
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 3821,
-      "initcode_bytes_without_args": 3979,
-      "runtime_headroom": 20755,
-      "initcode_headroom_without_args": 45173,
+      "runtime_bytes": 3970,
+      "initcode_bytes_without_args": 4128,
+      "runtime_headroom": 20606,
+      "initcode_headroom_without_args": 45024,
       "link_references": {}
     },
     {
       "source": "cauldron/QuoteRotator.sol",
       "contract": "QuoteRotator",
       "artifact": "out/QuoteRotator.sol/QuoteRotator.json",
-      "artifact_sha256": "01e495d7021962ab517304022e16da50dfdfd70e0647b90a5b11eb5df617fd05",
+      "artifact_sha256": "260c94abbe3629e6f55a57f99bed8fb25fe91e5f358914d1c05cd20ca52cf908",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3162,7 +2616,7 @@
       "source": "cauldron/RedemptionExt.sol",
       "contract": "IHookVolume",
       "artifact": "out/RedemptionExt.sol/IHookVolume.json",
-      "artifact_sha256": "59d25bb03aaab91e258aa9fdf1b2b000a154967983d1beb5be4eb4518d48a2d0",
+      "artifact_sha256": "cf81c6a4e4735ddba6596390c81cf9a5a373c9770fd3a48470a3afbafaf00af8",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3170,7 +2624,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d60",
+      "source_sha256": "c551b4a87f40bb62a4fc93e06ac53b009b493b948a976c9f8e095e928b156738",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3184,7 +2638,7 @@
       "source": "cauldron/RedemptionExt.sol",
       "contract": "IQuoteRotator",
       "artifact": "out/RedemptionExt.sol/IQuoteRotator.json",
-      "artifact_sha256": "802dab40dbb2fa199bbdfcb1b8e5f92bbaa5055e2040d53b1b80b011bbed4450",
+      "artifact_sha256": "2b5a6cb50f6417af72c5b8633170bd62e9afc92205274ceda4553556210e8fdc",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3192,7 +2646,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d60",
+      "source_sha256": "c551b4a87f40bb62a4fc93e06ac53b009b493b948a976c9f8e095e928b156738",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3206,7 +2660,7 @@
       "source": "cauldron/RedemptionExt.sol",
       "contract": "ITreasuryGovernor",
       "artifact": "out/RedemptionExt.sol/ITreasuryGovernor.json",
-      "artifact_sha256": "31199713f3d8eb58996511767c52ea309d2e1ce008ddf7b0a9458a76b12d3631",
+      "artifact_sha256": "897e99a9867f06b0bff82485526bcbb167e345288cca78f95d86be67970b222b",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3214,7 +2668,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d60",
+      "source_sha256": "c551b4a87f40bb62a4fc93e06ac53b009b493b948a976c9f8e095e928b156738",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3228,7 +2682,7 @@
       "source": "cauldron/RedemptionExt.sol",
       "contract": "RedemptionExt",
       "artifact": "out/RedemptionExt.sol/RedemptionExt.json",
-      "artifact_sha256": "3388f8c71535116f36c1e3277b7adb38e58707e4a5cd38e81b97022fb1d31533",
+      "artifact_sha256": "db4c3b7aabeef966e84d71bdd340171935d9912710d9bfffa1c85cccd398ed7a",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3236,47 +2690,59 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d60",
+      "source_sha256": "c551b4a87f40bb62a4fc93e06ac53b009b493b948a976c9f8e095e928b156738",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 16334,
-      "initcode_bytes_without_args": 16537,
-      "runtime_headroom": 8242,
-      "initcode_headroom_without_args": 32615,
+      "runtime_bytes": 17250,
+      "initcode_bytes_without_args": 17453,
+      "runtime_headroom": 7326,
+      "initcode_headroom_without_args": 31699,
       "link_references": {
         "cauldron/PoolOps.sol": {
           "PoolOps": [
             {
-              "start": 1805,
+              "start": 1816,
               "length": 20
             },
             {
-              "start": 4086,
+              "start": 4097,
               "length": 20
             },
             {
-              "start": 5087,
+              "start": 5098,
               "length": 20
             },
             {
-              "start": 6071,
+              "start": 6082,
               "length": 20
             },
             {
-              "start": 9079,
+              "start": 9095,
               "length": 20
             },
             {
-              "start": 11772,
+              "start": 11555,
               "length": 20
             },
             {
-              "start": 14702,
+              "start": 12060,
               "length": 20
             },
             {
-              "start": 16117,
+              "start": 12202,
+              "length": 20
+            },
+            {
+              "start": 12668,
+              "length": 20
+            },
+            {
+              "start": 15618,
+              "length": 20
+            },
+            {
+              "start": 17033,
               "length": 20
             }
           ]
@@ -3353,7 +2819,7 @@
       "source": "cauldron/RoyaltyRouter.sol",
       "contract": "RoyaltyRouter",
       "artifact": "out/RoyaltyRouter.sol/RoyaltyRouter.json",
-      "artifact_sha256": "8acc3f192f8a5fa8cd9d75b499522f553592177e02fa5257d00fbe47fd3ab03c",
+      "artifact_sha256": "f8e63e3d1c651e81d000ce94fcb3de51288b030ea4e3b39a066da86746b253e4",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3397,7 +2863,7 @@
       "source": "cauldron/SurtaxLib.sol",
       "contract": "SurtaxLib",
       "artifact": "out/SurtaxLib.sol/SurtaxLib.json",
-      "artifact_sha256": "3d5ace4394ca5334adb1cbf9f480db402eb8b648ba72bb3fd6fa5ae87ff3cdbf",
+      "artifact_sha256": "42000c1170771be65cf220e1a2902dcabe5dc3def674e75e70d167dcce828f11",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3419,7 +2885,7 @@
       "source": "cauldron/TreasuryGovernor.sol",
       "contract": "IQuotePrice",
       "artifact": "out/TreasuryGovernor.sol/IQuotePrice.json",
-      "artifact_sha256": "e920b2384f5a3e73f029439f762919b3d9963cc4a24736b9eef08454e8440603",
+      "artifact_sha256": "b5481e4ec6e86054d558380a4944464b170a1421f29c394ccaefbd78c9d3e974",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3427,7 +2893,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "source_sha256": "6704bbb30c34a9a202b6ac183bf3564d87179c16bf597dff510a80242a49b984",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3441,7 +2907,7 @@
       "source": "cauldron/TreasuryGovernor.sol",
       "contract": "IRegistryQuotes",
       "artifact": "out/TreasuryGovernor.sol/IRegistryQuotes.json",
-      "artifact_sha256": "a86ea0945964d27466e8c5f7d96cde011fbe7f514101b928b15a672c976bf204",
+      "artifact_sha256": "fc14c16be2db54d82b804c52fccda96a6eef377101753489d31a1025a5b3cc9f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3449,7 +2915,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "source_sha256": "6704bbb30c34a9a202b6ac183bf3564d87179c16bf597dff510a80242a49b984",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3463,7 +2929,7 @@
       "source": "cauldron/TreasuryGovernor.sol",
       "contract": "IVotes721",
       "artifact": "out/TreasuryGovernor.sol/IVotes721.json",
-      "artifact_sha256": "ce60dd7ef306399b3d67aa8e30bd046ca09f47790bbf9271b6ab6a09c38cfa7c",
+      "artifact_sha256": "3e336567df113b188ef24d13ff24c46d4c52e5ac757d75c0f901c71f63ae9ce1",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3471,7 +2937,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "source_sha256": "6704bbb30c34a9a202b6ac183bf3564d87179c16bf597dff510a80242a49b984",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -3485,7 +2951,7 @@
       "source": "cauldron/TreasuryGovernor.sol",
       "contract": "TreasuryGovernor",
       "artifact": "out/TreasuryGovernor.sol/TreasuryGovernor.json",
-      "artifact_sha256": "6688ac2a7ec4d7f18c4712d29597925f6ef1aa32a0b9dc0e789dbd17f7265cf6",
+      "artifact_sha256": "df90e0953514b00d1610483c27de01defae4f911b422a7dac8629eb6c34c56fc",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3493,14 +2959,14 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "source_sha256": "6704bbb30c34a9a202b6ac183bf3564d87179c16bf597dff510a80242a49b984",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 6878,
-      "initcode_bytes_without_args": 7661,
-      "runtime_headroom": 17698,
-      "initcode_headroom_without_args": 41491,
+      "runtime_bytes": 6938,
+      "initcode_bytes_without_args": 7721,
+      "runtime_headroom": 17638,
+      "initcode_headroom_without_args": 41431,
       "link_references": {}
     },
     {
@@ -3529,7 +2995,7 @@
       "source": "deploy/DeployCauldron.s.sol",
       "contract": "DeployCauldron",
       "artifact": "out/DeployCauldron.s.sol/DeployCauldron.json",
-      "artifact_sha256": "be7c9a5c6644ae07fdd54d24ce80ebbf96cb30b8082cc7229b6de0e414fc2c50",
+      "artifact_sha256": "7345358fa6f9dec0a5d3945cf7d519053cfa9fa2e5df9f6155196101e003cc3d",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3541,10 +3007,10 @@
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 70577,
-      "initcode_bytes_without_args": 70622,
-      "runtime_headroom": -46001,
-      "initcode_headroom_without_args": -21470,
+      "runtime_bytes": 71219,
+      "initcode_bytes_without_args": 71264,
+      "runtime_headroom": -46643,
+      "initcode_headroom_without_args": -22112,
       "link_references": {
         "cauldron/FeeRouteLib.sol": {
           "FeeRouteLib": [
@@ -3557,19 +3023,19 @@
               "length": 20
             },
             {
-              "start": 25083,
+              "start": 25020,
               "length": 20
             },
             {
-              "start": 25372,
+              "start": 25309,
               "length": 20
             },
             {
-              "start": 26124,
+              "start": 26061,
               "length": 20
             },
             {
-              "start": 27452,
+              "start": 27389,
               "length": 20
             }
           ]
@@ -3589,7 +3055,7 @@
         "cauldron/LegacyBuyLib.sol": {
           "LegacyBuyLib": [
             {
-              "start": 18864,
+              "start": 18815,
               "length": 20
             }
           ]
@@ -3597,95 +3063,107 @@
         "cauldron/PoolOps.sol": {
           "PoolOps": [
             {
-              "start": 33516,
+              "start": 33223,
               "length": 20
             },
             {
-              "start": 35657,
+              "start": 35369,
               "length": 20
             },
             {
-              "start": 37507,
+              "start": 37219,
               "length": 20
             },
             {
-              "start": 39989,
+              "start": 39715,
               "length": 20
             },
             {
-              "start": 41194,
+              "start": 40920,
               "length": 20
             },
             {
-              "start": 41892,
+              "start": 41618,
               "length": 20
             },
             {
-              "start": 47156,
+              "start": 46882,
               "length": 20
             },
             {
-              "start": 48685,
+              "start": 48073,
               "length": 20
             },
             {
-              "start": 48789,
+              "start": 48267,
               "length": 20
             },
             {
-              "start": 49124,
+              "start": 48968,
               "length": 20
             },
             {
-              "start": 49318,
+              "start": 49340,
               "length": 20
             },
             {
-              "start": 50019,
+              "start": 51696,
               "length": 20
             },
             {
-              "start": 50391,
+              "start": 51800,
               "length": 20
             },
             {
-              "start": 52459,
+              "start": 52185,
               "length": 20
             },
             {
-              "start": 53323,
+              "start": 53049,
               "length": 20
             },
             {
-              "start": 55805,
+              "start": 55542,
               "length": 20
             },
             {
-              "start": 58086,
+              "start": 57823,
               "length": 20
             },
             {
-              "start": 59087,
+              "start": 58824,
               "length": 20
             },
             {
-              "start": 60071,
+              "start": 59808,
               "length": 20
             },
             {
-              "start": 63079,
+              "start": 62821,
               "length": 20
             },
             {
-              "start": 65772,
+              "start": 65281,
               "length": 20
             },
             {
-              "start": 68702,
+              "start": 65786,
               "length": 20
             },
             {
-              "start": 70117,
+              "start": 65928,
+              "length": 20
+            },
+            {
+              "start": 66394,
+              "length": 20
+            },
+            {
+              "start": 69344,
+              "length": 20
+            },
+            {
+              "start": 70759,
               "length": 20
             }
           ]
@@ -3693,7 +3171,7 @@
         "cauldron/SurtaxLib.sol": {
           "SurtaxLib": [
             {
-              "start": 17801,
+              "start": 17752,
               "length": 20
             }
           ]
@@ -3770,7 +3248,7 @@
       "source": "deploy/DeployLaunchpad.s.sol",
       "contract": "DeployLaunchpad",
       "artifact": "out/DeployLaunchpad.s.sol/DeployLaunchpad.json",
-      "artifact_sha256": "6d643300b4f4acec0414cffd54305117cd61cf01520a3cb1b6b22d3675a86321",
+      "artifact_sha256": "3fa1ee4f8e1551406663790185bffd6d790518925474509dd5cf49c2c63cd767",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3782,10 +3260,10 @@
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 239814,
-      "initcode_bytes_without_args": 239859,
-      "runtime_headroom": -215238,
-      "initcode_headroom_without_args": -190707,
+      "runtime_bytes": 240531,
+      "initcode_bytes_without_args": 240576,
+      "runtime_headroom": -215955,
+      "initcode_headroom_without_args": -191424,
       "link_references": {
         "cauldron/FeeRouteLib.sol": {
           "FeeRouteLib": [
@@ -3798,19 +3276,19 @@
               "length": 20
             },
             {
-              "start": 84781,
+              "start": 84718,
               "length": 20
             },
             {
-              "start": 85070,
+              "start": 85007,
               "length": 20
             },
             {
-              "start": 85822,
+              "start": 85759,
               "length": 20
             },
             {
-              "start": 87150,
+              "start": 87087,
               "length": 20
             }
           ]
@@ -3830,7 +3308,7 @@
         "cauldron/LegacyBuyLib.sol": {
           "LegacyBuyLib": [
             {
-              "start": 78562,
+              "start": 78513,
               "length": 20
             }
           ]
@@ -3838,103 +3316,115 @@
         "cauldron/PoolOps.sol": {
           "PoolOps": [
             {
-              "start": 93214,
+              "start": 92921,
               "length": 20
             },
             {
-              "start": 95355,
+              "start": 95067,
               "length": 20
             },
             {
-              "start": 97205,
+              "start": 96917,
               "length": 20
             },
             {
-              "start": 99687,
+              "start": 99413,
               "length": 20
             },
             {
-              "start": 100892,
+              "start": 100618,
               "length": 20
             },
             {
-              "start": 101590,
+              "start": 101316,
               "length": 20
             },
             {
-              "start": 106854,
+              "start": 106580,
               "length": 20
             },
             {
-              "start": 108383,
+              "start": 107771,
               "length": 20
             },
             {
-              "start": 108487,
+              "start": 107965,
               "length": 20
             },
             {
-              "start": 108822,
+              "start": 108666,
               "length": 20
             },
             {
-              "start": 109016,
+              "start": 109038,
               "length": 20
             },
             {
-              "start": 109717,
+              "start": 111394,
               "length": 20
             },
             {
-              "start": 110089,
+              "start": 111498,
               "length": 20
             },
             {
-              "start": 112157,
+              "start": 111883,
               "length": 20
             },
             {
-              "start": 113021,
+              "start": 112747,
               "length": 20
             },
             {
-              "start": 115503,
+              "start": 115240,
               "length": 20
             },
             {
-              "start": 117784,
+              "start": 117521,
               "length": 20
             },
             {
-              "start": 118785,
+              "start": 118522,
               "length": 20
             },
             {
-              "start": 119769,
+              "start": 119506,
               "length": 20
             },
             {
-              "start": 122777,
+              "start": 122519,
               "length": 20
             },
             {
-              "start": 125470,
+              "start": 124979,
               "length": 20
             },
             {
-              "start": 128400,
+              "start": 125484,
               "length": 20
             },
             {
-              "start": 129815,
+              "start": 125626,
               "length": 20
             },
             {
-              "start": 232913,
+              "start": 126092,
               "length": 20
             },
             {
-              "start": 235196,
+              "start": 129042,
+              "length": 20
+            },
+            {
+              "start": 130457,
+              "length": 20
+            },
+            {
+              "start": 233629,
+              "length": 20
+            },
+            {
+              "start": 235913,
               "length": 20
             }
           ]
@@ -3942,7 +3432,7 @@
         "cauldron/SurtaxLib.sol": {
           "SurtaxLib": [
             {
-              "start": 77499,
+              "start": 77450,
               "length": 20
             }
           ]
@@ -3953,7 +3443,7 @@
       "source": "deploy/DeployLaunchpad.s.sol",
       "contract": "IOwnable",
       "artifact": "out/DeployLaunchpad.s.sol/IOwnable.json",
-      "artifact_sha256": "6ad3f7b292caba75b56b5c25226ea267e351b02a852b937d7b59373edd5aa4fb",
+      "artifact_sha256": "4753e8afa67990ed7ad96834a37dda4b8ac5fad6ad367a435f3a513f01ecad43",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3975,7 +3465,7 @@
       "source": "deploy/DeployMigrationVesting.s.sol",
       "contract": "DeployMigrationVesting",
       "artifact": "out/DeployMigrationVesting.s.sol/DeployMigrationVesting.json",
-      "artifact_sha256": "79e127a6a294bba3c9f601110c7a48947f82961cb9471dc57537c1b080b26f42",
+      "artifact_sha256": "9cf753da14798a5306b17e7cfc579393d35c07b66ece5fdd42e9e797bbc471cf",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -3983,21 +3473,21 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "source_sha256": "8424c34915f634500c7699b950c84ae967a712f3ac82daf2e28adf7fb35efd54",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 9780,
-      "initcode_bytes_without_args": 9823,
-      "runtime_headroom": 14796,
-      "initcode_headroom_without_args": 39329,
+      "runtime_bytes": 10294,
+      "initcode_bytes_without_args": 10337,
+      "runtime_headroom": 14282,
+      "initcode_headroom_without_args": 38815,
       "link_references": {}
     },
     {
       "source": "deploy/DeployMigrationVesting.s.sol",
       "contract": "IEngineVault",
       "artifact": "out/DeployMigrationVesting.s.sol/IEngineVault.json",
-      "artifact_sha256": "91b661f78a0a7b9fed0917445d51305a507c968e5e424b560944e50fa0b122c6",
+      "artifact_sha256": "baba2fe9f0a6f9e99ad0cb4125313705dc298eb0df28510450ac9799fd51806b",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4005,7 +3495,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "source_sha256": "8424c34915f634500c7699b950c84ae967a712f3ac82daf2e28adf7fb35efd54",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4019,7 +3509,7 @@
       "source": "deploy/DeployMigrationVesting.s.sol",
       "contract": "IHookPerp",
       "artifact": "out/DeployMigrationVesting.s.sol/IHookPerp.json",
-      "artifact_sha256": "14590ece0aae3cfc688dd9afddde5f094982f61ea636296f7a91db7e2db2aa47",
+      "artifact_sha256": "ef48a1fd282dfb23936d66dadc5c0a81962e3d340da881e7c5a95ace5db38a38",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4027,7 +3517,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "source_sha256": "8424c34915f634500c7699b950c84ae967a712f3ac82daf2e28adf7fb35efd54",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4041,7 +3531,7 @@
       "source": "deploy/DeployMigrationVesting.s.sol",
       "contract": "IRegistryGate",
       "artifact": "out/DeployMigrationVesting.s.sol/IRegistryGate.json",
-      "artifact_sha256": "c3379ec8b10a2f50f2a675edda43a12b05579377b4dd23d6c0b1c821de43a911",
+      "artifact_sha256": "59e6f8c3b3f5f9c52e7c6c5ed1b1144bc9a1a3eb245211c74f6435a6d3ab2d16",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4049,7 +3539,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "source_sha256": "8424c34915f634500c7699b950c84ae967a712f3ac82daf2e28adf7fb35efd54",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4063,7 +3553,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "DeployPerp",
       "artifact": "out/DeployPerp.s.sol/DeployPerp.json",
-      "artifact_sha256": "a3467c58b20016cbded2cad13567dbe654561a362ff8dc16c8b70cfec2c647de",
+      "artifact_sha256": "0e7c36d9a60299b5fb38ad03be5f6371f9946c196c6802783e1de0427d305656",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4174,7 +3664,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "ICollLiq",
       "artifact": "out/DeployPerp.s.sol/ICollLiq.json",
-      "artifact_sha256": "33f549b7d6b3e78e5abfb48b5f7c94fdb26d0804875f6d81190670eed8c04193",
+      "artifact_sha256": "37f95242df916fd45775d5117b86d0bd21bbd3204574364fa6b5600eeb0fa5f8",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4196,7 +3686,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "IHookWire",
       "artifact": "out/DeployPerp.s.sol/IHookWire.json",
-      "artifact_sha256": "5b45ee565563647d3df22788be5dca71731452b7c28bee2fa76b652d95259c7a",
+      "artifact_sha256": "b8ed9bfab9976218e4bbff360de7e54fb878e3c7e764cc319256fa22eda61526",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4218,7 +3708,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "IOwnable",
       "artifact": "out/DeployPerp.s.sol/IOwnable.json",
-      "artifact_sha256": "d24ecdefbbb0575c35c5522598797719212b86dc514698688d31e15b57318809",
+      "artifact_sha256": "c0d21df83b80b752d63a502411e2f236b489d1a278510f5adc16b633e468d0c5",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4240,7 +3730,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "IPerpVaultDeposit",
       "artifact": "out/DeployPerp.s.sol/IPerpVaultDeposit.json",
-      "artifact_sha256": "80db231a2e3b6ea39b5619c3864ae5c734afddce9096c295efffad3cf8e4997f",
+      "artifact_sha256": "51d95c9404b8109fe169cdd32841bc9afb3d3d885aa19cecc31b04600d281ad6",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4262,7 +3752,7 @@
       "source": "deploy/DeployPerp.s.sol",
       "contract": "IRegistryGen",
       "artifact": "out/DeployPerp.s.sol/IRegistryGen.json",
-      "artifact_sha256": "11f2c0f1c06c156eedf18480337fa42bf098feff37bdbd8f54bc76ba8309adcc",
+      "artifact_sha256": "2aea2a03b776cb703e5c2899085f831115a73fc91f267b97451b6593c97db53e",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4328,7 +3818,7 @@
       "source": "deploy/DeployRenderer.s.sol",
       "contract": "DeployRenderer",
       "artifact": "../../audit/SOLIDITY_REAUDIT_2026-09-23/remediation/renderer-artifacts/DeployRenderer.s.sol/DeployRenderer.json",
-      "artifact_sha256": "620d2cffe73ac7d993edfb66cdc2f01ff2be67857cc6834385425a55100e536d",
+      "artifact_sha256": "ce5c18f194b0a2d12b0ecdbdb931c95512cc8b2ad64047a37a144684cad1a203",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4340,17 +3830,17 @@
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 14493,
-      "initcode_bytes_without_args": 14536,
-      "runtime_headroom": 10083,
-      "initcode_headroom_without_args": 34616,
+      "runtime_bytes": 14620,
+      "initcode_bytes_without_args": 14663,
+      "runtime_headroom": 9956,
+      "initcode_headroom_without_args": 34489,
       "link_references": {}
     },
     {
       "source": "deploy/DeployRenderer.s.sol",
       "contract": "IPegRenderer",
       "artifact": "../../audit/SOLIDITY_REAUDIT_2026-09-23/remediation/renderer-artifacts/DeployRenderer.s.sol/IPegRenderer.json",
-      "artifact_sha256": "2059d880d886683a0a0244a582d13e0fce773c3f42806c54b5e7d2df9d9ad945",
+      "artifact_sha256": "7dc10bfab1fc3b3386846d2e813124605353db776301b58b4450df61d3955680",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4372,7 +3862,7 @@
       "source": "deploy/DeployRotationStack.s.sol",
       "contract": "DeployRotationStack",
       "artifact": "out/DeployRotationStack.s.sol/DeployRotationStack.json",
-      "artifact_sha256": "771edd740f51dd290df6dbb754aceeaba555bd60e6687779b3cfab7cf1220f0c",
+      "artifact_sha256": "44e72c662213f6036eac3d733c472c22a57b47f823913efdc32c7c0b52010a2f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4380,23 +3870,23 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "source_sha256": "f353e393b183092e528e52e6279a8d7c9eef888a33e8b8b15ea1d6e39dae3b7a",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 36150,
-      "initcode_bytes_without_args": 36193,
-      "runtime_headroom": -11574,
-      "initcode_headroom_without_args": 12959,
+      "runtime_bytes": 36211,
+      "initcode_bytes_without_args": 36254,
+      "runtime_headroom": -11635,
+      "initcode_headroom_without_args": 12898,
       "link_references": {
         "cauldron/PoolOps.sol": {
           "PoolOps": [
             {
-              "start": 31714,
+              "start": 31774,
               "length": 20
             },
             {
-              "start": 33997,
+              "start": 34058,
               "length": 20
             }
           ]
@@ -4407,7 +3897,7 @@
       "source": "deploy/DeployRotationStack.s.sol",
       "contract": "IPermit2Approve",
       "artifact": "out/DeployRotationStack.s.sol/IPermit2Approve.json",
-      "artifact_sha256": "6fb649ec763e15544903ae6e0a9999e4759da18393dfba018260adbeb223b45c",
+      "artifact_sha256": "6794b4719502f3e24339af4d20b164ed0586e799b7c2e703abd7338a1d8dcf4d",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4415,7 +3905,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "source_sha256": "f353e393b183092e528e52e6279a8d7c9eef888a33e8b8b15ea1d6e39dae3b7a",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4429,7 +3919,7 @@
       "source": "deploy/DeployRotationStack.s.sol",
       "contract": "IRegistryAdmin",
       "artifact": "out/DeployRotationStack.s.sol/IRegistryAdmin.json",
-      "artifact_sha256": "42cf28938bc311d44a3e57524ab57f9c843049a7abdc5ba85ca4582b717a98d9",
+      "artifact_sha256": "1ed95763a33953865eabffbd846a0c8eaaf09d5b637a8b707f98bd4b4c8ed950",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4437,7 +3927,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "source_sha256": "f353e393b183092e528e52e6279a8d7c9eef888a33e8b8b15ea1d6e39dae3b7a",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4451,7 +3941,7 @@
       "source": "deploy/DeployRotationStack.s.sol",
       "contract": "VenueSeeder",
       "artifact": "out/DeployRotationStack.s.sol/VenueSeeder.json",
-      "artifact_sha256": "f27916251d43a95e4be53783cb455db1362b90abc4a92e3f780e97a9ae032293",
+      "artifact_sha256": "368eb168b1dae3499712ac2cee26a2e117552f46e7fde407ac997a83096b8f38",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4459,14 +3949,14 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "source_sha256": "f353e393b183092e528e52e6279a8d7c9eef888a33e8b8b15ea1d6e39dae3b7a",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 5294,
-      "initcode_bytes_without_args": 5353,
-      "runtime_headroom": 19282,
-      "initcode_headroom_without_args": 43799,
+      "runtime_bytes": 5295,
+      "initcode_bytes_without_args": 5354,
+      "runtime_headroom": 19281,
+      "initcode_headroom_without_args": 43798,
       "link_references": {
         "cauldron/PoolOps.sol": {
           "PoolOps": [
@@ -4475,7 +3965,7 @@
               "length": 20
             },
             {
-              "start": 3242,
+              "start": 3243,
               "length": 20
             }
           ]
@@ -4508,7 +3998,7 @@
       "source": "deploy/FixFactoryWiring.s.sol",
       "contract": "FixFactoryWiring",
       "artifact": "out/FixFactoryWiring.s.sol/FixFactoryWiring.json",
-      "artifact_sha256": "f3e24ef9676ad108924b418ad49e3ee7d41a29f8d40d9fdd76c2440c60c03cf6",
+      "artifact_sha256": "5c9d8bb3e666cb5eac234d16a61b74537965ef70e3ea9249bb199622f5a2e5f9",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4516,21 +4006,21 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "source_sha256": "d9a051150a09659416bebeeb4d2057597a82ed24bc6f0d495984403754ee7175",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 22898,
-      "initcode_bytes_without_args": 22941,
-      "runtime_headroom": 1678,
-      "initcode_headroom_without_args": 26211,
+      "runtime_bytes": 22947,
+      "initcode_bytes_without_args": 22990,
+      "runtime_headroom": 1629,
+      "initcode_headroom_without_args": 26162,
       "link_references": {}
     },
     {
       "source": "deploy/FixFactoryWiring.s.sol",
       "contract": "IRegistryFactoryAdmin",
       "artifact": "out/FixFactoryWiring.s.sol/IRegistryFactoryAdmin.json",
-      "artifact_sha256": "4da046430def1c8260342cf5c72fb702925d83a4125685c91da18bcb29927b73",
+      "artifact_sha256": "6aa4f3bfa01e7165c7699b84c82127f47271eda0a82dbf55b3bbabb79607ab6f",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4538,7 +4028,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "source_sha256": "d9a051150a09659416bebeeb4d2057597a82ed24bc6f0d495984403754ee7175",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4552,7 +4042,7 @@
       "source": "deploy/FixFactoryWiring.s.sol",
       "contract": "ITimelock",
       "artifact": "out/FixFactoryWiring.s.sol/ITimelock.json",
-      "artifact_sha256": "cb0fcce68e39cb1dbd07861e36ba373efb2a3ae10c020e6ac98210fc305e16bb",
+      "artifact_sha256": "ba3d93955678680b26a23dfbc81d21bb5ead17c80139c5de7c065f2ce2e532dd",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4560,7 +4050,7 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "source_sha256": "d9a051150a09659416bebeeb4d2057597a82ed24bc6f0d495984403754ee7175",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
@@ -4750,7 +4240,7 @@
       "source": "deploy/TopUpVenue.s.sol",
       "contract": "RecoverVenue",
       "artifact": "out/TopUpVenue.s.sol/RecoverVenue.json",
-      "artifact_sha256": "d581b675929e2cdf36fad9d710c3efb007c96cc2065d642ce9735eb105b50eef",
+      "artifact_sha256": "f88c9f48b742840b433de6df79b866abc3a4c9215395526e685fa8896022ccbf",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4772,7 +4262,7 @@
       "source": "deploy/TopUpVenue.s.sol",
       "contract": "TopUpVenue",
       "artifact": "out/TopUpVenue.s.sol/TopUpVenue.json",
-      "artifact_sha256": "32ec6332f2b5825022865ee911039b6a7d489f00d942d571038842dc76ea9a10",
+      "artifact_sha256": "f88233eb0f19a00ac34bfc04a6842acc036038f1448ae873324c0be7d580bf56",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4784,10 +4274,10 @@
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 8018,
-      "initcode_bytes_without_args": 8061,
-      "runtime_headroom": 16558,
-      "initcode_headroom_without_args": 41091,
+      "runtime_bytes": 8019,
+      "initcode_bytes_without_args": 8062,
+      "runtime_headroom": 16557,
+      "initcode_headroom_without_args": 41090,
       "link_references": {
         "cauldron/PoolOps.sol": {
           "PoolOps": [
@@ -4796,7 +4286,7 @@
               "length": 20
             },
             {
-              "start": 5865,
+              "start": 5866,
               "length": 20
             }
           ]
@@ -4829,7 +4319,7 @@
       "source": "render/FrenRenderer.sol",
       "contract": "FrenRenderer",
       "artifact": "../../audit/SOLIDITY_REAUDIT_2026-09-23/remediation/renderer-artifacts/FrenRenderer.sol/FrenRenderer.json",
-      "artifact_sha256": "11884a37dbe8e3b25c2813770bd1ca0288950fd068608b88cb37a2bddc683ea0",
+      "artifact_sha256": "45de5a943f625f70024179bec6210f8f6d77c982b853b243261e850ee1111520",
       "compiler": "0.8.30+commit.73712a01",
       "optimizer": {
         "enabled": true,
@@ -4837,14 +4327,14 @@
       },
       "viaIR": true,
       "evmVersion": "cancun",
-      "source_sha256": "1cfeefe97d5e90f72ae76b74744a5eaa55e384f56530594ee885d0bc078ecd0f",
+      "source_sha256": "9bc5a2098b3bbd4eb9befe9dee63269a40edc608c9ef3c4bfc7628fc28f5300b",
       "all_metadata_inputs_match": true,
       "mismatched_inputs": [],
       "unavailable_inputs": [],
-      "runtime_bytes": 7266,
-      "initcode_bytes_without_args": 7425,
-      "runtime_headroom": 17310,
-      "initcode_headroom_without_args": 41727,
+      "runtime_bytes": 7393,
+      "initcode_bytes_without_args": 7552,
+      "runtime_headroom": 17183,
+      "initcode_headroom_without_args": 41600,
       "link_references": {}
     },
     {

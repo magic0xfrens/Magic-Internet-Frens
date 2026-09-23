@@ -152,3 +152,17 @@ successfully on the local chain; the lifecycle (presale, ignition, trade, gacha,
 perps open/close, governance, death, relaunch with open book, Genesis
 continuation) completed. FS-relaunch-01 fix confirmed on deployed bytecode: low
 gas reverts Panic(0x11); dapp-style estimated gas relaunches and drains the book.
+
+## Final tree gates and Sepolia r47 (after the Low fixes)
+
+Regenerated on the final tree (`6961bb4`, out/ force-built by the r47 deploy):
+CANDIDATE_ARTIFACT_INVENTORY 66/66 files with source-matched artifacts;
+FINAL_GATES snapshot 4,304/4,304 intact, frontend selectors 43/43, `git diff
+--check` exit 0, secret scan 28 hits (all public forge-std RPC constants echoed
+in build logs, 0 first-party); FINAL_SURFACE_RECHECK only intended deltas (see
+FINAL_REPORT §7). Renderer artifacts rebuilt by the explicit-path recipe into
+remediation/renderer-artifacts.
+
+r47 (R47_DEPLOYMENT.md): 93 script transactions, 0 failed; 32/32 deployed
+runtimes byte-identical to the artifacts (verify_deployed_bytecode.py);
+manifest round 47 OK; `npm run build` exit 0 against it.

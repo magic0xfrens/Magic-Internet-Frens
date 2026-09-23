@@ -98,6 +98,39 @@
     "events_errors_removed": []
   },
   {
+    "contract": "CauldronGachaRouter",
+    "file": "cauldron/CauldronGachaRouter.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "ICauldronHookGacha",
+    "file": "cauldron/CauldronGachaRouter.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IQuoteOracleView",
+    "file": "cauldron/CauldronGachaRouter.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IRegistryCurrent",
+    "file": "cauldron/CauldronGachaRouter.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
     "contract": "CauldronVault",
     "file": "cauldron/CauldronVault.sol",
     "selectors_added": [],
@@ -420,9 +453,12 @@
   {
     "contract": "RedemptionExt",
     "file": "cauldron/RedemptionExt.sol",
-    "selectors_added": [],
+    "selectors_added": [
+      "emergencyWithdrawLP(uint256)"
+    ],
     "selectors_removed": [],
     "events_errors_added": [
+      "event EmergencyWithdraw(uint256,address,uint256,uint256)|i,i,-,-",
       "event LegHandedOff(uint256,address,uint256,address)|i,i,-,-"
     ],
     "events_errors_removed": [],
@@ -435,6 +471,39 @@
     "selectors_removed": [],
     "events_errors_added": [],
     "events_errors_removed": []
+  },
+  {
+    "contract": "IQuotePrice",
+    "file": "cauldron/TreasuryGovernor.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IRegistryQuotes",
+    "file": "cauldron/TreasuryGovernor.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IVotes721",
+    "file": "cauldron/TreasuryGovernor.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "TreasuryGovernor",
+    "file": "cauldron/TreasuryGovernor.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
   },
   {
     "contract": "DeployCauldron",
@@ -458,6 +527,41 @@
     "contract": "IOwnable",
     "file": "deploy/DeployLaunchpad.s.sol",
     "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "DeployMigrationVesting",
+    "file": "deploy/DeployMigrationVesting.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IEngineVault",
+    "file": "deploy/DeployMigrationVesting.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IHookPerp",
+    "file": "deploy/DeployMigrationVesting.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IRegistryGate",
+    "file": "deploy/DeployMigrationVesting.s.sol",
+    "selectors_added": [
+      "emergencyReadyAt()"
+    ],
     "selectors_removed": [],
     "events_errors_added": [],
     "events_errors_removed": []
@@ -495,5 +599,38 @@
     "events_errors_added": [],
     "events_errors_removed": [],
     "storage_identical": true
+  },
+  {
+    "contract": "FixFactoryWiring",
+    "file": "deploy/FixFactoryWiring.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IRegistryFactoryAdmin",
+    "file": "deploy/FixFactoryWiring.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ITimelock",
+    "file": "deploy/FixFactoryWiring.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "FrenRenderer",
+    "file": "render/FrenRenderer.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
   }
 ]
