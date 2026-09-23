@@ -158,6 +158,10 @@ export const PERP_VAULT_ABI = [
   // side-attributed: token stakers earn ETH from short-side fees
   { type: "function", name: "claimTokYield", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "pendingTokYield", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  //  Settled reward in the vault's INTERNAL units. Positive while
+  //  pendingTokYield shows 0 = a dust claim the staker can still clear
+  //  (claimTokYield pays 0 and releases the vault-replacement guard).
+  { type: "function", name: "tokRewardOwed", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "ethShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "tokShareOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
   //  ── VIEWS THE YIELD PANEL NEEDS (audit C-3) ──────────────────────────

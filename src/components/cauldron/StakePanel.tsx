@@ -274,6 +274,11 @@ export default function StakePanel({ ticker, token, spotPrice, ethUsd, col, quot
               {v.tokPos.ethReward > 0 && (
                 <button className="sp-claim" disabled={busy} onClick={async () => { try { await v.claimTokYield(); setToast({ kind: "ok", msg: "ETH reward claimed ✓" }); } catch (e) { notify(e, "Claim"); } }}>Claim {compact(v.tokPos.ethReward)} Ξ reward</button>
               )}
+              {/* A reward too small to show as ETH can still be settled on-chain; it
+                  blocks a vault replacement until cleared. Paying 0, clearing it. */}
+              {!(v.tokPos.ethReward > 0) && v.tokRewardDust && (
+                <button className="sp-claim" disabled={busy} onClick={async () => { try { await v.claimTokYield(); setToast({ kind: "ok", msg: "Dust reward cleared ✓" }); } catch (e) { notify(e, "Clear"); } }}>Clear dust reward (rounds to 0 Ξ)</button>
+              )}
             </>
           )}
         </div>

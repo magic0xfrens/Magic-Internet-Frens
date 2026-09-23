@@ -302,9 +302,30 @@ contract FrenRenderer {
         b.len = 0;
     }
 
+    /// @dev Make room for `n` more bytes, doubling capacity (FS-artbuffer-01).
+    ///      The buffer used to be fixed at its initial size while every append
+    ///      mcopy'd unchecked, so dense but valid owner-uploaded art wrote past
+    ///      the allocation and rendering panicked. Doubling keeps appends
+    ///      amortized O(1); `_finalize` still trims to the used length.
+    function _ensure(Buf memory b, uint256 n) private pure {
+        uint256 need = b.len + n;
+        uint256 cap = b.data.length;
+        if (need <= cap) return;
+        if (cap == 0) cap = 32;
+        while (cap < need) cap *= 2;
+        bytes memory grown = new bytes(cap);
+        bytes memory old = b.data;
+        uint256 len = b.len;
+        assembly {
+            mcopy(add(grown, 0x20), add(old, 0x20), len)
+        }
+        b.data = grown;
+    }
+
     function _append(Buf memory b, string memory s) private pure {
         bytes memory src = bytes(s);
         uint256 n = src.length;
+        _ensure(b, n);
         bytes memory dst = b.data;
         uint256 start = b.len;
         assembly {
@@ -328,9 +349,10 @@ contract FrenRenderer {
             tmp[i] = bytes1(uint8(48 + (v % 10)));
             v /= 10;
         }
+        uint256 n = 4 - i;
+        _ensure(b, n);
         bytes memory dst = b.data;
         uint256 start = b.len;
-        uint256 n = 4 - i;
         assembly {
             let d := add(add(dst, 0x20), start)
             let o := add(add(tmp, 0x20), i)

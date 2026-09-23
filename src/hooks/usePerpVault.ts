@@ -138,6 +138,28 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
   //  Same approve-then-deposit shape as the token side. Only read when the brew
   //  is actually ERC20-quoted; a native generation skips both calls entirely.
   const quoteIsErc20 = !!quoteToken && quoteToken !== ZERO_ADDR;
+  //  DUST REWARD (FS-perpvault-01 consumer path). A settled token-side reward
+  //  can convert to 0 wei for display while staying positive internally; it
+  //  still blocks vault replacement until the staker clears it. Only offer the
+  //  clear when the staker's epoch is current — a written-off epoch has nothing
+  //  left to clear and the claim would revert.
+  const { data: owedRaw, refetch: refetchOwed } = useReadContract({
+    address: PERP.vault, abi: PERP_VAULT_ABI, functionName: "tokRewardOwed",
+    args: address ? [address] : undefined, chainId: CAULDRON.chainId, query: { enabled: !!address },
+  });
+  const { data: yieldEpoch } = useReadContract({
+    address: PERP.vault, abi: PERP_VAULT_ABI, functionName: "yieldEpoch",
+    chainId: CAULDRON.chainId, query: { enabled: !!address },
+  });
+  const { data: stakerEpoch } = useReadContract({
+    address: PERP.vault, abi: PERP_VAULT_ABI, functionName: "stakerEpoch",
+    args: address ? [address] : undefined, chainId: CAULDRON.chainId, query: { enabled: !!address },
+  });
+  const tokRewardDust =
+    ((owedRaw as bigint | undefined) ?? 0n) > 0n &&
+    yieldEpoch !== undefined && stakerEpoch !== undefined &&
+    Number(yieldEpoch) === Number(stakerEpoch);
+
   const { data: quoteBal, refetch: refetchQuoteBal } = useReadContract({
     address: quoteToken, abi: ERC20_SWAP_ABI, functionName: "balanceOf",
     args: address ? [address] : undefined, chainId: CAULDRON.chainId,
@@ -209,9 +231,9 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
   // clear pending after ~14s (Ponder reflects the state) + refresh token reads
   useEffect(() => {
     if (!pendingAction) return;
-    const t = setTimeout(() => { setPendingAction(null); refetchBal(); refetchAllow(); }, 14000);
+    const t = setTimeout(() => { setPendingAction(null); refetchBal(); refetchAllow(); void refetchOwed(); }, 14000);
     return () => clearTimeout(t);
-  }, [pendingAction, txHash, refetchBal, refetchAllow]);
+  }, [pendingAction, txHash, refetchBal, refetchAllow, refetchOwed]);
 
   return {
     // Quote-side staking, for a brew that is not ETH-quoted.
@@ -222,6 +244,7 @@ export function usePerpVault(token?: Address, quoteToken?: Address) {
     vault, ethPos, tokPos, pendingAction, isPending, txHash,
     tokenBalance: (tokBal as bigint) ?? 0n, needsTokenApproval,
     depositEth, withdrawEthShares, approveToken, depositToken, withdrawTokenShares, claimEth, claimToken, claimTokYield,
+    tokRewardDust,
     // share balances for withdraw-all
     ethShareOf: async () => 0n, // reserved
   };

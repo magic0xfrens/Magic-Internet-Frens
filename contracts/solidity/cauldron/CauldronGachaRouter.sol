@@ -136,12 +136,21 @@ contract CauldronGachaRouter is IUnlockCallback, Ownable {
     function _playInCurveUnits(uint256 playWei) internal view returns (uint256) {
         address o = oracle;
         if (o == address(0)) return playWei;
-        try IQuoteOracleView(o).usdPerRawUnit(_quote()) returns (uint256 f) {
-            if (f == 0) return playWei; // "cannot judge" → leave the size alone
-            return (playWei * f) / 1e18;
-        } catch {
-            return playWei;
+        //  One bounded word (FS-router-L01). The typed `try` could not catch a
+        //  reply too short to decode, nor the checked `playWei * f` overflowing in
+        //  its success branch, so a malformed oracle reverted every play instead
+        //  of taking the fallback below.
+        bytes memory input = abi.encodeCall(IQuoteOracleView.usdPerRawUnit, (_quote()));
+        bool valid;
+        uint256 f;
+        assembly ("memory-safe") {
+            let ok := staticcall(gas(), o, add(input, 32), mload(input), 0, 32)
+            valid := and(ok, iszero(lt(returndatasize(), 32)))
+            f := mload(0)
         }
+        // "cannot judge" (unusable, zero, or unrepresentable) → leave the size alone
+        if (!valid || f == 0 || (playWei != 0 && f > type(uint256).max / playWei)) return playWei;
+        return (playWei * f) / 1e18;
     }
 
     struct PlayData {

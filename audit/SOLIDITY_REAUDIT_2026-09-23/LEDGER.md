@@ -605,3 +605,30 @@ Result (both claims): logs/relaunch-successor-fix.* exit 0 — 46 passed, 0 fail
 the skip branch only (comment added); facet adds recoverLegs handoff branch,
 _handedOff, _handOffLegs and event LegHandedOff. Size/storage/ABI gates in
 FINAL_GATES.json and VALIDATION.md.
+
+## Owner-requested Low remediation (2026-09-23, after sign-off)
+
+The owner asked to fix every documented Low that fits, plus the StakePanel
+dust-claim consumer gap, before a Sepolia r47 redeploy. Claims (one logical fix
+each, regression required, sizes rechecked):
+
+- FS-treasury-L01/L02: cauldron/TreasuryGovernor.sol vote/winner tie order to
+  the documented lower id; execute records the installed id in the existing,
+  never-written `activeProposal` slot; cancel deactivates only that envelope.
+- FS-venueband-L01: deploy/DeployRotationStack.s.sol seedBand tick width.
+- FS-deployvesting-01: deploy/DeployMigrationVesting.s.sol gate workflow.
+- FS-deployfactory-01: deploy/FixFactoryWiring.s.sol operation identity.
+- FS-hook-L01: CauldronHook.nftPriceAt bounded policy read.
+- FS-router-L01: CauldronGachaRouter oracle read.
+- FS-artbuffer-01: render/FrenRenderer.sol buffer capacity.
+- FS-registry-L01 / L02: CauldronRegistry emergencyWithdrawLP asset, OG fold
+  order — only if they fit EIP-170 (23 bytes headroom at claim time).
+- StakePanel: frontend dust-claim path.
+Low remediation applied as claimed. EIP-170: in-place L01+L02 made CauldronRegistry
+24,649 bytes (-73). Routing all payouts through PoolOps.sendAsset made it worse
+(24,692, reverted). Moving emergencyWithdrawLP's body into RedemptionExt behind an
+onlyEmergency+timelocked registry stub (no nonReentrant on the stub: the assembly
+forwarder never runs modifier exit code; the facet body holds the shared lock)
+gives CauldronRegistry 24,342 (234 headroom), RedemptionExt 17,250. Registry
+selector unchanged; the facet gains emergencyWithdrawLP(uint256) and an identical
+EmergencyWithdraw event.

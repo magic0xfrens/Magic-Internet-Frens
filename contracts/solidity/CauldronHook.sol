@@ -2453,10 +2453,19 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
     function nftPriceAt(uint256 k) public view returns (uint256) {
         ICurvePolicy pol = curvePolicy;
         if (address(pol) != address(0)) {
-            try pol.priceAt(k, volumePerNFT, nftPriceStep) returns (uint256 c) {
-                // A zero cost would let credit mint infinite NFTs — guard it.
-                if (c > 0) return c;
-            } catch { /* fall through */ }
+            //  One bounded word, like the surtax/router reads (FS-hook-L01): a
+            //  typed `try` cannot catch a reply too short to decode, so a
+            //  malformed policy used to revert commits instead of falling back.
+            bytes memory input = abi.encodeCall(ICurvePolicy.priceAt, (k, volumePerNFT, nftPriceStep));
+            bool valid;
+            uint256 c;
+            assembly ("memory-safe") {
+                let ok := staticcall(gas(), pol, add(input, 32), mload(input), 0, 32)
+                valid := and(ok, iszero(lt(returndatasize(), 32)))
+                c := mload(0)
+            }
+            // A zero cost would let credit mint infinite NFTs — guard it.
+            if (valid && c > 0) return c;
         }
         return volumePerNFT + k * nftPriceStep;
     }

@@ -493,7 +493,10 @@ contract TreasuryGovernor {
                 //      so nothing else can be over it.
                 _leadId = id;
                 _leadVotes = v;
-            } else if (v > _leadVotes) {
+            } else if (v > _leadVotes || (v == _leadVotes && id < lead)) {
+                //  Equal support goes to the EARLIER proposal, the tie rule
+                //  {winner} documents (FS-treasury-L01): vote ORDER must not
+                //  decide between two mandates the guild backed equally.
                 //  (3) Overtaken. The demoted leader is now a rival the hint
                 //      cannot see, and it may well outlive this vote, so date it:
                 //      it is bounded by `_leadVotes < v` today, but case (4) will
@@ -633,6 +636,9 @@ contract TreasuryGovernor {
         _requirePriceable(p.quote);
 
         p.executed = true;
+        //  Remember WHICH proposal installed the live envelope, so {cancel}
+        //  can only stop the mandate it names (FS-treasury-L02).
+        activeProposal = id;
         envelope = Envelope({
             quote: p.quote,
             maxTotalBps: p.maxTotalBps,
@@ -651,7 +657,10 @@ contract TreasuryGovernor {
     function cancel(uint256 id) external {
         if (msg.sender != guardian) revert NotGuardian();
         proposals[id].cancelled = true;
-        if (envelope.active && proposals[id].executed) envelope.active = false;
+        //  Only the proposal that INSTALLED the live envelope may stop it. A
+        //  stale, already-replaced id used to deactivate whatever envelope was
+        //  current (FS-treasury-L02).
+        if (envelope.active && id == activeProposal) envelope.active = false;
         emit Cancelled(id, msg.sender);
     }
 
@@ -745,7 +754,7 @@ contract TreasuryGovernor {
             if (id == 0) continue;
             Proposal storage p = proposals[id];
             if (!_executable(p)) continue;
-            if (p.forVotes > bestVotes) { bestVotes = p.forVotes; best = id; }
+            if (p.forVotes > bestVotes || (p.forVotes == bestVotes && id < best)) { bestVotes = p.forVotes; best = id; }
         }
     }
 

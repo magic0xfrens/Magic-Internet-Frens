@@ -31,12 +31,17 @@ import tomllib
 REPO = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOL = "contracts/solidity/"
-KNOWN = "audit/FULL_SCOPE_2026-09-18/FINDINGS.md"
+#  Every known-issue ledger, oldest first; ledger/KNOWN.md is their concatenation.
+KNOWN = ("audit/FULL_SCOPE_2026-09-18/FINDINGS.md", "audit/SOLIDITY_REAUDIT_2026-09-23/KNOWN.md")
 SOURCE_URL = "https://github.com/magic0xfrens/Magic-Internet-Frens"
 
 # Compiled tests = the import closure of these. Everything else under test/ is reference.
 TEST_SEEDS = ("test/fren-review/", "test/GenesisDiscountMint.t.sol")
 DROP = ("out/", "cache/", "broadcast/", "render-out/", "audit/", "lib/", ".env", "foundry.toml")
+#  SEMI-BLIND: the auditors' own PoCs and harnesses stay upstream. Reviewers get
+#  the fixed code, the function map and one line per known issue (KNOWN), but not
+#  the tests that show where the auditors looked and what they concluded was safe.
+WITHHELD = ("test/attacks/R23_", "test/audit_reaudit/")
 IMPORT_RE = re.compile(r'import\s+(?:[^"\']*?from\s+)?["\']([^"\']+)["\']')
 
 
@@ -145,7 +150,7 @@ def main():
     commit = git("rev-parse", a.commit).strip()
     out = os.path.abspath(a.out)
 
-    files = tracked(commit, ["contracts/solidity", "audit/graph", KNOWN, ".gitmodules"])
+    files = tracked(commit, ["contracts/solidity", "audit/graph", *KNOWN, ".gitmodules"])
     overlay(files, a.overlay)
 
     # Clear the review repo, keeping its history and its ledger.
@@ -162,6 +167,9 @@ def main():
     counts = {"source": 0, "tests": 0, "reference": 0}
     for rel, data in src.items():
         if rel.startswith(DROP) or os.path.basename(rel).startswith(".env"):
+            continue
+        if rel.startswith(WITHHELD):
+            counts["withheld"] = counts.get("withheld", 0) + 1
             continue
         if rel == "README.md":
             write(out, "docs/contracts-README.md", data)
@@ -198,7 +206,7 @@ def main():
             if rel.startswith("ledger/") and os.path.exists(os.path.join(out, rel)):
                 continue  # the ledger is the review repo's memory: seed it once, never overwrite
             write(out, rel, open(os.path.join(d, f), "rb").read())
-    write(out, "ledger/KNOWN.md", files[KNOWN][1])
+    write(out, "ledger/KNOWN.md", b"\n\n---\n\n".join(files[k][1].rstrip(b"\n") for k in KNOWN) + b"\n")
     write(out, "EXPORT.json", json.dumps({
         "source": SOURCE_URL, "commit": commit, "round": a.round,
         "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -218,8 +226,9 @@ def main():
     if a.git_commit:
         run("commit", "-q", "-m",
             "Fren Review round %d: %s@%s" % (a.round, "Magic-Internet-Frens", commit[:12]))
-    print("exported %s@%s -> %s  (%d source, %d compiled tests, %d reference tests, %d submodules)%s" % (
-        "Magic-Internet-Frens", commit[:12], out, counts["source"], counts["tests"], counts["reference"], len(subs),
+    print("exported %s@%s -> %s  (%d source, %d compiled tests, %d reference tests, %d withheld, %d submodules)%s" % (
+        "Magic-Internet-Frens", commit[:12], out, counts["source"], counts["tests"], counts["reference"],
+        counts.get("withheld", 0), len(subs),
         "" if not a.overlay else "  overlay: " + ", ".join(a.overlay)))
 
 

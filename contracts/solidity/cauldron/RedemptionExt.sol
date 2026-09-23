@@ -11,6 +11,7 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {CauldronBase, IMiFrensContinuable, IPerpSync, IPerpBook} from "./CauldronBase.sol";
+import {ISeeder} from "./ISeeder.sol";
 
 /**
  * @title RedemptionExt
@@ -1004,6 +1005,46 @@ contract RedemptionExt is CauldronBase {
     ///  caller can reach it. Calling the deployed facet directly runs against the
     ///  facet's own empty storage and recovers nothing. Stated explicitly because
     ///  it is implicit in the bytecode: DO NOT add a forwarder for this one.
+    event EmergencyWithdraw(uint256 indexed gen, address indexed to, uint256 eth, uint256 tokens);
+
+    /// @notice Body of the registry's break-glass LP pull. REACHABLE ONLY THROUGH
+    ///         the registry stub, which enforces `onlyEmergency` and consumes the
+    ///         armed timelock before delegating here, so `msg.sender` IS the
+    ///         emergency admin. Called on the facet directly it runs against the
+    ///         facet's own empty storage and moves nothing.
+    ///
+    ///  Same teardown as the relaunch path (primary, reserve, a live seeder
+    ///  campaign, rotated legs). The recovered quote is paid in the generation's
+    ///  OWN currency0: it used to be sent as native ether, which reverted for an
+    ///  ERC20-quoted generation or paid out unrelated ether.
+    function emergencyWithdrawLP(uint256 gen) external nonReentrant {
+        PoolKey memory key = generationPoolKey[gen];
+        address token = generationToken[gen];
+        IPositionManagerOps pm = IPositionManagerOps(address(positionManager));
+        uint256 q;
+        uint256 t;
+        uint256 id = generationPositionId[gen];
+        if (id != 0) (q, t) = PoolOps.removeAll(pm, id, key, token);
+        id = generationReservePositionId[gen];
+        if (id != 0) {
+            (uint256 q2, uint256 t2) = PoolOps.removeAll(pm, id, key, token);
+            q += q2;
+            t += t2;
+        }
+        address s = seeder;
+        if (s != address(0) && ISeeder(s).seeding()) {
+            (uint256 q3, uint256 t3) = ISeeder(s).withdrawAll(address(this));
+            q += q3;
+            t += t3;
+        }
+        (uint256 q4, uint256 t4) = _recoverLegs(gen);
+        q += q4;
+        t += t4;
+        PoolOps.sendAsset(token, msg.sender, t);
+        PoolOps.sendAsset(Currency.unwrap(key.currency0), msg.sender, q);
+        emit EmergencyWithdraw(gen, msg.sender, q, t);
+    }
+
     function recoverLegsAtTeardown(uint256 gen) external returns (uint256, uint256) {
         return _recoverLegs(gen);
     }

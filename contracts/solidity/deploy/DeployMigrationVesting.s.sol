@@ -8,6 +8,7 @@ import {PerpStakerOracle} from "../cauldron/PerpStakerOracle.sol";
 interface IRegistryGate {
     function emergencyAdmin() external view returns (address);
     function emergencyDelay() external view returns (uint256);
+    function emergencyReadyAt() external view returns (uint256);
     function claimGate() external view returns (address);
     function setClaimGate(address gate) external;
 }
@@ -83,18 +84,28 @@ contract DeployMigrationVesting is Script {
         console2.log("  instant tier   : perp PLV stakers via", perpVault);
 
         // ENFORCE — route the registry's instant 1:1 migration through the escrow so
-        // holders CAN'T skip the drip. onlyEmergency: done inline iff the broadcaster
-        // is that admin; otherwise the exact governance call is printed.
+        // holders CAN'T skip the drip. setClaimGate(nonzero) is onlyEmergency AND
+        // consumes a matured emergency arm (Registry._consumeTimelock): it reverts
+        // unless armEmergency() ran at least emergencyDelay ago (FS-deployvesting-01).
+        // So it is sent inline only when the broadcaster is the admin AND an arm has
+        // matured; otherwise the exact arm -> wait -> set workflow is printed.
         if (enforce) {
-            address admin = IRegistryGate(registry).emergencyAdmin();
-            if (admin == deployer) {
-                IRegistryGate(registry).setClaimGate(address(vesting));
+            IRegistryGate reg = IRegistryGate(registry);
+            address admin = reg.emergencyAdmin();
+            uint256 readyAt = reg.emergencyReadyAt();
+            bool matured = readyAt != 0 && block.timestamp >= readyAt;
+            if (admin == deployer && matured) {
+                reg.setClaimGate(address(vesting));
                 console2.log("ENFORCED: registry.claimGate ->", address(vesting));
             } else {
-                console2.log("!! NOT ENFORCED - broadcaster is not emergencyAdmin.");
-                console2.log("   emergencyAdmin :", admin);
-                console2.log("   GOVERNANCE MUST CALL registry.setClaimGate with:", address(vesting));
-                console2.log("   (delay is irrelevant - setClaimGate is onlyEmergency, not timelocked)");
+                console2.log("!! NOT ENFORCED - setClaimGate(nonzero) needs the emergencyAdmin");
+                console2.log("   AND a matured emergency arm (it consumes the arm).");
+                console2.log("   emergencyAdmin       :", admin);
+                console2.log("   emergencyDelay (s)   :", reg.emergencyDelay());
+                console2.log("   emergencyReadyAt     :", readyAt);
+                console2.log("   1. emergencyAdmin calls registry.armEmergency()");
+                console2.log("   2. wait emergencyDelay (guardian may veto meanwhile)");
+                console2.log("   3. emergencyAdmin calls registry.setClaimGate with:", address(vesting));
             }
         } else {
             console2.log("ENFORCE=false - deployed but NOT gated (instant migration still open).");

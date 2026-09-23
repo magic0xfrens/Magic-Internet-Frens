@@ -34,29 +34,40 @@ contract FixFactoryWiring is Script {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address registry = vm.envAddress("REGISTRY");
         address timelock = vm.envAddress("TIMELOCK");
-        address renderer = vm.envAddress("BADGE_RENDERER");
         bytes32 Z = bytes32(0);
+        bool execute = vm.envOr("EXECUTE", false);
 
         vm.startBroadcast(pk);
 
-        CauldronFactory factory = new CauldronFactory();
-        factory.setLiquidatorRenderer(renderer);
+        //  THE EXECUTE RUN MUST REUSE THE SCHEDULED FACTORY (FS-deployfactory-01).
+        //  The timelock's operation id hashes the calldata, which embeds the new
+        //  factory's address. Deploying a fresh factory on the EXECUTE run encoded a
+        //  different address, so `execute` looked up an operation that was never
+        //  scheduled and reverted. The schedule run deploys and prints FACTORY; the
+        //  execute run takes it back from the environment and deploys nothing.
+        address factory;
+        if (execute) {
+            factory = vm.envAddress("FACTORY");
+        } else {
+            CauldronFactory f = new CauldronFactory();
+            f.setLiquidatorRenderer(vm.envAddress("BADGE_RENDERER"));
+            factory = address(f);
+        }
 
-        bytes memory data = abi.encodeCall(IRegistryFactoryAdmin.setFactory, (address(factory)));
+        bytes memory data = abi.encodeCall(IRegistryFactoryAdmin.setFactory, (factory));
         uint256 delay = ITimelock(timelock).getMinDelay();
 
         // The registry is timelock-owned, so repointing it is a governance
         // action even when the deployer holds both roles.
-        if (vm.envOr("EXECUTE", false)) {
+        if (execute) {
             ITimelock(timelock).execute(registry, 0, data, Z, Z);
-            console2.log("factory repointed (timelock executed)");
+            console2.log("factory repointed (timelock executed):", factory);
         } else {
             ITimelock(timelock).schedule(registry, 0, data, Z, Z, delay);
-            console2.log("scheduled; re-run with EXECUTE=true after", delay, "seconds");
+            console2.log("scheduled; after this many seconds re-run with EXECUTE=true FACTORY=<below>:", delay);
         }
 
         vm.stopBroadcast();
-        console2.log("NEW FACTORY     :", address(factory));
-        console2.log("renderer wired  :", renderer);
+        console2.log("FACTORY         :", factory);
     }
 }

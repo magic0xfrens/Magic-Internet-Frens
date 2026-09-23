@@ -651,3 +651,27 @@ RedemptionExt.sol 1dc4d83fa0d26552d9740f382d09b2ac47b60d9af6cd8e194baa0ebf4abf1d
   contrary to its own comment ("the ONLY clean exit is a full pass that finds
   nothing condemned"); no harm was reproduced, so this remains a documentation/
   defense-in-depth note, unfixed.
+
+## Owner-requested Low remediation (2026-09-23, after sign-off)
+
+The owner asked to fix every documented Low that fits, plus the StakePanel
+dust-claim gap, before the Sepolia r47 redeploy. All are now FIXED with a
+regression in test/attacks/R23_LowFixes.t.sol unless noted:
+
+| ID | Fix | Regression |
+|---|---|---|
+| FS-registry-L01 | emergencyWithdrawLP pays the recovered quote in the generation's own currency0 via PoolOps.sendAsset. The body moved into RedemptionExt behind a registry stub that still enforces onlyEmergency + the armed timelock on the registry's immutables (the in-place fix put the registry 73 bytes over EIP-170). | R23LowEmergencyERC20: real USD-quoted generation 2, admin paid USD, no native |
+| FS-registry-L02 | Relaunch flushes the dying collection's buybacks BEFORE folding genesisPending, so the OG share is covered by this relaunch's reserve sizing. | R23LowOgFold: real Genesis continuation, genesisPending 0 after relaunch |
+| FS-hook-L01 | nftPriceAt reads the curve policy as one bounded word; short/codeless/zero replies take the built-in curve. | R23LowHookCurve incl. funded buy still committing crystals |
+| FS-router-L01 | _playInCurveUnits bounded oracle read; unusable, zero or unrepresentable factors pass the size through. | R23LowRouterOracle incl. a funded router play |
+| FS-treasury-L01 | vote hint and winner scan break equal support to the lower id. | R23TreasuryTargeting tie test now passes |
+| FS-treasury-L02 | execute records the installing id in the previously unused `activeProposal` slot; cancel deactivates only that envelope. | R23TreasuryTargeting stale-cancel test now passes |
+| FS-artbuffer-01 | FrenRenderer buffer doubles capacity before any append would overflow. | R23RenderBuffer dense-art test now passes |
+| FS-venueband-L01 | seedBand width bandBps*995/1000. | R23LowVenueBand (real PositionManager tick bounds) |
+| FS-deployfactory-01 | EXECUTE run reuses FACTORY from the schedule run. | R23LowScripts factory test (real TimelockController) |
+| FS-deployvesting-01 | setClaimGate only with a matured emergency arm; otherwise prints arm -> wait -> set. | R23LowScripts vesting test (registry-semantics stub) |
+| StakePanel | "Clear dust reward" when tokRewardOwed > 0, staker epoch current and displayed reward rounds to 0. | npm run type-check exit 0 |
+
+logs/lowfix-full-local.* (before the facet move): 1113 pass / 39 fail / 276 skip;
+all 39 failures need a fork; the three former Low failures now pass; no new
+failures. Final sizes and the post-move suite: VALIDATION.md.

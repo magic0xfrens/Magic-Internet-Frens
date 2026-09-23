@@ -357,9 +357,11 @@ contract VenueSeeder {
 
         //  Ticks are log_1.0001(price), so a +/-b price band is +/-ln(1+b)/ln(1.0001)
         //  ticks. ln(1.0001) ~ 1e-4, so delta ~ bandBps * 1e-4 / 1e-4 ... in
-        //  integer terms: ticks per 1% is ~99.5, so bandBps * 995 / 100 is within
-        //  a tick of exact across the whole permitted range and needs no logs.
-        int24 delta = int24(int256(uint256(bandBps)) * 995 / 100);
+        //  integer terms: ticks per 1% is ~99.5, i.e. ~0.995 per bp, so
+        //  bandBps * 995 / 1000 is within a tick of exact across the whole
+        //  permitted range and needs no logs. (It read `/ 100`, a band ten times
+        //  wider than documented: 500 bps gave 4,975 ticks, ~+/-64% — FS-venueband-L01.)
+        int24 delta = int24(int256(uint256(bandBps)) * 995 / 1000);
         int24 lo = ((tick - delta) / spacing) * spacing;
         int24 hi = ((tick + delta) / spacing) * spacing;
         //  Integer division truncates TOWARD ZERO, so a negative tick would round
