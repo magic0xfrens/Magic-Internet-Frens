@@ -1,4 +1,6 @@
 {
+ "relaunchAsset(address)": "84fc1347",
+ "relaunchETH()": "58149818",
  "releaseRelaunchAsset(address)": "4b6c0074",
  "releaseRelaunchETH()": "880e8126"
 }

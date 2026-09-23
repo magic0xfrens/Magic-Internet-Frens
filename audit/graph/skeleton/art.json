@@ -1,10 +1,10 @@
 {
  "cluster": "art",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-18T09:06:11",
+ "generated": "2026-09-23T21:35:55",
  "files": {
   "cauldron/CauldronArtAdapter.sol": 137,
-  "render/FrenRenderer.sol": 350,
+  "render/FrenRenderer.sol": 372,
   "render/LiquidatoorRenderer.sol": 307,
   "render/SSTORE2.sol": 61,
   "render/TraitStorage.sol": 128,
@@ -453,39 +453,55 @@
   {
    "contract": "FrenRenderer",
    "file": "render/FrenRenderer.sol",
-   "line": 305,
+   "line": 310,
+   "kind": "function",
+   "name": "_ensure",
+   "signature": "function _ensure(Buf memory b, uint256 n) private pure",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "c6266b951fa9c7f47f2e76696a1135c527209198",
+   "body_lines": [
+    310,
+    323
+   ]
+  },
+  {
+   "contract": "FrenRenderer",
+   "file": "render/FrenRenderer.sol",
+   "line": 325,
    "kind": "function",
    "name": "_append",
    "signature": "function _append(Buf memory b, string memory s) private pure",
    "visibility": "private",
    "mutability": "pure",
    "modifiers": [],
-   "body_sha1": "969ed8e9165c29b3f3a2c56400b28603f925097d",
+   "body_sha1": "7247ff96ce4414a2fab6a5ca2ec622fffe8762a9",
    "body_lines": [
-    305,
-    316
+    325,
+    337
    ]
   },
   {
    "contract": "FrenRenderer",
    "file": "render/FrenRenderer.sol",
-   "line": 319,
+   "line": 340,
    "kind": "function",
    "name": "_appendUint",
    "signature": "function _appendUint(Buf memory b, uint256 v) private pure",
    "visibility": "private",
    "mutability": "pure",
    "modifiers": [],
-   "body_sha1": "70f90d1514b0cce21c79dc35d7d91c4e1de4baa0",
+   "body_sha1": "95f3e5dedef542dc4ad34d36224546caf6417219",
    "body_lines": [
-    319,
-    340
+    340,
+    362
    ]
   },
   {
    "contract": "FrenRenderer",
    "file": "render/FrenRenderer.sol",
-   "line": 342,
+   "line": 364,
    "kind": "function",
    "name": "_finalize",
    "signature": "function _finalize(Buf memory b) private pure returns (bytes memory out)",
@@ -494,8 +510,8 @@
    "modifiers": [],
    "body_sha1": "ab14aca7de92b75dfe4074cf31a9e9cff8e21728",
    "body_lines": [
-    342,
-    348
+    364,
+    370
    ]
   },
   {

@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 90,
+   "astId": 100,
    "contract": "cauldron/PerpVault.sol:PerpVault",
    "label": "ethShares",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 94,
+   "astId": 104,
    "contract": "cauldron/PerpVault.sol:PerpVault",
    "label": "ethShareOf",
    "offset": 0,
@@ -17,84 +17,188 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 96,
+   "astId": 106,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "pendingEth",
+   "label": "ethQueueUnits",
    "offset": 0,
    "slot": "2",
    "type": "t_uint256"
   },
   {
-   "astId": 100,
-   "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "pendingEthOf",
-   "offset": 0,
-   "slot": "3",
-   "type": "t_mapping(t_address,t_uint256)"
-  },
-  {
-   "astId": 102,
-   "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "tokShares",
-   "offset": 0,
-   "slot": "4",
-   "type": "t_uint256"
-  },
-  {
-   "astId": 106,
-   "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "tokShareOf",
-   "offset": 0,
-   "slot": "5",
-   "type": "t_mapping(t_address,t_uint256)"
-  },
-  {
    "astId": 108,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "pendingTok",
+   "label": "ethQueueIndex",
    "offset": 0,
-   "slot": "6",
+   "slot": "3",
    "type": "t_uint256"
   },
   {
-   "astId": 112,
+   "astId": 110,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "pendingTokOf",
+   "label": "ethQueueEpoch",
    "offset": 0,
-   "slot": "7",
+   "slot": "4",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 113,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "ethBackingMark",
+   "offset": 0,
+   "slot": "5",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 117,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "_ethUnitsOf",
+   "offset": 0,
+   "slot": "6",
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 118,
+   "astId": 121,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "accEthPerTokShare",
+   "label": "_ethEpochOf",
+   "offset": 0,
+   "slot": "7",
+   "type": "t_mapping(t_address,t_uint64)"
+  },
+  {
+   "astId": 123,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "tokShares",
    "offset": 0,
    "slot": "8",
    "type": "t_uint256"
   },
   {
-   "astId": 120,
+   "astId": 127,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "lastTokYieldCum",
+   "label": "tokShareOf",
    "offset": 0,
    "slot": "9",
+   "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 129,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "tokQueueUnits",
+   "offset": 0,
+   "slot": "10",
    "type": "t_uint256"
   },
   {
-   "astId": 124,
+   "astId": 131,
    "contract": "cauldron/PerpVault.sol:PerpVault",
-   "label": "tokRewardDebt",
+   "label": "tokQueueIndex",
    "offset": 0,
-   "slot": "10",
+   "slot": "11",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 133,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "tokQueueEpoch",
+   "offset": 0,
+   "slot": "12",
+   "type": "t_uint64"
+  },
+  {
+   "astId": 137,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "_tokUnitsOf",
+   "offset": 0,
+   "slot": "13",
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 128,
+   "astId": 141,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "_tokEpochOf",
+   "offset": 0,
+   "slot": "14",
+   "type": "t_mapping(t_address,t_uint64)"
+  },
+  {
+   "astId": 147,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "accEthPerTokShare",
+   "offset": 0,
+   "slot": "15",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 149,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "lastTokYieldCum",
+   "offset": 0,
+   "slot": "16",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 153,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "tokRewardDebt",
+   "offset": 0,
+   "slot": "17",
+   "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 157,
    "contract": "cauldron/PerpVault.sol:PerpVault",
    "label": "tokRewardOwed",
    "offset": 0,
-   "slot": "11",
+   "slot": "18",
    "type": "t_mapping(t_address,t_uint256)"
+  },
+  {
+   "astId": 160,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "totalTokYieldPulled",
+   "offset": 0,
+   "slot": "19",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 163,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "epochAcc",
+   "offset": 0,
+   "slot": "20",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 166,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "yieldEpoch",
+   "offset": 0,
+   "slot": "21",
+   "type": "t_uint32"
+  },
+  {
+   "astId": 171,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "stakerEpoch",
+   "offset": 0,
+   "slot": "22",
+   "type": "t_mapping(t_address,t_uint32)"
+  },
+  {
+   "astId": 175,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "tokYieldScale",
+   "offset": 0,
+   "slot": "23",
+   "type": "t_uint256"
+  },
+  {
+   "astId": 177,
+   "contract": "cauldron/PerpVault.sol:PerpVault",
+   "label": "_settledTokYield",
+   "offset": 0,
+   "slot": "24",
+   "type": "t_uint256"
   }
  ],
  "types": {
@@ -110,10 +214,34 @@
    "numberOfBytes": "32",
    "value": "t_uint256"
   },
+  "t_mapping(t_address,t_uint32)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => uint32)",
+   "numberOfBytes": "32",
+   "value": "t_uint32"
+  },
+  "t_mapping(t_address,t_uint64)": {
+   "encoding": "mapping",
+   "key": "t_address",
+   "label": "mapping(address => uint64)",
+   "numberOfBytes": "32",
+   "value": "t_uint64"
+  },
   "t_uint256": {
    "encoding": "inplace",
    "label": "uint256",
    "numberOfBytes": "32"
+  },
+  "t_uint32": {
+   "encoding": "inplace",
+   "label": "uint32",
+   "numberOfBytes": "4"
+  },
+  "t_uint64": {
+   "encoding": "inplace",
+   "label": "uint64",
+   "numberOfBytes": "8"
   }
  }
 }

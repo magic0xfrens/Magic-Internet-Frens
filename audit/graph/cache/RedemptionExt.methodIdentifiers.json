@@ -17,6 +17,7 @@
  "currentToken()": "836c081d",
  "donateToReserve(uint256)": "c03d4d72",
  "emergencyReadyAt()": "a8476359",
+ "emergencyWithdrawLP(uint256)": "28a95ee4",
  "factory()": "c45a0155",
  "floorClaimableNow()": "3b291655",
  "floorPerFren()": "c0e27ded",
@@ -63,5 +64,6 @@
  "successor()": "6ff968c3",
  "summoned()": "f0e2a569",
  "sweepLegProceeds(address,address)": "76a259ff",
- "transferOwnership(address)": "f2fde38b"
+ "transferOwnership(address)": "f2fde38b",
+ "treasuryHeldOg()": "8bfcb2c2"
 }

@@ -9,7 +9,7 @@
  "oracle()": "7dc0d1d0",
  "owner()": "8da5cb5b",
  "play(uint256,uint256,uint256,uint256,uint256)": "7fe7c4b6",
- "playChurn(uint256,uint256,uint256)": "c4ffce88",
+ "playChurn(uint256,uint256,uint256,uint256)": "df70b5a4",
  "playInCurveUnits(uint256)": "45332433",
  "playLiq(uint256,uint256,uint256,uint256,uint256,uint256[])": "3ac9ef55",
  "poolManager()": "dc4c90d3",

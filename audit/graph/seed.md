@@ -6,11 +6,12 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 
 | file | lines |
 |---|---:|
-| `cauldron/CauldronSeeder.sol` | 908 |
-| `cauldron/SeedLib.sol` | 147 |
-| `cauldron/ISeeder.sol` | 39 |
-| `cauldron/MigrationVesting.sol` | 376 |
-| `cauldron/LaunchSniper.sol` | 126 |
+| `cauldron/CauldronSeeder.sol` | 907 |
+| `cauldron/SeedLib.sol` | 146 |
+| `cauldron/ISeeder.sol` | 38 |
+| `cauldron/MigrationVesting.sol` | 384 |
+| `cauldron/LaunchSniper.sol` | 125 |
+
 
 ## `IRegistryOwner (declared in CauldronSeeder.sol)`
 
@@ -122,7 +123,7 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 - Writes: `primeBudget (line 383)`; `primeSpent (line 384)`; `primeTo (line 385)`
 - Value: sends native to `to` through `call` (line 387)
 - Reachability: Externally reachable at `refundPrime` (CauldronSeeder.sol:379); authority is deployer or registry owner. Gate evidence is recorded separately.
-- Edges: `IRegistryOwner.owner (CauldronSeeder.sol:380), TRUSTED, in-cluster`; `to.call (CauldronSeeder.sol:387), UNTRUSTED, out-of-cluster`
+- Edges: `IRegistryOwner.owner (CauldronSeeder.sol:380), TRUSTED, in-cluster`
 - Observations: none
 
 ### `primePending/function` — CauldronSeeder.sol:397
@@ -230,7 +231,7 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 - Writes: `_lastEthOut (line 677)`; `_lastTokenOut (line 678)`; `primeBudget (line 688)`; `primeSpent (line 689)`
 - Value: sends ERC20 through `transfer` (line 674) and native through `call` (line 676)
 - Reachability: Internal body declared at `_teardown` (CauldronSeeder.sol:645); callers: unlockCallback.
-- Edges: `PoolIdLibrary.toId (CauldronSeeder.sol:648), TRUSTED, library`; `StateLibrary.getPositionInfo (CauldronSeeder.sol:651), TRUSTED, library`; `IPoolManager.modifyLiquidity (CauldronSeeder.sol:653), TRUSTED, out-of-cluster`; `CauldronSeeder._settle (CauldronSeeder.sol:658), TRUSTED, in-cluster`; `IERC20.balanceOf (CauldronSeeder.sol:673), UNTRUSTED, out-of-cluster`; `IERC20.transfer (CauldronSeeder.sol:674), UNTRUSTED, out-of-cluster`; `to.call (CauldronSeeder.sol:676), UNTRUSTED, out-of-cluster`
+- Edges: `PoolIdLibrary.toId (CauldronSeeder.sol:648), TRUSTED, library`; `StateLibrary.getPositionInfo (CauldronSeeder.sol:651), TRUSTED, library`; `IPoolManager.modifyLiquidity (CauldronSeeder.sol:653), TRUSTED, out-of-cluster`; `CauldronSeeder._settle (CauldronSeeder.sol:658), TRUSTED, in-cluster`; `IERC20.balanceOf (CauldronSeeder.sol:673), UNTRUSTED, out-of-cluster`; `IERC20.transfer (CauldronSeeder.sol:674), UNTRUSTED, out-of-cluster`
 - Observations: none
 
 ### `_placeBase/function` — CauldronSeeder.sol:701
@@ -290,7 +291,7 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 - Writes: none
 - Value: sends loose ERC20 through `transfer` (line 891) and native through `call` (line 893)
 - Reachability: Externally reachable at `rescue` (CauldronSeeder.sol:888); authority is registry. Gate evidence is recorded separately.
-- Edges: `IERC20.balanceOf (CauldronSeeder.sol:890), UNTRUSTED, out-of-cluster`; `IERC20.transfer (CauldronSeeder.sol:891), UNTRUSTED, out-of-cluster`; `to.call (CauldronSeeder.sol:893), UNTRUSTED, out-of-cluster`
+- Edges: `IERC20.balanceOf (CauldronSeeder.sol:890), UNTRUSTED, out-of-cluster`; `IERC20.transfer (CauldronSeeder.sol:891), UNTRUSTED, out-of-cluster`
 - Observations: none
 
 ### `deployedWad/function` — CauldronSeeder.sol:899
@@ -509,7 +510,7 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 - Writes: none
 - Value: sends native through `call` (line 104) or ERC20 through `transfer` (line 107)
 - Reachability: Externally reachable at `sweep` (LaunchSniper.sol:102); authority is owner. Gate evidence is recorded separately.
-- Edges: `Ownable.owner (LaunchSniper.sol:104), TRUSTED, out-of-cluster`; `owner.call (LaunchSniper.sol:104), UNTRUSTED, out-of-cluster`; `IERC20.transfer (LaunchSniper.sol:107), UNTRUSTED, out-of-cluster`; `Ownable.owner (LaunchSniper.sol:107), TRUSTED, out-of-cluster`; `IERC20.balanceOf (LaunchSniper.sol:107), UNTRUSTED, out-of-cluster`
+- Edges: `Ownable.owner (LaunchSniper.sol:104), TRUSTED, out-of-cluster`; `IERC20.transfer (LaunchSniper.sol:107), UNTRUSTED, out-of-cluster`; `Ownable.owner (LaunchSniper.sol:107), TRUSTED, out-of-cluster`; `IERC20.balanceOf (LaunchSniper.sol:107), UNTRUSTED, out-of-cluster`
 - Observations: none
 
 ### `renounceOwnership/function` — LaunchSniper.sol:120
@@ -692,88 +693,88 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 ### `_isInstant/function` — MigrationVesting.sol:308
 
 - Signature: `function _isInstant(address who) private view returns (bool)`
-- Authority: internal
+- Authority: internal (callers: _pullAndVest)
 - Gate evidence: `UNGATED`
-- Reads: `stakerOracle (line 309)`; `stakerOracle (line 312)`
+- Reads: `stakerOracle (line 309)`
 - Writes: none
 - Value: NONE
-- Reachability: Internal body declared at `_isInstant` (MigrationVesting.sol:308); callers: _pullAndVest.
-- Edges: `IStakerOracle.isInstant (MigrationVesting.sol:312), UNTRUSTED, in-cluster`
+- Reachability: Decides whether a migrating holder skips the vesting window. No oracle means false (`policy` MigrationVesting.sol:310). Otherwise the oracle is asked by a bounded one-word STATICCALL (`valid` MigrationVesting.sol:319), and only an answer of exactly 1 counts as instant (`word` MigrationVesting.sol:322); a revert, a short reply or any other word vests normally, so a broken or hostile oracle can only make migration slower, never revert it.
+- Edges: `IStakerOracle.isInstant (MigrationVesting.sol:313), UNTRUSTED, out-of-cluster`
 - Observations: none
 
-### `claimable/function` — MigrationVesting.sol:321
+### `claimable/function` — MigrationVesting.sol:330
 
 - Signature: `function claimable(address holder) external view returns (uint256 total)`
 - Authority: anyone
 - Gate evidence: `UNGATED`
-- Reads: `_grants (line 322)`
+- Reads: `_grants (line 331)`
 - Writes: none
 - Value: NONE
-- Reachability: Externally reachable at `claimable` (MigrationVesting.sol:321); authority is anyone. Gate evidence is recorded separately.
-- Edges: `MigrationVesting._vestedOf (MigrationVesting.sol:324), TRUSTED, in-cluster`
+- Reachability: Externally reachable at `claimable` (MigrationVesting.sol:330); authority is anyone. Gate evidence is recorded separately.
+- Edges: `MigrationVesting._vestedOf (MigrationVesting.sol:333), TRUSTED, in-cluster`
 - Observations: none
 
-### `locked/function` — MigrationVesting.sol:329
+### `locked/function` — MigrationVesting.sol:338
 
 - Signature: `function locked(address holder) external view returns (uint256 total)`
 - Authority: anyone
 - Gate evidence: `UNGATED`
-- Reads: `_grants (line 330)`
+- Reads: `_grants (line 339)`
 - Writes: none
 - Value: NONE
-- Reachability: Externally reachable at `locked` (MigrationVesting.sol:329); authority is anyone. Gate evidence is recorded separately.
-- Edges: `MigrationVesting._vestedOf (MigrationVesting.sol:332), TRUSTED, in-cluster`
+- Reachability: Externally reachable at `locked` (MigrationVesting.sol:338); authority is anyone. Gate evidence is recorded separately.
+- Edges: `MigrationVesting._vestedOf (MigrationVesting.sol:341), TRUSTED, in-cluster`
 - Observations: none
 
-### `grantCount/function` — MigrationVesting.sol:337
+### `grantCount/function` — MigrationVesting.sol:346
 
 - Signature: `function grantCount(address holder) external view returns (uint256)`
 - Authority: anyone
 - Gate evidence: `UNGATED`
-- Reads: `_grants (line 338)`
+- Reads: `_grants (line 347)`
 - Writes: none
 - Value: NONE
-- Reachability: Externally reachable at `grantCount` (MigrationVesting.sol:337); authority is anyone. Gate evidence is recorded separately.
+- Reachability: Externally reachable at `grantCount` (MigrationVesting.sol:346); authority is anyone. Gate evidence is recorded separately.
 - Edges: none
 - Observations: none
 
-### `grantAt/function` — MigrationVesting.sol:342
+### `grantAt/function` — MigrationVesting.sol:351
 
 - Signature: `function grantAt(address holder, uint256 i) external view returns (Grant memory)`
 - Authority: anyone
 - Gate evidence: `UNGATED`
-- Reads: `_grants (line 343)`
+- Reads: `_grants (line 352)`
 - Writes: none
 - Value: NONE
-- Reachability: Externally reachable at `grantAt` (MigrationVesting.sol:342); authority is anyone. Gate evidence is recorded separately.
+- Reachability: Externally reachable at `grantAt` (MigrationVesting.sol:351); authority is anyone. Gate evidence is recorded separately.
 - Edges: none
 - Observations: none
 
-### `setVestWindow/function` — MigrationVesting.sol:352
+### `setVestWindow/function` — MigrationVesting.sol:361
 
 - Signature: `function setVestWindow(uint64 _window) external onlyOwner`
 - Authority: owner
-- Gate evidence: `onlyOwner (MigrationVesting.sol:352)`
-- Reads: `MIN_WINDOW (line 353, constant)`; `MAX_WINDOW (line 353, constant)`
-- Writes: `vestWindow (line 354)`
+- Gate evidence: `onlyOwner (MigrationVesting.sol:361)`
+- Reads: `MIN_WINDOW (line 362, constant)`; `MAX_WINDOW (line 362, constant)`
+- Writes: `vestWindow (line 363)`
 - Value: NONE
-- Reachability: Externally reachable at `setVestWindow` (MigrationVesting.sol:352); authority is owner. Gate evidence is recorded separately.
+- Reachability: Externally reachable at `setVestWindow` (MigrationVesting.sol:361); authority is owner. Gate evidence is recorded separately.
 - Edges: none
 - Observations: none
 
-### `setStakerOracle/function` — MigrationVesting.sol:359
+### `setStakerOracle/function` — MigrationVesting.sol:368
 
 - Signature: `function setStakerOracle(address _oracle) external onlyOwner`
 - Authority: owner
-- Gate evidence: `onlyOwner (MigrationVesting.sol:359)`
+- Gate evidence: `onlyOwner (MigrationVesting.sol:368)`
 - Reads: none
-- Writes: `stakerOracle (line 360)`
+- Writes: `stakerOracle (line 369)`
 - Value: NONE
-- Reachability: Externally reachable at `setStakerOracle` (MigrationVesting.sol:359); authority is owner. Gate evidence is recorded separately.
+- Reachability: Externally reachable at `setStakerOracle` (MigrationVesting.sol:368); authority is owner. Gate evidence is recorded separately.
 - Edges: none
 - Observations: none
 
-### `renounceOwnership/function` — MigrationVesting.sol:372
+### `renounceOwnership/function` — MigrationVesting.sol:381
 
 - Signature: `function renounceOwnership() public pure override`
 - Authority: anyone (always reverts)
@@ -781,7 +782,7 @@ Current source-derived semantic map: **69 nodes** across **5 files**. The JSON f
 - Reads: none
 - Writes: none
 - Value: NONE
-- Reachability: Externally reachable at `renounceOwnership` (MigrationVesting.sol:372); authority is anyone (always reverts). Gate evidence is recorded separately.
+- Reachability: Externally reachable at `renounceOwnership` (MigrationVesting.sol:381); authority is anyone (always reverts). Gate evidence is recorded separately.
 - Edges: none
 - Observations: none
 

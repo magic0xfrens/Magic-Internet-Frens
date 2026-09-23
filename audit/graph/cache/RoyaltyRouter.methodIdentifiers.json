@@ -1,3 +1,5 @@
 {
- "hook()": "7f5a7c7b"
+ "erc20Sink()": "d15e0dff",
+ "hook()": "7f5a7c7b",
+ "sweep(address)": "01681a62"
 }

@@ -33,12 +33,12 @@
    "type": "t_uint32"
   },
   {
-   "astId": 545,
+   "astId": 589,
    "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
    "label": "cache",
    "offset": 0,
    "slot": "3",
-   "type": "t_mapping(t_address,t_struct(Cached)540_storage)"
+   "type": "t_mapping(t_address,t_struct(Cached)584_storage)"
   }
  ],
  "types": {
@@ -57,12 +57,12 @@
    "label": "contract IAggregatorV3",
    "numberOfBytes": "20"
   },
-  "t_mapping(t_address,t_struct(Cached)540_storage)": {
+  "t_mapping(t_address,t_struct(Cached)584_storage)": {
    "encoding": "mapping",
    "key": "t_address",
    "label": "mapping(address => struct QuoteOracle.Cached)",
    "numberOfBytes": "32",
-   "value": "t_struct(Cached)540_storage"
+   "value": "t_struct(Cached)584_storage"
   },
   "t_mapping(t_address,t_struct(Feed)49_storage)": {
    "encoding": "mapping",
@@ -71,13 +71,13 @@
    "numberOfBytes": "32",
    "value": "t_struct(Feed)49_storage"
   },
-  "t_struct(Cached)540_storage": {
+  "t_struct(Cached)584_storage": {
    "encoding": "inplace",
    "label": "struct QuoteOracle.Cached",
    "numberOfBytes": "64",
    "members": [
     {
-     "astId": 535,
+     "astId": 579,
      "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
      "label": "factor",
      "offset": 0,
@@ -85,7 +85,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 537,
+     "astId": 581,
      "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
      "label": "at",
      "offset": 0,
@@ -93,7 +93,7 @@
      "type": "t_uint64"
     },
     {
-     "astId": 539,
+     "astId": 583,
      "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
      "label": "triedAt",
      "offset": 8,

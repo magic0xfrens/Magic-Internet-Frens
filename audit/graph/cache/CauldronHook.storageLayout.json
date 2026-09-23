@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 15928,
+   "astId": 14890,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_owner",
    "offset": 0,
@@ -9,7 +9,15 @@
    "type": "t_address"
   },
   {
-   "astId": 240,
+   "astId": 217,
+   "contract": "CauldronHook.sol:CauldronHook",
+   "label": "sweepFailOpen",
+   "offset": 20,
+   "slot": "0",
+   "type": "t_bool"
+  },
+  {
+   "astId": 276,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "deathThreshold",
    "offset": 0,
@@ -17,47 +25,47 @@
    "type": "t_uint256"
   },
   {
-   "astId": 244,
+   "astId": 280,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "deathChecker",
    "offset": 0,
    "slot": "2",
-   "type": "t_contract(IDeathChecker)10906"
+   "type": "t_contract(IDeathChecker)7534"
   },
   {
-   "astId": 248,
+   "astId": 284,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "surtaxPolicy",
    "offset": 0,
    "slot": "3",
-   "type": "t_contract(ISurtaxPolicy)10927"
+   "type": "t_contract(ISurtaxPolicy)7555"
   },
   {
-   "astId": 251,
+   "astId": 287,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "oddsPolicy",
    "offset": 0,
    "slot": "4",
-   "type": "t_contract(IOddsPolicy)10941"
+   "type": "t_contract(IOddsPolicy)7569"
   },
   {
-   "astId": 254,
+   "astId": 290,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "curvePolicy",
    "offset": 0,
    "slot": "5",
-   "type": "t_contract(ICurvePolicy)10955"
+   "type": "t_contract(ICurvePolicy)7583"
   },
   {
-   "astId": 258,
+   "astId": 294,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "feeRouter",
    "offset": 0,
    "slot": "6",
-   "type": "t_contract(IFeeRouter)10977"
+   "type": "t_contract(IFeeRouter)7605"
   },
   {
-   "astId": 262,
+   "astId": 298,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "defaultTaxBps",
    "offset": 0,
@@ -65,7 +73,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 265,
+   "astId": 301,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "nftContract",
    "offset": 0,
@@ -73,7 +81,7 @@
    "type": "t_address"
   },
   {
-   "astId": 268,
+   "astId": 304,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "treasury",
    "offset": 0,
@@ -81,7 +89,7 @@
    "type": "t_address"
   },
   {
-   "astId": 271,
+   "astId": 307,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "registry",
    "offset": 0,
@@ -89,7 +97,7 @@
    "type": "t_address"
   },
   {
-   "astId": 274,
+   "astId": 310,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "pendingRegistry",
    "offset": 0,
@@ -97,7 +105,7 @@
    "type": "t_address"
   },
   {
-   "astId": 276,
+   "astId": 312,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "registrySwapReadyAt",
    "offset": 0,
@@ -105,39 +113,39 @@
    "type": "t_uint256"
   },
   {
-   "astId": 288,
+   "astId": 324,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_volumeBuckets",
    "offset": 0,
    "slot": "13",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_array(t_uint128)24_storage)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_array(t_uint128)24_storage)"
   },
   {
-   "astId": 293,
+   "astId": 329,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_lastBucketIndex",
    "offset": 0,
    "slot": "14",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_uint256)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_uint256)"
   },
   {
-   "astId": 298,
+   "astId": 334,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_lastUpdateTs",
    "offset": 0,
    "slot": "15",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_uint256)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_uint256)"
   },
   {
-   "astId": 303,
+   "astId": 339,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "trackedPools",
    "offset": 0,
    "slot": "16",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_bool)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_bool)"
   },
   {
-   "astId": 306,
+   "astId": 342,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "relaunchETH",
    "offset": 0,
@@ -145,7 +153,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 309,
+   "astId": 345,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "collection",
    "offset": 0,
@@ -153,7 +161,7 @@
    "type": "t_address"
   },
   {
-   "astId": 312,
+   "astId": 348,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "perpEngine",
    "offset": 0,
@@ -161,7 +169,7 @@
    "type": "t_address"
   },
   {
-   "astId": 315,
+   "astId": 351,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyRegistry",
    "offset": 0,
@@ -169,7 +177,7 @@
    "type": "t_address"
   },
   {
-   "astId": 318,
+   "astId": 354,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyBps",
    "offset": 0,
@@ -177,7 +185,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 321,
+   "astId": 357,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyBuffer",
    "offset": 0,
@@ -185,7 +193,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 325,
+   "astId": 361,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyThreshold",
    "offset": 0,
@@ -193,15 +201,15 @@
    "type": "t_uint256"
   },
   {
-   "astId": 329,
+   "astId": 365,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_liveKey",
    "offset": 0,
    "slot": "24",
-   "type": "t_struct(PoolKey)21845_storage"
+   "type": "t_struct(PoolKey)20795_storage"
   },
   {
-   "astId": 332,
+   "astId": 368,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyOwedToReserve",
    "offset": 0,
@@ -209,7 +217,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 358,
+   "astId": 394,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "seeder",
    "offset": 0,
@@ -217,7 +225,7 @@
    "type": "t_address"
   },
   {
-   "astId": 372,
+   "astId": 408,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "nftCredit",
    "offset": 0,
@@ -225,7 +233,7 @@
    "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))"
   },
   {
-   "astId": 374,
+   "astId": 410,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "creditEpoch",
    "offset": 0,
@@ -233,7 +241,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 378,
+   "astId": 414,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "volumePerNFT",
    "offset": 0,
@@ -241,7 +249,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 381,
+   "astId": 417,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "nftPriceStep",
    "offset": 0,
@@ -249,7 +257,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 384,
+   "astId": 420,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "mintBaseline",
    "offset": 0,
@@ -257,23 +265,23 @@
    "type": "t_uint256"
   },
   {
-   "astId": 392,
+   "astId": 428,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "batches",
    "offset": 0,
    "slot": "34",
-   "type": "t_array(t_struct(Batch)10259_storage)dyn_storage"
+   "type": "t_array(t_struct(Batch)6868_storage)dyn_storage"
   },
   {
-   "astId": 396,
+   "astId": 432,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "gacha",
    "offset": 0,
    "slot": "35",
-   "type": "t_struct(State)10265_storage"
+   "type": "t_struct(State)6874_storage"
   },
   {
-   "astId": 410,
+   "astId": 446,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "outstandingOf",
    "offset": 0,
@@ -281,7 +289,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 414,
+   "astId": 450,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "opened",
    "offset": 0,
@@ -289,7 +297,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 418,
+   "astId": 454,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "committedOf",
    "offset": 0,
@@ -297,7 +305,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 422,
+   "astId": 458,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "pendingOf",
    "offset": 0,
@@ -305,7 +313,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 426,
+   "astId": 462,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "missStreak",
    "offset": 0,
@@ -313,7 +321,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 431,
+   "astId": 467,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "lifetimeVolumeOf",
    "offset": 0,
@@ -321,7 +329,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 433,
+   "astId": 469,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "totalLifetimeVolume",
    "offset": 0,
@@ -329,7 +337,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 436,
+   "astId": 472,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "cumulativeVolume",
    "offset": 0,
@@ -337,7 +345,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 440,
+   "astId": 476,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "buyWeightBps",
    "offset": 0,
@@ -345,7 +353,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 443,
+   "astId": 479,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "sellWeightBps",
    "offset": 0,
@@ -353,7 +361,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 450,
+   "astId": 486,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "creditUntaggedSwaps",
    "offset": 0,
@@ -361,7 +369,7 @@
    "type": "t_bool"
   },
   {
-   "astId": 454,
+   "astId": 490,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "oddsFullVolumeWei",
    "offset": 0,
@@ -369,7 +377,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 457,
+   "astId": 493,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "maxOddsBps",
    "offset": 0,
@@ -377,7 +385,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 463,
+   "astId": 499,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "pityThreshold",
    "offset": 0,
@@ -385,7 +393,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 468,
+   "astId": 504,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "isOpener",
    "offset": 0,
@@ -393,7 +401,7 @@
    "type": "t_mapping(t_address,t_bool)"
   },
   {
-   "astId": 473,
+   "astId": 509,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "taxExempt",
    "offset": 0,
@@ -401,7 +409,7 @@
    "type": "t_mapping(t_address,t_bool)"
   },
   {
-   "astId": 476,
+   "astId": 512,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "vault",
    "offset": 0,
@@ -409,7 +417,7 @@
    "type": "t_address"
   },
   {
-   "astId": 480,
+   "astId": 516,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "floorBps",
    "offset": 0,
@@ -417,7 +425,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 483,
+   "astId": 519,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "quest",
    "offset": 0,
@@ -425,7 +433,7 @@
    "type": "t_address"
   },
   {
-   "astId": 486,
+   "astId": 522,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "guild",
    "offset": 0,
@@ -433,7 +441,7 @@
    "type": "t_address"
   },
   {
-   "astId": 490,
+   "astId": 526,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "guildBps",
    "offset": 0,
@@ -441,7 +449,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 493,
+   "astId": 529,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "activeProposer",
    "offset": 0,
@@ -449,7 +457,7 @@
    "type": "t_address"
   },
   {
-   "astId": 497,
+   "astId": 533,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "proposerBps",
    "offset": 0,
@@ -457,7 +465,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 505,
+   "astId": 541,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "proposerOwed",
    "offset": 0,
@@ -465,15 +473,15 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 511,
+   "astId": 547,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "poolInitBlock",
    "offset": 0,
    "slot": "61",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_uint256)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_uint256)"
   },
   {
-   "astId": 515,
+   "astId": 551,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "snipeWindowBlocks",
    "offset": 0,
@@ -481,7 +489,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 519,
+   "astId": 555,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "snipeMaxBps",
    "offset": 0,
@@ -489,15 +497,15 @@
    "type": "t_uint256"
   },
   {
-   "astId": 807,
+   "astId": 843,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "quoteIsCurrency0",
    "offset": 0,
    "slot": "64",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_bool)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_bool)"
   },
   {
-   "astId": 813,
+   "astId": 849,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "quoteOracle",
    "offset": 0,
@@ -505,15 +513,15 @@
    "type": "t_address"
   },
   {
-   "astId": 892,
+   "astId": 928,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "_volumeSiblings",
    "offset": 0,
    "slot": "66",
-   "type": "t_mapping(t_userDefinedValueType(PoolId)21799,t_array(t_userDefinedValueType(PoolId)21799)dyn_storage)"
+   "type": "t_mapping(t_userDefinedValueType(PoolId)20749,t_array(t_userDefinedValueType(PoolId)20749)dyn_storage)"
   },
   {
-   "astId": 5435,
+   "astId": 5588,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "relaunchAsset",
    "offset": 0,
@@ -521,7 +529,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 5438,
+   "astId": 5591,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyBufferAsset",
    "offset": 0,
@@ -529,7 +537,7 @@
    "type": "t_address"
   },
   {
-   "astId": 5441,
+   "astId": 5594,
    "contract": "CauldronHook.sol:CauldronHook",
    "label": "legacyThresholdRaw",
    "offset": 0,
@@ -543,11 +551,11 @@
    "label": "address",
    "numberOfBytes": "20"
   },
-  "t_array(t_struct(Batch)10259_storage)dyn_storage": {
+  "t_array(t_struct(Batch)6868_storage)dyn_storage": {
    "encoding": "dynamic_array",
    "label": "struct GachaLib.Batch[]",
    "numberOfBytes": "32",
-   "base": "t_struct(Batch)10259_storage"
+   "base": "t_struct(Batch)6868_storage"
   },
   "t_array(t_uint128)24_storage": {
    "encoding": "inplace",
@@ -555,43 +563,43 @@
    "numberOfBytes": "384",
    "base": "t_uint128"
   },
-  "t_array(t_userDefinedValueType(PoolId)21799)dyn_storage": {
+  "t_array(t_userDefinedValueType(PoolId)20749)dyn_storage": {
    "encoding": "dynamic_array",
    "label": "PoolId[]",
    "numberOfBytes": "32",
-   "base": "t_userDefinedValueType(PoolId)21799"
+   "base": "t_userDefinedValueType(PoolId)20749"
   },
   "t_bool": {
    "encoding": "inplace",
    "label": "bool",
    "numberOfBytes": "1"
   },
-  "t_contract(ICurvePolicy)10955": {
+  "t_contract(ICurvePolicy)7583": {
    "encoding": "inplace",
    "label": "contract ICurvePolicy",
    "numberOfBytes": "20"
   },
-  "t_contract(IDeathChecker)10906": {
+  "t_contract(IDeathChecker)7534": {
    "encoding": "inplace",
    "label": "contract IDeathChecker",
    "numberOfBytes": "20"
   },
-  "t_contract(IFeeRouter)10977": {
+  "t_contract(IFeeRouter)7605": {
    "encoding": "inplace",
    "label": "contract IFeeRouter",
    "numberOfBytes": "20"
   },
-  "t_contract(IHooks)17473": {
+  "t_contract(IHooks)16435": {
    "encoding": "inplace",
    "label": "contract IHooks",
    "numberOfBytes": "20"
   },
-  "t_contract(IOddsPolicy)10941": {
+  "t_contract(IOddsPolicy)7569": {
    "encoding": "inplace",
    "label": "contract IOddsPolicy",
    "numberOfBytes": "20"
   },
-  "t_contract(ISurtaxPolicy)10927": {
+  "t_contract(ISurtaxPolicy)7555": {
    "encoding": "inplace",
    "label": "contract ISurtaxPolicy",
    "numberOfBytes": "20"
@@ -622,41 +630,41 @@
    "numberOfBytes": "32",
    "value": "t_mapping(t_address,t_uint256)"
   },
-  "t_mapping(t_userDefinedValueType(PoolId)21799,t_array(t_uint128)24_storage)": {
+  "t_mapping(t_userDefinedValueType(PoolId)20749,t_array(t_uint128)24_storage)": {
    "encoding": "mapping",
-   "key": "t_userDefinedValueType(PoolId)21799",
+   "key": "t_userDefinedValueType(PoolId)20749",
    "label": "mapping(PoolId => uint128[24])",
    "numberOfBytes": "32",
    "value": "t_array(t_uint128)24_storage"
   },
-  "t_mapping(t_userDefinedValueType(PoolId)21799,t_array(t_userDefinedValueType(PoolId)21799)dyn_storage)": {
+  "t_mapping(t_userDefinedValueType(PoolId)20749,t_array(t_userDefinedValueType(PoolId)20749)dyn_storage)": {
    "encoding": "mapping",
-   "key": "t_userDefinedValueType(PoolId)21799",
+   "key": "t_userDefinedValueType(PoolId)20749",
    "label": "mapping(PoolId => PoolId[])",
    "numberOfBytes": "32",
-   "value": "t_array(t_userDefinedValueType(PoolId)21799)dyn_storage"
+   "value": "t_array(t_userDefinedValueType(PoolId)20749)dyn_storage"
   },
-  "t_mapping(t_userDefinedValueType(PoolId)21799,t_bool)": {
+  "t_mapping(t_userDefinedValueType(PoolId)20749,t_bool)": {
    "encoding": "mapping",
-   "key": "t_userDefinedValueType(PoolId)21799",
+   "key": "t_userDefinedValueType(PoolId)20749",
    "label": "mapping(PoolId => bool)",
    "numberOfBytes": "32",
    "value": "t_bool"
   },
-  "t_mapping(t_userDefinedValueType(PoolId)21799,t_uint256)": {
+  "t_mapping(t_userDefinedValueType(PoolId)20749,t_uint256)": {
    "encoding": "mapping",
-   "key": "t_userDefinedValueType(PoolId)21799",
+   "key": "t_userDefinedValueType(PoolId)20749",
    "label": "mapping(PoolId => uint256)",
    "numberOfBytes": "32",
    "value": "t_uint256"
   },
-  "t_struct(Batch)10259_storage": {
+  "t_struct(Batch)6868_storage": {
    "encoding": "inplace",
    "label": "struct GachaLib.Batch",
    "numberOfBytes": "64",
    "members": [
     {
-     "astId": 10248,
+     "astId": 6857,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "player",
      "offset": 0,
@@ -664,7 +672,7 @@
      "type": "t_address"
     },
     {
-     "astId": 10250,
+     "astId": 6859,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "collection",
      "offset": 0,
@@ -672,7 +680,7 @@
      "type": "t_address"
     },
     {
-     "astId": 10252,
+     "astId": 6861,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "commitBlock",
      "offset": 20,
@@ -680,7 +688,7 @@
      "type": "t_uint48"
     },
     {
-     "astId": 10254,
+     "astId": 6863,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "oddsBps",
      "offset": 26,
@@ -688,7 +696,7 @@
      "type": "t_uint16"
     },
     {
-     "astId": 10256,
+     "astId": 6865,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "count",
      "offset": 28,
@@ -696,7 +704,7 @@
      "type": "t_uint16"
     },
     {
-     "astId": 10258,
+     "astId": 6867,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "resolved",
      "offset": 30,
@@ -705,29 +713,29 @@
     }
    ]
   },
-  "t_struct(PoolKey)21845_storage": {
+  "t_struct(PoolKey)20795_storage": {
    "encoding": "inplace",
    "label": "struct PoolKey",
    "numberOfBytes": "96",
    "members": [
     {
-     "astId": 21830,
+     "astId": 20780,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "currency0",
      "offset": 0,
      "slot": "0",
-     "type": "t_userDefinedValueType(Currency)21499"
+     "type": "t_userDefinedValueType(Currency)20449"
     },
     {
-     "astId": 21834,
+     "astId": 20784,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "currency1",
      "offset": 0,
      "slot": "1",
-     "type": "t_userDefinedValueType(Currency)21499"
+     "type": "t_userDefinedValueType(Currency)20449"
     },
     {
-     "astId": 21837,
+     "astId": 20787,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "fee",
      "offset": 20,
@@ -735,7 +743,7 @@
      "type": "t_uint24"
     },
     {
-     "astId": 21840,
+     "astId": 20790,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "tickSpacing",
      "offset": 23,
@@ -743,22 +751,22 @@
      "type": "t_int24"
     },
     {
-     "astId": 21844,
+     "astId": 20794,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "hooks",
      "offset": 0,
      "slot": "2",
-     "type": "t_contract(IHooks)17473"
+     "type": "t_contract(IHooks)16435"
     }
    ]
   },
-  "t_struct(State)10265_storage": {
+  "t_struct(State)6874_storage": {
    "encoding": "inplace",
    "label": "struct GachaLib.State",
    "numberOfBytes": "64",
    "members": [
     {
-     "astId": 10262,
+     "astId": 6871,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "batchCursor",
      "offset": 0,
@@ -766,7 +774,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 10264,
+     "astId": 6873,
      "contract": "CauldronHook.sol:CauldronHook",
      "label": "outstandingCrystals",
      "offset": 0,
@@ -800,12 +808,12 @@
    "label": "uint48",
    "numberOfBytes": "6"
   },
-  "t_userDefinedValueType(Currency)21499": {
+  "t_userDefinedValueType(Currency)20449": {
    "encoding": "inplace",
    "label": "Currency",
    "numberOfBytes": "20"
   },
-  "t_userDefinedValueType(PoolId)21799": {
+  "t_userDefinedValueType(PoolId)20749": {
    "encoding": "inplace",
    "label": "PoolId",
    "numberOfBytes": "32"

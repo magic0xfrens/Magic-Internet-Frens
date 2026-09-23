@@ -1,17 +1,18 @@
 # Function graph — `art`
 
-Current source-derived semantic map: **61 nodes** across **6 files**. The JSON file is canonical; this document renders every semantic field for review.
+Current source-derived semantic map: **62 nodes** across **6 files**. The JSON file is canonical; this document renders every semantic field for review.
 
 ## Source files
 
 | file | lines |
 |---|---:|
-| `cauldron/CauldronArtAdapter.sol` | 137 |
-| `render/FrenRenderer.sol` | 350 |
-| `render/LiquidatoorRenderer.sol` | 307 |
-| `render/SSTORE2.sol` | 61 |
-| `render/TraitStorage.sol` | 128 |
-| `deploy/BadgeArtLib.sol` | 85 |
+| `cauldron/CauldronArtAdapter.sol` | 136 |
+| `render/FrenRenderer.sol` | 371 |
+| `render/LiquidatoorRenderer.sol` | 306 |
+| `render/SSTORE2.sol` | 60 |
+| `render/TraitStorage.sol` | 127 |
+| `deploy/BadgeArtLib.sol` | 84 |
+
 
 ## `IFrenRendererFive (declared in CauldronArtAdapter.sol)`
 
@@ -363,31 +364,43 @@ Current source-derived semantic map: **61 nodes** across **6 files**. The JSON f
 - Edges: none
 - Observations: none
 
-### `_append/function` — FrenRenderer.sol:305
+### `_ensure/function` — FrenRenderer.sol:310
 
-- Signature: `function _append(Buf memory b, string memory s) private pure`
-- Authority: internal
+- Signature: `function _ensure(Buf memory b, uint256 n) private pure`
+- Authority: internal (callers: _append, _appendUint)
 - Gate evidence: `UNGATED`
 - Reads: none
 - Writes: none
 - Value: NONE
-- Reachability: Internal body declared at `_append` (FrenRenderer.sol:305); callers: _appendHeader, _appendRow, _appendUint, renderSVG.
+- Reachability: Grows the SVG buffer before any write that would pass its capacity: returns at once when the bytes fit (`need` FrenRenderer.sol:313), otherwise doubles the capacity from at least 32 until it fits (`cap` FrenRenderer.sol:315) and copies the used prefix into the new allocation (`mcopy` FrenRenderer.sol:320). Pure memory work; no state.
 - Edges: none
 - Observations: none
 
-### `_appendUint/function` — FrenRenderer.sol:319
+### `_append/function` — FrenRenderer.sol:325
 
-- Signature: `function _appendUint(Buf memory b, uint256 v) private pure`
-- Authority: internal
+- Signature: `function _append(Buf memory b, string memory s) private pure`
+- Authority: internal (callers: _appendHeader, _appendRow, _appendUint, renderSVG)
 - Gate evidence: `UNGATED`
 - Reads: none
 - Writes: none
 - Value: NONE
-- Reachability: Internal body declared at `_appendUint` (FrenRenderer.sol:319); callers: _appendRow.
-- Edges: `FrenRenderer._append (FrenRenderer.sol:321), TRUSTED, in-cluster`
+- Reachability: Appends a string to the SVG buffer. Capacity is ensured first (`_ensure` FrenRenderer.sol:328), so a long trait layer can no longer write past the allocation into adjacent memory; then the bytes are copied at the current length (`mcopy` FrenRenderer.sol:334) and the length advanced.
+- Edges: `FrenRenderer._ensure (FrenRenderer.sol:328), TRUSTED, in-cluster`
 - Observations: none
 
-### `_finalize/function` — FrenRenderer.sol:342
+### `_appendUint/function` — FrenRenderer.sol:340
+
+- Signature: `function _appendUint(Buf memory b, uint256 v) private pure`
+- Authority: internal (callers: _appendRow)
+- Gate evidence: `UNGATED`
+- Reads: none
+- Writes: none
+- Value: NONE
+- Reachability: Appends a decimal number of at most four digits (`tmp` FrenRenderer.sol:345); zero goes through `_append` (FrenRenderer.sol:342). The digit count is computed before the capacity check (`_ensure` FrenRenderer.sol:353), then the digits are copied in. A value of five or more digits underflows the checked index and reverts rather than writing out of bounds (DERIVED).
+- Edges: `FrenRenderer._append (FrenRenderer.sol:342), TRUSTED, in-cluster`; `FrenRenderer._ensure (FrenRenderer.sol:353), TRUSTED, in-cluster`
+- Observations: none
+
+### `_finalize/function` — FrenRenderer.sol:364
 
 - Signature: `function _finalize(Buf memory b) private pure returns (bytes memory out)`
 - Authority: internal
@@ -395,7 +408,7 @@ Current source-derived semantic map: **61 nodes** across **6 files**. The JSON f
 - Reads: none
 - Writes: none
 - Value: NONE
-- Reachability: Internal body declared at `_finalize` (FrenRenderer.sol:342); callers: renderSVG.
+- Reachability: Internal body declared at `_finalize` (FrenRenderer.sol:364); callers: renderSVG.
 - Edges: none
 - Observations: none
 

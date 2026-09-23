@@ -48,5 +48,6 @@
  "seeder()": "684931ed",
  "successor()": "6ff968c3",
  "summoned()": "f0e2a569",
- "transferOwnership(address)": "f2fde38b"
+ "transferOwnership(address)": "f2fde38b",
+ "treasuryHeldOg()": "8bfcb2c2"
 }

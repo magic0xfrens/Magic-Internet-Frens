@@ -1,18 +1,18 @@
 {
  "cluster": "deploy",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-18T09:06:11",
+ "generated": "2026-09-23T21:35:55",
  "files": {
-  "deploy/DeployCauldron.s.sol": 120,
+  "deploy/DeployCauldron.s.sol": 126,
   "deploy/DeployLaunchSniper.s.sol": 63,
-  "deploy/DeployLaunchpad.s.sol": 831,
-  "deploy/DeployMigrationVesting.s.sol": 111,
+  "deploy/DeployLaunchpad.s.sol": 1032,
+  "deploy/DeployMigrationVesting.s.sol": 122,
   "deploy/DeployPerp.s.sol": 268,
   "deploy/DeployQuoteAssets.s.sol": 67,
   "deploy/DeployRenderer.s.sol": 92,
-  "deploy/DeployRotationStack.s.sol": 443,
+  "deploy/DeployRotationStack.s.sol": 447,
   "deploy/DeployV4Core.s.sol": 96,
-  "deploy/FixFactoryWiring.s.sol": 63,
+  "deploy/FixFactoryWiring.s.sol": 74,
   "deploy/SellVolume.s.sol": 59,
   "deploy/SnipeBuy.s.sol": 112,
   "deploy/SwapVolume.s.sol": 84,
@@ -24,15 +24,31 @@
    "file": "deploy/DeployCauldron.s.sol",
    "line": 45,
    "kind": "function",
+   "name": "_hookFlags",
+   "signature": "function _hookFlags() internal pure returns (uint160)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "0c751bd88353a2dd8885aff7ff0ea897b8b8e701",
+   "body_lines": [
+    45,
+    53
+   ]
+  },
+  {
+   "contract": "DeployCauldron (declared in DeployCauldron.s.sol)",
+   "file": "deploy/DeployCauldron.s.sol",
+   "line": 55,
+   "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "e86d9ffb0e6df14421335a460efebb35b670de3a",
+   "body_sha1": "adb64ced71cf679897264d4fbbb1a298854707ec",
    "body_lines": [
-    45,
-    118
+    55,
+    124
    ]
   },
   {
@@ -106,33 +122,81 @@
   {
    "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
    "file": "deploy/DeployLaunchpad.s.sol",
-   "line": 98,
+   "line": 114,
    "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "c25c9ead69e7f4ea5bc14d267a25e5db4175434d",
+   "body_sha1": "4a5a898cae4957d7845211cb2ca46c38956ad509",
    "body_lines": [
-    98,
-    598
+    114,
+    708
    ]
   },
   {
    "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
    "file": "deploy/DeployLaunchpad.s.sol",
-   "line": 637,
+   "line": 738,
    "kind": "function",
-   "name": "_deployRotationStack",
-   "signature": "function _deployRotationStack( CauldronRegistry registry, QuoteRotator rotator, address poolManager, address positionManager, address deployer ) internal",
+   "name": "_preflightQuoteStack",
+   "signature": "function _preflightQuoteStack() internal view returns (bool enabled)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "800a8204d4bd5bd2f44dbc7cb1ffcebef0151e7d",
+   "body_lines": [
+    738,
+    759
+   ]
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 764,
+   "kind": "function",
+   "name": "_requireUsableFeed",
+   "signature": "function _requireUsableFeed( address feed, uint256 heartbeatRaw, uint256 minUsd, uint256 maxUsd ) internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "03ea66f774d257ae758ea50b7bb5ea0e34e2b76f",
+   "body_lines": [
+    766,
+    801
+   ]
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 807,
+   "kind": "function",
+   "name": "_deployQuoteOracle",
+   "signature": "function _deployQuoteOracle(address deployer) internal returns (QuoteOracle oracle)",
    "visibility": "internal",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "000f7e78003ca8b3ba11823464ebf4220f5a26d9",
+   "body_sha1": "54e091767166b7aed289bb51f5541002961eefa8",
    "body_lines": [
-    643,
-    829
+    807,
+    852
+   ]
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 865,
+   "kind": "function",
+   "name": "_deployRotationStack",
+   "signature": "function _deployRotationStack( CauldronRegistry registry, QuoteRotator rotator, address poolManager, address positionManager, QuoteOracle oracle ) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "244f5be55426e73a0ecbb70fa3f5504da26bef0e",
+   "body_lines": [
+    871,
+    1030
    ]
   },
   {
@@ -166,6 +230,19 @@
    "file": "deploy/DeployMigrationVesting.s.sol",
    "line": 11,
    "kind": "function",
+   "name": "emergencyReadyAt",
+   "signature": "function emergencyReadyAt() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRegistryGate (declared in DeployMigrationVesting.s.sol)",
+   "file": "deploy/DeployMigrationVesting.s.sol",
+   "line": 12,
+   "kind": "function",
    "name": "claimGate",
    "signature": "function claimGate() external view returns (address)",
    "visibility": "external",
@@ -177,7 +254,7 @@
   {
    "contract": "IRegistryGate (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 12,
+   "line": 13,
    "kind": "function",
    "name": "setClaimGate",
    "signature": "function setClaimGate(address gate) external",
@@ -190,7 +267,7 @@
   {
    "contract": "IHookPerp (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 14,
+   "line": 15,
    "kind": "function",
    "name": "perpEngine",
    "signature": "function perpEngine() external view returns (address)",
@@ -203,7 +280,7 @@
   {
    "contract": "IEngineVault (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 15,
+   "line": 16,
    "kind": "function",
    "name": "vault",
    "signature": "function vault() external view returns (address)",
@@ -216,17 +293,17 @@
   {
    "contract": "DeployMigrationVesting (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 54,
+   "line": 55,
    "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "b73363b618d6dd4e9977b3bd98235405a2d5c79d",
+   "body_sha1": "878486c769149e8c3304f1803544511c4b7afe3d",
    "body_lines": [
-    54,
-    109
+    55,
+    120
    ]
   },
   {
@@ -540,32 +617,32 @@
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "b7aba88d6df0b9a681cc0c52ed5daced134b0a33",
+   "body_sha1": "20a4b6e3e4a88109aa20c06fdd7c06d6df7dab85",
    "body_lines": [
     279,
-    287
+    288
    ]
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 329,
+   "line": 330,
    "kind": "function",
    "name": "seedBand",
    "signature": "function seedBand( IPoolManager poolManager, IPositionManagerOps posm, address usdg, uint256 ethAmount, uint256 usdgAmount, int24 spacing, uint24 fee, uint16 bandBps ) external payable returns (uint256)",
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "1340c0364d2b62f27cb3cdfe96ac0104c7b59dcb",
+   "body_sha1": "79943ae730a79c2c9f31d5de9a093a9a4cb85b26",
    "body_lines": [
-    338,
-    394
+    339,
+    398
    ]
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 419,
+   "line": 423,
    "kind": "function",
    "name": "recover",
    "signature": "function recover(IPositionManagerOps posm, PoolKey memory key, address usdg) external returns (uint256 ethOut, uint256 usdgOut)",
@@ -574,14 +651,14 @@
    "modifiers": [],
    "body_sha1": "170d75a09c85e51b738b62d8a7721204c7b1db94",
    "body_lines": [
-    422,
-    439
+    426,
+    443
    ]
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 441,
+   "line": 445,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -590,8 +667,8 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    441,
-    441
+    445,
+    445
    ]
   },
   {
@@ -685,10 +762,10 @@
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "3f26bc71c5c5b2ed9ef6695d243764cb5ae8eb06",
+   "body_sha1": "c2a0fb12bc22c9758a86ea277f60d00de36ecf00",
    "body_lines": [
     33,
-    61
+    72
    ]
   },
   {

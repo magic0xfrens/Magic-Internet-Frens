@@ -102,6 +102,7 @@
  "sweepLegProceeds(address,address)": "76a259ff",
  "sweepPrimeBuy()": "1f754d5d",
  "transferOwnership(address)": "f2fde38b",
+ "treasuryHeldOg()": "8bfcb2c2",
  "unlockCallback(bytes)": "91dd7346",
  "vetoEmergency()": "30689437"
 }

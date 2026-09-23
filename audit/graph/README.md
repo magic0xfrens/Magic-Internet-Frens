@@ -1,6 +1,6 @@
 # Cauldron function graph
 
-Generated 2026-09-12 at commit `ba9fb17` (branch snapshot of the working tree) from the decontaminated source tree `contracts/solidity` (comment tags stripped; line numbers and body hashes identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).
+Generated 2026-09-23 at commit `6961bb4` (branch snapshot of the working tree) from the source tree `contracts/solidity`.
 
 Extraction only: no severity judgment, no exploit narrative. Every node comes from `skeleton.py`; every number below comes from `validate.py`, `join.py`, or `CROSSCHECK.md`.
 
@@ -26,14 +26,16 @@ TRUSTED = the callee's code is in this repo or a pinned lib; UNTRUSTED = an addr
 
 | cluster | files |
 |---|---|
-| hook | `CauldronHook.sol`, `vendor/BaseHook.sol`, `vendor/HookMiner.sol`, `cauldron/FeeRouteLib.sol`, `cauldron/DefaultFeeRouter.sol`, `cauldron/ReserveLib.sol`, `cauldron/RoyaltyRouter.sol`, `cauldron/LegacyBuyLib.sol` |
+| hook | `CauldronHook.sol`, `vendor/BaseHook.sol`, `vendor/HookMiner.sol`, `cauldron/FeeRouteLib.sol`, `cauldron/DefaultFeeRouter.sol`, `cauldron/ReserveLib.sol`, `cauldron/RoyaltyRouter.sol`, `cauldron/LegacyBuyLib.sol`, `cauldron/SurtaxLib.sol` |
 | registry | `CauldronRegistry.sol`, `CauldronToken.sol`, `cauldron/IPolicies.sol`, `cauldron/IDeathChecker.sol`, `cauldron/ILiquidatorMintable.sol`, `cauldron/ICauldron.sol` |
 | pool | `cauldron/CauldronBase.sol`, `cauldron/PoolOps.sol` |
 | perp | `cauldron/PerpEngine.sol`, `cauldron/PerpVault.sol`, `cauldron/PerpSwapLib.sol`, `cauldron/PerpMarkSource.sol`, `cauldron/PerpStakerOracle.sol` |
-| rotation | `cauldron/QuoteRotator.sol`, `cauldron/QuoteOracle.sol`, `cauldron/RedemptionExt.sol`, `cauldron/CauldronVault.sol`, `cauldron/MockAggregator.sol`, `cauldron/MockQuoteToken.sol` |
+| rotation | `cauldron/QuoteRotator.sol`, `cauldron/QuoteOracle.sol`, `cauldron/RedemptionExt.sol`, `cauldron/CauldronVault.sol`, `cauldron/NativeQuoteZap.sol`, `cauldron/MockAggregator.sol`, `cauldron/MockQuoteToken.sol` |
 | governance | `cauldron/CauldronGovernor.sol`, `cauldron/TreasuryGovernor.sol` |
-| nft | `cauldron/MiFrensGenesis.sol`, `cauldron/CauldronCollection.sol`, `cauldron/CollectionLedger.sol`, `cauldron/CauldronGachaRouter.sol`, `cauldron/MiFrensDividend.sol`, `cauldron/MintCurvePolicy.sol`, `cauldron/CauldronFactory.sol`, `cauldron/ICreatorToken.sol`, `interfaces/INFTContract.sol` |
+| nft | `cauldron/MiFrensGenesis.sol`, `cauldron/CauldronCollection.sol`, `cauldron/CollectionLedger.sol`, `cauldron/CauldronGachaRouter.sol`, `cauldron/GachaLib.sol`, `cauldron/MiFrensDividend.sol`, `cauldron/MintCurvePolicy.sol`, `cauldron/CauldronFactory.sol`, `cauldron/ICreatorToken.sol`, `interfaces/INFTContract.sol` |
 | seed | `cauldron/CauldronSeeder.sol`, `cauldron/SeedLib.sol`, `cauldron/ISeeder.sol`, `cauldron/MigrationVesting.sol`, `cauldron/LaunchSniper.sol` |
+| art | `cauldron/CauldronArtAdapter.sol`, `render/FrenRenderer.sol`, `render/LiquidatoorRenderer.sol`, `render/SSTORE2.sol`, `render/TraitStorage.sol`, `deploy/BadgeArtLib.sol` |
+| deploy | `deploy/DeployCauldron.s.sol`, `deploy/DeployLaunchSniper.s.sol`, `deploy/DeployLaunchpad.s.sol`, `deploy/DeployMigrationVesting.s.sol`, `deploy/DeployPerp.s.sol`, `deploy/DeployQuoteAssets.s.sol`, `deploy/DeployRenderer.s.sol`, `deploy/DeployRotationStack.s.sol`, `deploy/DeployV4Core.s.sol`, `deploy/FixFactoryWiring.s.sol`, `deploy/SellVolume.s.sol`, `deploy/SnipeBuy.s.sol`, `deploy/SwapVolume.s.sol`, `deploy/TopUpVenue.s.sol` |
 
 ## How to re-run
 
@@ -54,23 +56,26 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 |---|---|---|---|---|---|---|---|
 | hook | IRegistryQuotes (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 0 | |
 | hook | IQuoteOracle (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | IPerpOpenCount (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | IPerpEngineLiq (declared in CauldronHook.sol) | 3 | 3 | 3 | 0 | 2 | |
+| hook | IPerpOpenCount (declared in CauldronHook.sol) | 2 | 2 | 2 | 0 | 1 | |
+| hook | IPerpEngineLiq (declared in CauldronHook.sol) | 4 | 4 | 4 | 0 | 2 | |
 | hook | ICollectionLiquidator (declared in CauldronHoo | 1 | 1 | 1 | 0 | 0 | |
 | hook | ILegacyNote (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 1 | |
 | hook | IPerpForceClose (declared in CauldronHook.sol) | 2 | 2 | 2 | 0 | 0 | |
 | hook | IPerpFeeCredit (declared in CauldronHook.sol) | 3 | 3 | 3 | 0 | 0 | |
 | hook | ISeederInSwap (declared in CauldronHook.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | CauldronHook | 78 | 78 | 78 | 49 | 4 | |
+| hook | CauldronHook | 83 | 83 | 83 | 49 | 4 | |
 | hook | DefaultFeeRouter | 1 | 1 | 1 | 0 | 0 | |
 | hook | FeeRouteLib | 7 | 7 | 7 | 7 | 1 | |
-| hook | LegacyBuyLib | 1 | 1 | 1 | 1 | 1 | |
+| hook | LegacyBuyLib | 2 | 2 | 2 | 1 | 0 | |
 | hook | ReserveLib | 5 | 5 | 5 | 1 | 4 | |
 | hook | ILegacyBuffer (declared in RoyaltyRouter.sol) | 1 | 1 | 1 | 0 | 0 | |
-| hook | RoyaltyRouter | 2 | 2 | 2 | 1 | 2 | |
+| hook | IAdoptable (declared in RoyaltyRouter.sol) | 1 | 1 | 1 | 0 | 0 | |
+| hook | RoyaltyRouter | 5 | 5 | 5 | 4 | 0 | |
+| hook | SurtaxLib | 2 | 2 | 2 | 1 | 1 | |
 | hook | BaseHook | 23 | 23 | 23 | 12 | 0 | |
 | hook | HookMiner | 2 | 2 | 2 | 1 | 1 | |
-| registry | CauldronRegistry | 68 | 68 | 68 | 42 | 29 | |
+| registry | ICollectionMetadata (declared in CauldronRegis | 1 | 1 | 1 | 0 | 0 | |
+| registry | CauldronRegistry | 69 | 69 | 69 | 41 | 28 | |
 | registry | CauldronToken | 3 | 3 | 3 | 0 | 2 | |
 | registry | ICollectionRenderer (declared in ICauldron.sol | 1 | 1 | 1 | 0 | 1 | |
 | registry | LaunchLib (declared in ICauldron.sol) | 1 | 1 | 1 | 0 | 1 | |
@@ -86,6 +91,7 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | pool | IMiFrensContinuable (declared in CauldronBase. | 5 | 5 | 5 | 0 | 2 | |
 | pool | IVaultClose (declared in CauldronBase.sol) | 1 | 1 | 1 | 0 | 1 | |
 | pool | IPerpSync (declared in CauldronBase.sol) | 2 | 2 | 2 | 0 | 1 | |
+| pool | IPerpBook (declared in CauldronBase.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | ICollectionLedger (declared in CauldronBase.so | 1 | 1 | 1 | 0 | 0 | |
 | pool | IPositionManager (declared in CauldronBase.sol | 3 | 3 | 3 | 0 | 3 | |
 | pool | CauldronBase | 4 | 4 | 4 | 0 | 0 | |
@@ -93,115 +99,180 @@ python3 audit/graph/make_readme.py audit/graph <src_root> <validate_log_dir>
 | pool | ILedgerOps (declared in PoolOps.sol) | 7 | 7 | 7 | 0 | 1 | |
 | pool | IColMinted (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | IVaultRedeemedOps (declared in PoolOps.sol) | 2 | 2 | 2 | 0 | 1 | |
-| pool | IHookReserves (declared in PoolOps.sol) | 2 | 2 | 2 | 0 | 0 | |
+| pool | IHookReserves (declared in PoolOps.sol) | 4 | 4 | 4 | 0 | 0 | |
 | pool | IVaultCloseOps (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | ICollectionOps (declared in PoolOps.sol) | 2 | 2 | 2 | 0 | 0 | |
 | pool | ILegacyHookOps (declared in PoolOps.sol) | 2 | 2 | 2 | 0 | 0 | |
 | pool | ICauldronBurn (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | IAutoFlag (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
 | pool | IPermit2Ops (declared in PoolOps.sol) | 1 | 1 | 1 | 0 | 0 | |
-| pool | PoolOps | 30 | 30 | 30 | 28 | 4 | |
-| perp | IPerpRegistry (declared in PerpEngine.sol) | 8 | 8 | 8 | 0 | 4 | |
-| perp | IMarkSource (declared in PerpEngine.sol) | 1 | 1 | 1 | 0 | 0 | |
+| pool | PoolOps | 34 | 34 | 34 | 30 | 2 | |
+| perp | IPerpRegistry (declared in PerpEngine.sol) | 8 | 8 | 8 | 0 | 8 | |
+| perp | IMarkSource (declared in PerpEngine.sol) | 1 | 1 | 1 | 0 | 1 | |
 | perp | IPerpVaultStake (declared in PerpEngine.sol) | 2 | 2 | 2 | 0 | 2 | |
-| perp | IPerpHook (declared in PerpEngine.sol) | 2 | 2 | 2 | 0 | 1 | |
-| perp | PerpEngine | 93 | 93 | 93 | 68 | 59 | |
-| perp | PerpMarkSource | 7 | 7 | 7 | 0 | 6 | |
-| perp | IPerpShares (declared in PerpStakerOracle.sol) | 2 | 2 | 2 | 0 | 1 | |
+| perp | IPerpHook (declared in PerpEngine.sol) | 2 | 2 | 2 | 0 | 2 | |
+| perp | PerpEngine | 125 | 125 | 125 | 114 | 107 | |
+| perp | PerpMarkSource | 7 | 7 | 7 | 6 | 7 | |
+| perp | IPerpShares (declared in PerpStakerOracle.sol) | 2 | 2 | 2 | 0 | 2 | |
 | perp | PerpStakerOracle | 2 | 2 | 2 | 1 | 2 | |
-| perp | PerpSwapLib | 11 | 11 | 11 | 11 | 12 | |
-| perp | IPerpEngineVault (declared in PerpVault.sol) | 11 | 11 | 11 | 0 | 1 | |
+| perp | IRequoteEngine (declared in PerpSwapLib.sol) | 8 | 8 | 8 | 0 | 0 | |
+| perp | IVaultQuoteStake (declared in PerpSwapLib.sol) | 1 | 1 | 1 | 0 | 0 | |
+| perp | IRequoteRegistry (declared in PerpSwapLib.sol) | 2 | 2 | 2 | 0 | 0 | |
+| perp | IRequoteRotator (declared in PerpSwapLib.sol) | 4 | 4 | 4 | 0 | 0 | |
+| perp | PerpSwapLib | 45 | 45 | 45 | 33 | 21 | |
+| perp | IPerpEngineVault (declared in PerpVault.sol) | 12 | 12 | 12 | 0 | 12 | |
 | perp | IVaultRegistry (declared in PerpVault.sol) | 1 | 1 | 1 | 0 | 1 | |
-| perp | PerpVault | 23 | 23 | 23 | 17 | 8 | |
-| rotation | IBurnableCollection (declared in CauldronVault | 3 | 3 | 3 | 0 | 3 | |
-| rotation | CauldronVault | 6 | 6 | 6 | 4 | 0 | |
-| rotation | MockAggregator | 7 | 7 | 7 | 0 | 0 | |
-| rotation | MockQuoteToken | 3 | 3 | 3 | 1 | 0 | |
-| rotation | IAggregatorV3 (declared in QuoteOracle.sol) | 2 | 2 | 2 | 0 | 0 | |
-| rotation | IERC20Decimals (declared in QuoteOracle.sol) | 1 | 1 | 1 | 0 | 0 | |
-| rotation | QuoteOracle | 11 | 11 | 11 | 6 | 3 | |
-| rotation | QuoteRotator | 29 | 29 | 29 | 18 | 6 | |
-| rotation | ITreasuryGovernor (declared in RedemptionExt.s | 3 | 3 | 3 | 0 | 0 | |
-| rotation | IQuoteRotator (declared in RedemptionExt.sol) | 2 | 2 | 2 | 0 | 0 | |
-| rotation | IHookVolume (declared in RedemptionExt.sol) | 1 | 1 | 1 | 0 | 0 | |
-| rotation | RedemptionExt | 19 | 19 | 19 | 13 | 5 | |
+| perp | PerpVault | 39 | 39 | 39 | 38 | 26 | |
+| rotation | IBurnableCollection (declared in CauldronVault | 4 | 4 | 4 | 0 | 4 | |
+| rotation | ILegacyFloorHook (declared in CauldronVault.so | 1 | 1 | 1 | 0 | 0 | |
+| rotation | CauldronVault | 8 | 8 | 8 | 7 | 5 | |
+| rotation | MockAggregator | 7 | 7 | 7 | 5 | 7 | |
+| rotation | MockQuoteToken | 3 | 3 | 3 | 2 | 3 | |
+| rotation | NativeQuoteZap | 3 | 3 | 3 | 2 | 3 | |
+| rotation | IAggregatorV3 (declared in QuoteOracle.sol) | 2 | 2 | 2 | 0 | 2 | |
+| rotation | IERC20Decimals (declared in QuoteOracle.sol) | 1 | 1 | 1 | 0 | 1 | |
+| rotation | QuoteOracle | 13 | 13 | 13 | 10 | 9 | |
+| rotation | QuoteRotator | 32 | 32 | 32 | 27 | 25 | |
+| rotation | ITreasuryGovernor (declared in RedemptionExt.s | 3 | 3 | 3 | 0 | 3 | |
+| rotation | IQuoteRotator (declared in RedemptionExt.sol) | 2 | 2 | 2 | 0 | 2 | |
+| rotation | IHookVolume (declared in RedemptionExt.sol) | 1 | 1 | 1 | 0 | 1 | |
+| rotation | RedemptionExt | 23 | 23 | 23 | 20 | 14 | |
 | governance | IRegistryQuotes (declared in CauldronGovernor. | 1 | 1 | 1 | 0 | 0 | |
-| governance | CauldronGovernor | 13 | 13 | 13 | 7 | 10 | |
+| governance | IRegistryHook (declared in CauldronGovernor.so | 1 | 1 | 1 | 0 | 0 | |
+| governance | IHookCurve (declared in CauldronGovernor.sol) | 1 | 1 | 1 | 0 | 0 | |
+| governance | ICurveCalibration (declared in CauldronGoverno | 1 | 1 | 1 | 0 | 0 | |
+| governance | IHookCurveBase (declared in CauldronGovernor.s | 1 | 1 | 1 | 0 | 0 | |
+| governance | CauldronGovernor | 18 | 18 | 18 | 12 | 6 | |
 | governance | IVotes721 (declared in TreasuryGovernor.sol) | 3 | 3 | 3 | 0 | 2 | |
 | governance | IRegistryQuotes (declared in TreasuryGovernor. | 1 | 1 | 1 | 0 | 0 | |
 | governance | IQuotePrice (declared in TreasuryGovernor.sol) | 1 | 1 | 1 | 0 | 1 | |
-| governance | TreasuryGovernor | 19 | 19 | 19 | 10 | 29 | |
-| nft | CauldronCollection | 26 | 26 | 26 | 8 | 1 | |
-| nft | CauldronFactory | 4 | 4 | 4 | 1 | 2 | |
+| governance | TreasuryGovernor | 20 | 20 | 20 | 10 | 18 | |
+| nft | CauldronCollection | 27 | 27 | 27 | 8 | 1 | |
+| nft | CauldronFactory | 4 | 4 | 4 | 1 | 1 | |
 | nft | ICauldronHookGacha (declared in CauldronGachaR | 5 | 5 | 5 | 0 | 0 | |
 | nft | IRegistryCurrent (declared in CauldronGachaRou | 3 | 3 | 3 | 0 | 0 | |
 | nft | IQuoteOracleView (declared in CauldronGachaRou | 1 | 1 | 1 | 0 | 0 | |
-| nft | CauldronGachaRouter | 25 | 25 | 25 | 19 | 13 | |
-| nft | CollectionLedger | 8 | 8 | 8 | 3 | 3 | |
+| nft | CauldronGachaRouter | 25 | 25 | 25 | 16 | 12 | |
+| nft | CollectionLedger | 9 | 9 | 9 | 4 | 1 | |
+| nft | GachaLib | 6 | 6 | 6 | 2 | 0 | |
 | nft | ITransferValidator (declared in ICreatorToken. | 1 | 1 | 1 | 0 | 0 | |
 | nft | ICreatorToken | 3 | 3 | 3 | 0 | 0 | |
 | nft | IMiFrensShares (declared in MiFrensDividend.so | 4 | 4 | 4 | 0 | 0 | |
 | nft | IReserveRegistry (declared in MiFrensDividend. | 3 | 3 | 3 | 0 | 1 | |
-| nft | MiFrensDividend | 22 | 22 | 22 | 18 | 4 | |
+| nft | MiFrensDividend | 24 | 24 | 24 | 18 | 3 | |
 | nft | IRegistrySummon (declared in MiFrensGenesis.so | 2 | 2 | 2 | 0 | 1 | |
 | nft | IMiFrensDividendHook (declared in MiFrensGenes | 1 | 1 | 1 | 0 | 0 | |
-| nft | MiFrensGenesis | 42 | 42 | 42 | 13 | 10 | |
+| nft | MiFrensGenesis | 50 | 50 | 50 | 13 | 9 | |
 | nft | MintCurvePolicy | 3 | 3 | 3 | 0 | 0 | |
 | nft | INFTContract | 2 | 2 | 2 | 0 | 2 | |
-| seed | IRegistryOwner (declared in CauldronSeeder.sol | 1 | 1 | 1 | 0 | 1 | |
-| seed | CauldronSeeder | 23 | 23 | 23 | 14 | 7 | |
-| seed | ISeeder | 6 | 6 | 6 | 0 | 1 | |
+| seed | IRegistryOwner (declared in CauldronSeeder.sol | 1 | 1 | 1 | 0 | 0 | |
+| seed | CauldronSeeder | 26 | 26 | 26 | 17 | 0 | |
+| seed | ISeeder | 6 | 6 | 6 | 0 | 0 | |
 | seed | IMiFrensGenesisFinalize (declared in LaunchSni | 2 | 2 | 2 | 0 | 0 | |
-| seed | IRegistryCurrent (declared in LaunchSniper.sol | 1 | 1 | 1 | 0 | 1 | |
-| seed | IGachaPlay (declared in LaunchSniper.sol) | 1 | 1 | 1 | 0 | 2 | |
-| seed | LaunchSniper | 5 | 5 | 5 | 2 | 5 | |
-| seed | IVestingRegistry (declared in MigrationVesting | 3 | 3 | 3 | 0 | 2 | |
-| seed | IStakerOracle (declared in MigrationVesting.so | 1 | 1 | 1 | 0 | 1 | |
-| seed | MigrationVesting | 16 | 16 | 16 | 9 | 6 | |
-| seed | SeedLib | 7 | 7 | 7 | 3 | 5 | |
+| seed | IRegistryCurrent (declared in LaunchSniper.sol | 1 | 1 | 1 | 0 | 0 | |
+| seed | IGachaPlay (declared in LaunchSniper.sol) | 1 | 1 | 1 | 0 | 0 | |
+| seed | LaunchSniper | 5 | 5 | 5 | 2 | 0 | |
+| seed | IVestingRegistry (declared in MigrationVesting | 3 | 3 | 3 | 0 | 0 | |
+| seed | IStakerOracle (declared in MigrationVesting.so | 1 | 1 | 1 | 0 | 0 | |
+| seed | MigrationVesting | 16 | 16 | 16 | 9 | 1 | |
+| seed | SeedLib | 7 | 7 | 7 | 3 | 0 | |
+| art | IFrenRendererFive (declared in CauldronArtAdap | 1 | 1 | 1 | 0 | 0 | |
+| art | IRevealedArtSource (declared in CauldronArtAda | 2 | 2 | 2 | 0 | 0 | |
+| art | CauldronArtAdapter | 5 | 5 | 5 | 2 | 0 | |
+| art | BadgeArtLib | 4 | 4 | 4 | 2 | 0 | |
+| art | FrenRenderer | 20 | 20 | 20 | 11 | 1 | |
+| art | LiquidatoorRenderer | 17 | 17 | 17 | 13 | 0 | |
+| art | SSTORE2 | 2 | 2 | 2 | 0 | 0 | |
+| art | TraitStorage | 11 | 11 | 11 | 6 | 0 | |
+| deploy | DeployCauldron (declared in DeployCauldron.s.s | 2 | 2 | 2 | 1 | 0 | |
+| deploy | IHookExempt (declared in DeployLaunchSniper.s. | 2 | 2 | 2 | 0 | 0 | |
+| deploy | IPresaleFinalizer (declared in DeployLaunchSni | 1 | 1 | 1 | 0 | 0 | |
+| deploy | DeployLaunchSniper (declared in DeployLaunchSn | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IOwnable (declared in DeployLaunchpad.s.sol) | 1 | 1 | 1 | 0 | 0 | |
+| deploy | DeployLaunchpad (declared in DeployLaunchpad.s | 5 | 5 | 5 | 4 | 0 | |
+| deploy | IRegistryGate (declared in DeployMigrationVest | 5 | 5 | 5 | 0 | 0 | |
+| deploy | IHookPerp (declared in DeployMigrationVesting. | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IEngineVault (declared in DeployMigrationVesti | 1 | 1 | 1 | 0 | 0 | |
+| deploy | DeployMigrationVesting (declared in DeployMigr | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IHookWire (declared in DeployPerp.s.sol) | 2 | 2 | 2 | 0 | 0 | |
+| deploy | ICollLiq (declared in DeployPerp.s.sol) | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IPerpVaultDeposit (declared in DeployPerp.s.so | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IOwnable (declared in DeployPerp.s.sol) | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IRegistryGen (declared in DeployPerp.s.sol) | 2 | 2 | 2 | 0 | 0 | |
+| deploy | DeployPerp (declared in DeployPerp.s.sol) | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IRegistryQuoteAdmin (declared in DeployQuoteAs | 3 | 3 | 3 | 0 | 0 | |
+| deploy | DeployQuoteAssets (declared in DeployQuoteAsse | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IPegRenderer (declared in DeployRenderer.s.sol | 1 | 1 | 1 | 0 | 0 | |
+| deploy | DeployRenderer (declared in DeployRenderer.s.s | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IPermit2Approve (declared in DeployRotationSta | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IRegistryAdmin (declared in DeployRotationStac | 5 | 5 | 5 | 0 | 0 | |
+| deploy | DeployRotationStack (declared in DeployRotatio | 1 | 1 | 1 | 1 | 0 | |
+| deploy | VenueSeeder (declared in DeployRotationStack.s | 5 | 5 | 5 | 3 | 0 | |
+| deploy | DeployV4Core (declared in DeployV4Core.s.sol) | 1 | 1 | 1 | 0 | 0 | |
+| deploy | IRegistryFactoryAdmin (declared in FixFactoryW | 2 | 2 | 2 | 0 | 0 | |
+| deploy | ITimelock (declared in FixFactoryWiring.s.sol) | 3 | 3 | 3 | 0 | 0 | |
+| deploy | FixFactoryWiring (declared in FixFactoryWiring | 1 | 1 | 1 | 1 | 0 | |
+| deploy | IERC20Min (declared in SellVolume.s.sol) | 2 | 2 | 2 | 0 | 0 | |
+| deploy | SellVolume (declared in SellVolume.s.sol) | 1 | 1 | 1 | 1 | 0 | |
+| deploy | ISeederView (declared in SnipeBuy.s.sol) | 3 | 3 | 3 | 0 | 0 | |
+| deploy | IERC20View (declared in SnipeBuy.s.sol) | 1 | 1 | 1 | 0 | 0 | |
+| deploy | SnipeBuy (declared in SnipeBuy.s.sol) | 2 | 2 | 2 | 1 | 0 | |
+| deploy | IHookView (declared in SwapVolume.s.sol) | 4 | 4 | 4 | 0 | 0 | |
+| deploy | ICollView (declared in SwapVolume.s.sol) | 2 | 2 | 2 | 0 | 0 | |
+| deploy | SwapVolume (declared in SwapVolume.s.sol) | 1 | 1 | 1 | 1 | 0 | |
+| deploy | TopUpVenue (declared in TopUpVenue.s.sol) | 1 | 1 | 1 | 1 | 0 | |
+| deploy | RecoverVenue (declared in TopUpVenue.s.sol) | 1 | 1 | 1 | 1 | 0 | |
 
 | cluster | validator result |
 |---|---|
-| hook | `COVERAGE hook: 134/134 nodes, 0 failures` |
-| registry | `COVERAGE registry: 87/87 nodes, 0 failures` |
-| pool | `COVERAGE pool: 71/71 nodes, 0 failures` |
-| perp | `COVERAGE perp: 163/163 nodes, 0 failures` |
-| rotation | `COVERAGE rotation: 87/87 nodes, 0 failures` |
-| governance | `COVERAGE governance: 38/38 nodes, 0 failures` |
-| nft | `COVERAGE nft: 155/155 nodes, 0 failures` |
-| seed | `COVERAGE seed: 66/66 nodes, 0 failures` |
+| hook | `COVERAGE hook: 148/148 nodes, 0 failures` |
+| registry | `COVERAGE registry: 89/89 nodes, 0 failures` |
+| pool | `COVERAGE pool: 78/78 nodes, 0 failures` |
+| perp | `COVERAGE perp: 261/261 nodes, 0 failures` |
+| rotation | `COVERAGE rotation: 103/103 nodes, 0 failures` |
+| governance | `COVERAGE governance: 48/48 nodes, 0 failures` |
+| nft | `COVERAGE nft: 173/173 nodes, 0 failures` |
+| seed | `COVERAGE seed: 69/69 nodes, 0 failures` |
+| art | `COVERAGE art: 62/62 nodes, 0 failures` |
+| deploy | `COVERAGE deploy: 71/71 nodes, 0 failures` |
 
 ## Per-cluster totals (from the graph JSON)
 
 | cluster | nodes | external/public | authority = anyone | UNGATED | edges | UNTRUSTED edges | DERIVED tags | observations |
 |---|---|---|---|---|---|---|---|---|
-| hook | 134 | 88 | 21 | 81 | 132 | 45 | 16 | 14 |
-| registry | 87 | 68 | 30 | 34 | 109 | 4 | 39 | 15 |
-| pool | 71 | 61 | 45 | 39 | 119 | 20 | 14 | 7 |
-| perp | 163 | 106 | 69 | 116 | 227 | 15 | 97 | 60 |
-| rotation | 87 | 61 | 40 | 56 | 100 | 17 | 15 | 14 |
-| governance | 38 | 27 | 19 | 27 | 28 | 3 | 31 | 14 |
-| nft | 155 | 118 | 43 | 86 | 122 | 32 | 36 | 9 |
-| seed | 66 | 40 | 26 | 41 | 94 | 19 | 29 | 13 |
+| hook | 148 | 96 | 25 | 94 | 141 | 37 | 15 | 6 |
+| registry | 89 | 70 | 30 | 35 | 106 | 13 | 38 | 10 |
+| pool | 78 | 64 | 43 | 49 | 129 | 24 | 12 | 3 |
+| perp | 261 | 141 | 67 | 230 | 584 | 15 | 191 | 3 |
+| rotation | 103 | 67 | 27 | 71 | 155 | 5 | 79 | 0 |
+| governance | 48 | 33 | 21 | 38 | 40 | 10 | 21 | 7 |
+| nft | 173 | 129 | 47 | 96 | 128 | 28 | 30 | 10 |
+| seed | 69 | 42 | 18 | 58 | 114 | 21 | 1 | 1 |
+| art | 62 | 22 | 12 | 55 | 111 | 8 | 1 | 0 |
+| deploy | 71 | 63 | 1 | 66 | 104 | 55 | 0 | 0 |
 
-Total nodes: 801.
+Total nodes: 1102.
 
 ## Cross-cluster edge join (from join.py)
 
-| cluster | edges | in-cluster | out-of-cluster | resolved to node | resolved to lib/low-level | unresolved | malformed |
-|---|---|---|---|---|---|---|---|
-| hook | 132 | 55 | 77 | 43 | 34 | 0 | 0 |
-| registry | 109 | 31 | 78 | 66 | 12 | 0 | 0 |
-| pool | 119 | 31 | 88 | 59 | 29 | 0 | 0 |
-| perp | 227 | 145 | 82 | 56 | 26 | 0 | 0 |
-| rotation | 100 | 46 | 54 | 25 | 29 | 0 | 0 |
-| governance | 28 | 17 | 11 | 10 | 1 | 0 | 0 |
-| nft | 122 | 85 | 37 | 16 | 21 | 0 | 0 |
-| seed | 94 | 33 | 61 | 21 | 40 | 0 | 0 |
+| cluster | edges | in-cluster label | other scope label | resolved to node | resolved to dependency | compiler declaration (implementation unverified) | typed address operation (runtime target unverified) | unresolved | malformed |
+|---|---|---|---|---|---|---|---|---|---|
+| hook | 141 | 70 | 71 | 107 | 34 | 0 | 0 | 0 | 0 |
+| registry | 106 | 31 | 75 | 95 | 11 | 0 | 0 | 0 | 0 |
+| pool | 129 | 37 | 92 | 87 | 42 | 0 | 0 | 0 | 0 |
+| perp | 584 | 501 | 83 | 521 | 63 | 0 | 0 | 0 | 0 |
+| rotation | 155 | 107 | 48 | 136 | 19 | 0 | 0 | 0 | 0 |
+| governance | 40 | 26 | 14 | 38 | 2 | 0 | 0 | 0 | 0 |
+| nft | 128 | 94 | 34 | 106 | 22 | 0 | 0 | 0 | 0 |
+| seed | 114 | 50 | 64 | 51 | 63 | 0 | 0 | 0 | 0 |
+| art | 111 | 102 | 9 | 103 | 8 | 0 | 0 | 0 | 0 |
+| deploy | 104 | 14 | 90 | 101 | 3 | 0 | 0 | 0 | 0 |
 
 Unresolved edges (0):
 
 ## Cross-check (from CROSSCHECK.md)
+
+The sample below was drawn on 2026-09-12 and has not been re-run since; nodes changed later are listed in the newest `CHANGES_SINCE_*.md`.
 
 # Graph cross-check
 

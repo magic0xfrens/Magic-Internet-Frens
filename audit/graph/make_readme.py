@@ -20,9 +20,12 @@ def main():
                             cwd=os.path.dirname(gdir)).stdout.strip()
     out = []
     out.append("# Cauldron function graph\n")
-    out.append(f"Generated {date.today().isoformat()} at commit `{commit}` (branch snapshot of the working tree) "
-               f"from the decontaminated source tree `{src}` (comment tags stripped; line numbers and body hashes "
-               f"identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).\n")
+    if os.path.abspath(src).rstrip("/").endswith("contracts/solidity"):
+        origin = f"from the source tree `contracts/solidity`."
+    else:
+        origin = (f"from the decontaminated source tree `{src}` (comment tags stripped; line numbers and body hashes "
+                  f"identical to `contracts/solidity` by construction; see `audit/FINAL_BLIND_2026-09-11/DECONTAMINATION.md`).")
+    out.append(f"Generated {date.today().isoformat()} at commit `{commit}` (branch snapshot of the working tree) {origin}\n")
     out.append("Extraction only: no severity judgment, no exploit narrative. Every node comes from `skeleton.py`; "
                "every number below comes from `validate.py`, `join.py`, or `CROSSCHECK.md`.\n")
     out.append("## Schema\n")
@@ -105,6 +108,8 @@ def main():
     # crosscheck
     cc = os.path.join(gdir, "CROSSCHECK.md")
     out.append("## Cross-check (from CROSSCHECK.md)\n")
+    out.append("The sample below was drawn on 2026-09-12 and has not been re-run since; nodes changed later are "
+               "listed in the newest `CHANGES_SINCE_*.md`.\n")
     if os.path.exists(cc):
         txt = open(cc).read()
         out.append(txt.strip() + "\n")

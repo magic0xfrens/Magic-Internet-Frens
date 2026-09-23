@@ -5,6 +5,7 @@
  "fundTokenFromVault(uint256)": "25ea2ddb",
  "quote()": "999b93af",
  "tokYieldCumulative()": "31057008",
+ "tokYieldEth()": "832b2362",
  "totalEth()": "3c3c9c23",
  "totalTokenAssets()": "85df5e8f",
  "withdrawPlvTo(uint256,address)": "6c758ac8",

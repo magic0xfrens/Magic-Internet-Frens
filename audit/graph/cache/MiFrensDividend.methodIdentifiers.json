@@ -26,6 +26,7 @@
  "owedAsset(address,address)": "c33744e4",
  "pending(uint256)": "af6e6238",
  "pendingToken(uint256,address)": "48e43af4",
+ "pushTokenIsolated(address,address,uint256)": "e184e3bb",
  "registry()": "7b103999",
  "residual()": "69a48b71",
  "setFunder(address)": "0acc8cd1",

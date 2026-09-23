@@ -1,12 +1,21 @@
 {
+ "bandLimit(uint160,uint160,bool,bool)": "a14846e4",
+ "closeLimit(uint160,uint128,uint256,bool,uint160)": "0c340dc9",
  "ethDepth(uint128,uint160)": "ca0150ec",
  "ethToToken(uint256,uint256)": "f80bbedc",
  "migrateInventory(address,address,uint256)": "06d23bed",
+ "projectedSqrtPriceX96(uint160,uint256,uint256,int256,bool,uint160)": "ec9cc731",
  "quoteAt(uint256,uint256)": "dd9467fa",
+ "quoteFactor(address,address)": "8a743a7e",
+ "requoteBookAt(address,uint256,uint256)": "eeb3a001",
+ "spendLimit(uint160,uint128,uint256,bool)": "cee458b6",
  "sqrtPriceAtTick(int24)": "65ff01fc",
  "swapLeg(IPoolManager,PoolKey,PerpSwapLib.Req,bool,bytes)": "58411972",
+ "syncQuoteChangeAt(uint256)": "5506c2f6",
  "tryMintBadge(address,address,LiqStats)": "936c6128",
  "tryTransfer(address,address,uint256)": "173a3886",
  "tryTransferFrom(address,address,uint256)": "0268df0f",
- "unitOf(address)": "4b700c58"
+ "twapTick(PerpSwapLib.Observation[32] storage,PerpSwapLib.Ring storage,uint32)": "61dce4f8",
+ "unitOf(address)": "4b700c58",
+ "writeObs(PerpSwapLib.Observation[32] storage,PerpSwapLib.Ring storage,uint32,int24)": "d79c6d2a"
 }

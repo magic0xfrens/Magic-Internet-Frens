@@ -1,18 +1,18 @@
 {
  "cluster": "deploy",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-18T09:06:11",
+ "generated": "2026-09-23T21:35:55",
  "files": {
-  "deploy/DeployCauldron.s.sol": 120,
+  "deploy/DeployCauldron.s.sol": 126,
   "deploy/DeployLaunchSniper.s.sol": 63,
-  "deploy/DeployLaunchpad.s.sol": 831,
-  "deploy/DeployMigrationVesting.s.sol": 111,
+  "deploy/DeployLaunchpad.s.sol": 1032,
+  "deploy/DeployMigrationVesting.s.sol": 122,
   "deploy/DeployPerp.s.sol": 268,
   "deploy/DeployQuoteAssets.s.sol": 67,
   "deploy/DeployRenderer.s.sol": 92,
-  "deploy/DeployRotationStack.s.sol": 443,
+  "deploy/DeployRotationStack.s.sol": 447,
   "deploy/DeployV4Core.s.sol": 96,
-  "deploy/FixFactoryWiring.s.sol": 63,
+  "deploy/FixFactoryWiring.s.sol": 74,
   "deploy/SellVolume.s.sol": 59,
   "deploy/SnipeBuy.s.sol": 112,
   "deploy/SwapVolume.s.sol": 84,
@@ -24,31 +24,55 @@
    "file": "deploy/DeployCauldron.s.sol",
    "line": 45,
    "kind": "function",
+   "name": "_hookFlags",
+   "signature": "function _hookFlags() internal pure returns (uint160)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "0c751bd88353a2dd8885aff7ff0ea897b8b8e701",
+   "body_lines": [
+    45,
+    53
+   ],
+   "reads": [],
+   "edges": [],
+   "writes": [],
+   "value": "NONE",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pure: the hook permission bits the CREATE2 salt is mined for, the full set the hook declares including the before-swap delta bits (`BEFORE_SWAP_RETURNS_DELTA_FLAG` DeployCauldron.s.sol:50), so the mined address matches what the pool manager validates.",
+   "authority": "internal (callers: run)"
+  },
+  {
+   "contract": "DeployCauldron (declared in DeployCauldron.s.sol)",
+   "file": "deploy/DeployCauldron.s.sol",
+   "line": 55,
+   "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "e86d9ffb0e6df14421335a460efebb35b670de3a",
+   "body_sha1": "adb64ced71cf679897264d4fbbb1a298854707ec",
    "body_lines": [
-    45,
-    118
+    55,
+    124
    ],
-   "authority": "off-chain script invoker; broadcast authority comes from configured key",
+   "authority": "off-chain script invoker; broadcast authority is whichever key the operator configures",
    "authority_gate_quote": "UNGATED",
    "reads": [],
    "writes": [],
-   "value": "NONE",
+   "value": "Broadcasts the genesis summon with GENESIS_ETH of native from the configured key (`summon` DeployCauldron.s.sol:120).",
    "edges": [
-    "CauldronHook.getHookPermissions (DeployCauldron.s.sol:54), TRUSTED, out-of-cluster",
-    "HookMiner.find (DeployCauldron.s.sol:69), TRUSTED, out-of-cluster",
-    "registry.setRedemptionExt (DeployCauldron.s.sol:101), UNTRUSTED, out-of-cluster",
-    "hook.setRegistry (DeployCauldron.s.sol:105), UNTRUSTED, out-of-cluster",
-    "hook.setOpener (DeployCauldron.s.sol:110), UNTRUSTED, out-of-cluster",
-    "hook.setTaxExempt (DeployCauldron.s.sol:111), UNTRUSTED, out-of-cluster",
-    "registry.summon (DeployCauldron.s.sol:114), UNTRUSTED, out-of-cluster"
+    "DeployCauldron._hookFlags (DeployCauldron.s.sol:65), TRUSTED, in-cluster",
+    "HookMiner.find (DeployCauldron.s.sol:75), TRUSTED, out-of-cluster",
+    "CauldronRegistry.setRedemptionExt (DeployCauldron.s.sol:107), TRUSTED, out-of-cluster",
+    "CauldronHook.setRegistry (DeployCauldron.s.sol:111), TRUSTED, out-of-cluster",
+    "CauldronHook.setOpener (DeployCauldron.s.sol:116), TRUSTED, out-of-cluster",
+    "CauldronHook.setTaxExempt (DeployCauldron.s.sol:117), TRUSTED, out-of-cluster",
+    "CauldronRegistry.summon (DeployCauldron.s.sol:120), TRUSTED, out-of-cluster"
    ],
-   "reachability": "`run` is declared at DeployCauldron.s.sol:45; off-chain script invoker; broadcast authority comes from configured key.",
+   "reachability": "Minimal local stack: mines the hook salt for the declared flags (`_hookFlags` DeployCauldron.s.sol:65), deploys hook, registry with an instant emergency delay and the redemption facet, wires them, and summons generation 1. The hook address is checked against the mined one (`hookAddr` DeployCauldron.s.sol:93).",
    "observations": []
   },
   {
@@ -135,12 +159,10 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "hook.setOpener (DeployLaunchSniper.s.sol:38), UNTRUSTED, out-of-cluster",
-    "external.isOpener (DeployLaunchSniper.s.sol:44), UNTRUSTED, out-of-cluster",
-    "hook.setOpener (DeployLaunchSniper.s.sol:45), UNTRUSTED, out-of-cluster",
-    "external.setTaxExempt (DeployLaunchSniper.s.sol:52), UNTRUSTED, out-of-cluster",
-    "external.setFinalizer (DeployLaunchSniper.s.sol:55), UNTRUSTED, out-of-cluster",
-    "sniper.launch (DeployLaunchSniper.s.sol:60), UNTRUSTED, out-of-cluster"
+    "IHookExempt.isOpener (DeployLaunchSniper.s.sol:44), UNTRUSTED, out-of-cluster",
+    "IHookExempt.setTaxExempt (DeployLaunchSniper.s.sol:52), UNTRUSTED, out-of-cluster",
+    "IPresaleFinalizer.setFinalizer (DeployLaunchSniper.s.sol:55), UNTRUSTED, out-of-cluster",
+    "LaunchSniper.launch (DeployLaunchSniper.s.sol:60), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at DeployLaunchSniper.s.sol:28; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -169,112 +191,151 @@
   {
    "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
    "file": "deploy/DeployLaunchpad.s.sol",
-   "line": 98,
+   "line": 114,
    "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "c25c9ead69e7f4ea5bc14d267a25e5db4175434d",
+   "body_sha1": "4a5a898cae4957d7845211cb2ca46c38956ad509",
    "body_lines": [
-    98,
-    598
+    114,
+    708
    ],
-   "authority": "caller satisfying the in-body msg.sender check",
-   "authority_gate_quote": "address deployer = pk != 0 ? vm.addr(pk) : msg.sender; (DeployLaunchpad.s.sol:108)",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "HookMiner.find (DeployLaunchpad.s.sol:161), TRUSTED, out-of-cluster",
-    "timelock.schedule (DeployLaunchpad.s.sol:170), UNTRUSTED, out-of-cluster",
-    "registry.setRedemptionExt (DeployLaunchpad.s.sol:204), UNTRUSTED, out-of-cluster",
-    "BadgeArtLib.upload (DeployLaunchpad.s.sol:241), TRUSTED, library",
-    "hook.setRegistry (DeployLaunchpad.s.sol:250), UNTRUSTED, out-of-cluster",
-    "hook.setGuild (DeployLaunchpad.s.sol:251), UNTRUSTED, out-of-cluster",
-    "hook.setOpener (DeployLaunchpad.s.sol:252), UNTRUSTED, out-of-cluster",
-    "gacha.setOracle (DeployLaunchpad.s.sol:262), UNTRUSTED, out-of-cluster",
-    "hook.setDeathThreshold (DeployLaunchpad.s.sol:286), UNTRUSTED, out-of-cluster",
-    "hook.setPolicies (DeployLaunchpad.s.sol:329), UNTRUSTED, out-of-cluster",
-    "curve.totalToMintOut (DeployLaunchpad.s.sol:332), UNTRUSTED, out-of-cluster",
-    "curve.priceAt (DeployLaunchpad.s.sol:334), UNTRUSTED, out-of-cluster",
-    "hook.setOpener (DeployLaunchpad.s.sol:343), UNTRUSTED, out-of-cluster",
-    "hook.setTaxExempt (DeployLaunchpad.s.sol:344), UNTRUSTED, out-of-cluster",
-    "registry.setRoyalty (DeployLaunchpad.s.sol:346), UNTRUSTED, out-of-cluster",
-    "presale.setRoyalty (DeployLaunchpad.s.sol:347), UNTRUSTED, out-of-cluster",
-    "presale.setDividend (DeployLaunchpad.s.sol:350), UNTRUSTED, out-of-cluster",
-    "dividend.setRegistry (DeployLaunchpad.s.sol:354), UNTRUSTED, out-of-cluster",
-    "dividend.setFunder (DeployLaunchpad.s.sol:359), UNTRUSTED, out-of-cluster",
-    "registry.setFactory (DeployLaunchpad.s.sol:360), UNTRUSTED, out-of-cluster",
-    "registry.setGovernor (DeployLaunchpad.s.sol:361), UNTRUSTED, out-of-cluster",
-    "registry.setSeeder (DeployLaunchpad.s.sol:372), UNTRUSTED, out-of-cluster",
-    "registry.setSeedWindow (DeployLaunchpad.s.sol:373), UNTRUSTED, out-of-cluster",
-    "hook.setOpener (DeployLaunchpad.s.sol:380), UNTRUSTED, out-of-cluster",
-    "hook.setTaxExempt (DeployLaunchpad.s.sol:381), UNTRUSTED, out-of-cluster",
-    "hook.setSnipeParams (DeployLaunchpad.s.sol:393), UNTRUSTED, out-of-cluster",
-    "seeder.refundPrime (DeployLaunchpad.s.sol:405), UNTRUSTED, out-of-cluster",
-    "registry.fundPrimeBuy (DeployLaunchpad.s.sol:410), UNTRUSTED, out-of-cluster",
-    "seeder.fundPrime (DeployLaunchpad.s.sol:413), UNTRUSTED, out-of-cluster",
-    "registry.setCollectionLedger (DeployLaunchpad.s.sol:426), UNTRUSTED, out-of-cluster",
-    "hook.setLegacyBuyback (DeployLaunchpad.s.sol:427), UNTRUSTED, out-of-cluster",
-    "registry.setGenesisMetadata (DeployLaunchpad.s.sol:433), UNTRUSTED, out-of-cluster",
-    "registry.setGenesisMetadata (DeployLaunchpad.s.sol:435), UNTRUSTED, out-of-cluster",
-    "presale.setLiquidatorRenderer (DeployLaunchpad.s.sol:441), UNTRUSTED, out-of-cluster",
-    "factory.setLiquidatorRenderer (DeployLaunchpad.s.sol:449), UNTRUSTED, out-of-cluster",
-    "treasuryGov.setQuoteOracle (DeployLaunchpad.s.sol:514), UNTRUSTED, out-of-cluster",
-    "treasuryGov.setQuoteOracle (DeployLaunchpad.s.sol:517), UNTRUSTED, out-of-cluster",
-    "registry.setRotationWiring (DeployLaunchpad.s.sol:520), UNTRUSTED, out-of-cluster",
-    "registry.setGenesisBonus (DeployLaunchpad.s.sol:537), UNTRUSTED, out-of-cluster",
-    "registry.setAirdropReserve (DeployLaunchpad.s.sol:545), UNTRUSTED, out-of-cluster",
-    "registry.fundPrimeBuy (DeployLaunchpad.s.sol:554), UNTRUSTED, out-of-cluster",
-    "governor.setRegistry (DeployLaunchpad.s.sol:561), UNTRUSTED, out-of-cluster",
-    "presale.setRegistry (DeployLaunchpad.s.sol:562), UNTRUSTED, out-of-cluster",
-    "registry.setIgniter (DeployLaunchpad.s.sol:582), UNTRUSTED, out-of-cluster",
-    "external.transferOwnership (DeployLaunchpad.s.sol:583), UNTRUSTED, out-of-cluster"
-   ],
-   "reachability": "`run` is declared at DeployLaunchpad.s.sol:98; caller satisfying the in-body msg.sender check.",
-   "observations": []
-  },
-  {
-   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
-   "file": "deploy/DeployLaunchpad.s.sol",
-   "line": 637,
-   "kind": "function",
-   "name": "_deployRotationStack",
-   "signature": "function _deployRotationStack( CauldronRegistry registry, QuoteRotator rotator, address poolManager, address positionManager, address deployer ) internal",
-   "visibility": "internal",
-   "mutability": "nonpayable",
-   "modifiers": [],
-   "body_sha1": "000f7e78003ca8b3ba11823464ebf4220f5a26d9",
-   "body_lines": [
-    643,
-    829
-   ],
-   "authority": "internal (callers are paths that reference this function)",
+   "authority": "off-chain script invoker; broadcast authority is whichever key the operator configures",
    "authority_gate_quote": "UNGATED",
    "reads": [],
    "writes": [],
    "value": "NONE",
    "edges": [
-    "oracle.setPegged (DeployLaunchpad.s.sol:691), UNTRUSTED, out-of-cluster",
-    "oracle.setFeed (DeployLaunchpad.s.sol:693), UNTRUSTED, out-of-cluster",
-    "oracle.setBounds (DeployLaunchpad.s.sol:694), UNTRUSTED, out-of-cluster",
-    "oracle.setPegged (DeployLaunchpad.s.sol:713), UNTRUSTED, out-of-cluster",
-    "oracle.setFeed (DeployLaunchpad.s.sol:715), UNTRUSTED, out-of-cluster",
-    "rotator.setArbParams (DeployLaunchpad.s.sol:717), UNTRUSTED, out-of-cluster",
-    "rotator.setRotationSlipBps (DeployLaunchpad.s.sol:730), UNTRUSTED, out-of-cluster",
-    "registry.setAllowedQuote (DeployLaunchpad.s.sol:733), UNTRUSTED, out-of-cluster",
-    "oracle.usdPerRawUnit (DeployLaunchpad.s.sol:757), UNTRUSTED, out-of-cluster",
-    "oracle.usdPerRawUnit (DeployLaunchpad.s.sol:758), UNTRUSTED, out-of-cluster",
-    "usdg.mint (DeployLaunchpad.s.sol:773), UNTRUSTED, out-of-cluster",
-    "vs.seed (DeployLaunchpad.s.sol:791), UNTRUSTED, out-of-cluster",
-    "vs.seedBand (DeployLaunchpad.s.sol:796), UNTRUSTED, out-of-cluster",
-    "rotator.setVenue (DeployLaunchpad.s.sol:803), UNTRUSTED, out-of-cluster",
-    "hook.commitCrystals (DeployLaunchpad.s.sol:821), UNTRUSTED, out-of-cluster"
+    "DeployLaunchpad._preflightQuoteStack (DeployLaunchpad.s.sol:121), TRUSTED, in-cluster",
+    "CauldronRegistry.setRedemptionExt (DeployLaunchpad.s.sol:232), TRUSTED, out-of-cluster",
+    "CauldronHook.setRegistry (DeployLaunchpad.s.sol:278), TRUSTED, out-of-cluster",
+    "DeployLaunchpad._deployQuoteOracle (DeployLaunchpad.s.sol:314), TRUSTED, in-cluster",
+    "MiFrensDividend.setRegistry (DeployLaunchpad.s.sol:408), TRUSTED, out-of-cluster",
+    "DeployLaunchpad._deployRotationStack (DeployLaunchpad.s.sol:591), TRUSTED, in-cluster",
+    "MiFrensGenesis.setRegistry (DeployLaunchpad.s.sol:669), TRUSTED, out-of-cluster",
+    "MiFrensGenesis.setDiscountRoot (DeployLaunchpad.s.sol:677), TRUSTED, out-of-cluster",
+    "MiFrensGenesis.setDiscountSetter (DeployLaunchpad.s.sol:678), TRUSTED, out-of-cluster"
    ],
-   "reachability": "`_deployRotationStack` is declared at DeployLaunchpad.s.sol:637; internal (callers are paths that reference this function).",
+   "reachability": "Production launch script. With DEPLOY_QUOTES it validates the whole quote stack before the first broadcast (`_preflightQuoteStack` DeployLaunchpad.s.sol:121), so a bad feed cannot leave a half-deployed stack. Presale price defaults to 0.1111 ether and is overridable (`PRESALE_PRICE` DeployLaunchpad.s.sol:142); an optional frenlist root and setter are applied at the end (`setDiscountRoot` DeployLaunchpad.s.sol:677). A nonzero emergency delay is mandatory (`emergencyDelay` DeployLaunchpad.s.sol:223). When the script deploys its own oracle, a separately supplied oracle is refused so one protocol is never priced by two oracles (`quoteOracle` DeployLaunchpad.s.sol:314).",
    "observations": []
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 738,
+   "kind": "function",
+   "name": "_preflightQuoteStack",
+   "signature": "function _preflightQuoteStack() internal view returns (bool enabled)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "800a8204d4bd5bd2f44dbc7cb1ffcebef0151e7d",
+   "body_lines": [
+    738,
+    759
+   ],
+   "reads": [],
+   "edges": [
+    "DeployLaunchpad._requireUsableFeed (DeployLaunchpad.s.sol:744), TRUSTED, in-cluster",
+    "DeployLaunchpad._requireUsableFeed (DeployLaunchpad.s.sol:752), TRUSTED, in-cluster"
+   ],
+   "writes": [],
+   "value": "NONE",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Pre-broadcast gate for DEPLOY_QUOTES: mock quotes are Sepolia-only (`MockQuotesSepoliaOnly` DeployLaunchpad.s.sol:741), and every feed the run will configure must be usable now with the same heartbeat and bounds the oracle will get (`_requireUsableFeed` DeployLaunchpad.s.sol:744).",
+   "authority": "internal (callers: run)"
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 764,
+   "kind": "function",
+   "name": "_requireUsableFeed",
+   "signature": "function _requireUsableFeed( address feed, uint256 heartbeatRaw, uint256 minUsd, uint256 maxUsd ) internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "03ea66f774d257ae758ea50b7bb5ea0e34e2b76f",
+   "body_lines": [
+    766,
+    801
+   ],
+   "reads": [],
+   "edges": [],
+   "writes": [],
+   "value": "NONE",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Mirrors the oracle's acceptance rules off-chain: heartbeat must fit uint32 (`InvalidHeartbeat` DeployLaunchpad.s.sol:768), the feed must have code, return a full round (`ret` DeployLaunchpad.s.sol:776) with a positive, fresh, non-future answer, and decimals; the scaled per-whole price must be nonzero, representable and inside the bounds (`perWhole` DeployLaunchpad.s.sol:798).",
+   "authority": "internal (callers: _preflightQuoteStack)"
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 807,
+   "kind": "function",
+   "name": "_deployQuoteOracle",
+   "signature": "function _deployQuoteOracle(address deployer) internal returns (QuoteOracle oracle)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "54e091767166b7aed289bb51f5541002961eefa8",
+   "body_lines": [
+    807,
+    852
+   ],
+   "reads": [],
+   "edges": [
+    "QuoteOracle.setPegged (DeployLaunchpad.s.sol:840), TRUSTED, out-of-cluster",
+    "QuoteOracle.setFeed (DeployLaunchpad.s.sol:844), TRUSTED, out-of-cluster",
+    "QuoteOracle.setBounds (DeployLaunchpad.s.sol:845), TRUSTED, out-of-cluster",
+    "QuoteOracle.usdPerRawUnit (DeployLaunchpad.s.sol:850), TRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "value": "NONE",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Deploys the one QuoteOracle the protocol uses, before the registry wiring that needs it. Native is pegged or fed from the configured feed with bounds (`setBounds` DeployLaunchpad.s.sol:845); a fed native price must read nonzero in the same broadcast (`usdPerRawUnit` DeployLaunchpad.s.sol:850).",
+   "authority": "internal (callers: run)"
+  },
+  {
+   "contract": "DeployLaunchpad (declared in DeployLaunchpad.s.sol)",
+   "file": "deploy/DeployLaunchpad.s.sol",
+   "line": 865,
+   "kind": "function",
+   "name": "_deployRotationStack",
+   "signature": "function _deployRotationStack( CauldronRegistry registry, QuoteRotator rotator, address poolManager, address positionManager, QuoteOracle oracle ) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "244f5be55426e73a0ecbb70fa3f5504da26bef0e",
+   "body_lines": [
+    871,
+    1030
+   ],
+   "reads": [],
+   "edges": [
+    "QuoteOracle.setPegged (DeployLaunchpad.s.sol:899), TRUSTED, out-of-cluster",
+    "QuoteOracle.setFeed (DeployLaunchpad.s.sol:903), TRUSTED, out-of-cluster",
+    "QuoteRotator.setArbParams (DeployLaunchpad.s.sol:906), TRUSTED, out-of-cluster",
+    "QuoteRotator.setRotationSlipBps (DeployLaunchpad.s.sol:919), TRUSTED, out-of-cluster",
+    "CauldronRegistry.setAllowedQuote (DeployLaunchpad.s.sol:922), TRUSTED, out-of-cluster",
+    "QuoteOracle.usdPerRawUnit (DeployLaunchpad.s.sol:946), TRUSTED, out-of-cluster",
+    "MockQuoteToken.mint (DeployLaunchpad.s.sol:986), TRUSTED, out-of-cluster",
+    "VenueSeeder.seed (DeployLaunchpad.s.sol:987), TRUSTED, out-of-cluster",
+    "VenueSeeder.seedBand (DeployLaunchpad.s.sol:996), TRUSTED, out-of-cluster",
+    "QuoteRotator.setVenue (DeployLaunchpad.s.sol:1004), TRUSTED, out-of-cluster"
+   ],
+   "writes": [],
+   "value": "Seeds the ETH/USDG rotation venue with VENUE_ETH of native plus freshly minted mock USDG (`seed` DeployLaunchpad.s.sol:987), and optionally a concentrated band (`seedBand` DeployLaunchpad.s.sol:996).",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Takes the already-deployed oracle instead of creating its own. Places mock USDG below the quote-address watermark (`usdg` DeployLaunchpad.s.sol:882), prices it pegged or by feed (`setPegged` DeployLaunchpad.s.sol:899), allowlists it, sizes the USDG leg of the venue from the oracle unless given (`venueUsdg` DeployLaunchpad.s.sol:953), seeds the venue and curates exactly that pool in the rotator (`setVenue` DeployLaunchpad.s.sol:1004).",
+   "authority": "internal (callers: run)"
   },
   {
    "contract": "IRegistryGate (declared in DeployMigrationVesting.s.sol)",
@@ -323,6 +384,27 @@
    "file": "deploy/DeployMigrationVesting.s.sol",
    "line": 11,
    "kind": "function",
+   "name": "emergencyReadyAt",
+   "signature": "function emergencyReadyAt() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": [],
+   "reads": [],
+   "edges": [],
+   "writes": [],
+   "value": "NONE",
+   "observations": [],
+   "authority_gate_quote": "UNGATED",
+   "reachability": "Declaration only: the script reads when the registry's emergency arm matures before trying to set the claim gate (`emergencyReadyAt` DeployMigrationVesting.s.sol:95).",
+   "authority": "declaration only; implementation authority is outside this node"
+  },
+  {
+   "contract": "IRegistryGate (declared in DeployMigrationVesting.s.sol)",
+   "file": "deploy/DeployMigrationVesting.s.sol",
+   "line": 12,
+   "kind": "function",
    "name": "claimGate",
    "signature": "function claimGate() external view returns (address)",
    "visibility": "external",
@@ -336,13 +418,13 @@
    "writes": [],
    "value": "NONE",
    "edges": [],
-   "reachability": "`claimGate` is declared at DeployMigrationVesting.s.sol:11; implementation-defined caller through this interface.",
+   "reachability": "`claimGate` is declared at DeployMigrationVesting.s.sol:12; implementation-defined caller through this interface.",
    "observations": []
   },
   {
    "contract": "IRegistryGate (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 12,
+   "line": 13,
    "kind": "function",
    "name": "setClaimGate",
    "signature": "function setClaimGate(address gate) external",
@@ -357,13 +439,13 @@
    "writes": [],
    "value": "NONE",
    "edges": [],
-   "reachability": "`setClaimGate` is declared at DeployMigrationVesting.s.sol:12; implementation-defined caller through this interface.",
+   "reachability": "`setClaimGate` is declared at DeployMigrationVesting.s.sol:13; implementation-defined caller through this interface.",
    "observations": []
   },
   {
    "contract": "IHookPerp (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 14,
+   "line": 15,
    "kind": "function",
    "name": "perpEngine",
    "signature": "function perpEngine() external view returns (address)",
@@ -378,13 +460,13 @@
    "writes": [],
    "value": "NONE",
    "edges": [],
-   "reachability": "`perpEngine` is declared at DeployMigrationVesting.s.sol:14; implementation-defined caller through this interface.",
+   "reachability": "`perpEngine` is declared at DeployMigrationVesting.s.sol:15; implementation-defined caller through this interface.",
    "observations": []
   },
   {
    "contract": "IEngineVault (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 15,
+   "line": 16,
    "kind": "function",
    "name": "vault",
    "signature": "function vault() external view returns (address)",
@@ -399,38 +481,37 @@
    "writes": [],
    "value": "NONE",
    "edges": [],
-   "reachability": "`vault` is declared at DeployMigrationVesting.s.sol:15; implementation-defined caller through this interface.",
+   "reachability": "`vault` is declared at DeployMigrationVesting.s.sol:16; implementation-defined caller through this interface.",
    "observations": []
   },
   {
    "contract": "DeployMigrationVesting (declared in DeployMigrationVesting.s.sol)",
    "file": "deploy/DeployMigrationVesting.s.sol",
-   "line": 54,
+   "line": 55,
    "kind": "function",
    "name": "run",
    "signature": "function run() external",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "b73363b618d6dd4e9977b3bd98235405a2d5c79d",
+   "body_sha1": "878486c769149e8c3304f1803544511c4b7afe3d",
    "body_lines": [
-    54,
-    109
+    55,
+    120
    ],
-   "authority": "off-chain script invoker; broadcast authority comes from configured key",
+   "authority": "off-chain script invoker; broadcast authority is whichever key the operator configures",
    "authority_gate_quote": "UNGATED",
    "reads": [],
    "writes": [],
    "value": "NONE",
    "edges": [
-    "external.vault (DeployMigrationVesting.s.sol:64), UNTRUSTED, out-of-cluster",
-    "external.perpEngine (DeployMigrationVesting.s.sol:68), UNTRUSTED, out-of-cluster",
-    "external.vault (DeployMigrationVesting.s.sol:70), UNTRUSTED, out-of-cluster",
-    "external.emergencyAdmin (DeployMigrationVesting.s.sol:89), UNTRUSTED, out-of-cluster",
-    "external.setClaimGate (DeployMigrationVesting.s.sol:91), UNTRUSTED, out-of-cluster",
-    "external.claimGate (DeployMigrationVesting.s.sol:107), UNTRUSTED, out-of-cluster"
+    "IHookPerp.perpEngine (DeployMigrationVesting.s.sol:69), TRUSTED, in-cluster",
+    "IEngineVault.vault (DeployMigrationVesting.s.sol:71), TRUSTED, in-cluster",
+    "IRegistryGate.emergencyAdmin (DeployMigrationVesting.s.sol:94), TRUSTED, in-cluster",
+    "IRegistryGate.emergencyReadyAt (DeployMigrationVesting.s.sol:95), TRUSTED, in-cluster",
+    "IRegistryGate.setClaimGate (DeployMigrationVesting.s.sol:98), TRUSTED, in-cluster"
    ],
-   "reachability": "`run` is declared at DeployMigrationVesting.s.sol:54; off-chain script invoker; broadcast authority comes from configured key.",
+   "reachability": "Deploys the staker oracle and the vesting contract. With ENFORCE it sets the registry claim gate only when the broadcaster is the emergency admin and an emergency arm has matured (`matured` DeployMigrationVesting.s.sol:97), because setting the gate consumes the arm; otherwise it prints the arm, wait and set steps instead of reverting mid-broadcast.",
    "observations": []
   },
   {
@@ -601,27 +682,26 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "hook.collection (DeployPerp.s.sol:92), UNTRUSTED, out-of-cluster",
-    "external.setPerpEngine (DeployPerp.s.sol:94), UNTRUSTED, out-of-cluster",
-    "engine.setVault (DeployPerp.s.sol:100), UNTRUSTED, out-of-cluster",
-    "engine.setVaultLimits (DeployPerp.s.sol:105), UNTRUSTED, out-of-cluster",
-    "engine.setRisk (DeployPerp.s.sol:119), UNTRUSTED, out-of-cluster",
-    "engine.fundInsurance (DeployPerp.s.sol:132), UNTRUSTED, out-of-cluster",
-    "engine.setGuards (DeployPerp.s.sol:158), UNTRUSTED, out-of-cluster",
-    "engine.setRouting (DeployPerp.s.sol:178), UNTRUSTED, out-of-cluster",
-    "markSource.addPool (DeployPerp.s.sol:179), UNTRUSTED, out-of-cluster",
+    "IHookWire.collection (DeployPerp.s.sol:92), UNTRUSTED, out-of-cluster",
+    "IHookWire.setPerpEngine (DeployPerp.s.sol:94), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setVault (DeployPerp.s.sol:100), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setVaultLimits (DeployPerp.s.sol:105), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setRisk (DeployPerp.s.sol:119), UNTRUSTED, out-of-cluster",
+    "PerpEngine.fundInsurance (DeployPerp.s.sol:132), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setGuards (DeployPerp.s.sol:158), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setRouting (DeployPerp.s.sol:178), UNTRUSTED, out-of-cluster",
     "PerpEngine.blocksVolumeLink (DeployPerp.s.sol:187), TRUSTED, out-of-cluster",
-    "external.currentGeneration (DeployPerp.s.sol:208), UNTRUSTED, out-of-cluster",
-    "external.generationPoolKey (DeployPerp.s.sol:210), UNTRUSTED, out-of-cluster",
-    "ms.setPrimary (DeployPerp.s.sol:216), UNTRUSTED, out-of-cluster",
-    "engine.setRouting (DeployPerp.s.sol:228), UNTRUSTED, out-of-cluster",
-    "external.depositEth (DeployPerp.s.sol:235), UNTRUSTED, out-of-cluster",
-    "external.setPerpEngine (DeployPerp.s.sol:246), UNTRUSTED, out-of-cluster",
-    "external.transferOwnership (DeployPerp.s.sol:247), UNTRUSTED, out-of-cluster",
-    "external.transferOwnership (DeployPerp.s.sol:248), UNTRUSTED, out-of-cluster",
-    "external.transferOwnership (DeployPerp.s.sol:254), UNTRUSTED, out-of-cluster",
-    "external.collection (DeployPerp.s.sol:261), UNTRUSTED, out-of-cluster",
-    "external.liquidatorMinter (DeployPerp.s.sol:264), UNTRUSTED, out-of-cluster"
+    "IRegistryGen.currentGeneration (DeployPerp.s.sol:208), UNTRUSTED, out-of-cluster",
+    "IRegistryGen.generationPoolKey (DeployPerp.s.sol:210), UNTRUSTED, out-of-cluster",
+    "PerpMarkSource.setPrimary (DeployPerp.s.sol:216), UNTRUSTED, out-of-cluster",
+    "PerpEngine.setRouting (DeployPerp.s.sol:228), UNTRUSTED, out-of-cluster",
+    "IPerpVaultDeposit.depositEth (DeployPerp.s.sol:235), UNTRUSTED, out-of-cluster",
+    "IHookWire.setPerpEngine (DeployPerp.s.sol:246), UNTRUSTED, out-of-cluster",
+    "IOwnable.transferOwnership (DeployPerp.s.sol:247), UNTRUSTED, out-of-cluster",
+    "IOwnable.transferOwnership (DeployPerp.s.sol:248), UNTRUSTED, out-of-cluster",
+    "IOwnable.transferOwnership (DeployPerp.s.sol:254), UNTRUSTED, out-of-cluster",
+    "IHookWire.collection (DeployPerp.s.sol:261), UNTRUSTED, out-of-cluster",
+    "ICollLiq.liquidatorMinter (DeployPerp.s.sol:264), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at DeployPerp.s.sol:65; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -710,9 +790,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "reg.owner (DeployQuoteAssets.s.sol:45), UNTRUSTED, out-of-cluster",
-    "reg.setAllowedQuote (DeployQuoteAssets.s.sol:47), UNTRUSTED, out-of-cluster",
-    "reg.setAllowedQuote (DeployQuoteAssets.s.sol:48), UNTRUSTED, out-of-cluster"
+    "IRegistryQuoteAdmin.owner (DeployQuoteAssets.s.sol:45), UNTRUSTED, out-of-cluster",
+    "IRegistryQuoteAdmin.setAllowedQuote (DeployQuoteAssets.s.sol:47), UNTRUSTED, out-of-cluster",
+    "IRegistryQuoteAdmin.setAllowedQuote (DeployQuoteAssets.s.sol:48), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at DeployQuoteAssets.s.sol:29; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -759,9 +839,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "store.storeTraits (DeployRenderer.s.sol:73), UNTRUSTED, out-of-cluster",
-    "external.setRenderer (DeployRenderer.s.sol:79), UNTRUSTED, out-of-cluster",
-    "store.freeze (DeployRenderer.s.sol:85), UNTRUSTED, out-of-cluster"
+    "TraitStorage.storeTraits (DeployRenderer.s.sol:73), UNTRUSTED, out-of-cluster",
+    "IPegRenderer.setRenderer (DeployRenderer.s.sol:79), UNTRUSTED, out-of-cluster",
+    "TraitStorage.freeze (DeployRenderer.s.sol:85), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at DeployRenderer.s.sol:38; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -913,18 +993,17 @@
    "writes": [],
    "value": "transfers token or native value through `transfer` (DeployRotationStack.s.sol:211)",
    "edges": [
-    "reg.owner (DeployRotationStack.s.sol:126), UNTRUSTED, out-of-cluster",
-    "reg.mifrens (DeployRotationStack.s.sol:127), UNTRUSTED, out-of-cluster",
-    "rotator.setArbParams (DeployRotationStack.s.sol:182), UNTRUSTED, out-of-cluster",
-    "oracle.setFeed (DeployRotationStack.s.sol:189), UNTRUSTED, out-of-cluster",
-    "oracle.setFeed (DeployRotationStack.s.sol:190), UNTRUSTED, out-of-cluster",
-    "oracle.transferOwnership (DeployRotationStack.s.sol:195), UNTRUSTED, out-of-cluster",
-    "usdg.mint (DeployRotationStack.s.sol:201), UNTRUSTED, out-of-cluster",
-    "usdg.transfer (DeployRotationStack.s.sol:211), UNTRUSTED, out-of-cluster",
-    "seeder.seed (DeployRotationStack.s.sol:212), UNTRUSTED, out-of-cluster",
-    "rotator.setVenue (DeployRotationStack.s.sol:219), UNTRUSTED, out-of-cluster",
-    "reg.setAllowedQuote (DeployRotationStack.s.sol:223), UNTRUSTED, out-of-cluster",
-    "reg.setRotationWiring (DeployRotationStack.s.sol:227), UNTRUSTED, out-of-cluster"
+    "IRegistryAdmin.owner (DeployRotationStack.s.sol:126), UNTRUSTED, out-of-cluster",
+    "IRegistryAdmin.mifrens (DeployRotationStack.s.sol:127), UNTRUSTED, out-of-cluster",
+    "QuoteRotator.setArbParams (DeployRotationStack.s.sol:182), UNTRUSTED, out-of-cluster",
+    "QuoteOracle.setFeed (DeployRotationStack.s.sol:189), UNTRUSTED, out-of-cluster",
+    "QuoteOracle.setFeed (DeployRotationStack.s.sol:190), UNTRUSTED, out-of-cluster",
+    "QuoteOracle.transferOwnership (DeployRotationStack.s.sol:195), UNTRUSTED, out-of-cluster",
+    "MockQuoteToken.mint (DeployRotationStack.s.sol:201), UNTRUSTED, out-of-cluster",
+    "VenueSeeder.seed (DeployRotationStack.s.sol:212), UNTRUSTED, out-of-cluster",
+    "QuoteRotator.setVenue (DeployRotationStack.s.sol:219), UNTRUSTED, out-of-cluster",
+    "IRegistryAdmin.setAllowedQuote (DeployRotationStack.s.sol:223), UNTRUSTED, out-of-cluster",
+    "IRegistryAdmin.setRotationWiring (DeployRotationStack.s.sol:227), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at DeployRotationStack.s.sol:111; caller satisfying the in-body msg.sender check.",
    "observations": []
@@ -963,55 +1042,66 @@
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "b7aba88d6df0b9a681cc0c52ed5daced134b0a33",
+   "body_sha1": "20a4b6e3e4a88109aa20c06fdd7c06d6df7dab85",
    "body_lines": [
     279,
-    287
+    288
    ],
-   "authority": "caller satisfying the in-body msg.sender check",
+   "authority": "the seeder's deployer",
    "authority_gate_quote": "require(msg.sender == deployer, \"only deployer\"); (DeployRotationStack.s.sol:280)",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
-   "edges": [
-    "PoolOps.openOrAddPair (DeployRotationStack.s.sol:282), TRUSTED, out-of-cluster"
+   "reads": [
+    "deployer (line 280, immutable)",
+    "positionId (line 281)"
    ],
-   "reachability": "`seed` is declared at DeployRotationStack.s.sol:271; caller satisfying the in-body msg.sender check.",
+   "writes": [
+    "positionId (line 283)"
+   ],
+   "value": "Mints a full-range ETH/USDG position with the attached native and the seeder's USDG (`openOrAddPair` DeployRotationStack.s.sol:283).",
+   "edges": [
+    "PoolOps.openOrAddPair (DeployRotationStack.s.sol:283), TRUSTED, library"
+   ],
+   "reachability": "Deployer-only. Refuses while a previous position is still held (`positionId` DeployRotationStack.s.sol:281) so a re-seed cannot orphan it; recover first.",
    "observations": []
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 329,
+   "line": 330,
    "kind": "function",
    "name": "seedBand",
    "signature": "function seedBand( IPoolManager poolManager, IPositionManagerOps posm, address usdg, uint256 ethAmount, uint256 usdgAmount, int24 spacing, uint24 fee, uint16 bandBps ) external payable returns (uint256)",
    "visibility": "external",
    "mutability": "payable",
    "modifiers": [],
-   "body_sha1": "1340c0364d2b62f27cb3cdfe96ac0104c7b59dcb",
+   "body_sha1": "79943ae730a79c2c9f31d5de9a093a9a4cb85b26",
    "body_lines": [
-    338,
-    394
+    339,
+    398
    ],
-   "authority": "caller satisfying the in-body msg.sender check",
-   "authority_gate_quote": "require(msg.sender == deployer, \"only deployer\"); (DeployRotationStack.s.sol:339)",
-   "reads": [],
-   "writes": [],
-   "value": "NONE",
+   "authority": "the seeder's deployer",
+   "authority_gate_quote": "require(msg.sender == deployer, \"only deployer\"); (DeployRotationStack.s.sol:340)",
+   "reads": [
+    "deployer (line 340, immutable)",
+    "positionId (line 341)"
+   ],
+   "writes": [
+    "positionId (line 395)"
+   ],
+   "value": "Mints a concentrated ETH/USDG band with the attached native and the seeder's USDG through the position manager (`modifyLiquidities` DeployRotationStack.s.sol:396).",
    "edges": [
-    "external.approve (DeployRotationStack.s.sol:384), UNTRUSTED, out-of-cluster",
-    "external.approve (DeployRotationStack.s.sol:385), UNTRUSTED, out-of-cluster",
-    "posm.nextTokenId (DeployRotationStack.s.sol:391), UNTRUSTED, out-of-cluster",
-    "posm.modifyLiquidities (DeployRotationStack.s.sol:392), UNTRUSTED, out-of-cluster"
+    "StateLibrary.getSlot0 (DeployRotationStack.s.sol:355), TRUSTED, library",
+    "LiquidityAmounts.getLiquidityForAmounts (DeployRotationStack.s.sol:373), TRUSTED, library",
+    "IERC20.approve (DeployRotationStack.s.sol:388), TRUSTED, out-of-cluster",
+    "IPositionManagerOps.nextTokenId (DeployRotationStack.s.sol:395), TRUSTED, out-of-cluster",
+    "IPositionManagerOps.modifyLiquidities (DeployRotationStack.s.sol:396), TRUSTED, out-of-cluster"
    ],
-   "reachability": "`seedBand` is declared at DeployRotationStack.s.sol:329; caller satisfying the in-body msg.sender check.",
+   "reachability": "Deployer-only; refuses while a position is held (`positionId` DeployRotationStack.s.sol:341). Needs an initialized pool, converts the half-width from bps of price to ticks as roughly one tick per bp (`delta` DeployRotationStack.s.sol:364), keeps the band straddling the current tick and nonzero-liquidity, then mints it to the seeder.",
    "observations": []
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 419,
+   "line": 423,
    "kind": "function",
    "name": "recover",
    "signature": "function recover(IPositionManagerOps posm, PoolKey memory key, address usdg) external returns (uint256 ethOut, uint256 usdgOut)",
@@ -1020,27 +1110,25 @@
    "modifiers": [],
    "body_sha1": "170d75a09c85e51b738b62d8a7721204c7b1db94",
    "body_lines": [
-    422,
-    439
+    426,
+    443
    ],
    "authority": "caller satisfying the in-body msg.sender check",
-   "authority_gate_quote": "require(msg.sender == deployer, \"only deployer\"); (DeployRotationStack.s.sol:423)",
+   "authority_gate_quote": "require(msg.sender == deployer, \"only deployer\"); (DeployRotationStack.s.sol:427)",
    "reads": [],
    "writes": [],
-   "value": "transfers token or native value through `transfer` (DeployRotationStack.s.sol:433)",
+   "value": "transfers token or native value through `transfer` (DeployRotationStack.s.sol:437)",
    "edges": [
-    "PoolOps.removeAll (DeployRotationStack.s.sol:425), TRUSTED, out-of-cluster",
-    "external.balanceOf (DeployRotationStack.s.sol:432), UNTRUSTED, out-of-cluster",
-    "external.transfer (DeployRotationStack.s.sol:433), UNTRUSTED, out-of-cluster",
-    "deployer.call (DeployRotationStack.s.sol:436), UNTRUSTED, out-of-cluster"
+    "PoolOps.removeAll (DeployRotationStack.s.sol:429), TRUSTED, out-of-cluster",
+    "MockQuoteToken.balanceOf (DeployRotationStack.s.sol:436), UNTRUSTED, out-of-cluster"
    ],
-   "reachability": "`recover` is declared at DeployRotationStack.s.sol:419; caller satisfying the in-body msg.sender check.",
+   "reachability": "`recover` is declared at DeployRotationStack.s.sol:423; caller satisfying the in-body msg.sender check.",
    "observations": []
   },
   {
    "contract": "VenueSeeder (declared in DeployRotationStack.s.sol)",
    "file": "deploy/DeployRotationStack.s.sol",
-   "line": 441,
+   "line": 445,
    "kind": "receive",
    "name": "",
    "signature": "receive() external payable",
@@ -1049,8 +1137,8 @@
    "modifiers": [],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    441,
-    441
+    445,
+    445
    ],
    "authority": "anyone",
    "authority_gate_quote": "UNGATED",
@@ -1058,7 +1146,7 @@
    "writes": [],
    "value": "NONE",
    "edges": [],
-   "reachability": "`receive` is declared at DeployRotationStack.s.sol:441; anyone.",
+   "reachability": "`receive` is declared at DeployRotationStack.s.sol:445; anyone.",
    "observations": []
   },
   {
@@ -1200,23 +1288,23 @@
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "3f26bc71c5c5b2ed9ef6695d243764cb5ae8eb06",
+   "body_sha1": "c2a0fb12bc22c9758a86ea277f60d00de36ecf00",
    "body_lines": [
     33,
-    61
+    72
    ],
-   "authority": "off-chain script invoker; broadcast authority comes from configured key",
+   "authority": "off-chain script invoker; broadcast authority is whichever key the operator configures",
    "authority_gate_quote": "UNGATED",
    "reads": [],
    "writes": [],
    "value": "NONE",
    "edges": [
-    "factory.setLiquidatorRenderer (FixFactoryWiring.s.sol:43), UNTRUSTED, out-of-cluster",
-    "external.getMinDelay (FixFactoryWiring.s.sol:46), UNTRUSTED, out-of-cluster",
-    "external.execute (FixFactoryWiring.s.sol:51), UNTRUSTED, out-of-cluster",
-    "external.schedule (FixFactoryWiring.s.sol:54), UNTRUSTED, out-of-cluster"
+    "CauldronFactory.setLiquidatorRenderer (FixFactoryWiring.s.sol:53), TRUSTED, out-of-cluster",
+    "ITimelock.getMinDelay (FixFactoryWiring.s.sol:58), TRUSTED, in-cluster",
+    "ITimelock.execute (FixFactoryWiring.s.sol:63), TRUSTED, in-cluster",
+    "ITimelock.schedule (FixFactoryWiring.s.sol:66), TRUSTED, in-cluster"
    ],
-   "reachability": "`run` is declared at FixFactoryWiring.s.sol:33; off-chain script invoker; broadcast authority comes from configured key.",
+   "reachability": "Two-phase timelocked factory repoint. The schedule run deploys and wires a new factory and schedules the registry call (`schedule` FixFactoryWiring.s.sol:66); the execute run reuses that factory from FACTORY (`factory` FixFactoryWiring.s.sol:50) so the executed calldata matches the scheduled operation instead of naming a second, fresh factory.",
    "observations": []
   },
   {
@@ -1282,8 +1370,7 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "external.approve (SellVolume.s.sol:42), UNTRUSTED, out-of-cluster",
-    "router.swap (SellVolume.s.sol:53), UNTRUSTED, out-of-cluster"
+    "IERC20Min.approve (SellVolume.s.sol:42), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at SellVolume.s.sol:24; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -1393,13 +1480,12 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "external.deployedWad (SnipeBuy.s.sol:72), UNTRUSTED, out-of-cluster",
-    "external.isComplete (SnipeBuy.s.sol:73), UNTRUSTED, out-of-cluster",
-    "external.seeding (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster",
-    "external.isComplete (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster",
-    "external.balanceOf (SnipeBuy.s.sol:81), UNTRUSTED, out-of-cluster",
-    "router.swap (SnipeBuy.s.sol:91), UNTRUSTED, out-of-cluster",
-    "external.balanceOf (SnipeBuy.s.sol:94), UNTRUSTED, out-of-cluster"
+    "ISeederView.deployedWad (SnipeBuy.s.sol:72), UNTRUSTED, out-of-cluster",
+    "ISeederView.isComplete (SnipeBuy.s.sol:73), UNTRUSTED, out-of-cluster",
+    "ISeederView.seeding (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster",
+    "ISeederView.isComplete (SnipeBuy.s.sol:74), UNTRUSTED, out-of-cluster",
+    "IERC20View.balanceOf (SnipeBuy.s.sol:81), UNTRUSTED, out-of-cluster",
+    "IERC20View.balanceOf (SnipeBuy.s.sol:94), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at SnipeBuy.s.sol:50; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -1575,10 +1661,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "router.swap (SwapVolume.s.sol:66), UNTRUSTED, out-of-cluster",
-    "hv.crystalsReady (SwapVolume.s.sol:77), UNTRUSTED, out-of-cluster",
-    "external.totalMinted (SwapVolume.s.sol:80), UNTRUSTED, out-of-cluster",
-    "external.balanceOf (SwapVolume.s.sol:81), UNTRUSTED, out-of-cluster"
+    "IHookView.crystalsReady (SwapVolume.s.sol:77), UNTRUSTED, out-of-cluster",
+    "ICollView.totalMinted (SwapVolume.s.sol:80), UNTRUSTED, out-of-cluster",
+    "ICollView.balanceOf (SwapVolume.s.sol:81), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at SwapVolume.s.sol:35; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -1604,9 +1689,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "external.mint (TopUpVenue.s.sol:73), UNTRUSTED, out-of-cluster",
-    "vs.seed (TopUpVenue.s.sol:74), UNTRUSTED, out-of-cluster",
-    "external.setRotationSlipBps (TopUpVenue.s.sol:83), UNTRUSTED, out-of-cluster"
+    "MockQuoteToken.mint (TopUpVenue.s.sol:73), UNTRUSTED, out-of-cluster",
+    "VenueSeeder.seed (TopUpVenue.s.sol:74), UNTRUSTED, out-of-cluster",
+    "QuoteRotator.setRotationSlipBps (TopUpVenue.s.sol:83), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at TopUpVenue.s.sol:55; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []
@@ -1632,7 +1717,7 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "external.recover (TopUpVenue.s.sol:120), UNTRUSTED, out-of-cluster"
+    "VenueSeeder.recover (TopUpVenue.s.sol:120), UNTRUSTED, out-of-cluster"
    ],
    "reachability": "`run` is declared at TopUpVenue.s.sol:102; off-chain script invoker; broadcast authority comes from configured key.",
    "observations": []

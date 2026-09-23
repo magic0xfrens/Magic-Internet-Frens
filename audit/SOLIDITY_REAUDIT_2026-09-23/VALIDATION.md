@@ -141,6 +141,12 @@ The 276 local skips and 39 fork refusals of the FORK_RPC-empty run are therefore
 now executed; only the 8 Sepolia-state tests remain unexecutable here. This is a
 local chain, not target-chain parity.
 
+`final2-full-localchain` (after the ten Low fixes, commit 6961bb4; same chain and
+addresses), exit 1: **367 suites, 1459 passed, 8 failed, 1 skipped** (1468). The 8
+failures are exactly the Sepolia-state set above (QuoteOracleFork x2,
+RotatorSwapFork x5, CHURN1_LiveRevert x1); the three Low-fix failures and the
+superseded premise are gone, and the six new R23 suites pass.
+
 Production scripts DeployV4Core, DeployLaunchpad and DeployPerp executed
 successfully on the local chain; the lifecycle (presale, ignition, trade, gacha,
 perps open/close, governance, death, relaunch with open book, Genesis

@@ -23,7 +23,7 @@ DEPENDENCY_CONTRACTS = {
     "StateLibrary", "TransientStateLibrary", "LPFeeLibrary", "BalanceDeltaLibrary", "Permit2",
     "IAllowanceTransfer", "IUnlockCallback", "AggregatorV3Interface", "IWETH", "IWETH9",
     "IERC165", "ERC721", "ERC2981", "Ownable", "ReentrancyGuard", "Pausable", "EnumerableSet",
-    "PoolIdLibrary", "LiquidityAmounts", "Base64", "Strings", "Vm",
+    "PoolIdLibrary", "LiquidityAmounts", "Base64", "Strings", "Vm", "IVotes",
 }
 
 

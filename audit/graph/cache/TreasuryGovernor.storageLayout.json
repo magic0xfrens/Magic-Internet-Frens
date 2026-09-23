@@ -1,7 +1,7 @@
 {
  "storage": [
   {
-   "astId": 39212,
+   "astId": 55,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "quoteOracle",
    "offset": 0,
@@ -9,7 +9,7 @@
    "type": "t_address"
   },
   {
-   "astId": 39277,
+   "astId": 120,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "guardian",
    "offset": 0,
@@ -17,15 +17,15 @@
    "type": "t_address"
   },
   {
-   "astId": 39282,
+   "astId": 125,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "proposals",
    "offset": 0,
    "slot": "2",
-   "type": "t_mapping(t_uint256,t_struct(Proposal)39255_storage)"
+   "type": "t_mapping(t_uint256,t_struct(Proposal)98_storage)"
   },
   {
-   "astId": 39288,
+   "astId": 131,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "hasVoted",
    "offset": 0,
@@ -33,7 +33,7 @@
    "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))"
   },
   {
-   "astId": 39290,
+   "astId": 133,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "proposalCount",
    "offset": 0,
@@ -41,7 +41,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 39292,
+   "astId": 135,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "activeProposal",
    "offset": 0,
@@ -49,15 +49,15 @@
    "type": "t_uint256"
   },
   {
-   "astId": 39295,
+   "astId": 138,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "envelope",
    "offset": 0,
    "slot": "6",
-   "type": "t_struct(Envelope)39270_storage"
+   "type": "t_struct(Envelope)113_storage"
   },
   {
-   "astId": 39297,
+   "astId": 140,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "lastEnvelopeAt",
    "offset": 0,
@@ -65,7 +65,7 @@
    "type": "t_uint64"
   },
   {
-   "astId": 39300,
+   "astId": 143,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "_leadId",
    "offset": 0,
@@ -73,7 +73,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 39302,
+   "astId": 145,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "_leadVotes",
    "offset": 0,
@@ -81,7 +81,7 @@
    "type": "t_uint256"
   },
   {
-   "astId": 39305,
+   "astId": 148,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "_openVotedAt",
    "offset": 0,
@@ -89,7 +89,7 @@
    "type": "t_uint64"
   },
   {
-   "astId": 39314,
+   "astId": 157,
    "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
    "label": "_bench",
    "offset": 0,
@@ -128,20 +128,20 @@
    "numberOfBytes": "32",
    "value": "t_mapping(t_address,t_bool)"
   },
-  "t_mapping(t_uint256,t_struct(Proposal)39255_storage)": {
+  "t_mapping(t_uint256,t_struct(Proposal)98_storage)": {
    "encoding": "mapping",
    "key": "t_uint256",
    "label": "mapping(uint256 => struct TreasuryGovernor.Proposal)",
    "numberOfBytes": "32",
-   "value": "t_struct(Proposal)39255_storage"
+   "value": "t_struct(Proposal)98_storage"
   },
-  "t_struct(Envelope)39270_storage": {
+  "t_struct(Envelope)113_storage": {
    "encoding": "inplace",
    "label": "struct TreasuryGovernor.Envelope",
    "numberOfBytes": "64",
    "members": [
     {
-     "astId": 39258,
+     "astId": 101,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "quote",
      "offset": 0,
@@ -149,7 +149,7 @@
      "type": "t_address"
     },
     {
-     "astId": 39260,
+     "astId": 103,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "maxTotalBps",
      "offset": 20,
@@ -157,7 +157,7 @@
      "type": "t_uint16"
     },
     {
-     "astId": 39262,
+     "astId": 105,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "movedBps",
      "offset": 22,
@@ -165,7 +165,7 @@
      "type": "t_uint16"
     },
     {
-     "astId": 39264,
+     "astId": 107,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "expiry",
      "offset": 24,
@@ -173,7 +173,7 @@
      "type": "t_uint64"
     },
     {
-     "astId": 39266,
+     "astId": 109,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "active",
      "offset": 0,
@@ -181,7 +181,7 @@
      "type": "t_bool"
     },
     {
-     "astId": 39269,
+     "astId": 112,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "movedPrimaryBps",
      "offset": 1,
@@ -190,13 +190,13 @@
     }
    ]
   },
-  "t_struct(Proposal)39255_storage": {
+  "t_struct(Proposal)98_storage": {
    "encoding": "inplace",
    "label": "struct TreasuryGovernor.Proposal",
    "numberOfBytes": "160",
    "members": [
     {
-     "astId": 39238,
+     "astId": 81,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "quote",
      "offset": 0,
@@ -204,7 +204,7 @@
      "type": "t_address"
     },
     {
-     "astId": 39240,
+     "astId": 83,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "maxTotalBps",
      "offset": 20,
@@ -212,7 +212,7 @@
      "type": "t_uint16"
     },
     {
-     "astId": 39242,
+     "astId": 85,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "votingEndsAt",
      "offset": 22,
@@ -220,7 +220,7 @@
      "type": "t_uint64"
     },
     {
-     "astId": 39244,
+     "astId": 87,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "snapshot",
      "offset": 0,
@@ -228,7 +228,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 39246,
+     "astId": 89,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "forVotes",
      "offset": 0,
@@ -236,7 +236,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 39248,
+     "astId": 91,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "againstVotes",
      "offset": 0,
@@ -244,7 +244,7 @@
      "type": "t_uint256"
     },
     {
-     "astId": 39250,
+     "astId": 93,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "proposer",
      "offset": 0,
@@ -252,7 +252,7 @@
      "type": "t_address"
     },
     {
-     "astId": 39252,
+     "astId": 95,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "executed",
      "offset": 20,
@@ -260,7 +260,7 @@
      "type": "t_bool"
     },
     {
-     "astId": 39254,
+     "astId": 97,
      "contract": "cauldron/TreasuryGovernor.sol:TreasuryGovernor",
      "label": "cancelled",
      "offset": 21,

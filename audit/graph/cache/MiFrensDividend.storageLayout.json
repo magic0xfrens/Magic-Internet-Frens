@@ -121,7 +121,7 @@
    "type": "t_mapping(t_address,t_uint256)"
   },
   {
-   "astId": 559,
+   "astId": 576,
    "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
    "label": "accountedOf",
    "offset": 0,

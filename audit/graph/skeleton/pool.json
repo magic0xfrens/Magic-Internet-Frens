@@ -1,10 +1,10 @@
 {
  "cluster": "pool",
  "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/contracts/solidity",
- "generated": "2026-09-18T09:06:10",
+ "generated": "2026-09-23T21:35:55",
  "files": {
-  "cauldron/CauldronBase.sol": 539,
-  "cauldron/PoolOps.sol": 1641
+  "cauldron/CauldronBase.sol": 590,
+  "cauldron/PoolOps.sol": 1664
  },
  "nodes": [
   {
@@ -138,9 +138,22 @@
    "body_lines": []
   },
   {
+   "contract": "IPerpBook (declared in CauldronBase.sol)",
+   "file": "cauldron/CauldronBase.sol",
+   "line": 61,
+   "kind": "function",
+   "name": "requoteBook",
+   "signature": "function requoteBook(address rotator) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
    "contract": "ICollectionLedger (declared in CauldronBase.sol)",
    "file": "cauldron/CauldronBase.sol",
-   "line": 59,
+   "line": 65,
    "kind": "function",
    "name": "totalEntitled",
    "signature": "function totalEntitled() external view returns (uint256)",
@@ -153,7 +166,7 @@
   {
    "contract": "IPositionManager (declared in CauldronBase.sol)",
    "file": "cauldron/CauldronBase.sol",
-   "line": 67,
+   "line": 73,
    "kind": "function",
    "name": "modifyLiquidities",
    "signature": "function modifyLiquidities(bytes calldata unlockData, uint256 deadline) external payable",
@@ -166,7 +179,7 @@
   {
    "contract": "IPositionManager (declared in CauldronBase.sol)",
    "file": "cauldron/CauldronBase.sol",
-   "line": 68,
+   "line": 74,
    "kind": "function",
    "name": "nextTokenId",
    "signature": "function nextTokenId() external view returns (uint256)",
@@ -179,7 +192,7 @@
   {
    "contract": "IPositionManager (declared in CauldronBase.sol)",
    "file": "cauldron/CauldronBase.sol",
-   "line": 69,
+   "line": 75,
    "kind": "function",
    "name": "getPositionLiquidity",
    "signature": "function getPositionLiquidity(uint256 tokenId) external view returns (uint128 liquidity)",
@@ -192,23 +205,23 @@
   {
    "contract": "CauldronBase",
    "file": "cauldron/CauldronBase.sol",
-   "line": 423,
+   "line": 461,
    "kind": "function",
    "name": "floorPerFren",
    "signature": "function floorPerFren() public view returns (uint256)",
    "visibility": "public",
    "mutability": "view",
    "modifiers": [],
-   "body_sha1": "9942fe040d7de636a7b22fb74be7d5bc3f19ed61",
+   "body_sha1": "6c8a01d3cba8115e730d53b058f0744b2127b3bf",
    "body_lines": [
-    423,
-    427
+    461,
+    478
    ]
   },
   {
    "contract": "CauldronBase",
    "file": "cauldron/CauldronBase.sol",
-   "line": 433,
+   "line": 484,
    "kind": "function",
    "name": "_redeemBlocked",
    "signature": "function _redeemBlocked() internal view returns (bool)",
@@ -217,14 +230,14 @@
    "modifiers": [],
    "body_sha1": "2ae7b87f5d3fe6a716d3e94e78b9d94601df9dca",
    "body_lines": [
-    433,
-    435
+    484,
+    486
    ]
   },
   {
    "contract": "CauldronBase",
    "file": "cauldron/CauldronBase.sol",
-   "line": 437,
+   "line": 488,
    "kind": "constructor",
    "name": "",
    "signature": "constructor() Ownable(msg.sender)",
@@ -235,14 +248,14 @@
    ],
    "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
    "body_lines": [
-    437,
-    437
+    488,
+    488
    ]
   },
   {
    "contract": "CauldronBase",
    "file": "cauldron/CauldronBase.sol",
-   "line": 464,
+   "line": 515,
    "kind": "function",
    "name": "renounceOwnership",
    "signature": "function renounceOwnership() public view override onlyOwner",
@@ -253,8 +266,8 @@
    ],
    "body_sha1": "05b5a97cde9034b25da9601e40bee80c6e76a89d",
    "body_lines": [
-    464,
-    466
+    515,
+    517
    ]
   },
   {
@@ -1033,7 +1046,7 @@
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1489,
+   "line": 1493,
    "kind": "function",
    "name": "materializeLegacy",
    "signature": "function materializeLegacy( IPositionManagerOps pm, address hook, address registryAddr, address ledger, address mifrens, uint256 genesisShares, uint256 gen, address genColl, address token, ReserveRef memory r, bool toReserve ) external returns (uint256 credited, uint256 ogShare)",
@@ -1042,14 +1055,14 @@
    "modifiers": [],
    "body_sha1": "c6551e4d0685bb44405e3ef6644930883db2fc61",
    "body_lines": [
-    1494,
-    1507
+    1498,
+    1511
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1514,
+   "line": 1518,
    "kind": "function",
    "name": "crystallizeCollection",
    "signature": "function crystallizeCollection( address ledger, address collection, address vault, uint256 gen, uint256 swept, uint256 activeBase, uint256 totalETH ) external returns (uint256 entitled)",
@@ -1058,14 +1071,14 @@
    "modifiers": [],
    "body_sha1": "2440650dcd53f4e2839ffbe9a8fb0a4375ee29b3",
    "body_lines": [
-    1517,
-    1529
+    1521,
+    1533
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1560,
+   "line": 1564,
    "kind": "function",
    "name": "_eligible",
    "signature": "function _eligible(address collection, uint256 ogCount) private view returns (uint256)",
@@ -1074,14 +1087,14 @@
    "modifiers": [],
    "body_sha1": "2f6f0dcccc39368b117f34f53f9f95fda58ef542",
    "body_lines": [
-    1560,
-    1563
+    1564,
+    1567
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1566,
+   "line": 1570,
    "kind": "function",
    "name": "_ogCount",
    "signature": "function _ogCount(address collection) private view returns (uint256 n)",
@@ -1090,40 +1103,40 @@
    "modifiers": [],
    "body_sha1": "f27772293868a26b33e57e982bbd0bfab8e8353e",
    "body_lines": [
-    1566,
-    1570
+    1570,
+    1574
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1572,
+   "line": 1576,
    "kind": "function",
    "name": "recycleCollection",
    "signature": "function recycleCollection( IPositionManagerOps pm, address ledger, address collection, uint256 gen, uint256 tokenId, address caller, ReserveRef memory r ) external returns (uint256 amount)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "5e03860d21b5a930ade2bd8a1bf71393f4ce5ff4",
+   "body_sha1": "3e64810643c428b2abb28ffc57b5489bd46aed4d",
    "body_lines": [
-    1580,
-    1616
+    1584,
+    1623
    ]
   },
   {
    "contract": "PoolOps",
    "file": "cauldron/PoolOps.sol",
-   "line": 1621,
+   "line": 1628,
    "kind": "function",
    "name": "buyCollection",
    "signature": "function buyCollection( IPositionManagerOps pm, address ledger, address collection, address token, uint256 gen, uint256 tokenId, address caller, ReserveRef memory r ) external returns (uint256 added)",
    "visibility": "external",
    "mutability": "nonpayable",
    "modifiers": [],
-   "body_sha1": "432fab84bb3ae34c095af34e3c16c25498f01f57",
+   "body_sha1": "b7027de3c48c6a79727d9658fba66179f53c995b",
    "body_lines": [
-    1630,
-    1639
+    1637,
+    1662
    ]
   }
  ]
