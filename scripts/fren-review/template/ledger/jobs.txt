@@ -1,0 +1,2 @@
+# Every Fren Review job the swarm has run, all rounds. One IMD job id per line; `#` starts a note.
+# node tools/aggregate.mjs rebuilds LEDGER.md and ledger.json from these.

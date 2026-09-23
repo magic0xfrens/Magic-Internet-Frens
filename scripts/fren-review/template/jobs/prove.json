@@ -1,0 +1,29 @@
+{
+  "_note": "Draft IMD job. Field names follow the IMD worker's TaskDescriptor / LotusJobRequest schemas; map them onto the public paid-posting API when it opens. `guidance` = SKILL.md without its YAML front matter. <COMMIT> = the round's commit in this repository. <ID>, <TITLE>, <CLAIM> come from ledger/ledger.json.",
+  "role": "tests",
+  "skill": "write-foundry-tests",
+  "references": [
+    "solidity-security-review",
+    "pashov-skill",
+    "uniswap-v4-security"
+  ],
+  "repoUrl": "https://github.com/magic0xfrens/IMD-fren-to-fren-review",
+  "baseCommit": "<COMMIT>",
+  "network": true,
+  "budget": {
+    "maxTurns": 200,
+    "maxWallClockMs": 14400000,
+    "inference": "premium"
+  },
+  "allowedPaths": [
+    "test/fren-review/<ID>/**"
+  ],
+  "objective": "🐸 Fren Review PROVE <ID> — turn a reported vulnerability in the Magic Internet Frens Cauldron into a runnable Foundry PoC, or show it does not hold. The report: <TITLE>. <CLAIM> Follow the PROVE procedure in SKILL.md: build on test/fren-review/FrenBase.sol against the real contracts and write only under test/fren-review/<ID>/. If the claim reproduces, the test asserts the harmful outcome and passes on today's code; if it does not, the test asserts the defence holding against the exact claimed sequence.",
+  "acceptanceCriteria": [
+    "A test file exists under test/fren-review/<ID>/ that exercises the real contracts through FrenBase and asserts assertTrue(active).",
+    "The test asserts a concrete effect: the harmful outcome if the claim reproduces (test_<ID>_Exploit...), or the defence holding against the claimed sequence if it does not (test_<ID>_Refuted...).",
+    "forge build and forge test pass.",
+    "The final message starts with `FREN-REVIEW PROVE <ID>: reproduced` or `FREN-REVIEW PROVE <ID>: not-reproducible`, followed by the evidence.",
+    "No transaction is sent to any live network and no private key is used."
+  ]
+}

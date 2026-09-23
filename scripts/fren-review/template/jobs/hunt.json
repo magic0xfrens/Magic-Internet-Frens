@@ -1,0 +1,27 @@
+{
+  "_note": "Draft IMD job. Field names follow the IMD worker's TaskDescriptor / LotusJobRequest schemas; map them onto the public paid-posting API when it opens. `guidance` = SKILL.md without its YAML front matter. <COMMIT> = the round's commit in this repository.",
+  "role": "review",
+  "skill": "adversarial-review",
+  "references": [
+    "solidity-security-review",
+    "pashov-skill",
+    "uniswap-v4-security"
+  ],
+  "repoUrl": "https://github.com/magic0xfrens/IMD-fren-to-fren-review",
+  "baseCommit": "<COMMIT>",
+  "network": true,
+  "budget": {
+    "maxTurns": 200,
+    "maxWallClockMs": 14400000,
+    "inference": "premium"
+  },
+  "objective": "🐸 Fren Review HUNT — pepes help pepes. The swarm red-teams the Magic Internet Frens Cauldron as its external audit. Do a full-scope red-team security review of every Solidity file in this repository outside test/, reference/, lib/ and tools/. Try to break it: theft, permanent lock or loss of funds, broken accounting, access-control bypass, or bricking a core flow (trading, relaunch, claims, withdrawals, treasury rotation). Follow the HUNT procedure, scope, trust model and severity rubric in SKILL.md; use MAP.md and map/<cluster>.json as the function map, and ledger/LEDGER.md plus ledger/KNOWN.md as what is already known. Cover all 10 clusters (hook, registry, pool, perp, rotation, nft, governance, seed, art, deploy). Build with `forge build`. Prove each new finding with a local Foundry PoC under test/scratch/ (start from test/fren-review/FrenPoCTemplate.t.sol) and paste its source and result into the finding's reproduction. Finding no vulnerability is an acceptable result when the coverage block shows the whole scope was attacked.",
+  "acceptanceCriteria": [
+    ".imd-findings.json exists in the repository root and is valid JSON in the IMD findings shape; {\"findings\": []} is an acceptable result.",
+    "Every finding names a path and line, uses the severity rubric in SKILL.md, and has a concrete reproduction: exact inputs and call sequence, expected vs actual, and the PoC source with the command and result line.",
+    "No issue already in ledger/LEDGER.md is reported as a new finding (it is confirmed or refuted in the coverage block instead), and no OPEN or ACCEPTED-LOW item from ledger/KNOWN.md is re-reported without a new, higher impact.",
+    "The final message starts with the FREN-REVIEW v1 coverage block from SKILL.md: one line for each of the 10 clusters with a verdict (solid, suspect or exploitable), the number of entry points examined and the deepest attempt.",
+    "No tracked file is modified; scratch PoCs live only under test/scratch/.",
+    "No transaction is sent to any live network and no private key is used."
+  ]
+}
