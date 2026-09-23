@@ -184,22 +184,27 @@ echo "   timelock=$TIMELOCK quoteOracle=$QUOTE_ORACLE"
 
 if [ -n "$HOOK" ] && [ -n "$REGISTRY" ] && [ -n "$DIVIDEND" ]; then
   ( cd contracts/solidity
-    FOUNDRY_PROFILE=cauldron \
-    PRIVATE_KEY="$PK" \
-    POOL_MANAGER=0xE03A1074c86CFeDd5C142C4F04F1a1536e203543 \
-    HOOK="$HOOK" REGISTRY="$REGISTRY" PRESALE="$PRESALE" DIVIDEND="$DIVIDEND" \
-    TIMELOCK="$TIMELOCK" QUOTE_ORACLE="$QUOTE_ORACLE" \
-    DEPLOY_MARK_SOURCE=true \
-    PERP_WARMUP="${PERP_WARMUP:-60}" \
-    TWAP_WINDOW="${TWAP_WINDOW:-5}" \
-    INSURANCE_SEED_WEI="${INSURANCE_SEED_WEI:-60000000000000000}" \
-    PLV_SEED_ETH="${PLV_SEED_ETH:-0}" \
+    #  EXPORTED, not a command prefix. These lines used to end in `\` and then a
+    #  blank line, so they were plain shell assignments that never reached
+    #  `forge script` below — which then ran under the DEFAULT profile and died
+    #  on permit2's `=0.8.17` pin (r46 deploy, 2026-09-23). Inserting the
+    #  stale-artifact block between them and the command is what broke the chain.
+    export FOUNDRY_PROFILE=cauldron \
+      PRIVATE_KEY="$PK" \
+      POOL_MANAGER=0xE03A1074c86CFeDd5C142C4F04F1a1536e203543 \
+      HOOK="$HOOK" REGISTRY="$REGISTRY" PRESALE="$PRESALE" DIVIDEND="$DIVIDEND" \
+      TIMELOCK="$TIMELOCK" QUOTE_ORACLE="$QUOTE_ORACLE" \
+      DEPLOY_MARK_SOURCE=true \
+      PERP_WARMUP="${PERP_WARMUP:-60}" \
+      TWAP_WINDOW="${TWAP_WINDOW:-5}" \
+      INSURANCE_SEED_WEI="${INSURANCE_SEED_WEI:-60000000000000000}" \
+      PLV_SEED_ETH="${PLV_SEED_ETH:-0}"
 
     # ── NEVER BROADCAST A STALE ARTIFACT (audit C-1 / F6) ───────────────────────
     # r43 and r44 both deployed a gacha router built from a cached out/ that was
     # missing `playChurn`. A forced rebuild costs minutes; a dead round costs a
     # round. Also proves the tree compiles CLEAN, not just incrementally.
-    FOUNDRY_PROFILE=cauldron forge build --force || {
+    FOUNDRY_PROFILE=cauldron forge build --force --skip test || {
       echo "clean build FAILED - refusing to broadcast a stale out/." >&2; exit 1; }
 
     forge script deploy/DeployPerp.s.sol --tc DeployPerp \

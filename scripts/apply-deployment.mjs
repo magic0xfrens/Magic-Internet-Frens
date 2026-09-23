@@ -145,14 +145,17 @@ const updates = {
   //  a dead campaign. `pick` returning the old value on no match is the
   //  dangerous half: a missing address would have been obvious.
   seeder: "__ASK_CHAIN_SEEDER__",
-  quoteRotator: pick("QuoteRotator", rotation, launchpad),
-  treasuryGovernor: pick("TreasuryGovernor", rotation, launchpad),
-  quoteOracle: pick("QuoteOracle", rotation, launchpad),
+  quoteRotator: pick("QuoteRotator", launchpad, rotation),
+  treasuryGovernor: pick("TreasuryGovernor", launchpad, rotation),
+  quoteOracle: pick("QuoteOracle", launchpad, rotation),
   //  The native zap ships with the launchpad. Missing from this map meant the
   //  frontend could never see it, so "pay in ETH on a rotated generation" stayed
   //  dark on every round it was actually deployed to.
   nativeZap: pick("NativeQuoteZap", launchpad),
-  perpEngine: pick("PerpEngine", perp),
+  //  Foundry can record the engine's CREATE with `contractName: null` (r46: the
+  //  linked PerpSwapLib + two solc versions), and a null pick used to fall back
+  //  to the PREVIOUS round's engine silently. Unnamed → ask the chain below.
+  perpEngine: pick("PerpEngine", perp) ?? (perp.found ? "__ASK_CHAIN_ENGINE__" : null),
   perpVault: pick("PerpVault", perp),
 };
 
@@ -288,6 +291,22 @@ if (m.contracts.hook === "__ASK_CHAIN__") {
 //  the deploy, so it is never a top-level CREATE and `pick` matched nothing —
 //  silently carrying the PREVIOUS round's seeder forward for three deploys,
 //  which points the indexer's launch feed at a dead campaign.
+//  The live engine is whatever the hook routes perp fees to — read it there when
+//  the broadcast could not name the CREATE (see `perpEngine` above). Never fall
+//  back to the previous round: that address is a dead engine against a live hook.
+if (m.contracts.perpEngine === "__ASK_CHAIN_ENGINE__") {
+  const rpc = process.env.RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+  const r = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call",
+      params: [{ to: m.contracts.hook, data: "0x48ba4d2b" }, "latest"] }) });
+  const addr = "0x" + String((await r.json()).result ?? "").slice(-40);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr) || /^0x0{40}$/.test(addr)) {
+    console.error("\n  !! perpEngine: the broadcast named no PerpEngine and hook.perpEngine() is unset — fix by hand.");
+    process.exit(1);
+  }
+  m.contracts.perpEngine = addr;
+}
+
 if (m.contracts.seeder === "__ASK_CHAIN_SEEDER__") {
   const prev = m0.contracts?.seeder ?? null;
   try {
