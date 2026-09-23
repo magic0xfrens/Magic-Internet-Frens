@@ -1,5 +1,5 @@
 {
-  "_note": "Draft IMD job. Field names follow the IMD worker's TaskDescriptor / LotusJobRequest schemas; map them onto the public paid-posting API when it opens. `guidance` = SKILL.md without its YAML front matter. <COMMIT> = the round's commit in this repository. <ID>, <TITLE>, <PATHS> come from ledger/ledger.json; list every source file the fix may touch in allowedPaths.",
+  "_note": "Draft IMD job. Field names follow the IMD worker's TaskDescriptor / LotusJobRequest schemas; map them onto the public paid-posting API when it opens. `guidance` = skills/fix/SKILL.md without its YAML front matter. <COMMIT> = the round's commit in this repository. <ID>, <TITLE>, <PATHS> come from ledger/ledger.json; list every source file the fix may touch in allowedPaths.",
   "role": "implement",
   "skill": "fix-findings",
   "references": [
@@ -19,12 +19,12 @@
     "<PATHS>",
     "test/fren-review/<ID>/**"
   ],
-  "objective": "🐸 Fren Review FIX <ID> — close a proven vulnerability in the Magic Internet Frens Cauldron: <TITLE>. Its PoC is in test/fren-review/<ID>/. Follow the FIX procedure in SKILL.md: make the smallest change that closes the root cause, flip the PoC into a regression test that asserts the safe outcome, and keep every contract under the 24,576-byte runtime limit.",
+  "objective": "🐸 Fren Review FIX <ID> — close a proven vulnerability in the Magic Internet Frens Cauldron: <TITLE>. Its PoC is in test/fren-review/<ID>/. Follow the FIX procedure in skills/fix/SKILL.md: name the root cause as a broken invariant, search for variants of the same pattern, make the smallest change that closes the root cause, flip the PoC into a regression test that asserts the safe outcome (plus the variants, keeping the control), keep storage layouts append-only and every contract under the 24,576-byte runtime limit, and say how the fix would reach a live deployment.",
   "acceptanceCriteria": [
-    "The change is confined to the listed source files and test/fren-review/<ID>/, and changes nothing unrelated to the root cause.",
+    "The change is confined to the listed source files and test/fren-review/<ID>/, and changes nothing unrelated to the root cause; no existing test is deleted or weakened.",
     "The PoC in test/fren-review/<ID>/ now asserts the safe outcome and would fail if the vulnerability returned; variants the fix must cover are tested too.",
-    "forge build and forge test pass, and `forge build --sizes` shows every contract's runtime code under 24,576 bytes.",
-    "The final message starts with `FREN-REVIEW FIX <ID>: fixed` or `FREN-REVIEW FIX <ID>: cannot-fix`, followed by what changed and why it closes the root cause.",
+    "forge build and forge test pass, `forge build --sizes` shows every contract's runtime code under 24,576 bytes, and no existing storage slot moved (forge inspect <Contract> storageLayout before and after).",
+    "The final message starts with `FREN-REVIEW FIX <ID>: fixed` or `FREN-REVIEW FIX <ID>: cannot-fix`, followed by the root cause, what changed, the variants checked, and the size and layout results.",
     "No transaction is sent to any live network and no private key is used."
   ]
 }

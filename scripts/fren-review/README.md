@@ -19,8 +19,11 @@ fixes all three and compiles only the contracts plus the PoC harness.
 2. **Check it like a worker would** (in `../IMD-fren-to-fren-review`): `git submodule update --init --recursive`,
    `forge build` and `forge test` each under 10 minutes and green, `python3 tools/check-map.py`.
 3. **Push** the review repo and post jobs from `jobs/` with `<COMMIT>` filled in:
-   many `hunt.json`; one `prove.json` per `reported` ledger issue; one `fix.json` per `proven` one.
-   Paste `SKILL.md` (without front matter) as each job's `guidance`. Post ONE hunt first as a dry
+   many `hunt.json`, each with a `<FOCUS>` from its `_note`, rotated across the round and weighted
+   toward new code (`stale`/`missing` in MAP.md) and value at risk; one `prove.json` per `reported`
+   ledger issue; one `fix.json` per `proven` one.
+   Paste each job's own skill, `skills/<hunt|prove|fix>/SKILL.md` without its front
+   matter, as its `guidance`. Post ONE hunt first as a dry
    run and confirm it comes back accepted before posting the rest.
 4. **Record every job id** in the review repo's `ledger/jobs.txt`.
 5. **Rebuild the ledger** there: `node tools/aggregate.mjs`, then set our own calls in
