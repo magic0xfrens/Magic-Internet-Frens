@@ -1,0 +1,14 @@
+{
+  "contract": "cauldron/MigrationVesting.sol:MigrationVesting",
+  "baselineSourceSha256": "1d461bcebd6e2be55fdc816e4a6e53232314289d9bb5d7b5eac0b4be4b338b87",
+  "candidateSourceSha256": "5bcbfaebd8882ad9b2bd7f58705c9fb3a42faf795a12dca0167baeffaa2386b8",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiUnchanged": true,
+    "selectorsUnchanged": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

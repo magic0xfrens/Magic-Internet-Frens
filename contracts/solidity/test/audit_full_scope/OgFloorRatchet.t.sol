@@ -55,8 +55,8 @@ contract FloorProbe is CauldronBase {
 }
 
 /// @notice Minimal collection that answers only what `PoolOps.buyCollection`
-///         consults before its OG guard: who owns the id, and where the OG
-///         tranche ends.
+///         consults before its OG guard: who owns the id, the art-id ceiling,
+///         and where the OG tranche ends. Include one forged art id.
 contract MockOgCollection {
     address public treasury;
     uint256 public GENESIS_SUPPLY;
@@ -67,6 +67,7 @@ contract MockOgCollection {
     }
 
     function ownerOf(uint256) external view returns (address) { return treasury; }
+    function totalMinted() external view returns (uint256) { return GENESIS_SUPPLY + 1; }
 }
 
 /**

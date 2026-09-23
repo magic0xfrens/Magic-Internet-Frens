@@ -1,0 +1,14 @@
+{
+  "contract": "cauldron/QuoteOracle.sol:QuoteOracle",
+  "baselineSourceSha256": "760f44b6b5dbf3fe61245b1aabda269ce71ca01df8922c2aaa8d855c6551f336",
+  "candidateSourceSha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiUnchanged": true,
+    "selectorsUnchanged": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

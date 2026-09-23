@@ -1,0 +1,13 @@
+{
+  "baseline": {
+    "runtime_bytes": 12287,
+    "init_bytes": 12681,
+    "source_sha256": "6f8baf9e4370d600d3734d0a24344e418f2f4b2d69e0071823d5810a1e33d559"
+  },
+  "candidate": {
+    "runtime_bytes": 12608,
+    "init_bytes": 13009,
+    "source_sha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b"
+  },
+  "runtime_headroom": 11968
+}

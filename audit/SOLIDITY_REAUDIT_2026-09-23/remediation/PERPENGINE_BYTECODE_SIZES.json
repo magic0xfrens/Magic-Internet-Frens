@@ -1,0 +1,57 @@
+{
+  "baseline": {
+    "PerpEngine.0.8.26.json": {
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "runtime_bytes": 24168,
+      "init_bytes": 26151,
+      "source_sha256": "4f49a90ff52dfb23c23f0b7e968fbd1c4498f809634a64326cd91fc44feffa03",
+      "current_source_keccak256": "0x77cc5ecdd0b9f13ab9f6d40d3280f54a51e3ee845359be1f5aa9e895ab55b02f",
+      "artifact_source_keccak256": "0x77cc5ecdd0b9f13ab9f6d40d3280f54a51e3ee845359be1f5aa9e895ab55b02f",
+      "artifact_matches_source": true,
+      "runtime_headroom": 408
+    },
+    "PerpEngine.0.8.30.json": {
+      "compiler": "0.8.30+commit.73712a01",
+      "runtime_bytes": 24168,
+      "init_bytes": 26151,
+      "source_sha256": "4f49a90ff52dfb23c23f0b7e968fbd1c4498f809634a64326cd91fc44feffa03",
+      "current_source_keccak256": "0x77cc5ecdd0b9f13ab9f6d40d3280f54a51e3ee845359be1f5aa9e895ab55b02f",
+      "artifact_source_keccak256": "0x77cc5ecdd0b9f13ab9f6d40d3280f54a51e3ee845359be1f5aa9e895ab55b02f",
+      "artifact_matches_source": true,
+      "runtime_headroom": 408
+    }
+  },
+  "candidate": {
+    "PerpEngine.0.8.26.json": {
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "runtime_bytes": 24207,
+      "init_bytes": 26229,
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "current_source_keccak256": "0x7705d0b3ea3aa773f6b67d8ae03a30e4148e54295f2fd61ad9d5c9e546fec2ed",
+      "artifact_source_keccak256": "0x7705d0b3ea3aa773f6b67d8ae03a30e4148e54295f2fd61ad9d5c9e546fec2ed",
+      "artifact_matches_source": true,
+      "runtime_headroom": 369
+    },
+    "PerpEngine.0.8.30.json": {
+      "compiler": "0.8.30+commit.73712a01",
+      "runtime_bytes": 24207,
+      "init_bytes": 26229,
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "current_source_keccak256": "0x7705d0b3ea3aa773f6b67d8ae03a30e4148e54295f2fd61ad9d5c9e546fec2ed",
+      "artifact_source_keccak256": "0x7705d0b3ea3aa773f6b67d8ae03a30e4148e54295f2fd61ad9d5c9e546fec2ed",
+      "artifact_matches_source": true,
+      "runtime_headroom": 369
+    },
+    "PerpEngine.json": {
+      "compiler": "0.8.30+commit.73712a01",
+      "runtime_bytes": 24168,
+      "init_bytes": 26151,
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "current_source_keccak256": "0x7705d0b3ea3aa773f6b67d8ae03a30e4148e54295f2fd61ad9d5c9e546fec2ed",
+      "artifact_source_keccak256": "0x77cc5ecdd0b9f13ab9f6d40d3280f54a51e3ee845359be1f5aa9e895ab55b02f",
+      "artifact_matches_source": false,
+      "runtime_headroom": 408
+    }
+  },
+  "note": "Unversioned candidate artifact is stale: never use it as current-source size or deployment evidence. Versioned artifacts match current source."
+}

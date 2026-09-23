@@ -170,9 +170,13 @@ contract CollectionLedgerInvariant is Test {
         assertEq(ledger.totalEntitled(), sum, "totalEntitled must equal sum of entitledTokens");
     }
 
-    /// Conservation: tokens ever put in minus tokens ever paid out == the pot.
+    /// Accepted credits = outstanding liability + payouts + released liability.
     function invariant_ConservationOfTokens() public view {
-        assertEq(ledger.totalEntitled(), handler.ghost_in() - handler.ghost_out(), "in minus out == pot");
+        assertEq(
+            ledger.totalEntitled() + handler.ghost_out() + handler.ghost_released(),
+            handler.ghost_in(),
+            "accepted == outstanding + paid + released"
+        );
     }
 }
 
@@ -185,6 +189,7 @@ contract LedgerHandler is Test {
     CollectionLedger public ledger;
     uint256 public ghost_in;
     uint256 public ghost_out;
+    uint256 public ghost_released;
     uint256[] private _gens;
     mapping(uint256 => bool) private _seen;
     mapping(uint256 => uint256) public minted; // live mint count per gen (monotonic)
@@ -254,7 +259,11 @@ contract LedgerHandler is Test {
         //  conservation counts tokens the ledger never accepted. Read `retired`
         //  BEFORE the call: `crystallize` carries it forward.
         uint256 retiredBefore = ledger.retired(gen);
+        // Predict release from pre-call state, not from the implementation's
+        // post-call balance delta: wrong releases must fail conservation.
+        uint256 release = minted[gen] <= retiredBefore ? ledger.entitledTokens(gen) : 0;
         ledger.crystallize(gen, minted[gen], extra);
+        ghost_released += release;
         if (extra != 0 && minted[gen] > retiredBefore) ghost_in += extra;
         _track(gen);
     }

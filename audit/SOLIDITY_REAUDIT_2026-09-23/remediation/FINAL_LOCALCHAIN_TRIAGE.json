@@ -1,0 +1,76 @@
+{
+  "run": "logs/final-full-localchain.*",
+  "environment": {
+    "FORK_RPC": "http://127.0.0.1:8546 (local anvil, chain 31337, cancun)",
+    "v4": "PoolManager 0x5FbDB2315678afecb367f032d93F642f64180aa3, PositionManager 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 deployed by production DeployV4Core (rehearsal/deploy-v4core.log)",
+    "permit2": "canonical address set from compiled runtime (anvil_setCode)",
+    "fixture_assumptions": [
+      "100 blocks mined so fork-block arithmetic is valid",
+      "PoolManager given 10,000 ETH ambient inventory, same explicit model as LocalLifecycleBoot"
+    ]
+  },
+  "terminal_totals": "361 suites: 1448 passed, 12 failed, 1 skipped (1461)",
+  "failures": [
+    {
+      "suite": "test/CauldronSummon.t.sol:CauldronSummonForkTest",
+      "failure": "[FAIL: crystallize never reduces the entitlement: 0 < 3392700466043827396589143] test_LegacyBuyback_FiresAndCredits_OnFork() (gas: 12711844)",
+      "classification": "superseded-premise: intended FS-ledger-01 release (trace: totalMinted=0, outstanding=0, EntitlementReleased 3.39e24); assertion tightened"
+    },
+    {
+      "suite": "test/QuoteOracleFork.t.sol:QuoteOracleForkTest",
+      "failure": "[FAIL: the stable must be priceable: 0 <= 0] test_EthAndStableAgreeOnDollars_OnFork() (gas: 28821)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/QuoteOracleFork.t.sol:QuoteOracleForkTest",
+      "failure": "[FAIL: ETH must be priceable: 0 <= 0] test_RealEthFeedPricesOneEther_OnFork() (gas: 19843)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/RotatorSwapFork.t.sol:RotatorSwapForkTest",
+      "failure": "[FAIL: PoolNotInitialized()] test_PlanRunsToCompletionThenStops_OnFork() (gas: 152584)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/RotatorSwapFork.t.sol:RotatorSwapForkTest",
+      "failure": "[FAIL: EvmError: Revert] test_RotateStepActuallySwaps_OnFork() (gas: 116426)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/RotatorSwapFork.t.sol:RotatorSwapForkTest",
+      "failure": "[FAIL: pool is initialized: 0 <= 0] test_RouteIsLiveAndDeep_OnFork() (gas: 12520)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/RotatorSwapFork.t.sol:RotatorSwapForkTest",
+      "failure": "[FAIL: PoolNotInitialized()] test_SecondStepInTheSameBlockIsRefused_OnFork() (gas: 152944)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/RotatorSwapFork.t.sol:RotatorSwapForkTest",
+      "failure": "[FAIL: Error != expected error: PoolNotInitialized() != SlippageTooHigh()] test_StepBelowTheGovernedFloorReverts_OnFork() (gas: 153054)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/attacks/CHURN1_LiveRevert.t.sol:CHURN1_LiveRevert",
+      "failure": "[FAIL: EvmError: Revert] test_CHURN1_liveRouterPlaysAndChurns() (gas: 38579)",
+      "classification": "requires-Sepolia-state (hardcoded live feeds/pools/router absent on a fresh local chain)"
+    },
+    {
+      "suite": "test/attacks/R23_RenderBuffer.t.sol:R23RenderBuffer",
+      "failure": "[FAIL: panic: array out-of-bounds access (0x32)] test_denseValidUploadedLayerRendersCompleteSVG() (gas: 34274031)",
+      "classification": "documented-Low FS-artbuffer-01"
+    },
+    {
+      "suite": "test/attacks/R23_TreasuryTargeting.t.sol:R23TreasuryTargeting",
+      "failure": "[FAIL: stale id must not target another envelope: 0 != 3000] test_cancellingOldExecutedProposalMustNotCancelNewEnvelope() (gas: 552917)",
+      "classification": "documented-Low FS-treasury-L01/L02"
+    },
+    {
+      "suite": "test/attacks/R23_TreasuryTargeting.t.sol:R23TreasuryTargeting",
+      "failure": "[FAIL: documented lower-id tie break: 2 != 1] test_equalSupportMustPreferEarlierProposalAsDocumented() (gas: 493171)",
+      "classification": "documented-Low FS-treasury-L01/L02"
+    }
+  ],
+  "skip": "BadgeDump test_DumpBadges (utility, vm.skip by design)"
+}

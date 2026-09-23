@@ -959,7 +959,6 @@ contract DeployLaunchpad is Script {
         //  one is meaningless once the broadcast ends — and the mint-then-
         //  transfer round trip was only ever there to stage the tokens.
         VenueSeeder vs = new VenueSeeder();
-        usdg.mint(address(vs), venueUsdg);
 
         //  ── OPEN FULL RANGE, THEN CONCENTRATE ────────────────────────────
         //  `seed` places MIN_TICK..MAX_TICK. That is the right way to OPEN the
@@ -984,16 +983,22 @@ contract DeployLaunchpad is Script {
         uint16 bandBps = uint16(vm.envOr("VENUE_BAND_BPS", uint256(0)));
         uint256 openEth = bandBps == 0 ? venueEth : venueEth / 20;
         uint256 openUsdg = bandBps == 0 ? venueUsdg : venueUsdg / 20;
+        usdg.mint(address(vs), openUsdg);
         vs.seed{value: openEth}(
             IPoolManager(poolManager), IPositionManagerOps(positionManager),
             address(usdg), openEth, openUsdg, VENUE_SPACING, VENUE_FEE
         );
         if (bandBps != 0) {
-            vs.seedBand{value: venueEth - openEth}(
+            // Each helper owns one recoverable position. Keep the opening
+            // full-range tranche reachable when adding the concentrated band.
+            VenueSeeder bandSeeder = new VenueSeeder();
+            usdg.mint(address(bandSeeder), venueUsdg - openUsdg);
+            bandSeeder.seedBand{value: venueEth - openEth}(
                 IPoolManager(poolManager), IPositionManagerOps(positionManager),
                 address(usdg), venueEth - openEth, venueUsdg - openUsdg,
                 VENUE_SPACING, VENUE_FEE, bandBps
             );
+            console2.log("venue band LP holder (recover separately):", address(bandSeeder));
             console2.log("  venue band placed, half-width bps:", bandBps);
         }
         rotator.setVenue(

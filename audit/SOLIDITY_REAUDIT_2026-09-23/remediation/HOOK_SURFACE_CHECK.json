@@ -1,0 +1,15 @@
+{
+  "contract": "CauldronHook.sol:CauldronHook",
+  "baselineSourceSha256": "e11ee3c1dd592fdb3db087b8e24d100c300a74cc86eb9a89eb1b8e979ec05571",
+  "candidateSourceSha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": null,
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

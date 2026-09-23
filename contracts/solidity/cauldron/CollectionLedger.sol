@@ -63,6 +63,8 @@ contract CollectionLedger {
     ///         {isDeadEnd}. The tokens stay in the shared reserve LP as surplus
     ///         backing for every OTHER claim instead of being booked to nobody.
     event CreditRejected(uint256 indexed gen, uint256 tokens);
+    /// @notice Previously live credit released when freezing leaves no claimant.
+    event EntitlementReleased(uint256 indexed gen, uint256 tokens);
     event Credited(uint256 indexed gen, uint256 tokens, uint256 newEntitled);
     event Redeemed(uint256 indexed gen, uint256 payout, uint256 newFloor);
     event BoughtBack(uint256 indexed gen, uint256 paid, uint256 newFloor);
@@ -191,6 +193,17 @@ contract CollectionLedger {
         if (crystallized[gen]) revert AlreadyCrystallized();
         crystallized[gen] = true;
         frozenSupply[gen] = mintedAtDeath;
+        // Live credit can arrive after the last recycle and before death (including
+        // the registry's final buyback flush). Freezing without another mint makes
+        // that existing credit just as unclaimable as a rejected final credit.
+        if (mintedAtDeath <= retired[gen]) {
+            uint256 released = entitledTokens[gen];
+            if (released != 0) {
+                entitledTokens[gen] = 0;
+                totalEntitled -= released;
+                emit EntitlementReleased(gen, released);
+            }
+        }
         //  THE SAME DEAD END, ONE CALL EARLIER (red-team Z-19, twin). A generation
         //  whose every NFT was already recycled before it died freezes at
         //  `outstanding == 0`, so a final `extraEntitled` folded in here would be as

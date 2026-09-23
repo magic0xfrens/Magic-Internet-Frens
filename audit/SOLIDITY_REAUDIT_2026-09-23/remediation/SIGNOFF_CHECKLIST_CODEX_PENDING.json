@@ -1,0 +1,600 @@
+{
+  "final_signoffs": 0,
+  "scope_files": 66,
+  "files": [
+    {
+      "file": "contracts/solidity/CauldronHook.sol",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "worksheet": "HOOK_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close pre/post-swap solvency and callback/fee-asset conservation; verify configuration recovery and supported swap quadrants.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/CauldronRegistry.sol",
+      "source_sha256": "6025f823685b7618e9b58b0e70f1729117c5b6321191e52f69ae2e8f438c1265",
+      "worksheet": "REGISTRY_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reproduce non-native launch emergency recovery, successor handoff, pending-OG fold order and low-gas open-book relaunch leads.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/CauldronToken.sol",
+      "source_sha256": "014d7f130b79895c95a9850e563ad02715365a037531a670f67d8f30b7fa488d",
+      "worksheet": "TOKEN_FACTORY_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish authority/callback and launch/continuation/role-transfer reconciliation with deployment consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronArtAdapter.sol",
+      "source_sha256": "a0543f1f06d9c3a111eb5b520147d5084df7c3628a099e84d5cbb09b78b61685",
+      "worksheet": "ART_STORAGE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Disposition dense-render failure; verify upload/lookup/freeze and renderer dependencies with supported build profiles.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronBase.sol",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "worksheet": "REGISTRY_BASE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile all delegatecall state consumers and final compiler storage layout after remaining fixes.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronCollection.sol",
+      "source_sha256": "027606f0538c51ea0e5072f38e1cda1f18cf75a816620543630175e7fc300d8c",
+      "worksheet": "COLLECTION_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close art/badge issuance-to-redemption joins, validator authority and old-collection ticket resolution.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronFactory.sol",
+      "source_sha256": "0e19b190b260a27b29c79c79594a31143d2589fee406902ff48239b1ea01d99d",
+      "worksheet": "TOKEN_FACTORY_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish authority/callback and launch/continuation/role-transfer reconciliation with deployment consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronGachaRouter.sol",
+      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "worksheet": "GACHA_ROUTER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close paid swap/credit/ticket attribution, refunds and callback/expiry behavior.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronGovernor.sol",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "worksheet": "GOVERNOR_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close bench eviction/candidate liveness and actual registry winner-consumption joins.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronSeeder.sol",
+      "source_sha256": "cbdb3b2311055856cefba56a3f10afd65d7a861ecfa061a8152678ea16db7eb6",
+      "worksheet": "SEEDER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish configured campaign replacement/recovery, range tracking and funded production reachability.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CauldronVault.sol",
+      "source_sha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
+      "worksheet": "VAULT_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish art/badge and OG-offset lifecycle evidence, teardown and claimant conservation.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/CollectionLedger.sol",
+      "source_sha256": "2a3e82bc170445b8706fa4b83dbb10ff3e4ae094ce10267d665aeeb084b1ef23",
+      "worksheet": "COLLECTION_LEDGER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile live/dead entitlement and retirement conservation across funded reserve and relaunch sequences.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/DefaultFeeRouter.sol",
+      "source_sha256": "7a581bce27d3ee5f79942d7e82de9a7ceea9b6c1a38cdf12c61d305eddb0d9eb",
+      "worksheet": "FEE_ROUTING_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close fee split conservation and fallback behavior across hook/perp/asset consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/FeeRouteLib.sol",
+      "source_sha256": "c49839ad353fdb8e5125a077ad1ce9e9a515c3fafc56a80a53faa29ff4b51f44",
+      "worksheet": "FEE_ROUTING_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close fee split conservation and fallback behavior across hook/perp/asset consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/GachaLib.sol",
+      "source_sha256": "00db2e4316e93969aae40e311ab51aa055646878b098fe0ab534747bd445b9d2",
+      "worksheet": "GACHA_LIB_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reproduce validator-rejected mint through Genesis continuation; resolve pity/opened accounting and backlog-expiry disposition.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/ICauldron.sol",
+      "source_sha256": "85df8fc7e576a2571a42244e6836de3b80b1f51fa72feb418f0cbfe4b55cdfb0",
+      "worksheet": "INTERFACE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile every declaration against implementations, dynamic callers, selector/return semantics and trust assumptions.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/ICreatorToken.sol",
+      "source_sha256": "4328808b26b966dbe8439a764ecf175d45664eb91b5f3493527c34784eb81041",
+      "worksheet": "REMAINING_INTERFACES_MOCKS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish per-declaration implementation/caller or deployment-mock role and token-behavior compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/IDeathChecker.sol",
+      "source_sha256": "d7c05259f92715eec93abbc53d00cb2752ccc9196793aa6ccc2bc50cec83538b",
+      "worksheet": "INTERFACE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile every declaration against implementations, dynamic callers, selector/return semantics and trust assumptions.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/ILiquidatorMintable.sol",
+      "source_sha256": "ac739478b0ab3dd237c18722e4c6dca1543a11f503b5537ff28bd68ffa8cf9c5",
+      "worksheet": "INTERFACE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile every declaration against implementations, dynamic callers, selector/return semantics and trust assumptions.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/IPolicies.sol",
+      "source_sha256": "db7f8e4b38c84786720cba9bcb1b0396db51b7c4c2cb706af324dd039b1786bc",
+      "worksheet": "INTERFACE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile every declaration against implementations, dynamic callers, selector/return semantics and trust assumptions.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/ISeeder.sol",
+      "source_sha256": "d6316aa516c68abb26038526f4ffc273085aa932c132022ab05b9bddb71658b7",
+      "worksheet": "REMAINING_INTERFACES_MOCKS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish per-declaration implementation/caller or deployment-mock role and token-behavior compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/LaunchSniper.sol",
+      "source_sha256": "e8b366cc0b648bc86f1392683391396debe15b0af01164ff9ec976471219a23e",
+      "worksheet": "LAUNCH_SNIPER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close launch timing, approvals, refunds/slippage and owner recovery against supported pool/quote paths.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/LegacyBuyLib.sol",
+      "source_sha256": "1ada6f0e4d0c95bb13aa4d9c726250103b6857a386f550ba646b829711cabce6",
+      "worksheet": "LEGACY_BUY_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve threshold/dust/backing and quote/generation transition conservation.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MiFrensDividend.sol",
+      "source_sha256": "b9c4157819c5ca9413dcb2f4d184a2bc076d40303996135afeb577ef94595944",
+      "worksheet": "DIVIDEND_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close payout/transfer/reentrancy and multi-asset conservation with final source/consumer compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MiFrensGenesis.sol",
+      "source_sha256": "b7e62f8fe81f8855e1408c65b6596d2ca8aa8179c65b2f696eb9c62c1864b473",
+      "worksheet": "GENESIS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Verify validator/gacha continuation and admin/minter handoff; reconcile redemption, voting and dividend lifecycle evidence.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MigrationVesting.sol",
+      "source_sha256": "5bcbfaebd8882ad9b2bd7f58705c9fb3a42faf795a12dca0167baeffaa2386b8",
+      "worksheet": "VESTING_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish claim-gate/oracle/instant-tier integration and final migration entitlement conservation.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MintCurvePolicy.sol",
+      "source_sha256": "cb6ee6ed84e4b6ee84d5872fdce4070166b51987df2f319a9e87fbcabe69114c",
+      "worksheet": "POLICY_MATH_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile arithmetic boundaries and policy fallbacks with current hook configuration consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MockAggregator.sol",
+      "source_sha256": "2b654db4974747ce2f9fdfaab5123f5d4616f82a05536c86a50d7d68e4c918a8",
+      "worksheet": "REMAINING_INTERFACES_MOCKS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish per-declaration implementation/caller or deployment-mock role and token-behavior compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/MockQuoteToken.sol",
+      "source_sha256": "bd5c65fceeb298155d6ed8a1d1611d2de66968bec19203c9102b32f046eb06b8",
+      "worksheet": "REMAINING_INTERFACES_MOCKS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish per-declaration implementation/caller or deployment-mock role and token-behavior compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/NativeQuoteZap.sol",
+      "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+      "worksheet": "NATIVE_ZAP_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close quote admission, refund/slippage and actual router-consumer configuration compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PerpEngine.sol",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "worksheet": "PERP_ENGINE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close open-book rotation/relaunch, settlement/funding conservation and poisoned-observation recovery; classify fork-only assertions.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PerpMarkSource.sol",
+      "source_sha256": "d362f9599db06f5170cb0e3f0dbc112a532de51b39957f1774df7b9ef75f3939",
+      "worksheet": "PERP_MARK_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish mark observation/recovery lifecycle and source/deployed dependency compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PerpStakerOracle.sol",
+      "source_sha256": "ee178959f8a0d35dd2be5dd4dd20637c9299f5143a7246b65942d6bc4776ab13",
+      "worksheet": "VESTING_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish claim-gate/oracle/instant-tier integration and final migration entitlement conservation.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PerpSwapLib.sol",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "worksheet": "PERP_SWAP_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close projection/limit and settlement conservation boundaries across liquidity bands and quote changes.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PerpVault.sol",
+      "source_sha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b",
+      "worksheet": "PERP_VAULT_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Verify real-engine scaled rewards, queue/writeoff/replacement sequences and claim-consumer recovery.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/PoolOps.sol",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "worksheet": "POOL_OPS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve dust sweep/burn and zero-liquidity leads; prove reserve backing across legacy, rotation and relaunch.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/QuoteOracle.sol",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "worksheet": "QUOTE_ORACLE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close all worksheet oracle boundaries and consumer normalization; revalidate current surface evidence.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/QuoteRotator.sol",
+      "source_sha256": "462d3d473964c33a114bd9a508d4eeae692b8308e2b84ae6161650f9e7930654",
+      "worksheet": "QUOTE_ROTATOR_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete admitted-asset callback and plan/arb integration with custody and atomicity checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/RedemptionExt.sol",
+      "source_sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "worksheet": "REDEMPTION_FACET_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close multi-quote custody, emergency/successor and proceeds accounting; reconcile static-view consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/ReserveLib.sol",
+      "source_sha256": "a83c215b930c080a5b1c617c9f902fe0ba137edb3f7850818fbbdb677ea68191",
+      "worksheet": "RESERVE_SEED_MATH_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close reachable math/rounding boundaries against actual launch and reserve funding configurations.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/RoyaltyRouter.sol",
+      "source_sha256": "1495a805f243e4299765d752d4885991270c57cd6df82aa53b763af844b4229f",
+      "worksheet": "ROYALTY_ROUTER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close royalty denomination, forwarding failures and collection/deployment wiring lifecycle.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/SeedLib.sol",
+      "source_sha256": "5e576ec3698518ba185f254eb201a135f13f6c1f98c11a6f011200c3d66fdc47",
+      "worksheet": "RESERVE_SEED_MATH_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Close reachable math/rounding boundaries against actual launch and reserve funding configurations.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/SurtaxLib.sol",
+      "source_sha256": "a83bfde89367484756b24f69fb6ce002c8491a4b5efc89f0a126b4e5d4b06aad",
+      "worksheet": "POLICY_MATH_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Reconcile arithmetic boundaries and policy fallbacks with current hook configuration consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/cauldron/TreasuryGovernor.sol",
+      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "worksheet": "TREASURY_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Disposition known Low findings; finish bounded candidate selection and rotation-envelope lifecycle checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/BadgeArtLib.sol",
+      "source_sha256": "72d00710f97f0a65ea36e851c0ff0b9fdda4a6fe7b318977f92941496093bbdf",
+      "worksheet": "DEPLOY_PERP_ART_PROBE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve mark-source handoff/upload batching leads and complete script configuration/consumer checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployCauldron.s.sol",
+      "source_sha256": "e11a2f686d2112c9fa921379e682b0d80f24633a9f69a36774682f665c2369c5",
+      "worksheet": "DEPLOY_CAULDRON_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Extend constructor flag pass to full local factory/wiring/summon simulation.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployLaunchSniper.s.sol",
+      "source_sha256": "cf27a01d8873ace7a1e0262e53a6bac0ca50d7eaa224eb90f53b7e4e706e9c81",
+      "worksheet": "DEPLOY_HELPERS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve documented deployment leads and verify each script supported configuration, ownership and operation identity.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployLaunchpad.s.sol",
+      "source_sha256": "acef2fb1cdd08f628a89db02d3d9cc5e22888238d34d5e77fe47cc481e419f03",
+      "worksheet": "LAUNCHPAD_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete local full deployment/wiring/summon and optional venue paths; verify exact deployable sizes and consumers.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployMigrationVesting.s.sol",
+      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "worksheet": "DEPLOY_HELPERS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve documented deployment leads and verify each script supported configuration, ownership and operation identity.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployPerp.s.sol",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "worksheet": "DEPLOY_PERP_ART_PROBE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve mark-source handoff/upload batching leads and complete script configuration/consumer checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployQuoteAssets.s.sol",
+      "source_sha256": "426c05c3fd6fc9c245bd575859929d8ecb6ce677fbf05f2c545e08888393ea4b",
+      "worksheet": "DEPLOY_HELPERS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve documented deployment leads and verify each script supported configuration, ownership and operation identity.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployRenderer.s.sol",
+      "source_sha256": "b25e9d8ca7dd6ac612e57e86a61e19db54c09f5ff39e88d67daede14eaf9a93e",
+      "worksheet": "DEPLOY_PERP_ART_PROBE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve mark-source handoff/upload batching leads and complete script configuration/consumer checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployRotationStack.s.sol",
+      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "worksheet": "VENUE_VOLUME_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete two-helper deployment/consumer recovery; resolve band-width and supported volume-script configuration leads.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/DeployV4Core.s.sol",
+      "source_sha256": "1bc10c2c4940bcec544080976f0423a83eee471ec3fd0f18c67bce40690bef0d",
+      "worksheet": "DEPLOY_HELPERS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve documented deployment leads and verify each script supported configuration, ownership and operation identity.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/FixFactoryWiring.s.sol",
+      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "worksheet": "DEPLOY_HELPERS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve documented deployment leads and verify each script supported configuration, ownership and operation identity.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/SellVolume.s.sol",
+      "source_sha256": "529ea7423dc159b3b1234597404ed24e074d84a2b2bcf4272db643b2db37a8e7",
+      "worksheet": "VENUE_VOLUME_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete two-helper deployment/consumer recovery; resolve band-width and supported volume-script configuration leads.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/SnipeBuy.s.sol",
+      "source_sha256": "849617088a736370cfa567df629a5f481752e6ee6fe1472e6818e469a4b3f0a8",
+      "worksheet": "DEPLOY_PERP_ART_PROBE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Resolve mark-source handoff/upload batching leads and complete script configuration/consumer checks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/SwapVolume.s.sol",
+      "source_sha256": "6e286cb2aa942d8de2af481388ef30d25b066d62c62699766b195a9276a1f83d",
+      "worksheet": "VENUE_VOLUME_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete two-helper deployment/consumer recovery; resolve band-width and supported volume-script configuration leads.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/deploy/TopUpVenue.s.sol",
+      "source_sha256": "b655f7414ffbceda6625bc6cb26e978e95a81b588da6662af5312fedd5a7ad93",
+      "worksheet": "VENUE_VOLUME_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Complete two-helper deployment/consumer recovery; resolve band-width and supported volume-script configuration leads.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/interfaces/INFTContract.sol",
+      "source_sha256": "15bdc18bed71c2ccbe3cc98bb6f585b3a5043f46d0af5636fed5100cd4da678c",
+      "worksheet": "REMAINING_INTERFACES_MOCKS_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish per-declaration implementation/caller or deployment-mock role and token-behavior compatibility.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/render/FrenRenderer.sol",
+      "source_sha256": "1cfeefe97d5e90f72ae76b74744a5eaa55e384f56530594ee885d0bc078ecd0f",
+      "worksheet": "ART_STORAGE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Disposition dense-render failure; verify upload/lookup/freeze and renderer dependencies with supported build profiles.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/render/LiquidatoorRenderer.sol",
+      "source_sha256": "f91523f1efdcbaf66221a5c625aff1595f8aa903f0658103aa6c7e553f915a9c",
+      "worksheet": "BADGE_RENDERER_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Finish source-matched build, badge data/collection callers and bounded rendering coverage.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/render/SSTORE2.sol",
+      "source_sha256": "8ba47cf78fd00362e2b3330e73c8ff664e8d23e957c1cb5e34c0354c1ca96056",
+      "worksheet": "ART_STORAGE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Disposition dense-render failure; verify upload/lookup/freeze and renderer dependencies with supported build profiles.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/render/TraitStorage.sol",
+      "source_sha256": "574f498c88cecacb7340044222f0f723b8c189bafb3b30820462a9a853dcd862",
+      "worksheet": "ART_STORAGE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Disposition dense-render failure; verify upload/lookup/freeze and renderer dependencies with supported build profiles.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/vendor/BaseHook.sol",
+      "source_sha256": "05aa9798903b88b47954159abef511f4401fe6770d1bf2696cae54f4479e134b",
+      "worksheet": "HOOK_BASE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Verify callback authority/permission and CREATE2 consumers, including all current deployment masks.",
+      "signoff_evidence": null
+    },
+    {
+      "file": "contracts/solidity/vendor/HookMiner.sol",
+      "source_sha256": "987014c0fdde38c50dcb0faffaf92e604cb6955637cee11d0063d0770d5dfc09",
+      "worksheet": "HOOK_BASE_REVIEW.md",
+      "body_traversal": "documented",
+      "final_signoff": "pending",
+      "next_verification": "Verify callback authority/permission and CREATE2 consumers, including all current deployment masks.",
+      "signoff_evidence": null
+    }
+  ]
+}

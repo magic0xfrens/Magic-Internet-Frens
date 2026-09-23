@@ -306,11 +306,20 @@ contract MigrationVesting is Ownable, ReentrancyGuard {
     }
 
     function _isInstant(address who) private view returns (bool) {
-        if (address(stakerOracle) == address(0)) return false;
-        // Never let a misbehaving oracle brick a migration — treat a revert as
-        // "not instant" (the safe, vesting outcome).
-        try stakerOracle.isInstant(who) returns (bool ok) { return ok; }
-        catch { return false; }
+        address policy = address(stakerOracle);
+        if (policy == address(0)) return false;
+        // Failed calls and malformed ABI both mean ordinary vesting. Typed
+        // try/catch does not catch decoding failures in successful responses.
+        bytes memory input = abi.encodeWithSelector(IStakerOracle.isInstant.selector, who);
+        bool valid;
+        uint256 word;
+        assembly ("memory-safe") {
+            // Copy only the bool word, even if the policy returns excess data.
+            let ok := staticcall(gas(), policy, add(input, 32), mload(input), 0, 32)
+            valid := and(ok, iszero(lt(returndatasize(), 32)))
+            word := mload(0)
+        }
+        return valid && word == 1;
     }
 
     // -----------------------------------------------------------------------

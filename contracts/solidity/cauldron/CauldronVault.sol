@@ -162,6 +162,8 @@ contract CauldronVault is ReentrancyGuard {
         if (closed) revert Closed();
         if (tokenId <= floorOffset) revert NotOwner(); // genesis tranche has its own floor
         if (collection.ownerOf(tokenId) != msg.sender) revert NotOwner();
+        // Badges are owned ERC721s but do not count in this art-only floor.
+        if (tokenId > collection.totalMinted()) revert NotOwner();
         if (!_legacyFloorActive()) revert UnifiedFloorActive();
 
         uint256 n = outstanding();

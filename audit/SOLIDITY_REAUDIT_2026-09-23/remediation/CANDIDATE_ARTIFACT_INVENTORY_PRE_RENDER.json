@@ -1,0 +1,4840 @@
+{
+  "scope_files": 66,
+  "files_with_matching_artifacts": 62,
+  "files_without_matching_artifacts": [
+    "deploy/DeployRenderer.s.sol",
+    "render/FrenRenderer.sol",
+    "render/LiquidatoorRenderer.sol",
+    "render/TraitStorage.sol"
+  ],
+  "artifacts": [
+    {
+      "source": "CauldronHook.sol",
+      "contract": "CauldronHook",
+      "artifact": "out/CauldronHook.sol/CauldronHook.json",
+      "artifact_sha256": "96891370862fb57c22b2ffb06315e203766b4180f670ae271d8ff85af0b3af65",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24401,
+      "initcode_bytes_without_args": 25497,
+      "runtime_headroom": 175,
+      "initcode_headroom_without_args": 23655,
+      "link_references": {
+        "cauldron/FeeRouteLib.sol": {
+          "FeeRouteLib": [
+            {
+              "start": 3286,
+              "length": 20
+            },
+            {
+              "start": 9939,
+              "length": 20
+            },
+            {
+              "start": 21769,
+              "length": 20
+            },
+            {
+              "start": 22058,
+              "length": 20
+            },
+            {
+              "start": 22810,
+              "length": 20
+            },
+            {
+              "start": 24138,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/GachaLib.sol": {
+          "GachaLib": [
+            {
+              "start": 3602,
+              "length": 20
+            },
+            {
+              "start": 11668,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/LegacyBuyLib.sol": {
+          "LegacyBuyLib": [
+            {
+              "start": 15550,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/SurtaxLib.sol": {
+          "SurtaxLib": [
+            {
+              "start": 14487,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "ICollectionLiquidator",
+      "artifact": "out/CauldronHook.sol/ICollectionLiquidator.json",
+      "artifact_sha256": "1c9e199435c21e7432bcc37315b320c866d94b28c2b98bf617ff44a8b5020f61",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "ILegacyNote",
+      "artifact": "out/CauldronHook.sol/ILegacyNote.json",
+      "artifact_sha256": "7f9f9cee45c4e3975b9e0f0890d6f2d854c7dbafede33023c3cb74985c4e848c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IPerpEngineLiq",
+      "artifact": "out/CauldronHook.sol/IPerpEngineLiq.json",
+      "artifact_sha256": "30cb22b0e012d080ce1b962b701b950cd2a3c188ad68b3a5176b3b929ce59a58",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IPerpFeeCredit",
+      "artifact": "out/CauldronHook.sol/IPerpFeeCredit.json",
+      "artifact_sha256": "d7bfd5179cfdc6a872491d67da0c50c926b7ac28f83a12df886407732576afde",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IPerpForceClose",
+      "artifact": "out/CauldronHook.sol/IPerpForceClose.json",
+      "artifact_sha256": "4a5f3481ec6135635f8993f1d3c11c4c6863758c3054735b1845bcb07c24fe69",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IPerpOpenCount",
+      "artifact": "out/CauldronHook.sol/IPerpOpenCount.json",
+      "artifact_sha256": "1f3797fe6ae64c8a1573a4faf545bbd8dde1c473afbed4ef346e2364a42eca5a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IQuoteOracle",
+      "artifact": "out/CauldronHook.sol/IQuoteOracle.json",
+      "artifact_sha256": "a51a4b742cc934ac26a4543bcb1939e8d5f92dfdeb87ef596111cfde663113cb",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "IRegistryQuotes",
+      "artifact": "out/CauldronHook.sol/IRegistryQuotes.json",
+      "artifact_sha256": "3e832352c7ce9429ad2a5c6e0f5278c0511eb56af2028a56758e3a0de8e58582",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronHook.sol",
+      "contract": "ISeederInSwap",
+      "artifact": "out/CauldronHook.sol/ISeederInSwap.json",
+      "artifact_sha256": "199821498b9c00fe39ce25d6feb3848ed21b5c52afcfb23022487d939498c40e",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "84c16c0b9967f183db6c25e99fbb82124976f9076e0c316b34bbc6cb5a40f8bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronRegistry.sol",
+      "contract": "CauldronRegistry",
+      "artifact": "out/CauldronRegistry.sol/CauldronRegistry.json",
+      "artifact_sha256": "a21ceee5d097e2a7387a5c50e87fd93dbd322f3abe712168397915ac3421d103",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "6025f823685b7618e9b58b0e70f1729117c5b6321191e52f69ae2e8f438c1265",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24568,
+      "initcode_bytes_without_args": 25204,
+      "runtime_headroom": 8,
+      "initcode_headroom_without_args": 23948,
+      "link_references": {
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 4705,
+              "length": 20
+            },
+            {
+              "start": 6846,
+              "length": 20
+            },
+            {
+              "start": 8696,
+              "length": 20
+            },
+            {
+              "start": 11178,
+              "length": 20
+            },
+            {
+              "start": 12383,
+              "length": 20
+            },
+            {
+              "start": 13081,
+              "length": 20
+            },
+            {
+              "start": 18345,
+              "length": 20
+            },
+            {
+              "start": 19874,
+              "length": 20
+            },
+            {
+              "start": 19978,
+              "length": 20
+            },
+            {
+              "start": 20313,
+              "length": 20
+            },
+            {
+              "start": 20507,
+              "length": 20
+            },
+            {
+              "start": 21208,
+              "length": 20
+            },
+            {
+              "start": 21580,
+              "length": 20
+            },
+            {
+              "start": 23663,
+              "length": 20
+            },
+            {
+              "start": 24527,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "CauldronRegistry.sol",
+      "contract": "ICollectionMetadata",
+      "artifact": "out/CauldronRegistry.sol/ICollectionMetadata.json",
+      "artifact_sha256": "8f3f8830ea10e8b4cfcb81d85ee689d4fb2fad99449b8447195ddb39567dc1df",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "6025f823685b7618e9b58b0e70f1729117c5b6321191e52f69ae2e8f438c1265",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "CauldronToken.sol",
+      "contract": "CauldronToken",
+      "artifact": "out/CauldronToken.sol/CauldronToken.json",
+      "artifact_sha256": "95ea3bf8deb9cf3ea68de9b08a87fa112bedc97b5bdf4a781c1349d687682754",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "014d7f130b79895c95a9850e563ad02715365a037531a670f67d8f30b7fa488d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 2033,
+      "initcode_bytes_without_args": 3176,
+      "runtime_headroom": 22543,
+      "initcode_headroom_without_args": 45976,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronArtAdapter.sol",
+      "contract": "CauldronArtAdapter",
+      "artifact": "out/CauldronArtAdapter.sol/CauldronArtAdapter.json",
+      "artifact_sha256": "b94f814b6ebac659d3940266f75240138d5e52db625ede7f402a31d802f308a2",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a0543f1f06d9c3a111eb5b520147d5084df7c3628a099e84d5cbb09b78b61685",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1248,
+      "initcode_bytes_without_args": 1381,
+      "runtime_headroom": 23328,
+      "initcode_headroom_without_args": 47771,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronArtAdapter.sol",
+      "contract": "IFrenRendererFive",
+      "artifact": "out/CauldronArtAdapter.sol/IFrenRendererFive.json",
+      "artifact_sha256": "ba4bf9c35293c2dfc7a6aedcf4c5070f6809a429965883653a322097170192d3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a0543f1f06d9c3a111eb5b520147d5084df7c3628a099e84d5cbb09b78b61685",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronArtAdapter.sol",
+      "contract": "IRevealedArtSource",
+      "artifact": "out/CauldronArtAdapter.sol/IRevealedArtSource.json",
+      "artifact_sha256": "ded2a5c18274f420f625816bde5532f3aa932766bed1698cdab56d245c7a3050",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a0543f1f06d9c3a111eb5b520147d5084df7c3628a099e84d5cbb09b78b61685",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "CauldronBase",
+      "artifact": "out/CauldronBase.sol/CauldronBase.json",
+      "artifact_sha256": "507fa0be9df4139c8702b21c8714ad6acfe55543d8f0aa783a8629709658bf66",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "ICauldronFactory",
+      "artifact": "out/CauldronBase.sol/ICauldronFactory.json",
+      "artifact_sha256": "529dafc650a5dde68acbbc09df1f4f35d9cf6b8cc86044b9ff89bf96004b5649",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "ICollectionLedger",
+      "artifact": "out/CauldronBase.sol/ICollectionLedger.json",
+      "artifact_sha256": "8cf104c21cee502d664c3b3286bca656bfa3433cf237e7799076b36ebc105271",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "IMiFrensContinuable",
+      "artifact": "out/CauldronBase.sol/IMiFrensContinuable.json",
+      "artifact_sha256": "404c87404303d6f12e4997f90549a7d9a9457d2e6d8715352dc9524e1b9a7261",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "IPerpBook",
+      "artifact": "out/CauldronBase.sol/IPerpBook.json",
+      "artifact_sha256": "7f8c9a8d7194fe77a5e01ad76ab13e3818df9487193ef95cb0e644825b664ba3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "IPerpSync",
+      "artifact": "out/CauldronBase.sol/IPerpSync.json",
+      "artifact_sha256": "7822ac373e648d9cb16947fd6de4bd57fab758ef352f526ec385a6bb1410d5c8",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "IPositionManager",
+      "artifact": "out/CauldronBase.sol/IPositionManager.json",
+      "artifact_sha256": "f3e06f41e558c3f6bca29aa70f13fdba20c73ce9cbdea8023f68ea17b8174beb",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronBase.sol",
+      "contract": "IVaultClose",
+      "artifact": "out/CauldronBase.sol/IVaultClose.json",
+      "artifact_sha256": "b30da50b81cc868e9f7ddcff30b02240946863c7f0c55fcb367d4ccc11b5b849",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronCollection.sol",
+      "contract": "CauldronCollection",
+      "artifact": "out/CauldronCollection.sol/CauldronCollection.json",
+      "artifact_sha256": "c633f44adcaa763f0a3c090ca88431115bd767b4811920a3634bd07cdd826ae2",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "027606f0538c51ea0e5072f38e1cda1f18cf75a816620543630175e7fc300d8c",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 11952,
+      "initcode_bytes_without_args": 14439,
+      "runtime_headroom": 12624,
+      "initcode_headroom_without_args": 34713,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronFactory.sol",
+      "contract": "CauldronFactory",
+      "artifact": "out/CauldronFactory.sol/CauldronFactory.json",
+      "artifact_sha256": "d8b0ef87d7228f5155d9aac3cd9e2dc2ed4124c9baea19b68db5dd3ec9c001b7",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "0e19b190b260a27b29c79c79594a31143d2589fee406902ff48239b1ea01d99d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 20520,
+      "initcode_bytes_without_args": 20563,
+      "runtime_headroom": 4056,
+      "initcode_headroom_without_args": 28589,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGachaRouter.sol",
+      "contract": "CauldronGachaRouter",
+      "artifact": "out/CauldronGachaRouter.sol/CauldronGachaRouter.json",
+      "artifact_sha256": "b473c4b9bc217eca41f978fa5311d32b2bb0d6910d36cddc80a27711e9080185",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 8814,
+      "initcode_bytes_without_args": 9283,
+      "runtime_headroom": 15762,
+      "initcode_headroom_without_args": 39869,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGachaRouter.sol",
+      "contract": "ICauldronHookGacha",
+      "artifact": "out/CauldronGachaRouter.sol/ICauldronHookGacha.json",
+      "artifact_sha256": "85498371b8fec4d7a0c377c85c715bd7449830417727d244a6b12b7d8659eee2",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGachaRouter.sol",
+      "contract": "IQuoteOracleView",
+      "artifact": "out/CauldronGachaRouter.sol/IQuoteOracleView.json",
+      "artifact_sha256": "72066186c060d2a0c0c1734473ccdb675225e184cfb8f39fda763e5636c360ec",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGachaRouter.sol",
+      "contract": "IRegistryCurrent",
+      "artifact": "out/CauldronGachaRouter.sol/IRegistryCurrent.json",
+      "artifact_sha256": "472da6153051860001c9a794e80e80958c141f5f7a0a105d7c743ffa073ee9b4",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "13a0bda56a00898026025e4bb5ef74d1e4b0dd8ea428a63b60142f1fef6cbc7d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "CauldronGovernor",
+      "artifact": "out/CauldronGovernor.sol/CauldronGovernor.json",
+      "artifact_sha256": "97a0d7efa9cff66f8ab86c31704936d4d8e31a6faf9fdcca0c62b4a5b9a86c22",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 9341,
+      "initcode_bytes_without_args": 9682,
+      "runtime_headroom": 15235,
+      "initcode_headroom_without_args": 39470,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "ICurveCalibration",
+      "artifact": "out/CauldronGovernor.sol/ICurveCalibration.json",
+      "artifact_sha256": "d800fdc8592aff0fb4230ff8b4a3ee8ff2d4daa4b2e9b23ca5fcf04de38f70e3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "IHookCurve",
+      "artifact": "out/CauldronGovernor.sol/IHookCurve.json",
+      "artifact_sha256": "c27c2ecdd891138b0d9172dfd89160fa58b9cb431b4818a62238825f98cfe0f4",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "IHookCurveBase",
+      "artifact": "out/CauldronGovernor.sol/IHookCurveBase.json",
+      "artifact_sha256": "748910b9f31bd0c0257fb1e158f4a8bf84aded611ddf75dbbae3aa85d9150a77",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "IRegistryHook",
+      "artifact": "out/CauldronGovernor.sol/IRegistryHook.json",
+      "artifact_sha256": "3201b92c8e361b042a29b3fa16fce1014c0e32c7a9b060a13a522826ff74cb69",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronGovernor.sol",
+      "contract": "IRegistryQuotes",
+      "artifact": "out/CauldronGovernor.sol/IRegistryQuotes.json",
+      "artifact_sha256": "90c8fd4d0992211ead0d73c6e368422cf07e137740a627b2d37a96d5c9b19e9e",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a44ccca8f362633fd13d0d431c9deb28c30609f486ac078db87d15d348509334",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronSeeder.sol",
+      "contract": "CauldronSeeder",
+      "artifact": "out/CauldronSeeder.sol/CauldronSeeder.json",
+      "artifact_sha256": "0dd2e14dd61908f5ca28d1f3385114150391da22880e8b29b5a0471aa1524895",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cbdb3b2311055856cefba56a3f10afd65d7a861ecfa061a8152678ea16db7eb6",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 15453,
+      "initcode_bytes_without_args": 15825,
+      "runtime_headroom": 9123,
+      "initcode_headroom_without_args": 33327,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronSeeder.sol",
+      "contract": "IRegistryOwner",
+      "artifact": "out/CauldronSeeder.sol/IRegistryOwner.json",
+      "artifact_sha256": "d9d38dd7bb579e30b539e7ed150bde8840c8146bf674ec4beb5c770ce6386873",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cbdb3b2311055856cefba56a3f10afd65d7a861ecfa061a8152678ea16db7eb6",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronVault.sol",
+      "contract": "CauldronVault",
+      "artifact": "out/CauldronVault.sol/CauldronVault.json",
+      "artifact_sha256": "e53c1543c5c9fdb11681298a206bfb3630bb3003bc1af4014b140a23ad153d82",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 2495,
+      "initcode_bytes_without_args": 2775,
+      "runtime_headroom": 22081,
+      "initcode_headroom_without_args": 46377,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronVault.sol",
+      "contract": "IBurnableCollection",
+      "artifact": "out/CauldronVault.sol/IBurnableCollection.json",
+      "artifact_sha256": "b8314374236575344e5d0760b7e0666641ed847bfa885ebac200ea3e241e1c03",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CauldronVault.sol",
+      "contract": "ILegacyFloorHook",
+      "artifact": "out/CauldronVault.sol/ILegacyFloorHook.json",
+      "artifact_sha256": "30fc4f2290d8d0606db0267793986d7f074574f76cad808de5600e614fcc3971",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/CollectionLedger.sol",
+      "contract": "CollectionLedger",
+      "artifact": "out/CollectionLedger.sol/CollectionLedger.json",
+      "artifact_sha256": "fd5cb98731eef4c648c4f0966e33f2b8404ad82b019f0bc97cf0b40f98910cc5",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "2a3e82bc170445b8706fa4b83dbb10ff3e4ae094ce10267d665aeeb084b1ef23",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 2092,
+      "initcode_bytes_without_args": 2305,
+      "runtime_headroom": 22484,
+      "initcode_headroom_without_args": 46847,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/DefaultFeeRouter.sol",
+      "contract": "DefaultFeeRouter",
+      "artifact": "out/DefaultFeeRouter.sol/DefaultFeeRouter.json",
+      "artifact_sha256": "f3be1a903875d7c5f93fb77eb31906cd1f18ff84415bf6d015cdce2dd81c8154",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7a581bce27d3ee5f79942d7e82de9a7ceea9b6c1a38cdf12c61d305eddb0d9eb",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 349,
+      "initcode_bytes_without_args": 375,
+      "runtime_headroom": 24227,
+      "initcode_headroom_without_args": 48777,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/FeeRouteLib.sol",
+      "contract": "FeeRouteLib",
+      "artifact": "out/FeeRouteLib.sol/FeeRouteLib.json",
+      "artifact_sha256": "67037970bff3bcec1d3a7efce9dd49ae7a01a6212f2428bb28ff3b6a759270a8",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "c49839ad353fdb8e5125a077ad1ce9e9a515c3fafc56a80a53faa29ff4b51f44",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 2083,
+      "initcode_bytes_without_args": 2115,
+      "runtime_headroom": 22493,
+      "initcode_headroom_without_args": 47037,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/GachaLib.sol",
+      "contract": "GachaLib",
+      "artifact": "out/GachaLib.sol/GachaLib.json",
+      "artifact_sha256": "f5e994df7edcf17828c6f47bf3b2ce2958a37500144d33136f7521be9cdaf3d3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "00db2e4316e93969aae40e311ab51aa055646878b098fe0ab534747bd445b9d2",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1916,
+      "initcode_bytes_without_args": 1948,
+      "runtime_headroom": 22660,
+      "initcode_headroom_without_args": 47204,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICauldron.sol",
+      "contract": "ICauldronCollection",
+      "artifact": "out/ICauldron.sol/ICauldronCollection.json",
+      "artifact_sha256": "fbb28ef53d8a5f0adcefcd68cf215a6606eefcd8999a1873c2b6f58f74870811",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "85df8fc7e576a2571a42244e6836de3b80b1f51fa72feb418f0cbfe4b55cdfb0",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICauldron.sol",
+      "contract": "ICauldronGovernor",
+      "artifact": "out/ICauldron.sol/ICauldronGovernor.json",
+      "artifact_sha256": "61767fa62be45da9ad6beae0d45dd2abc9659186b7826b605e717d07acf2f010",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "85df8fc7e576a2571a42244e6836de3b80b1f51fa72feb418f0cbfe4b55cdfb0",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICauldron.sol",
+      "contract": "ICollectionRenderer",
+      "artifact": "out/ICauldron.sol/ICollectionRenderer.json",
+      "artifact_sha256": "816282ab5e702f54343033262bf8fc3b8f501594d90d8bb7f0fb19aa96bde29f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "85df8fc7e576a2571a42244e6836de3b80b1f51fa72feb418f0cbfe4b55cdfb0",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICauldron.sol",
+      "contract": "LaunchLib",
+      "artifact": "out/ICauldron.sol/LaunchLib.json",
+      "artifact_sha256": "147d1a46e52967bb9660cbc03e0111d003ee361f85772ae6d3f170919307f0e9",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "85df8fc7e576a2571a42244e6836de3b80b1f51fa72feb418f0cbfe4b55cdfb0",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICreatorToken.sol",
+      "contract": "ICreatorToken",
+      "artifact": "out/ICreatorToken.sol/ICreatorToken.json",
+      "artifact_sha256": "f44e64e67f14c26ce50d57294ab4d02bbf34276cf48d05134455ab6831f568b0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4328808b26b966dbe8439a764ecf175d45664eb91b5f3493527c34784eb81041",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ICreatorToken.sol",
+      "contract": "ITransferValidator",
+      "artifact": "out/ICreatorToken.sol/ITransferValidator.json",
+      "artifact_sha256": "e74526f3e72e61ed6663bcd0132a5c003f374ab29bbb99fc0122c93362b001a7",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4328808b26b966dbe8439a764ecf175d45664eb91b5f3493527c34784eb81041",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/IDeathChecker.sol",
+      "contract": "IDeathChecker",
+      "artifact": "out/IDeathChecker.sol/IDeathChecker.json",
+      "artifact_sha256": "dc27090abc67c3c9912e71c70a2a218dd207c915c5b95bf07992fba48bb65f1b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "d7c05259f92715eec93abbc53d00cb2752ccc9196793aa6ccc2bc50cec83538b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ILiquidatorMintable.sol",
+      "contract": "ILiquidatorMintable",
+      "artifact": "out/ILiquidatorMintable.sol/ILiquidatorMintable.json",
+      "artifact_sha256": "90b830c3a5e8ab1fca697fb6de0345f0431159b8f8dbc2f3b1a7dd5097cf0014",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ac739478b0ab3dd237c18722e4c6dca1543a11f503b5537ff28bd68ffa8cf9c5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/IPolicies.sol",
+      "contract": "ICurvePolicy",
+      "artifact": "out/IPolicies.sol/ICurvePolicy.json",
+      "artifact_sha256": "0a139d30d2bf504388c9bec9b0fcb5cf30e759a7480be76f21d4300217c09a0a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "db7f8e4b38c84786720cba9bcb1b0396db51b7c4c2cb706af324dd039b1786bc",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/IPolicies.sol",
+      "contract": "IFeeRouter",
+      "artifact": "out/IPolicies.sol/IFeeRouter.json",
+      "artifact_sha256": "0e4a09b70ba6269332e4b79803a8b46def9ecb1f4ca03669c9423e04a2a913b1",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "db7f8e4b38c84786720cba9bcb1b0396db51b7c4c2cb706af324dd039b1786bc",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/IPolicies.sol",
+      "contract": "IOddsPolicy",
+      "artifact": "out/IPolicies.sol/IOddsPolicy.json",
+      "artifact_sha256": "64bda6b31bf5ced5a3109940775b6613a45eb9969dbbe45bcaca37b306873fd4",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "db7f8e4b38c84786720cba9bcb1b0396db51b7c4c2cb706af324dd039b1786bc",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/IPolicies.sol",
+      "contract": "ISurtaxPolicy",
+      "artifact": "out/IPolicies.sol/ISurtaxPolicy.json",
+      "artifact_sha256": "4cf926d5d515ae3418025878110c939cad4b16b005ae9bb1de05f250dd3728f9",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "db7f8e4b38c84786720cba9bcb1b0396db51b7c4c2cb706af324dd039b1786bc",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/ISeeder.sol",
+      "contract": "ISeeder",
+      "artifact": "out/ISeeder.sol/ISeeder.json",
+      "artifact_sha256": "a8734f068e86668dddbe23fc3c1f4a449798c07fe00d00540546570ce53636c6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "d6316aa516c68abb26038526f4ffc273085aa932c132022ab05b9bddb71658b7",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/LaunchSniper.sol",
+      "contract": "IGachaPlay",
+      "artifact": "out/LaunchSniper.sol/IGachaPlay.json",
+      "artifact_sha256": "3a3d2ed7cd64e4c4b09be444fcd2f5cbcee8c83cc0246efe1d34d587f2cd83fd",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "e8b366cc0b648bc86f1392683391396debe15b0af01164ff9ec976471219a23e",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/LaunchSniper.sol",
+      "contract": "IMiFrensGenesisFinalize",
+      "artifact": "out/LaunchSniper.sol/IMiFrensGenesisFinalize.json",
+      "artifact_sha256": "6eecb83d479e0fe1e3838f37064d5ca2e68c8edc57c2ff5a3f3d9f4e20461ec7",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "e8b366cc0b648bc86f1392683391396debe15b0af01164ff9ec976471219a23e",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/LaunchSniper.sol",
+      "contract": "IRegistryCurrent",
+      "artifact": "out/LaunchSniper.sol/IRegistryCurrent.json",
+      "artifact_sha256": "5f246e49dd0d91c0ef1491b61447599e4f26ecf06c7422aebd438b76d05a2bea",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "e8b366cc0b648bc86f1392683391396debe15b0af01164ff9ec976471219a23e",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/LaunchSniper.sol",
+      "contract": "LaunchSniper",
+      "artifact": "out/LaunchSniper.sol/LaunchSniper.json",
+      "artifact_sha256": "1c7a8dde769566965f58a19f073d320c2948f80cc19885cb6eb6db7220571254",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "e8b366cc0b648bc86f1392683391396debe15b0af01164ff9ec976471219a23e",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1703,
+      "initcode_bytes_without_args": 1912,
+      "runtime_headroom": 22873,
+      "initcode_headroom_without_args": 47240,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/LegacyBuyLib.sol",
+      "contract": "LegacyBuyLib",
+      "artifact": "out/LegacyBuyLib.sol/LegacyBuyLib.json",
+      "artifact_sha256": "c86a92d29d78070d6df52dcf7adbc14aefcd94fe9fc52ee20b92ce693b141c0d",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1ada6f0e4d0c95bb13aa4d9c726250103b6857a386f550ba646b829711cabce6",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3331,
+      "initcode_bytes_without_args": 3363,
+      "runtime_headroom": 21245,
+      "initcode_headroom_without_args": 45789,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensDividend.sol",
+      "contract": "IMiFrensShares",
+      "artifact": "out/MiFrensDividend.sol/IMiFrensShares.json",
+      "artifact_sha256": "20cae2c9b5e0b1e909936c7be9b4055f1d81cafcbe8c4d5bd74dad7619637d35",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b9c4157819c5ca9413dcb2f4d184a2bc076d40303996135afeb577ef94595944",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensDividend.sol",
+      "contract": "IReserveRegistry",
+      "artifact": "out/MiFrensDividend.sol/IReserveRegistry.json",
+      "artifact_sha256": "c36a64cf586a0d8b1508f3515e7213b6e87c1564e76ecba62c98d327e1fe58c2",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b9c4157819c5ca9413dcb2f4d184a2bc076d40303996135afeb577ef94595944",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensDividend.sol",
+      "contract": "MiFrensDividend",
+      "artifact": "out/MiFrensDividend.sol/MiFrensDividend.json",
+      "artifact_sha256": "308080c2f6e75b2c00d35a4b4d2ca0a597c893429e9413bb37f29961d79aadcd",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b9c4157819c5ca9413dcb2f4d184a2bc076d40303996135afeb577ef94595944",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 8194,
+      "initcode_bytes_without_args": 8899,
+      "runtime_headroom": 16382,
+      "initcode_headroom_without_args": 40253,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensGenesis.sol",
+      "contract": "IMiFrensDividendHook",
+      "artifact": "out/MiFrensGenesis.sol/IMiFrensDividendHook.json",
+      "artifact_sha256": "bc3b77488e47a4b94320ba3bc0baf510ca7b6e6470bd6b1c32d923f64f6af267",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b7e62f8fe81f8855e1408c65b6596d2ca8aa8179c65b2f696eb9c62c1864b473",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensGenesis.sol",
+      "contract": "IRegistrySummon",
+      "artifact": "out/MiFrensGenesis.sol/IRegistrySummon.json",
+      "artifact_sha256": "0d6b628287c09be6cd00a70b8b8cb6d07c98d4121945a7b14d974c0d25ca406b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b7e62f8fe81f8855e1408c65b6596d2ca8aa8179c65b2f696eb9c62c1864b473",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MiFrensGenesis.sol",
+      "contract": "MiFrensGenesis",
+      "artifact": "out/MiFrensGenesis.sol/MiFrensGenesis.json",
+      "artifact_sha256": "08f3fc5a164be1bdbea610bc000ae3296a021a60552bcd6d0eb375f98146c637",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b7e62f8fe81f8855e1408c65b6596d2ca8aa8179c65b2f696eb9c62c1864b473",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 22858,
+      "initcode_bytes_without_args": 25945,
+      "runtime_headroom": 1718,
+      "initcode_headroom_without_args": 23207,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MigrationVesting.sol",
+      "contract": "IStakerOracle",
+      "artifact": "out/MigrationVesting.sol/IStakerOracle.json",
+      "artifact_sha256": "2df3a24d2cbbb35d33e3241d796825de2275b9516212667ed4e981f4e11dc0d3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "5bcbfaebd8882ad9b2bd7f58705c9fb3a42faf795a12dca0167baeffaa2386b8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MigrationVesting.sol",
+      "contract": "IVestingRegistry",
+      "artifact": "out/MigrationVesting.sol/IVestingRegistry.json",
+      "artifact_sha256": "ce5463feb2c6ff41d15b4cfe1bcba9ae3fdc196c05a31abf2068bde390de9a87",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "5bcbfaebd8882ad9b2bd7f58705c9fb3a42faf795a12dca0167baeffaa2386b8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MigrationVesting.sol",
+      "contract": "MigrationVesting",
+      "artifact": "out/MigrationVesting.sol/MigrationVesting.json",
+      "artifact_sha256": "84ee85c6a6cdedcf57cdaa65d0b75f35938757ca4dfd7f7b5b5208be1e47a1ec",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "5bcbfaebd8882ad9b2bd7f58705c9fb3a42faf795a12dca0167baeffaa2386b8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 4740,
+      "initcode_bytes_without_args": 5187,
+      "runtime_headroom": 19836,
+      "initcode_headroom_without_args": 43965,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MintCurvePolicy.sol",
+      "contract": "MintCurvePolicy",
+      "artifact": "out/MintCurvePolicy.sol/MintCurvePolicy.json",
+      "artifact_sha256": "e5b8b66a007e4bbe14ee3169568d9a01a86bbfe4effb636745c5aa1c92436039",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cb6ee6ed84e4b6ee84d5872fdce4070166b51987df2f319a9e87fbcabe69114c",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 871,
+      "initcode_bytes_without_args": 1143,
+      "runtime_headroom": 23705,
+      "initcode_headroom_without_args": 48009,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MockAggregator.sol",
+      "contract": "MockAggregator",
+      "artifact": "out/MockAggregator.sol/MockAggregator.json",
+      "artifact_sha256": "79c039744a7aded0a6ed31a9108783345926b75e779a2c12a8810e7a78735ad4",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "2b654db4974747ce2f9fdfaab5123f5d4616f82a05536c86a50d7d68e4c918a8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1202,
+      "initcode_bytes_without_args": 1793,
+      "runtime_headroom": 23374,
+      "initcode_headroom_without_args": 47359,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/MockQuoteToken.sol",
+      "contract": "MockQuoteToken",
+      "artifact": "out/MockQuoteToken.sol/MockQuoteToken.json",
+      "artifact_sha256": "86ef0d268a6ed869e091bd05bbd88b872163dce1882f17c2798a323f7d690f21",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "bd5c65fceeb298155d6ed8a1d1611d2de66968bec19203c9102b32f046eb06b8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1725,
+      "initcode_bytes_without_args": 2664,
+      "runtime_headroom": 22851,
+      "initcode_headroom_without_args": 46488,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/NativeQuoteZap.sol",
+      "contract": "NativeQuoteZap",
+      "artifact": "out/NativeQuoteZap.sol/NativeQuoteZap.json",
+      "artifact_sha256": "87e579853528b3ec05370c61635bcd234bd68a5619c22d81dcb6b6a80b3b6393",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "04f5ea91a63a19f69689b560b6802d73c7a6b54cfb600c82ad8e65e648ef4cd4",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 2326,
+      "initcode_bytes_without_args": 2467,
+      "runtime_headroom": 22250,
+      "initcode_headroom_without_args": 46685,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IMarkSource",
+      "artifact": "out/PerpEngine.sol/IMarkSource.0.8.26.json",
+      "artifact_sha256": "c930908610c9b96972c5c6dfb9633fe9786d8ef2d4f7590c25df1373eb20a164",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IMarkSource",
+      "artifact": "out/PerpEngine.sol/IMarkSource.0.8.30.json",
+      "artifact_sha256": "4f7ef1da8917d5b7f890105890481abbe176458e50844afec7095bf27ed87de5",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IMarkSource",
+      "artifact": "out/PerpEngine.sol/IMarkSource.json",
+      "artifact_sha256": "7474ea9d22cd35112fc3c7cbb1fb6b38e4fc11e5a1ea91be9b8de7210ef61b2b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/PerpEngine.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpHook",
+      "artifact": "out/PerpEngine.sol/IPerpHook.0.8.26.json",
+      "artifact_sha256": "b1aa5f57d2038e29f72a35088c38f8553bd4800e8baec62456c8e207f7d9a85f",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpHook",
+      "artifact": "out/PerpEngine.sol/IPerpHook.0.8.30.json",
+      "artifact_sha256": "9bbc7c138b9b1df0c4953ef669c6a19288f4aa772ca6d6a151150c6b3e52813c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpHook",
+      "artifact": "out/PerpEngine.sol/IPerpHook.json",
+      "artifact_sha256": "3c11658078b174ef4cf0df17cedbfbf02b6751cb54fd768d8958e6115620cf98",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/PerpEngine.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpRegistry",
+      "artifact": "out/PerpEngine.sol/IPerpRegistry.0.8.26.json",
+      "artifact_sha256": "051c526ea84584d7ca35ebc653272ee6674cb60e0214061a137603d7d8d032a5",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpRegistry",
+      "artifact": "out/PerpEngine.sol/IPerpRegistry.0.8.30.json",
+      "artifact_sha256": "1e4b980e374a132a3a03f843fa2545ebc9078fdb789250fe447069bfca5fb03f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpRegistry",
+      "artifact": "out/PerpEngine.sol/IPerpRegistry.json",
+      "artifact_sha256": "6e48b7ef499e61270deac1487fdff9b166d1c2f760849d735af9871e87cb1dd0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/PerpEngine.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpVaultStake",
+      "artifact": "out/PerpEngine.sol/IPerpVaultStake.0.8.26.json",
+      "artifact_sha256": "b3824d2a7ce91167fac78811705e8b94227a73a98cb42bd0351e6cdc5b281111",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpVaultStake",
+      "artifact": "out/PerpEngine.sol/IPerpVaultStake.0.8.30.json",
+      "artifact_sha256": "e7c2997bb2103ec0cd4cbf1cc0451652972c6762e0225eee1d874c8514e58ad6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "IPerpVaultStake",
+      "artifact": "out/PerpEngine.sol/IPerpVaultStake.json",
+      "artifact_sha256": "89ea27cfa390705d9b16d1a9e79560cd9026fc08135545b0a2f7c26b7cb88754",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/PerpEngine.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "PerpEngine",
+      "artifact": "out/PerpEngine.sol/PerpEngine.0.8.26.json",
+      "artifact_sha256": "6d8a8e7b51fccf30992a0a38966a42e229baf7fd8cb46bc45250e32ab9b4fa6e",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24207,
+      "initcode_bytes_without_args": 26229,
+      "runtime_headroom": 369,
+      "initcode_headroom_without_args": 22923,
+      "link_references": {
+        "cauldron/PerpSwapLib.sol": {
+          "PerpSwapLib": [
+            {
+              "start": 9944,
+              "length": 20
+            },
+            {
+              "start": 10248,
+              "length": 20
+            },
+            {
+              "start": 10709,
+              "length": 20
+            },
+            {
+              "start": 11243,
+              "length": 20
+            },
+            {
+              "start": 12297,
+              "length": 20
+            },
+            {
+              "start": 12629,
+              "length": 20
+            },
+            {
+              "start": 12799,
+              "length": 20
+            },
+            {
+              "start": 13297,
+              "length": 20
+            },
+            {
+              "start": 13626,
+              "length": 20
+            },
+            {
+              "start": 15484,
+              "length": 20
+            },
+            {
+              "start": 16891,
+              "length": 20
+            },
+            {
+              "start": 17700,
+              "length": 20
+            },
+            {
+              "start": 18246,
+              "length": 20
+            },
+            {
+              "start": 18760,
+              "length": 20
+            },
+            {
+              "start": 19167,
+              "length": 20
+            },
+            {
+              "start": 20926,
+              "length": 20
+            },
+            {
+              "start": 21063,
+              "length": 20
+            },
+            {
+              "start": 23017,
+              "length": 20
+            },
+            {
+              "start": 23517,
+              "length": 20
+            },
+            {
+              "start": 24262,
+              "length": 20
+            },
+            {
+              "start": 25588,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "PerpEngine",
+      "artifact": "out/PerpEngine.sol/PerpEngine.0.8.30.json",
+      "artifact_sha256": "fd6f6fe1124281ea15e2e3b1178b8fa5dcccabaef7df68388d183dc01b83e816",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24207,
+      "initcode_bytes_without_args": 26229,
+      "runtime_headroom": 369,
+      "initcode_headroom_without_args": 22923,
+      "link_references": {
+        "cauldron/PerpSwapLib.sol": {
+          "PerpSwapLib": [
+            {
+              "start": 9944,
+              "length": 20
+            },
+            {
+              "start": 10248,
+              "length": 20
+            },
+            {
+              "start": 10709,
+              "length": 20
+            },
+            {
+              "start": 11243,
+              "length": 20
+            },
+            {
+              "start": 12297,
+              "length": 20
+            },
+            {
+              "start": 12629,
+              "length": 20
+            },
+            {
+              "start": 12799,
+              "length": 20
+            },
+            {
+              "start": 13297,
+              "length": 20
+            },
+            {
+              "start": 13626,
+              "length": 20
+            },
+            {
+              "start": 15484,
+              "length": 20
+            },
+            {
+              "start": 16891,
+              "length": 20
+            },
+            {
+              "start": 17700,
+              "length": 20
+            },
+            {
+              "start": 18246,
+              "length": 20
+            },
+            {
+              "start": 18760,
+              "length": 20
+            },
+            {
+              "start": 19167,
+              "length": 20
+            },
+            {
+              "start": 20926,
+              "length": 20
+            },
+            {
+              "start": 21063,
+              "length": 20
+            },
+            {
+              "start": 23017,
+              "length": 20
+            },
+            {
+              "start": 23517,
+              "length": 20
+            },
+            {
+              "start": 24262,
+              "length": 20
+            },
+            {
+              "start": 25588,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "cauldron/PerpEngine.sol",
+      "contract": "PerpEngine",
+      "artifact": "out/PerpEngine.sol/PerpEngine.json",
+      "artifact_sha256": "9713b4ca7b306b492039b58f4b4fb905a378713f69d8b76464d8c1136b4ce66a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/PerpEngine.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24168,
+      "initcode_bytes_without_args": 26151,
+      "runtime_headroom": 408,
+      "initcode_headroom_without_args": 23001,
+      "link_references": {
+        "cauldron/PerpSwapLib.sol": {
+          "PerpSwapLib": [
+            {
+              "start": 9905,
+              "length": 20
+            },
+            {
+              "start": 10209,
+              "length": 20
+            },
+            {
+              "start": 10670,
+              "length": 20
+            },
+            {
+              "start": 11204,
+              "length": 20
+            },
+            {
+              "start": 12258,
+              "length": 20
+            },
+            {
+              "start": 12590,
+              "length": 20
+            },
+            {
+              "start": 12760,
+              "length": 20
+            },
+            {
+              "start": 13258,
+              "length": 20
+            },
+            {
+              "start": 13587,
+              "length": 20
+            },
+            {
+              "start": 15406,
+              "length": 20
+            },
+            {
+              "start": 16813,
+              "length": 20
+            },
+            {
+              "start": 17622,
+              "length": 20
+            },
+            {
+              "start": 18168,
+              "length": 20
+            },
+            {
+              "start": 18682,
+              "length": 20
+            },
+            {
+              "start": 19089,
+              "length": 20
+            },
+            {
+              "start": 20848,
+              "length": 20
+            },
+            {
+              "start": 20985,
+              "length": 20
+            },
+            {
+              "start": 22939,
+              "length": 20
+            },
+            {
+              "start": 23439,
+              "length": 20
+            },
+            {
+              "start": 24184,
+              "length": 20
+            },
+            {
+              "start": 25510,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "cauldron/PerpMarkSource.sol",
+      "contract": "PerpMarkSource",
+      "artifact": "out/PerpMarkSource.sol/PerpMarkSource.json",
+      "artifact_sha256": "1b95c99c26356d5c9e0169e2ac65a550d3ea75091856e844f9963908f22216a7",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "d362f9599db06f5170cb0e3f0dbc112a532de51b39957f1774df7b9ef75f3939",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3603,
+      "initcode_bytes_without_args": 3858,
+      "runtime_headroom": 20973,
+      "initcode_headroom_without_args": 45294,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpStakerOracle.sol",
+      "contract": "IPerpShares",
+      "artifact": "out/PerpStakerOracle.sol/IPerpShares.json",
+      "artifact_sha256": "9ce64b3c21cb17a61a2c00019965c491c3ec3819cfc3244ee65e443eca028261",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ee178959f8a0d35dd2be5dd4dd20637c9299f5143a7246b65942d6bc4776ab13",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpStakerOracle.sol",
+      "contract": "PerpStakerOracle",
+      "artifact": "out/PerpStakerOracle.sol/PerpStakerOracle.json",
+      "artifact_sha256": "8382c2fe0cace999a2dd7485251a2ab775e002319f3132b0621f44bd34e1d348",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ee178959f8a0d35dd2be5dd4dd20637c9299f5143a7246b65942d6bc4776ab13",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 544,
+      "initcode_bytes_without_args": 679,
+      "runtime_headroom": 24032,
+      "initcode_headroom_without_args": 48473,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpSwapLib.sol",
+      "contract": "IRequoteEngine",
+      "artifact": "out/PerpSwapLib.sol/IRequoteEngine.json",
+      "artifact_sha256": "37e8019f74a2f72b1f7ad06470f93ddd483c01b21faad58894bfa815e648aa8f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpSwapLib.sol",
+      "contract": "IRequoteRegistry",
+      "artifact": "out/PerpSwapLib.sol/IRequoteRegistry.json",
+      "artifact_sha256": "0425db7a6d60316deaf4b4ac86a6fdaa530c8a64d852b1a852849eb4590e5bfd",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpSwapLib.sol",
+      "contract": "IRequoteRotator",
+      "artifact": "out/PerpSwapLib.sol/IRequoteRotator.json",
+      "artifact_sha256": "09894c03cb014662b526fc9bf0fd39a2f967626b4c2a39c8b31138fb3b3b1b7f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpSwapLib.sol",
+      "contract": "IVaultQuoteStake",
+      "artifact": "out/PerpSwapLib.sol/IVaultQuoteStake.json",
+      "artifact_sha256": "0629b34de91b05456fbd1289ccf0e1283834cc25687b599774d7cf4d8b060efa",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpSwapLib.sol",
+      "contract": "PerpSwapLib",
+      "artifact": "out/PerpSwapLib.sol/PerpSwapLib.json",
+      "artifact_sha256": "91a3d3b05c319d1278e9910a42fac8388cecec31e17387126f121e93eb43b15a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "7eff7067d024a9fe29098922d171943b948f8237c78a3ac2093f5e72653a96af",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 15610,
+      "initcode_bytes_without_args": 15642,
+      "runtime_headroom": 8966,
+      "initcode_headroom_without_args": 33510,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpVault.sol",
+      "contract": "IPerpEngineVault",
+      "artifact": "out/PerpVault.sol/IPerpEngineVault.json",
+      "artifact_sha256": "c825e25f12276086096c9e6d92336c5de0aad35fcd1d3d7bbaa540a6eeb3348e",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpVault.sol",
+      "contract": "IVaultRegistry",
+      "artifact": "out/PerpVault.sol/IVaultRegistry.json",
+      "artifact_sha256": "6cb41a7f1cd128e721bea936c3950af90e250559f97b117332abfd0676b7402a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PerpVault.sol",
+      "contract": "PerpVault",
+      "artifact": "out/PerpVault.sol/PerpVault.json",
+      "artifact_sha256": "8e4e3c70d1a1d8150a80dd00044a6150fbcb6f642990d5ce131bff2aa1082f84",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 12608,
+      "initcode_bytes_without_args": 13009,
+      "runtime_headroom": 11968,
+      "initcode_headroom_without_args": 36143,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IAutoFlag",
+      "artifact": "out/PoolOps.sol/IAutoFlag.json",
+      "artifact_sha256": "21dc38b0f6cbc52a26ae26ef8af9f0b88f66641c441b2f8857ff33c7c12dc17e",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "ICauldronBurn",
+      "artifact": "out/PoolOps.sol/ICauldronBurn.json",
+      "artifact_sha256": "dfbf1943145c3ffe4411ed8bf641fc23b66ac4c74042158a46c029e86102702d",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IColMinted",
+      "artifact": "out/PoolOps.sol/IColMinted.json",
+      "artifact_sha256": "e553de423cdd5950e9ae5c4bb8f42c762ff82622a76592793a3264bc9d4cea54",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "ICollectionOps",
+      "artifact": "out/PoolOps.sol/ICollectionOps.json",
+      "artifact_sha256": "002a690b8d1749883748e4bd3769f39aca74377ef787c75638af752550067583",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IHookReserves",
+      "artifact": "out/PoolOps.sol/IHookReserves.json",
+      "artifact_sha256": "d3917aac599783c5c7d3b4dc866f7de473256d58372a0a94d369448e49410000",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "ILedgerOps",
+      "artifact": "out/PoolOps.sol/ILedgerOps.json",
+      "artifact_sha256": "fda3e66e3d7363628032e9794b2f819f61ba6d69e7ad757e3c6a4f291c6e3d40",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "ILegacyHookOps",
+      "artifact": "out/PoolOps.sol/ILegacyHookOps.json",
+      "artifact_sha256": "92c648a5423676677e59aa057ab8a325c4025d33ca1a5caef165a38e3fd5d2eb",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IPermit2Ops",
+      "artifact": "out/PoolOps.sol/IPermit2Ops.json",
+      "artifact_sha256": "a40ea1f652899b271c82c9a462517ebd66c079fca2f36b77aa1aaa13aecabc0b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IPositionManagerOps",
+      "artifact": "out/PoolOps.sol/IPositionManagerOps.json",
+      "artifact_sha256": "6e3f1087a2e1eab33a48d5b13b7eaf75ee74834d58b8f1a626d9dc67884405d8",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IVaultCloseOps",
+      "artifact": "out/PoolOps.sol/IVaultCloseOps.json",
+      "artifact_sha256": "9018ffd51799d24a34fb0a13e65c579d1323f6e05c6abb07ed904805640b96f6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "IVaultRedeemedOps",
+      "artifact": "out/PoolOps.sol/IVaultRedeemedOps.json",
+      "artifact_sha256": "db4dc06c919c96f831a34bc249e5778d9004867142fa1f8752af68f7f79a8cba",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/PoolOps.sol",
+      "contract": "PoolOps",
+      "artifact": "out/PoolOps.sol/PoolOps.json",
+      "artifact_sha256": "698ca83853d04732b4c1f8e348887c1f77a054a5cd16a59d733a1b6788610bc3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 24465,
+      "initcode_bytes_without_args": 24497,
+      "runtime_headroom": 111,
+      "initcode_headroom_without_args": 24655,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IAggregatorV3",
+      "artifact": "out/QuoteOracle.sol/IAggregatorV3.0.8.26.json",
+      "artifact_sha256": "4d8b1df22e61334cae065801199222c428443db18209c912fe61b9a7dfa510a5",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IAggregatorV3",
+      "artifact": "out/QuoteOracle.sol/IAggregatorV3.0.8.30.json",
+      "artifact_sha256": "2a8ac2086ef4838ced2b976c1bb6ce4dd4fd87d70b143d47b03f740047afc586",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IAggregatorV3",
+      "artifact": "out/QuoteOracle.sol/IAggregatorV3.json",
+      "artifact_sha256": "579066664c8800bf4d9c2d3e24cf46b111eafa80a47852a8c616de451ba0a3a0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/QuoteOracle.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IERC20Decimals",
+      "artifact": "out/QuoteOracle.sol/IERC20Decimals.0.8.26.json",
+      "artifact_sha256": "625ce577aecee84e37a6f91793d853f8abe3b7cc0f2fec6ae4eb3e873ba72dd0",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IERC20Decimals",
+      "artifact": "out/QuoteOracle.sol/IERC20Decimals.0.8.30.json",
+      "artifact_sha256": "0a684ddf45b7cc71e099353787c59c696b086fc8f0316868a02624b549568c07",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "IERC20Decimals",
+      "artifact": "out/QuoteOracle.sol/IERC20Decimals.json",
+      "artifact_sha256": "c22d77807018432fc3a46c57969974eb9442b8c825ff961306360ebaf08b332b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/QuoteOracle.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "QuoteOracle",
+      "artifact": "out/QuoteOracle.sol/QuoteOracle.0.8.26.json",
+      "artifact_sha256": "f8827fbe74f3c48bc9f41f1484a3fdb930dfbf7db99c5b183351536d8f497206",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3970,
+      "initcode_bytes_without_args": 4128,
+      "runtime_headroom": 20606,
+      "initcode_headroom_without_args": 45024,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "QuoteOracle",
+      "artifact": "out/QuoteOracle.sol/QuoteOracle.0.8.30.json",
+      "artifact_sha256": "7b83ecbf5c6037c1b10d955e06843e01a2038c73f8255b7b47f15fe154fbcef6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3970,
+      "initcode_bytes_without_args": 4128,
+      "runtime_headroom": 20606,
+      "initcode_headroom_without_args": 45024,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteOracle.sol",
+      "contract": "QuoteOracle",
+      "artifact": "out/QuoteOracle.sol/QuoteOracle.json",
+      "artifact_sha256": "f05cb19094dd66b4b793a90375192851d596768c8f081fb432908d6f881522ad",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "753907d4c41ce9ac00cdba3dc814b0011bc632d55d930f21a7f43cb281078ffa",
+      "all_metadata_inputs_match": false,
+      "mismatched_inputs": [
+        "cauldron/QuoteOracle.sol"
+      ],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3821,
+      "initcode_bytes_without_args": 3979,
+      "runtime_headroom": 20755,
+      "initcode_headroom_without_args": 45173,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/QuoteRotator.sol",
+      "contract": "QuoteRotator",
+      "artifact": "out/QuoteRotator.sol/QuoteRotator.json",
+      "artifact_sha256": "01e495d7021962ab517304022e16da50dfdfd70e0647b90a5b11eb5df617fd05",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "462d3d473964c33a114bd9a508d4eeae692b8308e2b84ae6161650f9e7930654",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 9874,
+      "initcode_bytes_without_args": 10187,
+      "runtime_headroom": 14702,
+      "initcode_headroom_without_args": 38965,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RedemptionExt.sol",
+      "contract": "IHookVolume",
+      "artifact": "out/RedemptionExt.sol/IHookVolume.json",
+      "artifact_sha256": "85c59ee2f0385fee33d2aab9cd7ef0f2c56a0a0c656763524f1b0283425ee03f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RedemptionExt.sol",
+      "contract": "IQuoteRotator",
+      "artifact": "out/RedemptionExt.sol/IQuoteRotator.json",
+      "artifact_sha256": "2d963caff7140fb4c04184b98e700e62fabbaf050b30f4f39ece33761083514a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RedemptionExt.sol",
+      "contract": "ITreasuryGovernor",
+      "artifact": "out/RedemptionExt.sol/ITreasuryGovernor.json",
+      "artifact_sha256": "76cbfd9e4d6d3232d6bfb7843fa9889f23d94a354438fccdb307f5115cba3e1d",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RedemptionExt.sol",
+      "contract": "RedemptionExt",
+      "artifact": "out/RedemptionExt.sol/RedemptionExt.json",
+      "artifact_sha256": "c12ad8ff094a29c6992e7ca9dd3919d10ea3aad79ed26023d594186bf192f6b8",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 15786,
+      "initcode_bytes_without_args": 15989,
+      "runtime_headroom": 8790,
+      "initcode_headroom_without_args": 33163,
+      "link_references": {
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 1805,
+              "length": 20
+            },
+            {
+              "start": 4086,
+              "length": 20
+            },
+            {
+              "start": 5087,
+              "length": 20
+            },
+            {
+              "start": 6071,
+              "length": 20
+            },
+            {
+              "start": 9079,
+              "length": 20
+            },
+            {
+              "start": 11772,
+              "length": 20
+            },
+            {
+              "start": 14099,
+              "length": 20
+            },
+            {
+              "start": 15569,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "cauldron/ReserveLib.sol",
+      "contract": "ReserveLib",
+      "artifact": "out/ReserveLib.sol/ReserveLib.json",
+      "artifact_sha256": "2b69c0237234d1d17c7718400927ba1f7ea1aa17631c6f82733ffa9503eb6e2e",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a83c215b930c080a5b1c617c9f902fe0ba137edb3f7850818fbbdb677ea68191",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RoyaltyRouter.sol",
+      "contract": "IAdoptable",
+      "artifact": "out/RoyaltyRouter.sol/IAdoptable.json",
+      "artifact_sha256": "2159e0163b0c0009f4abe38885b7305b873f674c8e9677a7e805b7fb09a380e1",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1495a805f243e4299765d752d4885991270c57cd6df82aa53b763af844b4229f",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RoyaltyRouter.sol",
+      "contract": "ILegacyBuffer",
+      "artifact": "out/RoyaltyRouter.sol/ILegacyBuffer.json",
+      "artifact_sha256": "737bd69b8d4d7df6377d879cb9150fcdb47ee46f0831206c3541abd18b4911af",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1495a805f243e4299765d752d4885991270c57cd6df82aa53b763af844b4229f",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/RoyaltyRouter.sol",
+      "contract": "RoyaltyRouter",
+      "artifact": "out/RoyaltyRouter.sol/RoyaltyRouter.json",
+      "artifact_sha256": "8acc3f192f8a5fa8cd9d75b499522f553592177e02fa5257d00fbe47fd3ab03c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1495a805f243e4299765d752d4885991270c57cd6df82aa53b763af844b4229f",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1295,
+      "initcode_bytes_without_args": 1563,
+      "runtime_headroom": 23281,
+      "initcode_headroom_without_args": 47589,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/SeedLib.sol",
+      "contract": "SeedLib",
+      "artifact": "out/SeedLib.sol/SeedLib.json",
+      "artifact_sha256": "3f3fce285fd6b63d6b46bbe0ff4b5976b9bdb59de9cb6aaeeb470fbb9d1b74b3",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "5e576ec3698518ba185f254eb201a135f13f6c1f98c11a6f011200c3d66fdc47",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/SurtaxLib.sol",
+      "contract": "SurtaxLib",
+      "artifact": "out/SurtaxLib.sol/SurtaxLib.json",
+      "artifact_sha256": "3d5ace4394ca5334adb1cbf9f480db402eb8b648ba72bb3fd6fa5ae87ff3cdbf",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a83bfde89367484756b24f69fb6ce002c8491a4b5efc89f0a126b4e5d4b06aad",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 687,
+      "initcode_bytes_without_args": 717,
+      "runtime_headroom": 23889,
+      "initcode_headroom_without_args": 48435,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/TreasuryGovernor.sol",
+      "contract": "IQuotePrice",
+      "artifact": "out/TreasuryGovernor.sol/IQuotePrice.json",
+      "artifact_sha256": "e920b2384f5a3e73f029439f762919b3d9963cc4a24736b9eef08454e8440603",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/TreasuryGovernor.sol",
+      "contract": "IRegistryQuotes",
+      "artifact": "out/TreasuryGovernor.sol/IRegistryQuotes.json",
+      "artifact_sha256": "a86ea0945964d27466e8c5f7d96cde011fbe7f514101b928b15a672c976bf204",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/TreasuryGovernor.sol",
+      "contract": "IVotes721",
+      "artifact": "out/TreasuryGovernor.sol/IVotes721.json",
+      "artifact_sha256": "ce60dd7ef306399b3d67aa8e30bd046ca09f47790bbf9271b6ab6a09c38cfa7c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "cauldron/TreasuryGovernor.sol",
+      "contract": "TreasuryGovernor",
+      "artifact": "out/TreasuryGovernor.sol/TreasuryGovernor.json",
+      "artifact_sha256": "6688ac2a7ec4d7f18c4712d29597925f6ef1aa32a0b9dc0e789dbd17f7265cf6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "dc61988b3c9fcd5af5566be54987a9278264e20df88507f21ab28f122ff9d636",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 6878,
+      "initcode_bytes_without_args": 7661,
+      "runtime_headroom": 17698,
+      "initcode_headroom_without_args": 41491,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/BadgeArtLib.sol",
+      "contract": "BadgeArtLib",
+      "artifact": "out/BadgeArtLib.sol/BadgeArtLib.json",
+      "artifact_sha256": "5cab989fe88cdabb9a131998d547d9d9b558d81e531607f94a7de3c62d9e44d0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "72d00710f97f0a65ea36e851c0ff0b9fdda4a6fe7b318977f92941496093bbdf",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployCauldron.s.sol",
+      "contract": "DeployCauldron",
+      "artifact": "out/DeployCauldron.s.sol/DeployCauldron.json",
+      "artifact_sha256": "44da5ea2df39d0f6ddd4583a9441f715db79209a9eddb27a13efc54bd50be641",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "e11a2f686d2112c9fa921379e682b0d80f24633a9f69a36774682f665c2369c5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 70044,
+      "initcode_bytes_without_args": 70089,
+      "runtime_headroom": -45468,
+      "initcode_headroom_without_args": -20937,
+      "link_references": {
+        "cauldron/FeeRouteLib.sol": {
+          "FeeRouteLib": [
+            {
+              "start": 6600,
+              "length": 20
+            },
+            {
+              "start": 13253,
+              "length": 20
+            },
+            {
+              "start": 25083,
+              "length": 20
+            },
+            {
+              "start": 25372,
+              "length": 20
+            },
+            {
+              "start": 26124,
+              "length": 20
+            },
+            {
+              "start": 27452,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/GachaLib.sol": {
+          "GachaLib": [
+            {
+              "start": 6916,
+              "length": 20
+            },
+            {
+              "start": 14982,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/LegacyBuyLib.sol": {
+          "LegacyBuyLib": [
+            {
+              "start": 18864,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 33516,
+              "length": 20
+            },
+            {
+              "start": 35657,
+              "length": 20
+            },
+            {
+              "start": 37507,
+              "length": 20
+            },
+            {
+              "start": 39989,
+              "length": 20
+            },
+            {
+              "start": 41194,
+              "length": 20
+            },
+            {
+              "start": 41892,
+              "length": 20
+            },
+            {
+              "start": 47156,
+              "length": 20
+            },
+            {
+              "start": 48685,
+              "length": 20
+            },
+            {
+              "start": 48789,
+              "length": 20
+            },
+            {
+              "start": 49124,
+              "length": 20
+            },
+            {
+              "start": 49318,
+              "length": 20
+            },
+            {
+              "start": 50019,
+              "length": 20
+            },
+            {
+              "start": 50391,
+              "length": 20
+            },
+            {
+              "start": 52474,
+              "length": 20
+            },
+            {
+              "start": 53338,
+              "length": 20
+            },
+            {
+              "start": 55820,
+              "length": 20
+            },
+            {
+              "start": 58101,
+              "length": 20
+            },
+            {
+              "start": 59102,
+              "length": 20
+            },
+            {
+              "start": 60086,
+              "length": 20
+            },
+            {
+              "start": 63094,
+              "length": 20
+            },
+            {
+              "start": 65787,
+              "length": 20
+            },
+            {
+              "start": 68114,
+              "length": 20
+            },
+            {
+              "start": 69584,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/SurtaxLib.sol": {
+          "SurtaxLib": [
+            {
+              "start": 17801,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "deploy/DeployLaunchSniper.s.sol",
+      "contract": "DeployLaunchSniper",
+      "artifact": "out/DeployLaunchSniper.s.sol/DeployLaunchSniper.json",
+      "artifact_sha256": "39d62192b1a2c428cb8527a086e7461d4ff70de1083002895099bb74f284b9d8",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cf27a01d8873ace7a1e0262e53a6bac0ca50d7eaa224eb90f53b7e4e706e9c81",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 3970,
+      "initcode_bytes_without_args": 4013,
+      "runtime_headroom": 20606,
+      "initcode_headroom_without_args": 45139,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployLaunchSniper.s.sol",
+      "contract": "IHookExempt",
+      "artifact": "out/DeployLaunchSniper.s.sol/IHookExempt.json",
+      "artifact_sha256": "b1f3261a0bf8b49a2fabf3dcb6b4d3ec08a8b9623aef0fdebc66578dd515b887",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cf27a01d8873ace7a1e0262e53a6bac0ca50d7eaa224eb90f53b7e4e706e9c81",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployLaunchSniper.s.sol",
+      "contract": "IPresaleFinalizer",
+      "artifact": "out/DeployLaunchSniper.s.sol/IPresaleFinalizer.json",
+      "artifact_sha256": "1c929251eb80b6b6746c2e15dd1420bc4d111d1681aadab9240288e6667ac38d",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "cf27a01d8873ace7a1e0262e53a6bac0ca50d7eaa224eb90f53b7e4e706e9c81",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployLaunchpad.s.sol",
+      "contract": "DeployLaunchpad",
+      "artifact": "out/DeployLaunchpad.s.sol/DeployLaunchpad.json",
+      "artifact_sha256": "6abbc066dcd0c34c2cb90984b405fa367670aa9988b8e9ed4a3045b520bd3a3d",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "acef2fb1cdd08f628a89db02d3d9cc5e22888238d34d5e77fe47cc481e419f03",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 239281,
+      "initcode_bytes_without_args": 239326,
+      "runtime_headroom": -214705,
+      "initcode_headroom_without_args": -190174,
+      "link_references": {
+        "cauldron/FeeRouteLib.sol": {
+          "FeeRouteLib": [
+            {
+              "start": 66298,
+              "length": 20
+            },
+            {
+              "start": 72951,
+              "length": 20
+            },
+            {
+              "start": 84781,
+              "length": 20
+            },
+            {
+              "start": 85070,
+              "length": 20
+            },
+            {
+              "start": 85822,
+              "length": 20
+            },
+            {
+              "start": 87150,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/GachaLib.sol": {
+          "GachaLib": [
+            {
+              "start": 66614,
+              "length": 20
+            },
+            {
+              "start": 74680,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/LegacyBuyLib.sol": {
+          "LegacyBuyLib": [
+            {
+              "start": 78562,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 93214,
+              "length": 20
+            },
+            {
+              "start": 95355,
+              "length": 20
+            },
+            {
+              "start": 97205,
+              "length": 20
+            },
+            {
+              "start": 99687,
+              "length": 20
+            },
+            {
+              "start": 100892,
+              "length": 20
+            },
+            {
+              "start": 101590,
+              "length": 20
+            },
+            {
+              "start": 106854,
+              "length": 20
+            },
+            {
+              "start": 108383,
+              "length": 20
+            },
+            {
+              "start": 108487,
+              "length": 20
+            },
+            {
+              "start": 108822,
+              "length": 20
+            },
+            {
+              "start": 109016,
+              "length": 20
+            },
+            {
+              "start": 109717,
+              "length": 20
+            },
+            {
+              "start": 110089,
+              "length": 20
+            },
+            {
+              "start": 112172,
+              "length": 20
+            },
+            {
+              "start": 113036,
+              "length": 20
+            },
+            {
+              "start": 115518,
+              "length": 20
+            },
+            {
+              "start": 117799,
+              "length": 20
+            },
+            {
+              "start": 118800,
+              "length": 20
+            },
+            {
+              "start": 119784,
+              "length": 20
+            },
+            {
+              "start": 122792,
+              "length": 20
+            },
+            {
+              "start": 125485,
+              "length": 20
+            },
+            {
+              "start": 127812,
+              "length": 20
+            },
+            {
+              "start": 129282,
+              "length": 20
+            },
+            {
+              "start": 232380,
+              "length": 20
+            },
+            {
+              "start": 234663,
+              "length": 20
+            }
+          ]
+        },
+        "cauldron/SurtaxLib.sol": {
+          "SurtaxLib": [
+            {
+              "start": 77499,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "deploy/DeployLaunchpad.s.sol",
+      "contract": "IOwnable",
+      "artifact": "out/DeployLaunchpad.s.sol/IOwnable.json",
+      "artifact_sha256": "1102932d20bd2fef168aa4e86575f464f2c74ac5aa6169c09a5308178fd50b90",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "acef2fb1cdd08f628a89db02d3d9cc5e22888238d34d5e77fe47cc481e419f03",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployMigrationVesting.s.sol",
+      "contract": "DeployMigrationVesting",
+      "artifact": "out/DeployMigrationVesting.s.sol/DeployMigrationVesting.json",
+      "artifact_sha256": "79e127a6a294bba3c9f601110c7a48947f82961cb9471dc57537c1b080b26f42",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 9780,
+      "initcode_bytes_without_args": 9823,
+      "runtime_headroom": 14796,
+      "initcode_headroom_without_args": 39329,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployMigrationVesting.s.sol",
+      "contract": "IEngineVault",
+      "artifact": "out/DeployMigrationVesting.s.sol/IEngineVault.json",
+      "artifact_sha256": "91b661f78a0a7b9fed0917445d51305a507c968e5e424b560944e50fa0b122c6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployMigrationVesting.s.sol",
+      "contract": "IHookPerp",
+      "artifact": "out/DeployMigrationVesting.s.sol/IHookPerp.json",
+      "artifact_sha256": "14590ece0aae3cfc688dd9afddde5f094982f61ea636296f7a91db7e2db2aa47",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployMigrationVesting.s.sol",
+      "contract": "IRegistryGate",
+      "artifact": "out/DeployMigrationVesting.s.sol/IRegistryGate.json",
+      "artifact_sha256": "c3379ec8b10a2f50f2a675edda43a12b05579377b4dd23d6c0b1c821de43a911",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "ecd5714461ea81b14e8d89bc48144348152cd603e5495ff2e1bfee58cbf1f5b5",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "DeployPerp",
+      "artifact": "out/DeployPerp.s.sol/DeployPerp.json",
+      "artifact_sha256": "a3467c58b20016cbded2cad13567dbe654561a362ff8dc16c8b70cfec2c647de",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 50617,
+      "initcode_bytes_without_args": 50660,
+      "runtime_headroom": -26041,
+      "initcode_headroom_without_args": -1508,
+      "link_references": {
+        "cauldron/PerpSwapLib.sol": {
+          "PerpSwapLib": [
+            {
+              "start": 17423,
+              "length": 20
+            },
+            {
+              "start": 17727,
+              "length": 20
+            },
+            {
+              "start": 18188,
+              "length": 20
+            },
+            {
+              "start": 18722,
+              "length": 20
+            },
+            {
+              "start": 19776,
+              "length": 20
+            },
+            {
+              "start": 20108,
+              "length": 20
+            },
+            {
+              "start": 20278,
+              "length": 20
+            },
+            {
+              "start": 20776,
+              "length": 20
+            },
+            {
+              "start": 21105,
+              "length": 20
+            },
+            {
+              "start": 22963,
+              "length": 20
+            },
+            {
+              "start": 24370,
+              "length": 20
+            },
+            {
+              "start": 25179,
+              "length": 20
+            },
+            {
+              "start": 25725,
+              "length": 20
+            },
+            {
+              "start": 26239,
+              "length": 20
+            },
+            {
+              "start": 26646,
+              "length": 20
+            },
+            {
+              "start": 28405,
+              "length": 20
+            },
+            {
+              "start": 28542,
+              "length": 20
+            },
+            {
+              "start": 30496,
+              "length": 20
+            },
+            {
+              "start": 30996,
+              "length": 20
+            },
+            {
+              "start": 31741,
+              "length": 20
+            },
+            {
+              "start": 33067,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "ICollLiq",
+      "artifact": "out/DeployPerp.s.sol/ICollLiq.json",
+      "artifact_sha256": "33f549b7d6b3e78e5abfb48b5f7c94fdb26d0804875f6d81190670eed8c04193",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "IHookWire",
+      "artifact": "out/DeployPerp.s.sol/IHookWire.json",
+      "artifact_sha256": "5b45ee565563647d3df22788be5dca71731452b7c28bee2fa76b652d95259c7a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "IOwnable",
+      "artifact": "out/DeployPerp.s.sol/IOwnable.json",
+      "artifact_sha256": "d24ecdefbbb0575c35c5522598797719212b86dc514698688d31e15b57318809",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "IPerpVaultDeposit",
+      "artifact": "out/DeployPerp.s.sol/IPerpVaultDeposit.json",
+      "artifact_sha256": "80db231a2e3b6ea39b5619c3864ae5c734afddce9096c295efffad3cf8e4997f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployPerp.s.sol",
+      "contract": "IRegistryGen",
+      "artifact": "out/DeployPerp.s.sol/IRegistryGen.json",
+      "artifact_sha256": "11f2c0f1c06c156eedf18480337fa42bf098feff37bdbd8f54bc76ba8309adcc",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "a2b65ef87e9345a387a6515a4e9ee1e851a504333e0d4e4d18ae5e5674509337",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployQuoteAssets.s.sol",
+      "contract": "DeployQuoteAssets",
+      "artifact": "out/DeployQuoteAssets.s.sol/DeployQuoteAssets.json",
+      "artifact_sha256": "9f0efbf549c8f8d17c467f55860316eecc9e181ab8257d179a456a514f712305",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "426c05c3fd6fc9c245bd575859929d8ecb6ce677fbf05f2c545e08888393ea4b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 15352,
+      "initcode_bytes_without_args": 15395,
+      "runtime_headroom": 9224,
+      "initcode_headroom_without_args": 33757,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployQuoteAssets.s.sol",
+      "contract": "IRegistryQuoteAdmin",
+      "artifact": "out/DeployQuoteAssets.s.sol/IRegistryQuoteAdmin.json",
+      "artifact_sha256": "c4059d29332ca12c99506bedc8e99d236541c6c3340d98336e0245a81fa1f8ed",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "426c05c3fd6fc9c245bd575859929d8ecb6ce677fbf05f2c545e08888393ea4b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployRotationStack.s.sol",
+      "contract": "DeployRotationStack",
+      "artifact": "out/DeployRotationStack.s.sol/DeployRotationStack.json",
+      "artifact_sha256": "771edd740f51dd290df6dbb754aceeaba555bd60e6687779b3cfab7cf1220f0c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 36150,
+      "initcode_bytes_without_args": 36193,
+      "runtime_headroom": -11574,
+      "initcode_headroom_without_args": 12959,
+      "link_references": {
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 31714,
+              "length": 20
+            },
+            {
+              "start": 33997,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "deploy/DeployRotationStack.s.sol",
+      "contract": "IPermit2Approve",
+      "artifact": "out/DeployRotationStack.s.sol/IPermit2Approve.json",
+      "artifact_sha256": "6fb649ec763e15544903ae6e0a9999e4759da18393dfba018260adbeb223b45c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployRotationStack.s.sol",
+      "contract": "IRegistryAdmin",
+      "artifact": "out/DeployRotationStack.s.sol/IRegistryAdmin.json",
+      "artifact_sha256": "42cf28938bc311d44a3e57524ab57f9c843049a7abdc5ba85ca4582b717a98d9",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/DeployRotationStack.s.sol",
+      "contract": "VenueSeeder",
+      "artifact": "out/DeployRotationStack.s.sol/VenueSeeder.json",
+      "artifact_sha256": "f27916251d43a95e4be53783cb455db1362b90abc4a92e3f780e97a9ae032293",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1a848c5883ab5e0a985ed5507f59a2f7d843538196ccc66e046adaaed2a18d52",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 5294,
+      "initcode_bytes_without_args": 5353,
+      "runtime_headroom": 19282,
+      "initcode_headroom_without_args": 43799,
+      "link_references": {
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 959,
+              "length": 20
+            },
+            {
+              "start": 3242,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "deploy/DeployV4Core.s.sol",
+      "contract": "DeployV4Core",
+      "artifact": "out/DeployV4Core.s.sol/DeployV4Core.json",
+      "artifact_sha256": "5f3584f7bf7f28dd471868639915dd47ad61a0a2b8abb8ea5e19989a493dfca1",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "1bc10c2c4940bcec544080976f0423a83eee471ec3fd0f18c67bce40690bef0d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 39810,
+      "initcode_bytes_without_args": 39853,
+      "runtime_headroom": -15234,
+      "initcode_headroom_without_args": 9299,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/FixFactoryWiring.s.sol",
+      "contract": "FixFactoryWiring",
+      "artifact": "out/FixFactoryWiring.s.sol/FixFactoryWiring.json",
+      "artifact_sha256": "f3e24ef9676ad108924b418ad49e3ee7d41a29f8d40d9fdd76c2440c60c03cf6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 22898,
+      "initcode_bytes_without_args": 22941,
+      "runtime_headroom": 1678,
+      "initcode_headroom_without_args": 26211,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/FixFactoryWiring.s.sol",
+      "contract": "IRegistryFactoryAdmin",
+      "artifact": "out/FixFactoryWiring.s.sol/IRegistryFactoryAdmin.json",
+      "artifact_sha256": "4da046430def1c8260342cf5c72fb702925d83a4125685c91da18bcb29927b73",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/FixFactoryWiring.s.sol",
+      "contract": "ITimelock",
+      "artifact": "out/FixFactoryWiring.s.sol/ITimelock.json",
+      "artifact_sha256": "cb0fcce68e39cb1dbd07861e36ba373efb2a3ae10c020e6ac98210fc305e16bb",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "f7c81630d683c6e62330bc71a4f40330494ff4ba48b51ccc5ebdcbada2fbb932",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SellVolume.s.sol",
+      "contract": "IERC20Min",
+      "artifact": "out/SellVolume.s.sol/IERC20Min.json",
+      "artifact_sha256": "45137e1cf4c98688d1ca991478bcad1da6ed6fd565e16e5c7c582220372238f0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "529ea7423dc159b3b1234597404ed24e074d84a2b2bcf4272db643b2db37a8e7",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SellVolume.s.sol",
+      "contract": "SellVolume",
+      "artifact": "out/SellVolume.s.sol/SellVolume.json",
+      "artifact_sha256": "8b8a7f919eff338086b27ae8ddb625fd691cf7437809ad296db1bc1409fa5d6b",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "529ea7423dc159b3b1234597404ed24e074d84a2b2bcf4272db643b2db37a8e7",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 7400,
+      "initcode_bytes_without_args": 7443,
+      "runtime_headroom": 17176,
+      "initcode_headroom_without_args": 41709,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SnipeBuy.s.sol",
+      "contract": "IERC20View",
+      "artifact": "out/SnipeBuy.s.sol/IERC20View.json",
+      "artifact_sha256": "cf031918608c2e76911a192e094e52c9a8345e0950ff4ca41826246b39c207fc",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "849617088a736370cfa567df629a5f481752e6ee6fe1472e6818e469a4b3f0a8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SnipeBuy.s.sol",
+      "contract": "ISeederView",
+      "artifact": "out/SnipeBuy.s.sol/ISeederView.json",
+      "artifact_sha256": "1b4c5ac53943c40af836d9f69d50261f8d1c07aa2392348640a7e9af635933f6",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "849617088a736370cfa567df629a5f481752e6ee6fe1472e6818e469a4b3f0a8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SnipeBuy.s.sol",
+      "contract": "SnipeBuy",
+      "artifact": "out/SnipeBuy.s.sol/SnipeBuy.json",
+      "artifact_sha256": "e06bd204a801b55018539ed1b1b6b0eee5475b2a929a520c2f5e3f7180029ef4",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "849617088a736370cfa567df629a5f481752e6ee6fe1472e6818e469a4b3f0a8",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 9368,
+      "initcode_bytes_without_args": 9411,
+      "runtime_headroom": 15208,
+      "initcode_headroom_without_args": 39741,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SwapVolume.s.sol",
+      "contract": "ICollView",
+      "artifact": "out/SwapVolume.s.sol/ICollView.json",
+      "artifact_sha256": "4ddd94465877c61fbcb6b62212baec07fb561f75ed69e799bd392a21459cc6d0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "6e286cb2aa942d8de2af481388ef30d25b066d62c62699766b195a9276a1f83d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SwapVolume.s.sol",
+      "contract": "IHookView",
+      "artifact": "out/SwapVolume.s.sol/IHookView.json",
+      "artifact_sha256": "fc558b44eb670f6ef4f2eeefb1a95e9f5cf51799369f7601b50348968a5b238a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "6e286cb2aa942d8de2af481388ef30d25b066d62c62699766b195a9276a1f83d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/SwapVolume.s.sol",
+      "contract": "SwapVolume",
+      "artifact": "out/SwapVolume.s.sol/SwapVolume.json",
+      "artifact_sha256": "12d0ab49ad6c72539f03bb64596c7441c401a9988f7387288f1fd6f45e902c3c",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "6e286cb2aa942d8de2af481388ef30d25b066d62c62699766b195a9276a1f83d",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 8086,
+      "initcode_bytes_without_args": 8129,
+      "runtime_headroom": 16490,
+      "initcode_headroom_without_args": 41023,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/TopUpVenue.s.sol",
+      "contract": "RecoverVenue",
+      "artifact": "out/TopUpVenue.s.sol/RecoverVenue.json",
+      "artifact_sha256": "d581b675929e2cdf36fad9d710c3efb007c96cc2065d642ce9735eb105b50eef",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b655f7414ffbceda6625bc6cb26e978e95a81b588da6662af5312fedd5a7ad93",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 1338,
+      "initcode_bytes_without_args": 1381,
+      "runtime_headroom": 23238,
+      "initcode_headroom_without_args": 47771,
+      "link_references": {}
+    },
+    {
+      "source": "deploy/TopUpVenue.s.sol",
+      "contract": "TopUpVenue",
+      "artifact": "out/TopUpVenue.s.sol/TopUpVenue.json",
+      "artifact_sha256": "32ec6332f2b5825022865ee911039b6a7d489f00d942d571038842dc76ea9a10",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "b655f7414ffbceda6625bc6cb26e978e95a81b588da6662af5312fedd5a7ad93",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 8018,
+      "initcode_bytes_without_args": 8061,
+      "runtime_headroom": 16558,
+      "initcode_headroom_without_args": 41091,
+      "link_references": {
+        "cauldron/PoolOps.sol": {
+          "PoolOps": [
+            {
+              "start": 3582,
+              "length": 20
+            },
+            {
+              "start": 5865,
+              "length": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "interfaces/INFTContract.sol",
+      "contract": "INFTContract",
+      "artifact": "out/INFTContract.sol/INFTContract.json",
+      "artifact_sha256": "746cf1e621c1211f42555d5024b4f4c57a86cc46d17d0431a492c84bc578ffe0",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "15bdc18bed71c2ccbe3cc98bb6f585b3a5043f46d0af5636fed5100cd4da678c",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "render/SSTORE2.sol",
+      "contract": "SSTORE2",
+      "artifact": "out/SSTORE2.sol/SSTORE2.json",
+      "artifact_sha256": "294235beec47173bfd2d0e668ae2eb0f7bf719242782f9b035c514ab6829e61a",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "8ba47cf78fd00362e2b3330e73c8ff664e8d23e957c1cb5e34c0354c1ca96056",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    },
+    {
+      "source": "vendor/BaseHook.sol",
+      "contract": "BaseHook",
+      "artifact": "out/BaseHook.sol/BaseHook.json",
+      "artifact_sha256": "8e2f74bfa0f828a6c9e39084af48f7343ada4892ee4e273188fb7379404c9374",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "05aa9798903b88b47954159abef511f4401fe6770d1bf2696cae54f4479e134b",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 0,
+      "initcode_bytes_without_args": 0,
+      "runtime_headroom": 24576,
+      "initcode_headroom_without_args": 49152,
+      "link_references": {}
+    },
+    {
+      "source": "vendor/HookMiner.sol",
+      "contract": "HookMiner",
+      "artifact": "out/HookMiner.sol/HookMiner.json",
+      "artifact_sha256": "0e39df9040bf54112d2a208ade45602c74fdebdd55a067e7a8d5fb4340f26a0f",
+      "compiler": "0.8.30+commit.73712a01",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "viaIR": true,
+      "evmVersion": "cancun",
+      "source_sha256": "987014c0fdde38c50dcb0faffaf92e604cb6955637cee11d0063d0770d5dfc09",
+      "all_metadata_inputs_match": true,
+      "mismatched_inputs": [],
+      "unavailable_inputs": [],
+      "runtime_bytes": 57,
+      "initcode_bytes_without_args": 85,
+      "runtime_headroom": 24519,
+      "initcode_headroom_without_args": 49067,
+      "link_references": {}
+    }
+  ],
+  "limitations": [
+    "Matching compiler inputs and size do not establish semantic safety.",
+    "Initcode measurement excludes constructor arguments; final limit must include them.",
+    "Linked addresses, deployment transactions and onchain bytecode parity not verified.",
+    "Script/test harness size must be distinguished from contracts deployed by scripts."
+  ]
+}

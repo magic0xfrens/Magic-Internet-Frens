@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/CollectionLedger.sol:CollectionLedger",
+  "baselineSourceSha256": "cd9eb2589dcbb8dadbf80b8d6e4cc340d655ac0f05b8a175bf93dd56d0e16871",
+  "candidateSourceSha256": "2a3e82bc170445b8706fa4b83dbb10ff3e4ae094ce10267d665aeeb084b1ef23",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": "EntitlementReleased(uint256,uint256) event",
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

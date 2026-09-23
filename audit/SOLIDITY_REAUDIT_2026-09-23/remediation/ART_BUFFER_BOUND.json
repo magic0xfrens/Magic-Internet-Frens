@@ -1,0 +1,1059 @@
+{
+  "note": "Exact pixel rect lengths; 500-byte upper bound for fixed header/footer (<400). Includes stale/unmanifested binaries conservatively. Arbitrary owner uploads excluded.",
+  "traits": 91,
+  "max_bytes": 118476,
+  "by_class": [
+    {
+      "cls": 0,
+      "conservative_total": 118476,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-0-3.bin",
+          "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+          "layer": 1,
+          "cls": 0,
+          "index": 3,
+          "bytes": 31617,
+          "runs": 552
+        },
+        {
+          "file": "compressed-traits/trait-0-0-2.bin",
+          "sha256": "10d4d18d8b382fffee80d9f3504f047f555bb2d03793b12842c8adc57e0a9a52",
+          "layer": 0,
+          "cls": 0,
+          "index": 2,
+          "bytes": 59076,
+          "runs": 1034
+        },
+        {
+          "file": "compressed-traits/trait-2-0-4.bin",
+          "sha256": "57d4ed833b5cfbc4c0b6721212bbb382766efaf28203eb511e877a79214e39a2",
+          "layer": 2,
+          "cls": 0,
+          "index": 4,
+          "bytes": 27283,
+          "runs": 478
+        }
+      ]
+    },
+    {
+      "cls": 1,
+      "conservative_total": 90446,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-0-3.bin",
+          "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+          "layer": 1,
+          "cls": 0,
+          "index": 3,
+          "bytes": 31617,
+          "runs": 552
+        },
+        {
+          "file": "compressed-traits/trait-0-1-0.bin",
+          "sha256": "fe8ec440112b45372241b63e486ecfbd4d948e130577b0275a65fb6474ca2b41",
+          "layer": 0,
+          "cls": 1,
+          "index": 0,
+          "bytes": 50339,
+          "runs": 881
+        },
+        {
+          "file": "compressed-traits/trait-2-1-0.bin",
+          "sha256": "6e8ed6e24aa6100c546b7afca0e0f75ef252e1f8c808aec30445ba071a544f4d",
+          "layer": 2,
+          "cls": 1,
+          "index": 0,
+          "bytes": 7990,
+          "runs": 140
+        }
+      ]
+    },
+    {
+      "cls": 2,
+      "conservative_total": 101481,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-0-3.bin",
+          "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+          "layer": 1,
+          "cls": 0,
+          "index": 3,
+          "bytes": 31617,
+          "runs": 552
+        },
+        {
+          "file": "compressed-traits/trait-0-2-0.bin",
+          "sha256": "76970932b1f6545b86a69ff2e48e36a3140584e128ba044feeddced172ed1561",
+          "layer": 0,
+          "cls": 2,
+          "index": 0,
+          "bytes": 59674,
+          "runs": 1044
+        },
+        {
+          "file": "compressed-traits/trait-2-2-0.bin",
+          "sha256": "73ee48296d954a3fad0da458ea8956598a650342c539054e5936f4c81bf2f880",
+          "layer": 2,
+          "cls": 2,
+          "index": 0,
+          "bytes": 9690,
+          "runs": 170
+        }
+      ]
+    },
+    {
+      "cls": 3,
+      "conservative_total": 80735,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-0-3.bin",
+          "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+          "layer": 1,
+          "cls": 0,
+          "index": 3,
+          "bytes": 31617,
+          "runs": 552
+        },
+        {
+          "file": "compressed-traits/trait-0-3-2.bin",
+          "sha256": "e1b40b6453ca11443eb30d5fa5f433b5bff3d7a0d0f3ada0e5066b2e6f642f0a",
+          "layer": 0,
+          "cls": 3,
+          "index": 2,
+          "bytes": 37189,
+          "runs": 649
+        },
+        {
+          "file": "compressed-traits/trait-2-3-0.bin",
+          "sha256": "09a1a9e93a351aaeb5eea851ba4ec71baf89de0c6f3527e34727eb75bc4a27c2",
+          "layer": 2,
+          "cls": 3,
+          "index": 0,
+          "bytes": 11429,
+          "runs": 200
+        }
+      ]
+    },
+    {
+      "cls": 4,
+      "conservative_total": 103820,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-0-3.bin",
+          "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+          "layer": 1,
+          "cls": 0,
+          "index": 3,
+          "bytes": 31617,
+          "runs": 552
+        },
+        {
+          "file": "compressed-traits/trait-0-4-2.bin",
+          "sha256": "2147afa749d46da77043b15d49e6346e11e956d9d66245fb74f7e8fcbeec7fde",
+          "layer": 0,
+          "cls": 4,
+          "index": 2,
+          "bytes": 56139,
+          "runs": 983
+        },
+        {
+          "file": "compressed-traits/trait-2-4-0.bin",
+          "sha256": "8d715c74ead9bb7f513a4bc297c32963ffe4d30dddf7379f4b77e69ada58bec3",
+          "layer": 2,
+          "cls": 4,
+          "index": 0,
+          "bytes": 15564,
+          "runs": 272
+        }
+      ]
+    },
+    {
+      "cls": 5,
+      "conservative_total": 58717,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-5-3.bin",
+          "sha256": "daed76a47cb6450b72b752745ab5c9a4950904f51d515427bbc5e988a7b8603b",
+          "layer": 1,
+          "cls": 5,
+          "index": 3,
+          "bytes": 23397,
+          "runs": 410
+        },
+        {
+          "file": "compressed-traits/trait-0-5-1.bin",
+          "sha256": "4090a8394ac31170cea018099e725915e5114762f158d596121a40da6fa2fe5c",
+          "layer": 0,
+          "cls": 5,
+          "index": 1,
+          "bytes": 30716,
+          "runs": 537
+        },
+        {
+          "file": "compressed-traits/trait-2-5-3.bin",
+          "sha256": "8b0c9849c1811001472d354268a1ab7e8da2dacd16485ff6b6ebb1ca201980fc",
+          "layer": 2,
+          "cls": 5,
+          "index": 3,
+          "bytes": 4104,
+          "runs": 72
+        }
+      ]
+    },
+    {
+      "cls": 6,
+      "conservative_total": 108272,
+      "parts": [
+        {
+          "file": "compressed-traits/trait-1-6-2.bin",
+          "sha256": "2160d66705f34e1f7a5a143eec23e43f7c729b0401604f96eed82f5a49120d81",
+          "layer": 1,
+          "cls": 6,
+          "index": 2,
+          "bytes": 33333,
+          "runs": 582
+        },
+        {
+          "file": "compressed-traits/trait-0-6-0.bin",
+          "sha256": "36d4ea837930e09a2eab6635867b9a56c6afe61c55ae04b4a094abead66dd074",
+          "layer": 0,
+          "cls": 6,
+          "index": 0,
+          "bytes": 64573,
+          "runs": 1131
+        },
+        {
+          "file": "compressed-traits/trait-2-6-0.bin",
+          "sha256": "9c02faef00689e03ee1f5c54a87eb7cc684e68f4fc22f3ed8c65c63bfc3b1a6d",
+          "layer": 2,
+          "cls": 6,
+          "index": 0,
+          "bytes": 9866,
+          "runs": 172
+        }
+      ]
+    }
+  ],
+  "all_traits": [
+    {
+      "file": "compressed-traits/trait-0-0-0.bin",
+      "sha256": "f8062a51201d429be4aab9ad5395d48a7bcaa6797df008f2d8cc93279e3f7860",
+      "layer": 0,
+      "cls": 0,
+      "index": 0,
+      "bytes": 57024,
+      "runs": 997
+    },
+    {
+      "file": "compressed-traits/trait-0-0-1.bin",
+      "sha256": "504bd4f5a373e693bcb3f17256266a4f56f98a058ef94e6b0918653e1d2750ef",
+      "layer": 0,
+      "cls": 0,
+      "index": 1,
+      "bytes": 54731,
+      "runs": 957
+    },
+    {
+      "file": "compressed-traits/trait-0-0-2.bin",
+      "sha256": "10d4d18d8b382fffee80d9f3504f047f555bb2d03793b12842c8adc57e0a9a52",
+      "layer": 0,
+      "cls": 0,
+      "index": 2,
+      "bytes": 59076,
+      "runs": 1034
+    },
+    {
+      "file": "compressed-traits/trait-0-0-3.bin",
+      "sha256": "832a5187cd4f6285f523d7f8fbe5a7f24309aa505113a9e63a0f3681a727fa33",
+      "layer": 0,
+      "cls": 0,
+      "index": 3,
+      "bytes": 48296,
+      "runs": 844
+    },
+    {
+      "file": "compressed-traits/trait-0-0-4.bin",
+      "sha256": "6da2b81ae580e6258cc7242ce18c5de7dfb92ff69f8dee5933e437415b1b410f",
+      "layer": 0,
+      "cls": 0,
+      "index": 4,
+      "bytes": 50635,
+      "runs": 886
+    },
+    {
+      "file": "compressed-traits/trait-0-0-5.bin",
+      "sha256": "c6da74b0624d9646fe74ccb4aeae723537fdafb3b43ea4ae646fad1e59cb3216",
+      "layer": 0,
+      "cls": 0,
+      "index": 5,
+      "bytes": 54152,
+      "runs": 947
+    },
+    {
+      "file": "compressed-traits/trait-0-0-6.bin",
+      "sha256": "962e27285d4f58b24b067fe746a8ed3206f9a02c7401130e79414033b4313d7c",
+      "layer": 0,
+      "cls": 0,
+      "index": 6,
+      "bytes": 57568,
+      "runs": 1007
+    },
+    {
+      "file": "compressed-traits/trait-0-0-7.bin",
+      "sha256": "1df624c09e5279e7650caa1da4498805496d8c3ae3859576ffc257f87a4135ac",
+      "layer": 0,
+      "cls": 0,
+      "index": 7,
+      "bytes": 57693,
+      "runs": 1009
+    },
+    {
+      "file": "compressed-traits/trait-0-1-0.bin",
+      "sha256": "fe8ec440112b45372241b63e486ecfbd4d948e130577b0275a65fb6474ca2b41",
+      "layer": 0,
+      "cls": 1,
+      "index": 0,
+      "bytes": 50339,
+      "runs": 881
+    },
+    {
+      "file": "compressed-traits/trait-0-1-1.bin",
+      "sha256": "27033f324bc49553166278e83d69340a83d8d91551ffd09655261515afdb825a",
+      "layer": 0,
+      "cls": 1,
+      "index": 1,
+      "bytes": 50339,
+      "runs": 881
+    },
+    {
+      "file": "compressed-traits/trait-0-1-2.bin",
+      "sha256": "0359351f0a227ca1cfcc95cfc8a89c2f9b34c52e8d780a68a34be7e076b89997",
+      "layer": 0,
+      "cls": 1,
+      "index": 2,
+      "bytes": 50339,
+      "runs": 881
+    },
+    {
+      "file": "compressed-traits/trait-0-1-3.bin",
+      "sha256": "a24d0c698c70177ccf760339d2736b8dcdd9070421ae06471f818dbea5013e15",
+      "layer": 0,
+      "cls": 1,
+      "index": 3,
+      "bytes": 50339,
+      "runs": 881
+    },
+    {
+      "file": "compressed-traits/trait-0-1-4.bin",
+      "sha256": "2e3acbb73a34ea8dfb8aca4a9404fdd681d8f0f6a9324f78cdf367093dfe8d41",
+      "layer": 0,
+      "cls": 1,
+      "index": 4,
+      "bytes": 50111,
+      "runs": 877
+    },
+    {
+      "file": "compressed-traits/trait-0-2-0.bin",
+      "sha256": "76970932b1f6545b86a69ff2e48e36a3140584e128ba044feeddced172ed1561",
+      "layer": 0,
+      "cls": 2,
+      "index": 0,
+      "bytes": 59674,
+      "runs": 1044
+    },
+    {
+      "file": "compressed-traits/trait-0-2-1.bin",
+      "sha256": "9b7e5bccf06a9b9d7dc160891e243490a0c1606a528b6aafffe884b497ef6fc1",
+      "layer": 0,
+      "cls": 2,
+      "index": 1,
+      "bytes": 59674,
+      "runs": 1044
+    },
+    {
+      "file": "compressed-traits/trait-0-2-2.bin",
+      "sha256": "64d848fdc416b04bbe28ff5f9a1692890f1c2cb7abef66fcec1268bfde5d799a",
+      "layer": 0,
+      "cls": 2,
+      "index": 2,
+      "bytes": 59674,
+      "runs": 1044
+    },
+    {
+      "file": "compressed-traits/trait-0-2-3.bin",
+      "sha256": "7a2e160dba684e4eb0eed905df4e445fbbbe2017e340e9ef2779a917ff170793",
+      "layer": 0,
+      "cls": 2,
+      "index": 3,
+      "bytes": 59674,
+      "runs": 1044
+    },
+    {
+      "file": "compressed-traits/trait-0-3-0.bin",
+      "sha256": "a627204f9babca6a6a343c06bf6b335a4199de8ba00dd77f513ff93aed13e23b",
+      "layer": 0,
+      "cls": 3,
+      "index": 0,
+      "bytes": 33064,
+      "runs": 577
+    },
+    {
+      "file": "compressed-traits/trait-0-3-1.bin",
+      "sha256": "30fce2062ce010035da24c66f42b0000b7b50c7f5f5ba7281913ff589584bc12",
+      "layer": 0,
+      "cls": 3,
+      "index": 1,
+      "bytes": 33975,
+      "runs": 593
+    },
+    {
+      "file": "compressed-traits/trait-0-3-2.bin",
+      "sha256": "e1b40b6453ca11443eb30d5fa5f433b5bff3d7a0d0f3ada0e5066b2e6f642f0a",
+      "layer": 0,
+      "cls": 3,
+      "index": 2,
+      "bytes": 37189,
+      "runs": 649
+    },
+    {
+      "file": "compressed-traits/trait-0-4-0.bin",
+      "sha256": "ee7bde66300d2ab6b98b82b63470a78363379fd8babbe33f0df637dc9e092609",
+      "layer": 0,
+      "cls": 4,
+      "index": 0,
+      "bytes": 26215,
+      "runs": 458
+    },
+    {
+      "file": "compressed-traits/trait-0-4-1.bin",
+      "sha256": "edfd348affee606a54c5a14dc2ac378e102002e50995da6bcc2ebcf3388a452b",
+      "layer": 0,
+      "cls": 4,
+      "index": 1,
+      "bytes": 10728,
+      "runs": 188
+    },
+    {
+      "file": "compressed-traits/trait-0-4-2.bin",
+      "sha256": "2147afa749d46da77043b15d49e6346e11e956d9d66245fb74f7e8fcbeec7fde",
+      "layer": 0,
+      "cls": 4,
+      "index": 2,
+      "bytes": 56139,
+      "runs": 983
+    },
+    {
+      "file": "compressed-traits/trait-0-5-0.bin",
+      "sha256": "b51a6ba163e40c4ffd87e8792627b213b48d93c97604df3286da646fa6c830e1",
+      "layer": 0,
+      "cls": 5,
+      "index": 0,
+      "bytes": 28544,
+      "runs": 499
+    },
+    {
+      "file": "compressed-traits/trait-0-5-1.bin",
+      "sha256": "4090a8394ac31170cea018099e725915e5114762f158d596121a40da6fa2fe5c",
+      "layer": 0,
+      "cls": 5,
+      "index": 1,
+      "bytes": 30716,
+      "runs": 537
+    },
+    {
+      "file": "compressed-traits/trait-0-6-0.bin",
+      "sha256": "36d4ea837930e09a2eab6635867b9a56c6afe61c55ae04b4a094abead66dd074",
+      "layer": 0,
+      "cls": 6,
+      "index": 0,
+      "bytes": 64573,
+      "runs": 1131
+    },
+    {
+      "file": "compressed-traits/trait-0-6-1.bin",
+      "sha256": "f372fa8dab3a284ca474e8be753bf61f984bfcd7fa5be8593b3c7a9afbaae0fe",
+      "layer": 0,
+      "cls": 6,
+      "index": 1,
+      "bytes": 57401,
+      "runs": 1005
+    },
+    {
+      "file": "compressed-traits/trait-0-6-2.bin",
+      "sha256": "404c73b716f7f980cf0da96633b9bc65a9b0919169edbdf3ce3f650455b0cc95",
+      "layer": 0,
+      "cls": 6,
+      "index": 2,
+      "bytes": 57931,
+      "runs": 1014
+    },
+    {
+      "file": "compressed-traits/trait-1-0-0.bin",
+      "sha256": "4b21627ca34642ab0b8ac52479a785ade2e082dca475c139b3bc2c485ddc7c04",
+      "layer": 1,
+      "cls": 0,
+      "index": 0,
+      "bytes": 29574,
+      "runs": 516
+    },
+    {
+      "file": "compressed-traits/trait-1-0-1.bin",
+      "sha256": "e5d483ffb991cee82369f91d10148aa9700f1ac37d9a8d8d13e1f4911de21c06",
+      "layer": 1,
+      "cls": 0,
+      "index": 1,
+      "bytes": 29560,
+      "runs": 516
+    },
+    {
+      "file": "compressed-traits/trait-1-0-10.bin",
+      "sha256": "77e03b87b5fb20195283e15f8ce77cbe321ead958a76c47623842f6d3f997c8e",
+      "layer": 1,
+      "cls": 0,
+      "index": 10,
+      "bytes": 28087,
+      "runs": 490
+    },
+    {
+      "file": "compressed-traits/trait-1-0-11.bin",
+      "sha256": "bbaa20e76a09a370b283a8cc7708fea5bb96633779fb49f031c0d255134bd8ed",
+      "layer": 1,
+      "cls": 0,
+      "index": 11,
+      "bytes": 29970,
+      "runs": 523
+    },
+    {
+      "file": "compressed-traits/trait-1-0-2.bin",
+      "sha256": "791aa3bb3910167ac238e2ca3cd54ef3bbdb093849c05278c8901d0fdebbbd42",
+      "layer": 1,
+      "cls": 0,
+      "index": 2,
+      "bytes": 31157,
+      "runs": 544
+    },
+    {
+      "file": "compressed-traits/trait-1-0-3.bin",
+      "sha256": "39ed28472da62e3c49b6fb9988d4e3b9b0451664e65f4a94df4fac5286cc9aea",
+      "layer": 1,
+      "cls": 0,
+      "index": 3,
+      "bytes": 31617,
+      "runs": 552
+    },
+    {
+      "file": "compressed-traits/trait-1-0-4.bin",
+      "sha256": "de7ae2f7d0843109ff0574b167aad66ac561e4e85aa711900f835087c22841da",
+      "layer": 1,
+      "cls": 0,
+      "index": 4,
+      "bytes": 30307,
+      "runs": 529
+    },
+    {
+      "file": "compressed-traits/trait-1-0-5.bin",
+      "sha256": "fc3ac8c5dd4848a66fb4a3c99cee3e8b58497f8461a414749bad4a738e552a08",
+      "layer": 1,
+      "cls": 0,
+      "index": 5,
+      "bytes": 29282,
+      "runs": 511
+    },
+    {
+      "file": "compressed-traits/trait-1-0-6.bin",
+      "sha256": "286e0cd85a6a5c62acb5c8271a5e7188998c8c81de37a04acf311383dc10d301",
+      "layer": 1,
+      "cls": 0,
+      "index": 6,
+      "bytes": 27911,
+      "runs": 487
+    },
+    {
+      "file": "compressed-traits/trait-1-0-7.bin",
+      "sha256": "790ed20a00d1f7e4f8497114f3ba03a3b6753a5ec4ba185a2f2f5aba10526f43",
+      "layer": 1,
+      "cls": 0,
+      "index": 7,
+      "bytes": 31097,
+      "runs": 543
+    },
+    {
+      "file": "compressed-traits/trait-1-0-8.bin",
+      "sha256": "4318adfb7becb4711f14788d3eecdadc0afffd893f7d0c99ef1b1af4f9700991",
+      "layer": 1,
+      "cls": 0,
+      "index": 8,
+      "bytes": 30011,
+      "runs": 524
+    },
+    {
+      "file": "compressed-traits/trait-1-0-9.bin",
+      "sha256": "48d7d131e2e8246359f40a4f8e740939f098acedae937d1dd3b6f7ef1250301f",
+      "layer": 1,
+      "cls": 0,
+      "index": 9,
+      "bytes": 25863,
+      "runs": 451
+    },
+    {
+      "file": "compressed-traits/trait-1-5-0.bin",
+      "sha256": "732d8111e34385fa94c5fbc097771c37f9047a57e43abb0f9aaafb58911e3e9e",
+      "layer": 1,
+      "cls": 5,
+      "index": 0,
+      "bytes": 22436,
+      "runs": 393
+    },
+    {
+      "file": "compressed-traits/trait-1-5-1.bin",
+      "sha256": "a7481cf93cd19957dc16689acba4874b9b6fc0f9f3b8756d5779efa0a13390d7",
+      "layer": 1,
+      "cls": 5,
+      "index": 1,
+      "bytes": 21634,
+      "runs": 379
+    },
+    {
+      "file": "compressed-traits/trait-1-5-10.bin",
+      "sha256": "7bd88f7e0f613744498f9ee4d90388e7f9a00920f51391c9a9da0eea4213ff9b",
+      "layer": 1,
+      "cls": 5,
+      "index": 10,
+      "bytes": 20892,
+      "runs": 366
+    },
+    {
+      "file": "compressed-traits/trait-1-5-11.bin",
+      "sha256": "fc6e55de8a9c580afc0d4e71ddcec761f2cdea562687708fa9bb3c2d9c17af29",
+      "layer": 1,
+      "cls": 5,
+      "index": 11,
+      "bytes": 22546,
+      "runs": 395
+    },
+    {
+      "file": "compressed-traits/trait-1-5-2.bin",
+      "sha256": "bd8d725f7ed1655ea6c86a85f4a41e76ef84c5d431d780d6fe133190c09c660f",
+      "layer": 1,
+      "cls": 5,
+      "index": 2,
+      "bytes": 22262,
+      "runs": 390
+    },
+    {
+      "file": "compressed-traits/trait-1-5-3.bin",
+      "sha256": "daed76a47cb6450b72b752745ab5c9a4950904f51d515427bbc5e988a7b8603b",
+      "layer": 1,
+      "cls": 5,
+      "index": 3,
+      "bytes": 23397,
+      "runs": 410
+    },
+    {
+      "file": "compressed-traits/trait-1-5-4.bin",
+      "sha256": "ad76e8f40ba2015d5c19a29c123cee51d0665b87541d92d69be90dea8b85f5c5",
+      "layer": 1,
+      "cls": 5,
+      "index": 4,
+      "bytes": 22947,
+      "runs": 402
+    },
+    {
+      "file": "compressed-traits/trait-1-5-5.bin",
+      "sha256": "b7a4224c3287db1666943e8282c3c95de534d8c142811b427837204201b1a678",
+      "layer": 1,
+      "cls": 5,
+      "index": 5,
+      "bytes": 21466,
+      "runs": 376
+    },
+    {
+      "file": "compressed-traits/trait-1-5-6.bin",
+      "sha256": "df922e5fa53bd411ef3a54c8a8421a6482cabbadc24002d4320a8521ecbcb1cc",
+      "layer": 1,
+      "cls": 5,
+      "index": 6,
+      "bytes": 20381,
+      "runs": 357
+    },
+    {
+      "file": "compressed-traits/trait-1-5-7.bin",
+      "sha256": "edafd00165d01a6b275232b3edf09682e720340a3b49cde344abcd1e40bf8dec",
+      "layer": 1,
+      "cls": 5,
+      "index": 7,
+      "bytes": 22770,
+      "runs": 399
+    },
+    {
+      "file": "compressed-traits/trait-1-5-8.bin",
+      "sha256": "0d5ea4b85d065167557b7be60387abfc07358ee8d9ef678f50c31367e77e7ca7",
+      "layer": 1,
+      "cls": 5,
+      "index": 8,
+      "bytes": 22198,
+      "runs": 389
+    },
+    {
+      "file": "compressed-traits/trait-1-5-9.bin",
+      "sha256": "1ae3a7238c2adb2b2e28cac6db0eb5be695de4e3a7a25e58beb472ea96c8bca2",
+      "layer": 1,
+      "cls": 5,
+      "index": 9,
+      "bytes": 18847,
+      "runs": 330
+    },
+    {
+      "file": "compressed-traits/trait-1-6-0.bin",
+      "sha256": "c9bb2b4444ac0ea3313ccec6229653628b499143dc5b2c24951082c2b242f9d7",
+      "layer": 1,
+      "cls": 6,
+      "index": 0,
+      "bytes": 31746,
+      "runs": 554
+    },
+    {
+      "file": "compressed-traits/trait-1-6-1.bin",
+      "sha256": "006d770903f5c0026e9cf22120fb6b670b4843e74f4a5712c30795e5930e7b16",
+      "layer": 1,
+      "cls": 6,
+      "index": 1,
+      "bytes": 31738,
+      "runs": 554
+    },
+    {
+      "file": "compressed-traits/trait-1-6-10.bin",
+      "sha256": "ebb211da91905e4b26700d99d0047176f54c1fc9321dbb6a15579695f4919319",
+      "layer": 1,
+      "cls": 6,
+      "index": 10,
+      "bytes": 30259,
+      "runs": 528
+    },
+    {
+      "file": "compressed-traits/trait-1-6-11.bin",
+      "sha256": "037fb1bfa0533999421bf10dd7432d50d8f81afcdce73d9643028868928fa32c",
+      "layer": 1,
+      "cls": 6,
+      "index": 11,
+      "bytes": 32142,
+      "runs": 561
+    },
+    {
+      "file": "compressed-traits/trait-1-6-2.bin",
+      "sha256": "2160d66705f34e1f7a5a143eec23e43f7c729b0401604f96eed82f5a49120d81",
+      "layer": 1,
+      "cls": 6,
+      "index": 2,
+      "bytes": 33333,
+      "runs": 582
+    },
+    {
+      "file": "compressed-traits/trait-1-6-3.bin",
+      "sha256": "45982cc55cdf868f838d5853b808540169b0b985c9d74f8a1594e0bd91f65a16",
+      "layer": 1,
+      "cls": 6,
+      "index": 3,
+      "bytes": 33282,
+      "runs": 581
+    },
+    {
+      "file": "compressed-traits/trait-1-6-4.bin",
+      "sha256": "cf9153f521d25281862cba53dbb206c95a18b9b064abbc8c2acbeb555a242fe1",
+      "layer": 1,
+      "cls": 6,
+      "index": 4,
+      "bytes": 32485,
+      "runs": 567
+    },
+    {
+      "file": "compressed-traits/trait-1-6-5.bin",
+      "sha256": "f1b467f332728e2f5cf18c095e3387874a8e97cdefb02d65a892732c3c173019",
+      "layer": 1,
+      "cls": 6,
+      "index": 5,
+      "bytes": 31459,
+      "runs": 549
+    },
+    {
+      "file": "compressed-traits/trait-1-6-6.bin",
+      "sha256": "a8f84f684dad17782137ef639f886fd08f3f1ec5410e9d7779747e714eb3c737",
+      "layer": 1,
+      "cls": 6,
+      "index": 6,
+      "bytes": 30030,
+      "runs": 524
+    },
+    {
+      "file": "compressed-traits/trait-1-6-7.bin",
+      "sha256": "3aa8acd4ea02a7b4c7441bc665888db875bfe0100769c21af95004fb336e16d3",
+      "layer": 1,
+      "cls": 6,
+      "index": 7,
+      "bytes": 33274,
+      "runs": 581
+    },
+    {
+      "file": "compressed-traits/trait-1-6-8.bin",
+      "sha256": "37c935d72e726f4d83f5580c482d097d5760c84aeccaea1c2cc1ec269a676a43",
+      "layer": 1,
+      "cls": 6,
+      "index": 8,
+      "bytes": 32189,
+      "runs": 562
+    },
+    {
+      "file": "compressed-traits/trait-1-6-9.bin",
+      "sha256": "724ec6e5faa57e547048ba94362b43957bd95db159738e30f893567ce16315d0",
+      "layer": 1,
+      "cls": 6,
+      "index": 9,
+      "bytes": 28039,
+      "runs": 489
+    },
+    {
+      "file": "compressed-traits/trait-2-0-0.bin",
+      "sha256": "a0f37b34a1151bbd2d1ef0095b9c3d61710f0bbb28725ea1371bdf289762525d",
+      "layer": 2,
+      "cls": 0,
+      "index": 0,
+      "bytes": 22734,
+      "runs": 397
+    },
+    {
+      "file": "compressed-traits/trait-2-0-1.bin",
+      "sha256": "394afc56a05ca72c1ee988b03500250141527843339aae2dbb4f2ddf7f90cb30",
+      "layer": 2,
+      "cls": 0,
+      "index": 1,
+      "bytes": 12299,
+      "runs": 215
+    },
+    {
+      "file": "compressed-traits/trait-2-0-2.bin",
+      "sha256": "e252baa906ba99f7a26674b50c44b569251f7f1b493f3dc86f5cf749e67cec0b",
+      "layer": 2,
+      "cls": 0,
+      "index": 2,
+      "bytes": 16024,
+      "runs": 279
+    },
+    {
+      "file": "compressed-traits/trait-2-0-3.bin",
+      "sha256": "4d629899b3bd10a1c15e11c70fb06a8331c728403ec5c7357bd97141f892af5a",
+      "layer": 2,
+      "cls": 0,
+      "index": 3,
+      "bytes": 11417,
+      "runs": 199
+    },
+    {
+      "file": "compressed-traits/trait-2-0-4.bin",
+      "sha256": "57d4ed833b5cfbc4c0b6721212bbb382766efaf28203eb511e877a79214e39a2",
+      "layer": 2,
+      "cls": 0,
+      "index": 4,
+      "bytes": 27283,
+      "runs": 478
+    },
+    {
+      "file": "compressed-traits/trait-2-1-0.bin",
+      "sha256": "6e8ed6e24aa6100c546b7afca0e0f75ef252e1f8c808aec30445ba071a544f4d",
+      "layer": 2,
+      "cls": 1,
+      "index": 0,
+      "bytes": 7990,
+      "runs": 140
+    },
+    {
+      "file": "compressed-traits/trait-2-1-1.bin",
+      "sha256": "774b1bf012c5b8d705fe368173a7ed69783cd387408ef0f3c4f707752fdb3985",
+      "layer": 2,
+      "cls": 1,
+      "index": 1,
+      "bytes": 7990,
+      "runs": 140
+    },
+    {
+      "file": "compressed-traits/trait-2-1-2.bin",
+      "sha256": "11d0f059a6e230da9049729df72b2450c229129f7edaf2615d8bd768b1b2a093",
+      "layer": 2,
+      "cls": 1,
+      "index": 2,
+      "bytes": 7990,
+      "runs": 140
+    },
+    {
+      "file": "compressed-traits/trait-2-1-3.bin",
+      "sha256": "91898a84662034e2a1a1ebfd3109d3ba6835dfcb0bfc75d5656fc07f61de9ffa",
+      "layer": 2,
+      "cls": 1,
+      "index": 3,
+      "bytes": 7990,
+      "runs": 140
+    },
+    {
+      "file": "compressed-traits/trait-2-2-0.bin",
+      "sha256": "73ee48296d954a3fad0da458ea8956598a650342c539054e5936f4c81bf2f880",
+      "layer": 2,
+      "cls": 2,
+      "index": 0,
+      "bytes": 9690,
+      "runs": 170
+    },
+    {
+      "file": "compressed-traits/trait-2-2-1.bin",
+      "sha256": "c4bcbbe23766b234b2d7db7f4f1522c4893ed3b5f577263bc52289b4a0ff15bc",
+      "layer": 2,
+      "cls": 2,
+      "index": 1,
+      "bytes": 9690,
+      "runs": 170
+    },
+    {
+      "file": "compressed-traits/trait-2-2-2.bin",
+      "sha256": "4cc0af21a0ad0ddfcae3c974896264c21118ac0cb6c8778e67aa2c7ef8fe35a9",
+      "layer": 2,
+      "cls": 2,
+      "index": 2,
+      "bytes": 9690,
+      "runs": 170
+    },
+    {
+      "file": "compressed-traits/trait-2-2-3.bin",
+      "sha256": "91ea8dfaeb7578cf9d1579410dfd24d7073598b973d525545f424e1b3329bf76",
+      "layer": 2,
+      "cls": 2,
+      "index": 3,
+      "bytes": 9690,
+      "runs": 170
+    },
+    {
+      "file": "compressed-traits/trait-2-3-0.bin",
+      "sha256": "09a1a9e93a351aaeb5eea851ba4ec71baf89de0c6f3527e34727eb75bc4a27c2",
+      "layer": 2,
+      "cls": 3,
+      "index": 0,
+      "bytes": 11429,
+      "runs": 200
+    },
+    {
+      "file": "compressed-traits/trait-2-4-0.bin",
+      "sha256": "8d715c74ead9bb7f513a4bc297c32963ffe4d30dddf7379f4b77e69ada58bec3",
+      "layer": 2,
+      "cls": 4,
+      "index": 0,
+      "bytes": 15564,
+      "runs": 272
+    },
+    {
+      "file": "compressed-traits/trait-2-4-1.bin",
+      "sha256": "2963158f879819460c5e37c658ad463e5970329d18d17e7bd93a0b9dd05e9bbb",
+      "layer": 2,
+      "cls": 4,
+      "index": 1,
+      "bytes": 8640,
+      "runs": 151
+    },
+    {
+      "file": "compressed-traits/trait-2-4-2.bin",
+      "sha256": "6253aadf7fc51546b970bb4fa3a64934ea635a90dd02da032145a5a88356cd9c",
+      "layer": 2,
+      "cls": 4,
+      "index": 2,
+      "bytes": 8363,
+      "runs": 146
+    },
+    {
+      "file": "compressed-traits/trait-2-4-3.bin",
+      "sha256": "b69a7de8ad6406801f5a7ee876ef5311f37a9a6d48df20f8e77c5d74bbb953f9",
+      "layer": 2,
+      "cls": 4,
+      "index": 3,
+      "bytes": 12833,
+      "runs": 225
+    },
+    {
+      "file": "compressed-traits/trait-2-5-0.bin",
+      "sha256": "8e5ba5ee4721f743b37baadafffa5152412646073f94c86b9fc771b90c75976c",
+      "layer": 2,
+      "cls": 5,
+      "index": 0,
+      "bytes": 3078,
+      "runs": 54
+    },
+    {
+      "file": "compressed-traits/trait-2-5-1.bin",
+      "sha256": "c8a76c995135ba3ea9c89e91f3207137d1367d611e2f9fa370f0ed03f567e58e",
+      "layer": 2,
+      "cls": 5,
+      "index": 1,
+      "bytes": 3420,
+      "runs": 60
+    },
+    {
+      "file": "compressed-traits/trait-2-5-2.bin",
+      "sha256": "0b7ab08c73d1ad5eef6ea0d242ae0161fba29c0d659f51dfd87a7a2e10adb18e",
+      "layer": 2,
+      "cls": 5,
+      "index": 2,
+      "bytes": 3078,
+      "runs": 54
+    },
+    {
+      "file": "compressed-traits/trait-2-5-3.bin",
+      "sha256": "8b0c9849c1811001472d354268a1ab7e8da2dacd16485ff6b6ebb1ca201980fc",
+      "layer": 2,
+      "cls": 5,
+      "index": 3,
+      "bytes": 4104,
+      "runs": 72
+    },
+    {
+      "file": "compressed-traits/trait-2-6-0.bin",
+      "sha256": "9c02faef00689e03ee1f5c54a87eb7cc684e68f4fc22f3ed8c65c63bfc3b1a6d",
+      "layer": 2,
+      "cls": 6,
+      "index": 0,
+      "bytes": 9866,
+      "runs": 172
+    },
+    {
+      "file": "compressed-traits/trait-3-0-0.bin",
+      "sha256": "7beff299919bb2950f77ba41d5fc9375a98f7025e3115693d717e35374ed2cb5",
+      "layer": 3,
+      "cls": 0,
+      "index": 0,
+      "bytes": 9143,
+      "runs": 158
+    },
+    {
+      "file": "compressed-traits/trait-3-0-1.bin",
+      "sha256": "a0269d4773bb020e414cded22223476e6f037fb11d8ed737fe45b7e1f27a9fd3",
+      "layer": 3,
+      "cls": 0,
+      "index": 1,
+      "bytes": 8353,
+      "runs": 144
+    },
+    {
+      "file": "compressed-traits/trait-3-4-0.bin",
+      "sha256": "42d8434df9cbff4c6ef89ff5e2cf6447e1edd73907b96a7cfcdc2fb47ff20ed0",
+      "layer": 3,
+      "cls": 4,
+      "index": 0,
+      "bytes": 14888,
+      "runs": 261
+    },
+    {
+      "file": "compressed-traits/trait-3-4-1.bin",
+      "sha256": "cdf49da270a573fdc2b604dd2c80baa0147d156c41c3f1c1bad83ad59fda10d2",
+      "layer": 3,
+      "cls": 4,
+      "index": 1,
+      "bytes": 11983,
+      "runs": 210
+    }
+  ]
+}

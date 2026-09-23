@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/PerpEngine.sol:PerpEngine",
+  "baselineSourceSha256": "4f49a90ff52dfb23c23f0b7e968fbd1c4498f809634a64326cd91fc44feffa03",
+  "candidateSourceSha256": "beaa831a370ec2bdd31bcc00fb0a20bafdd7b4a3f49602f27018e79434cbe9bf",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageMatchesExpected": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": null,
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

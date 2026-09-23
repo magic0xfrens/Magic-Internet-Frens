@@ -278,6 +278,7 @@ contract VenueSeeder {
         uint24 fee
     ) external payable returns (uint256) {
         require(msg.sender == deployer, "only deployer");
+        require(positionId == 0, "recover existing position first");
         // token = USDG (sorts above native), quote = ETH.
         (, positionId) = PoolOps.openOrAddPair(
             poolManager, posm, address(0), usdg, address(0),
@@ -337,6 +338,7 @@ contract VenueSeeder {
         uint16 bandBps
     ) external payable returns (uint256) {
         require(msg.sender == deployer, "only deployer");
+        require(positionId == 0, "recover existing position first");
         require(bandBps > 0 && bandBps <= 5_000, "band");
 
         PoolKey memory key = PoolKey({

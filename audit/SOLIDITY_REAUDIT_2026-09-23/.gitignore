@@ -1,0 +1,5 @@
+/snapshot/
+/logs/
+__pycache__/
+/remediation/renderer-cache/
+/remediation/renderer-artifacts/

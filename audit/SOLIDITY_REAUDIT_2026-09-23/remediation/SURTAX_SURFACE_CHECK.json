@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/SurtaxLib.sol:SurtaxLib",
+  "baselineSourceSha256": "5014805332f9428af786b95b0cf046101b4de550d4d82bd133d9f0ee7b540479",
+  "candidateSourceSha256": "a83bfde89367484756b24f69fb6ce002c8491a4b5efc89f0a126b4e5d4b06aad",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": null,
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

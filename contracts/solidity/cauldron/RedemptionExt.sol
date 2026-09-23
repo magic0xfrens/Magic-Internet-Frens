@@ -911,11 +911,53 @@ contract RedemptionExt is CauldronBase {
     ///  make a healthy generation read as dying. The teardown path needs no such
     ///  gate — it runs on the generation being torn down, by definition — so it has
     ///  its own entry below.
+    ///
+    ///  ONE EXCEPTION: A LIVE GENERATION ALREADY HANDED TO THE SUCCESSOR
+    ///  (FS-successor-01). `migrateToSuccessor` moves the active and reserve NFTs
+    ///  but not the rotated legs, and afterwards neither this retry (current gen)
+    ///  nor `emergencyWithdrawLP` (it must burn an NFT this registry no longer
+    ///  owns) could reach them — a rotated treasury stranded for good. Once the
+    ///  primary is provably the successor's, this registry no longer runs that
+    ///  generation, so the legs follow it the same way: ownership moves, the
+    ///  liquidity stays put, and the destination is the recorded successor, never
+    ///  the caller. Nothing is unwound, so there is no price to be sandwiched.
     function recoverLegs(uint256 gen) public returns (uint256 quoteOut, uint256 tokenOut) {
+        if (gen != 0 && gen == currentGeneration && _handedOff(gen)) {
+            _handOffLegs(gen);
+            return (0, 0);
+        }
         if (gen == 0 || gen >= currentGeneration) revert CannotClaimCurrentGen();
         (quoteOut, tokenOut) = _recoverLegs(gen);
         _bookLegProceeds(gen, quoteOut, tokenOut);
     }
+
+    /// @dev True once `migrateToSuccessor` has moved `gen`'s primary custody:
+    ///      the reserve NFT (or, when there is none, the active one) is owned by
+    ///      the recorded successor.
+    function _handedOff(uint256 gen) private view returns (bool) {
+        address to = successor;
+        uint256 id = generationReservePositionId[gen];
+        if (id == 0) id = generationPositionId[gen];
+        return to != address(0) && id != 0 && IERC721(address(positionManager)).ownerOf(id) == to;
+    }
+
+    /// @dev Transfer every recorded leg NFT of `gen` to the successor and drop it
+    ///      from the list. All-or-nothing: a failed transfer reverts the call and
+    ///      leaves every leg recorded for a retry.
+    function _handOffLegs(uint256 gen) private {
+        address to = successor;
+        TreasuryLeg[] storage legs = generationLegs[gen];
+        uint256 i = legs.length;
+        while (i > 0) {
+            --i;
+            TreasuryLeg memory l = legs[i];
+            legs.pop();
+            IERC721(address(positionManager)).transferFrom(address(this), to, l.positionId);
+            emit LegHandedOff(gen, l.quote, l.positionId, to);
+        }
+    }
+
+    event LegHandedOff(uint256 indexed gen, address indexed quote, uint256 positionId, address to);
 
     /// @dev Book what the RETRY recovered, so the existing exit covers it.
     ///

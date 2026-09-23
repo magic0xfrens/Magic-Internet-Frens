@@ -244,7 +244,12 @@ contract MiFrensDividend is ReentrancyGuard {
         }
         uint256 inc = (amt * ACC) / activeShares;
         accPerShare += inc;
-        residual = amt - (inc * activeShares) / ACC;
+        // Fractional entitlements already own part of the final wei. Do not
+        // retain that same whole wei for redistribution on the next receipt.
+        uint256 credited = inc * activeShares;
+        uint256 committedWei = credited / ACC;
+        if (credited % ACC != 0) committedWei += 1;
+        residual = amt - committedWei;
         emit Deposited(msg.value, accPerShare);
     }
 
@@ -404,10 +409,10 @@ contract MiFrensDividend is ReentrancyGuard {
     /// @dev Push that reports failure instead of throwing, so a caller iterating
     ///      several assets can decide what to do about one of them.
     function _tryPush(address asset, address to, uint256 amount) private returns (bool) {
-        (bool ok, bytes memory ret) = asset.call(
-            abi.encodeWithSignature("transfer(address,uint256)", to, amount)
-        );
-        ok = ok && (ret.length == 0 || abi.decode(ret, (bool)));
+        bool ok;
+        // A failed leg must roll back token-side effects as well as decoding:
+        // otherwise a token that transfers then returns false is paid twice.
+        try this.pushTokenIsolated(asset, to, amount) { ok = true; } catch { }
         //  The ONLY place an ERC20 leaves this contract, so it is the only place
         //  {accountedOf} has to come down. Saturating rather than checked: an
         //  accounting drift must never be able to brick a claim (the amount really
@@ -417,6 +422,21 @@ contract MiFrensDividend is ReentrancyGuard {
             accountedOf[asset] = a > amount ? a - amount : 0;
         }
         return ok;
+    }
+
+    /// @dev Self-call boundary for atomic per-asset failure isolation. Not a
+    ///      public withdrawal route: only this contract may select a payout.
+    function pushTokenIsolated(address asset, address to, uint256 amount) external {
+        if (msg.sender != address(this)) revert NotOwner();
+        if (asset.code.length == 0) revert TransferFailed();
+        bytes memory input = abi.encodeWithSelector(IERC20.transfer.selector, to, amount);
+        bool valid;
+        assembly ("memory-safe") {
+            let ok := call(gas(), asset, 0, add(input, 32), mload(input), 0, 32)
+            let size := returndatasize()
+            valid := and(ok, or(iszero(size), and(iszero(lt(size, 32)), eq(mload(0), 1))))
+        }
+        if (!valid) revert TransferFailed();
     }
 
     /// @notice Whether a fren is currently drawing fees (spell cast + still owned

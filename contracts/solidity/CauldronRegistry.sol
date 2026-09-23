@@ -1187,10 +1187,20 @@ contract CauldronRegistry is CauldronBase, IUnlockCallback {
             //  leaving the winning proposal live for a retry with more gas. The
             //  work is bounded (64-position book, ~7.5M gas), so a retry always
             //  fits in a block and this can never wedge the machine.
-            uint256 g = gasleft();
-            if (g > RELAUNCH_TAIL_RESERVE) {
-                hook.forceClosePerps{gas: g - RELAUNCH_TAIL_RESERVE}();
-            }
+            //
+            //  NOR MAY IT BE SKIPPED (FS-relaunch-01). This was guarded by
+            //  `if (gasleft() > RELAUNCH_TAIL_RESERVE)`, and the rest of the
+            //  rebirth fits in well under that reserve — so a caller who sent
+            //  just enough gas to land here at <= 8M skipped the close entirely,
+            //  never reached the hook's `PerpsOpen` check, and completed the
+            //  relaunch with the book stranded exactly as described above.
+            //  Measured on local managers: 6.0M-8.0M caps completed with every
+            //  position open and unrecoverable, and `eth_estimateGas` searches
+            //  for the lowest succeeding limit, so an honest wallet lands there
+            //  too. The subtraction is checked: below the reserve it reverts,
+            //  and a budget too small for the close reverts through the call,
+            //  so the rebirth either drains the book or does not happen.
+            hook.forceClosePerps{gas: gasleft() - RELAUNCH_TAIL_RESERVE}();
         }
     }
 

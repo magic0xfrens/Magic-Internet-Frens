@@ -1535,9 +1535,22 @@ contract CauldronHook is BaseHook, Ownable, ReentrancyGuard {
         bool routed;
         IFeeRouter fr = feeRouter;
         if (address(fr) != address(0)) {
-            try fr.route(feeAmount, guild, vault, guildBps, floorBps) returns (uint256 g, uint256 f, uint256 r) {
-                if (g + f + r == feeAmount) { wantGuild = g; wantFloor = f; wantRelaunch = r; routed = true; }
-            } catch { /* fall through to built-in */ }
+            bytes memory input = abi.encodeCall(IFeeRouter.route, (feeAmount, guild, vault, guildBps, floorBps));
+            uint256[3] memory split;
+            // Bound return copying and validate before accepting a custom split.
+            // Typed try/catch does not catch malformed return decoding.
+            assembly ("memory-safe") {
+                routed := staticcall(gas(), fr, add(input, 32), mload(input), split, 96)
+                routed := and(routed, iszero(lt(returndatasize(), 96)))
+            }
+            if (routed) {
+                uint256 g = split[0];
+                uint256 f = split[1];
+                uint256 r = split[2];
+                // Subtraction bounds also reject overflowing sums without panic.
+                routed = g <= feeAmount && f <= feeAmount - g && r == feeAmount - g - f;
+                if (routed) { wantGuild = g; wantFloor = f; wantRelaunch = r; }
+            }
         }
         if (!routed) {
             // Built-in: guildBps off the top → floorBps of remainder → rest relaunch.

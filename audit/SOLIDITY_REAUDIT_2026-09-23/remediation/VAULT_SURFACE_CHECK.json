@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/CauldronVault.sol:CauldronVault",
+  "baselineSourceSha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd",
+  "candidateSourceSha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": null,
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

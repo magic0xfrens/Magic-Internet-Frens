@@ -1,0 +1,4162 @@
+{
+ "cluster": "perp",
+ "source_root": "/Users/0x0010110/Documents/GitHub/Magic Internet Frens/audit/SOLIDITY_REAUDIT_2026-09-23/snapshot/contracts/solidity",
+ "generated": "2026-09-23T13:32:44",
+ "files": {
+  "cauldron/PerpEngine.sol": 3056,
+  "cauldron/PerpVault.sol": 959,
+  "cauldron/PerpSwapLib.sol": 1199,
+  "cauldron/PerpMarkSource.sol": 213,
+  "cauldron/PerpStakerOracle.sol": 33
+ },
+ "nodes": [
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 23,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 27,
+   "kind": "function",
+   "name": "generationQuote",
+   "signature": "function generationQuote(uint256 gen) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 28,
+   "kind": "function",
+   "name": "currentGeneration",
+   "signature": "function currentGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 29,
+   "kind": "function",
+   "name": "lastSummonAt",
+   "signature": "function lastSummonAt() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 30,
+   "kind": "function",
+   "name": "generationPoolId",
+   "signature": "function generationPoolId(uint256) external view returns (PoolId)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 31,
+   "kind": "function",
+   "name": "generationToken",
+   "signature": "function generationToken(uint256) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 32,
+   "kind": "function",
+   "name": "claimByBurn",
+   "signature": "function claimByBurn(uint256 fromGen, uint256 amount) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpRegistry (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 33,
+   "kind": "function",
+   "name": "claimByBurnUpTo",
+   "signature": "function claimByBurnUpTo(uint256 fromGen, uint256 maxAmount) external returns (uint256)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IMarkSource (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 41,
+   "kind": "function",
+   "name": "weightedTick",
+   "signature": "function weightedTick() external view returns (int24)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpVaultStake (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 46,
+   "kind": "function",
+   "name": "hasStakers",
+   "signature": "function hasStakers() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpVaultStake (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 48,
+   "kind": "function",
+   "name": "hasQuoteStake",
+   "signature": "function hasQuoteStake() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpHook (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 52,
+   "kind": "function",
+   "name": "isDead",
+   "signature": "function isDead(PoolId id) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpHook (declared in PerpEngine.sol)",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 54,
+   "kind": "function",
+   "name": "collection",
+   "signature": "function collection() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 255,
+   "kind": "function",
+   "name": "_quoteIsNative",
+   "signature": "function _quoteIsNative() internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b3133f416b0c4e49e8d2254f62d301e58ac0f191",
+   "body_lines": [
+    255,
+    255
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 263,
+   "kind": "function",
+   "name": "_pullQuote",
+   "signature": "function _pullQuote(address from, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b861922b5749436b3e580974c9c1c58d2ef00809",
+   "body_lines": [
+    263,
+    276
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 281,
+   "kind": "function",
+   "name": "_pushQuote",
+   "signature": "function _pushQuote(address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "803fdb5fd963bbba690982380995ea1e8bd1f760",
+   "body_lines": [
+    281,
+    289
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 522,
+   "kind": "function",
+   "name": "renounceOwnership",
+   "signature": "function renounceOwnership() public pure override",
+   "visibility": "public",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+   "body_lines": [
+    522,
+    524
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 562,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor( IPoolManager _poolManager, address _hook, address _registry, address _mifrens, address _dividend, address _treasury, address _owner ) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "b3edd0ad72063d17330d7b4ed2a6bbe3b6247ed1",
+   "body_lines": [
+    565,
+    584
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 600,
+   "kind": "modifier",
+   "name": "notNested",
+   "signature": "modifier notNested()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c261d7c28d65005bde59ccd9ebe8176c8b7e0f1a",
+   "body_lines": [
+    600,
+    600
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 601,
+   "kind": "modifier",
+   "name": "onlyVault",
+   "signature": "modifier onlyVault()",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1e25b5884f9b675fc264608eb460f24cccc9578f",
+   "body_lines": [
+    601,
+    601
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 602,
+   "kind": "function",
+   "name": "_notNested",
+   "signature": "function _notNested() internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "21c4c51b3bf64472bd0c479437949e839314c564",
+   "body_lines": [
+    602,
+    602
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 603,
+   "kind": "function",
+   "name": "_onlyVault",
+   "signature": "function _onlyVault() internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c2fe983f8db02b33b3dbace0d0a4417cd940d4bf",
+   "body_lines": [
+    603,
+    603
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 608,
+   "kind": "function",
+   "name": "totalEth",
+   "signature": "function totalEth() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4b2f7684a67951b74e854176e504256e08e52be6",
+   "body_lines": [
+    608,
+    608
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 610,
+   "kind": "function",
+   "name": "freeEth",
+   "signature": "function freeEth() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "a2919a8b96935c1f7e64806d3da646835195d8b8",
+   "body_lines": [
+    610,
+    610
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 612,
+   "kind": "function",
+   "name": "totalTokenAssets",
+   "signature": "function totalTokenAssets() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "bef9f73f36eb10d1edc9859486235ee9d18f4ad2",
+   "body_lines": [
+    612,
+    612
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 614,
+   "kind": "function",
+   "name": "freeToken",
+   "signature": "function freeToken() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c20da9fba24bb725c206b35f777c203114978ada",
+   "body_lines": [
+    614,
+    614
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 625,
+   "kind": "function",
+   "name": "_tok",
+   "signature": "function _tok() internal view returns (address)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "60c7fef1f5db71af4423dd63b2484a1c58fed0ad",
+   "body_lines": [
+    625,
+    625
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 626,
+   "kind": "function",
+   "name": "_gq",
+   "signature": "function _gq(uint256 g) internal view returns (address)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "810cfb9e94eb3d6c4300467be9907d7075ab1c1d",
+   "body_lines": [
+    626,
+    626
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 629,
+   "kind": "function",
+   "name": "_bal",
+   "signature": "function _bal(address t, address who) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "36201aeb2eca93aa88e9c0c0786c2ae41db6e374",
+   "body_lines": [
+    629,
+    629
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 630,
+   "kind": "function",
+   "name": "_liq",
+   "signature": "function _liq() internal view returns (uint128)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "c7fb9b40fe325332cca92af30d2dded6afb50709",
+   "body_lines": [
+    630,
+    630
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 631,
+   "kind": "function",
+   "name": "_col",
+   "signature": "function _col() internal view returns (address)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "7161d4884d13137b74151a7776e3f84055de9080",
+   "body_lines": [
+    631,
+    631
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 632,
+   "kind": "function",
+   "name": "_gen",
+   "signature": "function _gen() internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "df8472c981f1093f001a53e9d979d3f78550c85a",
+   "body_lines": [
+    632,
+    632
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 634,
+   "kind": "function",
+   "name": "_key",
+   "signature": "function _key() internal view returns (PoolKey memory)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "34ade74338ffbe4f0504a8f6fa37c4970fa3ba5b",
+   "body_lines": [
+    634,
+    640
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 641,
+   "kind": "function",
+   "name": "_pid",
+   "signature": "function _pid() internal view returns (PoolId)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "655a391424772e4fca67a9f7706056b176d89d9c",
+   "body_lines": [
+    641,
+    641
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 643,
+   "kind": "function",
+   "name": "_slot0",
+   "signature": "function _slot0() internal view returns (uint160 s, int24 t)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f6bc0db428458e85f9cb3983f77fc24337e229e7",
+   "body_lines": [
+    643,
+    643
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 644,
+   "kind": "function",
+   "name": "_sqrtP",
+   "signature": "function _sqrtP() internal view returns (uint160 s)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5249709673e0509150b6ee9975f3245796001bf3",
+   "body_lines": [
+    644,
+    644
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 696,
+   "kind": "function",
+   "name": "_q",
+   "signature": "function _q(uint256 wei18) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "53c80b217107367a24e8f599c1fb147d06e13c82",
+   "body_lines": [
+    696,
+    698
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 734,
+   "kind": "function",
+   "name": "_currentTick",
+   "signature": "function _currentTick() internal view returns (int24 t)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "38d42fbc0097146a95f0f82d5209be4b5178c47d",
+   "body_lines": [
+    734,
+    752
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 758,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f6db2bbeee6956429817c404d239c42b32f91947",
+   "body_lines": [
+    758,
+    758
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 797,
+   "kind": "function",
+   "name": "_writeObs",
+   "signature": "function _writeObs() internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1f67b9f1636d36613ea9b02759222793717e25bc",
+   "body_lines": [
+    797,
+    802
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 822,
+   "kind": "function",
+   "name": "twapTick",
+   "signature": "function twapTick() public view returns (int24 tick, bool ok)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "931d6a516e51162c2a340c8479f999b3f6743b89",
+   "body_lines": [
+    822,
+    826
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 879,
+   "kind": "function",
+   "name": "blocksVolumeLink",
+   "signature": "function blocksVolumeLink() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "816575d6b0fa92d7d53f5ea32bd6f159fd2ddfc6",
+   "body_lines": [
+    879,
+    883
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 885,
+   "kind": "function",
+   "name": "markSqrtPriceX96",
+   "signature": "function markSqrtPriceX96() public view returns (uint160)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "d9c355048610b19f986a346089d86442024e1a2c",
+   "body_lines": [
+    885,
+    888
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 890,
+   "kind": "function",
+   "name": "activeEthDepth",
+   "signature": "function activeEthDepth() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b1dab47e0d6c5355523078851e27e9f32112a1fc",
+   "body_lines": [
+    890,
+    894
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 896,
+   "kind": "function",
+   "name": "maxLeverage",
+   "signature": "function maxLeverage() public view returns (uint8 lev)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "e265409227ecf52f32d71d150a596fe25708036b",
+   "body_lines": [
+    896,
+    907
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 915,
+   "kind": "function",
+   "name": "_quoteAt",
+   "signature": "function _quoteAt(uint256 size, uint256 sp) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "64aa5e7e8b75dd80e0a7ce2283aa16a4c3c1839a",
+   "body_lines": [
+    915,
+    917
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 919,
+   "kind": "function",
+   "name": "_quoteEth",
+   "signature": "function _quoteEth(uint256 size) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "82abc2c970fed7c41ecfe8420fc9ecbeafb4a866",
+   "body_lines": [
+    919,
+    919
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 921,
+   "kind": "function",
+   "name": "_quoteMark",
+   "signature": "function _quoteMark(uint256 size) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "342ad415baed846e8dea46a41a4afb9cd8291ca2",
+   "body_lines": [
+    921,
+    921
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 924,
+   "kind": "function",
+   "name": "_pokeFunding",
+   "signature": "function _pokeFunding() internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "348b5a6fc71043b114cf4be88e7635e3001f7a84",
+   "body_lines": [
+    924,
+    941
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 949,
+   "kind": "function",
+   "name": "_fundingDelta",
+   "signature": "function _fundingDelta(Position memory p) internal view returns (int256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "41ad4824db280949ca5dfad6222882329f4502c4",
+   "body_lines": [
+    949,
+    960
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 979,
+   "kind": "function",
+   "name": "_pos",
+   "signature": "function _pos(uint256 id) internal view returns (Position memory)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "55215b81a2a1ab0f41a00a2664f866903faea6f1",
+   "body_lines": [
+    979,
+    979
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 982,
+   "kind": "function",
+   "name": "fundingDelta",
+   "signature": "function fundingDelta(uint256 id) external view returns (int256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "21537ebca9c80a6d69dd16bdd70914ce5dbd3ca7",
+   "body_lines": [
+    982,
+    986
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1003,
+   "kind": "function",
+   "name": "openLong",
+   "signature": "function openLong(uint8 leverage, uint256 minTokenOut, uint256 liqHint, uint256 amount) public payable nonReentrant notNested returns (uint256 id)",
+   "visibility": "public",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "b5dbc7071e752aa289fb311ff4c88d189f75af35",
+   "body_lines": [
+    1005,
+    1027
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1034,
+   "kind": "function",
+   "name": "openShort",
+   "signature": "function openShort(uint8 leverage, uint256 minEthOut, uint256 liqHint, uint256 amount) public payable nonReentrant notNested returns (uint256 id)",
+   "visibility": "public",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "a4a76b524d11a5e22fc3d58fe3c1e8d9e305b49a",
+   "body_lines": [
+    1036,
+    1058
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1063,
+   "kind": "function",
+   "name": "close",
+   "signature": "function close(uint256 id, uint256 minOut) external nonReentrant notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "3ab1b19bdce62b72737a816cb6cc5b6a618586b6",
+   "body_lines": [
+    1063,
+    1068
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1070,
+   "kind": "function",
+   "name": "liquidate",
+   "signature": "function liquidate(uint256 id) external nonReentrant notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "b80341e97cf83584cc1661cb6ed1f6ea25c8747f",
+   "body_lines": [
+    1070,
+    1098
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1127,
+   "kind": "function",
+   "name": "sweepLiquidations",
+   "signature": "function sweepLiquidations(address liquidator, int256 spec, bool isBuy, uint160 limit) external returns (uint8 status)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "dad3b0d9ec6be6be0ad769b930f53ae6d565e5e7",
+   "body_lines": [
+    1130,
+    1133
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1139,
+   "kind": "function",
+   "name": "_project",
+   "signature": "function _project(int256 spec, bool isBuy, uint160 limit) internal view returns (uint160)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "af7dc0692570cb2537c3a3637f2bf5ce4507f43c",
+   "body_lines": [
+    1139,
+    1145
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1151,
+   "kind": "function",
+   "name": "selfSweep",
+   "signature": "function selfSweep(address liquidator) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b2d852516aa071e3959f49bf33a52e55ff0972fd",
+   "body_lines": [
+    1151,
+    1154
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1158,
+   "kind": "function",
+   "name": "_sweepAfterOpen",
+   "signature": "function _sweepAfterOpen(address liquidator) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ab6ba8705e3e18527e76043201c5057e5c551601",
+   "body_lines": [
+    1158,
+    1163
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1174,
+   "kind": "function",
+   "name": "_doSweep",
+   "signature": "function _doSweep(address liquidator, bool inLocked, int256 spec, bool isBuy, uint160 limit) internal returns (uint8 status)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e793a0724a32ec7d087cf1221eeb943a105042e8",
+   "body_lines": [
+    1177,
+    1410
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1435,
+   "kind": "function",
+   "name": "_condemnedByThisTrade",
+   "signature": "function _condemnedByThisTrade(Position memory p) private returns (bool)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "862d7bf9c6be1bf7c78e5034abd8ec0ed5685aff",
+   "body_lines": [
+    1435,
+    1444
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1451,
+   "kind": "function",
+   "name": "_tryLiquidate",
+   "signature": "function _tryLiquidate(uint256 id, address liquidator) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "c998955330c5b60a39b8eea35f5028d5bea0401f",
+   "body_lines": [
+    1451,
+    1458
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1470,
+   "kind": "function",
+   "name": "_deadPrep",
+   "signature": "function _deadPrep() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "700e2969df6d679d545370457df82d5cc67dd525",
+   "body_lines": [
+    1470,
+    1473
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1477,
+   "kind": "function",
+   "name": "_open",
+   "signature": "function _open(uint256 id) private view returns (Position memory p)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "69d16d15987894584443640f31af5cf48972cba9",
+   "body_lines": [
+    1477,
+    1480
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1482,
+   "kind": "function",
+   "name": "forceCloseDead",
+   "signature": "function forceCloseDead(uint256 id) external nonReentrant notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "e3288d12b0315377ed6d356f8aa585f6ec946678",
+   "body_lines": [
+    1482,
+    1486
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1495,
+   "kind": "function",
+   "name": "forceCloseAllDead",
+   "signature": "function forceCloseAllDead() external nonReentrant notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "e42e32c29fcf21a06f542c2e57895fec9a758c9c",
+   "body_lines": [
+    1495,
+    1509
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1535,
+   "kind": "function",
+   "name": "_bookSlots",
+   "signature": "function _bookSlots() private pure returns (uint256 s)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "921eec28c1783d6b3e1cad06fccfd004aa68dc4e",
+   "body_lines": [
+    1535,
+    1548
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1550,
+   "kind": "function",
+   "name": "requoteBook",
+   "signature": "function requoteBook(address rot) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "811e2ae7514485da79c2805bf22d7c9aaac5d158",
+   "body_lines": [
+    1550,
+    1569
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1571,
+   "kind": "function",
+   "name": "syncGeneration",
+   "signature": "function syncGeneration() external nonReentrant notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant",
+    "notNested"
+   ],
+   "body_sha1": "c997bda944c4948c170d2116dba03a29e8d8818a",
+   "body_lines": [
+    1571,
+    1701
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1705,
+   "kind": "function",
+   "name": "isLiquidatable",
+   "signature": "function isLiquidatable(uint256 id) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b377568fb3e3566c3d256ddadc0739709c4d6c37",
+   "body_lines": [
+    1705,
+    1709
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1712,
+   "kind": "function",
+   "name": "_underwater",
+   "signature": "function _underwater(Position memory p) internal view returns (bool trip)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f789269cf86ea63320a14803414984d58559ca2f",
+   "body_lines": [
+    1712,
+    1714
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1758,
+   "kind": "function",
+   "name": "_liqTest",
+   "signature": "function _liqTest(Position memory p) internal view returns (bool trip, bool insolvent, uint256 notional)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "dd2951ee563386ae06774237eb71fbb5dbcab098",
+   "body_lines": [
+    1758,
+    1810
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1815,
+   "kind": "function",
+   "name": "_insolventVal",
+   "signature": "function _insolventVal(Position memory p, uint256 val) internal pure returns (bool)",
+   "visibility": "internal",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "14c00499e9925049cd679669c8438a19b40c8943",
+   "body_lines": [
+    1815,
+    1817
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1841,
+   "kind": "function",
+   "name": "_throttle",
+   "signature": "function _throttle(bool insolvent, uint256 notional) internal returns (bool)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "717cde7961b2cc301b7b3d4cb310cb89657455bb",
+   "body_lines": [
+    1841,
+    1847
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1854,
+   "kind": "function",
+   "name": "_underwaterVal",
+   "signature": "function _underwaterVal(Position memory p, uint256 val) internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4c42b86f8fb524312974c6f3eb69f32f6b2e5e3f",
+   "body_lines": [
+    1854,
+    1864
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1868,
+   "kind": "function",
+   "name": "_ownerFloor",
+   "signature": "function _ownerFloor(bool on, uint256 got, uint256 minOut) private pure",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "9b178e987ca2e19c5db13d151362d6c6ce0f5178",
+   "body_lines": [
+    1868,
+    1870
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 1872,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(uint256 id, Position memory p, uint256 minOut, uint8 mode, address keeper) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4200179501c40118ba05829d2be9d0b6fad69a4b",
+   "body_lines": [
+    1872,
+    2066
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2082,
+   "kind": "function",
+   "name": "_run",
+   "signature": "function _run(SwapReq memory r) internal returns (uint256 spent, uint256 got)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ba6f03b5f0473d2f98d4943b9db3df03f39fd425",
+   "body_lines": [
+    2082,
+    2085
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2091,
+   "kind": "function",
+   "name": "_swapExactIn",
+   "signature": "function _swapExactIn(bool buy, uint256 amount, uint160 lim) internal returns (uint256 inDone, uint256 out)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "23d13d9c8b4c764029758060f0a7b0f70722a181",
+   "body_lines": [
+    2094,
+    2096
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2121,
+   "kind": "function",
+   "name": "_buyUpTo",
+   "signature": "function _buyUpTo(uint256 tokenOut, uint256 budget, uint160 band) internal returns (uint256 spent, uint256 got)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "00dbb2e2bd746846d813dd9bf45e0c996847a54a",
+   "body_lines": [
+    2124,
+    2132
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2134,
+   "kind": "function",
+   "name": "unlockCallback",
+   "signature": "function unlockCallback(bytes calldata raw) external returns (bytes memory)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "04793a1e23fcd054015f190c5c92ddd837181ef1",
+   "body_lines": [
+    2134,
+    2138
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2143,
+   "kind": "function",
+   "name": "_swapBody",
+   "signature": "function _swapBody(SwapReq memory r) internal returns (uint256, uint256)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "381fd7b45f4eaada8ae39f9b784cb43e04f55d88",
+   "body_lines": [
+    2143,
+    2166
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2173,
+   "kind": "function",
+   "name": "_openPrologue",
+   "signature": "function _openPrologue(uint8 leverage, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a53a0d7988f4901688d15c0b267960aee6b0cd8e",
+   "body_lines": [
+    2173,
+    2178
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2180,
+   "kind": "function",
+   "name": "_guardOpen",
+   "signature": "function _guardOpen(uint8 leverage) internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "1a5bd7062f8a985f8070ef00ac923726406d1fe9",
+   "body_lines": [
+    2180,
+    2192
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2237,
+   "kind": "function",
+   "name": "_isDead",
+   "signature": "function _isDead() internal view returns (bool)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "987b3eb1a42caf5bef6ecb0d780245e41dddf739",
+   "body_lines": [
+    2237,
+    2253
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2254,
+   "kind": "function",
+   "name": "_takeFee",
+   "signature": "function _takeFee(uint256 sent, bool longSide) internal returns (uint256 collateral)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "0ad06ecb601e3ce955ae020e1c1f2a6c376d986c",
+   "body_lines": [
+    2254,
+    2259
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2260,
+   "kind": "function",
+   "name": "_checkNotional",
+   "signature": "function _checkNotional(uint256 notionalEth) internal view",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0d82142651ce9189bb665cf5a5287fcf6389d084",
+   "body_lines": [
+    2260,
+    2262
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2263,
+   "kind": "function",
+   "name": "_book",
+   "signature": "function _book(address trader, bool isLong, uint256 collateral, uint256 size, uint256 principal, uint8 leverage) internal returns (uint256 id)",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "bc885ea0b5d511843f81e20096ff262c0f1ffef7",
+   "body_lines": [
+    2265,
+    2272
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2280,
+   "kind": "function",
+   "name": "_addOpen",
+   "signature": "function _addOpen(uint256 id, Position memory p) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "98064542dc93809686707eb1223d1a1ffd892538",
+   "body_lines": [
+    2280,
+    2284
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2301,
+   "kind": "function",
+   "name": "_rebook",
+   "signature": "function _rebook(uint256 id, Position memory p, uint256 newSize, uint256 newBacking) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ad686e7385e70f10912302ac03d6d44180136e6a",
+   "body_lines": [
+    2301,
+    2308
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2318,
+   "kind": "function",
+   "name": "_insuranceNeed",
+   "signature": "function _insuranceNeed() internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "2c5eb55e8f2ae02a472bb3ac09a8649485446fa9",
+   "body_lines": [
+    2318,
+    2322
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2324,
+   "kind": "function",
+   "name": "_utilGate",
+   "signature": "function _utilGate(uint256 used, uint256 total) private view",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "08bf8f2bd2e10a4403233299d8836f7a879b905c",
+   "body_lines": [
+    2324,
+    2353
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2356,
+   "kind": "function",
+   "name": "_removeOpen",
+   "signature": "function _removeOpen(uint256 id) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e2bcc1ddba410d116ca4e29d539d68c26cd790c4",
+   "body_lines": [
+    2356,
+    2364
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2366,
+   "kind": "function",
+   "name": "_ethToToken",
+   "signature": "function _ethToToken(uint256 eth) internal view returns (uint256)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5f227e9a40989a8ec6d3bd0bbf2dddb92c28509b",
+   "body_lines": [
+    2366,
+    2368
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2370,
+   "kind": "function",
+   "name": "_routeFee",
+   "signature": "function _routeFee(uint256 amount, bool longSide) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "efec5d97d5ef19bb5efea139da8f636070999e10",
+   "body_lines": [
+    2370,
+    2398
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2399,
+   "kind": "function",
+   "name": "_sendEth",
+   "signature": "function _sendEth(address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ef3b120d077066df13bc30d0738675985701f899",
+   "body_lines": [
+    2399,
+    2399
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2411,
+   "kind": "function",
+   "name": "_payOut",
+   "signature": "function _payOut(address to, uint256 amount) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b08a14f1328c57d113c3683848b54cf1dda59268",
+   "body_lines": [
+    2411,
+    2417
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2433,
+   "kind": "function",
+   "name": "_tryPush",
+   "signature": "function _tryPush(address to, uint256 amount, bool capped) private returns (bool ok)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f3d47871c363d1faf2a937b4878c4f440e32e683",
+   "body_lines": [
+    2433,
+    2440
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2493,
+   "kind": "function",
+   "name": "retirePayout",
+   "signature": "function retirePayout(address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ddb17be6db6957e58c545cc8ac7873b88153f83b",
+   "body_lines": [
+    2493,
+    2524
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2528,
+   "kind": "function",
+   "name": "claimPayout",
+   "signature": "function claimPayout() external nonReentrant returns (uint256 amount)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "217295af2d75345884c17035140e20a1ec899fd8",
+   "body_lines": [
+    2528,
+    2534
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2564,
+   "kind": "function",
+   "name": "_bd",
+   "signature": "function _bd(uint256 amount, uint256 fromInsurance) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2924ccb4e84747bb36ff120a406e146013500fa1",
+   "body_lines": [
+    2564,
+    2566
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2574,
+   "kind": "function",
+   "name": "_writeOffTok",
+   "signature": "function _writeOffTok(uint256 id, uint256 amount, bool isLong) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ff1ede02305f4cfdfae84affea76bb975fe25969",
+   "body_lines": [
+    2574,
+    2578
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2580,
+   "kind": "function",
+   "name": "_vf",
+   "signature": "function _vf(bool ethSide, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ad05a1374e914ae1972a62d58a8a9f4c9f055769",
+   "body_lines": [
+    2580,
+    2580
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2581,
+   "kind": "function",
+   "name": "_vw",
+   "signature": "function _vw(bool ethSide, uint256 amount, address to) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "08229cdae1b770b9e6819c14ded184bc4ec96f88",
+   "body_lines": [
+    2581,
+    2583
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2585,
+   "kind": "function",
+   "name": "_replenishPlv",
+   "signature": "function _replenishPlv(uint256 shortfall) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "fd103853e5384e1be984844562ca74f7e1e1ae5b",
+   "body_lines": [
+    2585,
+    2589
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2594,
+   "kind": "function",
+   "name": "_absorbPlvLoss",
+   "signature": "function _absorbPlvLoss(uint256 loss) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "13381e47d28e526be2e81cf65c8998fbc0c01a88",
+   "body_lines": [
+    2594,
+    2625
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2671,
+   "kind": "function",
+   "name": "_killStats",
+   "signature": "function _killStats(Position memory p, uint256 bounty) internal view returns (LiqStats memory st)",
+   "visibility": "internal",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "01bb72d74843b56e1aaa6ac58bca139b95845d66",
+   "body_lines": [
+    2675,
+    2690
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2692,
+   "kind": "function",
+   "name": "_awardBadge",
+   "signature": "function _awardBadge(uint256 id, address to, LiqStats memory st) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "df970b6130949e92de63755910ce1dee19b25225",
+   "body_lines": [
+    2692,
+    2708
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2714,
+   "kind": "function",
+   "name": "claimLiquidatorBadges",
+   "signature": "function claimLiquidatorBadges(uint256 n) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "0702134cfe3978925d30c445712926f112d9bc58",
+   "body_lines": [
+    2714,
+    2726
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2727,
+   "kind": "function",
+   "name": "_safeTransfer",
+   "signature": "function _safeTransfer(address token, address to, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2d4fadec8c3867a6af2e4510538d5c8a14683e81",
+   "body_lines": [
+    2727,
+    2729
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2740,
+   "kind": "function",
+   "name": "fundPlv",
+   "signature": "function fundPlv(uint256 amount) external payable onlyOwner notNested",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyOwner",
+    "notNested"
+   ],
+   "body_sha1": "e46dc974e63ae3ff6b88685b19ed759dabfaa52e",
+   "body_lines": [
+    2740,
+    2744
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2748,
+   "kind": "function",
+   "name": "fundPlvToken",
+   "signature": "function fundPlvToken(uint256 amount) external onlyOwner notNested",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner",
+    "notNested"
+   ],
+   "body_sha1": "a0decfe9ace3effa6598dfafa76819566ece6da8",
+   "body_lines": [
+    2748,
+    2750
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2753,
+   "kind": "function",
+   "name": "_pullTokenIn",
+   "signature": "function _pullTokenIn(uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "fbb8140db97cd6dddb9238f967ccd98352ced50e",
+   "body_lines": [
+    2753,
+    2756
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2759,
+   "kind": "function",
+   "name": "fundInsurance",
+   "signature": "function fundInsurance(uint256 amount) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "b6f1f7fa1beb2352919ad8afaea18cf1d45281a6",
+   "body_lines": [
+    2759,
+    2762
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2769,
+   "kind": "function",
+   "name": "creditPerpFee",
+   "signature": "function creditPerpFee() external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "6a4558a21668aa51891ec70ea6e43fa2ee70c626",
+   "body_lines": [
+    2769,
+    2769
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2774,
+   "kind": "function",
+   "name": "creditPerpFeeToken",
+   "signature": "function creditPerpFeeToken() external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "860f7d392916e793bbdbcd248ff62c62e4e1a9d0",
+   "body_lines": [
+    2774,
+    2774
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2795,
+   "kind": "function",
+   "name": "creditPerpFeeAsset",
+   "signature": "function creditPerpFeeAsset(address asset, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "55213c001e7110fa952acaeac4c2f73b7b31027f",
+   "body_lines": [
+    2795,
+    2801
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2805,
+   "kind": "function",
+   "name": "_pullIntoPlv",
+   "signature": "function _pullIntoPlv(uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "d2d342c7ad215a74f6862889e589bda064ceb703",
+   "body_lines": [
+    2805,
+    2809
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2811,
+   "kind": "function",
+   "name": "_creditPerp",
+   "signature": "function _creditPerp(bool ethSide) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f401705187a20545d5233931b71f558bae2fd34c",
+   "body_lines": [
+    2811,
+    2836
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2844,
+   "kind": "function",
+   "name": "fundFromVault",
+   "signature": "function fundFromVault(uint256 amount) external payable onlyVault",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [
+    "onlyVault"
+   ],
+   "body_sha1": "57684c3e669fdcd98f31ebb09b893f0a38a04941",
+   "body_lines": [
+    2844,
+    2846
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2850,
+   "kind": "function",
+   "name": "withdrawPlvTo",
+   "signature": "function withdrawPlvTo(uint256 amount, address to) external onlyVault notNested nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyVault",
+    "notNested",
+    "nonReentrant"
+   ],
+   "body_sha1": "9ec87c2e056fb565fac8460c7cd2f1e19bfc3b54",
+   "body_lines": [
+    2850,
+    2853
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2857,
+   "kind": "function",
+   "name": "_vaultPaid",
+   "signature": "function _vaultPaid(uint256 amount, address to) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "a1c5afa6cb86ab97b34ea6737aec09c3446080d4",
+   "body_lines": [
+    2857,
+    2859
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2862,
+   "kind": "function",
+   "name": "withdrawTokYieldTo",
+   "signature": "function withdrawTokYieldTo(uint256 amount, address to) external onlyVault notNested nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyVault",
+    "notNested",
+    "nonReentrant"
+   ],
+   "body_sha1": "8a0e46d1a09fb203a88c3952461a7120e649a8e9",
+   "body_lines": [
+    2862,
+    2865
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2867,
+   "kind": "function",
+   "name": "fundTokenFromVault",
+   "signature": "function fundTokenFromVault(uint256 amount) external onlyVault",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyVault"
+   ],
+   "body_sha1": "12ffa1f6fad7dd268e221d0c612125ec2c1231e8",
+   "body_lines": [
+    2867,
+    2869
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2872,
+   "kind": "function",
+   "name": "withdrawPlvTokenTo",
+   "signature": "function withdrawPlvTokenTo(uint256 amount, address to) external onlyVault notNested nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyVault",
+    "notNested",
+    "nonReentrant"
+   ],
+   "body_sha1": "9a8496fd7a0d71156bd7891189ee120bce34a0b2",
+   "body_lines": [
+    2872,
+    2877
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2879,
+   "kind": "function",
+   "name": "setFees",
+   "signature": "function setFees(uint256 _openBps, uint256 _ogDiscBps, uint256 _liqBps, uint256 _divShareBps, uint256 _keeperBps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "7073fe70980045026c1499774c32be690f6791ad",
+   "body_lines": [
+    2879,
+    2882
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2883,
+   "kind": "function",
+   "name": "setRisk",
+   "signature": "function setRisk(uint256 _warmup, uint256 _ceiling, uint256 _maintBps, uint256 _maxNotBps, uint256 _maxOiBps, uint256 _fundingBpsDay) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "3b53ecbb660f7ce15f8f661783e25bad2ee8a58d",
+   "body_lines": [
+    2883,
+    2908
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2920,
+   "kind": "function",
+   "name": "setTiers",
+   "signature": "function setTiers(uint256[] calldata depths, uint8[] calldata levs) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "ada356e95e297d05ab39f38e3aa26ee99f74ec83",
+   "body_lines": [
+    2920,
+    2927
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2942,
+   "kind": "function",
+   "name": "setRouting",
+   "signature": "function setRouting( address _dividend, address _treasury, address _nftBeneficiary, address _markSource, address _quoteOracle ) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "a2a060e7b9be2ee29edb61ea57420f9aa637ef15",
+   "body_lines": [
+    2951,
+    2957
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2961,
+   "kind": "function",
+   "name": "setVaultSplit",
+   "signature": "function setVaultSplit(uint256 _yieldBps, uint256 _insBps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "90425ad9be223ee319416d5ab0182660389a393c",
+   "body_lines": [
+    2961,
+    2964
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 2966,
+   "kind": "function",
+   "name": "setGuards",
+   "signature": "function setGuards(uint32 _twapWindow, uint256 _maxLiqBps, uint256 _maxFundingBps) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "c4d86401799f044404e39e3d08b180e2fe01e91b",
+   "body_lines": [
+    2966,
+    2969
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3000,
+   "kind": "function",
+   "name": "setVault",
+   "signature": "function setVault(address _vault) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "f474afbff9a40aadf20742582c7995d853a7f971",
+   "body_lines": [
+    3000,
+    3003
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3006,
+   "kind": "function",
+   "name": "setVaultLimits",
+   "signature": "function setVaultLimits(uint256 _maxUtilBps, uint256 _insuranceFloor) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "b20bbc0c3da559c5233892d9eb6bb8f90ee767b6",
+   "body_lines": [
+    3006,
+    3009
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3011,
+   "kind": "function",
+   "name": "setMinCollateral",
+   "signature": "function setMinCollateral(uint256 _minCollateral) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "eef8ace98716c1a7238161321f2f7d246cb06366",
+   "body_lines": [
+    3011,
+    3014
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3027,
+   "kind": "function",
+   "name": "skimInsurance",
+   "signature": "function skimInsurance(uint256 amount, address to) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "3b375c61f57684267f099768dc07c7b173a8708f",
+   "body_lines": [
+    3027,
+    3032
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3043,
+   "kind": "function",
+   "name": "positionHealth",
+   "signature": "function positionHealth(uint256 id) external view returns ( bool isLong, uint256 markValueEth, uint256 debtOrBackingEth, bool liquidatable )",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "813d1d741306b88c7e92d58ee229e2ac7c0d91e9",
+   "body_lines": [
+    3045,
+    3052
+   ]
+  },
+  {
+   "contract": "PerpEngine",
+   "file": "cauldron/PerpEngine.sol",
+   "line": 3054,
+   "kind": "receive",
+   "name": "",
+   "signature": "receive() external payable",
+   "visibility": "",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "body_lines": [
+    3054,
+    3054
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 99,
+   "kind": "function",
+   "name": "renounceOwnership",
+   "signature": "function renounceOwnership() public pure override",
+   "visibility": "public",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "3811e82976dafcadd631a6a38b558f29702a2f65",
+   "body_lines": [
+    99,
+    101
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 108,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(IPoolManager _poolManager, address _owner) Ownable(_owner)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "Ownable(_owner)"
+   ],
+   "body_sha1": "7bf8814a77ded7cc6f2856ad4c7e701603e5760d",
+   "body_lines": [
+    108,
+    110
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 115,
+   "kind": "function",
+   "name": "setPrimary",
+   "signature": "function setPrimary(PoolKey calldata key) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "90b8ac33bbb2953646fcbd8e869ea79eb4247bc6",
+   "body_lines": [
+    115,
+    120
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 126,
+   "kind": "function",
+   "name": "addPool",
+   "signature": "function addPool(PoolKey calldata key) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "82a2dd8bbc40e51e2362270847e7a7cdcdecf1e2",
+   "body_lines": [
+    126,
+    142
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 147,
+   "kind": "function",
+   "name": "removePool",
+   "signature": "function removePool(PoolKey calldata key) external onlyOwner",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "body_sha1": "6a090c73613a7f554734428376d1ec3bd7e126d4",
+   "body_lines": [
+    147,
+    159
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 161,
+   "kind": "function",
+   "name": "poolCount",
+   "signature": "function poolCount() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "e1043801a091334f1dd1a66fb4251c8b1a1ece46",
+   "body_lines": [
+    161,
+    161
+   ]
+  },
+  {
+   "contract": "PerpMarkSource",
+   "file": "cauldron/PerpMarkSource.sol",
+   "line": 173,
+   "kind": "function",
+   "name": "weightedTick",
+   "signature": "function weightedTick() external view returns (int24 tick)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "1f7e60370ab3867bd073192343c34e7f5a783531",
+   "body_lines": [
+    173,
+    211
+   ]
+  },
+  {
+   "contract": "IPerpShares (declared in PerpStakerOracle.sol)",
+   "file": "cauldron/PerpStakerOracle.sol",
+   "line": 8,
+   "kind": "function",
+   "name": "ethShareOf",
+   "signature": "function ethShareOf(address who) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpShares (declared in PerpStakerOracle.sol)",
+   "file": "cauldron/PerpStakerOracle.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "tokShareOf",
+   "signature": "function tokShareOf(address who) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "PerpStakerOracle",
+   "file": "cauldron/PerpStakerOracle.sol",
+   "line": 24,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _perpVault)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2f77475d4171ae6a91a118463b704c21f6e5aab0",
+   "body_lines": [
+    24,
+    26
+   ]
+  },
+  {
+   "contract": "PerpStakerOracle",
+   "file": "cauldron/PerpStakerOracle.sol",
+   "line": 29,
+   "kind": "function",
+   "name": "isInstant",
+   "signature": "function isInstant(address who) external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5258f3757d9577166f3ad17b3702a595aa79dbb4",
+   "body_lines": [
+    29,
+    31
+   ]
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 33,
+   "kind": "function",
+   "name": "quote",
+   "signature": "function quote() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 34,
+   "kind": "function",
+   "name": "vault",
+   "signature": "function vault() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 35,
+   "kind": "function",
+   "name": "registry",
+   "signature": "function registry() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 36,
+   "kind": "function",
+   "name": "syncedGeneration",
+   "signature": "function syncedGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 37,
+   "kind": "function",
+   "name": "payoutOwedTotal",
+   "signature": "function payoutOwedTotal() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 38,
+   "kind": "function",
+   "name": "owner",
+   "signature": "function owner() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 39,
+   "kind": "function",
+   "name": "treasury",
+   "signature": "function treasury() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteEngine (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 40,
+   "kind": "function",
+   "name": "poke",
+   "signature": "function poke() external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IVaultQuoteStake (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 44,
+   "kind": "function",
+   "name": "hasQuoteStake",
+   "signature": "function hasQuoteStake() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRegistry (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 48,
+   "kind": "function",
+   "name": "currentGeneration",
+   "signature": "function currentGeneration() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRegistry (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 49,
+   "kind": "function",
+   "name": "generationQuote",
+   "signature": "function generationQuote(uint256 gen) external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRotator (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 54,
+   "kind": "function",
+   "name": "quoteOracle",
+   "signature": "function quoteOracle() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRotator (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 55,
+   "kind": "function",
+   "name": "venueFor",
+   "signature": "function venueFor(address a, address b) external view returns (PoolKey memory route, bool ok)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRotator (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 56,
+   "kind": "function",
+   "name": "swapOnce",
+   "signature": "function swapOnce(PoolKey calldata route, address from, address to, uint256 amountIn, uint256 minOut) external returns (uint256 out)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IRequoteRotator (declared in PerpSwapLib.sol)",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 59,
+   "kind": "function",
+   "name": "withdraw",
+   "signature": "function withdraw(address asset, address to, uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 119,
+   "kind": "function",
+   "name": "unitOf",
+   "signature": "function unitOf(address q) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "7ec83e14043ec7798190a513ece255b1a642ec0f",
+   "body_lines": [
+    119,
+    121
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 123,
+   "kind": "function",
+   "name": "_unitOf",
+   "signature": "function _unitOf(address q) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "411fa1943eef1c01590281919237b414e7eb808d",
+   "body_lines": [
+    123,
+    129
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 156,
+   "kind": "function",
+   "name": "quoteFactor",
+   "signature": "function quoteFactor(address oracle, address q) external view returns (uint256 f)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "48879a172f8c5ce19a08e4ea7831bcfb3767f8ba",
+   "body_lines": [
+    156,
+    158
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 160,
+   "kind": "function",
+   "name": "_quoteFactor",
+   "signature": "function _quoteFactor(address oracle, address q) private view returns (uint256 f)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "5f823b4cbb85d2fccfb23dc4a08311edbe03bd8f",
+   "body_lines": [
+    160,
+    173
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 175,
+   "kind": "function",
+   "name": "_usdPerRawUnit",
+   "signature": "function _usdPerRawUnit(address oracle, address q) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "4c3144962c47f3fda362dcac8b75e2b2cb3b9565",
+   "body_lines": [
+    175,
+    180
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 227,
+   "kind": "function",
+   "name": "projectedSqrtPriceX96",
+   "signature": "function projectedSqrtPriceX96( uint160 sqrtP, uint256 reserveIn, uint256 reserveOut, int256 amountSpecified, bool isBuy, uint160 limit ) external pure returns (uint160)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "a9426fa904f1a429365d881fa364a3ee198546e8",
+   "body_lines": [
+    234,
+    324
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 334,
+   "kind": "function",
+   "name": "twapTick",
+   "signature": "function twapTick( Observation[OBS_CARDINALITY] storage observations, Ring storage r, uint32 twapWindow ) external view returns (int24 tick, bool ok)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "293e83226d30a02adca4782884d67325e0fff1ad",
+   "body_lines": [
+    338,
+    379
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 390,
+   "kind": "function",
+   "name": "writeObs",
+   "signature": "function writeObs( Observation[OBS_CARDINALITY] storage observations, Ring storage r, uint32 obsInterval, int24 currentTick ) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "971c12af8128bc9e2372fd4ba1aa3fd591186ec3",
+   "body_lines": [
+    395,
+    410
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 419,
+   "kind": "function",
+   "name": "sqrtPriceAtTick",
+   "signature": "function sqrtPriceAtTick(int24 t) external pure returns (uint160)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "b1b9b22c99638aa54d15b9b3399818e87fc5f185",
+   "body_lines": [
+    419,
+    421
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 437,
+   "kind": "function",
+   "name": "tryMintBadge",
+   "signature": "function tryMintBadge(address col, address to, LiqStats memory st) external returns (bool ok)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "8dcbcfb28f51d48a7e0264f0d2fd3d32e40681f2",
+   "body_lines": [
+    437,
+    450
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 458,
+   "kind": "function",
+   "name": "quoteAt",
+   "signature": "function quoteAt(uint256 size, uint256 sp) external pure returns (uint256)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ab80e9dd21ffe7f2859c4faf04e66ffad378b77a",
+   "body_lines": [
+    458,
+    460
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 463,
+   "kind": "function",
+   "name": "ethToToken",
+   "signature": "function ethToToken(uint256 eth, uint256 sp) external pure returns (uint256)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "e2ac063b604a7fa63e5c8f758d9859d500c36c2f",
+   "body_lines": [
+    463,
+    465
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 469,
+   "kind": "function",
+   "name": "ethDepth",
+   "signature": "function ethDepth(uint128 L, uint160 sp) external pure returns (uint256)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "f9079a8275b77ec3570afa0d660acf26cd7241d8",
+   "body_lines": [
+    469,
+    473
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 490,
+   "kind": "function",
+   "name": "tryTransferFrom",
+   "signature": "function tryTransferFrom(address token, address from, uint256 amount) external returns (bool)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "82019972ab22add0455c0d5a79e9d997636a9ae0",
+   "body_lines": [
+    490,
+    495
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 498,
+   "kind": "function",
+   "name": "tryTransfer",
+   "signature": "function tryTransfer(address token, address to, uint256 amount) external returns (bool)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9549e26d0284985926a02f72ab5b1d0b7988264f",
+   "body_lines": [
+    498,
+    503
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 532,
+   "kind": "function",
+   "name": "swapLeg",
+   "signature": "function swapLeg( IPoolManager poolManager, PoolKey memory key, Req memory r, bool quoteIsCurrency0, bytes memory hookData ) external returns (uint256 spent, uint256 got)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "94ca1160f6ef9781f285dfa7eeecad2b2f01e853",
+   "body_lines": [
+    538,
+    585
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 589,
+   "kind": "function",
+   "name": "_settle",
+   "signature": "function _settle(IPoolManager poolManager, Currency c, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "df764c4714b0b2c47928a5de9db680c762e62c34",
+   "body_lines": [
+    589,
+    605
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 627,
+   "kind": "function",
+   "name": "migrateInventory",
+   "signature": "function migrateInventory(address registry, address oldToken, uint256 fromGen) external returns (uint256 migratedIn)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e8e5a70b5d03f7ee55b76b2e199b8c34645da31f",
+   "body_lines": [
+    630,
+    654
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 676,
+   "kind": "function",
+   "name": "spendLimit",
+   "signature": "function spendLimit(uint160 sp, uint128 L, uint256 budget, bool down) external pure returns (uint160)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "a13caddf5f47cc74f7042cd52e1d2a1e5ed73799",
+   "body_lines": [
+    680,
+    682
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 722,
+   "kind": "function",
+   "name": "bandLimit",
+   "signature": "function bandLimit(uint160 mark, uint160 sp, bool buy, bool quoteIsCurrency0) external pure returns (uint160)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "289973615bef39bf80100c2e6947ca091e539b05",
+   "body_lines": [
+    726,
+    728
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 744,
+   "kind": "function",
+   "name": "closeLimit",
+   "signature": "function closeLimit(uint160 sp, uint128 L, uint256 budget, bool down, uint160 band) external pure returns (uint160)",
+   "visibility": "external",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "48acb2072ef0372eae49630dc1358e3ae9d19e45",
+   "body_lines": [
+    748,
+    751
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 753,
+   "kind": "function",
+   "name": "_band",
+   "signature": "function _band(uint160 mark, uint160 sp, bool buy) private pure returns (uint160)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "33814c993fcf5f59ebff988be70098371102f0c9",
+   "body_lines": [
+    753,
+    764
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 766,
+   "kind": "function",
+   "name": "_spend",
+   "signature": "function _spend(uint160 sp, uint128 L, uint256 budget, bool down) private pure returns (uint160)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "d677bdb1da833941d56d17903508f2df6d24a85d",
+   "body_lines": [
+    770,
+    781
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 854,
+   "kind": "function",
+   "name": "_requoteBook",
+   "signature": "function _requoteBook( mapping(uint256 => Position) storage positions, uint256[] storage openIds, Observation[OBS_CARDINALITY] storage observations, Ring storage ring, address rot, uint256 slots ) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9ef65191772d6e44135390ffa9cfed81d014f69f",
+   "body_lines": [
+    861,
+    905
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 911,
+   "kind": "function",
+   "name": "_factors",
+   "signature": "function _factors(address rot, address oq, address nq) private view returns (uint256 fOld, uint256 fNew)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "774e9c7e0635f3083f711c45af65c607a3f94ffd",
+   "body_lines": [
+    911,
+    915
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 921,
+   "kind": "function",
+   "name": "_restatePots",
+   "signature": "function _restatePots(uint256 slots, uint256 got, uint256 spent, uint256 shortsNew, uint256 fOld, uint256 fNew) private returns (uint256 newPlv, uint256 kNum, uint256 kDen)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b2cd066bce26a56fb070192a0aa1bd5bec524a1c",
+   "body_lines": [
+    924,
+    940
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 968,
+   "kind": "function",
+   "name": "syncQuoteChangeAt",
+   "signature": "function syncQuoteChangeAt(uint256 slots) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "3613c20428fc7efeff5378f75575fd5617ea5df7",
+   "body_lines": [
+    968,
+    1006
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1009,
+   "kind": "function",
+   "name": "_carryEmpty",
+   "signature": "function _carryEmpty(address rot, address oq, address nq, uint256 slots, address vault) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "d704574ee2c1d4d0147f1810cdc21ff5c40d5fd5",
+   "body_lines": [
+    1009,
+    1022
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1025,
+   "kind": "function",
+   "name": "_ldAddr",
+   "signature": "function _ldAddr(uint256 slots, uint256 at) private view returns (address a)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "e94ebe4aa4828fd7d5d46459f07b0a7ae3c2fd0e",
+   "body_lines": [
+    1025,
+    1029
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1032,
+   "kind": "function",
+   "name": "requoteBookAt",
+   "signature": "function requoteBookAt(address rot, uint256 slots, uint256 refs) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "f7ea3513d86bf6f7a376a341fa534ab2f34ef39c",
+   "body_lines": [
+    1032,
+    1037
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1039,
+   "kind": "function",
+   "name": "_posAt",
+   "signature": "function _posAt(uint256 s) private pure returns (mapping(uint256 => Position) storage m)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "e56097c280045abcb39a85196a11b7f5b62b5aa5",
+   "body_lines": [
+    1039,
+    1041
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1042,
+   "kind": "function",
+   "name": "_idsAt",
+   "signature": "function _idsAt(uint256 s) private pure returns (uint256[] storage a)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "ba1fd548956d04de3160dcbe43140aa9e5ee4254",
+   "body_lines": [
+    1042,
+    1044
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1045,
+   "kind": "function",
+   "name": "_obsAt",
+   "signature": "function _obsAt(uint256 s) private pure returns (Observation[OBS_CARDINALITY] storage o)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "84aef2e71bbeb33d0ee3b5d9383a46342ccd6cc4",
+   "body_lines": [
+    1045,
+    1047
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1048,
+   "kind": "function",
+   "name": "_ringAt",
+   "signature": "function _ringAt(uint256 s) private pure returns (Ring storage r)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "d4d264d70afa11c81e7c29f065334db4f64764f2",
+   "body_lines": [
+    1048,
+    1050
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1053,
+   "kind": "function",
+   "name": "_slot",
+   "signature": "function _slot(uint256 slots, uint256 i) private pure returns (uint256)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "fecf8e39b8dcd5360bd3d61118fe3e7fcee5c67d",
+   "body_lines": [
+    1053,
+    1055
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1057,
+   "kind": "function",
+   "name": "_ld",
+   "signature": "function _ld(uint256 slots, uint256 i) private view returns (uint256 v)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "a5088c5fc6a7e89345255e74ca7707cb726bfd66",
+   "body_lines": [
+    1057,
+    1060
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1062,
+   "kind": "function",
+   "name": "_st",
+   "signature": "function _st(uint256 slots, uint256 i, uint256 v) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "79502409ba8ec721d1869dd81a43aa17d8502db0",
+   "body_lines": [
+    1062,
+    1065
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1069,
+   "kind": "function",
+   "name": "_stAddr",
+   "signature": "function _stAddr(uint256 slots, uint256 at, address a) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4fa242394b33507ffb229e19c84e0a07d5190239",
+   "body_lines": [
+    1069,
+    1076
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1080,
+   "kind": "function",
+   "name": "_factorStrict",
+   "signature": "function _factorStrict(address oracle, address q) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "58f04b1c0288a1b3a6c2f96b50c82765460eeb2b",
+   "body_lines": [
+    1080,
+    1087
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1091,
+   "kind": "function",
+   "name": "_shortBacking",
+   "signature": "function _shortBacking(mapping(uint256 => Position) storage positions, uint256[] storage openIds) private view returns (uint256 backing)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "1d74797346fd887f4c5c8a21bb1d7ef92cbfeef2",
+   "body_lines": [
+    1095,
+    1101
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1106,
+   "kind": "function",
+   "name": "_convert",
+   "signature": "function _convert(address rot, address oq, address nq, uint256 spent) private returns (uint256 got)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "caba0bca13aa8eccb5568b4c86684dde6e15848a",
+   "body_lines": [
+    1106,
+    1123
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1125,
+   "kind": "function",
+   "name": "_held",
+   "signature": "function _held(address asset) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "f57b621ffd3e3bef07d74d33057c77936ba20efe",
+   "body_lines": [
+    1125,
+    1127
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1131,
+   "kind": "function",
+   "name": "_restatePositions",
+   "signature": "function _restatePositions( mapping(uint256 => Position) storage positions, uint256[] storage openIds, uint256 fOld, uint256 fNew, uint256 got, uint256 spent ) private returns (uint256 longOi, uint256 shortsNew)",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "366eef5fa6afe4fc8b0578cd1f0811c14691718c",
+   "body_lines": [
+    1138,
+    1157
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1172,
+   "kind": "function",
+   "name": "_shiftRing",
+   "signature": "function _shiftRing(Observation[OBS_CARDINALITY] storage obs, Ring storage r, uint256 fOld, uint256 fNew) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9f6b80b95e646b8ab9598474ae619bcd179e561b",
+   "body_lines": [
+    1174,
+    1188
+   ]
+  },
+  {
+   "contract": "PerpSwapLib",
+   "file": "cauldron/PerpSwapLib.sol",
+   "line": 1193,
+   "kind": "function",
+   "name": "_vaultHook",
+   "signature": "function _vaultHook(address vault, bytes memory data) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "591cc16ef860a59f47e5860bc151b0456be60c95",
+   "body_lines": [
+    1193,
+    1197
+   ]
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 9,
+   "kind": "function",
+   "name": "fundFromVault",
+   "signature": "function fundFromVault(uint256 amount) external payable",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 10,
+   "kind": "function",
+   "name": "quote",
+   "signature": "function quote() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 11,
+   "kind": "function",
+   "name": "withdrawPlvTo",
+   "signature": "function withdrawPlvTo(uint256 amount, address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 12,
+   "kind": "function",
+   "name": "fundTokenFromVault",
+   "signature": "function fundTokenFromVault(uint256 amount) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 13,
+   "kind": "function",
+   "name": "withdrawPlvTokenTo",
+   "signature": "function withdrawPlvTokenTo(uint256 amount, address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 14,
+   "kind": "function",
+   "name": "totalEth",
+   "signature": "function totalEth() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 15,
+   "kind": "function",
+   "name": "freeEth",
+   "signature": "function freeEth() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 16,
+   "kind": "function",
+   "name": "totalTokenAssets",
+   "signature": "function totalTokenAssets() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 17,
+   "kind": "function",
+   "name": "freeToken",
+   "signature": "function freeToken() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 19,
+   "kind": "function",
+   "name": "tokYieldCumulative",
+   "signature": "function tokYieldCumulative() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 22,
+   "kind": "function",
+   "name": "tokYieldEth",
+   "signature": "function tokYieldEth() external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IPerpEngineVault (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 23,
+   "kind": "function",
+   "name": "withdrawTokYieldTo",
+   "signature": "function withdrawTokYieldTo(uint256 amount, address to) external",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "IVaultRegistry (declared in PerpVault.sol)",
+   "file": "cauldron/PerpVault.sol",
+   "line": 27,
+   "kind": "function",
+   "name": "currentToken",
+   "signature": "function currentToken() external view returns (address)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "",
+   "body_lines": []
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 237,
+   "kind": "constructor",
+   "name": "",
+   "signature": "constructor(address _engine, address _registry)",
+   "visibility": "",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "cd8bd32f959b1ee9647f5a54798527a937ea8cd4",
+   "body_lines": [
+    237,
+    242
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 263,
+   "kind": "function",
+   "name": "hasStakers",
+   "signature": "function hasStakers() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "84d430c98868d2a27232b0b865df437bf7b426db",
+   "body_lines": [
+    263,
+    265
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 286,
+   "kind": "function",
+   "name": "hasQuoteStake",
+   "signature": "function hasQuoteStake() external view returns (bool)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "880a176cec5b1754abea0e0bb159cfe31be08a23",
+   "body_lines": [
+    286,
+    288
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 292,
+   "kind": "function",
+   "name": "assetsEth",
+   "signature": "function assetsEth() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "69f7c2139fd7bf9c8a1974ceb0e665fba1a06846",
+   "body_lines": [
+    292,
+    296
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 298,
+   "kind": "function",
+   "name": "assetsTok",
+   "signature": "function assetsTok() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "deb2a5eb68a2415296df36c4e362f3c86b36fba9",
+   "body_lines": [
+    298,
+    302
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 319,
+   "kind": "function",
+   "name": "deposit",
+   "signature": "function deposit(uint256 amount) public payable nonReentrant returns (uint256 shares)",
+   "visibility": "public",
+   "mutability": "payable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "4ff01bb63804d7d325dbb5f3b939eddc0621a36b",
+   "body_lines": [
+    319,
+    358
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 362,
+   "kind": "function",
+   "name": "depositEth",
+   "signature": "function depositEth() external payable returns (uint256)",
+   "visibility": "external",
+   "mutability": "payable",
+   "modifiers": [],
+   "body_sha1": "872f64d8c912eca7b215fe2ee65944cac0fa040e",
+   "body_lines": [
+    362,
+    364
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 366,
+   "kind": "function",
+   "name": "_engineQuote",
+   "signature": "function _engineQuote() private view returns (address)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "360b20c5aa1ba5b86a9e381c5bc8fbc5be07d109",
+   "body_lines": [
+    366,
+    372
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 376,
+   "kind": "function",
+   "name": "_pull",
+   "signature": "function _pull(address token, address from, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "b11c46d33a4f5f777276fb1ecbbeb86d389dce3f",
+   "body_lines": [
+    376,
+    381
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 383,
+   "kind": "function",
+   "name": "_approve",
+   "signature": "function _approve(address token, address spender, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "6cdb6f447a5f1aeeaa4165e3bf8087afa0cbb801",
+   "body_lines": [
+    383,
+    386
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 390,
+   "kind": "function",
+   "name": "withdrawEth",
+   "signature": "function withdrawEth(uint256 shares) external nonReentrant returns (uint256 paid, uint256 queued)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "07b73f94532f8ba9ce8162a6b0cb161077e820d7",
+   "body_lines": [
+    390,
+    410
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 429,
+   "kind": "function",
+   "name": "_haircut",
+   "signature": "function _haircut(uint256 owed, uint256 backing, uint256 claims) private pure returns (uint256)",
+   "visibility": "private",
+   "mutability": "pure",
+   "modifiers": [],
+   "body_sha1": "5e88935049ff7e77f3b765ef365671ada264fc12",
+   "body_lines": [
+    433,
+    436
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 441,
+   "kind": "function",
+   "name": "pendingEth",
+   "signature": "function pendingEth() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "ff8000471344495539ce037c7c1bb85fc159243f",
+   "body_lines": [
+    441,
+    443
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 445,
+   "kind": "function",
+   "name": "pendingEthOf",
+   "signature": "function pendingEthOf(address user) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "949504d00c30f940301d263876510c0227db66c4",
+   "body_lines": [
+    445,
+    448
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 452,
+   "kind": "function",
+   "name": "_markEth",
+   "signature": "function _markEth() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9aa2ab4f367f73989236341fff7beda2ec49c553",
+   "body_lines": [
+    452,
+    452
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 460,
+   "kind": "function",
+   "name": "beforeBookRequote",
+   "signature": "function beforeBookRequote() external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "6cdc87ac4276de5503404b0fa669fa858ae32e35",
+   "body_lines": [
+    460,
+    464
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 482,
+   "kind": "function",
+   "name": "afterBookRequote",
+   "signature": "function afterBookRequote(uint256 oldTotal, uint256 newTotal, uint256 kNum, uint256 kDen) external nonReentrant",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "883c7d6b90e8c999494f0b2725cfa6270b9bffb1",
+   "body_lines": [
+    485,
+    503
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 506,
+   "kind": "function",
+   "name": "_toYieldUnit",
+   "signature": "function _toYieldUnit(uint256 v) private view returns (uint256)",
+   "visibility": "private",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "73f1341de9ce126900a3d629c3685e2b56dbbbb0",
+   "body_lines": [
+    506,
+    508
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 511,
+   "kind": "function",
+   "name": "_queueEth",
+   "signature": "function _queueEth(address user, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "2d735e6c04db473fc0b64d76d6fe8ff2ad00c40f",
+   "body_lines": [
+    511,
+    516
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 520,
+   "kind": "function",
+   "name": "_dropEthUnits",
+   "signature": "function _dropEthUnits(address user) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "1b7a9b0f1476c02bcd1b981d6abfcb126584f250",
+   "body_lines": [
+    520,
+    525
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 567,
+   "kind": "function",
+   "name": "_syncEthQueue",
+   "signature": "function _syncEthQueue() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "ab5b3691e3f50a90ef030a5e98b9dd87a4344175",
+   "body_lines": [
+    567,
+    598
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 616,
+   "kind": "function",
+   "name": "settlePendingEth",
+   "signature": "function settlePendingEth(address user) external nonReentrant returns (uint256 stillOwed)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "95ffb5af22c52c34bad7637fec7485df4c56a285",
+   "body_lines": [
+    616,
+    620
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 628,
+   "kind": "function",
+   "name": "claimPendingEth",
+   "signature": "function claimPendingEth() external nonReentrant returns (uint256 paid)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "9329e1595a93d39c528076957e36b7e57384ca63",
+   "body_lines": [
+    628,
+    648
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 671,
+   "kind": "function",
+   "name": "_syncTokYield",
+   "signature": "function _syncTokYield() internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "e87747adcdadad19fdcbf9d1bc16a85206b43888",
+   "body_lines": [
+    671,
+    721
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 724,
+   "kind": "function",
+   "name": "_settleTok",
+   "signature": "function _settleTok(address user) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "01a50de626ea42f75756ee00f355278226fafec3",
+   "body_lines": [
+    724,
+    738
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 740,
+   "kind": "function",
+   "name": "_resetTokDebt",
+   "signature": "function _resetTokDebt(address user) internal",
+   "visibility": "internal",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "7cea3d37a057bc3c025084b5c918ab027e183501",
+   "body_lines": [
+    740,
+    742
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 748,
+   "kind": "function",
+   "name": "depositToken",
+   "signature": "function depositToken(uint256 amount) external nonReentrant returns (uint256 shares)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "176cdc87d3ed859df44bcf2bd9f28aee1f64cfb1",
+   "body_lines": [
+    748,
+    772
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 776,
+   "kind": "function",
+   "name": "claimTokYield",
+   "signature": "function claimTokYield() external nonReentrant returns (uint256 paid)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "aeb6b4aa272fab97641d31ddb3cae85a52f2f63f",
+   "body_lines": [
+    776,
+    784
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 788,
+   "kind": "function",
+   "name": "withdrawToken",
+   "signature": "function withdrawToken(uint256 shares) external nonReentrant returns (uint256 paid, uint256 queued)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "623be1795c8a259d33bd4b5d0475ef382ab40ed1",
+   "body_lines": [
+    788,
+    805
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 808,
+   "kind": "function",
+   "name": "pendingTok",
+   "signature": "function pendingTok() public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "b7c15f28c3aa84a716664c5dd54a0a773a9c6c17",
+   "body_lines": [
+    808,
+    810
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 812,
+   "kind": "function",
+   "name": "pendingTokOf",
+   "signature": "function pendingTokOf(address user) public view returns (uint256)",
+   "visibility": "public",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "10881066a9f8047d3afe52e00f0bd96bbadaa06f",
+   "body_lines": [
+    812,
+    815
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 818,
+   "kind": "function",
+   "name": "_queueTok",
+   "signature": "function _queueTok(address user, uint256 amount) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "30a49bf96bdad15f3a779b484222186348c748e8",
+   "body_lines": [
+    818,
+    823
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 826,
+   "kind": "function",
+   "name": "_dropTokUnits",
+   "signature": "function _dropTokUnits(address user) private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "9f8893bfc3271d4433d1cac382bf983a0802d575",
+   "body_lines": [
+    826,
+    831
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 835,
+   "kind": "function",
+   "name": "_syncTokQueue",
+   "signature": "function _syncTokQueue() private",
+   "visibility": "private",
+   "mutability": "nonpayable",
+   "modifiers": [],
+   "body_sha1": "4cb2deb6f102b8f2ea9e95d3e11f00d8e46a340e",
+   "body_lines": [
+    835,
+    852
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 855,
+   "kind": "function",
+   "name": "settlePendingToken",
+   "signature": "function settlePendingToken(address user) external nonReentrant returns (uint256 stillOwed)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "31fd90d756428fd8e696c44b884451df0261bb86",
+   "body_lines": [
+    855,
+    859
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 870,
+   "kind": "function",
+   "name": "claimPendingToken",
+   "signature": "function claimPendingToken() external nonReentrant returns (uint256 paid)",
+   "visibility": "external",
+   "mutability": "nonpayable",
+   "modifiers": [
+    "nonReentrant"
+   ],
+   "body_sha1": "588372877590cc4eb9bb7942896c85d0bec05ef6",
+   "body_lines": [
+    870,
+    889
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 895,
+   "kind": "function",
+   "name": "ethPosition",
+   "signature": "function ethPosition(address user) external view returns (uint256 redeemable, uint256 instant, uint256 pending)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "0837282fe59c889040f7557f17a95d0c150181d1",
+   "body_lines": [
+    895,
+    901
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 903,
+   "kind": "function",
+   "name": "tokenPosition",
+   "signature": "function tokenPosition(address user) external view returns (uint256 redeemable, uint256 instant, uint256 pending)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "d828c2373cc69eb9ff92fc0433c12b1025d23790",
+   "body_lines": [
+    903,
+    909
+   ]
+  },
+  {
+   "contract": "PerpVault",
+   "file": "cauldron/PerpVault.sol",
+   "line": 912,
+   "kind": "function",
+   "name": "pendingTokYield",
+   "signature": "function pendingTokYield(address user) external view returns (uint256)",
+   "visibility": "external",
+   "mutability": "view",
+   "modifiers": [],
+   "body_sha1": "8382e391c1b5e71558bc7f59c17ad3c3eee3cce4",
+   "body_lines": [
+    912,
+    955
+   ]
+  }
+ ]
+}

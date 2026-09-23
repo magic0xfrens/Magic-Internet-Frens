@@ -1,0 +1,499 @@
+[
+  {
+    "contract": "CauldronHook",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "ICollectionLiquidator",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ILegacyNote",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpEngineLiq",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpFeeCredit",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpForceClose",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpOpenCount",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IQuoteOracle",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IRegistryQuotes",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ISeederInSwap",
+    "file": "CauldronHook.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "CauldronRegistry",
+    "file": "CauldronRegistry.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "ICollectionMetadata",
+    "file": "CauldronRegistry.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "CauldronVault",
+    "file": "cauldron/CauldronVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IBurnableCollection",
+    "file": "cauldron/CauldronVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ILegacyFloorHook",
+    "file": "cauldron/CauldronVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "CollectionLedger",
+    "file": "cauldron/CollectionLedger.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [
+      "event EntitlementReleased(uint256,uint256)|i,-"
+    ],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "GachaLib",
+    "file": "cauldron/GachaLib.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IMiFrensShares",
+    "file": "cauldron/MiFrensDividend.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IReserveRegistry",
+    "file": "cauldron/MiFrensDividend.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "MiFrensDividend",
+    "file": "cauldron/MiFrensDividend.sol",
+    "selectors_added": [
+      "pushTokenIsolated(address,address,uint256)"
+    ],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IStakerOracle",
+    "file": "cauldron/MigrationVesting.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IVestingRegistry",
+    "file": "cauldron/MigrationVesting.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "MigrationVesting",
+    "file": "cauldron/MigrationVesting.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IMarkSource",
+    "file": "cauldron/PerpEngine.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpHook",
+    "file": "cauldron/PerpEngine.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpRegistry",
+    "file": "cauldron/PerpEngine.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPerpVaultStake",
+    "file": "cauldron/PerpEngine.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "PerpEngine",
+    "file": "cauldron/PerpEngine.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IPerpEngineVault",
+    "file": "cauldron/PerpVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IVaultRegistry",
+    "file": "cauldron/PerpVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "PerpVault",
+    "file": "cauldron/PerpVault.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": false,
+    "storage_baseline_len": 24,
+    "storage_current_len": 25,
+    "storage_first_difference": [
+      [],
+      [
+        [
+          "_settledTokYield",
+          "24",
+          0,
+          "uint256"
+        ]
+      ]
+    ]
+  },
+  {
+    "contract": "IAutoFlag",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ICauldronBurn",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IColMinted",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ICollectionOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IHookReserves",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ILedgerOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ILegacyHookOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPermit2Ops",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IPositionManagerOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IVaultCloseOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IVaultRedeemedOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "PoolOps",
+    "file": "cauldron/PoolOps.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IAggregatorV3",
+    "file": "cauldron/QuoteOracle.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IERC20Decimals",
+    "file": "cauldron/QuoteOracle.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "QuoteOracle",
+    "file": "cauldron/QuoteOracle.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IHookVolume",
+    "file": "cauldron/RedemptionExt.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IQuoteRotator",
+    "file": "cauldron/RedemptionExt.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "ITreasuryGovernor",
+    "file": "cauldron/RedemptionExt.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "RedemptionExt",
+    "file": "cauldron/RedemptionExt.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [
+      "event LegHandedOff(uint256,address,uint256,address)|i,i,-,-"
+    ],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "SurtaxLib",
+    "file": "cauldron/SurtaxLib.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "DeployCauldron",
+    "file": "deploy/DeployCauldron.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "DeployLaunchpad",
+    "file": "deploy/DeployLaunchpad.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IOwnable",
+    "file": "deploy/DeployLaunchpad.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "DeployRotationStack",
+    "file": "deploy/DeployRotationStack.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  },
+  {
+    "contract": "IPermit2Approve",
+    "file": "deploy/DeployRotationStack.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "IRegistryAdmin",
+    "file": "deploy/DeployRotationStack.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": []
+  },
+  {
+    "contract": "VenueSeeder",
+    "file": "deploy/DeployRotationStack.s.sol",
+    "selectors_added": [],
+    "selectors_removed": [],
+    "events_errors_added": [],
+    "events_errors_removed": [],
+    "storage_identical": true
+  }
+]

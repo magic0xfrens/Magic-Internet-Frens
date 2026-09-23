@@ -19,7 +19,7 @@ import {CauldronRegistry} from "../CauldronRegistry.sol";
 import {CauldronToken} from "../CauldronToken.sol";
 import {CauldronFactory} from "../cauldron/CauldronFactory.sol";
 import {RedemptionExt} from "../cauldron/RedemptionExt.sol";
-import {ICauldronGovernor, BrewSpec, MetadataMode} from "../cauldron/ICauldron.sol";
+import {ICauldronGovernor, BrewSpec, MetadataMode, ICauldronCollection} from "../cauldron/ICauldron.sol";
 import {CollectionLedger} from "../cauldron/CollectionLedger.sol";
 import {IPositionManagerOps} from "../cauldron/PoolOps.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -667,9 +667,18 @@ contract CauldronSummonForkTest is Test {
         assertTrue(ok, "topped vault");
         vm.warp(vm.getBlockTimestamp() + 1 days + 1); // wall-clock death window (audit Z-05)
         uint256 entitledBefore = ledger.entitledTokens(1);
+        uint256 artAtDeath = ICauldronCollection(registry.generationCollection(1)).totalMinted();
         registry.relaunch();
         assertTrue(ledger.crystallized(1), "gen-1 crystallized");
-        assertGe(ledger.entitledTokens(1), entitledBefore, "crystallize never reduces the entitlement");
+        //  FS-ledger-01: crystallize never reduces an entitlement SOMEONE CAN
+        //  CLAIM. With no art minted there is no claimant at all, so the credit
+        //  can never be paid; it is released (EntitlementReleased) instead of
+        //  staying booked against the reserve forever. Both halves are exact.
+        if (artAtDeath == 0) {
+            assertEq(ledger.entitledTokens(1), 0, "dead-end entitlement released, not stranded");
+        } else {
+            assertGe(ledger.entitledTokens(1), entitledBefore, "crystallize never reduces a claimable entitlement");
+        }
     }
 
     /// @dev Minimal tax-exempt buy of gen-1 through the live PoolManager. Returns

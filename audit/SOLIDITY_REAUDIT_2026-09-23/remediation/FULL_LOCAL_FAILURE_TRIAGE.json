@@ -1,0 +1,243 @@
+{
+  "run": "candidate-cauldron-full-local",
+  "terminal_totals": "Ran 356 test suites in 288.58s (571.18s CPU time): 1079 tests passed, 45 failed, 276 skipped (1400 total tests)",
+  "classification_counts": {
+    "unavailable-fork": 39,
+    "mock-missing-totalMinted": 2,
+    "conditional-mint-failure-lead": 1,
+    "confirmed-Low-art-buffer": 1,
+    "confirmed-Low-treasury": 2
+  },
+  "failures": [
+    {
+      "suite": "test/attacks/CHURN1_LiveRevert.t.sol:CHURN1_LiveRevert",
+      "failure": "[FAIL: CHURN1_LiveRevert: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/D04_RebookErasesFundingAndPenalty.t.sol:D04_RebookErasesFundingAndPenalty",
+      "failure": "[FAIL: fork must be live for this regression] test_D04_RebookedPositionStillOwesFundingAndPenalty() (gas: 6868)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/E1B_LiqDrainScale.t.sol:E1B_LiqDrainScale",
+      "failure": "[FAIL: fork must be live for this regression] test_scale_push_1eth() (gas: 6376)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/E1B_LiqDrainScale.t.sol:E1B_LiqDrainScale",
+      "failure": "[FAIL: fork must be live for this regression] test_scale_push_3eth() (gas: 6420)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/functional/F14_RotationTotality.t.sol:F14_RotationTotality",
+      "failure": "[FAIL: F14_RotationTotality: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/functional/F14_RotationTotality.t.sol:F14b_RotationWithoutHookOracle",
+      "failure": "[FAIL: F14b_RotationWithoutHookOracle: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/functional/F14c_D1ForceCloseAfterDrain.t.sol:F14c_D1ForceCloseAfterDrain",
+      "failure": "[FAIL: F14c_D1ForceCloseAfterDrain: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ05_ProjectionOvershoot.t.sol:LIQ05_ProjectionOvershoot",
+      "failure": "[FAIL: LIQ05_ProjectionOvershoot: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/M1a_LiqGasBand.t.sol:M1a_LiqGasBand",
+      "failure": "[FAIL: fork must be live for this regression] test_gate_affords_only_one_kill_strands_the_rest() (gas: 6904)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/M3B_ExpiredCrystalForfeit.t.sol:M3B_ExpiredCrystalForfeit",
+      "failure": "[FAIL: fork inactive: FORK_RPC unset] test_M3B_two_missed_windows_destroy_a_paid_crystal() (gas: 20371)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/M4A_RelaunchSeam.t.sol:M4A_RelaunchSeam",
+      "failure": "[FAIL: fork harness must be live] test_relaunch_liveness_positive_control() (gas: 5686)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/M4B_RelaunchWhale.t.sol:M4B_RelaunchWhale",
+      "failure": "[FAIL: fork harness must be live] test_whale_cannot_break_relaunch_or_exit() (gas: 5840)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/M4C_QuoteComeHome.t.sol:M4C_QuoteComeHome",
+      "failure": "[FAIL: fork harness must be live] test_launch_quote_can_never_be_restored() (gas: 5642)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/audit_full_scope/OgFloorRatchet.t.sol:OgFloorRatchetTest",
+      "failure": "[FAIL: call reverted as expected, but without data] test_R3_BoundaryIdIsOg() (gas: 129299)",
+      "classification": "mock-missing-totalMinted"
+    },
+    {
+      "suite": "test/audit_full_scope/OgFloorRatchet.t.sol:OgFloorRatchetTest",
+      "failure": "[FAIL: call reverted as expected, but without data] test_R3_OgIdCannotBeBoughtThroughTheCollectionDoor() (gas: 129387)",
+      "classification": "mock-missing-totalMinted"
+    },
+    {
+      "suite": "test/attacks/P30_FullCascadeSolvency.t.sol:P30_FullCascadeSolvency",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_P30_bookBeyondTheCeilingRefusesWhole() (gas: 5691)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/P30_FullCascadeSolvency.t.sol:P30_FullCascadeSolvency",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_P30_fullCascadeEitherFillsCleanOrRefusesWhole() (gas: 5668)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R1A_FreeKillSlack.t.sol:R1A_FreeKillSlack",
+      "failure": "[FAIL: fork not active - PoC proved nothing] test_R1A_free_kill_inside_the_projection_slack() (gas: 21032)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R1B_SweepWindowStarvation.t.sol:R1B_SweepWindowStarvation",
+      "failure": "[FAIL: fork not active - PoC proved nothing] test_R1B_padded_book_strands_an_insolvent_position() (gas: 14878)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R1B_SweepWindowStarvation.t.sol:R1B_SweepWindowStarvation",
+      "failure": "[FAIL: fork not active] test_R1B_positive_short_book_is_preempted() (gas: 13413)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R1C_GasFloorBypass.t.sol:R1C_GasFloorBypass",
+      "failure": "[FAIL: fork not active - PoC proved nothing] test_R1C_gas_capped_swap_skips_both_sweeps() (gas: 18156)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R1C_GasFloorBypass.t.sol:R1C_GasFloorBypass",
+      "failure": "[FAIL: fork not active] test_R1C_positive_uncapped_gas_preempts() (gas: 11206)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/R23_GachaFailedMint.t.sol:R23GachaFailedMint",
+      "failure": "[FAIL: no NFT delivered: earned pity must survive: 0 != 8] test_failedForcedMintMustPreserveEarnedPity() (gas: 736240)",
+      "classification": "conditional-mint-failure-lead"
+    },
+    {
+      "suite": "test/attacks/R23_RenderBuffer.t.sol:R23RenderBuffer",
+      "failure": "[FAIL: panic: array out-of-bounds access (0x32)] test_denseValidUploadedLayerRendersCompleteSVG() (gas: 34274031)",
+      "classification": "confirmed-Low-art-buffer"
+    },
+    {
+      "suite": "test/attacks/R23_TreasuryTargeting.t.sol:R23TreasuryTargeting",
+      "failure": "[FAIL: stale id must not target another envelope: 0 != 3000] test_cancellingOldExecutedProposalMustNotCancelNewEnvelope() (gas: 552917)",
+      "classification": "confirmed-Low-treasury"
+    },
+    {
+      "suite": "test/attacks/R23_TreasuryTargeting.t.sol:R23TreasuryTargeting",
+      "failure": "[FAIL: documented lower-id tie break: 2 != 1] test_equalSupportMustPreferEarlierProposalAsDocumented() (gas: 493171)",
+      "classification": "confirmed-Low-treasury"
+    },
+    {
+      "suite": "test/attacks/R2D_RotationPrimaryDerivation.t.sol:R2D_RotationPrimaryDerivation",
+      "failure": "[FAIL: fork harness must be live] test_R2D_roundTripMisclassifiesThePositionHoldingTheTreasury() (gas: 5832)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/RH2A_BookPadGasFloor.t.sol:RH2A_BookPadGasFloor",
+      "failure": "[FAIL: fork harness did not boot (FORK_RPC unset?)] test_RH2A_bookPadding_raises_the_gas_floor_of_every_swap() (gas: 9167)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/RQ1_CarriedBookAdversarial.t.sol:RQ1_CarriedBookAdversarial",
+      "failure": "[FAIL: RQ1_CarriedBookAdversarial: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/S0x_ForceCloseGasWedge.t.sol:S0xForceCloseGasWedge",
+      "failure": "[FAIL: S0x_ForceCloseGasWedge: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/S0x_RotationPerpHostage.t.sol:S0x_RotationPerpHostage",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_S0x_DustPerpPositionHoldsTheApprovedRotationHostage() (gas: 5572)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/S0x_RotationPerpHostage.t.sol:S0x_RotationPerpHostage",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_S0x_FIXED_WeightedMarkLetsTheApprovedRotationProceed() (gas: 5749)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/S0x_RotationPerpHostage.t.sol:S0x_RotationPerpHostage",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_S0x_LIVENESS_RotationCompletesWithAnEmptyPerpBook() (gas: 5661)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/S0x_RotationPerpHostage.t.sol:S0x_RotationPerpHostage",
+      "failure": "[FAIL: fork harness must be live (FORK_RPC)] test_S0x_RotatedLegDeathReadIsOneSided() (gas: 5793)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/V2A_VoteFarm.t.sol:V2A_VoteFarm",
+      "failure": "[FAIL: V2A_VoteFarm: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/H1B_SweepCapCertifiesUnscanned.t.sol:H1B_SweepCapCertifiesUnscanned",
+      "failure": "[FAIL: fork harness did not boot (FORK_RPC unset?)] test_H1B_preTradeSweepMayNotCertifyAnUnscannedBook() (gas: 8924)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/K5b_ProgressiveSeederUnreachable.t.sol:K5b_ProgressiveSeederUnreachable",
+      "failure": "[FAIL: FORK_RPC/POOL_MANAGER/POSITION_MANAGER must be exported] test_K5b_ProgressiveSeedNeverStarts_AndPrimeFundingIsLocked() (gas: 2478)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ02_PreemptiveProjection.t.sol:LIQ02_PreemptiveProjection",
+      "failure": "[FAIL: LIQ02_PreemptiveProjection: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ03_PreemptiveLiquidation.t.sol:LIQ03_PreemptiveLiquidation",
+      "failure": "[FAIL: LIQ03_PreemptiveLiquidation: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ04_CascadeStaleProjection.t.sol:LIQ04_CascadeStaleProjection",
+      "failure": "[FAIL: LIQ04_CascadeStaleProjection: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ04_ExactOutBypass.t.sol:LIQ04_ExactOutBypass",
+      "failure": "[FAIL: LIQ04_ExactOutBypass: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ04_GasStarve.t.sol:LIQ04_GasStarve",
+      "failure": "[FAIL: LIQ04_GasStarve: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ04_PrematureKill.t.sol:LIQ04_PrematureKill",
+      "failure": "[FAIL: LIQ04_PrematureKill: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ05_CascadeLossMechanism.t.sol:LIQ05_CascadeLossMechanism",
+      "failure": "[FAIL: LIQ05_CascadeLossMechanism: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    },
+    {
+      "suite": "test/attacks/LIQ05_PrematureKillEconomics.t.sol:LIQ05_PrematureKillEconomics",
+      "failure": "[FAIL: LIQ05_PrematureKillEconomics: fork not active - PoC proved nothing] setUp() (gas: 0)",
+      "classification": "unavailable-fork"
+    }
+  ],
+  "limitations": [
+    "Passing totals include inherited/repeated properties and possible early-return no-op tests.",
+    "No skipped/fork-unavailable assertion is treated as passed.",
+    "The historical full run remains failing after any targeted fixture repair."
+  ]
+}

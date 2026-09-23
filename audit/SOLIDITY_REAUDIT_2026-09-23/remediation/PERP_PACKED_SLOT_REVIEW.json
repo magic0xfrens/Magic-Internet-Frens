@@ -1,0 +1,168 @@
+{
+  "note": "Compiler slot representability and field shape check only; source packing/decoding manually compared. Not dynamic write isolation or deployment parity.",
+  "fields": {
+    "plv": {
+      "slot": "65",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "longOiEth": {
+      "slot": "81",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "insuranceEth": {
+      "slot": "17",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "tokYieldEth": {
+      "slot": "67",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "tokYieldCumulative": {
+      "slot": "68",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "quoteUnit": {
+      "slot": "86",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    },
+    "quote": {
+      "slot": "16",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      }
+    },
+    "markSource": {
+      "slot": "85",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      }
+    },
+    "quoteOracle": {
+      "slot": "87",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      }
+    },
+    "positions": {
+      "slot": "71",
+      "offset": 0,
+      "type": {
+        "encoding": "mapping",
+        "key": "t_uint256",
+        "label": "mapping(uint256 => struct Position)",
+        "numberOfBytes": "32",
+        "value": "t_struct(Position)32819_storage"
+      }
+    },
+    "_openIds": {
+      "slot": "78",
+      "offset": 0,
+      "type": {
+        "base": "t_uint256",
+        "encoding": "dynamic_array",
+        "label": "uint256[]",
+        "numberOfBytes": "32"
+      }
+    },
+    "observations": {
+      "slot": "28",
+      "offset": 0,
+      "type": {
+        "base": "t_struct(Observation)32928_storage",
+        "encoding": "inplace",
+        "label": "struct PerpSwapLib.Observation[32]",
+        "numberOfBytes": "1024"
+      }
+    },
+    "ring": {
+      "slot": "60",
+      "offset": 0,
+      "type": {
+        "encoding": "inplace",
+        "label": "struct PerpSwapLib.Ring",
+        "members": [
+          {
+            "astId": 32942,
+            "contract": "cauldron/PerpEngine.sol:PerpEngine",
+            "label": "obsIndex",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint16"
+          },
+          {
+            "astId": 32944,
+            "contract": "cauldron/PerpEngine.sol:PerpEngine",
+            "label": "tickCumulative",
+            "offset": 2,
+            "slot": "0",
+            "type": "t_int56"
+          },
+          {
+            "astId": 32946,
+            "contract": "cauldron/PerpEngine.sol:PerpEngine",
+            "label": "lastObsTs",
+            "offset": 9,
+            "slot": "0",
+            "type": "t_uint32"
+          },
+          {
+            "astId": 32948,
+            "contract": "cauldron/PerpEngine.sol:PerpEngine",
+            "label": "lastTick",
+            "offset": 13,
+            "slot": "0",
+            "type": "t_int24"
+          },
+          {
+            "astId": 32950,
+            "contract": "cauldron/PerpEngine.sol:PerpEngine",
+            "label": "lastRingTs",
+            "offset": 16,
+            "slot": "0",
+            "type": "t_uint32"
+          }
+        ],
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/PoolOps.sol:PoolOps",
+  "baselineSourceSha256": "446496162d152a5e8cdcb4212f1548dd36a505d995ad43e8aa6f51112785a502",
+  "candidateSourceSha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": null,
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

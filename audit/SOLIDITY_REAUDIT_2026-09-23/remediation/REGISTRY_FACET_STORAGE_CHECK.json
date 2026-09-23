@@ -1,0 +1,2850 @@
+{
+  "checks": {
+    "CauldronRegistry": true,
+    "RedemptionExt": true
+  },
+  "contracts": {
+    "CauldronBase": {
+      "file": "cauldron/CauldronBase.sol",
+      "sha256": "87022a0d4333ce037ae5a7123fd027d16306fb55b29102847f2c0d835cc7a5d1",
+      "storage": [
+        {
+          "label": "_owner",
+          "slot": "0",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextReserveCeilingOffset",
+          "slot": "0",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "int24",
+            "numberOfBytes": "3"
+          }
+        },
+        {
+          "label": "summoned",
+          "slot": "0",
+          "offset": 23,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "_seedBuyUnlocked",
+          "slot": "0",
+          "offset": 24,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "currentGeneration",
+          "slot": "1",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "currentToken",
+          "slot": "2",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "generationToken",
+          "slot": "3",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationProposer",
+          "slot": "4",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationParent",
+          "slot": "5",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolId",
+          "slot": "6",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => PoolId)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "PoolId",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolKey",
+          "slot": "7",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct PoolKey)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "struct PoolKey",
+              "numberOfBytes": "96",
+              "members": [
+                {
+                  "label": "currency0",
+                  "slot": "0",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "currency1",
+                  "slot": "1",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "fee",
+                  "slot": "1",
+                  "offset": 20,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "uint24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "tickSpacing",
+                  "slot": "1",
+                  "offset": 23,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "int24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "hooks",
+                  "slot": "2",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "contract IHooks",
+                    "numberOfBytes": "20"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "generationPositionId",
+          "slot": "8",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationReservePositionId",
+          "slot": "9",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "reserveTickLower",
+          "slot": "10",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "reserveTickUpper",
+          "slot": "11",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "genesisReserveOutstanding",
+          "slot": "12",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "claimed",
+          "slot": "13",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => mapping(address => bool))",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "mapping",
+              "label": "mapping(address => bool)",
+              "numberOfBytes": "32",
+              "key": {
+                "encoding": "inplace",
+                "label": "address",
+                "numberOfBytes": "20"
+              },
+              "value": {
+                "encoding": "inplace",
+                "label": "bool",
+                "numberOfBytes": "1"
+              }
+            }
+          }
+        },
+        {
+          "label": "generationCollection",
+          "slot": "14",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationVault",
+          "slot": "15",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "collectionLedger",
+          "slot": "16",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICollectionLedger",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisPending",
+          "slot": "17",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "factory",
+          "slot": "18",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronFactory",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "governor",
+          "slot": "19",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronGovernor",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nftMaxSupply",
+          "slot": "20",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "royaltyDividend",
+          "slot": "21",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "royaltyBps",
+          "slot": "21",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint96",
+            "numberOfBytes": "12"
+          }
+        },
+        {
+          "label": "genesisMode",
+          "slot": "22",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "enum MetadataMode",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "genesisBaseURI",
+          "slot": "23",
+          "offset": 0,
+          "type": {
+            "encoding": "bytes",
+            "label": "string",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisRenderer",
+          "slot": "24",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "mifrens",
+          "slot": "25",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisBonusBps",
+          "slot": "26",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisShares",
+          "slot": "27",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisSharePerFren",
+          "slot": "28",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "enchantFeeMultBps",
+          "slot": "29",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "redemptionPaused",
+          "slot": "30",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "guardian",
+          "slot": "30",
+          "offset": 1,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "successor",
+          "slot": "31",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "claimGate",
+          "slot": "32",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropWallet",
+          "slot": "33",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropReserve",
+          "slot": "34",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeBuyEth",
+          "slot": "35",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeFunder",
+          "slot": "36",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "emergencyReadyAt",
+          "slot": "37",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "lastSummonAt",
+          "slot": "38",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "minLifetime",
+          "slot": "39",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "autoMigrate",
+          "slot": "40",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "poolManager",
+          "slot": "41",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPoolManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "positionManager",
+          "slot": "42",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPositionManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "hook",
+          "slot": "43",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract CauldronHook",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "redemptionExt",
+          "slot": "44",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "seeder",
+          "slot": "45",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextSeedWindow",
+          "slot": "45",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint64",
+            "numberOfBytes": "8"
+          }
+        },
+        {
+          "label": "igniter",
+          "slot": "46",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "allowedQuote",
+          "slot": "47",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "generationQuote",
+          "slot": "48",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "quoteRotator",
+          "slot": "49",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "treasuryGovernor",
+          "slot": "50",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "quoteScale",
+          "slot": "51",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "treasuryHeldOg",
+          "slot": "52",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "generationLegs",
+          "slot": "53",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct CauldronBase.TreasuryLeg[])",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "dynamic_array",
+              "label": "struct CauldronBase.TreasuryLeg[]",
+              "numberOfBytes": "32",
+              "base": {
+                "encoding": "inplace",
+                "label": "struct CauldronBase.TreasuryLeg",
+                "numberOfBytes": "160",
+                "members": [
+                  {
+                    "label": "quote",
+                    "slot": "0",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "address",
+                      "numberOfBytes": "20"
+                    }
+                  },
+                  {
+                    "label": "positionId",
+                    "slot": "1",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "uint256",
+                      "numberOfBytes": "32"
+                    }
+                  },
+                  {
+                    "label": "key",
+                    "slot": "2",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "struct PoolKey",
+                      "numberOfBytes": "96",
+                      "members": [
+                        {
+                          "label": "currency0",
+                          "slot": "0",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "currency1",
+                          "slot": "1",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "fee",
+                          "slot": "1",
+                          "offset": 20,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "uint24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "tickSpacing",
+                          "slot": "1",
+                          "offset": 23,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "int24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "hooks",
+                          "slot": "2",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "contract IHooks",
+                            "numberOfBytes": "20"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "label": "legProceeds",
+          "slot": "54",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        }
+      ]
+    },
+    "CauldronRegistry": {
+      "file": "CauldronRegistry.sol",
+      "sha256": "6025f823685b7618e9b58b0e70f1729117c5b6321191e52f69ae2e8f438c1265",
+      "storage": [
+        {
+          "label": "_owner",
+          "slot": "0",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextReserveCeilingOffset",
+          "slot": "0",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "int24",
+            "numberOfBytes": "3"
+          }
+        },
+        {
+          "label": "summoned",
+          "slot": "0",
+          "offset": 23,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "_seedBuyUnlocked",
+          "slot": "0",
+          "offset": 24,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "currentGeneration",
+          "slot": "1",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "currentToken",
+          "slot": "2",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "generationToken",
+          "slot": "3",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationProposer",
+          "slot": "4",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationParent",
+          "slot": "5",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolId",
+          "slot": "6",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => PoolId)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "PoolId",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolKey",
+          "slot": "7",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct PoolKey)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "struct PoolKey",
+              "numberOfBytes": "96",
+              "members": [
+                {
+                  "label": "currency0",
+                  "slot": "0",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "currency1",
+                  "slot": "1",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "fee",
+                  "slot": "1",
+                  "offset": 20,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "uint24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "tickSpacing",
+                  "slot": "1",
+                  "offset": 23,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "int24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "hooks",
+                  "slot": "2",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "contract IHooks",
+                    "numberOfBytes": "20"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "generationPositionId",
+          "slot": "8",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationReservePositionId",
+          "slot": "9",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "reserveTickLower",
+          "slot": "10",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "reserveTickUpper",
+          "slot": "11",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "genesisReserveOutstanding",
+          "slot": "12",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "claimed",
+          "slot": "13",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => mapping(address => bool))",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "mapping",
+              "label": "mapping(address => bool)",
+              "numberOfBytes": "32",
+              "key": {
+                "encoding": "inplace",
+                "label": "address",
+                "numberOfBytes": "20"
+              },
+              "value": {
+                "encoding": "inplace",
+                "label": "bool",
+                "numberOfBytes": "1"
+              }
+            }
+          }
+        },
+        {
+          "label": "generationCollection",
+          "slot": "14",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationVault",
+          "slot": "15",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "collectionLedger",
+          "slot": "16",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICollectionLedger",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisPending",
+          "slot": "17",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "factory",
+          "slot": "18",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronFactory",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "governor",
+          "slot": "19",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronGovernor",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nftMaxSupply",
+          "slot": "20",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "royaltyDividend",
+          "slot": "21",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "royaltyBps",
+          "slot": "21",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint96",
+            "numberOfBytes": "12"
+          }
+        },
+        {
+          "label": "genesisMode",
+          "slot": "22",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "enum MetadataMode",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "genesisBaseURI",
+          "slot": "23",
+          "offset": 0,
+          "type": {
+            "encoding": "bytes",
+            "label": "string",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisRenderer",
+          "slot": "24",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "mifrens",
+          "slot": "25",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisBonusBps",
+          "slot": "26",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisShares",
+          "slot": "27",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisSharePerFren",
+          "slot": "28",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "enchantFeeMultBps",
+          "slot": "29",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "redemptionPaused",
+          "slot": "30",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "guardian",
+          "slot": "30",
+          "offset": 1,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "successor",
+          "slot": "31",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "claimGate",
+          "slot": "32",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropWallet",
+          "slot": "33",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropReserve",
+          "slot": "34",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeBuyEth",
+          "slot": "35",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeFunder",
+          "slot": "36",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "emergencyReadyAt",
+          "slot": "37",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "lastSummonAt",
+          "slot": "38",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "minLifetime",
+          "slot": "39",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "autoMigrate",
+          "slot": "40",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "poolManager",
+          "slot": "41",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPoolManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "positionManager",
+          "slot": "42",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPositionManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "hook",
+          "slot": "43",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract CauldronHook",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "redemptionExt",
+          "slot": "44",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "seeder",
+          "slot": "45",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextSeedWindow",
+          "slot": "45",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint64",
+            "numberOfBytes": "8"
+          }
+        },
+        {
+          "label": "igniter",
+          "slot": "46",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "allowedQuote",
+          "slot": "47",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "generationQuote",
+          "slot": "48",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "quoteRotator",
+          "slot": "49",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "treasuryGovernor",
+          "slot": "50",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "quoteScale",
+          "slot": "51",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "treasuryHeldOg",
+          "slot": "52",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "generationLegs",
+          "slot": "53",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct CauldronBase.TreasuryLeg[])",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "dynamic_array",
+              "label": "struct CauldronBase.TreasuryLeg[]",
+              "numberOfBytes": "32",
+              "base": {
+                "encoding": "inplace",
+                "label": "struct CauldronBase.TreasuryLeg",
+                "numberOfBytes": "160",
+                "members": [
+                  {
+                    "label": "quote",
+                    "slot": "0",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "address",
+                      "numberOfBytes": "20"
+                    }
+                  },
+                  {
+                    "label": "positionId",
+                    "slot": "1",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "uint256",
+                      "numberOfBytes": "32"
+                    }
+                  },
+                  {
+                    "label": "key",
+                    "slot": "2",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "struct PoolKey",
+                      "numberOfBytes": "96",
+                      "members": [
+                        {
+                          "label": "currency0",
+                          "slot": "0",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "currency1",
+                          "slot": "1",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "fee",
+                          "slot": "1",
+                          "offset": 20,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "uint24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "tickSpacing",
+                          "slot": "1",
+                          "offset": 23,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "int24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "hooks",
+                          "slot": "2",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "contract IHooks",
+                            "numberOfBytes": "20"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "label": "legProceeds",
+          "slot": "54",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        }
+      ]
+    },
+    "RedemptionExt": {
+      "file": "cauldron/RedemptionExt.sol",
+      "sha256": "4e387d055da71018f45c8a5e70e9c243b692839fad6a461a3e8413e55a0b6fe5",
+      "storage": [
+        {
+          "label": "_owner",
+          "slot": "0",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextReserveCeilingOffset",
+          "slot": "0",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "int24",
+            "numberOfBytes": "3"
+          }
+        },
+        {
+          "label": "summoned",
+          "slot": "0",
+          "offset": 23,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "_seedBuyUnlocked",
+          "slot": "0",
+          "offset": 24,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "currentGeneration",
+          "slot": "1",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "currentToken",
+          "slot": "2",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "generationToken",
+          "slot": "3",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationProposer",
+          "slot": "4",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationParent",
+          "slot": "5",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolId",
+          "slot": "6",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => PoolId)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "PoolId",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationPoolKey",
+          "slot": "7",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct PoolKey)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "struct PoolKey",
+              "numberOfBytes": "96",
+              "members": [
+                {
+                  "label": "currency0",
+                  "slot": "0",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "currency1",
+                  "slot": "1",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "Currency",
+                    "numberOfBytes": "20"
+                  }
+                },
+                {
+                  "label": "fee",
+                  "slot": "1",
+                  "offset": 20,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "uint24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "tickSpacing",
+                  "slot": "1",
+                  "offset": 23,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "int24",
+                    "numberOfBytes": "3"
+                  }
+                },
+                {
+                  "label": "hooks",
+                  "slot": "2",
+                  "offset": 0,
+                  "type": {
+                    "encoding": "inplace",
+                    "label": "contract IHooks",
+                    "numberOfBytes": "20"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "label": "generationPositionId",
+          "slot": "8",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "generationReservePositionId",
+          "slot": "9",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "reserveTickLower",
+          "slot": "10",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "reserveTickUpper",
+          "slot": "11",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => int24)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "int24",
+              "numberOfBytes": "3"
+            }
+          }
+        },
+        {
+          "label": "genesisReserveOutstanding",
+          "slot": "12",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "claimed",
+          "slot": "13",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => mapping(address => bool))",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "mapping",
+              "label": "mapping(address => bool)",
+              "numberOfBytes": "32",
+              "key": {
+                "encoding": "inplace",
+                "label": "address",
+                "numberOfBytes": "20"
+              },
+              "value": {
+                "encoding": "inplace",
+                "label": "bool",
+                "numberOfBytes": "1"
+              }
+            }
+          }
+        },
+        {
+          "label": "generationCollection",
+          "slot": "14",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "generationVault",
+          "slot": "15",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "collectionLedger",
+          "slot": "16",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICollectionLedger",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisPending",
+          "slot": "17",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "factory",
+          "slot": "18",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronFactory",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "governor",
+          "slot": "19",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract ICauldronGovernor",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nftMaxSupply",
+          "slot": "20",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "royaltyDividend",
+          "slot": "21",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "royaltyBps",
+          "slot": "21",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint96",
+            "numberOfBytes": "12"
+          }
+        },
+        {
+          "label": "genesisMode",
+          "slot": "22",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "enum MetadataMode",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "genesisBaseURI",
+          "slot": "23",
+          "offset": 0,
+          "type": {
+            "encoding": "bytes",
+            "label": "string",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisRenderer",
+          "slot": "24",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "mifrens",
+          "slot": "25",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "genesisBonusBps",
+          "slot": "26",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisShares",
+          "slot": "27",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "genesisSharePerFren",
+          "slot": "28",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "enchantFeeMultBps",
+          "slot": "29",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "redemptionPaused",
+          "slot": "30",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          }
+        },
+        {
+          "label": "guardian",
+          "slot": "30",
+          "offset": 1,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "successor",
+          "slot": "31",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "claimGate",
+          "slot": "32",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropWallet",
+          "slot": "33",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "airdropReserve",
+          "slot": "34",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeBuyEth",
+          "slot": "35",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "primeFunder",
+          "slot": "36",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "emergencyReadyAt",
+          "slot": "37",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "lastSummonAt",
+          "slot": "38",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "minLifetime",
+          "slot": "39",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "autoMigrate",
+          "slot": "40",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "poolManager",
+          "slot": "41",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPoolManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "positionManager",
+          "slot": "42",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract IPositionManager",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "hook",
+          "slot": "43",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "contract CauldronHook",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "redemptionExt",
+          "slot": "44",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "seeder",
+          "slot": "45",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "nextSeedWindow",
+          "slot": "45",
+          "offset": 20,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint64",
+            "numberOfBytes": "8"
+          }
+        },
+        {
+          "label": "igniter",
+          "slot": "46",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "allowedQuote",
+          "slot": "47",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          }
+        },
+        {
+          "label": "generationQuote",
+          "slot": "48",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            }
+          }
+        },
+        {
+          "label": "quoteRotator",
+          "slot": "49",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "treasuryGovernor",
+          "slot": "50",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          }
+        },
+        {
+          "label": "quoteScale",
+          "slot": "51",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        },
+        {
+          "label": "treasuryHeldOg",
+          "slot": "52",
+          "offset": 0,
+          "type": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        {
+          "label": "generationLegs",
+          "slot": "53",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(uint256 => struct CauldronBase.TreasuryLeg[])",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            },
+            "value": {
+              "encoding": "dynamic_array",
+              "label": "struct CauldronBase.TreasuryLeg[]",
+              "numberOfBytes": "32",
+              "base": {
+                "encoding": "inplace",
+                "label": "struct CauldronBase.TreasuryLeg",
+                "numberOfBytes": "160",
+                "members": [
+                  {
+                    "label": "quote",
+                    "slot": "0",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "address",
+                      "numberOfBytes": "20"
+                    }
+                  },
+                  {
+                    "label": "positionId",
+                    "slot": "1",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "uint256",
+                      "numberOfBytes": "32"
+                    }
+                  },
+                  {
+                    "label": "key",
+                    "slot": "2",
+                    "offset": 0,
+                    "type": {
+                      "encoding": "inplace",
+                      "label": "struct PoolKey",
+                      "numberOfBytes": "96",
+                      "members": [
+                        {
+                          "label": "currency0",
+                          "slot": "0",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "currency1",
+                          "slot": "1",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "Currency",
+                            "numberOfBytes": "20"
+                          }
+                        },
+                        {
+                          "label": "fee",
+                          "slot": "1",
+                          "offset": 20,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "uint24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "tickSpacing",
+                          "slot": "1",
+                          "offset": 23,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "int24",
+                            "numberOfBytes": "3"
+                          }
+                        },
+                        {
+                          "label": "hooks",
+                          "slot": "2",
+                          "offset": 0,
+                          "type": {
+                            "encoding": "inplace",
+                            "label": "contract IHooks",
+                            "numberOfBytes": "20"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "label": "legProceeds",
+          "slot": "54",
+          "offset": 0,
+          "type": {
+            "encoding": "mapping",
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32",
+            "key": {
+              "encoding": "inplace",
+              "label": "address",
+              "numberOfBytes": "20"
+            },
+            "value": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "note": "Full recursive compiler storage equality with source hashes; not delegatecall authority or behavioral verification."
+}

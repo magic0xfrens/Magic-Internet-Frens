@@ -202,6 +202,10 @@ contract PerpVault is ReentrancyGuard {
     ///         product of every rotation's realized token-yield rate. 1e18 = none.
     uint256 public tokYieldScale = 1e18;
 
+    // Sum of settled reward units in the current yield epoch. Unlike the engine
+    // pot, this excludes unattributed yield and accumulator rounding residue.
+    uint256 private _settledTokYield;
+
     event DepositEth(address indexed user, uint256 assets, uint256 shares);
     event WithdrawEth(address indexed user, uint256 shares, uint256 paid, uint256 queued);
     event ClaimEth(address indexed user, uint256 paid);
@@ -261,7 +265,11 @@ contract PerpVault is ReentrancyGuard {
     ///  on a live engine. Ownership of value is a question only the vault can
     ///  answer, so it answers it here.
     function hasStakers() external view returns (bool) {
-        return (ethShares | tokShares | ethQueueUnits | tokQueueUnits) != 0;
+        if ((ethShares | tokShares | ethQueueUnits | tokQueueUnits) != 0) return true;
+        // A pending write-off forfeits every already-settled claim. Mirror that
+        // lazy invalidation without requiring departed users to transact again.
+        return _settledTokYield != 0
+            && engine.tokYieldCumulative() <= engine.tokYieldEth() + totalTokYieldPulled;
     }
 
     /// @notice Does the QUOTE-denominated (ETH) side still hold anyone's value —
@@ -712,6 +720,7 @@ contract PerpVault is ReentrancyGuard {
             epochAcc = accEthPerTokShare;
         }
         if (lost != 0) {
+            _settledTokYield = 0;
             // Count only the written-off amount. The current backed pot has
             // not been pulled: counting it here masks subsequent write-offs.
             totalTokYieldPulled = pulled + lost;
@@ -733,7 +742,11 @@ contract PerpVault is ReentrancyGuard {
         uint256 sh = tokShareOf[user];
         if (sh > 0) {
             uint256 acc = FullMath.mulDiv(sh, accEthPerTokShare, ACC);
-            if (acc > tokRewardDebt[user]) tokRewardOwed[user] += acc - tokRewardDebt[user];
+            if (acc > tokRewardDebt[user]) {
+                uint256 earned = acc - tokRewardDebt[user];
+                tokRewardOwed[user] += earned;
+                _settledTokYield += earned;
+            }
         }
     }
     /// @dev Reset a user's reward baseline to their current share count.
@@ -775,11 +788,13 @@ contract PerpVault is ReentrancyGuard {
     ///         principal stays staked and protected).
     function claimTokYield() external nonReentrant returns (uint256 paid) {
         _syncTokYield(); _settleTok(msg.sender); _resetTokDebt(msg.sender);
-        paid = FullMath.mulDiv(tokRewardOwed[msg.sender], tokYieldScale, 1e18); // internal → today's quote
-        if (paid == 0) revert ZeroAmount();
+        uint256 owed = tokRewardOwed[msg.sender];
+        if (owed == 0) revert ZeroAmount();
+        paid = FullMath.mulDiv(owed, tokYieldScale, 1e18); // internal → today's quote
+        _settledTokYield -= owed;
         tokRewardOwed[msg.sender] = 0;
         totalTokYieldPulled += paid;                  // see {_syncTokYield}'s detector
-        engine.withdrawTokYieldTo(paid, msg.sender);  // from the segregated pot
+        if (paid != 0) engine.withdrawTokYieldTo(paid, msg.sender); // from the segregated pot
         emit ClaimTokYield(msg.sender, paid);
     }
 

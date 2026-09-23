@@ -43,9 +43,17 @@ library SurtaxLib {
         //  and the result is clamped either way. Both rules moved here verbatim
         //  from the hook.
         if (pol != address(0)) {
-            try ISurtaxPolicy(pol).surtaxBps(id, start, maxBps, window) returns (uint256 b) {
-                return b > hardCap ? hardCap : b;
-            } catch { /* fall through to the built-in curve */ }
+            bytes memory input = abi.encodeCall(ISurtaxPolicy.surtaxBps, (id, start, maxBps, window));
+            bool valid;
+            uint256 b;
+            // Invalid ABI must fall back too, not escape typed try/catch during
+            // decoding. Copy one word only; larger replies need no allocation.
+            assembly ("memory-safe") {
+                let ok := staticcall(gas(), pol, add(input, 32), mload(input), 0, 32)
+                valid := and(ok, iszero(lt(returndatasize(), 32)))
+                b := mload(0)
+            }
+            if (valid) return b > hardCap ? hardCap : b;
         }
         return defaultSurtaxBps(id, maxBps, window, start);
     }

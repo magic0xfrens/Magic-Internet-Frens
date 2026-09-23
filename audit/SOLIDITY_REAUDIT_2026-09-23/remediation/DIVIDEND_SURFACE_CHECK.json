@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/MiFrensDividend.sol:MiFrensDividend",
+  "baselineSourceSha256": "a71db0a4faca7a050ce3a2d04fc323470adafc1bb66510889328c0ad4d0c6906",
+  "candidateSourceSha256": "b9c4157819c5ca9413dcb2f4d184a2bc076d40303996135afeb577ef94595944",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageUnchanged": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": "pushTokenIsolated(address,address,uint256), self-call only",
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}

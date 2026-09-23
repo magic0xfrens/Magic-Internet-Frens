@@ -1583,6 +1583,9 @@ library PoolOps {
         ReserveRef memory r
     ) external returns (uint256 amount) {
         if (ICollectionOps(collection).ownerOf(tokenId) != caller) revert("not owner");
+        // Only art IDs contribute to totalMinted and the ledger denominator.
+        // Liquidation badges share ERC721 ownership but have no floor backing.
+        require(tokenId <= IColMinted(collection).totalMinted(), "not art");
         //  ── THE OG TRANCHE MAY NOT DRAW THE FORGED TRANCHE'S FLOOR ──────────
         //  On the iteration-#2 continuation the generation's collection IS the
         //  MiFrens contract, OGs included — but the pot this pays from was
@@ -1633,6 +1636,7 @@ library PoolOps {
         ReserveRef memory r
     ) external returns (uint256 added) {
         if (ICollectionOps(collection).ownerOf(tokenId) != address(this)) revert("not treasury");
+        require(tokenId <= IColMinted(collection).totalMinted(), "not art");
         //  ── THE OG TRANCHE MAY NOT BE SOLD OUT OF THE FORGED DOOR ───────────
         //  `recycleCollection` guards the way IN (an OG cannot draw the forged
         //  floor); this path guarded the way OUT with nothing but "the treasury

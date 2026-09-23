@@ -746,7 +746,9 @@ contract PerpEngine is IUnlockCallback, Ownable, ReentrancyGuard {
                 ok := and(ok, eq(returndatasize(), 0x20))
                 v := mload(0x00)
             }
-            if (ok) return int24(v);
+            // Reject malformed sign extension and ticks that TickMath cannot
+            // price before they enter the observation ring.
+            if (ok && v >= -887272 && v <= 887272) return int24(v);
         }
         (, t) = _slot0();
     }

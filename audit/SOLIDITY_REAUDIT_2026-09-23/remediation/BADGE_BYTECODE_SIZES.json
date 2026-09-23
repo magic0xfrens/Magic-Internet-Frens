@@ -1,0 +1,28 @@
+{
+  "PoolOps": {
+    "baseline": {
+      "runtime_bytes": 24193,
+      "init_bytes": 24225,
+      "source_sha256": "446496162d152a5e8cdcb4212f1548dd36a505d995ad43e8aa6f51112785a502"
+    },
+    "candidate": {
+      "runtime_bytes": 24465,
+      "init_bytes": 24497,
+      "source_sha256": "622266d2588da1d62a9426484df598e003277cd58b4dc517729a199607ea7b82"
+    },
+    "runtime_headroom": 111
+  },
+  "CauldronVault": {
+    "baseline": {
+      "runtime_bytes": 2402,
+      "init_bytes": 2682,
+      "source_sha256": "15bfc39e368baac8ada44966159463081c8ba3755d48fedb2ca4db9599f3a5bd"
+    },
+    "candidate": {
+      "runtime_bytes": 2495,
+      "init_bytes": 2775,
+      "source_sha256": "b374dd5c5a645d9fc0cc61b96b6dcc37fed927e9d56b7d7976cf00f9105e0081"
+    },
+    "runtime_headroom": 22081
+  }
+}

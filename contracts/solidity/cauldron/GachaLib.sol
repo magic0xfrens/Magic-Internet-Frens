@@ -234,6 +234,7 @@ library GachaLib {
                 unchecked { r++; processed++; }
                 b.resolved = uint16(r);
                 if (win) {
+                    uint256 streak = missStreak[player];
                     missStreak[player] = 0;
                     opened[player] += 1;
                     //  A MINT THAT REVERTS MUST NOT WEDGE THE QUEUE (GACHA1-b). The
@@ -247,6 +248,13 @@ library GachaLib {
                         unchecked { minted++; won++; }
                         emit TicketWon(player, bi, tokenId);
                     } catch {
+                        //  Nothing was delivered, so undo the win's effects (FS-gacha-01):
+                        //  earned pity survives and `opened` stays a count of creatures
+                        //  actually minted. The reverted call's writes — including any
+                        //  re-entrant frame's — are already rolled back, so the snapshot
+                        //  is exactly the pre-roll state.
+                        missStreak[player] = streak;
+                        unchecked { opened[player] -= 1; }
                         emit TicketLost(player, bi);
                     }
                 } else {

@@ -42,6 +42,16 @@ contract DeployCauldron is Script {
     // Canonical deterministic CREATE2 factory (same on every EVM chain).
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    function _hookFlags() internal pure returns (uint160) {
+        return uint160(
+            Hooks.AFTER_INITIALIZE_FLAG
+                | Hooks.BEFORE_SWAP_FLAG
+                | Hooks.AFTER_SWAP_FLAG
+                | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+        );
+    }
+
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address poolManager = vm.envAddress("POOL_MANAGER");
@@ -52,11 +62,7 @@ contract DeployCauldron is Script {
         uint256 genesisETH = vm.envOr("GENESIS_ETH", uint256(0.1 ether));
 
         // Permissions must match CauldronHook.getHookPermissions().
-        uint160 flags = uint160(
-            Hooks.AFTER_INITIALIZE_FLAG
-                | Hooks.AFTER_SWAP_FLAG
-                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
-        );
+        uint160 flags = _hookFlags();
 
         // Owner must be the deployer EOA — the hook is CREATE2-deployed via the
         // canonical factory during broadcast, so msg.sender in the constructor

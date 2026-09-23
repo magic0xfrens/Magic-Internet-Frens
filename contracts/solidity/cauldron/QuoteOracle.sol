@@ -201,6 +201,9 @@ contract QuoteOracle {
      */
     function usdPerRawUnit(address quote) external view returns (uint256 factor) {
         Feed memory f = feeds[quote];
+        // 10**78 cannot be represented by uint256. An unusable configuration
+        // must not bypass the cache's last-good-price fallback by reverting.
+        if (f.quoteDecimals > 77) return 0;
         //  PEGGED: $1 per whole token, converted to per raw unit at the token's
         //  own decimals. No aggregator, so nothing here can go stale, revert or
         //  be manipulated — the failure modes below simply do not exist for it.
@@ -226,16 +229,8 @@ contract QuoteOracle {
         //  broke by reverting pushed a live generation toward a permissionless,
         //  irreversible relaunch, while the identical feed going stale did not.
         //  Same real-world condition, opposite outcomes.
-        int256 answer;
-        uint256 updatedAt;
-        try f.aggregator.latestRoundData() returns (
-            uint80, int256 a, uint256, uint256 u, uint80
-        ) {
-            answer = a;
-            updatedAt = u;
-        } catch {
-            return 0;
-        }
+        (bool valid, int256 answer,, uint256 updatedAt) = _readRound(address(f.aggregator));
+        if (!valid) return 0;
         if (answer <= 0) return 0;
         // A feed that has stopped updating still answers, and its answer looks
         // perfectly valid — which is what makes staleness worth checking.
@@ -245,17 +240,22 @@ contract QuoteOracle {
         if (updatedAt == 0 || updatedAt > block.timestamp) return 0;
         if (block.timestamp - updatedAt > f.heartbeat) return 0;
 
-        uint8 feedDec;
-        try f.aggregator.decimals() returns (uint8 d) {
-            feedDec = d;
-        } catch {
-            return 0;
-        }
+        (bool decOk, bytes memory decData) = _readWords(address(f.aggregator), IAggregatorV3.decimals.selector, 1);
+        if (!decOk) return 0;
+        uint256 feedDec = abi.decode(decData, (uint256));
+        // Also rejects dirty uint8 ABI words. The largest permitted exponent
+        // below is 77; larger feed decimals cannot be normalized safely.
+        if (feedDec > 95) return 0;
         // The feed reports USD per WHOLE token at its own decimals. Normalise
         // that to 1e18 first...
-        uint256 perWhole = feedDec <= 18
-            ? uint256(answer) * (10 ** (18 - feedDec))
-            : uint256(answer) / (10 ** (feedDec - 18));
+        uint256 perWhole;
+        if (feedDec <= 18) {
+            uint256 scale = 10 ** (18 - feedDec);
+            if (uint256(answer) > type(uint256).max / scale) return 0;
+            perWhole = uint256(answer) * scale;
+        } else {
+            perWhole = uint256(answer) / (10 ** (feedDec - 18));
+        }
 
         //  A FRESH, RESPONSIVE, WRONG ANSWER passes every check above. The
         //  heartbeat catches a stale feed and the try/catch catches a dead one,
@@ -274,6 +274,7 @@ contract QuoteOracle {
         //  dollars per wei, which is zero for every real asset. My first version
         //  did exactly that and reported 1 ETH as "$3000 / 1e18" — the scale was
         //  in the comment and not in the arithmetic.
+        if (perWhole > type(uint256).max / 1e18) return 0;
         factor = (perWhole * 1e18) / (10 ** f.quoteDecimals);
     }
 
@@ -355,19 +356,34 @@ contract QuoteOracle {
         // the price unusable, which keeps the cached factor, which keeps volume
         // recording. Failing toward ALIVE, the same direction as everything else
         // here, because death cannot be undone.
-        try s.latestRoundData() returns (
-            uint80, int256 up, uint256 startedAt, uint256, uint80
-        ) {
-            // 0 = up, 1 = down.
-            if (up != 0) return false;
-            // A startedAt in the future would underflow the subtraction below,
-            // which is checked arithmetic — refuse rather than revert.
-            if (startedAt == 0 || startedAt > block.timestamp) return false;
-            // Just back up: prices are still catching up, and the backlog of
-            // stale-priced transactions clears in this window.
-            return block.timestamp - startedAt > gracePeriod;
-        } catch {
-            return false;
+        (bool valid, int256 up, uint256 startedAt,) = _readRound(address(s));
+        if (!valid || up != 0) return false;
+        if (startedAt == 0 || startedAt > block.timestamp) return false;
+        return block.timestamp - startedAt > gracePeriod;
+    }
+
+    /// A successful call with malformed return data is not caught by Solidity's
+    /// high-level try/catch. Validate the complete ABI before using its fields.
+    function _readRound(address feed) private view returns (bool, int256, uint256, uint256) {
+        (bool ok, bytes memory data) = _readWords(feed, IAggregatorV3.latestRoundData.selector, 5);
+        if (!ok) return (false, 0, 0, 0);
+        (uint256 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint256 answeredInRound) =
+            abi.decode(data, (uint256, int256, uint256, uint256, uint256));
+        if (roundId > type(uint80).max || answeredInRound > type(uint80).max) return (false, 0, 0, 0);
+        return (true, answer, startedAt, updatedAt);
+    }
+
+    /// Copy only the required fixed-width return prefix, avoiding unbounded
+    /// return-data allocation. Callers use only one or five words. Empty/codeless
+    /// responses, short data and reverts are all unusable, not fatal.
+    function _readWords(address target, bytes4 selector, uint256 words)
+        private view returns (bool ok, bytes memory result)
+    {
+        bytes memory input = abi.encodeWithSelector(selector);
+        result = new bytes(words * 32);
+        assembly ("memory-safe") {
+            ok := staticcall(gas(), target, add(input, 32), mload(input), add(result, 32), mload(result))
+            ok := and(ok, iszero(lt(returndatasize(), mload(result))))
         }
     }
 

@@ -1,0 +1,15 @@
+{
+  "contract": "cauldron/PerpVault.sol:PerpVault",
+  "baselineSourceSha256": "6f8baf9e4370d600d3734d0a24344e418f2f4b2d69e0071823d5810a1e33d559",
+  "candidateSourceSha256": "70318531e5b0ee890a884587a48fa8e46fbee7c652ffa59cce49fc52f3b5176b",
+  "checks": {
+    "sourceMatchesCurrentWorktree": true,
+    "sameCompiler": true,
+    "abiMatchesExpected": true,
+    "selectorsMatchExpected": true,
+    "storageMatchesExpected": true,
+    "noUnresolvedReferences": true
+  },
+  "intentionalAddition": "Appended private uint256 _settledTokYield; new deployments only",
+  "note": "AST/type/ABI/storage verification only; does not prove deployed parity or passing regressions."
+}
