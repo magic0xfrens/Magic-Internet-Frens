@@ -362,10 +362,18 @@ async function ensurePool(ctx: any, poolId: `0x${string}`, ts: bigint, block: bi
     if (String(ours).toLowerCase() !== poolId.toLowerCase()) {
       return null;
     }
-    const [token, creature] = await Promise.all([
-      ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentToken" }),
-      ctx.client.readContract({ address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "getCreatureForGeneration", args: [gen] }).catch(() => ["Gnomeland", "GNOME"]),
-    ]);
+    //  `getCreatureForGeneration` used to be read here. It no longer exists on
+    //  the registry (see the note in the LegOpened handler), so the call always
+    //  reverted and the `.catch` always returned the placeholder — a guaranteed
+    //  wasted RPC round-trip on every lazy registration. The iteration row is
+    //  the event-sourced answer when it exists, and the placeholder stays as the
+    //  genuine last resort; either way the real name arrives moments later on
+    //  CauldronSummoned / CauldronReborn, which overwrites this.
+    const token = await ctx.client.readContract({
+      address: REGISTRY_ADDR, abi: REG_LAZY_ABI, functionName: "currentToken",
+    });
+    const iter = await ctx.db.find(iteration, { id: Number(gen) });
+    const creature: string[] = [iter?.symbol ?? "Gnomeland", iter?.symbol ?? "GNOME"];
     //  Provisional: the real name arrives moments later on CauldronSummoned /
     //  CauldronReborn, which overwrites this (see registerPool).
     await registerPool(ctx, poolId, Number(gen), token as `0x${string}`, (creature as string[])[0], (creature as string[])[1], ts, block, false);
@@ -953,7 +961,30 @@ ponder.on("RotationExec:LegOpened", async ({ event, context }) => {
   // been replaced later in the same block. Derive the pair from facts that do
   // survive the block: event quote, immutable generation token, and the launch
   // key's fee/tick/hook parameters (the same parameters PoolOps uses for legs).
-  const [tokenRaw, launchKey, primary, creature] = await Promise.all([
+  //  ── NEVER READ `getCreatureForGeneration` HERE ──────────────────────────
+  //  It does not exist on the deployed registry. It was moved wholly into the
+  //  linked PoolOps library to reclaim EIP-170 bytecode
+  //  (CauldronRegistry.sol:1836), and the registry's unknown-selector fallback
+  //  cannot serve it either — the RedemptionExt facet has no such function. So
+  //  the call REVERTS, always.
+  //
+  //  An unguarded revert inside an indexing handler is FATAL to Ponder: it logs
+  //  "Encountered indexing error, starting shutdown sequence", the container
+  //  exits, and Railway serves 502 for the entire API — including every read
+  //  the frontend makes. This handler only fires on a rotation leg, so the bug
+  //  lay dormant until the first real quote rotation and then took the whole
+  //  indexer down with it (tx 0xffc3fc5e…, block 11760613).
+  //
+  //  The name was never needed from chain. A rotation leg belongs to a
+  //  generation whose creature name is ALREADY in the DB, written straight from
+  //  the CauldronSummoned/Reborn event — which is more authoritative than any
+  //  view could be, and free.
+  //
+  //  The general rule this encodes: a read whose value is LOAD-BEARING should
+  //  throw so Ponder retries rather than commit a false row (see
+  //  {quoteDecimals}); a read that is cosmetic ENRICHMENT must never be able to
+  //  halt indexing. Creature name is the latter.
+  const [tokenRaw, launchKey, primary] = await Promise.all([
     context.client.readContract({
       address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
       functionName: "generationToken", args: [genId],
@@ -966,15 +997,10 @@ ponder.on("RotationExec:LegOpened", async ({ event, context }) => {
       address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
       functionName: "generationPoolId", args: [genId],
     }),
-    context.client.readContract({
-      address: REGISTRY_ADDR, abi: REG_LAZY_ABI,
-      functionName: "getCreatureForGeneration", args: [genId],
-    }),
   ]) as readonly [
     `0x${string}`,
     readonly [`0x${string}`, `0x${string}`, number, number, `0x${string}`],
     `0x${string}`,
-    readonly [string, string],
   ];
   const token = lc(tokenRaw);
   if (token === ZERO || token !== lc(launchKey[1]) || quote === token) {
@@ -984,8 +1010,17 @@ ponder.on("RotationExec:LegOpened", async ({ event, context }) => {
     [{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }],
     [quote, token, launchKey[2], launchKey[3], lc(launchKey[4])],
   ));
+  //  Name/symbol from the generation's PRIMARY pool row, then from this leg's
+  //  own row on a re-index. Both are the event-sourced values. Empty strings
+  //  only if neither exists, in which case there is no name to lose — and
+  //  `registerPool` is called with `authoritative` below, so a later
+  //  CauldronSummoned/Reborn still corrects it, exactly as on the lazy path.
+  const primaryRow = await context.db.find(pool, { id: lc(primary) as `0x${string}` });
+  const legRow = primaryRow ? null : await context.db.find(pool, { id: poolId });
+  const name = (primaryRow?.name ?? legRow?.name ?? "") as string;
+  const symbol = (primaryRow?.symbol ?? legRow?.symbol ?? "") as string;
   await registerPool(
-    context, poolId, gen, token, creature[0], creature[1],
+    context, poolId, gen, token, name, symbol,
     event.block.timestamp, event.block.number, true,
     { quote, isPrimary: lc(primary) === lc(poolId) },
   );
