@@ -4,6 +4,90 @@ Last updated: 2026-09-19
 
 ## Current continuation (supersedes historical status below)
 
+Application lanes collected in `CURRENT_APP_VALIDATION.md`: 33 selected tests,
+app/indexer typing, manifest validation and Vite build-only all pass. Vite
+session 45623 exited 0 in 14.48s with dependency/deprecation/chunk-size warnings.
+Full build lifecycle, browser tests and deployed-state validation remain open.
+
+2026-09-21 application acceptance: `npm run test` session 16319 exited 0:
+19 quote/rotation helper tests, 2 API tests, 7 indexer tests and 5 swap-gas tests
+pass (33 total, no reported skips). `npm run type-check` session 19049 exited 0.
+These are the package's selected tests, not Cypress/browser or deployment
+attestation. Solidity session **25490** remains live (83 files under 0.8.30
+and five under 0.8.26 compiling); no production files edited during that run.
+
+`npm run verify:manifest` passed (configured chain 11155111, schema cauldron_r44d,
+one pool); this checks local structure/configuration, not chain bytecode.
+`npm --prefix indexer run codegen && npm --prefix indexer run typecheck` session
+68792 exited 0. Codegen printed `Failed to find Response internal state key`
+before reporting success and writing `ponder-env.d.ts`; preserve that warning,
+do not describe the command as warning-free.
+
+Full `npm run build` has not been rerun: its postbuild script unconditionally
+writes the already owner-modified `public/sitemap.xml` (prerender-seo.mjs:188).
+The independent `build-only` lane can verify Vite without overwriting that file;
+it does not satisfy postbuild/SEO acceptance. No owner sitemap edit was removed.
+
+Broader local lane session **98155** completed: **94 pass / 1 fail / 0 skip**,
+23 suites, 7.95s execution after 18.68s incremental compilation. The sole
+failure remains the mixed-book rotated-cursor trade. RotationLifecycleLocal
+passes 4/4 and UnifiedVaultDonation passes 8/8. No whole-repo/fork claim.
+
+Next targeted engine patch snapshots pre-trade membership (post-trade cursor
+behavior and the owner's 30-kill cap are retained), and recomputes the survivor
+projection after the last settlement even if no id was removed. No test
+assertion was weakened. Post-edit broad local validation session **25490** has just started;
+its result must be collected before judging the proposed traversal correction.
+
+Latest collected result: **29833 exited 1, 18 pass / 1 fail / 0 skip**.
+Compilation completed in 532.76s. HOOK-03 failure-response tests pass 3/3;
+projection controls pass 5/5; liquidation controls pass 3/3; large-book suite
+passes 7/8 with the same mixed-cursor refusal as before this hook patch.
+This verifies the narrow failure-response remedy, not every dependency failure
+mode, full-book liveness, deployment compatibility, or full-scope acceptance.
+No live compilation remains from session 29833.
+
+2026-09-21: session 40984 finished **15/15 passed** (minimum-output and oracle
+guards). Session 70027 finished **7 passed / 1 failed** (large-book sweep): the
+mixed-book rotated-cursor trade is refused. No full-scope completion claimed.
+
+Pre-fix verification: session **42206**, offline cauldron / one thread,
+`--match-contract PreSweepFailureClosedTest -vv`, compiling one Solidity file.
+New tests inject a reverted or empty sweep response and require atomic swap
+refusal, with a real-engine successful-trade control. Current hook checks status
+only under `swept && out.length >= 32`; failure/short responses fall through.
+Terminal result: **1 passed / 2 failed**, zero skipped. Both injected failures
+allowed a swap; the real-engine control passed. Patched the hook to reject a
+failed call or fewer than 32 response bytes on the pre-trade path. Post-trade
+best-effort behavior is unchanged. Attacker-reachable loss is not established
+by dependency injection. Post-edit sweep/projection/liquidation validation is
+pending in session **29833**; do not label this fix verified until its terminal
+result is collected. Command: offline cauldron, one thread, `--match-contract
+'PreSweepFailureClosedTest|PreSweepLargeBookLocalTest|LocalLIQ02ProjectionTest|LocalLIQ03LiquidationTest' -vv`.
+
+The entries below are historical and may describe superseded source or jobs.
+
+Additional source-derived deployment lead: `REVIEW_SWEEP_ABI_PAIRING.md` records
+the incompatible old-bool/new-status return meanings and the existing-hook
+configuration accepted by `DeployPerp`. Current source hook/engine agree; no
+deployed mismatch is claimed. Compatibility handshake and mismatch regressions
+remain outstanding. `git diff --check` passed this continuation. Session 29833
+remains live on its last poll; no second build has been launched.
+
+Graph review corrected four declaration-as-call false edges in `perp.json`:
+`notNested`, `onlyVault`, `_notNested`, `_onlyVault`. Current source lines
+602–605 have two actual internal modifier calls and no recursive calls. Updated
+the corresponding markdown rows; JSON parsing and whitespace validation pass.
+Historical node hashes/locations remain explicitly stale pending regeneration;
+no security-coverage credit was added from structural cleanup alone.
+
+Latest observed HEAD `83ef97b` includes concurrent oracle/minimum/sweep changes.
+Session 69037 finished 3 pass / 1 fail on the prior rotator snapshot; current
+source already restores the required oracle guard and X2c assertions. Preserved
+them (attempted patch applied nothing). New combined verification session 40984
+is running. Re-read current sweep before editing; see
+`CURRENT_TREE_REGRESSION_RECHECK.md` for source/result attribution.
+
 PERP-03 restored guard passes its focused suite: 8/8, zero failed/skipped,
 session 82377 exit 0. ROT-01 focused local V4 run is compiling in session 69037;
 no outcome credited yet. PERP-04 remains open. Details in

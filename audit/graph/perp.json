@@ -462,10 +462,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "PerpEngine.notNested (PerpEngine.sol:577), TRUSTED, in-cluster",
-    "PerpEngine._notNested (PerpEngine.sol:577), TRUSTED, in-cluster"
+    "PerpEngine._notNested (PerpEngine.sol:602), TRUSTED, in-cluster"
    ],
-   "reachability": "DERIVED from the current body: internal; reachable only through Solidity callers; `notNested` (PerpEngine.sol:577) is a modifier node with 0 direct storage/immutable reads, 0 direct writes, and 2 resolved call edges.",
+   "reachability": "DERIVED at current source line 602: invokes _notNested before the wrapped body. The modifier declaration is not a recursive call. One internal call, no direct storage access; historical node location/hash metadata still requires graph refresh.",
    "observations": []
   },
   {
@@ -489,10 +488,9 @@
    "writes": [],
    "value": "NONE",
    "edges": [
-    "PerpEngine.onlyVault (PerpEngine.sol:578), TRUSTED, in-cluster",
-    "PerpEngine._onlyVault (PerpEngine.sol:578), TRUSTED, in-cluster"
+    "PerpEngine._onlyVault (PerpEngine.sol:603), TRUSTED, in-cluster"
    ],
-   "reachability": "DERIVED from the current body: internal; reachable only through Solidity callers; `onlyVault` (PerpEngine.sol:578) is a modifier node with 0 direct storage/immutable reads, 0 direct writes, and 2 resolved call edges.",
+   "reachability": "DERIVED at current source line 603: invokes _onlyVault before the wrapped body. The modifier declaration is not a recursive call. One internal call, no direct storage access; historical node location/hash metadata still requires graph refresh.",
    "observations": []
   },
   {
@@ -518,10 +516,8 @@
    ],
    "writes": [],
    "value": "NONE",
-   "edges": [
-    "PerpEngine._notNested (PerpEngine.sol:579), TRUSTED, in-cluster"
-   ],
-   "reachability": "DERIVED from the current body: internal; reachable only through Solidity callers; `_notNested` (PerpEngine.sol:579) is a internal node with 2 direct storage/immutable reads, 0 direct writes, and 1 resolved call edges.",
+   "edges": [],
+   "reachability": "DERIVED at current source line 604: rejects if _inLocked or _liqReentry is true, with short-circuit evaluation. No calls or writes; Reentrant is a custom error, not an external interaction. Historical node location/hash metadata still requires graph refresh.",
    "observations": []
   },
   {
@@ -546,10 +542,8 @@
    ],
    "writes": [],
    "value": "NONE",
-   "edges": [
-    "PerpEngine._onlyVault (PerpEngine.sol:580), TRUSTED, in-cluster"
-   ],
-   "reachability": "DERIVED from the current body: internal; reachable only through Solidity callers; `_onlyVault` (PerpEngine.sol:580) is a internal node with 1 direct storage/immutable reads, 0 direct writes, and 1 resolved call edges.",
+   "edges": [],
+   "reachability": "DERIVED at current source line 605: compares msg.sender with configured vault, reverting NotVault on mismatch. No calls or writes. Caller and configuration invariants need separate coverage; historical node location/hash metadata still requires graph refresh.",
    "observations": []
   },
   {

@@ -7,7 +7,7 @@ Status values: `OPEN`, `PATCHED-UNVERIFIED`, `FIXED`, `CANDIDATE`, `ACCEPTED-LOW
 | CORE-01 | High | `DeployLaunchpad.s.sol` | Direct launch script defaulted to a freely mintable mock quote and a Sepolia-only feed without an in-script chain gate. | FIXED |
 | HOOK-01 | Medium | `CauldronHook.sol` | Buyback trigger compared an 18-decimal configured threshold with raw live-quote units, making a 6-decimal generation require an economically unreachable buffer. | FIXED |
 | PERP-01 | Medium | `PerpEngine._rebook` | Partial short settlement set `collateral = 0`, erasing the basis for later funding, liquidation penalty, keeper reward, and badge bounty. | FIXED |
-| ROT-01 | High (conditional on missing oracle and adverse venue price) | `QuoteRotator.swapOnce` | Current source again exempts an unset oracle from the zero-floor rejection; prior remedy is absent. | OPEN |
+| ROT-01 | High (conditional on missing oracle and adverse venue price) | `QuoteRotator.swapOnce` | Unset oracle bypassed the independent price floor. Guard restored; latest focused local integration and X2c checks pass, broader lifecycle acceptance pending. | PATCHED-UNVERIFIED |
 | ROT-02 | Medium | `RedemptionExt.rotateSliceFrom`, `_recordLeg` | Returning to the launch quote creates a second treasury position; the next migration credits the depleted original position instead of the larger returned treasury. | FIXED |
 | CORE-02 | Low | `DeployRenderer.s.sol` | `BATCH=0` makes the post-deployment upload loop non-terminating. | OPEN |
 | HOOK-02 | Low (governance-selected hostile metadata) | `CauldronHook._cacheLegacyThreshold` | Unbounded metadata gas consumption can exhaust a bounded setter call; 200k fails atomically, 2M succeeds in the local reproduction. | OPEN |
@@ -21,9 +21,24 @@ Status values: `OPEN`, `PATCHED-UNVERIFIED`, `FIXED`, `CANDIDATE`, `ACCEPTED-LOW
 | UI-03 | Low | Cauldron volume/phase display | Selected-market quote volume is rendered as ETH and compared with a differently denominated death threshold. | OPEN |
 | PERP-03 | Medium | `PerpEngine._settle` | A partial owner short close bypasses nonzero `minOut` and mutates settlement state while paying zero output. | PATCHED-UNVERIFIED |
 | GAS-01 | Low | Pre-trade liquidation gas budget | Four-position fixture needs a 3M gas cap versus 400K without positions, exceeding an old <=4x test expectation. | OPEN |
-| PERP-04 | Medium (historical insolvency reproduction; current traversal/liveness acceptance reopened) | `PerpEngine._doSweep` | Current cap/check-only implementation differs from the verified traversal patch; seven large-book/deferred-badge regressions fail. | OPEN |
+| PERP-04 | Medium (historical insolvency reproduction; current traversal/liveness acceptance reopened) | `PerpEngine._doSweep` | Latest large-book suite: 7 pass / 1 fail; mixed-book rotated-cursor execution is refused. Full-book and deferred-badge requirements are not proved by the changed acceptance tests. | OPEN |
+| HOOK-03 | Candidate Medium (dependency failure; adversarial reachability pending) | `CauldronHook._liqSweep` | Reverted or short pre-trade sweep responses permitted a trade without a completion certificate. Local failure injection reproduced both cases; narrow patch passes 3/3, broader acceptance pending. | PATCHED-UNVERIFIED |
 
 PERP-04 reproduction and remedy boundaries: `REVIEW_PRESWEEP_COMPLETENESS.md`.
+
+HOOK-03: before patch, the condition `amountSpecified != 0 && swept &&
+out.length >= 32` skipped all status checks for reverted/empty responses.
+`PreSweepFailureClosedTest` session 42206 executed against production local V4
+and hook code: both refusal assertions failed, while the real-engine trade
+control passed (1 pass / 2 fail / 0 skip). The injected engine failures are
+fixture assumptions, not attacker capabilities. No victim loss or production
+gas-only trigger has been established. The patch rejects failed/short responses
+only before a trade; post-trade cleanup remains best-effort. Session 29833 is
+the post-edit validation handle: terminal 18 pass / 1 fail / 0 skip, including
+3/3 boundary tests and 8/8 projection/liquidation controls. The sole failure is
+the previously reproduced mixed-cursor refusal. The separate low-gas `openCount` fallback also
+treats failed metadata as empty; review its reachability independently rather
+than claiming that this patch covers every hook failure path.
 
 **Acceptance correction (supersedes the table's provisional `FIXED` labels):**
 those labels recorded patches plus focused test outcomes, not completed

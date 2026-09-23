@@ -33,10 +33,10 @@ Each row is keyed by the immutable skeleton. `R/W/E` is the count of direct stor
 | 250 | `PerpEngine` | `_pushQuote` | `internal` | internal; reachable only through Solidity callers | 1/0/3 |
 | 499 | `PerpEngine` | `renounceOwnership` | `public` | anyone | 0/0/1 |
 | 539 | `PerpEngine` | `constructor` | `constructor` | deployer (constructor executes once) | 1/16/3 |
-| 577 | `PerpEngine` | `notNested` | `modifier` | internal; reachable only through Solidity callers | 0/0/2 |
-| 578 | `PerpEngine` | `onlyVault` | `modifier` | internal; reachable only through Solidity callers | 0/0/2 |
-| 579 | `PerpEngine` | `_notNested` | `internal` | internal; reachable only through Solidity callers | 2/0/1 |
-| 580 | `PerpEngine` | `_onlyVault` | `internal` | internal; reachable only through Solidity callers | 1/0/1 |
+| 602 | `PerpEngine` | `notNested` | `modifier` | checks nesting before wrapped body | 0/0/1 |
+| 603 | `PerpEngine` | `onlyVault` | `modifier` | checks configured vault before wrapped body | 0/0/1 |
+| 604 | `PerpEngine` | `_notNested` | `internal` | rejects locked or liquidation-reentrant entry | 2/0/0 |
+| 605 | `PerpEngine` | `_onlyVault` | `internal` | rejects sender other than configured vault | 1/0/0 |
 | 585 | `PerpEngine` | `totalEth` | `public` | anyone | 2/0/0 |
 | 587 | `PerpEngine` | `freeEth` | `external` | anyone | 1/0/0 |
 | 589 | `PerpEngine` | `totalTokenAssets` | `public` | anyone | 2/0/0 |

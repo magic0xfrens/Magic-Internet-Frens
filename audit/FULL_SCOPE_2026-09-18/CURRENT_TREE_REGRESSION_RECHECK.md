@@ -112,6 +112,81 @@ comments. The latest engine source therefore differs from the completed build;
 file. Source edits during the active rotator build also require freshness checks
 before attributing its result. No other editor's delta was removed.
 
+## Rotator result and another concurrent revision
+
+Session 69037 completed, exit 1: local V4 rotator suite **3 passed / 1 failed /
+0 skipped**. The absent-oracle rejection failed; healthy-small-trade,
+adverse-price rejection and unauthorized-callback controls passed.
+
+Before applying the proposed guard restoration, current source changed again:
+the unconditional floor guard and revised X2c absence-of-oracle assertions were
+already present. The attempted patch failed its context check and applied no
+changes. Preserve these existing edits. HEAD is now
+`83ef97bdf3da3ed8520b1eb6f7e3b50a46b4735c`, including `505d3ef` sweep changes.
+No commits or pushes were made by this continuation. Prior cap/traversal review
+must be compared against this newly committed implementation before patching.
+
+Verification started in session **40984**, offline cauldron, one thread:
+`--match-contract 'QuoteRotationLocalIntegrationTest|X2c_OracleFloorFailsSafe|PerpPartialCloseMinimumTest' -vv`.
+No result yet; previous failing output belongs to the prior compiled snapshot.
+
+### Collected result: session 40984
+
+### Fresh sweep execution: session 70027
+
+### Hook failure-response fix: completed session 29833
+
+Command: offline cauldron, one thread, `--match-contract
+'PreSweepFailureClosedTest|PreSweepLargeBookLocalTest|LocalLIQ02ProjectionTest|LocalLIQ03LiquidationTest' -vv`.
+Terminal exit 1: **18 passed / 1 failed / 0 skipped**, 532.76s compilation,
+2.67s suite execution. Breakdown: failure-response 3/3, projection 5/5,
+liquidation 3/3, large-book 7/8. The mixed-book rotated-cursor refusal remains;
+it failed before the hook patch too. No production engine edit was made.
+
+SHA-256 source identities collected after execution (HEAD still `83ef97b`):
+
+- `CauldronHook.sol`: `7b9da2c831c29e46290610751d8dd8a351fe1a32cc00ab8e070673eaea924c4b`
+- `cauldron/PerpEngine.sol`: `f198ce7289c30655e040767c9450344b9cd0481360ade5792c8a546ae45c0521`
+- `test/audit_full_scope/PreSweepFailureClosed.t.sol`: `42c18eaa4fb6fa47eef0e081ed7595aaf331ab23b8dac43c5334b9dbcbaab27d`
+
+Broader local acceptance now running in session **98155**, same offline profile
+and one thread, `--match-path 'test/audit_full_scope/*.t.sol' -vv`. This is not
+the full repository/fork lane. One additional Solidity file is compiling; no
+result yet. Do not restart session 29833: it is terminal.
+
+### Earlier sweep result details (70027)
+
+Offline cauldron profile, one thread, `--match-contract
+PreSweepLargeBookLocalTest -vv`: terminal exit 1, **7 passed / 1 failed / 0
+skipped**, compilation skipped. Mixed-book rotated-cursor acceptance fails with
+wrapped selector `0x017227af` and argument 30 (trade-too-large refusal), at
+reachable cursor 19. No unsafe successful fill was demonstrated by this failure;
+successful mixed-book traversal remains unverified. The 24-position exact-input
+and exact-output cases pass with zero surviving insolvency and no PLV decrease.
+Gas ladder succeeds at 12M/16M and rejects at 1M/3M/5M/8M. The 64-position tests
+pass by refusing atomically, not by completing a full-book sweep. The current
+badge test accepts inline minting and therefore does not establish deferral.
+
+### Narrow guard result details (40984)
+
+Terminal exit 0: **15 passed / 0 failed / 0 skipped**; compilation skipped.
+PerpPartialCloseMinimumTest passed 8, QuoteRotationLocalIntegrationTest passed
+4, and X2c_OracleFloorFailsSafe passed 3. This supports the narrow minimum-output
+and oracle-floor guards; it does not close the sweep or full-scope audit.
+
+The subsequent source review found that the survivor verification in `_doSweep`
+uses the last `_projSqrtP` rather than explicitly re-projecting after the final
+settlement. It also runs only when a position was removed (`kills != 0`), not
+when settlement merely changed a surviving position. These are review leads,
+not yet independently reproduced findings. Check the final-state projection and
+partial-rebook paths before certifying pre-trade completeness.
+
+The current 64-position acceptance test expects atomic refusal. Its arithmetic
+estimate using inline badge costs is not an execution proof that a deferred-badge
+implementation cannot fit. Preserve this distinction from the earlier successful
+full-book acceptance requirement; the owner approved claim-later badges without
+per-liquidation stats. Existing concurrently edited tests are preserved.
+
 The earlier all-fixed report is not valid for this checkout. No test assertions
 were weakened, no failures relabeled as skipped, and no full-scope completion
 claimed. QuoteRotator's changed source also requires targeted revalidation.

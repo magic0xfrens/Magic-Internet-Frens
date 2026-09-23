@@ -1,8 +1,13 @@
 # Pre-trade liquidation completeness
 
-Status: confirmed local defect; cap, membership-snapshot, and bounded final
-revalidation remedies pass the focused local production harness. This remains a
-local, uncommitted fix—not a deployed attestation.
+Current status (2026-09-21): **OPEN**. The implementation described below is
+historical, not the current checkout's remedy. HEAD `83ef97b` has a 30-kill
+ceiling, a mutable rotating traversal and check-only survivor validation.
+Session 70027 reports 7 pass / 1 fail; mixed-book rotated-cursor execution
+reverts. The 64-position test now passes by atomic refusal and the badge test
+permits inline minting, so neither proves the earlier acceptance property.
+See `CURRENT_TREE_REGRESSION_RECHECK.md`. Historical results below remain useful
+for comparison, not current-source or deployed attestations.
 
 ## PERP-04 — eight-kill exit incorrectly reports a complete pre-trade scan
 
