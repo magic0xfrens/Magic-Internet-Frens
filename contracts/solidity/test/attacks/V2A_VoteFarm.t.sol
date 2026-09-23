@@ -32,7 +32,7 @@ contract V2A_VoteFarm is YBase {
 
     function setUp() public {
         _boot(200 ether, 0);
-        if (!active) return;
+        require(active, "V2A_VoteFarm: fork not active - PoC proved nothing");
         _bootPerp(60 ether, 0);
 
         gen = new MiFrensGenesis("MiFrens", "MF", 1111, 10_000, 0.01 ether, 10, "ipfs://");

@@ -31,6 +31,7 @@ contract LIQ05_CascadeLossMechanism is YBase {
 
     function setUp() public {
         _boot(3 ether, 24);
+        require(active, "LIQ05_CascadeLossMechanism: fork not active - PoC proved nothing");
         _bootPerp(2 ether, 200_000_000e18);
         vm.deal(address(this), 5_000 ether);
     }

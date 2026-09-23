@@ -29,6 +29,7 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 contract LIQ02_PreemptiveProjection is YBase {
     function setUp() public {
         _boot(3 ether, 24);
+        require(active, "LIQ02_PreemptiveProjection: fork not active - PoC proved nothing");
     }
 
     /// @dev Projected post-swap price for an exact-INPUT buy of `ethIn`.

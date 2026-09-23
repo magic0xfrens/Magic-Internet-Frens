@@ -50,7 +50,8 @@ contract S0xForceCloseGasWedge is Test, IUnlockCallback {
     uint256 gasPerPosition;
 
     function setUp() public {
-        string memory rpc = vm.envString("FORK_RPC");
+        string memory rpc = vm.envOr("FORK_RPC", string(""));
+        require(bytes(rpc).length != 0, "S0x_ForceCloseGasWedge: fork not active - PoC proved nothing");
         vm.createSelectFork(rpc);
         vm.etch(dividend, address(new Sink()).code);
 

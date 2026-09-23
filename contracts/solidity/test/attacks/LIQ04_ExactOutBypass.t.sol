@@ -37,6 +37,7 @@ contract LIQ04_ExactOutBypass is YBase {
 
     function setUp() public {
         _boot(3 ether, 24);
+        require(active, "LIQ04_ExactOutBypass: fork not active - PoC proved nothing");
         _bootPerp(2 ether, 200_000_000e18);
         vm.deal(address(this), 3_000 ether);
     }
