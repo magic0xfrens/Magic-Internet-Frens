@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "funder": "0xC94400e90bB652AFA02740bFf50824E14069c133",
+    "wallets": [
+      "0xEb2A3AF4367D8ADD0ADe97A27C5a0aEaDC8B7f2b",
+      "0xf13e3ee86877b7627a41f65d429aD5255979Ab9c"
+    ],
+    "poolId": "0x07b097e6259149f1c07b12afc863f94f6365272629a6c9f6dc9ff851a4646901",
+    "hasChurn": true,
+    "gasPrice": "1062376578"
+  },
+  "snapshots": [
+    {
+      "label": "t0 / before anything",
+      "at": "2026-09-22T11:48:15.229Z",
+      "engine": {
+        "activeEthDepth": "2848281784407891051",
+        "plv": "304349663590670634",
+        "plvToken": "29508613871231542841917646",
+        "freeEth": "304349663590670634",
+        "totalEth": "304349663590670634",
+        "insuranceEth": "60816355031533112",
+        "unabsorbedEth": "0",
+        "longOiEth": "0",
+        "shortOiToken": "0",
+        "openCount": "0",
+        "markSqrtPriceX96": "1030812778631377618137935438306696",
+        "payoutOwedTotal": "0"
+      },
+      "vault": {
+        "assetsEth": "304349663590670634",
+        "ethShares": "300000000000000000000000",
+        "ethBackingMark": "304338910192439203",
+        "pendingEth": "0",
+        "assetsTok": "29508613871231542841917646",
+        "tokShares": "29508613871231542841917646000000",
+        "ethQueueUnits": "0"
+      }
+    },
+    {
+      "label": "final",
+      "at": "2026-09-22T11:48:15.476Z",
+      "engine": {
+        "activeEthDepth": "2848281784407891051",
+        "plv": "304349663590670634",
+        "plvToken": "29508613871231542841917646",
+        "freeEth": "304349663590670634",
+        "totalEth": "304349663590670634",
+        "insuranceEth": "60816355031533112",
+        "unabsorbedEth": "0",
+        "longOiEth": "0",
+        "shortOiToken": "0",
+        "openCount": "0",
+        "markSqrtPriceX96": "1030812778631377618137935438306696",
+        "payoutOwedTotal": "0"
+      },
+      "vault": {
+        "assetsEth": "304349663590670634",
+        "ethShares": "300000000000000000000000",
+        "ethBackingMark": "304338910192439203",
+        "pendingEth": "0",
+        "assetsTok": "29508613871231542841917646",
+        "tokShares": "29508613871231542841917646000000",
+        "ethQueueUnits": "0"
+      }
+    }
+  ],
+  "results": [],
+  "notes": [
+    "router runtime 8814 bytes, playChurn selector present=true (r43/r44 shipped 8580 B with it MISSING)",
+    "ethBackingMark(0.304338910192439203) != engine.totalEth(0.304349663590670634) at \"t0 / before anything\" (delta -0.000010753398231431)",
+    "ethBackingMark(0.304338910192439203) != engine.totalEth(0.304349663590670634) at \"final\" (delta -0.000010753398231431)"
+  ]
+}

@@ -1,0 +1,16 @@
+{"ts":"2026-09-22T21:41:36Z","stage":0,"action":"baseline","genQuote1":"0x0","plv":"25399071118028","openCount":0,"unabsorbedEth":"0","insuranceEth":"62429742010568080","activeEthDepth":"2436602835952343812","mark":"1208390911691959174068939575761716","assetsEth":"25399071118028","assetsTok":"29508613871231542841917646","allowedQuote_D55e":true,"allowedQuote_roundjson_B9fc":false,"votes":1111}
+{"ts":"2026-09-22T21:41:51Z","stage":1,"action":"PerpVault.depositEth(0.4)","tx":"0x1b8920571db1283cf034fd0fe79dd55262b6f451b800ecfd7c366574cc7f0f72"}
+{"ts":"2026-09-22T21:42:25Z","stage":1,"action":"openLong#1 lev2 0.01ETH","tx":"0x23b7041a4153c4fa8f79d222f9821de682da56268c06f363e10f37812eda1634","status":"0x1"}
+{"ts":"2026-09-22T21:42:37Z","stage":1,"action":"openLong#2 lev2 0.01ETH","tx":"0xf3b1d409554ce35008d2ae0a235f67afd91daec384d007e4c643dd3d528533f8","status":"0x1"}
+{"ts":"2026-09-22T21:43:00Z","stage":1,"action":"openLong#3 lev2 0.01ETH","tx":"0xdcc25dd68aa61d5bd6eea5b5c0266eaefbec0d435552ee725c300fc03ba61732","status":"0x1"}
+{"ts":"2026-09-22T21:43:25Z","stage":2,"action":"TG.propose(USDG,20000)","tx":"0xbb50bff5f47009769037b47223fafc53c5f6db4b850a1ee15001f43a13f92959"}
+{"ts":"2026-09-22T21:43:49Z","stage":2,"action":"TG.vote(1,true)","tx":"0x02c3c47830a25bd03d113615e21ed460d7fef6df977f7c1db107773b2631f775"}
+{"ts":"2026-09-22T21:44:02Z","stage":1,"action":"close(61) on ETH book","tx":"0x24981ae3430ce43ccb35540a467ea8b8cfa744d7275d97febec3360ec93598bc"}
+{"ts":"2026-09-22T21:46:36Z","stage":2,"action":"TG.execute(1)","tx":"0x66a472f6ed6a6f353a559fc7836339d5788cc787ed75543036eda7bddea84490"}
+{"ts":"2026-09-22T21:48:09Z","stage":2,"action":"rotateSlice(2500) with openCount=2","result":"revert","raw":"Error: server returned an error response: error code 3: execution reverted, data: \"0x850c6f76\""}
+{"ts":"2026-09-22T21:49:52Z","stage":2,"action":"rotateSlice(1000)","tx":"0xffc3fc5ea96a164fde6e7f7f940ccd5fb380f4ee01001a5517d44058999963b0","genQuote":"0x0000000000000000000000000000000000000000"}
+{"ts":"2026-09-22T21:51:45Z","stage":2,"action":"propose blocked after partial spend","revert":"ProposalActive()","selector":"0xefb28d8c"}
+{"ts":"2026-09-22T21:52:55Z","stage":2,"action":"slice fill analysis","ethUsd":2747.77,"quoteOutEthWei":"247406423595234380","fairUsdgRaw":679815948,"floor80Raw":543852758,"actualOutRaw":569116929,"fillPctOfFair":83.72,"valueLostUsdg":110.70,"rotationSlipBps":2000}
+{"ts":"2026-09-22T21:53:13Z","stage":5,"action":"close(59) post-partial-rotation","tx":"0xa896670cf2781a6d8c50870604a68a675613c048cf308a905b8bf61a10096dc9"}
+{"ts":"2026-09-22T21:53:38Z","stage":5,"action":"close(60) post-partial-rotation","tx":"0xb3f1a7cc2146813e6b47725bd244981fc6217b64a6734f0ef4b2c553a2423a2d"}
+{"ts":"2026-09-22T21:55:05Z","stage":5,"action":"final","genQuote":"0x0","openCount":0,"unabsorbedEth":"0","activeEthDepth":"2207657578711483814","insuranceEth":"62533242010568080","envelopeActive":true,"movedBps":1000,"proposeBlocked":"ProposalActive()"}
