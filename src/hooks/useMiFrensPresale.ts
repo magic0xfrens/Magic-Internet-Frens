@@ -8,10 +8,19 @@ import {
   useWaitForTransactionReceipt,
   usePublicClient,
 } from "wagmi";
+import { zeroHash } from "viem";
 import { PRESALE, PRESALE_ABI } from "@/config/presale";
 import { CAULDRON_INDEXER } from "@/config/cauldron";
 
 const INDEXER = CAULDRON_INDEXER ? CAULDRON_INDEXER.replace(/\/$/, "") : "";
+
+/** This wallet's frenlist entry (scripts/frenlist/build.mjs). */
+interface FrenlistEntry {
+  allowance: number;
+  proof: `0x${string}`[];
+  /** `allowance` minus `discountMinted(wallet)` on-chain. */
+  left: number;
+}
 
 /**
  * useMiFrensPresale — mint genesis MiFrens against the live MiFrensPresale.
@@ -51,6 +60,7 @@ function readableTxError(e: unknown): string | null {
     case "NotAuthorized":    return "This wallet is not the designated igniter.";
     case "AlreadyFinalized": return "The Cauldron is already lit.";
     case "RegistryNotSet":   return "The presale is not wired to a registry yet.";
+    case "NoDiscount":       return "No frenlist mints left for this wallet — the list may have just been updated. Reload and try again.";
   }
   if (/insufficient funds/i.test(text)) return "Not enough ETH for the mint plus gas.";
   return err?.shortMessage || "Transaction failed. Nothing was spent.";
@@ -156,6 +166,42 @@ export function useMiFrensPresale() {
     query: { enabled: !!address, refetchInterval: 8000 },
   });
 
+  //  THE FRENLIST. The proofs file is named after its root and the root is read
+  //  from the chain, so the page can never spend a proof from a list the
+  //  contract has already replaced (a stale cached list would revert). What
+  //  the wallet already minted comes from `discountMinted`, not the file.
+  const { data: discountRoot } = useReadContract({
+    ...common, functionName: "discountRoot", query: { refetchInterval: 60_000 },
+  });
+  const { data: discountPriceLive } = useReadContract({
+    ...common, functionName: "DISCOUNT_PRICE", query: { staleTime: 60_000 },
+  });
+  const [frenlist, setFrenlist] = useState<FrenlistEntry | null>(null);
+  useEffect(() => {
+    let live = true;
+    setFrenlist(null);
+    if (!address || !publicClient || !discountRoot || discountRoot === zeroHash) return;
+    (async () => {
+      try {
+        const r = await fetch(`/frenlist/${discountRoot}.json`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return;
+        const list = await r.json() as {
+          root?: string; allowances?: Record<string, { allowance: number; proof: `0x${string}`[] }>;
+        };
+        const mine = list.root === discountRoot ? list.allowances?.[address.toLowerCase()] : undefined;
+        if (!mine) return;
+        //  PRESALE directly, not `common`: that object is rebuilt every render,
+        //  and as a dependency here it would refetch the list forever.
+        const minted = await publicClient.readContract({
+          address: PRESALE.address, abi: PRESALE_ABI, functionName: "discountMinted", args: [address],
+        }) as bigint;
+        if (live) setFrenlist({ ...mine, left: Math.max(0, mine.allowance - Number(minted)) });
+      } catch { /* no list reachable = no frenlist price shown; the public mint still works */ }
+    })();
+    return () => { live = false; };
+    // `confirmed` re-reads what is left after this wallet's own mint lands.
+  }, [address, publicClient, discountRoot, confirmed]);
+
   /** Re-read on-chain counts (call after a mint confirms). */
   const refresh = useCallback(() => {
     refetchMinted();
@@ -247,8 +293,52 @@ export function useMiFrensPresale() {
     [address, chainId, switchChainAsync, writeContractAsync, common, publicClient, priceWeiLive]
   );
 
+  /** Mint `quantity` at the frenlist price against this wallet's allowance. */
+  const mintDiscounted = useCallback(
+    async (quantity: number): Promise<`0x${string}`> => {
+      if (!address) throw new Error("Connect a wallet first");
+      if (!frenlist || quantity > frenlist.left) {
+        const msg = "Not enough frenlist mints left for that quantity.";
+        setTxError(msg);
+        throw new Error(msg);
+      }
+      if (chainId !== PRESALE.chainId) {
+        await switchChainAsync({ chainId: PRESALE.chainId });
+      }
+      setTxError(null);
+
+      // DISCOUNT_PRICE is immutable, so the value read with the page is exact.
+      const value = (discountPriceLive ?? 0n) * BigInt(quantity);
+      const args = [BigInt(quantity), BigInt(frenlist.allowance), frenlist.proof] as const;
+
+      if (publicClient) {
+        try {
+          await publicClient.simulateContract({ ...common, functionName: "mintDiscounted", args, value, account: address });
+        } catch (e) {
+          const msg = readableTxError(e);
+          setTxError(msg);
+          throw new Error(msg ?? "Mint would fail");
+        }
+      }
+
+      try {
+        return await writeContractAsync({ ...common, functionName: "mintDiscounted", args, value });
+      } catch (e) {
+        setTxError(readableTxError(e));
+        throw e;
+      }
+    },
+    [address, chainId, switchChainAsync, writeContractAsync, common, publicClient, frenlist, discountPriceLive]
+  );
+
   return {
     mint,
+    mintDiscounted,
+    /** Frenlist mints this wallet can still make, at the frenlist price. */
+    frenlist: {
+      left: frenlist?.left ?? 0,
+      priceEth: discountPriceLive != null ? Number(discountPriceLive) / 1e18 : 0,
+    },
     txHash,
     isPending,       // wallet signing
     confirming,      // waiting for on-chain confirmation

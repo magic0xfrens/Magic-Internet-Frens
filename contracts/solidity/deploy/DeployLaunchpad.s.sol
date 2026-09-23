@@ -77,7 +77,11 @@ interface IOwnable {
  *                       so roughly 33M gas — set false to skip on a chain where
  *                       that is expensive, and run DeployBadgeRenderer later.
  *    PRESALE_SUPPLY     MiFrens count (default 1111)
- *    PRESALE_PRICE      wei per MiFren (default 0.01 ether)
+ *    PRESALE_PRICE      public wei per MiFren (default 0.1111 ether); the
+ *                       frenlist pays a tenth of it (MiFrensGenesis.DISCOUNT_PRICE)
+ *    FRENLIST_ROOT      frenlist root from scripts/frenlist/build.mjs (optional —
+ *                       publish or update any time with presale.setDiscountRoot)
+ *    FRENLIST_SETTER    trusted frenlist keeper besides the deployer (optional)
  *    PRESALE_MAXWALLET  per-wallet cap (default 100)
  *    GENESIS_BONUS_BPS  bonus share of gen-1 supply, bps (default 1400 -> OG
  *                       allocation = 17.5% of the mint price; see the note inline)
@@ -133,7 +137,11 @@ contract DeployLaunchpad is Script {
 
         uint256 supply = vm.envOr("PRESALE_SUPPLY", uint256(1111));   // OG rare tranche
         uint256 artCap = vm.envOr("MIFRENS_ART_CAP", uint256(2222));  // total incl. volume
-        uint256 price = vm.envOr("PRESALE_PRICE", uint256(0.0062 ether)); // 1111 → ~6.9 Ξ thin LP
+        // Public 0.1111; frenlist 0.01111. All-frenlist raises 12.34 Ξ, and every
+        // public mint adds 0.09999 Ξ on top, up to 123.43 Ξ all-public.
+        uint256 price = vm.envOr("PRESALE_PRICE", uint256(0.1111 ether));
+        bytes32 frenlistRoot = vm.envOr("FRENLIST_ROOT", bytes32(0));
+        address frenlistSetter = vm.envOr("FRENLIST_SETTER", address(0));
         uint256 maxWallet = vm.envOr("PRESALE_MAXWALLET", uint256(100));
         // GENESIS BONUS = THE OG ALLOCATION DIAL. Every wei of presale ETH becomes
         // LP, so an OG's allocation is worth a FIXED fraction of what they paid:
@@ -639,6 +647,9 @@ contract DeployLaunchpad is Script {
         // deliberate. Defaults to the deployer; FINALIZER=0x0 restores the
         // permissionless behaviour if that is what a round actually wants.
         presale.setFinalizer(vm.envOr("FINALIZER", deployer));
+        // FRENLIST. Re-published with setDiscountRoot as new frens come in.
+        if (frenlistRoot != bytes32(0)) presale.setDiscountRoot(frenlistRoot);
+        if (frenlistSetter != address(0)) presale.setDiscountSetter(frenlistSetter);
 
         // 6. IGNITION vs OWNERSHIP (audit Z-06). This used to `transferOwnership` the
         //    registry to the PRESALE, purely so `finalize()` could reach `summon()`.

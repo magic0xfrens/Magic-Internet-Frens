@@ -45,8 +45,17 @@ export POSITION_MANAGER=0x58daec3116aae6d93017baaea7749052e8a04fa7
 
 # ── DECIDE (real money) ──
 export TIMELOCK_DELAY=172800        # 48h (audit rec up to 7d=604800). NOT 180.
-export PRESALE_PRICE=11110000000000000  # 0.01111 ETH/fren → 1111 = 12.34321 ETH raise. REAL ETH now.
-#   Downstream, all forced by this one number (green-candle path, 80% active band):
+export PRESALE_PRICE=111100000000000000  # 0.1111 ETH/fren public; the frenlist pays a tenth (0.01111).
+#   Raise: 12.34321 ETH if all 1111 mint on the frenlist (the floor), plus
+#   0.09999 ETH for every public mint, up to 123.4321 ETH all-public.
+#   Frenlist (frenlist members + IMD workers who earned a spot):
+#     node scripts/frenlist/add-imd-workers.mjs <our IMD job ids…>   # optional
+#     node scripts/frenlist/build.mjs     # edits nothing; writes public/frenlist/<root>.json
+#     deploy the site with that file, THEN presale.setDiscountRoot(root)
+#   FRENLIST_ROOT / FRENLIST_SETTER set these at deploy (both optional).
+#   Downstream, all forced by the RAISE (green-candle path, 80% active band).
+#   These are the FLOOR case (12.34321 ETH, everyone on the frenlist); any
+#   public mint moves every number up:
 #     pool opens 12.709 gwei → settles 19.857 gwei (+56.25% candle) → FDV 15.429 ETH.
 #   DEATH_THRESHOLD below is NOT auto-scaled — re-check it against the bigger pool.
 export DEATH_THRESHOLD=1000000000000000000  # 1 ETH/24h vol floor to stay alive

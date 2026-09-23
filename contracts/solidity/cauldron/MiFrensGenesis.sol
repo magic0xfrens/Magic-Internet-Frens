@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Votes} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Votes.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {Votes} from "@openzeppelin/contracts/governance/utils/Votes.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -68,6 +69,8 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     error AlreadyCancelled();
     error NothingToRefund();
     error RefundFailed();
+    /// @notice Not on the current frenlist, or the frenlist allowance is spent.
+    error NoDiscount();
     /// @notice The caller did not leave enough gas for the dividend enchantment hook
     ///         to run, so the transfer is refused rather than silently breaking the
     ///         fee accounting. See {_update} (audit F-09).
@@ -242,10 +245,32 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     ///  is the VOTING unit, maintained in {_update}, and it DECREMENTS on
     ///  transfer by design ({_getVotingUnits} reads it).
     ///
-    ///  Only {mint} (the genesis presale) writes here. Liquidatoor badges are
-    ///  uncapped by design and are struck by {_mintLiquidator}, which does not
-    ///  touch this — a badge never consumes genesis allowance.
+    ///  Only the genesis presale ({mint} and {mintDiscounted}, both through
+    ///  {_mintGenesis}) writes here, so a discounted fren counts against the
+    ///  same cap as a full-price one. Liquidatoor badges are uncapped by design
+    ///  and are struck by {_mintLiquidator}, which does not touch this — a badge
+    ///  never consumes genesis allowance.
     mapping(address => uint256) public genesisMintedBy;
+
+    // ── Frenlist: discounted genesis ────────────────────────────────────────
+    //  A Merkle list of (wallet, allowance) kept by a trusted setter and
+    //  re-published as new frens join (the frenlist, and Identity.md workers who
+    //  earned a spot). Leaf = keccak256(bytes.concat(keccak256(abi.encode(wallet,
+    //  allowance)))), the OpenZeppelin StandardMerkleTree encoding. Allowances are
+    //  CUMULATIVE: raising a wallet from 1 to 3 in a new list lets it mint 2 more,
+    //  because what it already minted is counted here, not in the list.
+
+    /// @notice Price of a frenlist mint: a tenth of the public PRICE.
+    uint256 public immutable DISCOUNT_PRICE;
+    /// @notice Current frenlist root. 0 = closed (no proof can hash to zero).
+    bytes32 public discountRoot;
+    /// @notice The trusted list keeper, besides the deployer. 0 = deployer only.
+    address public discountSetter;
+    /// @notice Frenlist frens each wallet has minted. Survives every root change.
+    mapping(address => uint256) public discountMinted;
+
+    event DiscountRootSet(bytes32 root);
+    event DiscountMinted(address indexed buyer, uint256 quantity, uint256 firstTokenId);
 
     /// @notice What each badge commemorates, recorded at mint.
     mapping(uint256 => LiqStats) internal _liqStats;
@@ -309,6 +334,7 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
         GENESIS_SUPPLY = genesisSupply_;
         MAX_SUPPLY = maxSupply_;
         PRICE = price_;
+        DISCOUNT_PRICE = price_ / 10;
         MAX_PER_WALLET = maxPerWallet_;
         _base = baseURI_;
         deployer = msg.sender;
@@ -363,11 +389,49 @@ contract MiFrensGenesis is ERC721, ERC721Votes, ERC2981, ICreatorToken, ILiquida
     /// @notice Mint `quantity` OG MiFrens from the genesis (rare) tranche.
     ///         Exact payment required. Genesis mints are revealed immediately.
     function mint(uint256 quantity) external payable nonReentrant {
+        _mintGenesis(quantity, PRICE);
+    }
+
+    /// @notice Mint `quantity` genesis frens at DISCOUNT_PRICE against your
+    ///         frenlist `allowance`. Ordinary genesis frens — same votes,
+    ///         dividend and floor — counted against the same per-wallet cap.
+    function mintDiscounted(uint256 quantity, uint256 allowance, bytes32[] calldata proof)
+        external
+        payable
+        nonReentrant
+    {
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, allowance))));
+        if (!MerkleProof.verifyCalldata(proof, discountRoot, leaf)) revert NoDiscount();
+        uint256 used = discountMinted[msg.sender] + quantity;
+        if (used > allowance) revert NoDiscount();
+        discountMinted[msg.sender] = used;
+        emit DiscountMinted(msg.sender, quantity, minted + 1);
+        _mintGenesis(quantity, DISCOUNT_PRICE);
+    }
+
+    /// @notice Publish a new frenlist root (deployer or the discount setter).
+    ///         0 closes the frenlist.
+    function setDiscountRoot(bytes32 root) external {
+        if (msg.sender != deployer && msg.sender != discountSetter) revert NotAuthorized();
+        discountRoot = root;
+        emit DiscountRootSet(root);
+    }
+
+    /// @notice Name the trusted list keeper (deployer only; 0 = deployer only).
+    function setDiscountSetter(address setter) external {
+        if (msg.sender != deployer) revert NotAuthorized();
+        discountSetter = setter;
+    }
+
+    /// @dev The one genesis mint path. `unitPrice` is PRICE or DISCOUNT_PRICE;
+    ///      every other rule — supply, the lifetime per-wallet cap, the refund
+    ///      ledger, reveal-on-mint — is identical for both.
+    function _mintGenesis(uint256 quantity, uint256 unitPrice) private {
         if (finalized) revert PresaleOver();
         if (cancelled) revert AlreadyCancelled();
         if (quantity == 0) revert ExceedsSupply();
         if (minted + quantity > GENESIS_SUPPLY) revert ExceedsSupply();
-        if (msg.value != PRICE * quantity) revert WrongPrice();
+        if (msg.value != unitPrice * quantity) revert WrongPrice();
         // LIFETIME allowance, not a current holding: `genesisMintedBy` never
         // decrements, so parking the inventory in a second wallet does NOT hand
         // the same actor a second allocation (audit L1-C).

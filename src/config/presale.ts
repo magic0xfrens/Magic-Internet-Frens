@@ -24,9 +24,9 @@ export const PRESALE = {
   //  with the UI still cheerfully quoting the old number. The hook now reads
   //  PRICE() from the contract at send time AND for display; this constant is
   //  only what renders before that first read resolves.
-  priceEth: 0.0062,
+  priceEth: 0.1111,
   /** EXACT wei, so value = priceWei * quantity cannot drift into WrongPrice. */
-  priceWei: 6200000000000000n,
+  priceWei: 111100000000000000n,
   maxSupply: round.genesisSupply ?? 1111,
   /**
    *  ── THERE IS NO EFFECTIVE ANTI-WHALE CAP ON THE DEPLOYED CONTRACT ────────
@@ -69,6 +69,21 @@ export const PRESALE_ABI = [
   { type: "function", name: "cancelPresale", stateMutability: "nonpayable", inputs: [], outputs: [] },
   { type: "function", name: "refund", stateMutability: "nonpayable", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "paid", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  //  The frenlist: (wallet, allowance) at a tenth of PRICE. Proofs live at
+  //  /frenlist/<discountRoot>.json (see scripts/frenlist).
+  {
+    type: "function", name: "mintDiscounted", stateMutability: "payable",
+    inputs: [
+      { name: "quantity", type: "uint256" },
+      { name: "allowance", type: "uint256" },
+      { name: "proof", type: "bytes32[]" },
+    ],
+    outputs: [],
+  },
+  { type: "function", name: "DISCOUNT_PRICE", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "discountRoot", stateMutability: "view", inputs: [], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "discountMinted", stateMutability: "view", inputs: [{ name: "wallet", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "error", name: "NoDiscount", inputs: [] },
   //  THE CUSTOM ERRORS. Without these in the ABI a revert decodes to nothing but
   //  a bare selector (`0xf7760f25`), which is what a user was shown when a stale
   //  hardcoded price made every mint revert with WrongPrice. With them, viem

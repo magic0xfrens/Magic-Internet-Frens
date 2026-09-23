@@ -16,7 +16,7 @@
     "test:e2e:dev": "start-server-and-test 'vite dev --port 4173' http://localhost:4173 'cypress open --e2e'",
     "build-only": "vite build",
     "type-check": "tsc --noEmit -p tsconfig.app.json",
-    "test": "node --test --experimental-strip-types scripts/test-quote-units.mjs scripts/test-treasury-rotation.mjs && npm run test:api && npm run test:indexer && npm run test:swap-gas",
+    "test": "node --test --experimental-strip-types scripts/test-quote-units.mjs scripts/test-treasury-rotation.mjs scripts/frenlist/test-merkle.mjs && npm run test:api && npm run test:indexer && npm run test:swap-gas",
     "test:swap-gas": "vitest run src/lib/swapGas.test.ts",
     "test:api": "vitest run --config vitest.api.config.ts",
     "test:indexer": "vitest run --config vitest.indexer.config.ts",

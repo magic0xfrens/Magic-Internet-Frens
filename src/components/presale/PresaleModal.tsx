@@ -101,10 +101,19 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
   const [autoFired, setAutoFired] = useState(false);
   const [preview, setPreview] = useState(0);
 
+  //  Frenlist price. Offered only to a wallet with allowance left, and chosen
+  //  by default for it — nobody on the frenlist should pay 10x by accident.
+  const [payDiscount, setPayDiscount] = useState(true);
+  const hasDiscount = isConnected && p.frenlist.left > 0 && p.frenlist.priceEth > 0;
+  const discounted = hasDiscount && payDiscount;
+
   const remaining = p.minted != null ? Math.max(0, p.maxSupply - p.minted) : undefined;
-  const maxMint = Math.max(1, Math.min(remaining ?? 10, 10));
+  const publicMax = Math.max(1, Math.min(remaining ?? 10, 10));
+  const maxMint = discounted ? Math.max(1, Math.min(publicMax, p.frenlist.left)) : publicMax;
   const busy = p.isPending || p.confirming;
-  const total = (p.priceEth * amount).toLocaleString(undefined, { maximumFractionDigits: 6 });
+  const unitPrice = discounted ? p.frenlist.priceEth : p.priceEth;
+  const total = (unitPrice * amount).toLocaleString(undefined, { maximumFractionDigits: 6 });
+  useEffect(() => { setAmount((a) => Math.min(a, maxMint)); }, [maxMint]);
 
   // The actual minted fren (parsed from the receipt once the tx confirms).
   const mintedId = useMemo(() => (p.confirmed ? mintedIdFromReceipt(p.receipt) : null), [p.confirmed, p.receipt]);
@@ -128,7 +137,9 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
   //  cancelling their own signature sets it to null, which is correct - nothing
   //  went wrong). Swallowing here used to mean a doomed mint produced no signal
   //  anywhere: no toast, no message, no console line.
-  const doMint = useCallback(() => { p.mint(amount).catch(() => {}); }, [p, amount]);
+  const doMint = useCallback(() => {
+    (discounted ? p.mintDiscounted(amount) : p.mint(amount)).catch(() => {});
+  }, [p, amount, discounted]);
 
   // Reset when reopened; clamp amount to what's mintable.
   useEffect(() => {
@@ -287,8 +298,29 @@ export default function PresaleModal({ isOpen, onClose, autoMint = false, initia
           </div>
         ) : (
           <>
+            {hasDiscount && (
+              <div className="pm__tiers" role="radiogroup" aria-label="Mint price">
+                <button
+                  role="radio" aria-checked={discounted}
+                  className={`pm__tier${discounted ? " pm__tier--on" : ""}`}
+                  onClick={() => setPayDiscount(true)} disabled={busy}
+                >
+                  <b>Frenlist</b>
+                  <em>{p.frenlist.priceEth} Ξ · {p.frenlist.left} left</em>
+                </button>
+                <button
+                  role="radio" aria-checked={!discounted}
+                  className={`pm__tier${!discounted ? " pm__tier--on" : ""}`}
+                  onClick={() => setPayDiscount(false)} disabled={busy}
+                >
+                  <b>Public</b>
+                  <em>{p.priceEth} Ξ</em>
+                </button>
+              </div>
+            )}
+
             <div className="pm__meta">
-              <span>{p.priceEth} Ξ each</span>
+              <span>{unitPrice} Ξ each</span>
               {remaining != null && <span>{remaining.toLocaleString()} of {p.maxSupply.toLocaleString()} left</span>}
             </div>
 
@@ -358,6 +390,13 @@ const css = `
   .pm__reveal-class { font: 700 10px/1 "DM Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #17112f;
     background: linear-gradient(90deg, #d5fd51, #f5c542); padding: 5px 10px; border-radius: var(--r-md); }
   .pm__reveal-traits { font-size: 12px; color: #b8adcc; margin-bottom: 8px; }
+  .pm__tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .pm__tier { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; border-radius: var(--r-sm); cursor: pointer;
+    color: #b8adcc; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); transition: all .15s; }
+  .pm__tier b { font: 700 13px/1.1 "DM Sans", sans-serif; }
+  .pm__tier em { font: 500 11px/1 "DM Mono", monospace; font-style: normal; opacity: .8; }
+  .pm__tier:hover:not(:disabled) { border-color: rgba(213,253,81,0.4); }
+  .pm__tier--on { color: #d5fd51; background: rgba(213,253,81,0.08); border-color: #d5fd51; }
   .pm__meta { display: flex; align-items: center; justify-content: space-between; font: 600 12px/1 "DM Mono", monospace; color: #b8adcc; margin-bottom: 14px; }
   .pm__qty { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 18px; }
   .pm__step { width: 38px; height: 38px; border-radius: var(--r-sm); font-size: 20px; font-weight: 700; cursor: pointer;
