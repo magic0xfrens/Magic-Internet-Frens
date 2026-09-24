@@ -35,6 +35,7 @@ contract M1a_LiqGasBand is YBase {
 
     function _setup() internal {
         _boot(60 ether, 0);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork must be live for this regression");
         _bootPerp(30 ether, 0);
         deal(token, address(this), 2_000_000_000 ether, true);

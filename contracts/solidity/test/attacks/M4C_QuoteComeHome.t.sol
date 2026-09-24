@@ -143,6 +143,7 @@ contract M4C_QuoteComeHome is YBase {
     }
 
     function test_launch_quote_can_never_be_restored() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live");
 
         gov = new M4Gov();

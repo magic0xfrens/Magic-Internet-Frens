@@ -32,6 +32,7 @@ contract V2A_VoteFarm is YBase {
 
     function setUp() public {
         _boot(200 ether, 0);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "V2A_VoteFarm: fork not active - PoC proved nothing");
         _bootPerp(60 ether, 0);
 

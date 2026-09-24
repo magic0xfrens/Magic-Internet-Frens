@@ -154,6 +154,7 @@ contract M3B_ExpiredCrystalForfeit is YBase {
         console2.log("GAME readyPre   ", bad.mintedStart2);
         console2.log("GAME readyEnd   ", bad.readyEnd);
 
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ctl.ran && fix.ran && bad.ran, "fork inactive: FORK_RPC unset");
 
         // POSITIVE CONTROL: a promptly-resolved batch really does roll.

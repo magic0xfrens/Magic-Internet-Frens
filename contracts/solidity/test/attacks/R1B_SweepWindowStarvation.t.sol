@@ -129,6 +129,7 @@ contract R1B_SweepWindowStarvation is YBase {
             ranB = true;
         }
         console2.log("ranB", ranB, "survivedBare", survivedBare);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ranB, "fork not active");
         assertFalse(survivedBare && insolventBare, "I1 holds on a short book");
     }
@@ -150,6 +151,7 @@ contract R1B_SweepWindowStarvation is YBase {
         console2.log("ranA", ranA);
         console2.log("survivedPadded", survivedPadded, "insolventPadded", insolventPadded);
         console2.log("badDebtGapWei", gapPadded);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ranA, "fork not active - PoC proved nothing");
         assertFalse(
             survivedPadded && insolventPadded,

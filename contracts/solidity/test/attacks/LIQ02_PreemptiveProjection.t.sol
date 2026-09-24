@@ -29,6 +29,7 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 contract LIQ02_PreemptiveProjection is YBase {
     function setUp() public {
         _boot(3 ether, 24);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "LIQ02_PreemptiveProjection: fork not active - PoC proved nothing");
     }
 

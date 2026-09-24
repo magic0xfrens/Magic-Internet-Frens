@@ -66,6 +66,7 @@ contract M4B_RelaunchWhale is YBase {
 
     function test_whale_cannot_break_relaunch_or_exit() public {
         _attack();
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(R.booted, "fork harness must be live");
         assertTrue(R.relaunchOk, "LIVENESS: relaunch must survive a whale drain");
         assertTrue(R.claimOk, "LIVENESS: a holder must still be able to exit 1:1");

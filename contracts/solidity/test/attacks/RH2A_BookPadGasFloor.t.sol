@@ -76,6 +76,7 @@ contract RH2A_BookPadGasFloor is YBase {
 
     function test_RH2A_bookPadding_raises_the_gas_floor_of_every_swap() public {
         _run();
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ran, "fork harness did not boot (FORK_RPC unset?)");
         assertGt(padded, 8, "attacker could not pad the book");
         assertLt(minGasEmpty, type(uint256).max, "empty-book buy never succeeded");

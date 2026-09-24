@@ -94,6 +94,7 @@ contract K5b_ProgressiveSeederUnreachable is Test {
     }
 
     function test_K5b_ProgressiveSeedNeverStarts_AndPrimeFundingIsLocked() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "FORK_RPC/POOL_MANAGER/POSITION_MANAGER must be exported");
 
         // --- POSITIVE: the launch itself works and the config reads as armed. ---

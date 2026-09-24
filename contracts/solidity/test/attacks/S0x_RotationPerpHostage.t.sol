@@ -78,6 +78,7 @@ contract S0x_RotationPerpHostage is YBase {
     ///         runs to completion and the generation re-denominates. This is the
     ///         property the attack below removes.
     function test_S0x_LIVENESS_RotationCompletesWithAnEmptyPerpBook() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
         PoolKey memory route = _seedVenue();
         _approveEnvelope();
@@ -93,6 +94,7 @@ contract S0x_RotationPerpHostage is YBase {
     /// @notice ATTACK: a single minimum-size position, opened by a stranger,
     ///         blocks every slice until the envelope dies of old age.
     function test_S0x_DustPerpPositionHoldsTheApprovedRotationHostage() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
         PoolKey memory route = _seedVenue();
         _approveEnvelope();
@@ -161,6 +163,7 @@ contract S0x_RotationPerpHostage is YBase {
     ///         the engine reads its own generation as dead while the generation is
     ///         demonstrably alive on the primary.
     function test_S0x_RotatedLegDeathReadIsOneSided() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
         PoolKey memory route = _seedVenue();
         _approveEnvelope();
@@ -253,6 +256,7 @@ contract S0x_RotationPerpHostage is YBase {
      * own note named as "the real fix", and it shipped as {PerpMarkSource}.
      */
     function test_S0x_FIXED_WeightedMarkLetsTheApprovedRotationProceed() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
 
         PoolKey memory route = _seedVenue();
