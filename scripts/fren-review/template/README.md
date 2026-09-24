@@ -48,7 +48,8 @@ repository, so they confirm or refute instead of re-reporting, and dig from the 
 | `ledger/KNOWN.md` | issues known before the swarm arrived |
 | `test/fren-review/` | `FrenBase` + the PoC template: the real protocol on a local v4 PoolManager |
 | `reference/test/` | 250+ earlier attack tests, not compiled — read and copy |
-| `jobs/` | `deep-review.json`, the six-step job body for IMD's paid `job.open` ([docs](https://imd.fun/docs/#paid)) |
+| `jobs/` | `deep-review.json`, the six-step job body for IMD's paid `job.open` ([docs](https://imd.fun/docs/#paid)), and `fuzz.json`, a fuzz campaign over `test/CauldronFuzz.sol` |
+| `test/CauldronFuzz.sol` | the fuzz harness: the full protocol booted once, `prop_` functions replaying seeded trade and perp sequences against whole-system properties |
 | `tools/` | `check-map.py` (map matches source), `aggregate.mjs` (rebuild the ledger), `post-job.mjs` (fill, check and quote a deep review) |
 
 ```sh

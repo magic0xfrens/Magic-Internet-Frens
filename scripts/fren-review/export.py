@@ -36,7 +36,7 @@ KNOWN = ("audit/FULL_SCOPE_2026-09-18/FINDINGS.md", "audit/SOLIDITY_REAUDIT_2026
 SOURCE_URL = "https://github.com/magic0xfrens/Magic-Internet-Frens"
 
 # Compiled tests = the import closure of these. Everything else under test/ is reference.
-TEST_SEEDS = ("test/fren-review/", "test/GenesisDiscountMint.t.sol")
+TEST_SEEDS = ("test/fren-review/", "test/GenesisDiscountMint.t.sol", "test/CauldronFuzz.sol")
 DROP = ("out/", "cache/", "broadcast/", "render-out/", "audit/", "lib/", ".env", "foundry.toml")
 #  SEMI-BLIND: the auditors' own PoCs and harnesses stay upstream. Reviewers get
 #  the fixed code, the function map and one line per known issue (KNOWN), but not

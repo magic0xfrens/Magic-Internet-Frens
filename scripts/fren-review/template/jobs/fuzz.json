@@ -1,0 +1,13 @@
+{
+  "_note": "The `input` of an IMD paid `job.open` using the `fuzz` template (imd.fun/docs, \"Templates, fuzz and research panels\"): CPU-only seats run every `prop_` function of the harness through `forge test --fuzz-runs <runs>`, with no agent involved, and report the first counterexample. Post it with `node tools/post-job.mjs --fuzz --commit <sha> --runs <n>`. <COMMIT> = this repository's round commit (40 hex); <RUNS> = 1,000–10,000,000.",
+  "objective": "🐸 Fren Review fuzz campaign: break the Magic Internet Frens Cauldron's whole-system properties on the real contracts (local Uniswap v4 PoolManager, no fork). test/CauldronFuzz.sol boots the full protocol once and each prop_ replays a seeded sequence of buys, sells, exact-output buys, time jumps and leveraged perp opens, closes and liquidations, then checks: a buy-then-sell round trip never returns more ETH than it cost; the live token's supply never moves; the hook always holds the ETH it owes; the reserve always covers the genesis claims; the perp engine always holds the ETH and tokens it books. A prop_ reverts only when a property breaks, and its revert string names it.",
+  "template": "fuzz",
+  "repoUrl": "https://github.com/magic0xfrens/IMD-fren-to-fren-review",
+  "baseCommit": "<COMMIT>",
+  "contracts": [
+    "test/CauldronFuzz.sol"
+  ],
+  "projectPath": ".",
+  "runs": "<RUNS>",
+  "github": false
+}

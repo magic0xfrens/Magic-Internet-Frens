@@ -5,9 +5,12 @@
  *
  *   node tools/post-job.mjs --commit <sha> --slot 0 --dry
  *   node tools/post-job.mjs --commit <sha> --foci perp-book,rotation,vault,value-flow --prior <jobId>,<jobId> --quote
+ *   node tools/post-job.mjs --fuzz --commit <sha> --runs 100000 --quote      # a fuzz campaign (jobs/fuzz.json)
  *
  * --slot N   picks foci N*4 .. N*4+3 of the rotation below, so consecutive jobs cover every focus
  *            every three jobs; --foci names four explicitly.
+ * --fuzz     post jobs/fuzz.json instead: CPU-only seats fuzz test/CauldronFuzz.sol's prop_ functions,
+ *            --runs times each (1,000–10,000,000; default 100,000). No agents, same price.
  * --prior    earlier jobs whose accepted report and findings files are attached as `inputs`, so the
  *            hunters build on them (they land in .imd/reads/artifacts/). Needs network.
  * --dry      fill and check against the documented limits, print the body; nothing is sent.
@@ -37,31 +40,43 @@ const FOCI = ["perp-book", "value-flow", "hook-deltas", "rotation", "lifecycle",
 
 const commit = opt("commit") ?? "";
 if (!/^[0-9a-f]{40}$/.test(commit)) die("--commit must be the review repository's round commit, 40 lowercase hex");
-let foci;
-if (opt("foci")) {
-  foci = opt("foci").split(",").map((f) => f.trim());
-  if (foci.length !== 4 || new Set(foci).size !== 4 || foci.some((f) => !FOCI.includes(f))) {
-    die(`--foci takes four different foci from: ${FOCI.join(", ")}`);
+const fuzz = flag("fuzz");
+const fill = (vars) => function f(value) {
+  if (typeof value === "string") {
+    const whole = Object.keys(vars).find((k) => value === k);
+    if (whole && typeof vars[whole] === "number") return vars[whole];
+    return Object.entries(vars).reduce((s, [k, v]) => s.split(k).join(String(v)), value);
   }
-} else {
-  const slot = Number(opt("slot") ?? NaN);
-  if (!Number.isInteger(slot) || slot < 0) die("give --slot <n> (n = 0, 1, 2, …) or --foci a,b,c,d");
-  foci = [0, 1, 2, 3].map((i) => FOCI[(slot * 4 + i) % FOCI.length]);
-}
-const vars = { "<COMMIT>": commit, "<FOCUS_A>": foci[0], "<FOCUS_B>": foci[1], "<FOCUS_C>": foci[2], "<FOCUS_D>": foci[3] };
-
-const fill = (value) => {
-  if (typeof value === "string") return Object.entries(vars).reduce((s, [k, v]) => s.split(k).join(v), value);
-  if (Array.isArray(value)) return value.map(fill);
+  if (Array.isArray(value)) return value.map(f);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).filter(([k]) => !k.startsWith("_")).map(([k, v]) => [k, fill(v)]));
+    return Object.fromEntries(Object.entries(value).filter(([k]) => !k.startsWith("_")).map(([k, v]) => [k, f(v)]));
   }
   return value;
 };
-const input = fill(JSON.parse(readFileSync(new URL("jobs/deep-review.json", ROOT), "utf8")));
+const template = (name) => JSON.parse(readFileSync(new URL(`jobs/${name}.json`, ROOT), "utf8"));
+
+let foci = [];
+let input;
+if (fuzz) {
+  const runs = Number(opt("runs") ?? 100_000);
+  if (!Number.isInteger(runs) || runs < 1_000 || runs > 10_000_000) die("--runs must be 1,000–10,000,000");
+  input = fill({ "<COMMIT>": commit, "<RUNS>": runs })(template("fuzz"));
+} else {
+  if (opt("foci")) {
+    foci = opt("foci").split(",").map((f) => f.trim());
+    if (foci.length !== 4 || new Set(foci).size !== 4 || foci.some((f) => !FOCI.includes(f))) {
+      die(`--foci takes four different foci from: ${FOCI.join(", ")}`);
+    }
+  } else {
+    const slot = Number(opt("slot") ?? NaN);
+    if (!Number.isInteger(slot) || slot < 0) die("give --slot <n> (n = 0, 1, 2, …) or --foci a,b,c,d");
+    foci = [0, 1, 2, 3].map((i) => FOCI[(slot * 4 + i) % FOCI.length]);
+  }
+  input = fill({ "<COMMIT>": commit, "<FOCUS_A>": foci[0], "<FOCUS_B>": foci[1], "<FOCUS_C>": foci[2], "<FOCUS_D>": foci[3] })(template("deep-review"));
+}
 
 // ── earlier reports as inputs ───────────────────────────────────────────────
-const prior = (opt("prior") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const prior = fuzz ? [] : (opt("prior") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 if (prior.length) {
   input.inputs = [];
   for (const [n, jobId] of prior.entries()) {
@@ -83,27 +98,33 @@ const leftover = JSON.stringify(input).match(/<[A-Z_]+>/g);
 if (leftover) problems.push(`unfilled placeholders: ${[...new Set(leftover)].join(", ")}`);
 if (!input.objective || input.objective.length > 8000) problems.push("objective must be 1–8,000 characters");
 if ((input.references ?? []).length > 8) problems.push("at most 8 references");
-if (!Array.isArray(input.steps) || input.steps.length < 1 || input.steps.length > 6) problems.push("steps must hold 1–6 entries");
-const keys = new Set((input.steps ?? []).map((s) => s.key));
-for (const [i, s] of (input.steps ?? []).entries()) {
-  if (!s.skill) problems.push(`steps[${i}].skill is required`);
-  if (!/^[a-z][a-z0-9_]{0,31}$/.test(s.key ?? "")) problems.push(`steps[${i}].key is required in a dag`);
-  if (!Array.isArray(s.dependsOn) || s.dependsOn.length > 6 || s.dependsOn.some((d) => !keys.has(d))) problems.push(`steps[${i}].dependsOn must name up to 6 step keys`);
-  if ((s.objective ?? "").length > 3000) problems.push(`steps[${i}].objective: at most 3,000 characters`);
-  const ac = s.acceptanceCriteria ?? [];
-  if (ac.length > 8 || ac.some((c) => !c || c.length > 500)) problems.push(`steps[${i}].acceptanceCriteria: 1–8 strings of 1–500 characters`);
-  if ((s.paths ?? []).length > 16 || (s.paths ?? []).some((p) => p.startsWith("/") || p.includes(".."))) problems.push(`steps[${i}].paths: at most 16, repository-relative`);
-  if ((s.outputs ?? []).some((o) => !o.path.startsWith("artifacts/"))) problems.push(`steps[${i}].outputs must live under artifacts/`);
+if (fuzz) {
+  if (input.template !== "fuzz") problems.push("jobs/fuzz.json must use the fuzz template");
+  if (!Array.isArray(input.contracts) || input.contracts.length !== 1) problems.push("a fuzz job names exactly one harness in contracts");
+  if (!Number.isInteger(input.runs) || input.runs < 1_000 || input.runs > 10_000_000) problems.push("runs must be 1,000–10,000,000");
+} else {
+  if (!Array.isArray(input.steps) || input.steps.length < 1 || input.steps.length > 6) problems.push("steps must hold 1–6 entries");
+  const keys = new Set((input.steps ?? []).map((s) => s.key));
+  for (const [i, s] of (input.steps ?? []).entries()) {
+    if (!s.skill) problems.push(`steps[${i}].skill is required`);
+    if (!/^[a-z][a-z0-9_]{0,31}$/.test(s.key ?? "")) problems.push(`steps[${i}].key is required in a dag`);
+    if (!Array.isArray(s.dependsOn) || s.dependsOn.length > 6 || s.dependsOn.some((d) => !keys.has(d))) problems.push(`steps[${i}].dependsOn must name up to 6 step keys`);
+    if ((s.objective ?? "").length > 3000) problems.push(`steps[${i}].objective: at most 3,000 characters`);
+    const ac = s.acceptanceCriteria ?? [];
+    if (ac.length > 8 || ac.some((c) => !c || c.length > 500)) problems.push(`steps[${i}].acceptanceCriteria: 1–8 strings of 1–500 characters`);
+    if ((s.paths ?? []).length > 16 || (s.paths ?? []).some((p) => p.startsWith("/") || p.includes(".."))) problems.push(`steps[${i}].paths: at most 16, repository-relative`);
+    if ((s.outputs ?? []).some((o) => !o.path.startsWith("artifacts/"))) problems.push(`steps[${i}].outputs must live under artifacts/`);
+  }
+  const finals = [...keys].filter((k) => !(input.steps ?? []).some((s) => (s.dependsOn ?? []).includes(k)));
+  if (finals.length !== 1) problems.push(`every branch must join into one final step (found: ${finals.join(", ")})`);
 }
-const finals = [...keys].filter((k) => !(input.steps ?? []).some((s) => (s.dependsOn ?? []).includes(k)));
-if (finals.length !== 1) problems.push(`every branch must join into one final step (found: ${finals.join(", ")})`);
 if ((input.inputs ?? []).length > 32) problems.push("at most 32 inputs");
 const body = { requestKey: opt("request-key") ?? randomUUID(), action: "job.open", input };
 const bytes = Buffer.byteLength(JSON.stringify(body));
 if (bytes > 16 * 1024) problems.push(`quote body is ${bytes} bytes; the limit is 16 KiB`);
 
 console.log(JSON.stringify(body, null, 2));
-console.error(`\ndeep review, foci ${foci.join(", ")}${prior.length ? `, ${input.inputs.length} prior file(s)` : ""}: ` +
+console.error(`\n${fuzz ? `fuzz campaign, ${input.runs} runs` : `deep review, foci ${foci.join(", ")}`}${prior.length ? `, ${input.inputs.length} prior file(s)` : ""}: ` +
   `${bytes} bytes, ${problems.length ? "PROBLEMS:\n  - " + problems.join("\n  - ") : "within the documented limits"}`);
 if (problems.length) process.exit(1);
 if (flag("dry")) process.exit(0);

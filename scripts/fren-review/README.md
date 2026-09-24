@@ -35,6 +35,16 @@ fixes all three and compiles only the contracts plus the PoC harness.
    new jobs start from everything already known. Budget and model tier are IMD's defaults per skill
    and cannot be set. Post ONE job first and confirm all six steps come back accepted before posting
    the rest.
+   **Fuzz campaigns** (`jobs/fuzz.json`, same price, no agents): CPU-only seats run every `prop_`
+   of `test/CauldronFuzz.sol` through `forge test --fuzz-runs <runs>` and report the first
+   counterexample, which `GET /jobs/<id>/fuzz` shows.
+   ```sh
+   node tools/post-job.mjs --fuzz --commit <sha> --runs 100000 --quote
+   ```
+   Before raising `--runs` or changing the harness, run it the way IMD does: write the wrapper
+   (`contract ImdFuzzCampaign { CauldronFuzz harness = new CauldronFuzz(); function testFuzz_prop_x(..) ... }`
+   in `test/ImdFuzzCampaign.t.sol`), `forge test --match-contract ImdFuzzCampaign --fuzz-runs 3000`,
+   and delete it. A false counterexample costs a job.
 4. **Record every job id** (`admission.result.jobId` of each admitted order) in the review repo's `ledger/jobs.txt`.
 5. **Rebuild the ledger** there: `node tools/aggregate.mjs`, then set our own calls in
    `ledger/triage.json` (`fixed` once a fix is merged here, `wontfix`, `duplicate`, a corrected
