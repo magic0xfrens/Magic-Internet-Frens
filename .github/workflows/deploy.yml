@@ -45,8 +45,9 @@ jobs:
   #     regressions (GACHA1f, S04 lead cache, Z03 scan) fail under it only.
   #
   # So: pin forge to v1.4.4, seed exactly the solc versions the deploy resolves
-  # to, build --offline (forge cannot fetch a newer one), and assert compiler
-  # parity. Upgrade forge here and on the deploy machine together, never apart.
+  # to, build --offline (forge cannot fetch a newer one), assert compiler
+  # parity, and keep the linter out of the gate. Upgrade forge here and on the
+  # deploy machine together, never apart.
   contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -56,6 +57,12 @@ jobs:
     env:
       FOUNDRY_PROFILE: cauldron
       FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+      # The post-build linter is not a gate. v1.4.4 has no --no-lint, and its
+      # parser rejects prose like "`size @ TWAP mark`" in PerpEngine.sol's
+      # natspec as an invalid tag ("Lint failed") AFTER a clean compile — and
+      # that comment cannot change without changing the metadata hash of a
+      # deployed, verified contract.
+      FOUNDRY_LINT_LINT_ON_BUILD: "false"
       # Set this repo secret to also run the ~154 fork-gated tests. Without it
       # they report as SKIPPED, never as passing.
       FORK_RPC: ${{ secrets.FORK_RPC }}
