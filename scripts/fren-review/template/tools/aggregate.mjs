@@ -129,7 +129,7 @@ for (const jobId of jobIds) {
         const it = issue(issueId(where.file, where.fn), where);
         it.titles.includes(f.title) || it.titles.push(f.title);
         it.severities[f.severity] = (it.severities[f.severity] ?? 0) + 1;
-        it.checks.push({ job: jobId, step, seat, result: "confirmed", severity: f.severity, poc: f.poc ?? null });
+        it.checks.push({ job: jobId, step, seat, result: "confirmed", severity: f.severity, test: f.test ?? null });
       }
       for (const f of parsed?.refuted ?? []) {
         if (!f.path) continue;
@@ -160,10 +160,9 @@ for (const jobId of jobIds) {
     let leadLines = 0;
     review.findings = addFindings("hunt");
     for (const line of summary.split("\n")) {
-      const v = /^\s*([a-z]+):\s*(solid|suspect|exploitable|defect)\s*\|\s*(\d+)\s*(?:\|\s*(.*))?$/i.exec(line);
+      const v = /^\s*([a-z]+):\s*(solid|suspect|defect)\s*\|\s*(\d+)\s*(?:\|\s*(.*))?$/i.exec(line);
       if (v && coverage[v[1].toLowerCase()]) {
         const c = coverage[v[1].toLowerCase()];
-        if (v[2].toLowerCase() === "exploitable") v[2] = "defect";   // the verdict's old name
         c[v[2].toLowerCase()]++;
         c.examined.push(Number(v[3]));
         review.verdicts[v[1].toLowerCase()] = v[2].toLowerCase();
@@ -187,7 +186,7 @@ for (const jobId of jobIds) {
 // ── Status: evidence first, our triage last ────────────────────────────────────
 const worst = (sev) => SEVERITY.find((s) => sev[s]) ?? "info";
 const out = [...issues.values()].map((it) => {
-  //  reported (a hunter or the verifier) -> confirmed (the report re-ran its PoC) -> verified (the
+  //  reported (a hunter or the verifier) -> confirmed (the report re-ran its repro test) -> verified (the
   //  verifier upheld it); refuted when the report refuted it or the verifier overturned it.
   let status = "reported";
   if (it.checks.some((c) => c.result === "confirmed")) status = "confirmed";
@@ -237,7 +236,7 @@ const md = [
   ...(out.length ? ["|---|---|---|---|---|---|---|"] : []),
   ...out.map((i) => `| ${i.id} | ${i.severity} | \`${i.file ?? "?"}\` ${esc(i.fn)} | ${esc(i.titles[0])}${i.titles.length > 1 ? ` (+${i.titles.length - 1} more)` : ""} | ${i.reporters.length} | ${i.confirms.length} / ${i.refutes.length} | ${i.status}${i.note ? ` — ${esc(i.note)}` : ""} |`),
   "",
-  "Statuses: `reported` (a hunter or the verifier) → `confirmed` (the report re-ran its PoC) → `verified` (the verifier upheld it), or `refuted`; `fixed` / `wontfix` / `duplicate` are set upstream in triage.json.",
+  "Statuses: `reported` (a hunter or the verifier) → `confirmed` (the report re-ran its repro test) → `verified` (the verifier upheld it), or `refuted`; `fixed` / `wontfix` / `duplicate` are set upstream in triage.json.",
   "",
   "## Leads for the next round",
   "",

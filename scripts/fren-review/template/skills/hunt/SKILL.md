@@ -81,7 +81,7 @@ is shown in local Foundry tests; nothing ever touches a live network.
 
 ## 🗺️ The realm and the trust circle
 
-**In scope:** every Solidity file outside `test/`, `reference/`, `lib/` and `tools/`, in the 10
+**In scope:** every Solidity file outside `test/`, `lib/` and `tools/`, in the 10
 clusters of `MAP.md`: hook, registry, pool, perp, rotation, nft, governance, seed, art, deploy.
 
 **Out of scope:**
@@ -209,10 +209,6 @@ harness gives you:
   `_inRangeLiquidity()` (see `test/attacks/YBase.sol`)
 
 For the nft cluster, deploy `MiFrensGenesis` directly, as `test/GenesisDiscountMint.t.sol` does.
-
-**Earlier tests.** `reference/test/` holds 270+ earlier probe and functional tests. They are not
-compiled. Read them to see how earlier hunters reached deep state (rotation, requote, liquidation
-cascades) and copy what you need. Tests that use `FORK_RPC` won't run for you.
 
 **Invariant fuzzing works here.** Write a stateful handler over `FrenBase` that
 buys, sells, opens, closes, liquidates, warps and rotates at random. Add `invariant_` functions for

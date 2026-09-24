@@ -23,7 +23,7 @@ contract FrenPoCTemplate is FrenBase {
     }
 
     function test_FrenTemplate_StackBootsAndTrades() public {
-        assertTrue(active, "local stack booted - a PoC on an empty setup proves nothing");
+        assertTrue(active, "local stack booted - a repro test on an empty setup proves nothing");
 
         vm.deal(address(this), 10 ether);
         uint256 before = IERC20(token).balanceOf(attacker);

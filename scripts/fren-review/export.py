@@ -28,6 +28,9 @@ import sys
 import tempfile
 import tomllib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sanitize  # noqa: E402
+
 REPO = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOL = "contracts/solidity/"
@@ -171,13 +174,20 @@ def main():
         if rel.startswith(WITHHELD):
             counts["withheld"] = counts.get("withheld", 0) + 1
             continue
+        #  Everything shipped is in audit wording (sanitize.py): hosted agents refuse files
+        #  that read like attack narratives. Earlier tests are no longer shipped at all.
+        if rel.endswith(".sol"):
+            data = sanitize.sol(data.decode()).encode()
+        elif rel.endswith(".md"):
+            data = sanitize.prose(data.decode()).encode()
         if rel == "README.md":
             write(out, "docs/contracts-README.md", data)
         elif rel.startswith("test/"):
             if rel in compiled_tests:
-                write(out, rel, data); counts["tests"] += 1
+                text = sanitize.harness_idents(sanitize.renames(data.decode()))
+                write(out, sanitize.PATH_RENAMES.get(rel, rel), text.encode()); counts["tests"] += 1
             else:
-                write(out, "reference/" + rel, data); counts["reference"] += 1
+                counts["reference"] += 1
         else:
             write(out, rel, data); counts["source"] += 1
 
@@ -207,7 +217,33 @@ def main():
             if rel.startswith("ledger/") and os.path.exists(os.path.join(out, rel)):
                 continue  # the ledger is the review repo's memory: seed it once, never overwrite
             write(out, rel, open(os.path.join(d, f), "rb").read())
-    write(out, "ledger/KNOWN.md", b"\n\n---\n\n".join(files[k][1].rstrip(b"\n") for k in KNOWN) + b"\n")
+    write(out, "ledger/KNOWN.md", sanitize.prose(
+        "\n\n---\n\n".join(files[k][1].decode().rstrip("\n") for k in KNOWN) + "\n").encode())
+    # The kit and the map, in the same wording; map facts keep their gate quotes verbatim.
+    for d, dirs, fs in os.walk(out):
+        dirs[:] = [x for x in dirs if x not in (".git", "lib", "node_modules", "out", "cache")]
+        for f in fs:
+            path = os.path.join(d, f)
+            rel = os.path.relpath(path, out)
+            if rel.startswith("ledger/") and rel != "ledger/KNOWN.md":
+                continue
+            if f.endswith(".md") or (rel.startswith(("skills/", "jobs/", "deployments/")) and f.endswith(".json")):
+                text = open(path, encoding="utf-8").read()
+                new = sanitize.prose(sanitize.harness_idents(sanitize.renames(text)))
+                if new != text:
+                    open(path, "w", encoding="utf-8").write(new)
+            elif rel.startswith("map/") and f.endswith(".json"):
+                m = json.load(open(path, encoding="utf-8"))
+                for node in m.get("nodes", []):
+                    for k in ("authority", "reachability", "value", "observations"):
+                        v = node.get(k)
+                        if isinstance(v, str):
+                            node[k] = sanitize.prose(v)
+                        elif isinstance(v, list):
+                            node[k] = [sanitize.prose(x) if isinstance(x, str) else x for x in v]
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(m, fh, indent=1)
+                    fh.write("\n")
     write(out, "EXPORT.json", json.dumps({
         "source": SOURCE_URL, "commit": commit, "round": a.round,
         "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -227,7 +263,7 @@ def main():
     if a.git_commit:
         run("commit", "-q", "-m",
             "Fren Review round %d: %s@%s" % (a.round, "Magic-Internet-Frens", commit[:12]))
-    print("exported %s@%s -> %s  (%d source, %d compiled tests, %d reference tests, %d withheld, %d submodules)%s" % (
+    print("exported %s@%s -> %s  (%d source, %d compiled tests, %d earlier tests not shipped, %d withheld, %d submodules)%s" % (
         "Magic-Internet-Frens", commit[:12], out, counts["source"], counts["tests"], counts["reference"],
         counts.get("withheld", 0), len(subs),
         "" if not a.overlay else "  overlay: " + ", ".join(a.overlay)))
