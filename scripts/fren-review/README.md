@@ -29,7 +29,7 @@ fixes all three and compiles only the contracts plus the PoC harness.
    IMD_PAID_TOKEN=$(openssl rand -hex 32) node tools/post-job.mjs --commit <sha> --scope perp-engine --quote   # free quote
    node tools/post-job.mjs --commit <sha> --scope hook-swap --prior <job id>,<job id> --pay   # pay and post
    ```
-   `--scope` picks one of the ten scopes in `jobs/scopes.json` (`--scope list`); the four hunters take
+   `--scope` picks one of the twelve scopes in `jobs/scopes.json` (`--scope list`); the four hunters take
    angles A–D on it. `--prior` attaches earlier jobs' accepted report and findings
    files as inputs. Post as many jobs as it takes; re-export with the rebuilt ledger between batches so
    new jobs start from everything already known. Budget and model tier are IMD's defaults per skill and

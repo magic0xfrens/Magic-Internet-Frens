@@ -1,5 +1,5 @@
 {
-  "_note": "Scopes for jobs/deep-review.json, in posting order (value at risk first). Each job reviews one scope; `contracts` gets its first four files.",
+  "_note": "Scopes for jobs/deep-review.json, in posting order (value at risk first). Together they cover all 66 audited files; each job reviews one scope, and `contracts` gets its first four files.",
   "perp-engine": {
     "title": "Perp engine: positions, funding, liquidation sweep, requote",
     "files": [
@@ -40,7 +40,10 @@
       "CauldronRegistry.sol",
       "cauldron/CauldronBase.sol",
       "CauldronToken.sol",
-      "cauldron/ICauldron.sol"
+      "cauldron/ICauldron.sol",
+      "cauldron/IDeathChecker.sol",
+      "cauldron/IPolicies.sol",
+      "cauldron/ILiquidatorMintable.sol"
     ]
   },
   "pool-reserve": {
@@ -52,13 +55,15 @@
     ]
   },
   "rotation-treasury": {
-    "title": "Treasury rotation: rotation slices, venues, quote oracle, treasury governor",
+    "title": "Treasury rotation: rotation slices, venues, quote oracle, treasury governor (the two mocks are testnet-only: in scope if a mainnet path can reach them)",
     "files": [
       "cauldron/RedemptionExt.sol",
       "cauldron/QuoteRotator.sol",
       "cauldron/QuoteOracle.sol",
       "cauldron/TreasuryGovernor.sol",
-      "cauldron/NativeQuoteZap.sol"
+      "cauldron/NativeQuoteZap.sol",
+      "cauldron/MockAggregator.sol",
+      "cauldron/MockQuoteToken.sol"
     ]
   },
   "nft-gacha": {
@@ -70,7 +75,9 @@
       "cauldron/CollectionLedger.sol",
       "cauldron/CauldronVault.sol",
       "cauldron/MintCurvePolicy.sol",
-      "cauldron/CauldronFactory.sol"
+      "cauldron/CauldronFactory.sol",
+      "cauldron/ICreatorToken.sol",
+      "interfaces/INFTContract.sol"
     ]
   },
   "genesis-governance": {
@@ -81,14 +88,44 @@
       "cauldron/CauldronGovernor.sol"
     ]
   },
-  "launch-seed-deploy": {
-    "title": "Launch path: progressive seeder, launch sniper guard, migration vesting, deploy scripts",
+  "launch-seed": {
+    "title": "Launch path: progressive seeder, launch sniper guard, migration vesting",
     "files": [
       "cauldron/CauldronSeeder.sol",
       "cauldron/LaunchSniper.sol",
       "cauldron/MigrationVesting.sol",
+      "cauldron/ISeeder.sol"
+    ]
+  },
+  "art-render": {
+    "title": "Art and rendering: on-chain token art, trait upload, badge art (render/ files are left out of the default build's own sources but import fine from tests)",
+    "files": [
+      "render/FrenRenderer.sol",
+      "render/TraitStorage.sol",
+      "render/LiquidatoorRenderer.sol",
+      "cauldron/CauldronArtAdapter.sol",
+      "render/SSTORE2.sol",
+      "deploy/BadgeArtLib.sol",
+      "deploy/DeployRenderer.s.sol"
+    ]
+  },
+  "deploy-config": {
+    "title": "Deployment: what the scripts deploy, wire and hand over, and any state they could ship that is exploitable or stuck",
+    "files": [
       "deploy/DeployLaunchpad.s.sol",
-      "deploy/DeployPerp.s.sol"
+      "deploy/DeployPerp.s.sol",
+      "deploy/DeployRotationStack.s.sol",
+      "deploy/DeployMigrationVesting.s.sol",
+      "deploy/DeployCauldron.s.sol",
+      "deploy/DeployLaunchSniper.s.sol",
+      "deploy/DeployQuoteAssets.s.sol",
+      "deploy/DeployV4Core.s.sol",
+      "deploy/FixFactoryWiring.s.sol",
+      "deploy/TopUpVenue.s.sol",
+      "deploy/SellVolume.s.sol",
+      "deploy/SnipeBuy.s.sol",
+      "deploy/SwapVolume.s.sol",
+      "vendor/HookMiner.sol"
     ]
   }
 }
