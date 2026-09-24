@@ -36,14 +36,17 @@ jobs:
   #     CBOR says so) while a fresh runner downloaded the newest release, 0.8.37.
   #     CI measured bytecode that never ships: at 31b7535 CauldronRegistry was 7 B
   #     over EIP-170 under 0.8.37 and comfortably under as actually deployed.
-  #  2. Once the re-audit shrank the registry, the size check passed and forge
-  #     1.8's post-build LINT ran over all ~1,700 files. The compile had already
-  #     succeeded; the lint pass took the runner down ("received a shutdown
-  #     signal"), which the UI reports as "canceled", not as a failure.
+  #  2. Nor was forge. `stable` became 1.8.x, whose post-build LINT reports
+  #     high/medium/low by default: once the re-audit shrank the registry and
+  #     the size check passed, that pass ran over ~1,700 files after a
+  #     SUCCESSFUL compile and took the runner down ("received a shutdown
+  #     signal", shown as "canceled"). 1.8 also meters gas differently from the
+  #     1.4.4 the team builds and tests with, and three gas-calibrated
+  #     regressions (GACHA1f, S04 lead cache, Z03 scan) fail under it only.
   #
-  # So: seed exactly the solc versions the deploy resolves to and build
-  # --offline (forge cannot fetch a newer one), skip the lint pass (thousands of
-  # style warnings are not a gate), pin forge, and assert the compiler parity.
+  # So: pin forge to v1.4.4, seed exactly the solc versions the deploy resolves
+  # to, build --offline (forge cannot fetch a newer one), and assert compiler
+  # parity. Upgrade forge here and on the deploy machine together, never apart.
   contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -62,7 +65,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { submodules: recursive }
       - uses: foundry-rs/foundry-toolchain@v1
-        with: { version: v1.8.3 }
+        with: { version: v1.4.4 }
       # The tree resolves to three compilers: 0.8.17 (permit2's pin), 0.8.26
       # (v4-core's pin) and 0.8.30 for everything ^0.8.26. Installing exactly
       # these and building --offline reproduces the deploy machine's choice.
@@ -72,9 +75,9 @@ jobs:
         run: |
           mkdir -p solc-seed/src && cd solc-seed
           printf 'pragma solidity >=0.8.0;\ncontract Seed {}\n' > src/Seed.sol
-          for v in 0.8.17 0.8.26 0.8.30; do forge build --use "$v" --force --no-lint > /dev/null; done
+          for v in 0.8.17 0.8.26 0.8.30; do forge build --use "$v" --force > /dev/null; done
       - name: Build
-        run: forge build --sizes --offline --no-lint
+        run: forge build --sizes --offline
       - name: Compiler parity with the deploy
         run: |
           v=$(jq -r .metadata.compiler.version out/CauldronRegistry.sol/CauldronRegistry.json)

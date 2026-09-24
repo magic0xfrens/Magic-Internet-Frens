@@ -172,6 +172,7 @@ contract F14_RotationTotality is F14Base {
 
     function setUp() public {
         _boot(20 ether, 24);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "F14_RotationTotality: fork not active - PoC proved nothing");
         _bootRotation();
         //  VOLUME IN USD. Threshold 0 keeps the brew alive while the test warps
@@ -533,6 +534,7 @@ contract F14b_RotationWithoutHookOracle is F14Base {
 
     function setUp() public {
         _boot(20 ether, 0);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "F14b_RotationWithoutHookOracle: fork not active - PoC proved nothing");
         _bootRotation();
         //  The shipped no-oracle default: 1 ETH of 24h volume keeps a brew alive.

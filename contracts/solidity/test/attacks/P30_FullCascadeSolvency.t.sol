@@ -86,6 +86,7 @@ contract P30_FullCascadeSolvency is YBase {
     }
 
     function test_P30_fullCascadeEitherFillsCleanOrRefusesWhole() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
 
         // A book at the ceiling, with real positions rather than dust: 30 shorts
@@ -146,6 +147,7 @@ contract P30_FullCascadeSolvency is YBase {
     ///         so a trade condemning the whole side cannot be finished in one
     ///         swap and must be turned away whole.
     function test_P30_bookBeyondTheCeilingRefusesWhole() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork harness must be live (FORK_RPC)");
 
         //  Smallest positions the dust filter allows, to push the COUNT as high

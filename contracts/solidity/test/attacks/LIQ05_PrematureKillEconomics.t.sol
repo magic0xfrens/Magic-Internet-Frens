@@ -32,6 +32,7 @@ contract LIQ05_PrematureKillEconomics is YBase {
 
     function setUp() public {
         _boot(3 ether, 24);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "LIQ05_PrematureKillEconomics: fork not active - PoC proved nothing");
         _bootPerp(2 ether, 200_000_000e18);
         vm.deal(address(this), 5_000 ether);

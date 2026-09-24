@@ -25,6 +25,7 @@ contract RQ1_CarriedBookAdversarial is F14Base {
 
     function setUp() public {
         _boot(20 ether, 24);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(active, "RQ1_CarriedBookAdversarial: fork not active - PoC proved nothing");
         _bootRotation();
         hook.setDeathThreshold(0, address(oracle), 50e18, 0.05e18, 1200e18);

@@ -106,6 +106,7 @@ contract R1A_FreeKillSlack is YBase {
         console2.log("solventAtRealized", solventAtRealized);
         console2.log("foundSellEthEq", foundSize);
         console2.log("realizedVal", realizedVal, "threshold(principal)", threshold);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ran, "fork not active - PoC proved nothing");
         assertTrue(healthyBefore, "victim must be healthy before the attack");
         assertTrue(diedInSwap, "no trade size killed the victim");

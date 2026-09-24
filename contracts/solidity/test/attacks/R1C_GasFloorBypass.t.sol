@@ -119,6 +119,7 @@ contract R1C_GasFloorBypass is YBase {
             ranPos = true;
         }
         console2.log("ranPos", ranPos, "survivedPos", survivedPos);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ranPos, "fork not active");
         assertFalse(survivedPos && insolventPos, "I1 holds at full gas");
     }
@@ -134,6 +135,7 @@ contract R1C_GasFloorBypass is YBase {
         console2.log("gasCap", gasUsedCap);
         console2.log("survived", survived, "insolvent", insolvent);
         console2.log("badDebtGapWei", gap);
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ran, "fork not active - PoC proved nothing");
         assertTrue(swapOk, "no gas cap landed the trade");
         assertFalse(

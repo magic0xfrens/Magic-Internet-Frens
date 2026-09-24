@@ -27,6 +27,7 @@ contract CHURN1_LiveRevert is Test {
 
     function setUp() public {
         string memory rpc = vm.envOr("FORK_RPC", string(""));
+        if (bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         require(bytes(rpc).length != 0, "CHURN1_LiveRevert: fork not active - PoC proved nothing");
         vm.createSelectFork(rpc);
     }

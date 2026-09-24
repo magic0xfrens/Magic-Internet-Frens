@@ -119,6 +119,7 @@ contract H1B_SweepCapCertifiesUnscanned is YBase {
 
     function test_H1B_preTradeSweepMayNotCertifyAnUnscannedBook() public {
         _run();
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ran, "fork harness did not boot (FORK_RPC unset?)");
         assertGt(opened, 8, "could not build a book larger than MAX_LIQ_PER_SWAP");
 
@@ -186,6 +187,7 @@ contract H1B_SweepCapCertifiesUnscanned is YBase {
         console2.log("keeper kills:", killed);
         console2.log("liquidatable left:", _liqOpen());
 
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(ran, "fork harness did not boot (FORK_RPC unset?)");
         assertGt(fills, 0, "the pool is frozen: no sell of any size fills");
         assertGt(sold, 0, "no flow got through at all");

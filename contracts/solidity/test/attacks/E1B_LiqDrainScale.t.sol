@@ -97,6 +97,7 @@ contract E1B_LiqDrainScale is PerpEngineForkTest {
     }
 
     function test_scale_push_1eth() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork must be live for this regression");
         R memory r = _run(1 ether);
         _report("push1", r);
@@ -104,6 +105,7 @@ contract E1B_LiqDrainScale is PerpEngineForkTest {
     }
 
     function test_scale_push_3eth() public {
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(active, "fork must be live for this regression");
         R memory r = _run(3 ether);
         _report("push3", r);

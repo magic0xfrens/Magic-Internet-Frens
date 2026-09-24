@@ -53,6 +53,7 @@ contract M4A_RelaunchSeam is YBase {
     /// POSITIVE CONTROL: relaunch must always eventually succeed, twice in a row.
     function test_relaunch_liveness_positive_control() public {
         _run();
+        if (!active && bytes(vm.envOr("FORK_RPC", string(""))).length == 0) vm.skip(true); // no fork, no local boot: SKIPPED, never PASS
         assertTrue(R.booted, "fork harness must be live");
         assertTrue(R.gen2ok, "relaunch #1 must succeed");
         assertTrue(R.gen3ok, "relaunch #2 must succeed");
