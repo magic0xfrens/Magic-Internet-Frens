@@ -99,7 +99,7 @@ clusters of `MAP.md`: hook, registry, pool, perp, rotation, nft, governance, see
 | Uniswap v4 PoolManager, OpenZeppelin | token and NFT holders, including many colluding wallets |
 | Chainlink feeds (honest, but can be stale, zero or reverting) | anyone who can deploy a contract or send dust |
 
-A circle member acting maliciously is out of scope, **unless** the code lets it skip a timelock or
+A circle member acting against the protocol is out of scope, **unless** the code lets it skip a timelock or
 guard it promises, or an outsider's input can reach a circle-only path.
 
 **The chain.** The protocol is built for **Arbitrum Orbit** (Robinhood Chain), and the code comments
@@ -360,7 +360,7 @@ These are starting points, not a fence. Each line is an probe to try, not a know
   - Gacha randomness with a constant `prevrandao`.
 - **governance**
   - Vote, transfer, and vote again. Borrow voting power with a flash loan.
-  - Proposal payloads that reach beyond their mandate.
+  - Proposal calldata that reaches beyond its mandate.
   - Quorum math at low supply.
 - **seed / deploy**
   - Rounding in the initial price and liquidity.
