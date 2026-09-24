@@ -3,12 +3,12 @@
  * Post one Fren Review deep review to IMD as a paid `job.open` (imd.fun/docs, "Paid requests"):
  * six steps for one price — four hunters, a report, a verifier (jobs/deep-review.json).
  *
- *   node tools/post-job.mjs --commit <sha> --slot 0 --dry
- *   node tools/post-job.mjs --commit <sha> --foci perp-book,rotation,vault,value-flow --prior <jobId>,<jobId> --quote
+ *   node tools/post-job.mjs --commit <sha> --scope perp-engine --dry
+ *   node tools/post-job.mjs --commit <sha> --scope hook-swap --prior <jobId>,<jobId> --quote
  *   node tools/post-job.mjs --fuzz --commit <sha> --runs 100000 --quote      # a fuzz campaign (jobs/fuzz.json)
  *
- * --slot N   picks foci N*4 .. N*4+3 of the rotation below, so consecutive jobs cover every focus
- *            every three jobs; --foci names four explicitly.
+ * --scope    the scope to review, a key of jobs/scopes.json (the four hunters take the angles A–D
+ *            written into jobs/deep-review.json). `--scope list` prints them.
  * --fuzz     post jobs/fuzz.json instead: CPU-only seats fuzz test/CauldronFuzz.sol's prop_ functions,
  *            --runs times each (1,000–10,000,000; default 100,000). No agents, same price.
  * --prior    earlier jobs whose accepted report and findings files are attached as `inputs`, so the
@@ -107,10 +107,6 @@ if (flag("approve")) {
   process.exit(receipt.status === "success" ? 0 : 1);
 }
 
-//  Ordered so that any four consecutive entries spread across the machine.
-const FOCI = ["perp-book", "value-flow", "hook-deltas", "rotation", "lifecycle", "genesis-nft",
-              "perp-requote", "vault", "registry-facet", "randomness", "governance", "seed-deploy"];
-
 const commit = opt("commit") ?? "";
 if (!/^[0-9a-f]{40}$/.test(commit)) die("--commit must be the review repository's round commit, 40 lowercase hex");
 const fuzz = flag("fuzz");
@@ -128,24 +124,22 @@ const fill = (vars) => function f(value) {
 };
 const template = (name) => JSON.parse(readFileSync(new URL(`jobs/${name}.json`, ROOT), "utf8"));
 
-let foci = [];
+let scopeName = "";
 let input;
 if (fuzz) {
   const runs = Number(opt("runs") ?? 100_000);
   if (!Number.isInteger(runs) || runs < 1_000 || runs > 10_000_000) die("--runs must be 1,000–10,000,000");
   input = fill({ "<COMMIT>": commit, "<RUNS>": runs })(template("fuzz"));
 } else {
-  if (opt("foci")) {
-    foci = opt("foci").split(",").map((f) => f.trim());
-    if (foci.length !== 4 || new Set(foci).size !== 4 || foci.some((f) => !FOCI.includes(f))) {
-      die(`--foci takes four different foci from: ${FOCI.join(", ")}`);
-    }
-  } else {
-    const slot = Number(opt("slot") ?? NaN);
-    if (!Number.isInteger(slot) || slot < 0) die("give --slot <n> (n = 0, 1, 2, …) or --foci a,b,c,d");
-    foci = [0, 1, 2, 3].map((i) => FOCI[(slot * 4 + i) % FOCI.length]);
+  const scopes = template("scopes");
+  const names = Object.keys(scopes).filter((k) => !k.startsWith("_"));
+  scopeName = opt("scope") ?? "";
+  if (scopeName === "list" || !scopes[scopeName] || scopeName.startsWith("_")) {
+    die(`--scope takes one of:\n${names.map((n) => `  ${n.padEnd(20)} ${scopes[n].title}`).join("\n")}`);
   }
-  input = fill({ "<COMMIT>": commit, "<FOCUS_A>": foci[0], "<FOCUS_B>": foci[1], "<FOCUS_C>": foci[2], "<FOCUS_D>": foci[3] })(template("deep-review"));
+  const sc = scopes[scopeName];
+  input = fill({ "<COMMIT>": commit, "<SCOPE_TITLE>": sc.title, "<SCOPE_FILES>": sc.files.join(", ") })(template("deep-review"));
+  input.contracts = sc.files.slice(0, 4);
 }
 
 // ── earlier reports as inputs ───────────────────────────────────────────────
@@ -171,6 +165,7 @@ const leftover = JSON.stringify(input).match(/<[A-Z_]+>/g);
 if (leftover) problems.push(`unfilled placeholders: ${[...new Set(leftover)].join(", ")}`);
 if (!input.objective || input.objective.length > 8000) problems.push("objective must be 1–8,000 characters");
 if ((input.references ?? []).length > 8) problems.push("at most 8 references");
+if ((input.contracts ?? []).length > 4) problems.push("at most 4 contracts");
 if (fuzz) {
   if (input.template !== "fuzz") problems.push("jobs/fuzz.json must use the fuzz template");
   if (!Array.isArray(input.contracts) || input.contracts.length !== 1) problems.push("a fuzz job names exactly one harness in contracts");
@@ -197,7 +192,7 @@ const bytes = Buffer.byteLength(JSON.stringify(body));
 if (bytes > 16 * 1024) problems.push(`quote body is ${bytes} bytes; the limit is 16 KiB`);
 
 console.log(JSON.stringify(body, null, 2));
-console.error(`\n${fuzz ? `fuzz campaign, ${input.runs} runs` : `deep review, foci ${foci.join(", ")}`}${prior.length ? `, ${input.inputs.length} prior file(s)` : ""}: ` +
+console.error(`\n${fuzz ? `fuzz campaign, ${input.runs} runs` : `deep review of ${scopeName}`}${prior.length ? `, ${input.inputs.length} prior file(s)` : ""}: ` +
   `${bytes} bytes, ${problems.length ? "PROBLEMS:\n  - " + problems.join("\n  - ") : "within the documented limits"}`);
 if (problems.length) process.exit(1);
 if (flag("dry")) process.exit(0);
@@ -303,7 +298,7 @@ for (let i = 0; i < 120; i++) {
     const r = st.admission?.result ?? {};
     console.log(JSON.stringify({ order: order.id, payment: st.payment, admission: st.admission }, null, 2));
     if (r.kind === "refused") die(`paid but refused: ${JSON.stringify(r.problems)}`);
-    const note = fuzz ? `fuzz ${input.runs} runs` : `deep review, foci ${foci.join(" ")}`;
+    const note = fuzz ? `fuzz ${input.runs} runs` : `deep review of ${scopeName}`;
     appendFileSync(new URL("ledger/jobs.txt", ROOT), `${r.jobId}  # ${new Date().toISOString().slice(0, 10)} ${note}; order ${order.id}\n`);
     console.error(`\nADMITTED: job ${r.jobId}  https://explorer.imd.fun/jobs/${r.jobId}\n(added to ledger/jobs.txt)`);
     process.exit(0);

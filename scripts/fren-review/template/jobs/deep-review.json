@@ -1,6 +1,6 @@
 {
-  "_note": "The `input` of an IMD paid `job.open` request (imd.fun/docs, \"Job body\"): one deep review by six seats for one price. Post it with `node tools/post-job.mjs`, which fills the placeholders, drops every key starting with `_`, can attach earlier jobs' reports as `inputs`, and checks the documented limits. <COMMIT> = this repository's round commit (40 hex). <FOCUS_A>..<FOCUS_D> = four different foci from: hook-deltas, lifecycle, perp-book, perp-requote, vault, rotation, registry-facet, genesis-nft, randomness, governance, seed-deploy, value-flow; rotate them across jobs, weighting toward new code and value at risk.",
-  "objective": "🐸 Fren Review — a defensive security audit commissioned by the protocol's own team, of its own open-source code. The Identity.md swarm reviews the Magic Internet Frens Cauldron (a Uniswap v4 hook that launches a token, watches it trade, relaunches it when it dies; perps, a treasury rotation and a Genesis NFT collection) as its external audit. This job is one deep review done by six seats: four hunters (hunt_a to hunt_d) probe the whole scope independently, each going deep on its own focus; report merges and re-runs everything into one report; verify probes that report and hunts what the four missed. Your step names its role and its skill file in this repository; follow that file, it is the brief. Scope: every Solidity file outside test/, reference/, lib/ and tools/. MAP.md and map/<cluster>.json map every function; ledger/LEDGER.md and ledger/KNOWN.md are what is already known: confirm or refute those, never re-report them as new. Reports from earlier jobs, when attached, are in .imd/reads/artifacts/. Rules for every step: never send a transaction to any live network and never use a private key; prove every claim with a local Foundry test on test/fren-review/FrenBase.sol against the real contracts, with outsider actors only, no vm.store/vm.etch on protocol contracts, the incorrect outcome asserted in numbers and a control; write only your step's paths; `forge build` and `forge test` must pass. Finding nothing is an acceptable result when the coverage shows the whole scope was examined.",
+  "_note": "The `input` of an IMD paid `job.open` request (imd.fun/docs, \"Job body\"): one deep review of one scope by six seats for one price. Post it with `node tools/post-job.mjs --scope <name>`, which fills the placeholders from jobs/scopes.json, drops every key starting with `_`, can attach earlier jobs' reports as `inputs`, and checks the documented limits. <COMMIT> = this repository's round commit (40 hex).",
+  "objective": "🐸 Fren Review — a defensive security audit commissioned by the protocol's own team, of its own open-source code. The Identity.md swarm reviews the Magic Internet Frens Cauldron (a Uniswap v4 hook that launches a token, watches it trade, relaunches it when it dies; perps, a treasury rotation and a Genesis NFT collection) as its external audit. This job is one deep review of ONE scope, done by six seats. Scope: <SCOPE_TITLE> — <SCOPE_FILES>. Four hunters (hunt_a to hunt_d) review that scope independently, each from a different angle; report merges and re-runs everything into one report; verify checks that report and looks for what the four missed. The rest of the repository is context: read it where the scope calls into it or is called from it, and report defects whose root cause is in the scope or in its interaction with the rest. Your step names its role and its skill file in this repository; follow that file, it is the brief. MAP.md and map/<cluster>.json map every function; ledger/LEDGER.md and ledger/KNOWN.md are what is already known: confirm or refute those, never re-report them as new. Reports from earlier jobs, when attached, are in .imd/reads/artifacts/. Rules for every step: never send a transaction to any live network and never use a private key; prove every claim with a local Foundry test on test/fren-review/FrenBase.sol against the real contracts, with outsider actors only, no vm.store/vm.etch on protocol contracts, the incorrect outcome asserted in numbers and a control; write only your step's paths; `forge build` and `forge test` must pass. Finding nothing is an acceptable result when the coverage shows the whole scope was examined from your angle.",
   "shape": "dag",
   "references": [
     "solidity-security-review",
@@ -9,18 +9,19 @@
   ],
   "repoUrl": "https://github.com/magic0xfrens/IMD-fren-to-fren-review",
   "baseCommit": "<COMMIT>",
+  "contracts": "<SCOPE_CONTRACTS>",
   "steps": [
     {
       "skill": "write-foundry-tests",
       "key": "hunt_a",
       "dependsOn": [],
-      "objective": "You are hunter A. Focus: <FOCUS_A>. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_a/ (every contract name starts with `HuntA`), your write-up in review/hunt_a.md.",
+      "objective": "You are hunter A. Angle: value and accounting: follow every wei and token into and out of the scope; conservation, rounding direction, fee splits, share and index math. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_a/ (every contract name starts with `HuntA`), your write-up in review/hunt_a.md.",
       "paths": [
         "test/fren-review/hunt_a",
         "review/hunt_a.md"
       ],
       "acceptanceCriteria": [
-        "review/hunt_a.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line, one verdict line for each of the 10 clusters) and then lists every finding and lead.",
+        "review/hunt_a.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line naming the scope and your angle, one verdict line for each cluster the scope touches) and then lists every finding and lead.",
         "Every finding points at its root cause (path:line), names the invariant it breaks, and has a passing repro test under test/fren-review/hunt_a/ that meets the skills/hunt/SKILL.md proof standard; the same findings are in .imd-findings.json.",
         "Nothing in ledger/LEDGER.md or ledger/KNOWN.md is reported as new; it is confirmed or refuted in the coverage block instead.",
         "forge build and forge test pass; every test builds on FrenBase and keeps assertTrue(active)."
@@ -30,13 +31,13 @@
       "skill": "write-foundry-tests",
       "key": "hunt_b",
       "dependsOn": [],
-      "objective": "You are hunter B. Focus: <FOCUS_B>. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_b/ (every contract name starts with `HuntB`), your write-up in review/hunt_b.md.",
+      "objective": "You are hunter B. Angle: access control and trust boundaries: who can call each entry point, what an untrusted address can make it call or receive, callbacks and re-entry. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_b/ (every contract name starts with `HuntB`), your write-up in review/hunt_b.md.",
       "paths": [
         "test/fren-review/hunt_b",
         "review/hunt_b.md"
       ],
       "acceptanceCriteria": [
-        "review/hunt_b.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line, one verdict line for each of the 10 clusters) and then lists every finding and lead.",
+        "review/hunt_b.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line naming the scope and your angle, one verdict line for each cluster the scope touches) and then lists every finding and lead.",
         "Every finding points at its root cause (path:line), names the invariant it breaks, and has a passing repro test under test/fren-review/hunt_b/ that meets the skills/hunt/SKILL.md proof standard; the same findings are in .imd-findings.json.",
         "Nothing in ledger/LEDGER.md or ledger/KNOWN.md is reported as new; it is confirmed or refuted in the coverage block instead.",
         "forge build and forge test pass; every test builds on FrenBase and keeps assertTrue(active)."
@@ -46,13 +47,13 @@
       "skill": "write-foundry-tests",
       "key": "hunt_c",
       "dependsOn": [],
-      "objective": "You are hunter C. Focus: <FOCUS_C>. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_c/ (every contract name starts with `HuntC`), your write-up in review/hunt_c.md.",
+      "objective": "You are hunter C. Angle: state and sequences: ordering, repetition, same-block and cross-transaction sequences, and behaviour across relaunch, rotation, generation or quote changes. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_c/ (every contract name starts with `HuntC`), your write-up in review/hunt_c.md.",
       "paths": [
         "test/fren-review/hunt_c",
         "review/hunt_c.md"
       ],
       "acceptanceCriteria": [
-        "review/hunt_c.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line, one verdict line for each of the 10 clusters) and then lists every finding and lead.",
+        "review/hunt_c.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line naming the scope and your angle, one verdict line for each cluster the scope touches) and then lists every finding and lead.",
         "Every finding points at its root cause (path:line), names the invariant it breaks, and has a passing repro test under test/fren-review/hunt_c/ that meets the skills/hunt/SKILL.md proof standard; the same findings are in .imd-findings.json.",
         "Nothing in ledger/LEDGER.md or ledger/KNOWN.md is reported as new; it is confirmed or refuted in the coverage block instead.",
         "forge build and forge test pass; every test builds on FrenBase and keeps assertTrue(active)."
@@ -62,13 +63,13 @@
       "skill": "write-foundry-tests",
       "key": "hunt_d",
       "dependsOn": [],
-      "objective": "You are hunter D. Focus: <FOCUS_D>. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_d/ (every contract name starts with `HuntD`), your write-up in review/hunt_d.md.",
+      "objective": "You are hunter D. Angle: edge values and liveness: zero, one, maximum and decimal extremes, overflow and precision, and any way to block or brick a core flow. Follow skills/hunt/SKILL.md. Your reproduction tests go in test/fren-review/hunt_d/ (every contract name starts with `HuntD`), your write-up in review/hunt_d.md.",
       "paths": [
         "test/fren-review/hunt_d",
         "review/hunt_d.md"
       ],
       "acceptanceCriteria": [
-        "review/hunt_d.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line, one verdict line for each of the 10 clusters) and then lists every finding and lead.",
+        "review/hunt_d.md starts with the FREN-REVIEW v1 coverage block from skills/hunt/SKILL.md (focus line naming the scope and your angle, one verdict line for each cluster the scope touches) and then lists every finding and lead.",
         "Every finding points at its root cause (path:line), names the invariant it breaks, and has a passing repro test under test/fren-review/hunt_d/ that meets the skills/hunt/SKILL.md proof standard; the same findings are in .imd-findings.json.",
         "Nothing in ledger/LEDGER.md or ledger/KNOWN.md is reported as new; it is confirmed or refuted in the coverage block instead.",
         "forge build and forge test pass; every test builds on FrenBase and keeps assertTrue(active)."
@@ -113,7 +114,7 @@
       "dependsOn": [
         "report"
       ],
-      "objective": "You are the verifier. Follow skills/verify/SKILL.md: re-run every repro test in the report, try to overturn each finding and each refutation, check every severity, then hunt what the four hunters missed, starting from the clusters the report covers least. Change no tracked file.",
+      "objective": "You are the verifier. Follow skills/verify/SKILL.md: re-run every repro test in the report, try to overturn each finding and each refutation, check every severity, then look for what the four hunters missed in this scope, starting from what the report covers least. Change no tracked file.",
       "acceptanceCriteria": [
         "The final message starts with the FREN-REVIEW VERIFY v1 block from skills/verify/SKILL.md: one upheld or overturned line per report finding and refuted claim.",
         "Every new finding and every overturned claim is in .imd-findings.json with path:line and a reproduction that was run, meeting the proof standard.",

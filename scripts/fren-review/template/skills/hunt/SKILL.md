@@ -55,7 +55,7 @@ differ from the report writer), and nobody sees the others while they work. The 
 nothing but the scope; the report writer receives their merged trees; the verifier receives the
 report writer's. What each of you leaves in the repository is all the next one gets.
 
-**Your step.** You are one of four hunters. Your step's objective names your letter and your focus.
+**Your step.** You are one of four hunters. Your step's objective names your letter and your angle; the job objective names the scope.
 Your tests stay in the repository: the report writer re-runs them, the verifier re-runs them, and IMD's
 own verifier re-runs `forge test` before your step is accepted, so **every test you leave must pass**.
 Start every contract name with `Hunt<X>` (`HuntA…`) so four hunters' files never collide.
@@ -373,15 +373,20 @@ These are starting points, not a fence. Each line is an probe to try, not a know
 
 ## 🔍 The hunt, step by step (role: tests)
 
-**Your focus.** Every hunt covers **all ten clusters** and goes **deep** on one focus. Your task
-names the focus (`Focus: <x>`). If it does not, draw one at random so the swarm spreads out:
+**Your scope and angle.** Every job reviews **one scope**: the files the job objective lists (for
+example the perp engine, or the hook's swap path). The four hunters share that scope and each takes a
+different **angle**, named in your step:
 
-```sh
-python3 -c "import secrets;print(secrets.choice(['hook-deltas','lifecycle','perp-book','perp-requote','vault','rotation','registry-facet','genesis-nft','randomness','governance','seed-deploy','value-flow']))"
-```
+| hunter | angle |
+|---|---|
+| A | value and accounting: every wei and token in and out, conservation, rounding direction, fee splits, share and index math |
+| B | access control and trust boundaries: who can call what, what an untrusted address can make the scope call or receive, callbacks and re-entry |
+| C | state and sequences: ordering, repetition, same-block and cross-transaction sequences, behaviour across relaunch, rotation, generation or quote changes |
+| D | edge values and liveness: zero, one, maximum and decimal extremes, overflow and precision, anything that blocks or bricks a core flow |
 
-`value-flow` means following every wei through a full relaunch plus a round-trip rotation with perps
-open.
+Go deep on the scope from your angle. The rest of the repository is context: follow calls out of the
+scope and into it, and report a defect whose root cause is in the scope or in its interaction with the
+rest. A defect you notice elsewhere is a `lead`, not a finding.
 
 Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
 
@@ -389,22 +394,21 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
    `test/fren-review/FrenPoCTemplate.t.sol` into `test/fren-review/hunt_<x>/`, rename its contract to
    `Hunt<X>…`, point its import at `../FrenBase.sol`, and make it run.
 2. **Know the ground (≈10%).** Read `CAULDRON.md`, `ledger/LEDGER.md` (leads included),
-   `ledger/KNOWN.md`, and your focus's section of `MAP.md`. Write yourself a 10-line threat model in
-   `test/scratch/NOTES.md` (scratch, not submitted): the value stores in your focus, their exits, and the three invariants you
-   will probe first.
-3. **Sweep for breadth (≈30%).** Go through all ten clusters in MAP order. Spend minutes, not hours,
-   on the clusters outside your focus: the playbook lines and the `stale` / `missing` entry points.
-   At every entry point that moves value, ask:
+   `ledger/KNOWN.md`, the scope's files, and their entries in `MAP.md` / `map/<cluster>.json`. Write
+   yourself a 10-line threat model in `test/scratch/NOTES.md` (scratch, not submitted): the value
+   stores in the scope, their exits, and the three invariants you will probe first from your angle.
+3. **Sweep the scope (≈25%).** Go through every entry point in the scope's files, and every caller of
+   the scope elsewhere in the repository. At every entry point that moves value, ask:
    - Who can call it?
    - Who controls the amount and the recipient?
    - What state must be true, and can I make it false in the same transaction?
    - What does it call externally before it has finished writing state?
-4. **Go deep on your focus (≈35%).**
+4. **Go deep from your angle (≈40%).**
    - Build sequences, not single calls: out of order, twice, in one transaction, across a relaunch,
      across a rotation, with perps open.
    - Use boundary values: 0, 1 wei, max, exactly at the threshold.
    - Write a small invariant handler if the state space is large.
-   - Follow the gold: for every wei that enters your focus, find where it leaves.
+   - Follow the gold: for every wei that enters the scope, find where it leaves.
 5. **Prove, then try to kill (≈10%).** Prove every candidate with a repro test in `test/fren-review/hunt_<x>/`
    that meets the proof standard below. Then run the kill checklist on it. What survives is a finding. What you couldn't prove
    becomes a `lead`.
@@ -504,25 +508,18 @@ Start both with this block, exactly:
 
 ```
 FREN-REVIEW v1
-focus: perp-requote
-hook: solid | 59 | exact-out sells x native/6-dec quote: deltas net to 0 (H1 held)
-registry: suspect | 40 | relaunch with open perps: payout fan-out order unclear (L3)
-pool: solid | 21 | <deepest thing you tried, one line, invariant id>
-perp: defect | 58 | <...>
-rotation: solid | 39 | <...>
-nft: solid | 73 | <...>
-governance: solid | 12 | <...>
-seed: solid | 16 | <...>
-art: solid | 7 | <...>
-deploy: solid | 18 | <...>
+focus: perp-engine / C
+perp: defect | 58 | liquidation sweep across a requote: stale mark reused (P4)
+hook: solid | 12 | the hook's sweep call into the engine: gas floor held (H1)
 confirms: FR-1a2b3c, FR-4d5e6f
 refutes: FR-7a8b9c because <one line>
 lead: perp | cauldron/Example.sol:123 | <what looks off>; prove it by <the test that would settle it>
 ```
 
-- **`focus:`** is the focus you went deep on.
-- **Cluster lines.** Write one line per cluster: the name, a verdict, the number of entry points you
-  examined, and your deepest attempt with the invariant it tested. The verdicts:
+- **`focus:`** is the job's scope and your angle letter.
+- **Cluster lines.** Write one line per cluster the scope touches (its own files, plus any cluster
+  you followed calls into): the name, a verdict, the number of entry points you examined, and your
+  deepest attempt with the invariant it tested. The verdicts:
   - **solid**: you examined it and it held.
   - **suspect**: something is off but you couldn't prove it. Say what.
   - **defect**: you reported a finding in it.
@@ -539,8 +536,9 @@ After the block, write anything else the wizards should know.
       a repro test in `test/fren-review/hunt_<x>/` that **ran**, with a control and damage in numbers
 - [ ] every finding survived the kill checklist; anything that didn't is a `lead`
 - [ ] nothing already in `ledger/`, `KNOWN.md` or an attached earlier report is reported as new
-- [ ] `review/hunt_<x>.md` and your final message start with the `FREN-REVIEW v1` block, with a focus
-      line and all ten clusters, and agree with `.imd-findings.json`
+- [ ] `review/hunt_<x>.md` and your final message start with the `FREN-REVIEW v1` block, with the
+      scope and angle on the focus line and every cluster the scope touches, and agree with
+      `.imd-findings.json`
 - [ ] `forge build` and `forge test` pass; you wrote nothing outside your two paths; no test blesses a bug
 - [ ] no transaction was sent anywhere
 

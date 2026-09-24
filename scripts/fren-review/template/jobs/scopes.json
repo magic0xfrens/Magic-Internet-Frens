@@ -1,0 +1,94 @@
+{
+  "_note": "Scopes for jobs/deep-review.json, in posting order (value at risk first). Each job reviews one scope; `contracts` gets its first four files.",
+  "perp-engine": {
+    "title": "Perp engine: positions, funding, liquidation sweep, requote",
+    "files": [
+      "cauldron/PerpEngine.sol",
+      "cauldron/PerpSwapLib.sol"
+    ]
+  },
+  "perp-vault": {
+    "title": "Perp vault and mark: staker shares, exit queue, token-side yield, mark price",
+    "files": [
+      "cauldron/PerpVault.sol",
+      "cauldron/PerpMarkSource.sol",
+      "cauldron/PerpStakerOracle.sol"
+    ]
+  },
+  "hook-swap": {
+    "title": "Hook swap path: fees, surtax, fee routing, pre-trade liquidation sweep",
+    "files": [
+      "CauldronHook.sol",
+      "cauldron/FeeRouteLib.sol",
+      "cauldron/SurtaxLib.sol",
+      "cauldron/DefaultFeeRouter.sol",
+      "cauldron/RoyaltyRouter.sol"
+    ]
+  },
+  "hook-reserves": {
+    "title": "Hook reserves: relaunch reserve, legacy buyback, gacha credit, death detection",
+    "files": [
+      "CauldronHook.sol",
+      "cauldron/ReserveLib.sol",
+      "cauldron/LegacyBuyLib.sol",
+      "vendor/BaseHook.sol"
+    ]
+  },
+  "registry-lifecycle": {
+    "title": "Registry lifecycle: summon, death, relaunch, emergency, successor",
+    "files": [
+      "CauldronRegistry.sol",
+      "cauldron/CauldronBase.sol",
+      "CauldronToken.sol",
+      "cauldron/ICauldron.sol"
+    ]
+  },
+  "pool-reserve": {
+    "title": "Pool operations: seeding, reserve position, floor, redemption and migration claims",
+    "files": [
+      "cauldron/PoolOps.sol",
+      "cauldron/CauldronBase.sol",
+      "cauldron/SeedLib.sol"
+    ]
+  },
+  "rotation-treasury": {
+    "title": "Treasury rotation: rotation slices, venues, quote oracle, treasury governor",
+    "files": [
+      "cauldron/RedemptionExt.sol",
+      "cauldron/QuoteRotator.sol",
+      "cauldron/QuoteOracle.sol",
+      "cauldron/TreasuryGovernor.sol",
+      "cauldron/NativeQuoteZap.sol"
+    ]
+  },
+  "nft-gacha": {
+    "title": "Collections and gacha: tickets, pity, collection ledger floor, vault, factory",
+    "files": [
+      "cauldron/GachaLib.sol",
+      "cauldron/CauldronGachaRouter.sol",
+      "cauldron/CauldronCollection.sol",
+      "cauldron/CollectionLedger.sol",
+      "cauldron/CauldronVault.sol",
+      "cauldron/MintCurvePolicy.sol",
+      "cauldron/CauldronFactory.sol"
+    ]
+  },
+  "genesis-governance": {
+    "title": "Genesis presale, dividend and brew governance",
+    "files": [
+      "cauldron/MiFrensGenesis.sol",
+      "cauldron/MiFrensDividend.sol",
+      "cauldron/CauldronGovernor.sol"
+    ]
+  },
+  "launch-seed-deploy": {
+    "title": "Launch path: progressive seeder, launch sniper guard, migration vesting, deploy scripts",
+    "files": [
+      "cauldron/CauldronSeeder.sol",
+      "cauldron/LaunchSniper.sol",
+      "cauldron/MigrationVesting.sol",
+      "deploy/DeployLaunchpad.s.sol",
+      "deploy/DeployPerp.s.sol"
+    ]
+  }
+}

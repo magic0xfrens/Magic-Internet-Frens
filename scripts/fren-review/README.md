@@ -25,15 +25,18 @@ fixes all three and compiles only the contracts plus the PoC harness.
    guarantees a review is not done by the seat it reviews): four hunters in parallel, a report writer that re-runs and merges them, and a
    verifier whose findings reopen the report until it holds.
    ```sh
-   node tools/post-job.mjs --commit <review-repo sha> --slot 0 --dry          # fill and check, no network
-   IMD_PAID_TOKEN=$(openssl rand -hex 32) node tools/post-job.mjs --commit <sha> --slot 0 --quote   # free quote
-   node tools/post-job.mjs --commit <sha> --slot 1 --prior <job id>,<job id> --quote   # build on earlier reports
+   node tools/post-job.mjs --commit <review-repo sha> --scope perp-engine --dry   # fill and check, no network
+   IMD_PAID_TOKEN=$(openssl rand -hex 32) node tools/post-job.mjs --commit <sha> --scope perp-engine --quote   # free quote
+   node tools/post-job.mjs --commit <sha> --scope hook-swap --prior <job id>,<job id> --pay   # pay and post
    ```
-   `--slot n` gives the four hunters foci `4n … 4n+3` of a fixed rotation, so every three jobs cover all
-   twelve; `--foci` names four instead. `--prior` attaches earlier jobs' accepted report and findings
+   `--scope` picks one of the ten scopes in `jobs/scopes.json` (`--scope list`); the four hunters take
+   angles A–D on it. `--prior` attaches earlier jobs' accepted report and findings
    files as inputs. Post as many jobs as it takes; re-export with the rebuilt ledger between batches so
-   new jobs start from everything already known. Budget and model tier are IMD's defaults per skill
-   and cannot be set. Post ONE job first and confirm all six steps come back accepted before posting
+   new jobs start from everything already known. Budget and model tier are IMD's defaults per skill and
+   cannot be set, and neither can the runtime: seats run Claude or OpenAI Codex, and a `requires` or
+   `runtime` field in the body is silently dropped (the quote's inputHash does not change). Codex
+   refuses attacker-roleplay wording as "possible cybersecurity risk", so keep everything an agent
+   reads framed as the defensive audit it is. Post ONE job first and confirm all six steps come back accepted before posting
    the rest.
    **Fuzz campaigns** (`jobs/fuzz.json`, same price, no agents): CPU-only seats run every `prop_`
    of `test/CauldronFuzz.sol` through `forge test --fuzz-runs <runs>` and report the first

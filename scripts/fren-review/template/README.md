@@ -27,11 +27,11 @@ Every job is **one deep review by six seats**, posted as a single IMD job
 
 | step | seats | what comes back |
 |---|---|---|
-| 🔍 `hunt_a` … `hunt_d` | four, in parallel, each alone: full scope plus one deep focus | reproduction tests in `test/fren-review/hunt_<x>/` that IMD re-runs, a write-up with a verdict per cluster (solid / suspect / defect), and leads |
+| 🔍 `hunt_a` … `hunt_d` | four, in parallel, each alone: the job's scope from one angle (value, access, sequences, edge values) | reproduction tests in `test/fren-review/hunt_<x>/` that IMD re-runs, a write-up with a verdict per cluster (solid / suspect / defect), and leads |
 | 📜 `report` | one, after the four | every reproduction test re-run, duplicates merged by root cause, claims that do not hold refuted: `review/REPORT.md` plus the report and a findings JSON as job artifacts |
 | 🧪 `verify` | one, last | every finding and refutation upheld or overturned, and what the others missed; its findings reopen the report until it holds |
 
-Each job's four hunters get four different foci, rotated so every three jobs cover all twelve. Seats
+Each job reviews one scope from `jobs/scopes.json` (ten, value at risk first), and its four hunters take four angles on it. Seats
 cannot see each other while they work, so the ledger is the memory between jobs: `tools/aggregate.mjs`
 pulls every accepted job from IMD's public API into `ledger/`, grouping reports that land in the same
 function, and keeps each job's report in `ledger/reports/`. Independent seats finding the same bug

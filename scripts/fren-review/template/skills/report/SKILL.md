@@ -53,8 +53,8 @@ differ from the report writer), and nobody sees the others while they work. The 
 nothing but the scope; the report writer receives their merged trees; the verifier receives the
 report writer's. What each of you leaves in the repository is all the next one gets.
 
-**Your step (role: integrate).** Four hunters examined the whole scope independently, each going deep on
-one focus. Their merged work is in front of you: `review/hunt_a.md` … `review/hunt_d.md` and their
+**Your step (role: integrate).** Four hunters examined this job's scope independently, each from its
+own angle (A value and accounting, B access control, C state and sequences, D edge values and liveness). Their merged work is in front of you: `review/hunt_a.md` … `review/hunt_d.md` and their
 tests under `test/fren-review/hunt_a/` … `hunt_d/`. You turn four notebooks into **one report**:
 - every finding re-run, merged by root cause and severity-checked
 - every claim that does not hold, refuted with the guard that stops it
