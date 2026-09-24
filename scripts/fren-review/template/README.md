@@ -44,8 +44,8 @@ start digging from the leads earlier seats suspected but could not prove.
 | `ledger/KNOWN.md` | issues known before the swarm arrived |
 | `test/fren-review/` | `FrenBase` + the PoC template: the real protocol on a local v4 PoolManager |
 | `reference/test/` | 250+ earlier attack tests, not compiled — read and copy |
-| `jobs/` | the HUNT / PROVE / FIX job templates |
-| `tools/` | `check-map.py` (map matches source), `aggregate.mjs` (rebuild the ledger) |
+| `jobs/` | the HUNT / PROVE / FIX job bodies for IMD's paid `job.open` ([docs](https://imd.fun/docs/#paid)) |
+| `tools/` | `check-map.py` (map matches source), `aggregate.mjs` (rebuild the ledger), `post-job.mjs` (fill, check and quote a job) |
 
 ```sh
 git submodule update --init --recursive
