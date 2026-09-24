@@ -43,7 +43,11 @@ const DEFAULT_RPC_BY_CHAIN = {
   4663: "https://rpc.mainnet.chain.robinhood.com",
   46630: "https://rpc.testnet.chain.robinhood.com",
 };
-const RPC = process.env.RPC_URL ?? DEFAULT_RPC_BY_CHAIN[round.chainId];
+//  `||`, not `??`: CI passes `RPC_URL: ${{ secrets.RPC_URL }}`, and an UNSET
+//  secret arrives as the EMPTY STRING, which `??` keeps. That made every CI run
+//  since 2026-09-06 die here with "no default RPC" while the default sat one
+//  line up. An empty override is no override.
+const RPC = process.env.RPC_URL?.trim() || DEFAULT_RPC_BY_CHAIN[round.chainId];
 if (!RPC) {
   console.error(
     `no default RPC known for chainId ${round.chainId}. Set RPC_URL explicitly —\n` +
