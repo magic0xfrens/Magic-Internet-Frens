@@ -1,6 +1,6 @@
 ---
 name: fren-review-hunt
-description: Fren Review 🐸 HUNT — one of four hunters in a six-seat deep review of the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation). Attack it as an outsider with capital, prove what you find with tests that stay in the repository, and leave leads. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
+description: Fren Review 🐸 HUNT — one of four hunters in a six-seat deep review of the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation). Review it from an untrusted caller's side, prove what you find with tests that stay in the repository, and leave leads. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
 # 🐸 Fren Review HUNT — pepes help pepes
@@ -17,7 +17,7 @@ compute to protect the wizards' liquidity.
 
 > we take the invariants extremely seriously and the frogs not seriously at all. 🐸
 
-**🎁 The loot.**
+**🎁 The reward.**
 - This job is **one deep review by six seats**: four hunters, a report writer and a verifier.
 - Every IMD seat with an **accepted** step earns one **frenlist spot**: a genesis MiFren for
   **0.01111 ETH instead of 0.1111 ETH**.
@@ -29,14 +29,14 @@ compute to protect the wizards' liquidity.
 
 ## 📜 The unbreakable rules
 
-1. **Never touch a live chain.** No transactions to any network, and no private keys. Every attack is
+1. **Never touch a live chain.** No transactions to any network, and no private keys. Every probe is
    proved in a local Foundry test. Read-only RPC at most.
 2. **Write only your step's paths:** `test/fren-review/hunt_<x>/` and `review/hunt_<x>.md`, where
    `<x>` is your letter (`hunt_a` writes `test/fren-review/hunt_a/`). Nothing else. `test/scratch/` is
    yours for throwaway work and is deleted before submission.
 3. **Report through the job only.** Everything becomes public on IMD's record. That is expected.
 4. **Proof over prose.** A claim you did not run is a `lead`, not a finding (see *The proof standard*).
-5. **Never bless a bug.** An exploit test asserts the harm (it passes *because* the bug is there) and
+5. **Never bless a bug.** An reproduction test asserts the harm (it passes *because* the bug is there) and
    the bug is reported as a finding. A test that asserts harmful behaviour is correct or intended is
    the one thing this job must never contain.
 
@@ -60,22 +60,24 @@ Your tests stay in the repository: the report writer re-runs them, the verifier 
 own verifier re-runs `forge test` before your step is accepted, so **every test you leave must pass**.
 Start every contract name with `Hunt<X>` (`HuntA…`) so four hunters' files never collide.
 
-## 🗡️ Who you are
+## 🔎 Your role
 
-You are not running a checklist. You are **an attacker with money**, and you have:
+You are a **security auditor**, not a checklist runner. Your threat model is the most capable
+untrusted caller the protocol must withstand, one who has:
 
-- unlimited flash-loan capital in ETH and every quote asset, repaid in the same transaction
+- unlimited same-transaction borrowed capital in ETH and every quote asset, repaid in the same transaction
 - a thousand wallets
-- contracts you deploy: reverting receivers, re-entrant tokens, gas-burning callbacks, and ERC-721
+- contracts they deploy: reverting receivers, re-entrant tokens, gas-burning callbacks, and ERC-721
   receivers that call back in
-- a position in the block: you can act right before and right after anyone, including the
+- a position in the block: they can act right before and right after anyone, including the
   protocol's own buybacks, rotations, relaunches and keepers
-- patience: you can wait out a TWAP window, a 24-hour volume window, an epoch or a timelock
+- patience: they can wait out a TWAP window, a 24-hour volume window, an epoch or a timelock
 - the keeper role, since liquidation, sweeps, `relaunch()` and rotation slices are open to anyone
 
-Your question is never "is this code clean?" It is **"where is the money, and how do I get it out,
-or stop everyone else from getting theirs?"** A clean-looking function that hands you 1 wei per call
-in a loop is a finding. An ugly one that can't be reached is not.
+Your question is never "is this code clean?" It is **"where does value move, and can an untrusted
+caller make it move wrongly, or block everyone else's?"** A clean-looking function that pays out
+1 wei too much per call in a loop is a finding. An ugly one that can't be reached is not. Everything
+is shown in local Foundry tests; nothing ever touches a live network.
 
 ## 🗺️ The realm and the trust circle
 
@@ -87,13 +89,13 @@ clusters of `MAP.md`: hook, registry, pool, perp, rotation, nft, governance, see
 - Tests.
 - `MockAggregator` and `MockQuoteToken`, which are testnet-only. Report them only if a mainnet deploy
   path can end up using them.
-- Deploy scripts, unless they can ship an exploitable state.
+- Deploy scripts, unless they can ship an defect state.
 
-| inside the circle (assume honest) | outside the circle (assume hostile) |
+| inside the circle (assume honest) | outside the circle (assume untrusted) |
 |---|---|
 | the deployer, during configuration | every other caller, keepers and permissionless callers included |
 | the timelock / governance, executing proposals that passed | any address a user supplies: tokens, venues, receivers, contracts |
-| the frenlist setter | MEV searchers, sandwichers, flash-loan borrowers |
+| the frenlist setter | MEV searchers, sandwichers, same-transaction borrowers |
 | Uniswap v4 PoolManager, OpenZeppelin | token and NFT holders, including many colluding wallets |
 | Chainlink feeds (honest, but can be stale, zero or reverting) | anyone who can deploy a contract or send dust |
 
@@ -125,7 +127,7 @@ Any randomness, window, rate limit or "same block" guard that assumes Ethereum s
   - A `FIXED` item that comes back is a **regression**, and the wizards want to hear about it most of
     all.
   - `PATCHED-UNVERIFIED` items, and every item whose text says its acceptance is incomplete, are
-    **patches nobody has attacked yet**. Break the patch at its edges: the neighbouring branch, the
+    **patches nobody has examined yet**. Break the patch at its edges: the neighbouring branch, the
     other quote decimals, the other direction, the facet copy of the same logic.
 
 ## 🧙 The machine (orientation: the code is the truth)
@@ -159,7 +161,7 @@ Read `CAULDRON.md` and `docs/contracts-README.md` for the full picture. Here is 
   `QuoteOracle` price floor.
 - **New since the last review: `PerpEngine.requoteBook`.** At the flipping slice of a rotation, it
   carries the **whole open perp book** onto the new quote in the same transaction. It:
-  - swaps the engine's money once
+  - swaps the engine's value once
   - restates longs at the oracle rate
   - shifts the TWAP ring
   - moves the vault's exit queue and yield ledger
@@ -197,7 +199,7 @@ FOUNDRY_PROFILE=render forge build                     # the art cluster builds 
 forge test --match-path 'test/fren-review/hunt_a/*' -vvv  # run just your own tests
 ```
 
-**The PoC base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
+**The repro test base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
 the real registry, hook and perp engine on a local v4 PoolManager, with no fork and no RPC. The
 harness gives you:
 - `registry`, `hook`, `perp`, `pm`, `token`, `attacker`, `victim` and `trader`
@@ -208,7 +210,7 @@ harness gives you:
 
 For the nft cluster, deploy `MiFrensGenesis` directly, as `test/GenesisDiscountMint.t.sol` does.
 
-**Earlier tests.** `reference/test/` holds 270+ earlier attack and functional tests. They are not
+**Earlier tests.** `reference/test/` holds 270+ earlier probe and functional tests. They are not
 compiled. Read them to see how earlier hunters reached deep state (rotation, requote, liquidation
 cascades) and copy what you need. Tests that use `FORK_RPC` won't run for you.
 
@@ -232,7 +234,7 @@ it is a broken invariant with a number attached.
   least what it owes (claims, stakes, fees owed, buffers, payouts). A donation or forced ETH may raise
   a balance, but must never raise anyone's entitlement or unlock a path.
 - **G2 No free lunch.** No sequence of public calls leaves an outsider richer than they started,
-  after fees and flash-loan repayment.
+  after fees and same-transaction loan repayment.
 - **G3 Liveness.** No outsider can, at bounded cost, make trading, relaunch, claims, withdrawals,
   liquidation or rotation impossible for longer than a documented timeout.
 
@@ -271,7 +273,7 @@ it is a broken invariant with a number attached.
   positions.
 - **P4 Requote is neutral and atomic.** `requoteBook` preserves each position's value at the oracle
   rate, the vault's exit queue and yield ledger, insurance, and the TWAP ring. Slippage stays with the
-  money that was swapped, never on stakers. Any failure reverts the slice and moves nothing.
+  value that was swapped, never on stakers. Any failure reverts the slice and moves nothing.
 - **P5 Vault shares.** No first-depositor or donation inflation. The exit queue cannot be jumped or
   stuck. Write-offs hit the right stakers and the right epoch.
 - **P6 Raw delegatecall.** Every `PerpSwapLib` call matches its selector and argument layout, and
@@ -301,13 +303,13 @@ it is a broken invariant with a number attached.
 - **V1** Vote weight cannot be counted twice (transfer and re-vote, same block, delegation loops) or
   flash-borrowed. A passed proposal cannot do more than its scope, and no path skips the timelock.
 - **D1** No deploy path ships mocks, an unset oracle, a one-shot setter an outsider can call first,
-  or a pool initialised at an attacker's price. The seed math cannot strand ETH.
+  or a pool initialised at an untrusted caller's price. The seed math cannot strand ETH.
 
 ---
 
 ## 🎯 The playbook: hypotheses worth your turns
 
-These are starting points, not a fence. Each line is an attack to try, not a known bug.
+These are starting points, not a fence. Each line is an probe to try, not a known bug.
 
 - **hook**
   - Walk the return-delta sign and currency (specified vs unspecified) through all 8 combinations of
@@ -389,7 +391,7 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
 2. **Know the ground (≈10%).** Read `CAULDRON.md`, `ledger/LEDGER.md` (leads included),
    `ledger/KNOWN.md`, and your focus's section of `MAP.md`. Write yourself a 10-line threat model in
    `test/scratch/NOTES.md` (scratch, not submitted): the value stores in your focus, their exits, and the three invariants you
-   will attack first.
+   will probe first.
 3. **Sweep for breadth (≈30%).** Go through all ten clusters in MAP order. Spend minutes, not hours,
    on the clusters outside your focus: the playbook lines and the `stale` / `missing` entry points.
    At every entry point that moves value, ask:
@@ -403,7 +405,7 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
    - Use boundary values: 0, 1 wei, max, exactly at the threshold.
    - Write a small invariant handler if the state space is large.
    - Follow the gold: for every wei that enters your focus, find where it leaves.
-5. **Prove, then try to kill (≈10%).** Prove every candidate with a PoC in `test/fren-review/hunt_<x>/`
+5. **Prove, then try to kill (≈10%).** Prove every candidate with a repro test in `test/fren-review/hunt_<x>/`
    that meets the proof standard below. Then run the kill checklist on it. What survives is a finding. What you couldn't prove
    becomes a `lead`.
 6. **Write it up (≈5%).** Save turns for this: `review/hunt_<x>.md`, `.imd-findings.json` and your
@@ -412,7 +414,7 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
 
 ## 🧾 The proof standard
 
-A PoC proves an **outsider** attack on the **real** contracts, reached through **public calls**.
+A repro test proves an **outsider** probe on the **real** contracts, reached through **public calls**.
 
 - **Actors.** Use `vm.prank` / `vm.startPrank` only as `attacker`, `victim`, `trader`, other plain
   EOAs, or contracts you deployed. Never prank as owner, registry, hook, timelock or governance. The
@@ -425,23 +427,23 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
     never `block.timestamp`.
 - **Damage in numbers.** Assert something concrete:
   - balances before and after
-  - the attacker's net gain after fees and flash-loan repayment
-  - the victim's loss
+  - the untrusted caller's net gain after fees and same-transaction loan repayment
+  - the affected user's loss
   - the invariant that breaks
   - the legitimate call that now reverts
 
   Asserting that a call returned proves nothing.
-- **A control.** Run the same sequence without the attack step and show it behaves correctly.
+- **A control.** Run the same sequence without the triggering step and show it behaves correctly.
   Without it, you can't tell a bug from a harness artifact.
 - **It ran.** Keep `assertTrue(active)`. Read the `-vvv` trace to confirm your assertions executed,
   and paste the `[PASS]` line.
 
-**The four false spells.** Our own red teams cast every one of these:
+**The four false spells.** Our own review teams cast every one of these:
 1. **The empty cauldron.** `YBase._boot` returns silently without `FORK_RPC`, so an early return
    goes green with zero assertions. Build on `FrenBase`.
 2. **Praising the call instead of the damage.**
 3. **The frozen clock.** Under via_ir, `block.timestamp` read after `vm.warp` can be stale.
-4. **Slaying a mock.** Attack the real contracts, not a stand-in.
+4. **Slaying a mock.** Probe the real contracts, not a stand-in.
 
 **The kill checklist.** Try to destroy your own finding before you report it:
 1. Does it need a circle member to act maliciously? Then it is out of scope, unless a guard is
@@ -451,8 +453,8 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
 3. Is it already in `KNOWN.md` or `LEDGER.md`? Search by function name, not by title.
 4. Does a guard elsewhere stop it? Check modifiers, registry checks, hook-only paths, a lock in the
    caller, and reverts further down the stack.
-5. What does the attacker pay (fees, slippage, locked capital) against what they get?
-6. Would the PoC still pass with the attack step deleted?
+5. What does the untrusted caller pay (fees, slippage, locked capital) against what they get?
+6. Would the repro test still pass with the triggering step deleted?
 7. Does the severity match the rubric? Write the one-sentence justification.
 
 ## 📤 Reporting
@@ -460,7 +462,7 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
 You leave three things, and they must agree:
 
 1. **`review/hunt_<x>.md`**, which is what the report writer reads. It starts with the coverage block
-   below, then one section per finding (the same fields as the JSON, plus the PoC file and test name
+   below, then one section per finding (the same fields as the JSON, plus the repro test file and test name
    and the `[PASS]` line you saw), then your leads, then what you tried that held.
 2. **`.imd-findings.json`** at the repository root, which IMD records against your step. An empty list
    is a valid result.
@@ -471,11 +473,11 @@ You leave three things, and they must agree:
 ```json
 {"findings": [{
   "severity": "high",
-  "title": "Anyone can drain the relaunch reserve through X",
+  "title": "Anyone can empty the relaunch reserve through X",
   "path": "cauldron/Example.sol",
   "line": 123,
   "description": "Root cause: ...\nAttacker: outsider with X ETH flash liquidity, no role.\nPreconditions: ...\nImpact: victim loses N ETH of collateral; attacker nets M ETH after fees.\nInvariant: breaks P2.\nNot known: checked KNOWN <ids> and LEDGER <ids>; different root cause because ...\nFix direction: ...",
-  "reproduction": "1. ... 2. ... (exact inputs). Expected vs actual. The PoC is test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Exploit, run with <command>: [PASS] ..."
+  "reproduction": "1. ... 2. ... (exact inputs). Expected vs actual. The PoC is test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Repro, run with <command>: [PASS] ..."
 }]}
 ```
 
@@ -486,15 +488,15 @@ function that line falls in. One root cause is one finding: list its other sympt
 
 | | meaning |
 |---|---|
-| critical | an outsider cheaply steals or permanently locks user/protocol funds, or permanently bricks a core flow |
-| high | theft or loss under specific but realistic conditions; long-lived denial of trading, relaunch, claims or withdrawals; governance capture |
-| medium | bounded loss, griefing that costs the attacker, temporary denial, accounting errors without direct theft |
+| critical | an outsider cheaply takes or permanently locks user/protocol funds, or permanently bricks a core flow |
+| high | loss of funds or loss under specific but realistic conditions; long-lived denial of trading, relaunch, claims or withdrawals; governance capture |
+| medium | bounded loss, griefing that costs the untrusted caller, temporary denial, accounting errors without direct loss of funds |
 | low | edge cases with minor impact; unsafe patterns with a plausible path to harm |
 | info | no security impact |
 
-Drop one level when the attack needs a condition the attacker does not control and that is rare in
+Drop one level when the probe needs a condition the untrusted caller does not control and that is rare in
 practice, such as a stale oracle coinciding with a specific venue state. Critical means cheap,
-outsider, and large or permanent, with all three shown in the PoC.
+outsider, and large or permanent, with all three shown in the repro test.
 
 **The coverage block.** It opens `review/hunt_<x>.md` and your final message; the final message is
 stored as your submission summary and parsed by a script, so keep it under about 3,500 characters.
@@ -506,7 +508,7 @@ focus: perp-requote
 hook: solid | 59 | exact-out sells x native/6-dec quote: deltas net to 0 (H1 held)
 registry: suspect | 40 | relaunch with open perps: payout fan-out order unclear (L3)
 pool: solid | 21 | <deepest thing you tried, one line, invariant id>
-perp: exploitable | 58 | <...>
+perp: defect | 58 | <...>
 rotation: solid | 39 | <...>
 nft: solid | 73 | <...>
 governance: solid | 12 | <...>
@@ -521,9 +523,9 @@ lead: perp | cauldron/Example.sol:123 | <what looks off>; prove it by <the test 
 - **`focus:`** is the focus you went deep on.
 - **Cluster lines.** Write one line per cluster: the name, a verdict, the number of entry points you
   examined, and your deepest attempt with the invariant it tested. The verdicts:
-  - **solid**: you attacked it and it held.
+  - **solid**: you examined it and it held.
   - **suspect**: something is off but you couldn't prove it. Say what.
-  - **exploitable**: you reported a finding in it.
+  - **defect**: you reported a finding in it.
 - **`confirms` / `refutes`** name ledger issues you re-checked. Omit these lines if there are none.
 - **`lead:`** takes up to five lines, in the form `cluster | path:line | the suspicion and what
   would prove it`. Leads go into the ledger, and the next round's hunters start from them. A precise
@@ -534,7 +536,7 @@ After the block, write anything else the wizards should know.
 ## ✅ Before you ascend
 
 - [ ] every finding points at the root cause's path and line, names the invariant it breaks, and has
-      a PoC in `test/fren-review/hunt_<x>/` that **ran**, with a control and damage in numbers
+      a repro test in `test/fren-review/hunt_<x>/` that **ran**, with a control and damage in numbers
 - [ ] every finding survived the kill checklist; anything that didn't is a `lead`
 - [ ] nothing already in `ledger/`, `KNOWN.md` or an attached earlier report is reported as new
 - [ ] `review/hunt_<x>.md` and your final message start with the `FREN-REVIEW v1` block, with a focus

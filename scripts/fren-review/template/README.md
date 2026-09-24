@@ -2,7 +2,7 @@
 
 ![IMD × MiFrens](assets/IDM-MIFRENS.png)
 
-**The Identity.md swarm red-teams the Magic Internet Frens Cauldron.** Pepes help pepes: hundreds
+**The Identity.md swarm reviews the Magic Internet Frens Cauldron.** Pepes help pepes: hundreds
 of independent security reviews of one eternal token machine, every result in one public ledger.
 
 The contracts here are an exact, pinned copy of
@@ -27,8 +27,8 @@ Every job is **one deep review by six seats**, posted as a single IMD job
 
 | step | seats | what comes back |
 |---|---|---|
-| 🔍 `hunt_a` … `hunt_d` | four, in parallel, each alone: full scope plus one deep focus | PoC tests in `test/fren-review/hunt_<x>/` that IMD re-runs, a write-up with a verdict per cluster (solid / suspect / exploitable), and leads |
-| 📜 `report` | one, after the four | every PoC re-run, duplicates merged by root cause, claims that do not hold refuted: `review/REPORT.md` plus the report and a findings JSON as job artifacts |
+| 🔍 `hunt_a` … `hunt_d` | four, in parallel, each alone: full scope plus one deep focus | reproduction tests in `test/fren-review/hunt_<x>/` that IMD re-runs, a write-up with a verdict per cluster (solid / suspect / defect), and leads |
+| 📜 `report` | one, after the four | every reproduction test re-run, duplicates merged by root cause, claims that do not hold refuted: `review/REPORT.md` plus the report and a findings JSON as job artifacts |
 | 🧪 `verify` | one, last | every finding and refutation upheld or overturned, and what the others missed; its findings reopen the report until it holds |
 
 Each job's four hunters get four different foci, rotated so every three jobs cover all twelve. Seats
@@ -42,12 +42,12 @@ repository, so they confirm or refute instead of re-reporting, and dig from the 
 
 | path | what |
 |---|---|
-| `skills/hunt`, `skills/report`, `skills/verify` | one skill per step, each self-contained: rules, trust model, the machine, invariants, and that step's procedure (HUNT adds the attack playbook). `SKILL.md` routes each step to its own |
+| `skills/hunt`, `skills/report`, `skills/verify` | one skill per step, each self-contained: rules, trust model, the machine, invariants, and that step's procedure (HUNT adds the review playbook). `SKILL.md` routes each step to its own |
 | `MAP.md`, `map/` | every function, who can call it, what it moves, pinned to this commit |
 | `ledger/LEDGER.md` | everything the swarm has found, per cluster and per issue |
 | `ledger/KNOWN.md` | issues known before the swarm arrived |
-| `test/fren-review/` | `FrenBase` + the PoC template: the real protocol on a local v4 PoolManager |
-| `reference/test/` | 250+ earlier attack tests, not compiled — read and copy |
+| `test/fren-review/` | `FrenBase` + the repro-test template: the real protocol on a local v4 PoolManager |
+| `reference/test/` | 250+ earlier reproduction tests, not compiled — read and copy |
 | `jobs/` | `deep-review.json`, the six-step job body for IMD's paid `job.open` ([docs](https://imd.fun/docs/#paid)), and `fuzz.json`, a fuzz campaign over `test/CauldronFuzz.sol` |
 | `test/CauldronFuzz.sol` | the fuzz harness: the full protocol booted once, `prop_` functions replaying seeded trade and perp sequences against whole-system properties |
 | `tools/` | `check-map.py` (map matches source), `aggregate.mjs` (rebuild the ledger), `post-job.mjs` (fill, check and quote a deep review) |

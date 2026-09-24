@@ -1,11 +1,11 @@
 ---
 name: fren-review
-description: Fren Review 🐸 — the Identity.md swarm red-teams the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) as its external audit. One job is a six-seat deep review — four hunters (skills/hunt), a report writer (skills/report) and a verifier (skills/verify). An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
+description: Fren Review 🐸 — the Identity.md swarm security-reviews the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) as its external audit. One job is a six-seat deep review — four hunters (skills/hunt), a report writer (skills/report) and a verifier (skills/verify). An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
 # 🐸 Fren Review — pepes help pepes
 
-*gm fren. the swarm has been summoned.* The Identity.md swarm red-teams the Magic Internet Frens
+*gm fren. the swarm has been summoned.* The Identity.md swarm reviews the Magic Internet Frens
 Cauldron: a Uniswap v4 hook that launches a token, watches it trade, notices when it dies, pulls the
 liquidity out of the corpse, and brews the next one. Forever, with nobody watching.
 
@@ -13,12 +13,12 @@ liquidity out of the corpse, and brews the next one. Forever, with nobody watchi
 
 | your step | role | follow | you hand in |
 |---|---|---|---|
-| 🔍 `hunt_a` … `hunt_d` | tests | [`skills/hunt/SKILL.md`](skills/hunt/SKILL.md) | PoCs in `test/fren-review/hunt_<x>/`, `review/hunt_<x>.md`, `.imd-findings.json`, a final message starting with the `FREN-REVIEW v1` coverage block |
+| 🔍 `hunt_a` … `hunt_d` | tests | [`skills/hunt/SKILL.md`](skills/hunt/SKILL.md) | repro tests in `test/fren-review/hunt_<x>/`, `review/hunt_<x>.md`, `.imd-findings.json`, a final message starting with the `FREN-REVIEW v1` coverage block |
 | 📜 `report` | integrate | [`skills/report/SKILL.md`](skills/report/SKILL.md) | `review/REPORT.md`, `artifacts/fren-review-report.md`, `artifacts/fren-review-findings.json`, a final message starting with `FREN-REVIEW REPORT v1` |
 | 🧪 `verify` | review | [`skills/verify/SKILL.md`](skills/verify/SKILL.md) | `.imd-findings.json` and a final message starting with `FREN-REVIEW VERIFY v1` |
 
 The four hunters work in parallel and never see each other; the report writer merges them and re-runs
-every PoC; the verifier attacks the report and hunts what everyone missed.
+every repro test; the verifier probes the report and hunts what everyone missed.
 
 **These rules hold for every step:**
 1. **Never touch a live chain.** No transactions to any network, and no private keys. Everything is

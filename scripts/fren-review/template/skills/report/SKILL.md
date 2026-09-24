@@ -1,6 +1,6 @@
 ---
 name: fren-review-report
-description: Fren Review 🐸 REPORT — the fifth seat of a six-seat deep review of the Magic Internet Frens Cauldron. Merge four independent hunts, re-run every PoC yourself, kill what does not hold, and write the one report the wizards act on. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
+description: Fren Review 🐸 REPORT — the fifth seat of a six-seat deep review of the Magic Internet Frens Cauldron. Merge four independent hunts, re-run every repro test yourself, kill what does not hold, and write the one report the wizards act on. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
 # 🐸 Fren Review REPORT — one report the wizards can act on
@@ -17,7 +17,7 @@ compute to protect the wizards' liquidity.
 
 > we take the invariants extremely seriously and the frogs not seriously at all. 🐸
 
-**🎁 The loot.**
+**🎁 The reward.**
 - This job is **one deep review by six seats**: four hunters, a report writer and a verifier.
 - Every IMD seat with an **accepted** step earns one **frenlist spot**: a genesis MiFren for
   **0.01111 ETH instead of 0.1111 ETH**.
@@ -53,7 +53,7 @@ differ from the report writer), and nobody sees the others while they work. The 
 nothing but the scope; the report writer receives their merged trees; the verifier receives the
 report writer's. What each of you leaves in the repository is all the next one gets.
 
-**Your step (role: integrate).** Four hunters attacked the whole scope independently, each going deep on
+**Your step (role: integrate).** Four hunters examined the whole scope independently, each going deep on
 one focus. Their merged work is in front of you: `review/hunt_a.md` … `review/hunt_d.md` and their
 tests under `test/fren-review/hunt_a/` … `hunt_d/`. You turn four notebooks into **one report**:
 - every finding re-run, merged by root cause and severity-checked
@@ -74,13 +74,13 @@ clusters of `MAP.md`: hook, registry, pool, perp, rotation, nft, governance, see
 - Tests.
 - `MockAggregator` and `MockQuoteToken`, which are testnet-only. Report them only if a mainnet deploy
   path can end up using them.
-- Deploy scripts, unless they can ship an exploitable state.
+- Deploy scripts, unless they can ship an defect state.
 
-| inside the circle (assume honest) | outside the circle (assume hostile) |
+| inside the circle (assume honest) | outside the circle (assume untrusted) |
 |---|---|
 | the deployer, during configuration | every other caller, keepers and permissionless callers included |
 | the timelock / governance, executing proposals that passed | any address a user supplies: tokens, venues, receivers, contracts |
-| the frenlist setter | MEV searchers, sandwichers, flash-loan borrowers |
+| the frenlist setter | MEV searchers, sandwichers, same-transaction borrowers |
 | Uniswap v4 PoolManager, OpenZeppelin | token and NFT holders, including many colluding wallets |
 | Chainlink feeds (honest, but can be stale, zero or reverting) | anyone who can deploy a contract or send dust |
 
@@ -112,7 +112,7 @@ Any randomness, window, rate limit or "same block" guard that assumes Ethereum s
   - A `FIXED` item that comes back is a **regression**, and the wizards want to hear about it most of
     all.
   - `PATCHED-UNVERIFIED` items, and every item whose text says its acceptance is incomplete, are
-    **patches nobody has attacked yet**. Break the patch at its edges: the neighbouring branch, the
+    **patches nobody has examined yet**. Break the patch at its edges: the neighbouring branch, the
     other quote decimals, the other direction, the facet copy of the same logic.
 
 ## 🧙 The machine (orientation: the code is the truth)
@@ -146,7 +146,7 @@ Read `CAULDRON.md` and `docs/contracts-README.md` for the full picture. Here is 
   `QuoteOracle` price floor.
 - **New since the last review: `PerpEngine.requoteBook`.** At the flipping slice of a rotation, it
   carries the **whole open perp book** onto the new quote in the same transaction. It:
-  - swaps the engine's money once
+  - swaps the engine's value once
   - restates longs at the oracle rate
   - shifts the TWAP ring
   - moves the vault's exit queue and yield ledger
@@ -184,7 +184,7 @@ FOUNDRY_PROFILE=render forge build                     # the art cluster builds 
 forge test --match-path 'test/fren-review/*/*' -vvv       # every hunter's PoC, with traces
 ```
 
-**The PoC base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
+**The repro test base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
 the real registry, hook and perp engine on a local v4 PoolManager, with no fork and no RPC. The
 harness gives you:
 - `registry`, `hook`, `perp`, `pm`, `token`, `attacker`, `victim` and `trader`
@@ -195,7 +195,7 @@ harness gives you:
 
 For the nft cluster, deploy `MiFrensGenesis` directly, as `test/GenesisDiscountMint.t.sol` does.
 
-**Earlier tests.** `reference/test/` holds 270+ earlier attack and functional tests. They are not
+**Earlier tests.** `reference/test/` holds 270+ earlier probe and functional tests. They are not
 compiled. Read them to see how earlier hunters reached deep state (rotation, requote, liquidation
 cascades) and copy what you need. Tests that use `FORK_RPC` won't run for you.
 
@@ -219,7 +219,7 @@ it is a broken invariant with a number attached.
   least what it owes (claims, stakes, fees owed, buffers, payouts). A donation or forced ETH may raise
   a balance, but must never raise anyone's entitlement or unlock a path.
 - **G2 No free lunch.** No sequence of public calls leaves an outsider richer than they started,
-  after fees and flash-loan repayment.
+  after fees and same-transaction loan repayment.
 - **G3 Liveness.** No outsider can, at bounded cost, make trading, relaunch, claims, withdrawals,
   liquidation or rotation impossible for longer than a documented timeout.
 
@@ -258,7 +258,7 @@ it is a broken invariant with a number attached.
   positions.
 - **P4 Requote is neutral and atomic.** `requoteBook` preserves each position's value at the oracle
   rate, the vault's exit queue and yield ledger, insurance, and the TWAP ring. Slippage stays with the
-  money that was swapped, never on stakers. Any failure reverts the slice and moves nothing.
+  value that was swapped, never on stakers. Any failure reverts the slice and moves nothing.
 - **P5 Vault shares.** No first-depositor or donation inflation. The exit queue cannot be jumped or
   stuck. Write-offs hit the right stakers and the right epoch.
 - **P6 Raw delegatecall.** Every `PerpSwapLib` call matches its selector and argument layout, and
@@ -288,7 +288,7 @@ it is a broken invariant with a number attached.
 - **V1** Vote weight cannot be counted twice (transfer and re-vote, same block, delegation loops) or
   flash-borrowed. A passed proposal cannot do more than its scope, and no path skips the timelock.
 - **D1** No deploy path ships mocks, an unset oracle, a one-shot setter an outsider can call first,
-  or a pool initialised at an attacker's price. The seed math cannot strand ETH.
+  or a pool initialised at an untrusted caller's price. The seed math cannot strand ETH.
 
 ---
 
@@ -299,17 +299,17 @@ it is a broken invariant with a number attached.
    not about the protocol: note it and do not count it as proof.
 2. **Inventory (≈10%).** From the four write-ups, list every finding, lead, `confirms` and `refutes`
    line and every cluster verdict, with the hunter who wrote it.
-3. **Reproduce (≈35%).** For each finding, read its PoC before you trust it:
+3. **Reproduce (≈35%).** For each finding, read its repro test before you trust it:
    - It meets the proof standard below: outsider actors only, no storage writes, damage asserted in
      numbers, a control, `assertTrue(active)`, and the assertions really executed (read the trace).
    - The damage is what the write-up says. If the numbers differ, the numbers win.
-   - If the PoC is weak but the bug looks real, write a proper one in `test/fren-review/report/`
+   - If the repro test is weak but the bug looks real, write a proper one in `test/fren-review/report/`
      (contract names start with `Report`).
 4. **Merge by root cause (≈10%).** One root cause is one finding, whatever the number of symptoms or
    hunters. Keep every hunter who found it; independent rediscovery is confirmation.
 5. **Try to kill each finding (≈15%).** Run the kill checklist. What does not survive becomes a
    refuted claim with the guard at `file:line`, or a lead if it is merely unproven.
-6. **Set the severity (≈5%)** from what the PoC shows, with the rubric below, and one sentence of why.
+6. **Set the severity (≈5%)** from what the repro test shows, with the rubric below, and one sentence of why.
    Resolve disagreements between hunters with evidence, never by majority.
 7. **Write it up (≈15%).** The structure below, in both files, and the findings JSON.
 
@@ -320,7 +320,7 @@ a claim withdrawn); if it does not, leave the report alone and say why. Answer e
 
 ## 🧾 The proof standard
 
-A PoC proves an **outsider** attack on the **real** contracts, reached through **public calls**.
+A repro test proves an **outsider** probe on the **real** contracts, reached through **public calls**.
 
 - **Actors.** Use `vm.prank` / `vm.startPrank` only as `attacker`, `victim`, `trader`, other plain
   EOAs, or contracts you deployed. Never prank as owner, registry, hook, timelock or governance. The
@@ -333,23 +333,23 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
     never `block.timestamp`.
 - **Damage in numbers.** Assert something concrete:
   - balances before and after
-  - the attacker's net gain after fees and flash-loan repayment
-  - the victim's loss
+  - the untrusted caller's net gain after fees and same-transaction loan repayment
+  - the affected user's loss
   - the invariant that breaks
   - the legitimate call that now reverts
 
   Asserting that a call returned proves nothing.
-- **A control.** Run the same sequence without the attack step and show it behaves correctly.
+- **A control.** Run the same sequence without the triggering step and show it behaves correctly.
   Without it, you can't tell a bug from a harness artifact.
 - **It ran.** Keep `assertTrue(active)`. Read the `-vvv` trace to confirm your assertions executed,
   and paste the `[PASS]` line.
 
-**The four false spells.** Our own red teams cast every one of these:
+**The four false spells.** Our own review teams cast every one of these:
 1. **The empty cauldron.** `YBase._boot` returns silently without `FORK_RPC`, so an early return
    goes green with zero assertions. Build on `FrenBase`.
 2. **Praising the call instead of the damage.**
 3. **The frozen clock.** Under via_ir, `block.timestamp` read after `vm.warp` can be stale.
-4. **Slaying a mock.** Attack the real contracts, not a stand-in.
+4. **Slaying a mock.** Probe the real contracts, not a stand-in.
 
 **The kill checklist.** Try to destroy each finding before it goes in the report:
 1. Does it need a circle member to act maliciously? Then it is out of scope, unless a guard is
@@ -359,8 +359,8 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
 3. Is it already in `KNOWN.md` or `LEDGER.md`? Search by function name, not by title.
 4. Does a guard elsewhere stop it? Check modifiers, registry checks, hook-only paths, a lock in the
    caller, and reverts further down the stack.
-5. What does the attacker pay (fees, slippage, locked capital) against what they get?
-6. Would the PoC still pass with the attack step deleted?
+5. What does the untrusted caller pay (fees, slippage, locked capital) against what they get?
+6. Would the repro test still pass with the triggering step deleted?
 7. Does the severity match the rubric? Write the one-sentence justification.
 
 
@@ -368,15 +368,15 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
 
 | | meaning |
 |---|---|
-| critical | an outsider cheaply steals or permanently locks user/protocol funds, or permanently bricks a core flow |
-| high | theft or loss under specific but realistic conditions; long-lived denial of trading, relaunch, claims or withdrawals; governance capture |
-| medium | bounded loss, griefing that costs the attacker, temporary denial, accounting errors without direct theft |
+| critical | an outsider cheaply takes or permanently locks user/protocol funds, or permanently bricks a core flow |
+| high | loss of funds or loss under specific but realistic conditions; long-lived denial of trading, relaunch, claims or withdrawals; governance capture |
+| medium | bounded loss, griefing that costs the untrusted caller, temporary denial, accounting errors without direct loss of funds |
 | low | edge cases with minor impact; unsafe patterns with a plausible path to harm |
 | info | no security impact |
 
-Drop one level when the attack needs a condition the attacker does not control and that is rare in
+Drop one level when the probe needs a condition the untrusted caller does not control and that is rare in
 practice, such as a stale oracle coinciding with a specific venue state. Critical means cheap,
-outsider, and large or permanent, with all three shown in the PoC.
+outsider, and large or permanent, with all three shown in the repro test.
 
 ## 📤 What you leave
 
@@ -389,7 +389,7 @@ outsider, and large or permanent, with all three shown in the PoC.
 <3–6 lines: what was attacked, how many findings by severity, the single most important thing>
 
 ## Coverage
-| cluster | verdict | hunters (solid/suspect/exploitable) | deepest attempt |
+| cluster | verdict | hunters (solid/suspect/defect) | deepest attempt |
 <one row per cluster, all ten>
 
 ## Findings
@@ -419,7 +419,7 @@ outsider, and large or permanent, with all three shown in the PoC.
 {"commit": "<baseCommit>",
  "coverage": {"hook": {"verdict": "solid", "examined": 59}},
  "findings": [{"id": "F-1", "severity": "high", "title": "...", "path": "cauldron/Example.sol", "line": 123,
-               "invariant": "P2", "foundBy": ["hunt_a", "hunt_c"], "poc": "test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Exploit",
+               "invariant": "P2", "foundBy": ["hunt_a", "hunt_c"], "poc": "test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Repro",
                "impact": "...", "fix": "..."}],
  "refuted": [{"claim": "...", "by": "hunt_b", "path": "...", "line": 0, "guard": "file:line", "why": "..."}],
  "leads": [{"cluster": "perp", "path": "...", "line": 0, "text": "..."}],
@@ -433,7 +433,7 @@ FREN-REVIEW REPORT v1
 findings: critical 0 | high 1 | medium 2 | low 1 | info 0
 refuted: 3
 leads: 4
-coverage: hook solid, registry suspect, pool solid, perp exploitable, rotation solid, nft solid, governance solid, seed solid, art solid, deploy solid
+coverage: hook solid, registry suspect, pool solid, perp defect, rotation solid, nft solid, governance solid, seed solid, art solid, deploy solid
 ```
 
 ## ✅ Before you ascend

@@ -59,7 +59,7 @@ const triage = await read("ledger/triage.json", {});
 const issues = new Map();
 const reviews = [];
 const seats = new Map();
-const coverage = Object.fromEntries(CLUSTERS.map((c) => [c, { solid: 0, suspect: 0, exploitable: 0, examined: [] }]));
+const coverage = Object.fromEntries(CLUSTERS.map((c) => [c, { solid: 0, suspect: 0, defect: 0, examined: [] }]));
 const leads = new Map();
 let skipped = 0;
 
@@ -160,9 +160,10 @@ for (const jobId of jobIds) {
     let leadLines = 0;
     review.findings = addFindings("hunt");
     for (const line of summary.split("\n")) {
-      const v = /^\s*([a-z]+):\s*(solid|suspect|exploitable)\s*\|\s*(\d+)\s*(?:\|\s*(.*))?$/i.exec(line);
+      const v = /^\s*([a-z]+):\s*(solid|suspect|exploitable|defect)\s*\|\s*(\d+)\s*(?:\|\s*(.*))?$/i.exec(line);
       if (v && coverage[v[1].toLowerCase()]) {
         const c = coverage[v[1].toLowerCase()];
+        if (v[2].toLowerCase() === "exploitable") v[2] = "defect";   // the verdict's old name
         c[v[2].toLowerCase()]++;
         c.examined.push(Number(v[3]));
         review.verdicts[v[1].toLowerCase()] = v[2].toLowerCase();
@@ -221,13 +222,13 @@ const md = [
   "",
   "## The machine, cluster by cluster",
   "",
-  "| cluster | hunts | solid | suspect | exploitable | median entry points examined | open issues |",
+  "| cluster | hunts | solid | suspect | defect | median entry points examined | open issues |",
   "|---|---|---|---|---|---|---|",
   ...CLUSTERS.map((c) => {
     const k = coverage[c];
     const ex = [...k.examined].sort((a, b) => a - b);
     const open = out.filter((i) => i.cluster === c && !["fixed", "refuted", "wontfix", "duplicate"].includes(i.status)).length;
-    return `| ${c} | ${k.solid + k.suspect + k.exploitable} | ${k.solid} | ${k.suspect} | ${k.exploitable} | ${ex.length ? ex[ex.length >> 1] : "-"} | ${open} |`;
+    return `| ${c} | ${k.solid + k.suspect + k.defect} | ${k.solid} | ${k.suspect} | ${k.defect} | ${ex.length ? ex[ex.length >> 1] : "-"} | ${open} |`;
   }),
   "",
   "## Issues",
