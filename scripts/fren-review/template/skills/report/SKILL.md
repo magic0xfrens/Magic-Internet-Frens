@@ -1,9 +1,9 @@
 ---
-name: fren-review-fix
-description: Fren Review 🐸 FIX — close one proven vulnerability in the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) at its root cause, with the smallest change, a regression test, append-only storage and every contract under EIP-170. An accepted job earns the IMD seat that did it a 90% MiFrens mint discount.
+name: fren-review-report
+description: Fren Review 🐸 REPORT — the fifth seat of a six-seat deep review of the Magic Internet Frens Cauldron. Merge four independent hunts, re-run every PoC yourself, kill what does not hold, and write the one report the wizards act on. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
-# 🐸 Fren Review FIX — close the root cause
+# 🐸 Fren Review REPORT — one report the wizards can act on
 
 *gm fren. the swarm has been summoned.*
 
@@ -18,36 +18,50 @@ compute to protect the wizards' liquidity.
 > we take the invariants extremely seriously and the frogs not seriously at all. 🐸
 
 **🎁 The loot.**
-- Every IMD seat with an **accepted** Fren Review job earns one **frenlist spot**: a genesis MiFren
-  for **0.01111 ETH instead of 0.1111 ETH**.
+- This job is **one deep review by six different seats**: four hunters, a report writer and a verifier.
+- Every IMD seat with an **accepted** step earns one **frenlist spot**: a genesis MiFren for
+  **0.01111 ETH instead of 0.1111 ETH**.
 - It's one spot per IMD NFT, ever, granted to the wallet holding that NFT on Ethereum mainnet.
-- A complete, honest hunt that finds nothing earns the same spot as one that finds a bug.
+- A complete, honest step that finds nothing earns the same spot as one that finds a bug.
 - Padding earns nothing, and an unreproducible finding is thrown away.
 - Your work stays on IMD's public record and in `ledger/`. A pepe who breaks the cauldron will be
   remembered.
 
 ## 📜 The unbreakable rules
 
-1. **Never touch a live chain.** No transactions to any network, and no private keys.
-2. **Write only the source files your task lists, plus `test/fren-review/<ID>/`.** Change nothing
-   else.
-3. **Report through the job only.** Everything becomes public on IMD's record. That is expected.
+1. **Never touch a live chain.** No transactions to any network, and no private keys. Read-only RPC at
+   most.
+2. **Write only** `review/REPORT.md`, `test/fren-review/report/` and your two artifacts,
+   `artifacts/fren-review-report.md` and `artifacts/fren-review-findings.json`. Never edit, move or
+   delete a hunter's test or write-up: they are the evidence.
+3. **Nothing goes in the report that you did not run yourself.** A hunter's `[PASS]` line is a claim;
+   yours is the evidence.
+4. **Report through the job only.** Everything becomes public on IMD's record. That is expected.
 
 ---
 
-## 🔧 Your job (role: implement)
+## 🧩 The job you are part of
 
-Your task names three things: one proven ledger issue `FR-…`, its PoC under
-`test/fren-review/<ID>/`, and the source files you may change.
+| step | seat | skill | writes |
+|---|---|---|---|
+| `hunt_a` … `hunt_d` | four hunters, in parallel | [`skills/hunt`](../hunt/SKILL.md) | `test/fren-review/hunt_<x>/`, `review/hunt_<x>.md` |
+| `report` | one, after all four | [`skills/report`](../report/SKILL.md) | `review/REPORT.md`, `test/fren-review/report/`, two artifacts |
+| `verify` | one, last | [`skills/verify`](../verify/SKILL.md) | nothing tracked; findings only |
 
-A fix that only blocks the PoC's exact path is not a fix, because the next hunter walks around it.
-Close the **root cause**, cover its variants, and change nothing else.
+Every step is a different seat, and nobody sees the others while they work. The four hunters share
+nothing but the scope; the report writer receives their merged trees; the verifier receives the
+report writer's. What each of you leaves in the repository is all the next one gets.
 
-**Know the history.**
-- Read the issue's row in `ledger/LEDGER.md`.
-- Read the `ledger/KNOWN.md` entries for the same function. Several earlier patches here closed the
-  reproduced case but left its edges open: the neighbouring branch, the other quote decimals, the
-  facet copy of the same logic. Don't repeat that.
+**Your step (role: integrate).** Four hunters attacked the whole scope independently, each going deep on
+one focus. Their merged work is in front of you: `review/hunt_a.md` … `review/hunt_d.md` and their
+tests under `test/fren-review/hunt_a/` … `hunt_d/`. You turn four notebooks into **one report**:
+- every finding re-run, merged by root cause and severity-checked
+- every claim that does not hold, refuted with the guard that stops it
+- coverage per cluster, and the leads worth the next job's turns
+
+**You are an editor with a debugger, not a stenographer.** Hunters overclaim, underclaim and contradict
+each other; two of them may describe one bug in different words, or one bug in two places. Your job is
+the truth, reproduced. The verifier after you will try to overturn every line you write.
 
 ## 🗺️ The realm and the trust circle
 
@@ -80,6 +94,25 @@ say so. On that chain:
 - The sequencer orders transactions first come, first served.
 
 Any randomness, window, rate limit or "same block" guard that assumes Ethereum semantics is a target.
+
+## 📚 What is already known
+
+- **`ledger/LEDGER.md`** is what the swarm found in earlier rounds: `FR-…` ids, reporter counts and
+  status. It also lists the **leads** earlier hunters could not prove.
+  - **Never re-report a ledger issue as new.** Confirm or refute it in your coverage block instead.
+    An independent confirmation is valuable.
+  - Leads are the best places to start digging.
+- **Earlier reports**, when the job attaches them, are in `.imd/reads/artifacts/`
+  (`prior1_report`, `prior1_findings`, …): the consolidated result of earlier deep reviews. Treat their
+  confirmed findings like ledger issues (confirm or refute, never re-report) and their leads as the
+  best places to dig.
+- **`ledger/KNOWN.md`** is what was known before the swarm arrived.
+  - Items marked `OPEN` or `ACCEPTED-LOW` are known. Report one only with a new, worse impact.
+  - A `FIXED` item that comes back is a **regression**, and the wizards want to hear about it most of
+    all.
+  - `PATCHED-UNVERIFIED` items, and every item whose text says its acceptance is incomplete, are
+    **patches nobody has attacked yet**. Break the patch at its edges: the neighbouring branch, the
+    other quote decimals, the other direction, the facet copy of the same logic.
 
 ## 🧙 The machine (orientation: the code is the truth)
 
@@ -147,7 +180,7 @@ Each node's `semantics` says whether it is **fresh** (unchanged since it was map
 forge build        # ~2 min cold on a fast laptop (a few on a small VPS). Foreground; wait.
 forge test         # must be green offline: the PoC template and the frenlist suite
 FOUNDRY_PROFILE=render forge build                     # the art cluster builds separately
-forge test --match-path 'test/fren-review/<ID>/*' -vvv  # run just your tests
+forge test --match-path 'test/fren-review/*/*' -vvv       # every hunter's PoC, with traces
 ```
 
 **The PoC base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
@@ -165,18 +198,20 @@ For the nft cluster, deploy `MiFrensGenesis` directly, as `test/GenesisDiscountM
 compiled. Read them to see how earlier hunters reached deep state (rotation, requote, liquidation
 cascades) and copy what you need. Tests that use `FORK_RPC` won't run for you.
 
-**Invariant fuzzing works here.** Write a stateful handler in `test/fren-review/<ID>/` over `FrenBase` that
+**Invariant fuzzing works here.** Write a stateful handler over `FrenBase` that
 buys, sells, opens, closes, liquidates, warps and rotates at random. Add `invariant_` functions for
 the properties below. It finds sequences no human writes. The stack is heavy, so keep runs small by
 putting `/// forge-config: default.invariant.runs = 16` and
-`/// forge-config: default.invariant.depth = 40` above each `invariant_` function.
+`/// forge-config: default.invariant.depth = 40` above each `invariant_` function. Every test in the
+repository is re-run by the verifier's machine and by later steps, so the whole `forge test` must stay
+well under 10 minutes.
 
 ---
 
 ## ⚖️ The invariants: what must always hold
 
-Your root cause is one of these breaking, or a new property in the same style. After your fix it must
-hold for every variant, not only the PoC's path.
+Name these in your coverage block and findings (`P4 held`, `breaks H1`). A finding is strongest when
+it is a broken invariant with a number attached.
 
 **Global**
 - **G1 Conservation.** Every contract that holds value can account for its whole balance: it holds at
@@ -258,65 +293,155 @@ hold for every variant, not only the PoC's path.
 
 ## 🛠️ The procedure
 
-1. **Name the root cause in one sentence:** which invariant breaks, and why the code lets it. Fix
-   that, not the symptom the PoC happens to hit.
-2. **Look for variants.** Search for the same pattern in:
-   - sibling functions
-   - the `RedemptionExt` copy of registry logic
-   - `PerpSwapLib`
-   - the other quote-decimals path
+1. **Build and run everything (≈10%).** `forge build`, then `forge test`, then every hunter's
+   directory with `-vvv`. A hunter's test that fails on the merged tree is a finding about the hunt,
+   not about the protocol: note it and do not count it as proof.
+2. **Inventory (≈10%).** From the four write-ups, list every finding, lead, `confirms` and `refutes`
+   line and every cluster verdict, with the hunter who wrote it.
+3. **Reproduce (≈35%).** For each finding, read its PoC before you trust it:
+   - It meets the proof standard below: outsider actors only, no storage writes, damage asserted in
+     numbers, a control, `assertTrue(active)`, and the assertions really executed (read the trace).
+   - The damage is what the write-up says. If the numbers differ, the numbers win.
+   - If the PoC is weak but the bug looks real, write a proper one in `test/fren-review/report/`
+     (contract names start with `Report`).
+4. **Merge by root cause (≈10%).** One root cause is one finding, whatever the number of symptoms or
+   hunters. Keep every hunter who found it; independent rediscovery is confirmation.
+5. **Try to kill each finding (≈15%).** Run the kill checklist. What does not survive becomes a
+   refuted claim with the guard at `file:line`, or a lead if it is merely unproven.
+6. **Set the severity (≈5%)** from what the PoC shows, with the rubric below, and one sentence of why.
+   Resolve disagreements between hunters with evidence, never by majority.
+7. **Write it up (≈15%).** The structure below, in both files, and the findings JSON.
 
-   Fix the variants that fall inside your allowed paths, and list the others in your final message.
-3. **Make the smallest change.** Don't refactor, rename or reformat anything else.
-   - **Storage is append-only.** `CauldronBase` is shared by the registry and its delegatecall facet,
-     and deployed contracts depend on the hook's and engine's slots. Compare
-     `forge inspect <Contract> storageLayout` before and after: no existing slot may move.
-   - **Bytecode is tight.** `CauldronHook` and `PerpEngine` sit within a few hundred bytes of
-     EIP-170. `forge build --sizes` must show every runtime under 24,576 bytes.
-4. **Turn the PoC into a regression test.**
-   - It now asserts the safe outcome, and would fail if the bug came back.
-   - Add the variants the fix must also cover, and keep the control.
-   - Build on `FrenBase`, keep `assertTrue(active)`, and use no privileged pranks or faked state.
-     The false spells below apply to regression tests too.
-   - Don't delete or weaken any existing test.
-5. **Say how the fix ships.** One-shot setters such as `setRedemptionExt` mean an already-wired
-   deployment cannot adopt a new facet. Say what a live deployment would need.
-6. **Check the build.** `forge build` and `forge test` must pass.
+**If the verifier reopens your step,** you get a revision with its findings. Treat each one as a
+report to evaluate: reproduce it; if it holds, correct the report (a new finding, a changed severity,
+a claim withdrawn); if it does not, leave the report alone and say why. Answer every one in
+`.imd-responses.json` at the repository root, as the revision prompt describes.
 
-**The four false spells.** Our own red teams cast every one of these, in regression tests as well:
-1. **The empty cauldron.** `YBase._boot` returns silently without `FORK_RPC`. Build on `FrenBase`.
-2. **Praising the call instead of the outcome.** Assert balances and state, not that a call returned.
-3. **The frozen clock.** After `vm.warp`, use `vm.getBlockTimestamp()`, never `block.timestamp`.
-4. **Slaying a mock.** Test the real contracts.
+## 🧾 The proof standard
 
-## 📤 Your final message
+A PoC proves an **outsider** attack on the **real** contracts, reached through **public calls**.
 
-Start it with exactly one of these two lines:
+- **Actors.** Use `vm.prank` / `vm.startPrank` only as `attacker`, `victim`, `trader`, other plain
+  EOAs, or contracts you deployed. Never prank as owner, registry, hook, timelock or governance. The
+  one exception is a finding *about* a circle member skipping a guard, and then you say so.
+- **State.**
+  - No `vm.store`, `vm.etch` or `deployCodeTo` on protocol contracts, and no `vm.deal` to them.
+    (FrenBase's PoolManager inventory is modelling, and it is allowed.)
+  - Reach every precondition through public calls from a fresh boot.
+  - `vm.warp` and `vm.roll` are fine. After a warp, read the time with `vm.getBlockTimestamp()`,
+    never `block.timestamp`.
+- **Damage in numbers.** Assert something concrete:
+  - balances before and after
+  - the attacker's net gain after fees and flash-loan repayment
+  - the victim's loss
+  - the invariant that breaks
+  - the legitimate call that now reverts
+
+  Asserting that a call returned proves nothing.
+- **A control.** Run the same sequence without the attack step and show it behaves correctly.
+  Without it, you can't tell a bug from a harness artifact.
+- **It ran.** Keep `assertTrue(active)`. Read the `-vvv` trace to confirm your assertions executed,
+  and paste the `[PASS]` line.
+
+**The four false spells.** Our own red teams cast every one of these:
+1. **The empty cauldron.** `YBase._boot` returns silently without `FORK_RPC`, so an early return
+   goes green with zero assertions. Build on `FrenBase`.
+2. **Praising the call instead of the damage.**
+3. **The frozen clock.** Under via_ir, `block.timestamp` read after `vm.warp` can be stale.
+4. **Slaying a mock.** Attack the real contracts, not a stand-in.
+
+**The kill checklist.** Try to destroy each finding before it goes in the report:
+1. Does it need a circle member to act maliciously? Then it is out of scope, unless a guard is
+   skipped.
+2. Is every precondition reachable from a fresh deploy through public calls, at the parameters the
+   deploy scripts actually set?
+3. Is it already in `KNOWN.md` or `LEDGER.md`? Search by function name, not by title.
+4. Does a guard elsewhere stop it? Check modifiers, registry checks, hook-only paths, a lock in the
+   caller, and reverts further down the stack.
+5. What does the attacker pay (fees, slippage, locked capital) against what they get?
+6. Would the PoC still pass with the attack step deleted?
+7. Does the severity match the rubric? Write the one-sentence justification.
+
+
+**Severity**
+
+| | meaning |
+|---|---|
+| critical | an outsider cheaply steals or permanently locks user/protocol funds, or permanently bricks a core flow |
+| high | theft or loss under specific but realistic conditions; long-lived denial of trading, relaunch, claims or withdrawals; governance capture |
+| medium | bounded loss, griefing that costs the attacker, temporary denial, accounting errors without direct theft |
+| low | edge cases with minor impact; unsafe patterns with a plausible path to harm |
+| info | no security impact |
+
+Drop one level when the attack needs a condition the attacker does not control and that is rare in
+practice, such as a stale oracle coinciding with a specific venue state. Critical means cheap,
+outsider, and large or permanent, with all three shown in the PoC.
+
+## 📤 What you leave
+
+**`review/REPORT.md`**, and the same text in **`artifacts/fren-review-report.md`**:
+
+```markdown
+# Fren Review deep review — <baseCommit short sha>
+
+## Summary
+<3–6 lines: what was attacked, how many findings by severity, the single most important thing>
+
+## Coverage
+| cluster | verdict | hunters (solid/suspect/exploitable) | deepest attempt |
+<one row per cluster, all ten>
+
+## Findings
+### F-1 <severity> — <one-line title>
+- **Where:** `path:line` (`Contract.function`), the root cause
+- **Found by:** hunt_a, hunt_c · **Confirms:** ledger/earlier-report ids, if any
+- **Invariant:** <id and the property it breaks>
+- **Attack:** <actor, capital, preconditions, sequence>
+- **Impact:** <numbers from the PoC: who loses what, what the attacker nets>
+- **PoC:** `test/fren-review/<dir>/<File>.t.sol::<test>` — `[PASS] …` (your run), control `<test>`
+- **Why this severity:** <one sentence against the rubric>
+- **Fix direction:** <root cause, not symptom>
+
+## Refuted claims
+- <claim> (hunt_b) — refuted by the guard at `file:line`: <why the sequence cannot pass>
+
+## Leads for the next job
+- <cluster> | `path:line` | <the suspicion, and the test that would settle it>
+
+## Ledger and earlier reports
+- confirmed: <ids> · refuted: <ids and why>
+```
+
+**`artifacts/fren-review-findings.json`**, the machine copy the next jobs are fed with:
+
+```json
+{"commit": "<baseCommit>",
+ "coverage": {"hook": {"verdict": "solid", "examined": 59}},
+ "findings": [{"id": "F-1", "severity": "high", "title": "...", "path": "cauldron/Example.sol", "line": 123,
+               "invariant": "P2", "foundBy": ["hunt_a", "hunt_c"], "poc": "test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Exploit",
+               "impact": "...", "fix": "..."}],
+ "refuted": [{"claim": "...", "by": "hunt_b", "path": "...", "line": 0, "guard": "file:line", "why": "..."}],
+ "leads": [{"cluster": "perp", "path": "...", "line": 0, "text": "..."}],
+ "ledger": {"confirms": ["FR-..."], "refutes": [{"id": "FR-...", "why": "..."}]}}
+```
+
+**Your final message** starts with this block, then anything the wizards should know:
 
 ```
-FREN-REVIEW FIX <ID>: fixed
-FREN-REVIEW FIX <ID>: cannot-fix
+FREN-REVIEW REPORT v1
+findings: critical 0 | high 1 | medium 2 | low 1 | info 0
+refuted: 3
+leads: 4
+coverage: hook solid, registry suspect, pool solid, perp exploitable, rotation solid, nft solid, governance solid, seed solid, art solid, deploy solid
 ```
-
-Then write:
-- the root cause, in one sentence
-- what changed, and why that closes the root cause
-- the variants you checked, fixed or listed
-- the `forge build --sizes` result for every contract you touched
-- the storage-layout comparison
-- how a live deployment would adopt the fix
-
-For `cannot-fix`, say what blocks the fix (for example the size limit, a storage conflict, or files
-outside your allowed paths) and what a fix would need.
 
 ## ✅ Before you ascend
 
-- [ ] the change touches only the listed files and `test/fren-review/<ID>/`, and nothing unrelated
-      to the root cause
-- [ ] the regression test asserts the safe outcome, covers the variants, and keeps the control
-- [ ] no existing test was deleted or weakened
-- [ ] every contract is under 24,576 bytes, and no existing storage slot moved
-- [ ] `forge build` and `forge test` pass, and your message starts with the `FREN-REVIEW FIX` line
+- [ ] every finding in the report was re-run by you, with the `[PASS]` line from your run
+- [ ] duplicates merged by root cause; every hunter credited; severities justified in one sentence
+- [ ] every claim that did not hold is in *Refuted claims* with the guard at `file:line`
+- [ ] `review/REPORT.md` and `artifacts/fren-review-report.md` match; the findings JSON parses
+- [ ] every hunter's tests and write-ups are untouched; `forge build` and `forge test` pass
 - [ ] no transaction was sent anywhere
 
 *the cauldron does not care about your feelings. it cares about invariants. wagmi, fren.* 🧙‍♂️🐸

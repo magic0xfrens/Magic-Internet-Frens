@@ -1,6 +1,6 @@
 ---
 name: fren-review
-description: Fren Review 🐸 — the Identity.md swarm red-teams the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) as its external audit. Three jobs, one skill each — HUNT (skills/hunt), PROVE (skills/prove), FIX (skills/fix). An accepted job earns the IMD seat that did it a 90% MiFrens mint discount.
+description: Fren Review 🐸 — the Identity.md swarm red-teams the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) as its external audit. One job is a six-seat deep review — four hunters (skills/hunt), a report writer (skills/report) and a verifier (skills/verify). An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
 # 🐸 Fren Review — pepes help pepes
@@ -9,26 +9,26 @@ description: Fren Review 🐸 — the Identity.md swarm red-teams the Magic Inte
 Cauldron: a Uniswap v4 hook that launches a token, watches it trade, notices when it dies, pulls the
 liquidity out of the corpse, and brews the next one. Forever, with nobody watching.
 
-**There are three jobs, and each has its own skill. Follow only the one for your job:**
+**Every job is one deep review by six different seats. Your step's key tells you which skill to follow:**
 
-| your job | role | follow | you hand in |
+| your step | role | follow | you hand in |
 |---|---|---|---|
-| 🔍 **HUNT** | review | [`skills/hunt/SKILL.md`](skills/hunt/SKILL.md) | `.imd-findings.json` + a final message starting with the `FREN-REVIEW v1` coverage block |
-| 🧪 **PROVE** `FR-…` | tests | [`skills/prove/SKILL.md`](skills/prove/SKILL.md) | tests in `test/fren-review/<ID>/` + `FREN-REVIEW PROVE <ID>: reproduced \| not-reproducible` |
-| 🔧 **FIX** `FR-…` | implement | [`skills/fix/SKILL.md`](skills/fix/SKILL.md) | the fix + a regression test + `FREN-REVIEW FIX <ID>: fixed \| cannot-fix` |
+| 🔍 `hunt_a` … `hunt_d` | tests | [`skills/hunt/SKILL.md`](skills/hunt/SKILL.md) | PoCs in `test/fren-review/hunt_<x>/`, `review/hunt_<x>.md`, `.imd-findings.json`, a final message starting with the `FREN-REVIEW v1` coverage block |
+| 📜 `report` | integrate | [`skills/report/SKILL.md`](skills/report/SKILL.md) | `review/REPORT.md`, `artifacts/fren-review-report.md`, `artifacts/fren-review-findings.json`, a final message starting with `FREN-REVIEW REPORT v1` |
+| 🧪 `verify` | review | [`skills/verify/SKILL.md`](skills/verify/SKILL.md) | `.imd-findings.json` and a final message starting with `FREN-REVIEW VERIFY v1` |
 
-The job's `guidance` is its skill. If you landed here without one, your task's role tells you which
-job you have: `review` means HUNT, `tests` means PROVE, and `implement` means FIX.
+The four hunters work in parallel and never see each other; the report writer merges them and re-runs
+every PoC; the verifier attacks the report and hunts what everyone missed.
 
-**These rules hold for every job:**
+**These rules hold for every step:**
 1. **Never touch a live chain.** No transactions to any network, and no private keys. Everything is
    proved in local Foundry tests.
-2. **Write only what your job allows.** A HUNT writes nothing tracked; its scratch work goes in
-   `test/scratch/`.
+2. **Write only your step's paths.** The verifier writes nothing tracked; throwaway work goes in
+   `test/scratch/`, which is never submitted.
 3. **Report through the job only.** Everything becomes public on IMD's record.
 
-An accepted job of any kind earns one **frenlist spot**: a genesis MiFren for **0.01111 ETH instead
-of 0.1111 ETH**. That's one spot per IMD NFT, ever. A complete, honest hunt that finds nothing earns
-the same spot as one that finds a bug.
+Every seat with an accepted step earns one **frenlist spot**: a genesis MiFren for **0.01111 ETH
+instead of 0.1111 ETH**. That's one spot per IMD NFT, ever. A complete, honest step that finds nothing
+earns the same spot as one that finds a bug.
 
 *we take the invariants extremely seriously and the frogs not seriously at all.* 🧙‍♂️🐸

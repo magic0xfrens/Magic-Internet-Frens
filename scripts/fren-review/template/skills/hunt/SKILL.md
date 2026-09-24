@@ -1,6 +1,6 @@
 ---
 name: fren-review-hunt
-description: Fren Review 🐸 HUNT — the Identity.md swarm red-teams the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation) as its external audit. Attack it as an outsider with capital, prove what you find, and leave leads for the next round. An accepted job earns the IMD seat that did it a 90% MiFrens mint discount.
+description: Fren Review 🐸 HUNT — one of four hunters in a six-seat deep review of the Magic Internet Frens Cauldron (Solidity, Uniswap v4 hook, perps, treasury rotation). Attack it as an outsider with capital, prove what you find with tests that stay in the repository, and leave leads. An accepted step earns the IMD seat that did it a 90% MiFrens mint discount.
 ---
 
 # 🐸 Fren Review HUNT — pepes help pepes
@@ -18,10 +18,11 @@ compute to protect the wizards' liquidity.
 > we take the invariants extremely seriously and the frogs not seriously at all. 🐸
 
 **🎁 The loot.**
-- Every IMD seat with an **accepted** Fren Review job earns one **frenlist spot**: a genesis MiFren
-  for **0.01111 ETH instead of 0.1111 ETH**.
+- This job is **one deep review by six different seats**: four hunters, a report writer and a verifier.
+- Every IMD seat with an **accepted** step earns one **frenlist spot**: a genesis MiFren for
+  **0.01111 ETH instead of 0.1111 ETH**.
 - It's one spot per IMD NFT, ever, granted to the wallet holding that NFT on Ethereum mainnet.
-- A complete, honest hunt that finds nothing earns the same spot as one that finds a bug.
+- A complete, honest step that finds nothing earns the same spot as one that finds a bug.
 - Padding earns nothing, and an unreproducible finding is thrown away.
 - Your work stays on IMD's public record and in `ledger/`. A pepe who breaks the cauldron will be
   remembered.
@@ -30,11 +31,33 @@ compute to protect the wizards' liquidity.
 
 1. **Never touch a live chain.** No transactions to any network, and no private keys. Every attack is
    proved in a local Foundry test. Read-only RPC at most.
-2. **Change no tracked file.** Scratch work goes in `test/scratch/`, which is never submitted.
+2. **Write only your step's paths:** `test/fren-review/hunt_<x>/` and `review/hunt_<x>.md`, where
+   `<x>` is your letter (`hunt_a` writes `test/fren-review/hunt_a/`). Nothing else. `test/scratch/` is
+   yours for throwaway work and is deleted before submission.
 3. **Report through the job only.** Everything becomes public on IMD's record. That is expected.
 4. **Proof over prose.** A claim you did not run is a `lead`, not a finding (see *The proof standard*).
+5. **Never bless a bug.** An exploit test asserts the harm (it passes *because* the bug is there) and
+   the bug is reported as a finding. A test that asserts harmful behaviour is correct or intended is
+   the one thing this job must never contain.
 
 ---
+
+## 🧩 The job you are part of
+
+| step | seat | skill | writes |
+|---|---|---|---|
+| `hunt_a` … `hunt_d` | four hunters, in parallel | [`skills/hunt`](../hunt/SKILL.md) | `test/fren-review/hunt_<x>/`, `review/hunt_<x>.md` |
+| `report` | one, after all four | [`skills/report`](../report/SKILL.md) | `review/REPORT.md`, `test/fren-review/report/`, two artifacts |
+| `verify` | one, last | [`skills/verify`](../verify/SKILL.md) | nothing tracked; findings only |
+
+Every step is a different seat, and nobody sees the others while they work. The four hunters share
+nothing but the scope; the report writer receives their merged trees; the verifier receives the
+report writer's. What each of you leaves in the repository is all the next one gets.
+
+**Your step.** You are one of four hunters. Your step's objective names your letter and your focus.
+Your tests stay in the repository: the report writer re-runs them, the verifier re-runs them, and IMD's
+own verifier re-runs `forge test` before your step is accepted, so **every test you leave must pass**.
+Start every contract name with `Hunt<X>` (`HuntA…`) so four hunters' files never collide.
 
 ## 🗡️ Who you are
 
@@ -92,6 +115,10 @@ Any randomness, window, rate limit or "same block" guard that assumes Ethereum s
   - **Never re-report a ledger issue as new.** Confirm or refute it in your coverage block instead.
     An independent confirmation is valuable.
   - Leads are the best places to start digging.
+- **Earlier reports**, when the job attaches them, are in `.imd/reads/artifacts/`
+  (`prior1_report`, `prior1_findings`, …): the consolidated result of earlier deep reviews. Treat their
+  confirmed findings like ledger issues (confirm or refute, never re-report) and their leads as the
+  best places to dig.
 - **`ledger/KNOWN.md`** is what was known before the swarm arrived.
   - Items marked `OPEN` or `ACCEPTED-LOW` are known. Report one only with a new, worse impact.
   - A `FIXED` item that comes back is a **regression**, and the wizards want to hear about it most of
@@ -166,7 +193,7 @@ Each node's `semantics` says whether it is **fresh** (unchanged since it was map
 forge build        # ~2 min cold on a fast laptop (a few on a small VPS). Foreground; wait.
 forge test         # must be green offline: the PoC template and the frenlist suite
 FOUNDRY_PROFILE=render forge build                     # the art cluster builds separately
-forge test --match-path test/scratch/MyPoC.t.sol -vvv  # run just your PoC
+forge test --match-path 'test/fren-review/hunt_a/*' -vvv  # run just your own tests
 ```
 
 **The PoC base.** `test/fren-review/FrenPoCTemplate.t.sol` on `test/fren-review/FrenBase.sol` boots
@@ -184,11 +211,13 @@ For the nft cluster, deploy `MiFrensGenesis` directly, as `test/GenesisDiscountM
 compiled. Read them to see how earlier hunters reached deep state (rotation, requote, liquidation
 cascades) and copy what you need. Tests that use `FORK_RPC` won't run for you.
 
-**Invariant fuzzing works here.** Write a stateful handler in `test/scratch/` over `FrenBase` that
+**Invariant fuzzing works here.** Write a stateful handler over `FrenBase` that
 buys, sells, opens, closes, liquidates, warps and rotates at random. Add `invariant_` functions for
 the properties below. It finds sequences no human writes. The stack is heavy, so keep runs small by
 putting `/// forge-config: default.invariant.runs = 16` and
-`/// forge-config: default.invariant.depth = 40` above each `invariant_` function.
+`/// forge-config: default.invariant.depth = 40` above each `invariant_` function. Every test in the
+repository is re-run by the verifier's machine and by later steps, so the whole `forge test` must stay
+well under 10 minutes.
 
 ---
 
@@ -339,7 +368,7 @@ These are starting points, not a fence. Each line is an attack to try, not a kno
 
 ---
 
-## 🔍 The hunt, step by step (role: review)
+## 🔍 The hunt, step by step (role: tests)
 
 **Your focus.** Every hunt covers **all ten clusters** and goes **deep** on one focus. Your task
 names the focus (`Focus: <x>`). If it does not, draw one at random so the swarm spreads out:
@@ -353,11 +382,12 @@ open.
 
 Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
 
-1. **Light the fire (≤10%).** Run `forge build` and `forge test`. Copy the template into
-   `test/scratch/` and make it run.
+1. **Light the fire (≤10%).** Run `forge build` and `forge test`. Copy
+   `test/fren-review/FrenPoCTemplate.t.sol` into `test/fren-review/hunt_<x>/`, rename its contract to
+   `Hunt<X>…`, and make it run.
 2. **Know the ground (≈10%).** Read `CAULDRON.md`, `ledger/LEDGER.md` (leads included),
    `ledger/KNOWN.md`, and your focus's section of `MAP.md`. Write yourself a 10-line threat model in
-   `test/scratch/NOTES.md`: the value stores in your focus, their exits, and the three invariants you
+   `test/scratch/NOTES.md` (scratch, not submitted): the value stores in your focus, their exits, and the three invariants you
    will attack first.
 3. **Sweep for breadth (≈30%).** Go through all ten clusters in MAP order. Spend minutes, not hours,
    on the clusters outside your focus: the playbook lines and the `stale` / `missing` entry points.
@@ -372,10 +402,12 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
    - Use boundary values: 0, 1 wei, max, exactly at the threshold.
    - Write a small invariant handler if the state space is large.
    - Follow the gold: for every wei that enters your focus, find where it leaves.
-5. **Prove, then try to kill (≈10%).** Prove every candidate with a PoC that meets the proof standard
-   below. Then run the kill checklist on it. What survives is a finding. What you couldn't prove
+5. **Prove, then try to kill (≈10%).** Prove every candidate with a PoC in `test/fren-review/hunt_<x>/`
+   that meets the proof standard below. Then run the kill checklist on it. What survives is a finding. What you couldn't prove
    becomes a `lead`.
-6. **Write it up (≈5%).** Save turns for this. A great hunt with no coverage block is rejected.
+6. **Write it up (≈5%).** Save turns for this: `review/hunt_<x>.md`, `.imd-findings.json` and your
+   final message. A great hunt with no coverage block is rejected, and the report writer can only use
+   what you wrote down.
 
 ## 🧾 The proof standard
 
@@ -424,7 +456,16 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
 
 ## 📤 Reporting
 
-**Findings** go in `.imd-findings.json` at the repository root. An empty list is a valid result.
+You leave three things, and they must agree:
+
+1. **`review/hunt_<x>.md`**, which is what the report writer reads. It starts with the coverage block
+   below, then one section per finding (the same fields as the JSON, plus the PoC file and test name
+   and the `[PASS]` line you saw), then your leads, then what you tried that held.
+2. **`.imd-findings.json`** at the repository root, which IMD records against your step. An empty list
+   is a valid result.
+3. **Your final message**, which starts with the same coverage block.
+
+**Findings** use this shape in `.imd-findings.json`:
 
 ```json
 {"findings": [{
@@ -433,7 +474,7 @@ A PoC proves an **outsider** attack on the **real** contracts, reached through *
   "path": "cauldron/Example.sol",
   "line": 123,
   "description": "Root cause: ...\nAttacker: outsider with X ETH flash liquidity, no role.\nPreconditions: ...\nImpact: victim loses N ETH of collateral; attacker nets M ETH after fees.\nInvariant: breaks P2.\nNot known: checked KNOWN <ids> and LEDGER <ids>; different root cause because ...\nFix direction: ...",
-  "reproduction": "1. ... 2. ... (exact inputs). Expected vs actual. Then the full PoC source, the command, and the [PASS] line."
+  "reproduction": "1. ... 2. ... (exact inputs). Expected vs actual. The PoC is test/fren-review/hunt_a/HuntAExample.t.sol::test_HuntA_Exploit, run with <command>: [PASS] ..."
 }]}
 ```
 
@@ -454,8 +495,9 @@ Drop one level when the attack needs a condition the attacker does not control a
 practice, such as a stale oracle coinciding with a specific venue state. Critical means cheap,
 outsider, and large or permanent, with all three shown in the PoC.
 
-**The coverage block.** Your final message is stored as your submission summary and parsed by a
-script, so keep it under about 3,500 characters. Start it with this block, exactly:
+**The coverage block.** It opens `review/hunt_<x>.md` and your final message; the final message is
+stored as your submission summary and parsed by a script, so keep it under about 3,500 characters.
+Start both with this block, exactly:
 
 ```
 FREN-REVIEW v1
@@ -491,10 +533,12 @@ After the block, write anything else the wizards should know.
 ## ✅ Before you ascend
 
 - [ ] every finding points at the root cause's path and line, names the invariant it breaks, and has
-      a PoC that **ran**, with a control and damage in numbers
+      a PoC in `test/fren-review/hunt_<x>/` that **ran**, with a control and damage in numbers
 - [ ] every finding survived the kill checklist; anything that didn't is a `lead`
-- [ ] nothing already in `ledger/` or `KNOWN.md` is reported as new; it is confirmed or refuted instead
-- [ ] your final message starts with the `FREN-REVIEW v1` block, with a focus line and all ten clusters
-- [ ] no tracked file changed, and no transaction was sent anywhere
+- [ ] nothing already in `ledger/`, `KNOWN.md` or an attached earlier report is reported as new
+- [ ] `review/hunt_<x>.md` and your final message start with the `FREN-REVIEW v1` block, with a focus
+      line and all ten clusters, and agree with `.imd-findings.json`
+- [ ] `forge build` and `forge test` pass; you wrote nothing outside your two paths; no test blesses a bug
+- [ ] no transaction was sent anywhere
 
 *the cauldron does not care about your feelings. it cares about invariants. wagmi, fren.* 🧙‍♂️🐸
