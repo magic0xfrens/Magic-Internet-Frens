@@ -384,7 +384,7 @@ Budget by turns, not by feel. You have a fixed number of turns and a wall clock.
 
 1. **Light the fire (≤10%).** Run `forge build` and `forge test`. Copy
    `test/fren-review/FrenPoCTemplate.t.sol` into `test/fren-review/hunt_<x>/`, rename its contract to
-   `Hunt<X>…`, and make it run.
+   `Hunt<X>…`, point its import at `../FrenBase.sol`, and make it run.
 2. **Know the ground (≈10%).** Read `CAULDRON.md`, `ledger/LEDGER.md` (leads included),
    `ledger/KNOWN.md`, and your focus's section of `MAP.md`. Write yourself a 10-line threat model in
    `test/scratch/NOTES.md` (scratch, not submitted): the value stores in your focus, their exits, and the three invariants you
