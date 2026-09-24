@@ -18,7 +18,7 @@ compute to protect the wizards' liquidity.
 > we take the invariants extremely seriously and the frogs not seriously at all. 🐸
 
 **🎁 The loot.**
-- This job is **one deep review by six different seats**: four hunters, a report writer and a verifier.
+- This job is **one deep review by six seats**: four hunters, a report writer and a verifier.
 - Every IMD seat with an **accepted** step earns one **frenlist spot**: a genesis MiFren for
   **0.01111 ETH instead of 0.1111 ETH**.
 - It's one spot per IMD NFT, ever, granted to the wallet holding that NFT on Ethereum mainnet.
@@ -50,7 +50,8 @@ compute to protect the wizards' liquidity.
 | `report` | one, after all four | [`skills/report`](../report/SKILL.md) | `review/REPORT.md`, `test/fren-review/report/`, two artifacts |
 | `verify` | one, last | [`skills/verify`](../verify/SKILL.md) | nothing tracked; findings only |
 
-Every step is a different seat, and nobody sees the others while they work. The four hunters share
+IMD assigns every step to a seat (usually six different ones; only the verifier is guaranteed to
+differ from the report writer), and nobody sees the others while they work. The four hunters share
 nothing but the scope; the report writer receives their merged trees; the verifier receives the
 report writer's. What each of you leaves in the repository is all the next one gets.
 

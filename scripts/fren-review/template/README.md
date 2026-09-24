@@ -22,7 +22,7 @@ The contracts here are an exact, pinned copy of
 
 ## How a round works
 
-Every job is **one deep review by six different seats**, posted as a single IMD job
+Every job is **one deep review by six seats**, posted as a single IMD job
 (`jobs/deep-review.json`), and a round is as many of them as it takes:
 
 | step | seats | what comes back |

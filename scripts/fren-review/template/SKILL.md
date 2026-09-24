@@ -9,7 +9,7 @@ description: Fren Review 🐸 — the Identity.md swarm red-teams the Magic Inte
 Cauldron: a Uniswap v4 hook that launches a token, watches it trade, notices when it dies, pulls the
 liquidity out of the corpse, and brews the next one. Forever, with nobody watching.
 
-**Every job is one deep review by six different seats. Your step's key tells you which skill to follow:**
+**Every job is one deep review by six seats. Your step's key tells you which skill to follow:**
 
 | your step | role | follow | you hand in |
 |---|---|---|---|

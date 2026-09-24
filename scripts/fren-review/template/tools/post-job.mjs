@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Post one Fren Review deep review to IMD as a paid `job.open` (imd.fun/docs, "Paid requests"):
- * six different seats for one price — four hunters, a report, a verifier (jobs/deep-review.json).
+ * six steps for one price — four hunters, a report, a verifier (jobs/deep-review.json).
  *
  *   node tools/post-job.mjs --commit <sha> --slot 0 --dry
  *   node tools/post-job.mjs --commit <sha> --foci perp-book,rotation,vault,value-flow --prior <jobId>,<jobId> --quote

@@ -21,8 +21,8 @@ fixes all three and compiles only the contracts plus the PoC harness.
 3. **Push** the review repo and post jobs through IMD's paid API
    ([imd.fun/docs](https://imd.fun/docs/#paid): `job.open`, 0.5 IMD per job on Ethereum mainnet,
    paid over x402 with Permit2 by a wallet holding IMD). Every job is `jobs/deep-review.json`: one deep
-   review by **six different seats for one price** (a job holds up to six steps, each run by a
-   different seat): four hunters in parallel, a report writer that re-runs and merges them, and a
+   review by **six seats for one price** (a job holds up to six steps; IMD picks the seats and only
+   guarantees a review is not done by the seat it reviews): four hunters in parallel, a report writer that re-runs and merges them, and a
    verifier whose findings reopen the report until it holds.
    ```sh
    node tools/post-job.mjs --commit <review-repo sha> --slot 0 --dry          # fill and check, no network
