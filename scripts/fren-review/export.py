@@ -183,7 +183,7 @@ def main():
 
     write(out, "foundry.toml", foundry_toml(src["foundry.toml"].decode(), commit))
     write(out, ".gitmodules", gitmodules(files[".gitmodules"][1].decode()))
-    write(out, ".gitignore", "out/\ncache/\nbroadcast/\ntest/scratch/\n.imd-findings.json\n.imd-responses.json\n")
+    write(out, ".gitignore", "out/\ncache/\nbroadcast/\ntest/scratch/\n.imd-findings.json\n.imd-responses.json\nnode_modules/\n")
 
     # The map, built from the graph at the same commit.
     with tempfile.TemporaryDirectory() as graph:
@@ -200,7 +200,8 @@ def main():
 
     # The kit: skill, landing page, job templates, map checker; seed the ledger once.
     template = os.path.join(HERE, "template")
-    for d, _, fs in os.walk(template):
+    for d, dirs, fs in os.walk(template):
+        dirs[:] = [x for x in dirs if x != "node_modules"]  # tools/ deps are installed, never shipped
         for f in fs:
             rel = os.path.relpath(os.path.join(d, f), template)
             if rel.startswith("ledger/") and os.path.exists(os.path.join(out, rel)):

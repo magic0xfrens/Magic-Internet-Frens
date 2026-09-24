@@ -1,0 +1,11 @@
+{
+  "name": "fren-review-tools",
+  "private": true,
+  "type": "module",
+  "description": "Dependencies for tools/post-job.mjs --pay / --approve only; the other tools need none.",
+  "dependencies": {
+    "@x402/core": "2.27.0",
+    "@x402/evm": "2.27.0",
+    "viem": "2.56.8"
+  }
+}

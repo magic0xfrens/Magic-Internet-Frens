@@ -16,13 +16,20 @@
  * --dry      fill and check against the documented limits, print the body; nothing is sent.
  * --quote    also ask IMD for a quote. Free: nothing is charged until the paid submit, and an
  *            invalid body comes back 422 with the problems. Prints the order and stops.
- * (default)  quote, then fetch the 402 payment challenge and print what the paying wallet must sign.
+ * --pay      quote, then PAY (0.5 IMD) with the wallet in PRIVATE_KEY and wait for admission; the
+ *            admitted job id is appended to ledger/jobs.txt. Needs `npm ci --prefix tools`.
+ * (default)  quote, then fetch the 402 payment challenge and print it; nothing is signed.
+ *
+ *   node tools/post-job.mjs --approve [imd]   one-time ERC-20 approval letting Permit2 move up to
+ *                                             <imd> IMD (default 5, ten jobs) from PRIVATE_KEY's wallet.
  *
  * IMD_PAID_TOKEN (64 hex, `openssl rand -hex 32`) names your orders; keep it to read them later.
- * A quote lives 600 s. Add each admitted job id to ledger/jobs.txt for tools/aggregate.mjs.
+ * ETH_RPC_URL (default a public Ethereum RPC) is read for balances and the approval. A quote lives
+ * 600 s. The signing follows IMD's own explorer (explorer.imd.fun/request): an x402 v2 "exact"
+ * Permit2 payment plus an EIP-712 QuoteApproval of that payment for this quote.
  */
-import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { readFileSync, appendFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 
 const API = process.env.IMD_API ?? "https://api.imd.fun";
 const ROOT = new URL("../", import.meta.url);
@@ -33,6 +40,72 @@ const opt = (name) => {
   return i >= 0 && i + 1 < argv.length ? argv[i + 1] : undefined;
 };
 const die = (msg) => { console.error(msg); process.exit(1); };
+const RPC = process.env.ETH_RPC_URL ?? "https://ethereum-rpc.publicnode.com";
+const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+
+//  IMD's canonical JSON and hash (sorted keys, integers only; sha256, hex without 0x). Checked
+//  against a live challenge: it reproduces quoteHash, requesterScopeHash and inputHash exactly.
+const canon = (v) => {
+  if (v === null) return "null";
+  switch (typeof v) {
+    case "boolean": return v ? "true" : "false";
+    case "number":
+      if (!Number.isInteger(v)) throw new Error("cannot canonicalize a non-integer number");
+      return JSON.stringify(v === 0 ? 0 : v);
+    case "string": return JSON.stringify(v);
+    case "object":
+      if (Array.isArray(v)) return `[${v.map(canon).join(",")}]`;
+      return `{${Object.keys(v).sort().map((k) => {
+        if (v[k] === undefined) throw new Error(`cannot canonicalize undefined at ${k}`);
+        return `${JSON.stringify(k)}:${canon(v[k])}`;
+      }).join(",")}}`;
+    default: throw new Error(`cannot canonicalize a ${typeof v}`);
+  }
+};
+const hashOf = (v) => createHash("sha256").update(Buffer.from(canon(v), "utf8")).digest("hex");
+
+async function wallet() {
+  const pk = process.env.PRIVATE_KEY ?? "";
+  if (!/^(0x)?[0-9a-fA-F]{64}$/.test(pk)) die("set PRIVATE_KEY to the paying wallet's key (it is never printed)");
+  let viem, accounts, chains;
+  try {
+    viem = await import("viem");
+    accounts = await import("viem/accounts");
+    chains = await import("viem/chains");
+  } catch { die("paying needs the tool dependencies: npm ci --prefix tools"); }
+  const account = accounts.privateKeyToAccount(pk.startsWith("0x") ? pk : `0x${pk}`);
+  const pub = viem.createPublicClient({ chain: chains.mainnet, transport: viem.http(RPC) });
+  const walletClient = viem.createWalletClient({ account, chain: chains.mainnet, transport: viem.http(RPC) });
+  return { viem, account, pub, walletClient };
+}
+
+const ERC20 = [
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+];
+
+if (flag("approve")) {
+  const imd = Number(argv[argv.indexOf("--approve") + 1] ?? 5);
+  const amountImd = Number.isFinite(imd) && imd > 0 ? imd : 5;
+  const caps = await (await fetch(`${API}/requests/capabilities`)).json();
+  const asset = caps.actions.find((a) => a.action === "job.open").payment.asset;
+  const { viem, account, pub, walletClient } = await wallet();
+  const amount = viem.parseUnits(String(amountImd), 18);
+  const [eth, bal, allowance] = await Promise.all([
+    pub.getBalance({ address: account.address }),
+    pub.readContract({ address: asset, abi: ERC20, functionName: "balanceOf", args: [account.address] }),
+    pub.readContract({ address: asset, abi: ERC20, functionName: "allowance", args: [account.address, PERMIT2] }),
+  ]);
+  console.error(`wallet ${account.address}: ${viem.formatEther(eth)} ETH, ${viem.formatUnits(bal, 18)} IMD, Permit2 allowance ${viem.formatUnits(allowance, 18)} IMD`);
+  if (allowance >= amount) { console.error("allowance already covers it; nothing sent"); process.exit(0); }
+  if (eth === 0n) die("the wallet has no ETH on Ethereum mainnet for the approval's gas");
+  const hash = await walletClient.writeContract({ address: asset, abi: ERC20, functionName: "approve", args: [PERMIT2, amount] });
+  console.error(`approve(Permit2, ${amountImd} IMD) sent: ${hash}`);
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  console.error(`mined in block ${receipt.blockNumber}, status ${receipt.status}`);
+  process.exit(receipt.status === "success" ? 0 : 1);
+}
 
 //  Ordered so that any four consecutive entries spread across the machine.
 const FOCI = ["perp-book", "value-flow", "hook-deltas", "rotation", "lifecycle", "genesis-nft",
@@ -147,11 +220,95 @@ if (flag("quote")) process.exit(0);
 // ── the payment challenge ───────────────────────────────────────────────────
 //  Submitting with no body returns 402: the x402 v2 requirements in the PAYMENT-REQUIRED header,
 //  repeated in the JSON with the quote. The wallet then signs the Permit2 payment and an EIP-712
-//  approval of that payment for this quote, and both go back to the same route. That signing is
-//  deliberately not automated here: print the challenge and let the paying wallet's owner sign it.
+//  approval of that payment for this quote, and both go back to the same route.
 const c = await fetch(`${API}/requests/${order.id}/submit`, { method: "POST", headers: auth });
 const challenge = await c.json().catch(() => ({}));
-console.log(JSON.stringify({ status: c.status, paymentRequired: c.headers.get("payment-required"), challenge }, null, 2));
-console.error(`\nNext: sign the Permit2 payment and the quote approval with the paying wallet, then POST ` +
-  `${API}/requests/${order.id}/submit with header PAYMENT-SIGNATURE and body {"quoteSignature": "0x…"}; ` +
-  `poll GET /requests/${order.id} until admitted, and add admission.result.jobId to ledger/jobs.txt.`);
+if (!flag("pay")) {
+  console.log(JSON.stringify({ status: c.status, paymentRequired: c.headers.get("payment-required"), challenge }, null, 2));
+  console.error(`\nNothing was signed. Re-run with --pay (and PRIVATE_KEY) to pay 0.5 IMD and post it.`);
+  process.exit(0);
+}
+if (c.status !== 402) die(`expected the 402 payment challenge, got HTTP ${c.status}: ${JSON.stringify(challenge).slice(0, 400)}`);
+
+//  Check the challenge before signing anything, as IMD's own explorer does: it must be this order,
+//  this work, this credential, and exactly the advertised price.
+const offer = challenge.accepts?.[0];
+const qp = challenge.quote?.payment ?? {};
+const { quoteHash, ...quoteRest } = challenge.quote ?? {};
+const refuse = (what) => die(`payment details changed (${what}); nothing was signed`);
+if (canon(challenge.quote) !== canon(order.quote)) refuse("quote");
+if (quoteHash !== hashOf({ domain: "identitymd.paid-action-quote", ...quoteRest })) refuse("quote hash");
+if (hashOf(challenge.input) !== challenge.quote.inputHash) refuse("work");
+const scope = hashOf({ domain: "identitymd.paid-requester", scope: `paid-client:${hashOf({ domain: "identitymd.paid-http-client", token })}` });
+if (challenge.requesterScopeHash !== scope) refuse("credential");
+if (challenge.x402Version !== 2 || challenge.accepts?.length !== 1 || !offer) refuse("version");
+if (offer.scheme !== "exact" || offer.network !== qp.network || offer.asset.toLowerCase() !== qp.asset.toLowerCase()
+    || offer.payTo.toLowerCase() !== qp.payTo.toLowerCase() || offer.amount !== qp.amount) refuse("advertised price");
+if (offer.amount !== "500000000000000000" && !flag("any-price")) refuse(`price ${offer.amount} is not 0.5 IMD (pass --any-price to accept)`);
+
+const now = () => Math.floor(Date.now() / 1000);
+const left = challenge.quote.expiresAt - now() - 2;
+if (left < 15) die("this quote is too close to expiry; nothing was signed. Run again for a new quote.");
+
+const { viem, account, pub } = await wallet();
+const allowance = await pub.readContract({ address: offer.asset, abi: ERC20, functionName: "allowance", args: [account.address, PERMIT2] });
+if (allowance < BigInt(offer.amount)) die(`Permit2 may move only ${viem.formatUnits(allowance, 18)} IMD from ${account.address}: run --approve first`);
+const { x402Client } = await import("@x402/core/client");
+const { ExactEvmScheme } = await import("@x402/evm/exact/client");
+const { toClientEvmSigner } = await import("@x402/evm");
+const signer = toClientEvmSigner(account, pub);
+const client = x402Client.fromConfig({
+  schemes: [{ network: offer.network, client: new ExactEvmScheme(signer) }],
+  spendControls: { allowedAssets: [{ network: offer.network, asset: offer.asset, maxAmountPerPayment: offer.amount }] },
+});
+console.error("signature 1 of 2: the Permit2 payment");
+const created = await client.createPaymentPayload({
+  x402Version: 2, resource: challenge.resource,
+  accepts: [{ ...offer, maxTimeoutSeconds: Math.min(offer.maxTimeoutSeconds, left) }],
+});
+const payment = JSON.parse(JSON.stringify({ ...created, accepted: offer }));
+console.error("signature 2 of 2: the quote approval");
+const cq = challenge.quote;
+const quoteSignature = await account.signTypedData({
+  domain: { name: "IdentityMD Paid Action", version: "1", chainId: Number(cq.payment.network.slice(7)) },
+  primaryType: "QuoteApproval",
+  types: { QuoteApproval: [
+    { name: "resource", type: "string" }, { name: "requesterScopeHash", type: "bytes32" },
+    { name: "quoteId", type: "string" }, { name: "quoteHash", type: "bytes32" },
+    { name: "paymentHash", type: "bytes32" }, { name: "action", type: "string" },
+    { name: "asset", type: "address" }, { name: "amount", type: "uint256" },
+    { name: "payTo", type: "address" }, { name: "expiresAt", type: "uint256" },
+  ] },
+  message: {
+    resource: challenge.resourceUrl, requesterScopeHash: `0x${challenge.requesterScopeHash}`, quoteId: cq.id,
+    quoteHash: `0x${cq.quoteHash}`, paymentHash: `0x${hashOf(payment)}`, action: cq.action,
+    asset: cq.payment.asset, amount: BigInt(cq.payment.amount), payTo: cq.payment.payTo, expiresAt: BigInt(cq.expiresAt),
+  },
+});
+if (challenge.quote.expiresAt - now() < 8) die("the quote expired while signing; nothing was submitted. Run again.");
+
+const paid = await fetch(`${API}/requests/${order.id}/submit`, {
+  method: "POST",
+  headers: { ...auth, "Content-Type": "application/json",
+             "payment-signature": Buffer.from(JSON.stringify(payment), "utf8").toString("base64") },
+  body: JSON.stringify({ quoteSignature }),
+});
+const paidBody = await paid.json().catch(() => ({}));
+if (paid.status !== 200 && paid.status !== 202) die(`payment refused: HTTP ${paid.status} ${JSON.stringify(paidBody).slice(0, 600)}`);
+console.error(`submitted (HTTP ${paid.status}); waiting for settlement and admission…`);
+
+for (let i = 0; i < 120; i++) {
+  const st = await (await fetch(`${API}/requests/${order.id}`, { headers: auth })).json().catch(() => ({}));
+  if (st.status === "admitted") {
+    const r = st.admission?.result ?? {};
+    console.log(JSON.stringify({ order: order.id, payment: st.payment, admission: st.admission }, null, 2));
+    if (r.kind === "refused") die(`paid but refused: ${JSON.stringify(r.problems)}`);
+    const note = fuzz ? `fuzz ${input.runs} runs` : `deep review, foci ${foci.join(" ")}`;
+    appendFileSync(new URL("ledger/jobs.txt", ROOT), `${r.jobId}  # ${new Date().toISOString().slice(0, 10)} ${note}; order ${order.id}\n`);
+    console.error(`\nADMITTED: job ${r.jobId}  https://explorer.imd.fun/jobs/${r.jobId}\n(added to ledger/jobs.txt)`);
+    process.exit(0);
+  }
+  if (["payment_failed", "expired"].includes(st.status)) die(`order ${order.id} ended ${st.status}: ${JSON.stringify(st.payment ?? {}).slice(0, 400)}`);
+  await new Promise((res) => setTimeout(res, 5000));
+}
+die(`order ${order.id} still pending after 10 minutes; check GET /requests/${order.id} with the same token`);
