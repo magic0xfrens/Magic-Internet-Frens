@@ -118,7 +118,8 @@ const q = await fetch(`${API}/requests/quote`, {
 const quoted = await q.json().catch(() => ({}));
 if (!q.ok) die(`quote refused: HTTP ${q.status}\n${JSON.stringify(quoted, null, 2)}`);
 const order = quoted.order;
-console.error(`\nquoted: order ${order.id}, ${order.quote?.amount} atomic units to ${order.quote?.payTo}, ` +
+const pay = order.quote?.payment ?? order.quote ?? {};
+console.error(`\nquoted: order ${order.id}, ${pay.amount} atomic units of ${pay.asset} to ${pay.payTo}, ` +
   `expires ${new Date(order.quote?.expiresAt * 1000).toISOString()} (requestKey ${body.requestKey})`);
 if (flag("quote")) process.exit(0);
 
